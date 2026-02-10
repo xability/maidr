@@ -1,18 +1,57 @@
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
-import type { Observable, Observer } from '@type/observable';
+import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
+import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
-import { Scope } from '@type/event';
+import { Emitter, Scope } from '@type/event';
 
 const SETTINGS_KEY = 'maidr-settings';
 
-export class SettingsService implements Observable<Settings> {
+function getValue<T>(settings: any, key: string): T | undefined {
+  return key.split('.').reduce((acc, part) => {
+    return acc && acc[part];
+  }, settings);
+}
+
+function getSettingValue<T>(settings: any, key: string): T {
+  const value = getValue(settings, key);
+  if (value === undefined) {
+    throw new Error(`Setting not found: ${key}`);
+  }
+  return value as T;
+}
+
+class SettingsChangedEvent {
+  public readonly oldSettings: Settings;
+  public readonly newSettings: Settings;
+
+  public constructor(oldSettings: Settings, newSettings: Settings) {
+    this.oldSettings = oldSettings;
+    this.newSettings = newSettings;
+  }
+
+  public affectsSetting(id: string): boolean {
+    const oldValue = getSettingValue(this.oldSettings, id);
+    const newValue = getSettingValue(this.newSettings, id);
+    return JSON.stringify(oldValue) !== JSON.stringify(newValue);
+  }
+
+  public get<T>(settingPath: string): T {
+    return getSettingValue<T>(this.newSettings, settingPath);
+  }
+}
+
+export class SettingsService implements Disposable {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
   private observers: Observer<Settings>[];
+
+  private readonly onChangeEmitter: Emitter<SettingsChangedEvent>;
+  public readonly onChange: Event<SettingsChangedEvent>;
 
   public constructor(storage: StorageService, display: DisplayService) {
     this.storage = storage;
@@ -23,11 +62,16 @@ export class SettingsService implements Observable<Settings> {
       general: {
         volume: 50,
         highlightColor: '#03c809',
+        highContrastMode: false,
+        highContrastLevels: 2,
+        highContrastLightColor: '#ffffff',
+        highContrastDarkColor: '#000000',
         brailleDisplaySize: 32,
         minFrequency: 200,
         maxFrequency: 1000,
         autoplayDuration: 4000,
         ariaMode: 'assertive',
+        hoverMode: 'pointermove',
       },
       llm: {
         expertiseLevel: 'basic',
@@ -54,27 +98,14 @@ export class SettingsService implements Observable<Settings> {
         },
       },
     };
-
+    this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
+    this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     this.currentSettings = saved ?? this.defaultSettings;
   }
 
-  public get state(): Settings {
-    return this.currentSettings;
-  }
-
-  public addObserver(observer: Observer<Settings>): void {
-    this.observers.push(observer);
-  }
-
-  public removeObserver(observer: Observer<Settings>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
-  }
-
-  public notifyStateUpdate(): void {
-    for (const observer of this.observers) {
-      observer.update(this.currentSettings);
-    }
+  public dispose(): void {
+    this.onChangeEmitter.dispose();
   }
 
   public loadSettings(): Settings {
@@ -82,19 +113,48 @@ export class SettingsService implements Observable<Settings> {
   }
 
   public saveSettings(newSettings: Settings): void {
+    const oldSettings = this.currentSettings;
     this.currentSettings = newSettings;
+
     this.storage.save(SETTINGS_KEY, this.currentSettings);
-    this.notifyStateUpdate();
+    this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
   }
 
   public resetSettings(): Settings {
+    const oldSettings = this.currentSettings;
     this.currentSettings = this.defaultSettings;
+
     this.storage.remove(SETTINGS_KEY);
-    this.notifyStateUpdate();
+    this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, this.currentSettings));
     return this.currentSettings;
+  }
+
+  public get<T>(settingPath: string): T {
+    return getSettingValue<T>(this.currentSettings, settingPath);
   }
 
   public toggle(): void {
     this.display.toggleFocus(Scope.SETTINGS);
+  }
+
+  public addObserver(observer: Observer<Settings>): void {
+    this.observers.push(observer);
+  }
+
+  /**
+   * Unregisters an observer from settings change notifications.
+   * @param observer - The observer to remove from the notification list
+   */
+  public removeObserver(observer: Observer<Settings>): void {
+    this.observers = this.observers.filter(obs => obs !== observer);
+  }
+
+  /**
+   * Notifies all registered observers of the current settings state.
+   */
+  public notifyStateUpdate(): void {
+    for (const observer of this.observers) {
+      observer.update(this.currentSettings);
+    }
   }
 }

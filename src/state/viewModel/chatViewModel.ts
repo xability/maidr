@@ -8,6 +8,9 @@ import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { AbstractViewModel } from './viewModel';
 
+/**
+ * Represents the state of the chat interface.
+ */
 interface ChatState {
   messages: Message[];
   suggestions: Suggestion[];
@@ -18,6 +21,11 @@ const initialState: ChatState = {
   suggestions: [],
 };
 
+/**
+ * Converts a model key to a human-readable display name.
+ * @param {string} modelKey - The model key identifier.
+ * @returns {string} The display name for the model.
+ */
 function getModelDisplayName(modelKey: string): string {
   switch (modelKey) {
     case 'OPENAI':
@@ -105,10 +113,19 @@ const chatSlice = createSlice({
 });
 const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, updateWelcomeMessage, reset } = chatSlice.actions;
 
+/**
+ * View model for managing chat interface state and AI model interactions.
+ */
 export class ChatViewModel extends AbstractViewModel<ChatState> {
   private readonly chatService: ChatService;
   private readonly audioService: AudioService;
 
+  /**
+   * Creates a new ChatViewModel instance and loads the initial welcome message.
+   * @param {AppStore} store - The Redux store instance.
+   * @param {ChatService} chatService - The chat service for managing AI interactions.
+   * @param {AudioService} audioService - The audio service for feedback sounds.
+   */
   constructor(store: AppStore, chatService: ChatService, audioService: AudioService) {
     super(store);
     this.chatService = chatService;
@@ -116,28 +133,50 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     this.loadInitialMessage();
   }
 
+  /**
+   * Disposes the view model and resets chat state to initial values.
+   */
   public dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
 
+  /**
+   * Gets the current chat state from the store.
+   * @returns {ChatState} The current chat state.
+   */
   public get state(): ChatState {
     return this.snapshot.chat;
   }
 
+  /**
+   * Gets a read-only snapshot of the entire Redux store state.
+   * @returns {Readonly<RootState>} The current root state snapshot.
+   */
   private get snapshot(): Readonly<RootState> {
     return this.store.getState();
   }
 
+  /**
+   * Checks if the user can send messages based on enabled models with valid API keys.
+   * @returns {boolean} True if at least one model is enabled with an API key.
+   */
   public get canSend(): boolean {
     const { llm } = this.snapshot.settings;
     return Object.values(llm.models).some(model => model.enabled && model.apiKey.trim().length > 0);
   }
 
+  /**
+   * Toggles the visibility of the chat interface.
+   */
   public toggle(): void {
     this.chatService.toggle();
   }
 
+  /**
+   * Retrieves data about enabled AI models including display names and versions.
+   * @returns {{ enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] }} Enabled models data.
+   */
   private getEnabledModelsData(): { enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] } {
     const llmModels = this.snapshot.settings.llm.models;
 
@@ -161,6 +200,9 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     return { enabledModels, modelSelections };
   }
 
+  /**
+   * Loads the initial welcome message displaying available AI models.
+   */
   public loadInitialMessage(): void {
     const timestamp = new Date().toISOString();
     const { enabledModels, modelSelections } = this.getEnabledModelsData();
@@ -177,12 +219,18 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     }));
   }
 
+  /**
+   * Clears all chat messages and reloads the initial welcome message.
+   */
   public refreshInitialMessage(): void {
     // Clear existing messages and reload initial message
     this.store.dispatch(reset());
     this.loadInitialMessage();
   }
 
+  /**
+   * Updates the welcome message with current enabled model information.
+   */
   public updateWelcomeMessage(): void {
     const { enabledModels, modelSelections } = this.getEnabledModelsData();
 
@@ -196,6 +244,10 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     }));
   }
 
+  /**
+   * Generates contextual chat suggestions based on expertise level and last message.
+   * @returns {Suggestion[]} Array of suggested follow-up questions.
+   */
   private generateSuggestions(): Suggestion[] {
     try {
       const lastMessage = this.state.messages[this.state.messages.length - 1];
@@ -247,15 +299,28 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     }
   }
 
+  /**
+   * Generates and updates chat suggestions in the store.
+   */
   public updateSuggestions(): void {
     const suggestions = this.generateSuggestions();
     this.store.dispatch(updateSuggestions(suggestions));
   }
 
+  /**
+   * Validates if a string is a valid expertise level.
+   * @param {string} level - The expertise level to validate.
+   * @returns {boolean} True if the level is valid.
+   */
   private isValidExpertiseLevel(level: string): level is 'basic' | 'intermediate' | 'advanced' {
     return ['basic', 'intermediate', 'advanced'].includes(level);
   }
 
+  /**
+   * Sends a user message to all enabled AI models and handles responses.
+   * @param {string} newMessage - The message text to send.
+   * @returns {Promise<void>} Promise that resolves when all responses are received.
+   */
   public async sendMessage(newMessage: string): Promise<void> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();

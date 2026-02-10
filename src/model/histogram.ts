@@ -8,7 +8,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     super(layer, [layer.data as HistogramPoint[]]);
   }
 
-  protected text(): TextState {
+  protected get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -16,7 +16,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const max = isVertical ? point.xMax : point.yMax;
 
     return {
-      ...super.text(),
+      ...super.text,
       range: { min, max },
     };
   }
@@ -27,7 +27,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
    * @param type indicates the value to look for
    * @returns boolean (true: if target was found, false: else)
    */
-  protected override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;
@@ -51,7 +51,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 }

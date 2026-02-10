@@ -11,14 +11,39 @@ import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 
+/**
+ * Abstract factory class for creating appropriate trace instances based on layer type.
+ */
 export abstract class TraceFactory {
-  public static create(layer: MaidrLayer): Trace {
+  /**
+   * Factory method for creating trace instances.
+   *
+   * This method is intentionally kept lightweight and only receives
+   * trace-local data (`layer`) plus minimal plot-level hints via `options`.
+   * It must **not** receive or inspect the full layers array to keep
+   * construction decoupled from subplot-wide state.
+   */
+  public static create(
+    layer: MaidrLayer,
+    options?: {
+      /**
+       * Hint that this subplot structurally represents a violin plot,
+       * i.e. it contains both BOX and SMOOTH layers.
+       *
+       * The detection of this condition is performed by the caller
+       * (e.g. `Subplot`), not by the factory itself.
+       */
+      isViolinPlot?: boolean;
+    },
+  ): Trace {
+    const isViolinPlot = options?.isViolinPlot === true;
+
     switch (layer.type) {
       case TraceType.BAR:
         return new BarTrace(layer);
 
       case TraceType.BOX:
-        return new BoxTrace(layer);
+        return new BoxTrace(layer, isViolinPlot);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);
@@ -36,7 +61,7 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return createSmoothTrace(layer);
+        return createSmoothTrace(layer, isViolinPlot);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:

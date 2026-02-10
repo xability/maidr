@@ -1,9 +1,15 @@
-import type { Maidr } from '@type/grammar';
-import { DomEventType } from '@type/event';
-import { MaidrApp } from '@ui/App';
-import { Constant } from '@util/constant';
+import type { Maidr } from './type/grammar';
 import { createRoot } from 'react-dom/client';
 import { Controller } from './controller';
+import { DomEventType } from './type/event';
+import { MaidrApp } from './ui/App';
+import { Constant } from './util/constant';
+
+declare global {
+  interface Window {
+    maidr?: Maidr;
+  }
+}
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
@@ -91,6 +97,8 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       const isInside = maidrContainer.contains(activeElement);
       if (!isInside) {
         if (controller) {
+          // Restore original colors before disposing
+          controller.suspendHighContrast();
           controller.dispose();
         }
         controller = null;
@@ -109,8 +117,9 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
         // Create a deep copy to prevent mutations on the original maidr object.
         const maidrClone = JSON.parse(JSON.stringify(maidr));
         controller = new Controller(maidrClone, plot);
+        // Apply high contrast now that the Controller will persist
+        controller.initializeHighContrast();
       }
-
       if (!hasAnnounced) {
         hasAnnounced = true; // guard immediately to prevent duplicate focusin/click races
 
@@ -119,15 +128,18 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
       }
     }, 0);
   };
-
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
       if (controller) {
+        // Restore original colors before disposing to ensure clean DOM state
+        controller.suspendHighContrast();
         controller.dispose();
         controller = null;
       }
       const maidrClone = JSON.parse(JSON.stringify(maidr));
       controller = new Controller(maidrClone, plot);
+      // Apply high contrast now that the Controller will persist
+      controller.initializeHighContrast();
       // Do not announce here; focus-in will handle one-shot announcement
       hasAnnounced = false;
     }
@@ -150,7 +162,6 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   maidrContainer = figureElement;
   plot.addEventListener(DomEventType.FOCUS_IN, onFocusIn);
   maidrContainer.addEventListener(DomEventType.FOCUS_OUT, onFocusOut);
-
   document.addEventListener(DomEventType.VISIBILITY_CHANGE, onVisibilityChange);
   plot.addEventListener(DomEventType.CLICK, onFocusIn);
 

@@ -1,7 +1,8 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { LayerSwitchTraceState, PlotState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
+import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
@@ -11,10 +12,12 @@ type Plot = Figure | Subplot | Trace;
 
 export class Context implements Disposable {
   public readonly id: string;
-  private readonly instructionContext: Plot;
+  public readonly instructionContext: Plot;
+  public readonly selectorList: string[] = [];
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
+  private readonly navigationService: NavigationService;
   private readonly figure: Figure;
   private isRotorActive: boolean;
 
@@ -24,6 +27,7 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
+    this.navigationService = new NavigationService();
 
     this.isRotorActive = false;
 
@@ -131,36 +135,17 @@ export class Context implements Disposable {
 
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
+      const previousTrace = this.active as Trace;
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
-      const currentTrace = activeSubplot.activeTrace;
-      if (!currentTrace) {
-        return;
-      }
-      const currentXValue = currentTrace.getCurrentXValue();
-      activeSubplot.moveOnce(direction);
-      const newTrace = activeSubplot.activeTrace;
-      this.plotContext.push(newTrace);
 
-      if (newTrace.getId() === currentTrace.getId()) {
-        newTrace.notifyOutOfBounds();
-        activeSubplot.notifyOutOfBounds();
-        return;
-      }
+      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
 
-      newTrace.moveToXValue(currentXValue);
-      if (!newTrace.state.empty) {
-        const index = activeSubplot.getRow() + 1;
-        const size = activeSubplot.getSize();
-        const state: LayerSwitchTraceState = {
-          ...newTrace.state,
-          isLayerSwitch: true,
-          index,
-          size,
-        };
-        newTrace.notifyObserversWithState(state);
-      } else {
-        newTrace.notifyStateUpdate();
+      if (newTrace) {
+        this.plotContext.push(newTrace);
+      } else if (previousTrace) {
+        // Restore previous trace on failure to avoid corrupting the stack
+        this.plotContext.push(previousTrace);
       }
     } else {
       const onlySubplot = this.figure.subplots[0][0];
@@ -202,14 +187,19 @@ export class Context implements Disposable {
       : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt} Use arrow keys to navigate subplots and press 'ENTER'.`;
+        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
+        Use arrow keys to navigate subplots and press 'ENTER'.`;
 
       case 'subplot':
-        return `This is a maidr plot containing ${state.size} layers, and this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        return `This is a maidr plot containing ${state.size} layers, and
+        this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
+        Use Arrows to navigate data points. Toggle B for Braille, T for Text,
+        S for Sonification, and R for Review mode.`;
 
       case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
         let effectivePlotType = state.plotType;
+
         if (state.plotType === 'multiline' && state.groupCount === 1) {
           effectivePlotType = 'single line';
         }
@@ -218,6 +208,7 @@ export class Context implements Disposable {
           = effectivePlotType === 'multiline' && state.groupCount
             ? ` with ${state.groupCount} groups`
             : '';
+
         return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }

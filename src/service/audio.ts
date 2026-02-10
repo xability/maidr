@@ -1,7 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { Settings } from '@type/settings';
-import type { AudioState, FigureState, PlotState, SubplotState, TraceState } from '@type/state';
+import type { AudioState, PlotState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
@@ -12,13 +11,34 @@ interface Range {
   max: number;
 }
 
-type AudioId = ReturnType<typeof setTimeout>;
+interface SpatialPosition {
+  x: number;
+  y: number;
+}
 
-type ObservableStates = SubplotState | TraceState | FigureState;
+interface Frequency {
+  raw: number | number[];
+  min: number;
+  max: number;
+}
+
+interface Panning {
+  x: number;
+  y: number;
+  rows: number;
+  cols: number;
+}
+
+type AudioId = ReturnType<typeof setTimeout>;
 
 const NULL_FREQUENCY = 100;
 const WAITING_FREQUENCY = 440;
 const COMPLETE_FREQUENCY = 880;
+
+// Warning
+const WARNING_FREQUENCY = 180;
+const WARNING_DURATION = 0.2;
+const WARNING_SPACE = 0.1;
 
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
@@ -29,219 +49,89 @@ enum AudioMode {
   COMBINED = 'combined',
 }
 
-export class AudioService
-implements Observer<ObservableStates>, Observer<Settings>, Disposable {
+enum AudioSettings {
+  VOLUME = 'general.volume',
+  MIN_FREQUENCY = 'general.minFrequency',
+  MAX_FREQUENCY = 'general.maxFrequency',
+}
+
+/**
+ * Service responsible for audio sonification of plot data.
+ * Implements the Observer pattern to receive state updates from plot models
+ * and converts data values to audio frequencies with spatial panning.
+ *
+ * Features:
+ * - Frequency mapping based on data value ranges
+ * - Stereo panning based on x-position in plot
+ * - Distinct timbres for multiclass/multiline plots via AudioPaletteService
+ * - ADSR envelope shaping for natural tone attack/decay
+ * - Simultaneous tone playback for intersection points
+ * - Warning and notification tones for boundaries and completion
+ */
+export class AudioService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
   private readonly audioPalette: AudioPaletteService;
-  private readonly settings: SettingsService;
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
+  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
 
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode[]>;
-
+  private volume: number;
+  private minFrequency: number;
+  private maxFrequency: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
 
-  private currentVolume: number;
-  private currentMinFrequency: number;
-  private currentMaxFrequency: number;
-
-  public constructor(notification: NotificationService, state: PlotState, settings: SettingsService) {
+  /**
+   * Creates an instance of AudioService.
+   * Initializes the Web Audio API context, compressor, and audio palette.
+   * Subscribes to settings changes for volume and frequency range updates.
+   *
+   * @param notification - Service for displaying audio mode notifications to users
+   * @param settings - Service providing user preferences for volume and frequency range
+   * @param state - Initial plot state used to configure audio mode
+   */
+  public constructor(notification: NotificationService, settings: SettingsService, state: PlotState) {
     this.notification = notification;
     this.audioPalette = new AudioPaletteService();
-    this.settings = settings;
 
     this.isCombinedAudio = false;
     this.mode = AudioMode.SEPARATE;
     this.updateMode(state);
-
     this.activeAudioIds = new Map();
+
+    this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
+    this.minFrequency = settings.get<number>(AudioSettings.MIN_FREQUENCY);
+    this.maxFrequency = settings.get<number>(AudioSettings.MAX_FREQUENCY);
+    settings.onChange((event) => {
+      if (event.affectsSetting(AudioSettings.VOLUME)) {
+        this.volume = this.normalizeVolume(event.get<number>(AudioSettings.VOLUME));
+      }
+      if (event.affectsSetting(AudioSettings.MIN_FREQUENCY)) {
+        this.minFrequency = event.get<number>(AudioSettings.MIN_FREQUENCY);
+      }
+      if (event.affectsSetting(AudioSettings.MAX_FREQUENCY)) {
+        this.maxFrequency = event.get<number>(AudioSettings.MAX_FREQUENCY);
+      }
+    });
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
-
-    const initialSettings = this.settings.loadSettings();
-    this.currentVolume = initialSettings.general.volume / 100;
-    this.currentMinFrequency = initialSettings.general.minFrequency;
-    this.currentMaxFrequency = initialSettings.general.maxFrequency;
-
-    this.settings.addObserver(this);
   }
 
+  /**
+   * Disposes of all audio resources and cleans up the service.
+   * Stops all active audio, disposes the audio palette, disconnects
+   * the compressor, and closes the AudioContext.
+   */
   public dispose(): void {
     this.stopAll();
     this.audioPalette.dispose();
+
     if (this.audioContext.state !== 'closed') {
       this.compressor.disconnect();
       void this.audioContext.close();
     }
-    this.settings.removeObserver(this);
-  }
-
-  public update(state: Settings | SubplotState | TraceState | FigureState): void {
-    if ('general' in state) {
-      this.onSettingsChange(state);
-    } else {
-      this.onStateChange(state);
-    }
-  }
-
-  private onSettingsChange(settings: Settings): void {
-    this.currentVolume = settings.general.volume / 100;
-    this.currentMinFrequency = settings.general.minFrequency;
-    this.currentMaxFrequency = settings.general.maxFrequency;
-  }
-
-  private onStateChange(state: SubplotState | TraceState | FigureState): void {
-    // Do not play any sound if audio is off
-    if (this.mode === AudioMode.OFF) {
-      return;
-    }
-    this.updateMode(state);
-    // TODO: Clean up previous audio state once syncing with Autoplay interval.
-
-    // Handle FigureState - no audio for normal subplot navigation
-    if (state.type === 'figure') {
-      if (state.empty) {
-        this.playEmptyTone(1, 0);
-        return;
-      }
-      return;
-    }
-
-    // Extract trace state from subplot state if needed
-    let traceState: TraceState;
-    if (state.type === 'subplot') {
-      if (state.empty) {
-        // Empty subplot state - no trace to play audio for
-        return;
-      }
-      traceState = state.trace;
-    } else {
-      traceState = state;
-    }
-
-    this.handleTraceState(traceState);
-  }
-
-  private handleTraceState(traceState: TraceState): void {
-    // Play audio only if turned on and it's a trace state
-    if (this.mode === AudioMode.OFF || traceState.type !== 'trace') {
-      return;
-    }
-
-    if (traceState.empty) {
-      // Stop any existing audio first to prevent overlap
-      this.stopAll();
-      this.playEmptyTone(traceState.audio.size, traceState.audio.index);
-      return;
-    }
-
-    // --- INTERSECTION LOGIC FOR LINE PLOTS ---
-    if (
-      traceState.traceType === 'line'
-      && !traceState.empty
-      && Array.isArray(traceState.intersections)
-      && traceState.intersections.length > 1
-    ) {
-      // Stop any existing audio to prevent interference
-      this.stopAll();
-      // Play all intersecting lines' tones simultaneously
-      this.playSimultaneousTones(traceState.intersections);
-      return;
-    }
-    // --- END INTERSECTION LOGIC ---
-
-    const audio = traceState.audio;
-    let groupIndex = audio.groupIndex;
-
-    // Handle candlestick trend-based audio selection
-    if (audio.trend && groupIndex === undefined) {
-      groupIndex = this.audioPalette.getCandlestickGroupIndex(audio.trend);
-    }
-
-    // Determine if we need to use multiclass audio based on whether groupIndex is defined
-    // If groupIndex is defined (including 0), we have multiple groups and should use palette entries
-    // If groupIndex is undefined, we have a single group and should use default audio
-    //
-    // Fix: Previously used groupIndex > 0 which incorrectly skipped palette entry 0 for the first group
-    const shouldUseMulticlassAudio = groupIndex !== undefined;
-    const paletteEntry = shouldUseMulticlassAudio
-      ? this.audioPalette.getPaletteEntry(groupIndex!)
-      : undefined;
-
-    if (audio.isContinuous) {
-      // continuous
-      this.playSmooth(
-        audio.value as number[],
-        audio.min,
-        audio.max,
-        audio.size,
-        Array.isArray(audio.index) ? audio.index[0] : audio.index,
-        paletteEntry,
-      );
-    } else if (Array.isArray(audio.value)) {
-      // multiple discrete values
-      const values = audio.value as number[];
-      if (values.length === 0) {
-        // no tone to play
-        this.playZeroTone(); // Always use original zero tone, regardless of groups
-        return;
-      }
-
-      let currentIndex = 0;
-      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
-      const activeIds = new Array<AudioId>();
-      const playNext = (): void => {
-        // queue up next tone
-        if (currentIndex < values.length) {
-          const index = Array.isArray(audio.index)
-            ? audio.index[currentIndex]
-            : audio.index;
-          this.playTone(
-            audio.min,
-            audio.max,
-            values[currentIndex++],
-            audio.size,
-            index,
-            paletteEntry,
-          );
-          activeIds.push(setTimeout(playNext, playRate));
-        } else {
-          this.stop(activeIds);
-        }
-      };
-
-      playNext();
-    } else {
-      // just one discrete value
-      const value = audio.value as number;
-      if (value === 0) {
-        this.playZeroTone(); // Always use original zero tone, regardless of groups
-      } else {
-        const index = Array.isArray(audio.index) ? audio.index[0] : audio.index;
-        this.playTone(
-          audio.min,
-          audio.max,
-          value,
-          audio.size,
-          index,
-          paletteEntry,
-        );
-      }
-    }
-  }
-
-  private getVolume(): number {
-    return Math.min(Math.max(this.currentVolume, 0), 1);
-  }
-
-  private getFrequencyRange(): { min: number; max: number } {
-    return {
-      min: this.currentMinFrequency,
-      max: this.currentMaxFrequency,
-    };
   }
 
   private initCompressor(): DynamicsCompressorNode {
@@ -286,188 +176,135 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
-  private playTone(
-    minFrequency: number,
-    maxFrequency: number,
-    rawFrequency: number,
-    panningSize: number,
-    rawPanning: number,
-    paletteEntry?: AudioPaletteEntry,
-  ): AudioId {
-    const fromFreq = { min: minFrequency, max: maxFrequency };
-    const toFreq = this.getFrequencyRange();
-    const frequency = this.interpolate(rawFrequency, fromFreq, toFreq);
-
-    const fromPanning = { min: 0, max: panningSize };
-    const toPanning = { min: -1, max: 1 };
-    const panning = this.clamp(
-      this.interpolate(rawPanning, fromPanning, toPanning),
-      -1,
-      1,
-    );
-
-    return this.playOscillator(frequency, panning, paletteEntry);
-  }
-
   /**
-   * Creates oscillators for the given palette entry and frequency.
-   * @param paletteEntry - The audio palette entry defining wave type and harmonics
-   * @param frequency - The base frequency for the primary oscillator
-   * @returns Array of configured oscillator nodes
+   * Observer callback invoked when plot state changes.
+   * Plays appropriate audio based on the current data point, including:
+   * - Empty/warning tones for out-of-bounds navigation
+   * - Simultaneous tones for multiline intersection points
+   * - Single tones with frequency mapped to data value
+   * - Continuous smooth tones for violin/density plots
+   *
+   * @param state - The updated plot state containing audio parameters
    */
-  private createOscillators(
-    paletteEntry: AudioPaletteEntry,
-    frequency: number,
-  ): OscillatorNode[] {
-    const oscillators: OscillatorNode[] = [];
+  public update(state: PlotState): void {
+    this.updateMode(state);
+    // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
-    // Create primary oscillator
-    const primaryOscillator = this.audioContext.createOscillator();
-    primaryOscillator.type = paletteEntry.waveType;
-    primaryOscillator.frequency.value = frequency;
-    oscillators.push(primaryOscillator);
-
-    // Create harmonic oscillators if harmonic mix is present
-    if (paletteEntry.harmonicMix) {
-      for (const harmonic of paletteEntry.harmonicMix.harmonics) {
-        const harmonicOscillator = this.audioContext.createOscillator();
-        harmonicOscillator.type = paletteEntry.waveType; // Use same wave type for harmonics
-        harmonicOscillator.frequency.value = harmonic.frequency * frequency;
-        oscillators.push(harmonicOscillator);
-      }
+    // Play audio only if turned on.
+    if (this.mode === AudioMode.OFF) {
+      return;
     }
 
-    return oscillators;
-  }
-
-  /**
-   * Creates gain nodes with ADSR envelopes for the given oscillators.
-   * @param oscillators - Array of oscillator nodes to create gain nodes for
-   * @param paletteEntry - The audio palette entry defining envelope and harmonic amplitudes
-   * @param volume - The base volume level
-   * @param duration - The duration of the audio in seconds
-   * @returns Array of configured gain nodes
-   */
-  private createGainNodes(
-    oscillators: OscillatorNode[],
-    paletteEntry: AudioPaletteEntry,
-    volume: number,
-    duration: number,
-  ): GainNode[] {
-    const gainNodes: GainNode[] = [];
-    const startTime = this.audioContext.currentTime;
-    const currentVolume = this.getVolume();
-
-    for (let i = 0; i < oscillators.length; i++) {
-      const gainNode = this.audioContext.createGain();
-
-      // Apply timbre modulation envelope or use default
-      let oscillatorVolume = currentVolume;
-
-      if (i === 0) {
-        // Primary oscillator - use fundamental amplitude if specified
-        if (paletteEntry.harmonicMix) {
-          oscillatorVolume *= paletteEntry.harmonicMix.fundamental;
-        }
+    if (state.empty) {
+      if (state.warning) {
+        this.playWarningTone();
+      } else if (state.type === 'trace' && state.audio) {
+        // Use the panning from state.audio which contains the boundary position
+        this.playEmptyTone({
+          x: state.audio.x,
+          y: state.audio.y,
+          rows: state.audio.rows,
+          cols: state.audio.cols,
+        });
       } else {
-        // Harmonic oscillator - use harmonic amplitude
-        const harmonic = paletteEntry.harmonicMix!.harmonics[i - 1];
-        oscillatorVolume *= harmonic.amplitude;
+        // Subplot/Figure empty state - no spatial audio info available
+        this.playEmptyTone({ x: 0, y: 0, rows: 1, cols: 1 });
       }
+      return;
+    }
+    if (state.type !== 'trace') {
+      return;
+    }
 
-      // Create ADSR envelope using the shared helper function
-      const envelope = this.createAdsrEnvelope(
-        gainNode,
+    // Handle intersection logic for multiline plots
+    if (
+      state.traceType === 'line'
+      && !state.empty
+      && Array.isArray(state.intersections)
+      && state.intersections.length > 1
+    ) {
+      this.stopAll();
+      this.playSimultaneousTones(state.intersections);
+      return;
+    }
+
+    const audio = state.audio;
+
+    // Resolve palette entry from group index or candlestick trend
+    let groupIndex = audio.group;
+    if (audio.trend && groupIndex === undefined) {
+      groupIndex = this.audioPalette.getCandlestickGroupIndex(audio.trend);
+    }
+    const paletteEntry = groupIndex !== undefined
+      ? this.audioPalette.getPaletteEntry(groupIndex)
+      : undefined;
+
+    if (audio.isContinuous) {
+      this.playSmooth(
+        audio.freq,
+        audio.panning,
         paletteEntry,
-        oscillatorVolume,
-        startTime,
-        duration,
+        audio.volumeMultiplier,
+        audio.volumeScale,
       );
-
-      // Apply envelope curve only if we haven't already used precise scheduling
-      if (envelope !== null) {
-        gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
-      }
-      gainNodes.push(gainNode);
-    }
-
-    return gainNodes;
-  }
-
-  private playOscillator(
-    frequency: number,
-    panning: number = 0,
-    paletteEntry?: AudioPaletteEntry,
-  ): AudioId {
-    const duration = DEFAULT_DURATION;
-    const volume = this.getVolume();
-
-    // Use base palette entry (index 0) if no palette entry provided (for backwards compatibility)
-    if (!paletteEntry) {
-      paletteEntry = this.audioPalette.getPaletteEntry(0);
-    }
-
-    const oscillators: OscillatorNode[] = this.createOscillators(
-      paletteEntry,
-      frequency,
-    );
-    const gainNodes: GainNode[] = this.createGainNodes(
-      oscillators,
-      paletteEntry,
-      volume,
-      duration,
-    );
-
-    // Pane the audio.
-    const stereoPannerNode = this.audioContext.createStereoPanner();
-    stereoPannerNode.pan.value = panning;
-
-    // Coordinate the audio slightly in front of the listener.
-    const pannerNode = new PannerNode(this.audioContext, {
-      distanceModel: 'linear',
-      positionX: 0.0,
-      positionY: 0.0,
-      positionZ: 0.0,
-      orientationX: 0.0,
-      orientationY: 0.0,
-      orientationZ: -1.0,
-      refDistance: 1,
-      maxDistance: 1e4,
-      rolloffFactor: 10,
-      coneInnerAngle: 40,
-      coneOuterAngle: 50,
-      coneOuterGain: 0.4,
-    });
-
-    // Create and start the audio graph.
-    for (let i = 0; i < oscillators.length; i++) {
-      oscillators[i].connect(gainNodes[i]);
-      gainNodes[i].connect(stereoPannerNode);
-    }
-    stereoPannerNode.connect(pannerNode);
-    pannerNode.connect(this.compressor);
-
-    // Start all oscillators
-    oscillators.forEach(osc => osc.start());
-
-    // Clean up after the audio stops.
-    const cleanUp = (audioId: AudioId): void => {
-      pannerNode.disconnect(this.compressor);
-      stereoPannerNode.disconnect(pannerNode);
-
-      for (let i = 0; i < oscillators.length; i++) {
-        gainNodes[i].disconnect(stereoPannerNode);
-        oscillators[i].stop();
-        oscillators[i].disconnect(gainNodes[i]);
+    } else if (Array.isArray(audio.freq.raw)) {
+      const values = audio.freq.raw as number[];
+      if (values.length === 0) {
+        this.playZeroTone(audio.panning);
+        return;
       }
 
-      this.activeAudioIds.delete(audioId);
-    };
-    const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
-    this.activeAudioIds.set(audioId, oscillators);
-    return audioId;
+      let currentIndex = 0;
+      const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
+      const activeIds = new Array<AudioId>();
+      const playNext = (): void => {
+        if (currentIndex < values.length) {
+          this.playTone(
+            {
+              min: audio.freq.min,
+              max: audio.freq.max,
+              raw: values[currentIndex++],
+            },
+            {
+              x: audio.panning.x,
+              y: audio.panning.y,
+              rows: audio.panning.rows,
+              cols: audio.panning.cols,
+            },
+            paletteEntry,
+          );
+          activeIds.push(setTimeout(playNext, playRate));
+        } else {
+          this.stop(activeIds);
+        }
+      };
+
+      playNext();
+    } else {
+      const value = audio.freq.raw as number;
+      if (value === 0) {
+        this.playZeroTone(audio.panning);
+      } else {
+        this.playTone(audio.freq, audio.panning, paletteEntry);
+      }
+    }
   }
 
+  private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {
+    const fromFreq = { min: freq.min, max: freq.max };
+    const toFreq = { min: this.minFrequency, max: this.maxFrequency };
+    const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
+
+    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    // Y-axis not used for stereo panning
+    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
+  }
+
+  /**
+   * Creates an ADSR gain envelope for a palette entry, or returns a default curve.
+   * When timbreModulation is present, uses precise Web Audio scheduling and returns null.
+   * Otherwise, returns a value curve array for setValueCurveAtTime.
+   */
   private createAdsrEnvelope(
     gainNode: GainNode,
     paletteEntry: AudioPaletteEntry | undefined,
@@ -476,43 +313,28 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     duration: number,
   ): number[] | null {
     if (paletteEntry?.timbreModulation) {
-      // Create ADSR envelope with proper timing
       const { attack, decay, sustain, release } = paletteEntry.timbreModulation;
       const attackTime = duration * attack;
       const decayTime = duration * decay;
       const releaseTime = duration * release;
       const sustainTime = duration - attackTime - decayTime - releaseTime;
 
-      // Use Web Audio API's precise ADSR envelope scheduling
       gainNode.gain.setValueAtTime(1e-4 * volume, startTime);
-
-      // Attack phase - ramp up to full volume
       gainNode.gain.linearRampToValueAtTime(volume, startTime + attackTime);
-
-      // Decay phase - ramp down to sustain level
       gainNode.gain.linearRampToValueAtTime(
         sustain * volume,
         startTime + attackTime + decayTime,
       );
-
-      // Sustain phase - hold at sustain level (only if sustainTime > 0)
       if (sustainTime > 0) {
         gainNode.gain.setValueAtTime(
           sustain * volume,
           startTime + attackTime + decayTime + sustainTime,
         );
       }
+      gainNode.gain.linearRampToValueAtTime(1e-4 * volume, startTime + duration);
 
-      // Release phase - ramp down to silence
-      gainNode.gain.linearRampToValueAtTime(
-        1e-4 * volume,
-        startTime + duration,
-      );
-
-      // Return null to indicate we used precise scheduling
       return null;
     } else {
-      // Use default envelope curve for simple audio
       return [
         0.5 * volume,
         volume,
@@ -525,50 +347,145 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
   }
 
-  private playSmooth(
-    values: number[],
-    min: number,
-    max: number,
-    size: number,
-    index: number,
+  private playOscillator(
+    frequency: number,
+    position: SpatialPosition = { x: 0, y: 0 },
     paletteEntry?: AudioPaletteEntry,
+  ): AudioId {
+    const duration = DEFAULT_DURATION;
+    const startTime = this.audioContext.currentTime;
+
+    // Fall back to default palette entry (sine) if none provided
+    if (!paletteEntry) {
+      paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
+    }
+
+    // Create oscillators from palette entry
+    const oscillators: OscillatorNode[] = [];
+    const gainNodes: GainNode[] = [];
+
+    // Primary oscillator
+    const primaryOsc = this.audioContext.createOscillator();
+    primaryOsc.type = paletteEntry.waveType;
+    primaryOsc.frequency.value = frequency;
+    oscillators.push(primaryOsc);
+
+    // Harmonic oscillators
+    if (paletteEntry.harmonicMix) {
+      for (const harmonic of paletteEntry.harmonicMix.harmonics) {
+        const harmonicOsc = this.audioContext.createOscillator();
+        harmonicOsc.type = paletteEntry.waveType;
+        harmonicOsc.frequency.value = harmonic.frequency * frequency;
+        oscillators.push(harmonicOsc);
+      }
+    }
+
+    // Create gain nodes with ADSR envelope for each oscillator
+    for (let i = 0; i < oscillators.length; i++) {
+      const gainNode = this.audioContext.createGain();
+      let oscillatorVolume = this.volume;
+
+      if (i === 0) {
+        // Primary oscillator uses fundamental amplitude
+        if (paletteEntry.harmonicMix) {
+          oscillatorVolume *= paletteEntry.harmonicMix.fundamental;
+        }
+      } else {
+        // Harmonic oscillator uses its amplitude
+        const harmonic = paletteEntry.harmonicMix!.harmonics[i - 1];
+        oscillatorVolume *= harmonic.amplitude;
+      }
+
+      const envelope = this.createAdsrEnvelope(
+        gainNode,
+        paletteEntry,
+        oscillatorVolume,
+        startTime,
+        duration,
+      );
+
+      if (envelope !== null) {
+        gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
+      }
+
+      gainNodes.push(gainNode);
+    }
+
+    // Use StereoPannerNode for smooth left-right stereo panning
+    // This is simpler and more direct than PannerNode for stereo-only panning
+    const stereoPanner = this.audioContext.createStereoPanner();
+    stereoPanner.pan.value = position.x; // position.x is already -1 (left) to 1 (right)
+
+    // Connect audio graph: oscillators → gain nodes → stereo panner → compressor
+    for (let i = 0; i < oscillators.length; i++) {
+      oscillators[i].connect(gainNodes[i]);
+      gainNodes[i].connect(stereoPanner);
+    }
+    stereoPanner.connect(this.compressor);
+
+    // Start all oscillators
+    oscillators.forEach(osc => osc.start(startTime));
+
+    const cleanUp = (audioId: AudioId): void => {
+      stereoPanner.disconnect();
+      for (let i = 0; i < oscillators.length; i++) {
+        oscillators[i].stop();
+        oscillators[i].disconnect();
+        gainNodes[i].disconnect();
+      }
+      this.activeAudioIds.delete(audioId);
+    };
+
+    const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
+    this.activeAudioIds.set(audioId, oscillators);
+    return audioId;
+  }
+
+  private playSmooth(
+    freq: Frequency,
+    panning: Panning,
+    paletteEntry?: AudioPaletteEntry,
+    volumeMultiplier?: number,
+    volumeScale?: number,
   ): void {
     const ctx = this.audioContext;
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
-    const freqRange = this.getFrequencyRange();
-    const currentVolume = this.getVolume();
-
-    // Use default sine wave if no palette entry provided
-    const waveType = paletteEntry?.waveType || 'sine';
-
-    // Normalize values to frequency
-    const freqs = values.map(v =>
+    const freqs = (freq.raw as number[]).map(v =>
       this.interpolate(
         v,
-        { min, max },
-        freqRange,
+        { min: freq.min, max: freq.max },
+        { min: this.minFrequency, max: this.maxFrequency },
       ),
     );
 
-    // Ensure minimum of 2 frequencies
+    // Base volume from user settings (0–1, quadratic scaling)
+    const baseVolume = this.volume;
+
+    // Use volumeScale if provided (normalized 0-1 range), otherwise use volumeMultiplier.
+    // volumeScale takes precedence as the preferred approach; volumeMultiplier is kept for backward compatibility.
+    let currentVolume: number;
+    if (volumeScale !== undefined) {
+      currentVolume = baseVolume * Math.max(0, volumeScale);
+    } else {
+      // Fall back to volumeMultiplier for backward compatibility
+      currentVolume = baseVolume * (volumeMultiplier ?? 1.0);
+    }
+
     if (freqs.length < 2) {
       freqs.push(freqs[0]);
     }
 
-    // Calculate stereo pan (-1 to 1)
-    const pan = this.clamp(
-      this.interpolate(index, { min: 0, max: size - 1 }, { min: -1, max: 1 }),
-      -1,
-      1,
-    );
+    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
 
-    // Oscillator
+    // Use palette wave type if available, otherwise default sine
+    const waveType = paletteEntry?.waveType || 'sine';
+
     const oscillator = ctx.createOscillator();
     oscillator.type = waveType;
     oscillator.frequency.setValueCurveAtTime(freqs, startTime, duration);
 
-    // Gain envelope - use shared ADSR helper function
+    // Apply ADSR envelope from palette entry or use default curve
     const gainNode = ctx.createGain();
     const envelope = this.createAdsrEnvelope(
       gainNode,
@@ -578,95 +495,75 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
       duration,
     );
 
-    // Apply envelope curve only if we haven't already used precise scheduling
     if (envelope !== null) {
       gainNode.gain.setValueCurveAtTime(envelope, startTime, duration);
     }
 
-    // Panner
-    const panner = ctx.createStereoPanner();
-    panner.pan.value = pan;
+    // Use StereoPannerNode for smooth left-right stereo panning
+    const stereoPanner = ctx.createStereoPanner();
+    stereoPanner.pan.value = xPos; // xPos is already -1 to 1
 
-    // Connect and play
     oscillator.connect(gainNode);
-    gainNode.connect(panner);
-    panner.connect(this.compressor);
+    gainNode.connect(stereoPanner);
+    stereoPanner.connect(this.compressor);
 
     oscillator.start(startTime);
     oscillator.stop(startTime + duration);
 
-    const audioId = setTimeout(
-      () => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-        panner.disconnect();
-        this.activeAudioIds.delete(audioId);
-      },
-      duration * 1000 * 2,
-    );
+    const audioId = setTimeout(() => {
+      oscillator.disconnect();
+      gainNode.disconnect();
+      stereoPanner.disconnect();
+      this.activeAudioIds.delete(audioId);
+    }, duration * 1000 * 2);
 
-    this.activeAudioIds.set(audioId, [oscillator]);
+    this.activeAudioIds.set(audioId, oscillator);
   }
 
   /**
    * Plays a spatialized tone indicating an "empty" or out-of-bounds state.
+   * Uses multiple harmonic frequencies to create a distinct "null" sound.
    *
-   * Panning Calculation:
-   * The `index` is interpolated within the range `[0, size]` to a stereo pan range `[-1, 1]`.
-   * This allows the tone to be played with directional spatial cues, helping users infer
-   * where the empty state occurs within the overall layout.
+   * The panning position from the Panning object provides directional spatial cues,
+   * helping users infer where the empty state occurs within the overall layout.
+   *
+   * @param panning - Position information for spatial audio placement
+   * @returns AudioId for the played tone
    */
-  private playEmptyTone(size: number, index: number): AudioId {
+  private playEmptyTone(panning: Panning): AudioId {
+    const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
+
     const ctx = this.audioContext;
     const now = ctx.currentTime;
     const duration = 0.2;
-    const currentVolume = this.getVolume();
+
+    // Use StereoPannerNode for smooth left-right stereo panning
+    const stereoPanner = ctx.createStereoPanner();
+    stereoPanner.pan.value = xPos; // xPos is already -1 to 1
 
     const frequencies = [500, 1000, 1500, 2100, 2700];
     const gains = [1, 0.6, 0.4, 0.2, 0.1];
 
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.3 * currentVolume, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.01 * currentVolume, now + duration);
-    masterGain.connect(this.compressor);
+    masterGain.gain.setValueAtTime(0.3 * this.volume, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
 
-    const fromPanning = { min: 0, max: size };
-    const toPanning = { min: -1, max: 1 };
-    const panning = this.clamp(this.interpolate(index, fromPanning, toPanning), -1, 1);
+    masterGain.connect(stereoPanner);
+    stereoPanner.connect(this.compressor);
 
     const oscillators: OscillatorNode[] = [];
     for (let i = 0; i < frequencies.length; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      const stereoPannerNode = this.audioContext.createStereoPanner();
-      const pannerNode = new PannerNode(this.audioContext, {
-        distanceModel: 'linear',
-        positionX: 0.0,
-        positionY: 0.0,
-        positionZ: 0.0,
-        orientationX: 0.0,
-        orientationY: 0.0,
-        orientationZ: -1.0,
-        refDistance: 1,
-        maxDistance: 1e4,
-        rolloffFactor: 10,
-        coneInnerAngle: 40,
-        coneOuterAngle: 50,
-        coneOuterGain: 0.4,
-      });
 
       osc.frequency.value = frequencies[i];
       osc.type = 'sine';
 
-      gain.gain.setValueAtTime(gains[i] * currentVolume, now);
-      gain.gain.exponentialRampToValueAtTime(0.001 * currentVolume, now + duration);
-
-      stereoPannerNode.pan.value = panning;
+      gain.gain.setValueAtTime(gains[i] * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, now + duration);
 
       osc.connect(gain);
-      gain.connect(stereoPannerNode);
-      stereoPannerNode.connect(pannerNode);
-      pannerNode.connect(masterGain);
+      gain.connect(masterGain);
 
       osc.start(now);
       osc.stop(now + duration);
@@ -675,6 +572,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     }
 
     const cleanUp = (audioId: AudioId): void => {
+      stereoPanner.disconnect();
       masterGain.disconnect();
       oscillators.forEach((osc) => {
         osc.disconnect();
@@ -687,25 +585,129 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return audioId;
   }
 
-  private playZeroTone(): AudioId {
-    // Always use original triangle wave for zero values, regardless of groups
-    return this.playOscillator(NULL_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
+  private playOneWarningBeep(freq: number, startTime: number): void {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    let vol = 1;
+    if (osc.type !== 'sine')
+      vol = 0.5;
+
+    gain.gain.setValueAtTime(vol, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + WARNING_DURATION);
+
+    osc.connect(gain);
+    gain.connect(this.audioContext.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + WARNING_DURATION);
   }
 
+  /**
+   * Plays a warning tone to indicate navigation boundary or invalid state.
+   * Consists of two descending beeps (half-step down) to clearly signal a warning.
+   */
+  public playWarningTone(): void {
+    const now = this.audioContext.currentTime;
+    this.playOneWarningBeep(WARNING_FREQUENCY, now);
+    this.playOneWarningBeep(WARNING_FREQUENCY / 2 ** (1 / 12), now + WARNING_SPACE); // half step down
+    // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
+  }
+
+  /**
+   * Plays a warning tone only if audio mode is enabled.
+   * Use this for conditional warnings that should respect user's audio preferences.
+   */
+  public playWarningToneIfEnabled(): void {
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+    this.playWarningTone();
+  }
+
+  private playZeroTone(panning: Panning): AudioId {
+    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    // Y-axis not used for stereo panning
+    return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
+  }
+
+  /**
+   * Plays a repeating waiting tone to indicate an ongoing async operation.
+   * The tone repeats every second until stopped.
+   *
+   * @returns AudioId that can be passed to stop() to cancel the waiting tone
+   */
   public playWaitingTone(): AudioId {
+    const paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
     return setInterval(
-      () => this.playOscillator(WAITING_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' }),
+      () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, paletteEntry),
       1000,
     );
   }
 
+  /**
+   * Plays a completion tone to indicate an async operation has finished.
+   * Uses a higher frequency than the waiting tone for clear distinction.
+   *
+   * @returns AudioId for the played tone
+   */
   public playCompleteTone(): AudioId {
-    return this.playOscillator(COMPLETE_FREQUENCY, 0, { index: DEFAULT_PALETTE_INDEX, waveType: 'sine' });
+    const paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
+    return this.playOscillator(COMPLETE_FREQUENCY, { x: 0, y: 0 }, paletteEntry);
+  }
+
+  /**
+   * Plays multiple tones simultaneously for intersection points in multiline plots.
+   * Each intersecting line gets a distinct timbre from the audio palette.
+   */
+  private playSimultaneousTones(tones: AudioState[]): void {
+    const duration = DEFAULT_DURATION;
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+
+    // Use the value from the first tone as the shared value (all intersecting lines share the same point)
+    const sharedValue = Array.isArray(tones[0].freq.raw)
+      ? (tones[0].freq.raw[1] ?? tones[0].freq.raw[0])
+      : (tones[0].freq.raw as number);
+    const sharedFrequency = this.interpolate(
+      sharedValue,
+      { min: tones[0].freq.min, max: tones[0].freq.max },
+      { min: this.minFrequency, max: this.maxFrequency },
+    );
+
+    tones.forEach((tone, idx) => {
+      const paletteEntry = this.audioPalette.getPaletteEntry(tone.group ?? idx);
+      const waveType = paletteEntry.waveType;
+
+      const oscillator = ctx.createOscillator();
+      oscillator.type = waveType;
+      oscillator.frequency.value = sharedFrequency;
+
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(this.volume, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.compressor);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+
+      const audioId = setTimeout(() => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+        this.activeAudioIds.delete(audioId);
+      }, duration * 1000 * 2);
+
+      this.activeAudioIds.set(audioId, [oscillator]);
+    });
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
-    if (from.min === 0 && from.max === 0) {
-      return 0;
+    if (from.min === from.max) {
+      return to.min;
     }
 
     return (
@@ -717,6 +719,13 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     return Math.max(from, Math.min(value, to));
   }
 
+  /**
+   * Toggles the audio mode between off, separate, and combined states.
+   * Cycles through modes and notifies the user of the current state.
+   * - OFF: No audio playback
+   * - SEPARATE: Sequential playback for multi-point data
+   * - COMBINED: Simultaneous playback for multi-point data
+   */
   public toggle(): void {
     switch (this.mode) {
       case AudioMode.OFF:
@@ -742,15 +751,21 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.notification.notify(message);
   }
 
+  /**
+   * Stops one or more active audio tones by their IDs.
+   * Disconnects oscillators and clears associated timeouts/intervals.
+   *
+   * @param audioId - Single AudioId or array of AudioIds to stop
+   */
   public stop(audioId: AudioId | AudioId[]): void {
     const audioIds = Array.isArray(audioId) ? audioId : [audioId];
     audioIds.forEach((audioId) => {
-      const activeNodes = this.activeAudioIds.get(audioId);
-      if (!activeNodes) {
+      const activeNode = this.activeAudioIds.get(audioId);
+      if (!activeNode) {
         clearInterval(audioId);
         return;
       }
-
+      const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
         node?.disconnect();
         node?.stop();
@@ -762,8 +777,9 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
   }
 
   private stopAll(): void {
-    this.activeAudioIds.entries().forEach(([audioId, nodes]) => {
+    this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
+      const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {
         node.disconnect();
         node.stop();
@@ -772,66 +788,7 @@ implements Observer<ObservableStates>, Observer<Settings>, Disposable {
     this.activeAudioIds.clear();
   }
 
-  /**
-   * Play multiple tones simultaneously, all at the same frequency (shared value),
-   * using each line's assigned wave type without any special audio techniques.
-   * Simple mix of existing wave types at the same musical frequency.
-   * @param tones Array of AudioState
-   */
-  public playSimultaneousTones(
-    tones: AudioState[],
-  ): void {
-    const baseVolume = this.getVolume();
-    const duration = DEFAULT_DURATION;
-    const ctx = this.audioContext;
-    const now = ctx.currentTime;
-    const freqRange = this.getFrequencyRange();
-
-    // --- REGULARIZED FREQUENCY ---
-    // Use the value from the first tone as the shared value (all intersecting lines have same (x, y))
-    const sharedValue = Array.isArray(tones[0].value)
-      ? (tones[0].value[1] ?? tones[0].value[0])
-      : (tones[0].value as number);
-    const sharedMin = tones[0].min;
-    const sharedMax = tones[0].max;
-    const sharedFrequency = this.interpolate(
-      sharedValue,
-      { min: sharedMin, max: sharedMax },
-      freqRange,
-    );
-
-    tones.forEach((tone, idx) => {
-      // All tones use the same frequency for intersection
-      const frequency = sharedFrequency;
-
-      // Use AudioPaletteService for maximum distinction
-      const paletteEntry = this.audioPalette.getPaletteEntry(idx);
-      const waveType = paletteEntry.waveType;
-
-      // Simple oscillator with assigned wave type
-      const oscillator = ctx.createOscillator();
-      oscillator.type = waveType;
-      oscillator.frequency.value = frequency;
-
-      // Simple gain node
-      const gainNode = ctx.createGain();
-      gainNode.gain.setValueAtTime(baseVolume, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.01 * baseVolume, now + duration);
-
-      // Connect and play
-      oscillator.connect(gainNode);
-      gainNode.connect(this.compressor);
-
-      oscillator.start(now);
-      oscillator.stop(now + duration);
-
-      // Clean up
-      const audioId = setTimeout(() => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-      }, duration * 1000 * 2);
-
-      this.activeAudioIds.set(audioId, [oscillator]);
-    });
+  private normalizeVolume(volume: number): number {
+    return (volume / 100) * (volume / 100);
   }
 }

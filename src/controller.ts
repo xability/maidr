@@ -9,8 +9,10 @@ import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
 import { DisplayService } from '@service/display';
+import { FormatterService } from '@service/formatter';
 import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
+import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
@@ -32,6 +34,9 @@ import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewMo
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 
+/**
+ * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
+ */
 export class Controller implements Disposable {
   private readonly figure: Figure;
   private readonly context: Context;
@@ -39,6 +44,7 @@ export class Controller implements Disposable {
   private readonly displayService: DisplayService;
   private readonly notificationService: NotificationService;
   private readonly settingsService: SettingsService;
+  private readonly formatterService: FormatterService;
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
@@ -48,6 +54,7 @@ export class Controller implements Disposable {
   private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
+  private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
@@ -67,27 +74,25 @@ export class Controller implements Disposable {
   private readonly mousebinding: Mousebindingservice;
   private readonly commandExecutor: CommandExecutor;
 
+  /**
+   * Initializes the controller with all necessary services, view models, and bindings.
+   * @param maidr - The MAIDR configuration object containing plot data and settings
+   * @param plot - The HTML element containing the plot to be made accessible
+   */
   public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
     this.context = new Context(this.figure);
 
     this.notificationService = new NotificationService();
-    this.textService = new TextService(this.notificationService);
-    this.displayService = new DisplayService(
-      this.context,
-      plot,
-      this.textService,
-    );
+    this.formatterService = new FormatterService(maidr);
+    this.textService = new TextService(this.notificationService, this.formatterService);
+    this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(
       new LocalStorageService(),
       this.displayService,
     );
+    this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
 
-    this.audioService = new AudioService(
-      this.notificationService,
-      this.context.state,
-      this.settingsService,
-    );
     this.brailleService = new BrailleService(
       this.context,
       this.notificationService,
@@ -103,14 +108,21 @@ export class Controller implements Disposable {
       this.textService,
     );
 
-    this.autoplayService = new AutoplayService(
-      this.context,
-      this.notificationService,
+    this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
+    this.highContrastService = new HighContrastService(
       this.settingsService,
+      this.notificationService,
+      this.displayService,
+      this.figure,
+      this.context,
     );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
-    this.chatService = new ChatService(this.displayService, this.textService, maidr);
+    this.chatService = new ChatService(
+      this.displayService,
+      this.textService,
+      maidr,
+    );
 
     this.textViewModel = new TextViewModel(
       store,
@@ -129,7 +141,10 @@ export class Controller implements Disposable {
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.rotorNavigationService = new RotorNavigationService(this.context);
+    this.rotorNavigationService = new RotorNavigationService(
+      this.context,
+      this.textService,
+    );
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,
       this.rotorNavigationService,
@@ -151,26 +166,15 @@ export class Controller implements Disposable {
 
     this.keybinding = new KeybindingService({
       context: this.context,
+
       audioService: this.audioService,
       autoplayService: this.autoplayService,
+      displayService: this.displayService,
+      highContrastService: this.highContrastService,
       highlightService: this.highlightService,
-
-      brailleViewModel: this.brailleViewModel,
-      chatViewModel: this.chatViewModel,
-      commandPaletteViewModel: this.commandPaletteViewModel,
-      goToExtremaViewModel: this.goToExtremaViewModel,
-      helpViewModel: this.helpViewModel,
-      reviewViewModel: this.reviewViewModel,
-      settingsViewModel: this.settingsViewModel,
-      textViewModel: this.textViewModel,
-      rotorNavigationViewModel: this.rotorNavigationViewModel,
       rotorNavigationService: this.rotorNavigationService,
-    });
-    this.mousebinding = new Mousebindingservice({
-      context: this.context,
-      audioService: this.audioService,
-      autoplayService: this.autoplayService,
-      highlightService: this.highlightService,
+      settingsService: this.settingsService,
+
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
@@ -181,13 +185,18 @@ export class Controller implements Disposable {
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
     });
-
-    this.commandExecutor = new CommandExecutor(
+    this.mousebinding = new Mousebindingservice(
       {
         context: this.context,
+
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        displayService: this.displayService,
+        highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
+
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
@@ -197,7 +206,32 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
+      },
+      this.settingsService,
+      this.displayService,
+    );
+
+    this.commandExecutor = new CommandExecutor(
+      {
+        context: this.context,
+
+        audioService: this.audioService,
+        autoplayService: this.autoplayService,
+        displayService: this.displayService,
+        highContrastService: this.highContrastService,
+        highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
+
+        brailleViewModel: this.brailleViewModel,
+        chatViewModel: this.chatViewModel,
+        commandPaletteViewModel: this.commandPaletteViewModel,
+        goToExtremaViewModel: this.goToExtremaViewModel,
+        helpViewModel: this.helpViewModel,
+        reviewViewModel: this.reviewViewModel,
+        settingsViewModel: this.settingsViewModel,
+        textViewModel: this.textViewModel,
+        rotorNavigationViewModel: this.rotorNavigationViewModel,
       },
       this.context.scope,
     );
@@ -207,6 +241,9 @@ export class Controller implements Disposable {
     this.mousebinding.registerEvents();
   }
 
+  /**
+   * Announces the initial instruction to screen readers using a live region.
+   */
   public announceInitialInstruction(): void {
     // Prime the live region with an invisible separator to force a DOM-change event
     // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
@@ -218,10 +255,17 @@ export class Controller implements Disposable {
     }, 50);
   }
 
+  /**
+   * Retrieves the initial instruction text for the plot.
+   * @returns The initial instruction text
+   */
   public getInitialInstruction(): string {
     return this.displayService.getInstruction(false);
   }
 
+  /**
+   * Displays the initial instruction in the text view without announcing it to screen readers.
+   */
   public showInitialInstructionInText(): void {
     const text = this.displayService.getInstruction(false);
     // Keep initial instruction visual-only; enable announce later on first nav update
@@ -229,9 +273,28 @@ export class Controller implements Disposable {
     this.textViewModel.update(text);
   }
 
+  /**
+   * Initialize high contrast mode if enabled in settings.
+   * Call this after the Controller is fully set up and will persist (not the throwaway init).
+   */
+  public initializeHighContrast(): void {
+    this.highContrastService.initializeHighContrast();
+  }
+
+  /**
+   * Suspend high contrast mode visually (restore original colors).
+   * Call this on blur to return the chart to its original appearance.
+   */
+  public suspendHighContrast(): void {
+    this.highContrastService.suspendHighContrast();
+  }
+
+  /**
+   * Cleans up all services, view models, and event listeners.
+   */
   public dispose(): void {
     this.keybinding.unregister();
-    this.mousebinding.unregister();
+    this.mousebinding.dispose();
 
     ViewModelRegistry.instance.dispose();
     this.settingsViewModel.dispose();
@@ -244,6 +307,7 @@ export class Controller implements Disposable {
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
 
+    this.highContrastService.dispose();
     this.highlightService.dispose();
     this.autoplayService.dispose();
 
@@ -251,13 +315,18 @@ export class Controller implements Disposable {
     this.reviewService.dispose();
     this.brailleService.dispose();
     this.audioService.dispose();
+    this.formatterService.dispose();
 
+    this.settingsService.dispose();
     this.notificationService.dispose();
     this.displayService.dispose();
     this.context.dispose();
     this.figure.dispose();
   }
 
+  /**
+   * Registers all view models with the central registry for global access.
+   */
   private registerViewModels(): void {
     ViewModelRegistry.instance.register('text', this.textViewModel);
     ViewModelRegistry.instance.register('braille', this.brailleViewModel);
@@ -280,25 +349,25 @@ export class Controller implements Disposable {
     );
   }
 
+  /**
+   * Registers observers to the figure, subplots, and traces for state updates.
+   */
   private registerObservers(): void {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
-    this.figure.subplots.forEach(subplotRow =>
-      subplotRow.forEach((subplot) => {
-        subplot.addObserver(this.textService);
-        subplot.addObserver(this.brailleService);
-        subplot.addObserver(this.highlightService);
-        subplot.traces.forEach(traceRow =>
-          traceRow.forEach((trace) => {
-            trace.addObserver(this.audioService);
-            trace.addObserver(this.brailleService);
-            trace.addObserver(this.textService);
-            trace.addObserver(this.reviewService);
-            trace.addObserver(this.highlightService);
-          }),
-        );
-      }),
-    );
+    this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
+      subplot.addObserver(this.textService);
+      subplot.addObserver(this.audioService);
+      subplot.addObserver(this.brailleService);
+      subplot.addObserver(this.highlightService);
+      subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
+        trace.addObserver(this.audioService);
+        trace.addObserver(this.brailleService);
+        trace.addObserver(this.textService);
+        trace.addObserver(this.reviewService);
+        trace.addObserver(this.highlightService);
+      }));
+    }));
   }
 }

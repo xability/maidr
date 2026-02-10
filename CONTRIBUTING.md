@@ -176,6 +176,51 @@ If your commit addresses a specific issue, mention the issue number at the end o
 
 When you commit your changes, Husky and Commitlint will automatically check your commit messages. If your message does not meet the conventional commit format, the commit will be rejected, and you'll need to modify the message.
 
+### Maintaining the website
+
+Here's how to update the MAIDR documentation:
+
+1. Update Source Code Documentation (if needed)
+
+- Edit JSDoc comments in TypeScript files (src/\*_/_.ts)
+- These comments will be extracted by TypeDoc for the API Reference
+
+2. Update Content Pages (if needed)
+
+Edit these files for different sections:
+
+- README.md - Main landing page content (converted to index.html)
+- docs/template.html - HTML template for generated pages
+- examples/ - Example files (embedded in examples.html)
+
+3. Build Documentation
+
+```shell
+npm run docs
+```
+
+This runs the build script which:
+
+- Converts README.md to index.html
+- Generates examples.html
+- Copies media and examples folders
+- Runs TypeDoc to generate API documentation in `_site/api/`
+
+4. Preview Locally
+
+```shell
+npm run docs:serve
+```
+
+This builds the docs and starts a local HTTP server. Alternatively, open `_site/index.html` directly in your browser.
+
+5. Deploy to GitHub Pages
+
+The documentation will automatically deploy when you push to:
+
+- main branch
+- docs/jsdoc branch (for testing)
+
 ## Code of Conduct
 
 Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.

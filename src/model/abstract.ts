@@ -22,60 +22,61 @@ const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_FILL_AXIS = 'unavailable';
 
-export abstract class AbstractObservableElement<Element, State>
-implements Movable, Observable<State>, Disposable {
-  protected observers: Observer<State>[];
+export interface Dimension {
+  rows: number;
+  cols: number;
+}
 
-  protected isInitialEntry: boolean;
-  protected isOutOfBounds: boolean;
-
-  protected row: number;
-  protected col: number;
+export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
+  protected readonly observers: Observer<State>[];
+  protected isWarning: boolean;
 
   protected constructor() {
     this.observers = new Array<Observer<State>>();
-
-    this.isInitialEntry = true;
-    this.isOutOfBounds = false;
-
-    this.row = 0;
-    this.col = 0;
+    this.isWarning = false;
   }
+  protected abstract get dimension(): Dimension;
 
   public dispose(): void {
-    for (const observer of this.observers) {
-      this.removeObserver(observer);
-    }
     this.observers.length = 0;
   }
 
-  public moveOnce(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-      return;
-    }
-
-    if (!this.isMovable(direction)) {
-      this.notifyOutOfBounds();
-      return;
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row += 1;
-        break;
-      case 'DOWNWARD':
-        this.row -= 1;
-        break;
-      case 'FORWARD':
-        this.col += 1;
-        break;
-      case 'BACKWARD':
-        this.col -= 1;
-        break;
-    }
+  public notifyRotorBounds(): void {
+    this.isWarning = true;
     this.notifyStateUpdate();
+    this.isWarning = false;
+  }
+
+  public get isInitialEntry(): boolean {
+    return this.movable.isInitialEntry;
+  }
+
+  public set isInitialEntry(value: boolean) {
+    this.movable.isInitialEntry = value;
+  }
+
+  public get isOutOfBounds(): boolean {
+    return this.movable.isOutOfBounds;
+  }
+
+  public set isOutOfBounds(value: boolean) {
+    this.movable.isOutOfBounds = value;
+  }
+
+  public get row(): number {
+    return this.movable.row;
+  }
+
+  public get col(): number {
+    return this.movable.col;
+  }
+
+  public set row(value: number) {
+    this.movable.row = value;
+  }
+
+  public set col(value: number) {
+    this.movable.col = value;
   }
 
   /**
@@ -83,128 +84,86 @@ implements Movable, Observable<State>, Disposable {
    * @returns Object with safe row and column indices
    */
   protected getSafeIndices(): { row: number; col: number } {
-    const values = this.values;
-    const safeRow = this.row >= 0 && this.row < values.length ? this.row : 0;
+    const safeRow = this.row >= 0 && this.row < this.dimension.rows ? this.row : 0;
     const safeCol
-      = this.col >= 0 && this.col < (values[safeRow]?.length || 0) ? this.col : 0;
+      = this.col >= 0 && this.col < this.dimension.cols ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
-  public moveToExtreme(direction: MovableDirection): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-    }
-
-    switch (direction) {
-      case 'UPWARD':
-        this.row = this.values.length - 1;
-        break;
-      case 'DOWNWARD':
-        this.row = 0;
-        break;
-      case 'FORWARD': {
-        // Safety check: ensure we don't access undefined values
-        const { row: safeRow } = this.getSafeIndices();
-        this.col = this.values[safeRow]?.length
-          ? this.values[safeRow].length - 1
-          : 0;
-        break;
-      }
-      case 'BACKWARD':
-        this.col = 0;
-        break;
-    }
-    this.notifyStateUpdate();
-  }
-
-  public moveToIndex(row: number, col: number): void {
-    if (this.isMovable([row, col])) {
-      this.row = row;
-      this.col = col;
-      this.isInitialEntry = false;
-      this.notifyStateUpdate();
-    }
-  }
-
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    if (Array.isArray(target)) {
-      const [row, col] = target;
-      const { row: safeRow } = this.getSafeIndices();
-      return (
-        row >= 0
-        && row < this.values.length
-        && col >= 0
-        && col < (this.values[safeRow]?.length || 0)
-      );
-    }
-
-    switch (target) {
-      case 'UPWARD':
-        return this.row < this.values.length - 1;
-      case 'DOWNWARD':
-        return this.row > 0;
-      case 'FORWARD': {
-        // Safety check: ensure we don't access undefined values
-        const { row: safeRow } = this.getSafeIndices();
-        return this.col < (this.values[safeRow]?.length || 0) - 1;
-      }
-      case 'BACKWARD':
-        return this.col > 0;
-    }
-  }
-
-  protected handleInitialEntry(): void {
-    this.isInitialEntry = false;
-    this.row = Math.max(0, Math.min(this.row, this.values.length - 1));
-    // Safety check: ensure we don't access undefined values
-    const { row: safeRow } = this.getSafeIndices();
-    this.col = Math.max(
-      0,
-      Math.min(this.col, (this.values[safeRow]?.length || 0) - 1),
-    );
-  }
-
   /**
-   * Ensure the trace is initialized exactly once, and announce the initial state.
-   * Subsequent calls are no-ops.
+   * Registers an observer to receive state updates.
+   * @param observer - The observer to add
    */
-  public ensureInitialized(): void {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      this.notifyStateUpdate();
-    }
-  }
-
-  public resetToInitialEntry(): void {
-    this.isInitialEntry = true;
-    this.row = 0;
-    this.col = 0;
-  }
-
   public addObserver(observer: Observer<State>): void {
     this.observers.push(observer);
   }
 
+  /**
+   * Removes an observer from receiving state updates.
+   * @param observer - The observer to remove
+   */
   public removeObserver(observer: Observer<State>): void {
-    this.observers = this.observers.filter(obs => obs !== observer);
-  }
-
-  public notifyStateUpdate(): void {
-    const currentState = this.state;
-    for (const observer of this.observers) {
-      observer.update(currentState);
+    const index = this.observers.indexOf(observer);
+    if (index !== -1) {
+      this.observers.splice(index, 1);
     }
   }
 
-  public notifyOutOfBounds(): void {
-    this.isOutOfBounds = true;
-    this.notifyStateUpdate();
-    this.isOutOfBounds = false;
+  /**
+   * Notifies all registered observers with the current state.
+   */
+  public notifyStateUpdate(): void {
+    const currentState = this.state;
+    this.observers.forEach(observer => observer.update(currentState));
   }
 
-  protected abstract get values(): Element[][];
+  /**
+   * Notifies observers that an out-of-bounds condition occurred.
+   */
+  public notifyOutOfBounds(): void {
+    const outOfBoundsState = this.outOfBoundsState;
+    this.observers.forEach(observer => observer.update(outOfBoundsState));
+  }
+
+  public moveOnce(direction: MovableDirection): boolean {
+    const isMoved = this.movable.moveOnce(direction);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public moveToExtreme(direction: MovableDirection): boolean {
+    const isMoved = this.movable.moveToExtreme(direction);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public moveToIndex(row: number, col: number): boolean {
+    const isMoved = this.movable.moveToIndex(row, col);
+    if (isMoved) {
+      this.notifyStateUpdate();
+    } else {
+      this.notifyOutOfBounds();
+    }
+    return isMoved;
+  }
+
+  public isMovable(target: [number, number] | MovableDirection): boolean {
+    return this.movable.isMovable(target);
+  }
 
   public abstract get state(): State;
+
+  protected abstract get outOfBoundsState(): State;
+
+  protected abstract get movable(): Movable;
 
   public notifyObserversWithState(state: State): void {
     for (const observer of this.observers) {
@@ -213,11 +172,15 @@ implements Movable, Observable<State>, Disposable {
   }
 
   /**
-   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR
+   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR, default is no-op
    * Needs to be implemented in Line, Bar, Heatmap, Candlestick
    */
-  protected moveToNextCompareValue(_direction: 'left' | 'right' | 'up' | 'down', _type: 'lower' | 'higher'): boolean {
+  public moveToNextCompareValue(
+    _direction: 'left' | 'right' | 'up' | 'down',
+    _type: 'lower' | 'higher',
+  ): boolean {
     // no-op
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -228,7 +191,7 @@ implements Movable, Observable<State>, Disposable {
    * @param type
    * @returns boolean value
    */
-  protected compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
+  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
     if (type === 'lower') {
       return a < b;
     }
@@ -241,18 +204,38 @@ implements Movable, Observable<State>, Disposable {
   /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
+  /**
+   * Moves up in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move up function is not defined for this trace');
   }
 
+  /**
+   * Moves down in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move down function is not defined for this trace');
   }
 
+  /**
+   * Moves left in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveLeftRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move left function is not defined for this trace');
   }
 
+  /**
+   * Moves right in rotor mode, optionally filtering by lower or higher values.
+   * @param _mode - Optional mode for filtering (lower or higher)
+   * @throws Error always - subclasses must override this method
+   */
   public moveRightRotor(_mode?: 'lower' | 'higher'): boolean {
     throw new Error('Move right function is not defined for this trace');
   }
@@ -272,9 +255,7 @@ implements Movable, Observable<State>, Disposable {
   }
 }
 
-export abstract class AbstractTrace<T>
-  extends AbstractObservableElement<T, TraceState>
-  implements Trace {
+export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
@@ -300,9 +281,10 @@ export abstract class AbstractTrace<T>
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
+  /**
+   * Cleans up trace resources including values and highlighted SVG elements.
+   */
   public dispose(): void {
-    this.values.length = 0;
-
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
         row.forEach((el) => {
@@ -316,62 +298,126 @@ export abstract class AbstractTrace<T>
     super.dispose();
   }
 
+  /**
+   * Gets the current state of the trace including audio, braille, text, and highlight information.
+   * @returns The current TraceState
+   */
   public get state(): TraceState {
-    if (this.isOutOfBounds) {
-      const values = this.values;
-      const currentRow = this.row;
-      const currentCol = this.col;
-
+    if (this.isWarning) {
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
         audio: {
-          size: values[currentRow]?.length || 0,
-          index: currentCol,
+          y: this.row,
+          x: this.col,
+          rows: this.dimension.rows,
+          cols: this.dimension.cols,
         },
+        warning: true,
       };
     }
-
     return {
       empty: false,
       type: 'trace',
+      layerId: this.id,
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       fill: this.fill,
-      hasMultiPoints: this.hasMultiPoints(),
-      audio: this.audio(),
-      braille: this.braille(),
-      text: this.text(),
-      autoplay: this.autoplay, // Remove parentheses
-      highlight: this.highlight(),
+      hasMultiPoints: this.hasMultiPoints,
+      audio: this.audio,
+      braille: this.braille,
+      text: this.text,
+      autoplay: this.autoplay,
+      highlight: this.highlight,
     };
   }
 
-  protected highlight(): HighlightState {
-    if (this.highlightValues === null || this.isInitialEntry) {
-      const values = this.values;
-      const currentRow = this.row;
-      const currentCol = this.col;
+  protected get outOfBoundsState(): TraceState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+      audio: {
+        y: this.row,
+        x: this.col,
+        rows: this.dimension.rows,
+        cols: this.dimension.cols,
+      },
+    };
+  }
 
-      return {
-        empty: true,
-        type: 'trace',
-        traceType: this.type,
-        audio: {
-          size: values[currentRow]?.length || 0,
-          index: currentCol,
-        },
-      };
+  protected get highlight(): HighlightState {
+    if (this.highlightValues === null || this.isInitialEntry) {
+      return this.outOfBoundsState as HighlightState;
     }
 
     return {
       empty: false,
       elements: this.highlightValues[this.row][this.col],
     };
+  }
+
+  /**
+   * Get all highlight SVG elements for this trace
+   * Used by HighlightService for high contrast mode
+   * @returns Array of all SVG elements, or empty array if none
+   */
+  public getAllHighlightElements(): SVGElement[] {
+    if (this.highlightValues === null) {
+      return [];
+    }
+
+    const elements: SVGElement[] = [];
+    for (const row of this.highlightValues) {
+      for (const cell of row) {
+        if (Array.isArray(cell)) {
+          elements.push(...cell);
+        } else if (cell) {
+          elements.push(cell);
+        }
+      }
+    }
+    return elements;
+  }
+
+  /**
+   * Get all original (visible) SVG elements for this trace.
+   * These are the actual rendered elements, not the hidden clones used for highlighting.
+   * Used by HighlightService for high contrast mode color changes.
+   * @returns Array of all original SVG elements, or empty array if none
+   */
+  public getAllOriginalElements(): SVGElement[] {
+    if (this.highlightValues === null) {
+      return [];
+    }
+
+    const elements: SVGElement[] = [];
+    for (const row of this.highlightValues) {
+      for (const cell of row) {
+        const cellElements = Array.isArray(cell) ? cell : cell ? [cell] : [];
+        for (const clone of cellElements) {
+          // The original element is the previous sibling of the hidden clone
+          const original = clone.previousElementSibling as SVGElement | null;
+
+          // Verify this is actually the paired original element:
+          // - Must exist
+          // - Must be the same element type (e.g., both are <path>)
+          // - Must NOT be hidden (the clone is hidden, original is visible)
+          if (
+            original
+            && original.tagName === clone.tagName
+            && original.getAttribute('visibility') !== 'hidden'
+          ) {
+            elements.push(original);
+          }
+        }
+      }
+    }
+    return elements;
   }
 
   protected getAudioGroupIndex(): { groupIndex?: number } {
@@ -384,28 +430,32 @@ export abstract class AbstractTrace<T>
     return {};
   }
 
-  public get autoplay(): AutoplayState {
-    // Safety check: ensure we don't access undefined values
-    const { row: safeRow } = this.getSafeIndices();
-    const currentRowLength = this.values[safeRow]?.length || 0;
-
+  private get autoplay(): AutoplayState {
     return {
-      UPWARD: this.values.length,
-      DOWNWARD: this.values.length,
-      FORWARD: currentRowLength,
-      BACKWARD: currentRowLength,
+      UPWARD: this.dimension.rows,
+      DOWNWARD: this.dimension.rows,
+      FORWARD: this.dimension.cols,
+      BACKWARD: this.dimension.cols,
     };
   }
 
-  protected hasMultiPoints(): boolean {
+  public resetToInitialEntry(): void {
+    this.isInitialEntry = true;
+    this.row = 0;
+    this.col = 0;
+  }
+
+  protected get hasMultiPoints(): boolean {
     return false;
   }
 
-  protected abstract audio(): AudioState;
+  protected abstract get audio(): AudioState;
 
-  protected abstract braille(): BrailleState;
+  protected abstract get braille(): BrailleState;
 
-  protected abstract text(): TextState;
+  protected abstract get text(): TextState;
+
+  protected abstract get dimension(): Dimension;
 
   protected abstract get highlightValues():
     | (SVGElement[] | SVGElement)[][]
@@ -458,12 +508,13 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Check if this plot supports extrema navigation
+   * Checks if this plot supports extrema navigation.
    * @returns True if extrema navigation is supported
    */
   public supportsExtremaNavigation(): boolean {
     return this.supportsExtrema;
   }
+  protected abstract get values(): (Element | number | number[])[][];
 
   /**
    * Abstract property that subclasses must implement to indicate extrema support
@@ -503,8 +554,9 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Base implementation for moving to X value
-   * Subclasses can override if they have different data structures
+   * Moves to a specific X value in the trace.
+   * @param xValue - The X value to navigate to
+   * @returns True if the move was successful, false otherwise
    */
   public moveToXValue(xValue: XValue): boolean {
     // Handle traces with points array (BarTrace, LineTrace)
@@ -535,40 +587,51 @@ export abstract class AbstractTrace<T>
   }
 
   /**
-   * Type guard to check if trace has points array
+   * Type guard to check if trace has points array.
+   * @returns True if points array exists
    */
   private hasPointsArray(): boolean {
     return 'points' in this && this.points !== undefined;
   }
 
   /**
-   * Type guard to check if trace has values array
+   * Type guard to check if trace has values array.
+   * @returns True if values array exists
    */
   private hasValuesArray(): boolean {
     return 'values' in this && this.values !== undefined;
   }
 
   /**
-   * Safely get points array with proper typing
+   * Safely gets the points array with proper typing.
+   * @returns The points array
    */
   private getPointsArray(): any[] {
     return (this as any).points;
   }
 
   /**
-   * Validate points array structure
+   * Validates points array structure.
+   * @param points - The points array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidPointsArray(points: any[]): boolean {
     return Array.isArray(points) && points.length > 0;
   }
 
   /**
-   * Validate values array structure
+   * Validates values array structure.
+   * @param values - The values array to validate
+   * @returns True if valid, false otherwise
    */
   private isValidValuesArray(values: any[][]): boolean {
     return Array.isArray(values) && values.length > 0;
   }
 
+  /**
+   * Gets the unique identifier for this trace.
+   * @returns The trace ID
+   */
   public getId(): string {
     return this.id;
   }
@@ -578,15 +641,12 @@ export abstract class AbstractTrace<T>
     y: number,
   ): { element: SVGElement; row: number; col: number } | null;
 
-  // hover functions
-  // parent calls moveToPoint with x y from mouse event
-  // this then finds a nearest point, and checks if it's in bounds
-  // if all is good, it sends row col to context.moveToIndex
+  /**
+   * Moves to the nearest point at the specified coordinates (used for hover functionality).
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   */
   public moveToPoint(x: number, y: number): void {
-    // temp: don't run for boxplot. remove when boxplot is fixed
-    if (this.type === TraceType.BOX) {
-      return;
-    }
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
       if (this.isPointInBounds(x, y, nearest)) {
@@ -599,13 +659,24 @@ export abstract class AbstractTrace<T>
     }
   }
 
-  // used in hover feature
-  // this checks if the x y is within the bounding box of the element
-  // or close enough, if the point is tiny
+  /**
+   * Checks if the specified coordinates are within bounds of the element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
+   * @returns True if the point is in bounds, false otherwise
+   */
   public isPointInBounds(
     x: number,
     y: number,
-    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
+    {
+      element,
+      row: _row,
+      col: _col,
+    }: { element: SVGElement; row: number; col: number },
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();
@@ -619,11 +690,11 @@ export abstract class AbstractTrace<T>
     ) {
       r = 0;
     }
-    return (
-      x >= bbox.x - r
-      && x <= bbox.x + bbox.width + r
-      && y >= bbox.y - r
-      && y <= bbox.y + bbox.height + r
-    );
+    const isInbounds
+      = x >= bbox.x - r
+        && x <= bbox.x + bbox.width + r
+        && y >= bbox.y - r
+        && y <= bbox.y + bbox.height + r;
+    return isInbounds;
   }
 }

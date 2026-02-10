@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
+import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
@@ -73,19 +74,25 @@ import {
   ToggleChatCommand,
   ToggleCommandPaletteCommand,
   ToggleHelpCommand,
+  ToggleHighContrast,
   ToggleReviewCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
   ToggleTextCommand,
 } from './toggle';
 
+/**
+ * Factory for creating command instances based on key input.
+ */
 export class CommandFactory {
   private readonly context: Context;
 
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
+  private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly rotorService: RotorNavigationService;
+
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
@@ -96,11 +103,16 @@ export class CommandFactory {
   private readonly textViewModel: TextViewModel;
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
+  /**
+   * Creates an instance of CommandFactory.
+   * @param {CommandContext} commandContext - The command context containing services and view models.
+   */
   public constructor(commandContext: CommandContext) {
     this.context = commandContext.context;
 
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
+    this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
     this.rotorService = commandContext.rotorNavigationService;
 
@@ -115,26 +127,39 @@ export class CommandFactory {
     this.rotorNavigationViewModel = commandContext.rotorNavigationViewModel;
   }
 
+  /**
+   * Creates a command instance based on the provided key input.
+   * @param {Keys} command - The key command to create a Command instance for.
+   * @returns {Command} The corresponding command instance for the given key.
+   */
   public create(command: Keys): Command {
     switch (command) {
       case 'MOVE_UP':
         if (this.context.isRotorEnabled()) {
-          return new RotorNavigationMoveUpCommand(this.rotorNavigationViewModel);
+          return new RotorNavigationMoveUpCommand(
+            this.rotorNavigationViewModel,
+          );
         }
         return new MoveUpCommand(this.context);
       case 'MOVE_DOWN':
         if (this.context.isRotorEnabled()) {
-          return new RotorNavigationMoveDownCommand(this.rotorNavigationViewModel);
+          return new RotorNavigationMoveDownCommand(
+            this.rotorNavigationViewModel,
+          );
         }
         return new MoveDownCommand(this.context);
       case 'MOVE_LEFT':
         if (this.context.isRotorEnabled()) {
-          return new RotorNavigationMoveLeftCommand(this.rotorNavigationViewModel);
+          return new RotorNavigationMoveLeftCommand(
+            this.rotorNavigationViewModel,
+          );
         }
         return new MoveLeftCommand(this.context);
       case 'MOVE_RIGHT':
         if (this.context.isRotorEnabled()) {
-          return new RotorNavigationMoveRightCommand(this.rotorNavigationViewModel);
+          return new RotorNavigationMoveRightCommand(
+            this.rotorNavigationViewModel,
+          );
         }
         return new MoveRightCommand(this.context);
       case 'MOVE_TO_TOP_EXTREME':
@@ -163,6 +188,8 @@ export class CommandFactory {
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
+      case 'TOGGLE_HIGH_CONTRAST':
+        return new ToggleHighContrast(this.highContrastService);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
@@ -182,7 +209,10 @@ export class CommandFactory {
       case 'GO_TO_EXTREMA_CLOSE':
         return new GoToExtremaCloseCommand(this.goToExtremaViewModel);
       case 'GO_TO_EXTREMA_TOGGLE':
-        return new GoToExtremaToggleCommand(this.context, this.goToExtremaViewModel);
+        return new GoToExtremaToggleCommand(
+          this.context,
+          this.goToExtremaViewModel,
+        );
       case 'COMMAND_PALETTE_MOVE_UP':
         return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_MOVE_DOWN':
@@ -192,11 +222,11 @@ export class CommandFactory {
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.textViewModel);
+        return new DescribeXCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel);
+        return new DescribeYCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel);
+        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_POINT':
         return new DescribePointCommand(
           this.context,
@@ -206,11 +236,11 @@ export class CommandFactory {
           this.textViewModel,
         );
       case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel);
+        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel);
+        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService);
       case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel);
+        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService);
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
@@ -236,9 +266,15 @@ export class CommandFactory {
       case 'RESET_AUTOPLAY_SPEED':
         return new ResetAutoplaySpeedCommand(this.autoplayService);
       case 'ROTOR_NEXT_NAV':
-        return new RotorNavigationNextNavUnitCommand(this.context, this.rotorNavigationViewModel);
+        return new RotorNavigationNextNavUnitCommand(
+          this.context,
+          this.rotorNavigationViewModel,
+        );
       case 'ROTOR_PREV_NAV':
-        return new RotorNavigationPrevNavUnitCommand(this.context, this.rotorNavigationViewModel);
+        return new RotorNavigationPrevNavUnitCommand(
+          this.context,
+          this.rotorNavigationViewModel,
+        );
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

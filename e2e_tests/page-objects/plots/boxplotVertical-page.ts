@@ -15,7 +15,7 @@ export class BoxplotVerticalPage extends BasePage {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.BOXPLOT_VERTICAL_ID}`,
-    svg: `svg#${TestConstants.BOXPLOT_VERTICAL_ID}`,
+    svg: `svg`,
     helpModal: TestConstants.MAIDR_HELP_MODAL,
     helpModalTitle: TestConstants.MAIDR_HELP_MODAL_TITLE,
     helpModalClose: TestConstants.HELP_MENU_CLOSE_BUTTON,
@@ -330,6 +330,18 @@ export class BoxplotVerticalPage extends BasePage {
   public async moveToLastBox(): Promise<void> {
     try {
       await this.page.keyboard.press('End');
+    } catch (error) {
+      throw new BoxplotVerticalError('Failed to move to last box');
+    }
+  }
+
+  /**
+   * Moves to the top in the first box
+   * @throws BoxplotVerticalError if movement fails
+   */
+  public async moveToTop(): Promise<void> {
+    try {
+      await this.pressKeyCombination(TestConstants.META_KEY, TestConstants.UP_ARROW_KEY, 'Move to top');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to last box');
     }

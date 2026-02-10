@@ -59,7 +59,10 @@ const config: PlaywrightTestConfig = {
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: { browserName: 'chromium', launchOptions: {
+      // adding a 50 ms slowMo to combat chromium latency unable to keep up with playwright's speed of execution
+        slowMo: 50,
+      } },
     },
     {
       name: 'firefox',
