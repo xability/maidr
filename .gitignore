@@ -183,3 +183,6 @@ playwright-report/
 # Playwright
 playwright-report/
 test-results/
+
+# Site
+_site/
