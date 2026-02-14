@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { RotorNavigationService } from '@service/rotor';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -92,6 +93,7 @@ export class CommandFactory {
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly rotorService: RotorNavigationService;
+  private readonly textService: TextService;
 
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -115,6 +117,7 @@ export class CommandFactory {
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
     this.rotorService = commandContext.rotorNavigationService;
+    this.textService = commandContext.textService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
@@ -222,11 +225,11 @@ export class CommandFactory {
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeXCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeYCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_POINT':
         return new DescribePointCommand(
           this.context,
@@ -234,13 +237,14 @@ export class CommandFactory {
           this.highlightService,
           this.brailleViewModel,
           this.textViewModel,
+          this.textService,
         );
       case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService);
+        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
