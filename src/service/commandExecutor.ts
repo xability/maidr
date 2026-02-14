@@ -38,7 +38,6 @@ export class CommandExecutor {
     // Check if command is valid for current scope
     const scopeKeymap = SCOPED_KEYMAP[this.currentScope];
     if (!scopeKeymap || !(commandKey in scopeKeymap)) {
-      console.warn(`Command ${commandKey} is not available in scope ${this.currentScope}`);
       return;
     }
 

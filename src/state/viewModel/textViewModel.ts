@@ -132,12 +132,27 @@ export class TextViewModel extends AbstractViewModel<TextState> {
 
   /**
    * Updates the displayed text with formatted content.
+   * When the new text is identical to the current value, forces a re-announcement
+   * by first clearing with an invisible separator then re-setting after a short delay.
+   * This ensures screen readers detect a DOM change and re-announce the text.
    * @param text - The text or plot state to display
    */
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
-    this.store.dispatch(update(formattedText));
-    this.store.dispatch(clearMessage());
+    const currentValue = this.store.getState().text.value;
+
+    if (formattedText === currentValue) {
+      // Force re-announcement: prime with invisible separator, then re-set after delay
+      // U+2063: INVISIBLE SEPARATOR (same pattern as Controller.announceInitialInstruction)
+      this.store.dispatch(update('\u2063'));
+      this.store.dispatch(clearMessage());
+      setTimeout(() => {
+        this.store.dispatch(update(formattedText));
+      }, 100);
+    } else {
+      this.store.dispatch(update(formattedText));
+      this.store.dispatch(clearMessage());
+    }
   }
 
   /**
