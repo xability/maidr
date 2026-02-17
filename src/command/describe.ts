@@ -6,8 +6,8 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
-import { TraceType } from '@type/grammar';
 import { Scope } from '@type/event';
+import { TraceType } from '@type/grammar';
 
 /**
  * Abstract base class for describe commands.

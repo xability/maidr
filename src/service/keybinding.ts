@@ -273,6 +273,83 @@ export type Keymap = {
 };
 
 /**
+ * Help description entry for a command key.
+ * @property description - Human-readable label shown in the help menu
+ * @property displayKey - Override for the key display (auto-derived from keymap if omitted)
+ */
+export interface HelpEntry {
+  description: string;
+  displayKey?: string;
+}
+
+/**
+ * Maps command keys to their help menu descriptions.
+ * Defined once per command — automatically applies across all scopes where the command appears.
+ * Order here controls display order in the help menu.
+ * Commands without an entry are excluded from help.
+ */
+export const COMMAND_DESCRIPTIONS: Partial<Record<string, HelpEntry>> = {
+  // Navigation
+  MOVE_UP: { description: 'Navigate Data Points', displayKey: 'arrow keys' },
+  MOVE_DOWN: { description: 'Navigate Data Points' },
+  MOVE_LEFT: { description: 'Navigate Data Points' },
+  MOVE_RIGHT: { description: 'Navigate Data Points' },
+  MOVE_TO_NEXT_TRACE: { description: 'Move to Next Layer', displayKey: 'page up' },
+  MOVE_TO_PREV_TRACE: { description: 'Move to Previous Layer', displayKey: 'page down' },
+  MOVE_TO_TOP_EXTREME: { description: 'Go to Left/Right/Top/Bottom Extreme Point', displayKey: `${Platform.ctrl} + arrow keys` },
+  MOVE_TO_BOTTOM_EXTREME: { description: 'Go to Left/Right/Top/Bottom Extreme Point' },
+  MOVE_TO_LEFT_EXTREME: { description: 'Go to Left/Right/Top/Bottom Extreme Point' },
+  MOVE_TO_RIGHT_EXTREME: { description: 'Go to Left/Right/Top/Bottom Extreme Point' },
+  MOVE_TO_TRACE_CONTEXT: { description: 'Activate Current Subplot' },
+
+  // Modes
+  TOGGLE_BRAILLE: { description: 'Toggle Braille Mode' },
+  TOGGLE_TEXT: { description: 'Toggle Text Mode' },
+  TOGGLE_AUDIO: { description: 'Toggle Sonification Mode' },
+  TOGGLE_REVIEW: { description: 'Toggle Review Mode' },
+  TOGGLE_HIGH_CONTRAST: { description: 'Toggle High Contrast Mode' },
+
+  // Autoplay
+  AUTOPLAY_UPWARD: { description: 'Autoplay Outward', displayKey: `${Platform.ctrl} + shift + arrow keys` },
+  AUTOPLAY_DOWNWARD: { description: 'Autoplay Outward' },
+  AUTOPLAY_FORWARD: { description: 'Autoplay Outward' },
+  AUTOPLAY_BACKWARD: { description: 'Autoplay Outward' },
+  STOP_AUTOPLAY: { description: 'Stop Autoplay', displayKey: `${Platform.ctrl}` },
+  SPEED_UP_AUTOPLAY: { description: 'Speed Up Autoplay', displayKey: '. (period)' },
+  SPEED_DOWN_AUTOPLAY: { description: 'Speed Down Autoplay', displayKey: ', (comma)' },
+  RESET_AUTOPLAY_SPEED: { description: 'Reset Autoplay Speed', displayKey: '/ (slash)' },
+
+  // Description
+  DESCRIBE_POINT: { description: 'Replay Current Point' },
+
+  // Label descriptions (chord sequences: 'l' activates label scope, then second key)
+  DESCRIBE_TITLE: { description: 'Announce Plot Title', displayKey: 'l t' },
+  DESCRIBE_SUBTITLE: { description: 'Announce Subtitle', displayKey: 'l s' },
+  DESCRIBE_CAPTION: { description: 'Announce Caption', displayKey: 'l c' },
+  DESCRIBE_X: { description: 'Announce X Label', displayKey: 'l x' },
+  DESCRIBE_Y: { description: 'Announce Y Label', displayKey: 'l y' },
+  DESCRIBE_FILL: { description: 'Announce Fill (Z) Label', displayKey: 'l f' },
+
+  // Misc
+  TOGGLE_SETTINGS: { description: 'Open Settings' },
+  TOGGLE_CHAT: { description: 'Open Chat', displayKey: '?' },
+
+  // Rotor
+  ROTOR_NEXT_NAV: { description: 'Move to next navigation mode in Rotor' },
+  ROTOR_PREV_NAV: { description: 'Move to previous navigation mode in Rotor' },
+};
+
+/**
+ * Scopes whose commands should be merged into a parent scope's help menu.
+ * Used for chord sequences (e.g., 'l' in TRACE activates TRACE_LABEL scope).
+ */
+export const HELP_SCOPE_INCLUDES: Partial<Record<Scope, Scope[]>> = {
+  [Scope.TRACE]: [Scope.TRACE_LABEL],
+  [Scope.BRAILLE]: [Scope.TRACE_LABEL],
+  [Scope.SUBPLOT]: [Scope.FIGURE_LABEL],
+};
+
+/**
  * Service for registering and managing keyboard bindings across application scopes.
  */
 export class KeybindingService {

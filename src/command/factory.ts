@@ -251,6 +251,7 @@ export class CommandFactory {
           this.context,
           this.textService,
           this.textViewModel,
+          this.audioService,
         );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':

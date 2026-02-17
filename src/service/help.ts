@@ -1,57 +1,79 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { HelpMenuItem } from '@type/help';
+import { COMMAND_DESCRIPTIONS, HELP_SCOPE_INCLUDES, SCOPED_KEYMAP } from '@service/keybinding';
 import { Scope } from '@type/event';
-import { Platform } from '@util/platform';
 
 /**
- * Help menu items for trace scope navigation and interactions.
+ * Scopes that should use another scope's help menu (for transient label scopes).
  */
-const TRACE_HELP_MENU = [
-  { description: 'Navigate Data Points', key: 'arrow keys' },
-  { description: 'Move to Next Layer', key: 'page up' },
-  { description: 'Move to Previous Layer', key: 'page down' },
-  { description: 'Go to Left/Right/Top/Bottom Extreme Point', key: `${Platform.ctrl} + arrow keys` },
-
-  { description: 'Toggle Braille Mode', key: 'b' },
-  { description: 'Toggle Text Mode', key: 't' },
-  { description: 'Toggle Sonification Mode', key: 's' },
-  { description: 'Toggle Review Mode', key: 'r' },
-  { description: 'Toggle High Contrast Mode', key: 'c' },
-
-  { description: 'Autoplay Outward', key: `${Platform.ctrl} + shift + arrow keys` },
-  { description: 'Stop Autoplay', key: `${Platform.ctrl}` },
-  { description: 'Speed Up Autoplay', key: '. (period)' },
-  { description: 'Speed Down Autoplay', key: ', (comma)' },
-  { description: 'Reset Autoplay Speed', key: '/ (slash)' },
-  { description: 'Replay Current Point', key: 'space' },
-
-  { description: 'Announce Plot Title', key: 'l t' },
-  { description: 'Announce X Label', key: 'l x' },
-  { description: 'Announce Y Label', key: 'l y' },
-  { description: 'Announce Fill (Z) Label', key: 'l f' },
-
-  { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
-  { description: 'Open Chat', key: `?` },
-
-  { description: 'Move to next navigation mode in Rotor', key: `${Platform.alt}+shift+up` },
-  { description: 'Move to previous navigation mode in Rotor', key: `${Platform.alt}+shift+down` },
-
-];
+const HELP_SCOPE_ALIASES: Partial<Record<Scope, Scope>> = {
+  [Scope.TRACE_LABEL]: Scope.TRACE,
+  [Scope.FIGURE_LABEL]: Scope.SUBPLOT,
+};
 
 /**
- * Help menu items for subplot scope navigation and interactions.
+ * Generates help menu items for a given scope by reading the keymap
+ * and looking up descriptions from COMMAND_DESCRIPTIONS.
  */
-const SUBPLOT_HELP_MENU = [
-  { description: 'Move around Subplot', key: 'arrow keys' },
-  { description: 'Activate Current Subplot', key: `${Platform.enter}` },
+function generateHelpItems(scope: Scope): HelpMenuItem[] {
+  // Collect all command keys available in this scope (+ included scopes)
+  const availableCommands = new Set<string>(Object.keys(SCOPED_KEYMAP[scope]));
+  const includes = HELP_SCOPE_INCLUDES[scope] ?? [];
+  for (const includedScope of includes) {
+    for (const key of Object.keys(SCOPED_KEYMAP[includedScope])) {
+      availableCommands.add(key);
+    }
+  }
 
-  { description: 'Announce Plot Title', key: 'l t' },
-  { description: 'Announce Subtitle', key: 'l s' },
-  { description: 'Announce Caption', key: 'l c' },
+  // Build help items from COMMAND_DESCRIPTIONS, preserving its order
+  const items: HelpMenuItem[] = [];
+  const seenDescriptions = new Set<string>();
 
-  { description: 'Open Settings', key: `${Platform.ctrl} + ,` },
-];
+  for (const [commandKey, entry] of Object.entries(COMMAND_DESCRIPTIONS)) {
+    if (!availableCommands.has(commandKey))
+      continue;
+    if (!entry || seenDescriptions.has(entry.description))
+      continue;
+
+    seenDescriptions.add(entry.description);
+
+    // Use displayKey override, or derive from the keymap
+    const displayKey = entry.displayKey ?? resolveHotkeyDisplay(commandKey, scope, includes);
+
+    items.push({ description: entry.description, key: displayKey });
+  }
+
+  return items;
+}
+
+/**
+ * Resolves the display string for a hotkey by looking it up in the scope's keymap.
+ */
+function resolveHotkeyDisplay(commandKey: string, scope: Scope, includes: Scope[]): string {
+  const keymap = SCOPED_KEYMAP[scope] as Record<string, string>;
+  if (commandKey in keymap) {
+    return formatHotkey(keymap[commandKey]);
+  }
+  for (const includedScope of includes) {
+    const includedKeymap = SCOPED_KEYMAP[includedScope] as Record<string, string>;
+    if (commandKey in includedKeymap) {
+      return formatHotkey(includedKeymap[commandKey]);
+    }
+  }
+  return commandKey;
+}
+
+/**
+ * Formats a raw hotkey string for user-friendly display.
+ * Example: 'ctrl+,' → 'ctrl + ,'
+ */
+function formatHotkey(hotkey: string): string {
+  return hotkey
+    .split('+')
+    .map(part => part.trim())
+    .join(' + ');
+}
 
 /**
  * Service for managing context-sensitive help menus across different application scopes.
@@ -60,32 +82,24 @@ export class HelpService {
   private readonly context: Context;
   private readonly display: DisplayService;
 
-  private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
-
   /**
-   * Creates a new HelpService instance with scoped menu configurations.
+   * Creates a new HelpService instance.
    * @param context - The application context for determining current scope
    * @param display - The display service for toggling help UI
    */
   public constructor(context: Context, display: DisplayService) {
     this.context = context;
     this.display = display;
-
-    this.scopedMenuItems = {
-      [Scope.TRACE]: TRACE_HELP_MENU,
-      [Scope.TRACE_LABEL]: TRACE_HELP_MENU,
-      [Scope.BRAILLE]: TRACE_HELP_MENU,
-      [Scope.SUBPLOT]: SUBPLOT_HELP_MENU,
-      [Scope.FIGURE_LABEL]: SUBPLOT_HELP_MENU,
-    };
   }
 
   /**
    * Retrieves help menu items for the current application scope.
-   * @returns Array of help menu items or empty array if no items for current scope
+   * Items are auto-generated from COMMAND_DESCRIPTIONS and the scope's keymap.
+   * @returns Array of help menu items for the current scope
    */
   public getMenuItems(): HelpMenuItem[] {
-    return this.scopedMenuItems[this.context.scope] ?? [];
+    const scope = HELP_SCOPE_ALIASES[this.context.scope] ?? this.context.scope;
+    return generateHelpItems(scope);
   }
 
   /**
