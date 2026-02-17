@@ -253,10 +253,11 @@ export class CommandFactory {
         );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL, this.textViewModel);
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL, this.textViewModel);
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE);
       case 'AUTOPLAY_UPWARD':

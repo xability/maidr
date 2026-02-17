@@ -126,6 +126,7 @@ export class Controller implements Disposable {
       this.textService,
       this.notificationService,
       this.autoplayService,
+      this.audioService,
     );
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.goToExtremaViewModel = new GoToExtremaViewModel(

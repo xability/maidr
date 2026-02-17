@@ -274,6 +274,11 @@ export class AnnouncePositionCommand extends DescribeCommand {
       return;
     }
 
+    // Warn if text mode is off instead of announcing position
+    if (this.textViewModel.warnIfTextOff()) {
+      return;
+    }
+
     // Get position from audio.panning (contains x, y, rows, cols)
     const { panning } = state.audio;
     const { x, y, rows, cols } = panning;

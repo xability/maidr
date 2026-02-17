@@ -1,4 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
@@ -54,6 +55,7 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
  * ViewModel for managing text display, announcements, and notifications.
  */
 export class TextViewModel extends AbstractViewModel<TextState> {
+  private readonly audioService: AudioService;
   private readonly textService: TextService;
 
   /**
@@ -62,14 +64,17 @@ export class TextViewModel extends AbstractViewModel<TextState> {
    * @param text - Service for managing text formatting and updates
    * @param notification - Service for handling notification messages
    * @param autoplay - Service for managing autoplay functionality
+   * @param audio - Audio service for playing warning tones
    */
   public constructor(
     store: AppStore,
     text: TextService,
     notification: NotificationService,
     autoplay: AutoplayService,
+    audio: AudioService,
   ) {
     super(store);
+    this.audioService = audio;
     this.textService = text;
     this.registerListeners(notification, autoplay);
   }
@@ -154,6 +159,19 @@ export class TextViewModel extends AbstractViewModel<TextState> {
    */
   public setAnnounce(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
+  }
+
+  /**
+   * Warns the user if text mode is off by announcing a message and playing a warning tone.
+   * @returns True if text mode is off and the warning was issued, false otherwise
+   */
+  public warnIfTextOff(): boolean {
+    if (!this.textService.isOff()) {
+      return false;
+    }
+    this.notify('Text mode is off. To enable, press the T key.');
+    this.audioService.playWarningTone();
+    return true;
   }
 }
 
