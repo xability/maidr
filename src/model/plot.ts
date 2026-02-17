@@ -185,7 +185,11 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
 
     // Use the visual order map to determine the correct display index.
     // This is data-ordering-agnostic: always shows top-left as "Subplot 1".
-    const currentIndex = this.visualOrderMap.get(`${this.row},${this.col}`) ?? 1;
+    const key = `${this.row},${this.col}`;
+    const currentIndex = this.visualOrderMap.get(key);
+    if (currentIndex === undefined) {
+      console.warn(`[Figure] Visual order map missing key "${key}". Was applyLayout() called?`);
+    }
 
     const activeSubplot = this.activeSubplot;
 
@@ -196,7 +200,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       subtitle: this.subtitle,
       caption: this.caption,
       size: this.size,
-      index: currentIndex,
+      index: currentIndex ?? 1,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
       traceTypes: activeSubplot.traceTypes,
       highlight: this.highlight,
