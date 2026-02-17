@@ -180,6 +180,5 @@ playwright-report/
 # Qodo AI
 .qodo
 
-# Playwright
-playwright-report/
-test-results/
+# Site
+_site/

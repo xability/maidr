@@ -661,6 +661,7 @@ export class Candlestick extends AbstractTrace {
 
   protected get text(): TextState {
     const point = this.candles[this.currentPointIndex];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     let crossValue: number;
     if (this.currentSegmentType === 'volatility') {
       crossValue = point.volatility;
@@ -672,17 +673,17 @@ export class Candlestick extends AbstractTrace {
 
     return {
       main: {
-        label:
-          this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
+        label: isHorizontal ? this.yAxis : this.xAxis,
         value: point.value,
       },
       cross: {
-        label:
-          this.orientation === Orientation.HORIZONTAL ? this.xAxis : this.yAxis,
+        label: isHorizontal ? this.xAxis : this.yAxis,
         value: crossValue,
       },
       section: this.currentSegmentType ?? 'open',
       fill: { label: TREND, value: point.trend },
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
     };
   }
 

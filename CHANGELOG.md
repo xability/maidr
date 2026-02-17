@@ -1,3 +1,59 @@
+# [3.50.0](https://github.com/xability/maidr/compare/v3.49.0...v3.50.0) (2026-02-17)
+
+
+### Features
+
+* fix terse mode label announcements ([#525](https://github.com/xability/maidr/issues/525)) ([c2c5c27](https://github.com/xability/maidr/commit/c2c5c27b59ca359fb5c34860ffba7c81daf7bcf7))
+
+# [3.49.0](https://github.com/xability/maidr/compare/v3.48.1...v3.49.0) (2026-02-10)
+
+
+### Features
+
+* smooth stereo panning ([#518](https://github.com/xability/maidr/issues/518)) ([b464c87](https://github.com/xability/maidr/commit/b464c87aed31aafca1865d87c0d391f3efcd54db))
+
+## [3.48.1](https://github.com/xability/maidr/compare/v3.48.0...v3.48.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* resolve layer switching regression ([#519](https://github.com/xability/maidr/issues/519)) ([2433ce9](https://github.com/xability/maidr/commit/2433ce9134b8bd76d698c734e2c1e2ceaebcb2fc))
+
+# [3.48.0](https://github.com/xability/maidr/compare/v3.47.0...v3.48.0) (2026-01-31)
+
+
+### Features
+
+* fix audio panning for line plots ([#516](https://github.com/xability/maidr/issues/516)) ([47d6122](https://github.com/xability/maidr/commit/47d61221655642ed0c42b8ed97ac9b38b46388d3))
+
+# [3.47.0](https://github.com/xability/maidr/compare/v3.46.2...v3.47.0) (2026-01-30)
+
+
+### Features
+
+* support custom formatting ([#515](https://github.com/xability/maidr/issues/515)) ([52ee8bb](https://github.com/xability/maidr/commit/52ee8bb768269dc4c23196c9a9b1669e35e5722d))
+
+## [3.46.2](https://github.com/xability/maidr/compare/v3.46.1...v3.46.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* add back sine, square, sawtooth, triangle waveforms ([#514](https://github.com/xability/maidr/issues/514)) ([94f3db3](https://github.com/xability/maidr/commit/94f3db34e7a44ea94518a9d9417f1580db3a96d2))
+
+## [3.46.1](https://github.com/xability/maidr/compare/v3.46.0...v3.46.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* exit l scope when axis/figure metadata is present ([#513](https://github.com/xability/maidr/issues/513)) ([c19b2f5](https://github.com/xability/maidr/commit/c19b2f53daf7041fdf3668648de2b78a8a61455a))
+
+# [3.46.0](https://github.com/xability/maidr/compare/v3.45.0...v3.46.0) (2026-01-27)
+
+
+### Features
+
+* fix label scope freeze wherever data is not available ([#512](https://github.com/xability/maidr/issues/512)) ([ddc3de9](https://github.com/xability/maidr/commit/ddc3de99f66e284ceef828fb59f626ff5e16ef4a))
+
 # [3.45.0](https://github.com/xability/maidr/compare/v3.44.1...v3.45.0) (2026-01-19)
 
 
