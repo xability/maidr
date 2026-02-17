@@ -4,6 +4,7 @@ import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
 import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
+import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
@@ -28,7 +29,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   public readonly id: string;
-  protected readonly movable: Movable;
+  protected movable: Movable;
 
   private readonly title: string;
   private readonly subtitle: string;
@@ -38,7 +39,29 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   private readonly size: number;
 
   /**
-   * Creates a new Figure instance from MAIDR data
+   * Maps each data (row, col) to its 1-based visual position (top-left = 1).
+   * Populated by {@link applyLayout}; defaults to data-array order.
+   */
+  private visualOrderMap: Map<string, number>;
+
+  /**
+   * Whether pressing Up arrow should decrease the data row index
+   * (true when data row 0 is visually at the top).
+   * Set by {@link applyLayout}; defaults to `false`.
+   */
+  private invertVertical: boolean;
+
+  /**
+   * Total number of axes groups in the SVG.
+   * Set by {@link applyLayout}; used by the highlight getter.
+   */
+  private totalAxesCount: number;
+
+  /**
+   * Creates a new Figure instance from MAIDR data.
+   *
+   * After construction, call {@link applyLayout} with the result of
+   * `resolveSubplotLayout()` to set visual ordering and axes references.
    * @param maidr - The MAIDR data containing figure information and subplots
    */
   public constructor(maidr: Maidr) {
@@ -56,7 +79,71 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
 
-    this.movable = new MovableGrid<Subplot>(this.subplots, { row: this.subplots.length - 1 });
+    // Defaults until applyLayout() is called.
+    this.visualOrderMap = new Map<string, number>();
+    this.invertVertical = false;
+    this.totalAxesCount = 0;
+    this.movable = new MovableGrid<Subplot>(this.subplots);
+  }
+
+  /**
+   * Applies pre-computed visual layout data to this figure and its subplots.
+   *
+   * Must be called once after construction (and before the figure is used)
+   * with the result of `resolveSubplotLayout()`.
+   *
+   * @param layout - The pre-computed layout from the utility function.
+   */
+  public applyLayout(layout: SubplotLayout): void {
+    this.visualOrderMap = layout.visualOrderMap;
+    this.invertVertical = layout.invertVertical;
+    this.totalAxesCount = layout.totalAxesCount;
+
+    // Propagate axes element references to each subplot.
+    for (let r = 0; r < this.subplots.length; r++) {
+      for (let c = 0; c < this.subplots[r].length; c++) {
+        const axesEl = layout.axesElements.get(`${r},${c}`) ?? null;
+        this.subplots[r][c].setAxesElement(axesEl);
+      }
+    }
+
+    // Re-create movable starting at the visually top-left subplot.
+    this.movable = new MovableGrid<Subplot>(this.subplots, { row: layout.topLeftRow });
+  }
+
+  /**
+   * Overrides navigation to conditionally invert vertical direction.
+   * When data row 0 is at the visual top, we invert UPWARD/DOWNWARD so that
+   * pressing Up arrow moves toward lower row indices (visual top).
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    return super.moveOnce(this.adjustDirection(direction));
+  }
+
+  /**
+   * Overrides extreme navigation with the same directional adjustment.
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    return super.moveToExtreme(this.adjustDirection(direction));
+  }
+
+  /**
+   * Adjusts the navigation direction based on the data-to-visual mapping.
+   * Inverts UPWARD/DOWNWARD when the data array is ordered top-to-bottom
+   * (since MovableGrid maps UPWARD to row+1, but we need it to go to a lower row).
+   */
+  private adjustDirection(direction: MovableDirection): MovableDirection {
+    if (!this.invertVertical) {
+      return direction;
+    }
+    switch (direction) {
+      case 'UPWARD':
+        return 'DOWNWARD';
+      case 'DOWNWARD':
+        return 'UPWARD';
+      default:
+        return direction;
+    }
   }
 
   /**
@@ -96,10 +183,13 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       };
     }
 
-    const currentIndex
-      = this.col
-        + 1
-        + this.subplots.slice(0, this.row).reduce((sum, r) => sum + r.length, 0);
+    // Use the visual order map to determine the correct display index.
+    // This is data-ordering-agnostic: always shows top-left as "Subplot 1".
+    const key = `${this.row},${this.col}`;
+    const currentIndex = this.visualOrderMap.get(key);
+    if (currentIndex === undefined) {
+      console.warn(`[Figure] Visual order map missing key "${key}". Was applyLayout() called?`);
+    }
 
     const activeSubplot = this.activeSubplot;
 
@@ -110,7 +200,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       subtitle: this.subtitle,
       caption: this.caption,
       size: this.size,
-      index: currentIndex,
+      index: currentIndex ?? 1,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
       traceTypes: activeSubplot.traceTypes,
       highlight: this.highlight,
@@ -118,9 +208,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   protected get highlight(): HighlightState {
-    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
-
-    if (totalSubplots <= 1) {
+    if (this.totalAxesCount <= 1) {
       return {
         empty: true,
         type: 'trace',
@@ -133,38 +221,12 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       };
     }
 
-    try {
-      const numCols = this.subplots[0]?.length || 1;
-      const subplotIndex = this.row * numCols + this.col + 1;
-      const subplotSelector = `g[id="axes_${subplotIndex}"]`;
-      const subplotElement = document.querySelector(
-        subplotSelector,
-      ) as SVGElement;
-
-      if (subplotElement) {
-        return {
-          empty: false,
-          elements: subplotElement,
-        };
-      }
-
-      const allSubplots = document.querySelectorAll('g[id^="axes_"]');
-      if (allSubplots.length > 0 && subplotIndex - 1 < allSubplots.length) {
-        return {
-          empty: false,
-          elements: allSubplots[subplotIndex - 1] as SVGElement,
-        };
-      }
-    } catch (error) {
+    // Use the pre-resolved axes element (set by applyLayout).
+    const axesElement = this.activeSubplot.axesElement;
+    if (axesElement) {
       return {
-        empty: true,
-        type: 'trace',
-        audio: {
-          y: this.row,
-          x: this.col,
-          rows: this.subplots.length,
-          cols: this.subplots[this.row].length,
-        },
+        empty: false,
+        elements: axesElement,
       };
     }
 
@@ -214,6 +276,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   private readonly size: number;
   private readonly highlightValue: SVGElement | null;
   private readonly isViolinPlot: boolean;
+  private readonly layerSelector: string | null;
+
+  /**
+   * The pre-resolved parent `<g id="axes_*">` SVG element for this subplot.
+   * Set by {@link Figure.applyLayout} after construction; `null` until then.
+   */
+  private _axesElement: SVGElement | null = null;
 
   /**
    * Creates a new Subplot instance from MAIDR subplot data
@@ -224,6 +293,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
     const layers = subplot.layers;
     this.size = layers.length;
+
+    // Store the first layer's selector string for DOM-based axes lookup.
+    const firstLayerSelectors = layers[0]?.selectors;
+    this.layerSelector = typeof firstLayerSelectors === 'string'
+      ? firstLayerSelectors
+      : Array.isArray(firstLayerSelectors) && typeof firstLayerSelectors[0] === 'string'
+        ? firstLayerSelectors[0]
+        : null;
 
     // Structural detection for violin plots is done once at subplot level:
     // BOX + SMOOTH in the same subplot => violin plot.
@@ -350,6 +427,43 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     _figureCol: number,
   ): SubplotState {
     return this.state;
+  }
+
+  /**
+   * Returns the subplot's own SVG highlight element (resolved from `subplot.selector`).
+   * Used by the layout utility to locate the parent axes group.
+   * @returns The SVG element, or `null` if the subplot has no selector.
+   */
+  public getHighlightElement(): SVGElement | null {
+    return this.highlightValue;
+  }
+
+  /**
+   * Returns the CSS selector string from the first layer of this subplot.
+   * Used as a fallback by the layout utility when `getHighlightElement()` is `null`.
+   * @returns The selector string, or `null` if unavailable.
+   */
+  public getLayerSelector(): string | null {
+    return this.layerSelector;
+  }
+
+  /**
+   * Returns the pre-resolved parent `<g id="axes_*">` element for this subplot.
+   * This is set externally via {@link setAxesElement} during layout resolution
+   * and does not perform any DOM queries.
+   * @returns The axes SVGElement, or `null` if not resolved.
+   */
+  public get axesElement(): SVGElement | null {
+    return this._axesElement;
+  }
+
+  /**
+   * Sets the pre-resolved axes element for this subplot.
+   * Called by {@link Figure.applyLayout} during initialization.
+   * @param element - The axes SVGElement to store.
+   */
+  public setAxesElement(element: SVGElement | null): void {
+    this._axesElement = element;
   }
 
   private mapToSvgElement(selector?: string): SVGElement | null {

@@ -33,6 +33,7 @@ import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { resolveSubplotLayout } from '@util/subplotLayout';
 
 /**
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
@@ -81,6 +82,7 @@ export class Controller implements Disposable {
    */
   public constructor(maidr: Maidr, plot: HTMLElement) {
     this.figure = new Figure(maidr);
+    this.figure.applyLayout(resolveSubplotLayout(this.figure.subplots));
     this.context = new Context(this.figure);
 
     this.notificationService = new NotificationService();
@@ -174,6 +176,7 @@ export class Controller implements Disposable {
       highlightService: this.highlightService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
+      textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
@@ -196,6 +199,7 @@ export class Controller implements Disposable {
         highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -222,6 +226,7 @@ export class Controller implements Disposable {
         highlightService: this.highlightService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
