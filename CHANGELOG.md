@@ -1,3 +1,10 @@
+# [3.50.0](https://github.com/xability/maidr/compare/v3.49.0...v3.50.0) (2026-02-17)
+
+
+### Features
+
+* fix terse mode label announcements ([#525](https://github.com/xability/maidr/issues/525)) ([c2c5c27](https://github.com/xability/maidr/commit/c2c5c27b59ca359fb5c34860ffba7c81daf7bcf7))
+
 # [3.49.0](https://github.com/xability/maidr/compare/v3.48.1...v3.49.0) (2026-02-10)
 
 
