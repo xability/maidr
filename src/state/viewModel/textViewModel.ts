@@ -14,8 +14,10 @@ interface TextState {
   enabled: boolean;
   announce: boolean;
   value: string;
-  /** Monotonic counter that increments on every update (including same-text updates).
-   *  Used by the View to detect re-announcement requests without invisible characters. */
+  /**
+   * Monotonic counter that increments on every update (including same-text updates).
+   *  Used by the View to detect re-announcement requests without invisible characters.
+   */
   revision: number;
   message: string | null;
 }
