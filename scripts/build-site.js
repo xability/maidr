@@ -116,9 +116,14 @@ if (fs.existsSync(docsSource)) {
         fs.mkdirSync(docsSiteDest, { recursive: true });
       }
       const md = fs.readFileSync(src, 'utf-8');
-      const htmlContent = `<div class="content">${marked.parse(md)}</div>`;
+      const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
       const baseName = path.basename(file, path.extname(file));
-      const title = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+      const titleMap = {
+        SKIMA: 'Data Schema',
+        BRAILLE: 'Braille Generation',
+        CONTROLS: 'Keyboard Controls',
+      };
+      const title = titleMap[baseName] ?? baseName;
       const docPage = generatePage(title, htmlContent, '', '../');
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
     } else if (fs.statSync(src).isDirectory()) {
