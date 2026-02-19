@@ -250,14 +250,11 @@ export class Controller implements Disposable {
    * Announces the initial instruction to screen readers using a live region.
    */
   public announceInitialInstruction(): void {
-    // Prime the live region with an invisible separator to force a DOM-change event
-    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
-    this.notificationService.notify('\u2063');
-    setTimeout(() => {
-      this.notificationService.notify(
-        this.displayService.getInstruction(false),
-      );
-    }, 50);
+    const instruction = this.displayService.getInstruction(false);
+    // Use textViewModel.update() so the revision counter is bumped,
+    // which forces the View to re-mount the role="alert" element and
+    // triggers a screen-reader announcement.
+    this.textViewModel.update(instruction);
   }
 
   /**
