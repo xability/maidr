@@ -313,6 +313,10 @@ export class AnnouncePositionCommand extends DescribeCommand {
       // Single line plot: y=position within line, cols=total points
       this.announce1DPosition(y, cols);
     }
+    else if (traceType === TraceType.SCATTER) {
+      // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
+      this.announceScatter(x, y, rows, cols);
+    }
     // Default position announcement
     else if (this.is2DPlot(rows, cols)) {
       this.announce2DPosition(x, y, rows, cols);
@@ -477,4 +481,22 @@ export class AnnouncePositionCommand extends DescribeCommand {
       this.textViewModel.update(`${plotPrefix}, Position is ${pos} of ${totalPos}`);
     }
   }
+  /**
+   * Announces position for 2D plots (e.g., heatmaps).
+   */
+  private announceScatter(x: number, y: number, rows: number, cols: number): void {
+    const colPos = x + 1;
+    const rowPos = y + 1;
+
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
+      const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
+      this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
+    } else {
+      this.textViewModel.update(
+        `Column ${colPos} of ${cols}, row ${rowPos} of ${rows}`,
+      );
+    }
+  }
+
 }
