@@ -30,23 +30,23 @@
     <h2>Click on one of the examples below to see a demonstration</h2>
 
     <ul>
-        <li><a href="#" onclick="loadHTML('barplot.html')">Barplot</a></li>
-        <li><a href="#" onclick="loadHTML('candlestick_multilayer.html')">Candlestick multilayer</a></li>
-        <li><a href="#" onclick="loadHTML('dodged_barplot.html')">Dodged Barplot</a></li>
-        <li><a href="#" onclick="loadHTML('facet_barplot.html')">Faceted Bar plots</a></li>
-        <li><a href="#" onclick="loadHTML('heatmap.html')">Heatmap</a></li>
-        <li><a href="#" onclick="loadHTML('histogram.html')">Histogram</a></li>
-        <li><a href="#" onclick="loadHTML('horizontal-boxplot.html')">Horizontal box plot</a></li>
-        <li><a href="#" onclick="loadHTML('lineplot.html')">Single Line plot</a></li>
-        <li><a href="#" onclick="loadHTML('multiline_plot.html')">Multi line plot</a></li>
-        <li><a href="#" onclick="loadHTML('multilayer_plot.html')">Multi layered plot</a></li>
-        <li><a href="#" onclick="loadHTML('multipanel.html')">Multi panel plot</a></li>
-        <li><a href="#" onclick="loadHTML('scatter_plot.html')">Scatter plot</a></li>
-        <li><a href="#" onclick="loadHTML('smooth_plot.html')">Smooth plot</a></li>
-        <li><a href="#" onclick="loadHTML('stacked_bar.html')">Stacked Bar plot</a></li>
-        <li><a href="#" onclick="loadHTML('vertical-boxplot.html')">Vertical box plot</a></li>
-        <li><a href="#" onclick="loadHTML('vertical-candlestick.html')">Vertical candle stick plot</a></li>
-        <li><a href="#" onclick="loadHTML('violin.html')">Violin plot</a></li>
+        <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot')">Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer')">Candlestick multilayer</a></li>
+        <li><a href="#" onclick="loadHTML('dodged_barplot.html', 'Dodged Barplot')">Dodged Barplot</a></li>
+        <li><a href="#" onclick="loadHTML('facet_barplot.html', 'Faceted Bar plots')">Faceted Bar plots</a></li>
+        <li><a href="#" onclick="loadHTML('heatmap.html', 'Heatmap')">Heatmap</a></li>
+        <li><a href="#" onclick="loadHTML('histogram.html', 'Histogram')">Histogram</a></li>
+        <li><a href="#" onclick="loadHTML('horizontal-boxplot.html', 'Horizontal box plot')">Horizontal box plot</a></li>
+        <li><a href="#" onclick="loadHTML('lineplot.html', 'Single Line plot')">Single Line plot</a></li>
+        <li><a href="#" onclick="loadHTML('multiline_plot.html', 'Multi line plot')">Multi line plot</a></li>
+        <li><a href="#" onclick="loadHTML('multilayer_plot.html', 'Multi layered plot')">Multi layered plot</a></li>
+        <li><a href="#" onclick="loadHTML('multipanel.html', 'Multi panel plot')">Multi panel plot</a></li>
+        <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot')">Scatter plot</a></li>
+        <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot')">Smooth plot</a></li>
+        <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot')">Stacked Bar plot</a></li>
+        <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot')">Vertical box plot</a></li>
+        <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot')">Vertical candle stick plot</a></li>
+        <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot')">Violin plot</a></li>
     </ul>
 
     <div id="content" hidden="true">Select an example above.</div>
@@ -54,36 +54,37 @@
 </body>
 
 <script>
-    async function loadHTML(filename) {
+    function loadHTML(filename, headingText) {
         try {
-            const response = await fetch(filename);
-            let html = await response.text();
+            // Create heading element for better accessibility
+            const heading = document.createElement('h2');
+            heading.id = 'example-heading';
+            heading.textContent = headingText;
+            heading.tabIndex = -1; // Allow programmatic focus
+            heading.style.marginTop = '0';
 
-            // DIRECT literal string replacement
-            html = html.replace(
-                '<link rel="stylesheet" href="../src/ui/css/styles.css" />',
-                '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr_style.css" />'
-            );
+            // Create iframe
+            const iframe = document.createElement('iframe');
+            iframe.src = filename;
+            iframe.style.width = '100%';
+            iframe.style.height = '800px';
+            iframe.style.border = 'none';
 
-            html = html.replace(
-                '<script type="text/javascript" src="../dist/maidr.js"><\/script>',
-                '<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js"><\/script>'
-            );
-            html = '<!doctype html>' + html;
-            // Create a blob with the HTML
-            const blob = new Blob([html], { type: "text/html" });
+            // Update content with heading and iframe
+            const contentDiv = document.getElementById("content");
+            contentDiv.innerHTML = '';
+            contentDiv.appendChild(heading);
+            contentDiv.appendChild(iframe);
+            contentDiv.hidden = false;
 
-            // Create a temporary URL for the iframe
-            const url = URL.createObjectURL(blob);
-
-            // Inject iframe with the new URL
-            document.getElementById("content").innerHTML =
-                `<iframe src="${url}" style="width:100%; height:800px; border:none;"></iframe>`;
-            document.getElementById("content").hidden = false;
-
+            // Set focus to heading for accessibility
+            // Using setTimeout ensures the DOM is fully updated before focusing
+            setTimeout(() => {
+                heading.focus();
+            }, 100);
         } catch (err) {
             console.error(err);
-            document.getElementById("content").innerText = "Failed to load.";
+            document.getElementById("content").innerText = "Failed to load: " + err.message;
         }
     }
 </script>

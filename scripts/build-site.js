@@ -89,6 +89,14 @@ if (fs.existsSync(mediaSource)) {
   fs.cpSync(mediaSource, mediaDest, { recursive: true });
 }
 
+// Copy dist folder
+console.log('Copying dist folder...');
+const distSource = path.join(ROOT, 'dist');
+const distDest = path.join(SITE_DIR, 'dist');
+if (fs.existsSync(distSource)) {
+  fs.cpSync(distSource, distDest, { recursive: true });
+}
+
 // Copy examples folder
 console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');

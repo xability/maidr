@@ -72,7 +72,7 @@ For detailed encoding schemes for each plot type, see the [Braille Generation do
 
 ## Examples
 
-Example plots are demonstrated [here](https://xabilitylab.ischool.illinois.edu/maidr/).
+Example plots are demonstrated [here](examples.html).
 
 For more information, refer to the example HTML files provided in the directory docs/examples
 
