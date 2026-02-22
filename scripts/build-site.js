@@ -49,6 +49,7 @@ function generatePage(title, content, activePage) {
     .replace('{{TITLE}}', title)
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
+    .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
     .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
     .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '');
 
@@ -68,6 +69,20 @@ const readmeHtml = `
 `;
 const indexPage = generatePage('Home', readmeHtml, 'home');
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
+
+// Build react.html from docs/react.md
+console.log('Building react.html from docs/react.md...');
+const reactMdPath = path.join(ROOT, 'docs', 'react.md');
+if (fs.existsSync(reactMdPath)) {
+  const reactMd = fs.readFileSync(reactMdPath, 'utf-8');
+  const reactHtml = `
+<div class="content">
+  ${marked.parse(reactMd)}
+</div>
+`;
+  const reactPage = generatePage('React', reactHtml, 'react');
+  fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
+}
 
 // Build examples.html
 console.log('Building examples.html...');

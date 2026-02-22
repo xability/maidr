@@ -8,7 +8,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for the review feature containing the current review value.
  */
-interface ReviewState {
+export interface ReviewState {
   value: string;
 }
 

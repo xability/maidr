@@ -9,7 +9,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for application settings, extending the base Settings type.
  */
-interface SettingsState extends Settings {}
+export interface SettingsState extends Settings {}
 
 const initialState = DEFAULT_SETTINGS;
 

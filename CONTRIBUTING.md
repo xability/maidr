@@ -221,6 +221,63 @@ The documentation will automatically deploy when you push to:
 - main branch
 - docs/jsdoc branch (for testing)
 
+## React Component Development
+
+MAIDR exposes a reusable `<Maidr>` React component via the `maidr/react` export. Here's what you need to know when working on it:
+
+### Build Commands
+
+```shell
+npm run build          # Builds both vanilla JS bundle and React library
+npm run build:script   # Builds only the vanilla JS bundle (dist/maidr.js)
+npm run build:react    # Builds only the React library (dist/react.mjs + dist/react.d.mts)
+```
+
+The React build uses a separate Vite config (`vite.react.config.ts`) and TypeScript config (`tsconfig.build.json`).
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/maidr-component.tsx` | The `<Maidr>` React component |
+| `src/react-entry.ts` | Public API barrel export for `maidr/react` |
+| `src/state/hook/useMaidrController.ts` | Controller lifecycle hook (focus/blur, create/dispose) |
+| `src/state/context.ts` | React Context for per-instance dependency injection |
+| `src/state/store.ts` | Redux store factory (`createMaidrStore()`) |
+| `vite.react.config.ts` | Vite build config for React library |
+| `tsconfig.build.json` | TypeScript config for declaration generation |
+
+### Testing with the Test App
+
+A local test app exists at `test-react-app/` (git-ignored) for verifying the React component:
+
+```shell
+# 1. Build the maidr library first
+npm run build
+
+# 2. If the test app doesn't exist yet, create it:
+npm create vite@latest test-react-app -- --template react-ts
+cd test-react-app
+npm install
+npm install ..   # Install local maidr as a dependency
+
+# 3. If the test app already exists:
+cd test-react-app
+npm install      # Re-links the local maidr package
+
+# 4. Run the test app
+npm run dev
+```
+
+The test app imports `Maidr` from `maidr/react` and wraps a bar chart SVG, allowing you to verify focus/blur lifecycle, audio sonification, text descriptions, keyboard navigation, and visual highlighting.
+
+### Architecture Notes
+
+- Each `<Maidr>` instance creates its own isolated Redux store (no global singletons)
+- The Controller is created on focus-in and disposed on focus-out
+- React Context (`MaidrContext`) provides per-instance `viewModelRegistry` and `commandExecutor`
+- React and ReactDOM are **peer dependencies** (not bundled into the library)
+
 ## Code of Conduct
 
 Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.

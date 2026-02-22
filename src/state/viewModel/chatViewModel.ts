@@ -11,7 +11,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * Represents the state of the chat interface.
  */
-interface ChatState {
+export interface ChatState {
   messages: Message[];
   suggestions: Suggestion[];
 }

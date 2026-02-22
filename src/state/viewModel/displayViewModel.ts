@@ -8,7 +8,7 @@ import { AbstractViewModel } from '@state/viewModel/viewModel';
 /**
  * Represents the state of a tooltip UI element.
  */
-interface TooltipState {
+export interface TooltipState {
   visible: boolean;
   value: string;
 }
@@ -16,7 +16,7 @@ interface TooltipState {
 /**
  * Represents the state of display UI elements including focus and tooltips.
  */
-interface DisplayState {
+export interface DisplayState {
   focus: Focus | null;
   tooltip: TooltipState;
 }

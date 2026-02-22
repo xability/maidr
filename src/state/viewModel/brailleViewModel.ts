@@ -8,7 +8,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * Represents the state of the braille display.
  */
-interface BrailleState {
+export interface BrailleState {
   value: string;
   index: number;
 }
