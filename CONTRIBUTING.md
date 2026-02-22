@@ -237,15 +237,15 @@ The React build uses a separate Vite config (`vite.react.config.ts`) and TypeScr
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/maidr-component.tsx` | The `<Maidr>` React component |
-| `src/react-entry.ts` | Public API barrel export for `maidr/react` |
+| File                                   | Purpose                                                |
+| -------------------------------------- | ------------------------------------------------------ |
+| `src/maidr-component.tsx`              | The `<Maidr>` React component                          |
+| `src/react-entry.ts`                   | Public API barrel export for `maidr/react`             |
 | `src/state/hook/useMaidrController.ts` | Controller lifecycle hook (focus/blur, create/dispose) |
-| `src/state/context.ts` | React Context for per-instance dependency injection |
-| `src/state/store.ts` | Redux store factory (`createMaidrStore()`) |
-| `vite.react.config.ts` | Vite build config for React library |
-| `tsconfig.build.json` | TypeScript config for declaration generation |
+| `src/state/context.ts`                 | React Context for per-instance dependency injection    |
+| `src/state/store.ts`                   | Redux store factory (`createMaidrStore()`)             |
+| `vite.react.config.ts`                 | Vite build config for React library                    |
+| `tsconfig.build.json`                  | TypeScript config for declaration generation           |
 
 ### Testing with the Test App
 
