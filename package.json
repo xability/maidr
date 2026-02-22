@@ -16,7 +16,6 @@
     }
   },
   "main": "dist/maidr.js",
-  "types": "dist/react.d.mts",
   "files": [
     "dist"
   ],

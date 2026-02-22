@@ -300,6 +300,7 @@ export class Controller implements Disposable {
   public dispose(): void {
     this.keybinding.unregister();
     this.mousebinding.dispose();
+    this.commandExecutor.dispose();
 
     this.viewModelRegistry.dispose();
     this.settingsViewModel.dispose();

@@ -1,12 +1,13 @@
 import type { Keys, Scope } from '@type/event';
 import { useMaidrContext } from '@state/context';
-import { useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 /**
  * Custom hook that provides command execution functionality and current scope.
  * Retrieves the CommandExecutor from the MAIDR context (per-instance DI).
- * The scope is read directly from the CommandExecutor on each render to
- * avoid stale state from a one-time useState initialization.
+ * The scope is subscribed to reactively via useSyncExternalStore so that
+ * components re-render when the scope changes (e.g. switching from TRACE
+ * to BRAILLE mode).
  * @returns Object containing executeCommand function and currentScope
  */
 export function useCommandExecutor(): {
@@ -22,8 +23,23 @@ export function useCommandExecutor(): {
     [commandExecutor],
   );
 
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const disposable = commandExecutor.onScopeChange(onStoreChange);
+      return () => disposable.dispose();
+    },
+    [commandExecutor],
+  );
+
+  const getSnapshot = useCallback(
+    () => commandExecutor.getCurrentScope(),
+    [commandExecutor],
+  );
+
+  const currentScope = useSyncExternalStore(subscribe, getSnapshot);
+
   return {
     executeCommand,
-    currentScope: commandExecutor.getCurrentScope(),
+    currentScope,
   };
 }

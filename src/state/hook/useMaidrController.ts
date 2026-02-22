@@ -77,6 +77,11 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       clearTimeout(focusOutTimerRef.current);
       focusOutTimerRef.current = null;
     }
+    // Cancel any previously queued focus-in to avoid duplicate timers.
+    if (focusInTimerRef.current) {
+      clearTimeout(focusInTimerRef.current);
+      focusInTimerRef.current = null;
+    }
     // Allow React to process all events before focusing in.
     focusInTimerRef.current = setTimeout(() => {
       focusInTimerRef.current = null;
@@ -96,6 +101,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   }, []);
 
   const onFocusOut = useCallback((): void => {
+    // Cancel any pending focus-in to prevent a stale focus-in from firing
+    // after focus has already left the figure.
+    if (focusInTimerRef.current) {
+      clearTimeout(focusInTimerRef.current);
+      focusInTimerRef.current = null;
+    }
     // Allow React to process all events before focusing out.
     focusOutTimerRef.current = setTimeout(() => {
       focusOutTimerRef.current = null;
@@ -113,6 +124,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
 
   const onVisibilityChange = useCallback((): void => {
     if (document.visibilityState === 'visible') {
+      // Only recreate the controller if the chart previously had focus.
+      // Without this guard, switching tabs would create a Controller for
+      // every mounted <Maidr> instance, even ones never interacted with.
+      if (!controllerRef.current)
+        return;
+
       if (focusInTimerRef.current) {
         clearTimeout(focusInTimerRef.current);
         focusInTimerRef.current = null;
@@ -122,7 +139,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         focusOutTimerRef.current = null;
       }
       disposeController();
-      const ctrl = createController();
+      const ctrl = createControllerRef.current();
       if (!ctrl)
         return;
       controllerRef.current = ctrl;
@@ -130,7 +147,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       ctrl.initializeHighContrast();
       hasAnnouncedRef.current = false;
     }
-  }, [createController, disposeController]);
+  }, [disposeController]);
 
   // Register visibility change listener.
   useEffect(() => {
