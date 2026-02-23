@@ -1,3 +1,4 @@
+import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr } from '@type/grammar';
 import { Context } from '@model/context';
@@ -21,7 +22,6 @@ import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
-import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -74,13 +74,16 @@ export class Controller implements Disposable {
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
   private readonly commandExecutor: CommandExecutor;
+  private readonly viewModelRegistry: ViewModelRegistry;
 
   /**
    * Initializes the controller with all necessary services, view models, and bindings.
    * @param maidr - The MAIDR configuration object containing plot data and settings
    * @param plot - The HTML element containing the plot to be made accessible
+   * @param store - The Redux store instance for this plot's state management
    */
-  public constructor(maidr: Maidr, plot: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement, store: AppStore) {
+    this.viewModelRegistry = new ViewModelRegistry();
     this.figure = new Figure(maidr);
     this.figure.applyLayout(resolveSubplotLayout(this.figure.subplots));
     this.context = new Context(this.figure);
@@ -297,8 +300,9 @@ export class Controller implements Disposable {
   public dispose(): void {
     this.keybinding.unregister();
     this.mousebinding.dispose();
+    this.commandExecutor.dispose();
 
-    ViewModelRegistry.instance.dispose();
+    this.viewModelRegistry.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
@@ -308,6 +312,7 @@ export class Controller implements Disposable {
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
+    this.rotorNavigationViewModel.dispose();
 
     this.highContrastService.dispose();
     this.highlightService.dispose();
@@ -327,28 +332,31 @@ export class Controller implements Disposable {
   }
 
   /**
-   * Registers all view models with the central registry for global access.
+   * Returns the context value for React dependency injection.
+   * Used by the React component tree to access view models and command executor.
+   */
+  public getContextValue(): { viewModelRegistry: ViewModelRegistry; commandExecutor: CommandExecutor } {
+    return {
+      viewModelRegistry: this.viewModelRegistry,
+      commandExecutor: this.commandExecutor,
+    };
+  }
+
+  /**
+   * Registers all view models with this controller's registry.
    */
   private registerViewModels(): void {
-    ViewModelRegistry.instance.register('text', this.textViewModel);
-    ViewModelRegistry.instance.register('braille', this.brailleViewModel);
-    ViewModelRegistry.instance.register(
-      'goToExtrema',
-      this.goToExtremaViewModel,
-    );
-    ViewModelRegistry.instance.register('review', this.reviewViewModel);
-    ViewModelRegistry.instance.register('display', this.displayViewModel);
-    ViewModelRegistry.instance.register('help', this.helpViewModel);
-    ViewModelRegistry.instance.register('chat', this.chatViewModel);
-    ViewModelRegistry.instance.register('settings', this.settingsViewModel);
-    ViewModelRegistry.instance.register(
-      'commandPalette',
-      this.commandPaletteViewModel,
-    );
-    ViewModelRegistry.instance.register(
-      'commandExecutor',
-      this.commandExecutor,
-    );
+    this.viewModelRegistry.register('text', this.textViewModel);
+    this.viewModelRegistry.register('braille', this.brailleViewModel);
+    this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
+    this.viewModelRegistry.register('review', this.reviewViewModel);
+    this.viewModelRegistry.register('display', this.displayViewModel);
+    this.viewModelRegistry.register('help', this.helpViewModel);
+    this.viewModelRegistry.register('chat', this.chatViewModel);
+    this.viewModelRegistry.register('settings', this.settingsViewModel);
+    this.viewModelRegistry.register('commandPalette', this.commandPaletteViewModel);
+    this.viewModelRegistry.register('commandExecutor', this.commandExecutor);
+    this.viewModelRegistry.register('rotor', this.rotorNavigationViewModel);
   }
 
   /**

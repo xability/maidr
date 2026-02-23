@@ -29,6 +29,13 @@
     <h1>MAIDR Examples</h1>
     <h2>Click on one of the examples below to see a demonstration</h2>
 
+    <h3>React</h3>
+    <ul>
+        <li><a href="#" onclick="loadReact()">React Examples (Bar, Line, Smooth)</a></li>
+    </ul>
+    <p>See the <a href="../react.html" target="_top">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
+
+    <h3>HTML / Vanilla JS</h3>
     <ul>
         <li><a href="#" onclick="loadHTML('barplot.html')">Barplot</a></li>
         <li><a href="#" onclick="loadHTML('candlestick_multilayer.html')">Candlestick multilayer</a></li>
@@ -54,6 +61,12 @@
 </body>
 
 <script>
+    function loadReact() {
+        document.getElementById("content").innerHTML =
+            `<iframe src="react/index.html" style="width:100%; height:800px; border:none;"></iframe>`;
+        document.getElementById("content").hidden = false;
+    }
+
     async function loadHTML(filename) {
         try {
             const response = await fetch(filename);

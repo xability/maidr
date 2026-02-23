@@ -10,7 +10,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for text display and announcement functionality.
  */
-interface TextState {
+export interface TextState {
   enabled: boolean;
   announce: boolean;
   value: string;

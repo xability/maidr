@@ -17,15 +17,16 @@ and encourages a multi-modal exploration on visualization.
 ## Table of Contents
 
 1. [Usage](#usage)
-2. [Examples](#examples)
-3. [Controls](#controls)
-4. [Braille Generation](#braille-generation)
-5. [API](#api)
-6. [Binders](#binders)
-7. [Papers](#papers)
-8. [License](#license)
-9. [Contact](#contact)
-10. [Acknowledgments](#acknowledgments)
+2. [React Integration](#react-integration)
+3. [Examples](#examples)
+4. [Controls](#controls)
+5. [Braille Generation](#braille-generation)
+6. [API](#api)
+7. [Binders](#binders)
+8. [Papers](#papers)
+9. [License](#license)
+10. [Contact](#contact)
+11. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
@@ -391,10 +392,55 @@ maidr = {
 ```
 
 
+## React Integration
+
+MAIDR provides a React component for use in React applications. Install via npm:
+
+```bash
+npm install maidr
+```
+
+Then import and use the `<Maidr>` component:
+
+```tsx
+import { Maidr } from 'maidr/react';
+import type { MaidrData } from 'maidr/react';
+
+const chartData: MaidrData = {
+  id: 'my-chart',
+  title: 'Sales by Quarter',
+  subplots: [[{
+    layers: [{
+      id: '0',
+      type: 'bar',
+      axes: { x: 'Quarter', y: 'Revenue' },
+      data: [
+        { x: 'Q1', y: 120 },
+        { x: 'Q2', y: 200 },
+        { x: 'Q3', y: 150 },
+        { x: 'Q4', y: 280 },
+      ],
+    }],
+  }]],
+};
+
+function App() {
+  return (
+    <Maidr data={chartData}>
+      <svg>{/* Your chart SVG */}</svg>
+    </Maidr>
+  );
+}
+```
+
+Each `<Maidr>` instance is fully isolated — you can render multiple accessible charts on the same page. Requires React 18 or 19.
+
+For the full React guide with TypeScript types reference, data examples for all plot types, and advanced usage, see the [React documentation](https://xabilitylab.ischool.illinois.edu/maidr/react.html).
+
 ## Examples
 Example plots are demonstrated [here](https://xabilitylab.ischool.illinois.edu/maidr/).
 
-For more information, refer to the example HTML files provided in the directory docs/examples
+For more information, refer to the example HTML files provided in the directory examples
 
 ## Controls
 

@@ -182,4 +182,6 @@ playwright-report/
 
 # Site
 _site/
+
+# Test React app (local verification only)
 test-react-app/

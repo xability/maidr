@@ -13,7 +13,7 @@ interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
 }
 
-interface GoToExtremaState {
+export interface GoToExtremaState {
   visible: boolean;
   targets: any[];
   selectedIndex: number;

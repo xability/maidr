@@ -10,7 +10,7 @@ import { Scope } from '@type/event';
 /**
  * Represents a single command item in the command palette.
  */
-interface CommandItem {
+export interface CommandItem {
   key: string;
   description: string;
   commandKey: Keys;
@@ -19,7 +19,7 @@ interface CommandItem {
 /**
  * Represents the state of the command palette interface.
  */
-interface CommandPaletteState {
+export interface CommandPaletteState {
   visible: boolean;
   commands: CommandItem[];
   selectedIndex: number;
