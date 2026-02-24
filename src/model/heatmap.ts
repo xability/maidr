@@ -114,7 +114,12 @@ export class Heatmap extends AbstractTrace {
     const numCols = this.heatmapValues[0].length;
     const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
-      return null;
+      // Clean up clones created by selectAllElements that won't be used
+      for (const el of domElements) {
+        el.remove();
+      }
+      // Try overlay approach for rasterized heatmaps (e.g., Plotly)
+      return this.createOverlayElements(selector, numRows, numCols);
     }
 
     const svgElements = new Array<Array<SVGElement>>();
@@ -328,5 +333,102 @@ export class Heatmap extends AbstractTrace {
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
     };
+  }
+
+  /**
+   * Creates SVG rect overlay elements for rasterized heatmaps (e.g., Plotly)
+   * where individual cell elements don't exist in the DOM.
+   * @param selector - CSS selector that may match the heatmap image or container
+   * @param numRows - Number of rows in the heatmap grid
+   * @param numCols - Number of columns in the heatmap grid
+   * @returns 2D array of SVG rect elements or null if image not found
+   */
+  private createOverlayElements(
+    selector: string,
+    numRows: number,
+    numCols: number,
+  ): SVGElement[][] | null {
+    const imageElement = this.findHeatmapImage(selector);
+    if (!imageElement) {
+      return null;
+    }
+
+    const bbox = (imageElement as SVGGraphicsElement).getBBox();
+    if (bbox.width === 0 || bbox.height === 0) {
+      return null;
+    }
+
+    const parentGroup = imageElement.parentElement;
+    if (!parentGroup) {
+      return null;
+    }
+
+    const cellWidth = bbox.width / numCols;
+    const cellHeight = bbox.height / numRows;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const svgElements: SVGElement[][] = [];
+
+    for (let r = 0; r < numRows; r++) {
+      const row: SVGElement[] = [];
+      for (let c = 0; c < numCols; c++) {
+        const rect = document.createElementNS(SVG_NS, 'rect') as SVGRectElement;
+        rect.setAttribute('x', String(bbox.x + c * cellWidth));
+        rect.setAttribute('y', String(bbox.y + r * cellHeight));
+        rect.setAttribute('width', String(cellWidth));
+        rect.setAttribute('height', String(cellHeight));
+        rect.setAttribute('fill', 'transparent');
+        rect.setAttribute('stroke', 'transparent');
+        rect.setAttribute('visibility', 'hidden');
+
+        parentGroup.appendChild(rect);
+        row.push(rect);
+      }
+      svgElements.push(row);
+    }
+
+    return svgElements;
+  }
+
+  /**
+   * Finds the rasterized image element for a heatmap rendered as a single image
+   * (e.g., Plotly heatmaps).
+   * @param selector - CSS selector to start searching from
+   * @returns The SVG image element or null if not found
+   */
+  private findHeatmapImage(selector: string): SVGElement | null {
+    // Try the selector directly - it might match an image element
+    const elements = document.querySelectorAll(selector);
+    for (const el of elements) {
+      if (el instanceof SVGImageElement) {
+        return el;
+      }
+    }
+
+    // If the selector matches a container, look for an image inside it
+    if (elements.length > 0) {
+      const firstEl = elements[0];
+      if (firstEl instanceof Element) {
+        const img = firstEl.querySelector('image');
+        if (img instanceof SVGElement) {
+          return img;
+        }
+        // Also check the parent group for an image sibling
+        const parent = firstEl.closest('g');
+        if (parent) {
+          const siblingImg = parent.querySelector('image');
+          if (siblingImg instanceof SVGElement) {
+            return siblingImg;
+          }
+        }
+      }
+    }
+
+    // Try Plotly-specific DOM structure: .heatmaplayer > .hm > image
+    const plotlyImage = document.querySelector('.heatmaplayer image');
+    if (plotlyImage instanceof SVGElement) {
+      return plotlyImage;
+    }
+
+    return null;
   }
 }
