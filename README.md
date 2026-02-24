@@ -53,12 +53,12 @@ To use maidr, follow these steps:
    </html>
    ```
 
-3. **Add your data**: Define the maidr JSON schema for your plot. See the [Data Schema](docs/SKIMA.md) documentation for the full schema structure, object properties, and data formats for each plot type.
+3. **Add your data**: Define the maidr JSON schema for your plot. See the [Data Schema](docs/SCHEMA.md) documentation for the full schema structure, object properties, and data formats for each plot type.
 
 ## Data Schema
 
 The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, histograms, and segmented bar plots.
-For the full schema structure, object properties, and data formats, see the [Data Schema documentation](docs/SKIMA.md).
+For the full schema structure, object properties, and data formats, see the [Data Schema documentation](docs/SCHEMA.md).
 
 ## React Integration
 
@@ -117,9 +117,9 @@ For detailed encoding schemes for each plot type, see the [Braille Generation do
 
 ## Examples
 
-Example plots are demonstrated [here](examples.html).
+Example plots are demonstrated [here](https://xabilitylab.ischool.illinois.edu/maidr/).
 
-For more information, refer to the example HTML files provided in the directory docs/examples
+For more information, refer to the example HTML files provided in the directory examples/
 
 ## Binders
 

@@ -63,6 +63,8 @@ const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
 let readmeContentHtml = markdownToHtml(readme);
 // Rewrite docs/*.md links to docs/*.html for the built site
 readmeContentHtml = readmeContentHtml.replace(/href="docs\/([^"]+)\.[mM][dD]"/g, 'href="docs/$1.html"');
+// React docs are built at root level, not in docs/ subdirectory
+readmeContentHtml = readmeContentHtml.replace(/href="docs\/react\.html"/g, 'href="react.html"');
 const readmeHtml = `
 <div class="hero">
   <img src="media/logo.svg" alt="MAIDR Logo" />
@@ -126,7 +128,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -142,7 +144,7 @@ if (fs.existsSync(docsSource)) {
       const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
       const baseName = path.basename(file, path.extname(file));
       const titleMap = {
-        SKIMA: 'Data Schema',
+        SCHEMA: 'Data Schema',
         BRAILLE: 'Braille Generation',
         CONTROLS: 'Keyboard Controls',
       };
