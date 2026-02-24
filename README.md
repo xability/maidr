@@ -103,7 +103,7 @@ function App() {
 
 Each `<Maidr>` instance is fully isolated — you can render multiple accessible charts on the same page. Requires React 18 or 19.
 
-For the full React guide with TypeScript types reference, data examples for all plot types, and advanced usage, see the [React documentation](react.html).
+For the full React guide with TypeScript types reference, data examples for all plot types, and advanced usage, see the [React documentation](docs/react.md).
 
 ## Controls
 
