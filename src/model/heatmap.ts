@@ -349,11 +349,11 @@ export class Heatmap extends AbstractTrace {
     numCols: number,
   ): SVGElement[][] | null {
     const imageElement = this.findHeatmapImage(selector);
-    if (!imageElement) {
+    if (!(imageElement instanceof SVGGraphicsElement)) {
       return null;
     }
 
-    const bbox = (imageElement as SVGGraphicsElement).getBBox();
+    const bbox = imageElement.getBBox();
     if (bbox.width === 0 || bbox.height === 0) {
       return null;
     }
@@ -424,7 +424,13 @@ export class Heatmap extends AbstractTrace {
     }
 
     // Try Plotly-specific DOM structure: .heatmaplayer > .hm > image
-    const plotlyImage = document.querySelector('.heatmaplayer image');
+    // Scope search to the closest SVG ancestor of the selector match to avoid
+    // matching heatmap images from other plots on the same page.
+    const scopeRoot = elements.length > 0
+      ? elements[0].closest('svg')
+      : null;
+    const searchRoot = scopeRoot ?? document;
+    const plotlyImage = searchRoot.querySelector('.heatmaplayer image');
     if (plotlyImage instanceof SVGElement) {
       return plotlyImage;
     }
