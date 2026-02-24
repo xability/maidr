@@ -106,23 +106,28 @@ export class DisplayService implements Disposable {
     this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
     this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+    this.plot.removeAttribute(Constant.ARIA_ROLEDESCRIPTION);
     this.plot.tabIndex = 0;
   }
 
   /**
    * Removes or updates instruction ARIA labels when entering interactive mode.
+   * Uses role="graphics-document" to preserve screen reader navigation (e.g. "g" key)
+   * while indicating this is an interactive graphical document.
    */
   private removeInstruction(): void {
     const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
     if (instruction) {
       this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
       this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+      this.plot.setAttribute(Constant.ROLE, Constant.GRAPHICS_DOCUMENT);
+      this.plot.setAttribute(Constant.ARIA_ROLEDESCRIPTION, 'interactive chart');
       this.plot.tabIndex = 0;
     } else {
       this.plot.removeAttribute(Constant.ARIA_LABEL);
       this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+      this.plot.setAttribute(Constant.ROLE, Constant.GRAPHICS_DOCUMENT);
+      this.plot.setAttribute(Constant.ARIA_ROLEDESCRIPTION, 'interactive chart');
       this.plot.tabIndex = 0;
     }
   }
@@ -208,7 +213,8 @@ export class DisplayService implements Disposable {
           this.plot.removeAttribute(Constant.ARIA_LABEL);
         }
 
-        this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+        this.plot.setAttribute(Constant.ROLE, Constant.GRAPHICS_DOCUMENT);
+        this.plot.setAttribute(Constant.ARIA_ROLEDESCRIPTION, 'interactive chart');
         this.plot.focus();
         if (!this.hasEnteredInteractive) {
           this.hasEnteredInteractive = true;

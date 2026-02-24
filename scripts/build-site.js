@@ -90,10 +90,104 @@ if (fs.existsSync(reactMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
-// Build examples.html
+// Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
-<iframe src="examples/example-gallery.html" class="examples-frame" title="MAIDR Examples"></iframe>
+<style>
+  .examples-gallery { padding: 20px; }
+  .examples-gallery ul a { display: block; margin: 8px 0; font-size: 18px; cursor: pointer; }
+  .examples-gallery #content { margin-top: 40px; padding: 20px; border: 1px solid #ccc; }
+</style>
+<div class="examples-gallery">
+  <h1>MAIDR Examples</h1>
+  <h2>Click on one of the examples below to see a demonstration</h2>
+
+  <h3>React</h3>
+  <ul>
+    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth)</a></li>
+  </ul>
+  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
+
+  <h3>HTML / Vanilla JS</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot'); return false;">Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer'); return false;">Candlestick multilayer</a></li>
+    <li><a href="#" onclick="loadHTML('dodged_barplot.html', 'Dodged Barplot'); return false;">Dodged Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('facet_barplot.html', 'Faceted Bar plots'); return false;">Faceted Bar plots</a></li>
+    <li><a href="#" onclick="loadHTML('heatmap.html', 'Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('histogram.html', 'Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('horizontal-boxplot.html', 'Horizontal box plot'); return false;">Horizontal box plot</a></li>
+    <li><a href="#" onclick="loadHTML('lineplot.html', 'Single Line plot'); return false;">Single Line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multiline_plot.html', 'Multi line plot'); return false;">Multi line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multilayer_plot.html', 'Multi layered plot'); return false;">Multi layered plot</a></li>
+    <li><a href="#" onclick="loadHTML('multipanel.html', 'Multi panel plot'); return false;">Multi panel plot</a></li>
+    <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot'); return false;">Scatter plot</a></li>
+    <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot'); return false;">Smooth plot</a></li>
+    <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot'); return false;">Stacked Bar plot</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot'); return false;">Vertical box plot</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
+    <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>
+  </ul>
+
+  <div id="content" hidden="true">Select an example above.</div>
+</div>
+
+<script>
+  function loadReact() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'React Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/react/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'React Examples';
+    iframe.setAttribute('aria-label', 'React example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadHTML(filename, headingText) {
+    try {
+      var heading = document.createElement('h2');
+      heading.id = 'example-heading';
+      heading.textContent = headingText;
+      heading.tabIndex = -1;
+      heading.style.marginTop = '0';
+
+      var iframe = document.createElement('iframe');
+      iframe.src = 'examples/' + filename;
+      iframe.style.width = '100%';
+      iframe.style.height = '800px';
+      iframe.style.border = 'none';
+      iframe.tabIndex = 0;
+      iframe.title = headingText + ' example';
+      iframe.setAttribute('aria-label', headingText + ' example demonstration');
+
+      var contentDiv = document.getElementById('content');
+      contentDiv.innerHTML = '';
+      contentDiv.appendChild(heading);
+      contentDiv.appendChild(iframe);
+      contentDiv.hidden = false;
+
+      setTimeout(function() { heading.focus(); }, 100);
+    } catch (err) {
+      console.error(err);
+      document.getElementById('content').innerText = 'Failed to load: ' + err.message;
+    }
+  }
+</script>
 `;
 const examplesPage = generatePage('Examples', examplesContent, 'examples');
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
