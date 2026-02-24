@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- 2. Load MAIDR (standalone script-tag build) -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+
+    <!--
+      3. Load MAIDR Google Charts adapter.
+         In a bundled project you would instead:
+           import { createMaidrFromGoogleChart } from 'maidr/google-charts';
+    -->
+    <script type="module">
+      // When using the ESM bundle directly (no bundler), import from the dist file.
+      import { createMaidrFromGoogleChart } from '../dist/google-charts.mjs';
+
+      // --- Bar Chart (ColumnChart) example ---
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawBarChart();
+        drawLineChart();
+        drawScatterChart();
+      }
+
+      // ---------------------------------------------------------------
+      // Bar / Column Chart
+      // ---------------------------------------------------------------
+      function drawBarChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Day', 'Tips'],
+          ['Sat', 87],
+          ['Sun', 76],
+          ['Thur', 62],
+          ['Fri', 19],
+        ]);
+
+        var container = document.getElementById('bar-chart');
+        var chart = new google.visualization.ColumnChart(container);
+
+        google.visualization.events.addListener(chart, 'ready', function () {
+          var maidr = createMaidrFromGoogleChart(chart, data, container, {
+            chartType: 'ColumnChart',
+            title: 'The Number of Tips by Day',
+          });
+          // Attach the MAIDR schema so the script-tag build picks it up.
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+
+        chart.draw(data, {
+          title: 'The Number of Tips by Day',
+          legend: { position: 'none' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Line Chart
+      // ---------------------------------------------------------------
+      function drawLineChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Year', 'Sales', 'Expenses'],
+          ['2020', 1000, 400],
+          ['2021', 1170, 460],
+          ['2022', 660, 1120],
+          ['2023', 1030, 540],
+        ]);
+
+        var container = document.getElementById('line-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        google.visualization.events.addListener(chart, 'ready', function () {
+          var maidr = createMaidrFromGoogleChart(chart, data, container, {
+            chartType: 'LineChart',
+            title: 'Company Performance',
+          });
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+
+        chart.draw(data, {
+          title: 'Company Performance',
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Scatter Chart
+      // ---------------------------------------------------------------
+      function drawScatterChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Age', 'Weight'],
+          [8, 12],
+          [4, 5.5],
+          [11, 14],
+          [4, 5],
+          [3, 3.5],
+          [6.5, 7],
+        ]);
+
+        var container = document.getElementById('scatter-chart');
+        var chart = new google.visualization.ScatterChart(container);
+
+        google.visualization.events.addListener(chart, 'ready', function () {
+          var maidr = createMaidrFromGoogleChart(chart, data, container, {
+            chartType: 'ScatterChart',
+            title: 'Age vs. Weight',
+          });
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+
+        chart.draw(data, {
+          title: 'Age vs. Weight',
+          hAxis: { title: 'Age' },
+          vAxis: { title: 'Weight' },
+          legend: 'none',
+          width: 600,
+          height: 400,
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts Integration</h1>
+    <p>
+      Each chart below is rendered by Google Charts and then made accessible
+      via MAIDR. Click on a chart and use keyboard navigation (arrow keys) to
+      explore the data through audio, text, and braille.
+    </p>
+
+    <h2>Column Chart</h2>
+    <div id="bar-chart" class="chart-container"></div>
+
+    <h2>Line Chart</h2>
+    <div id="line-chart" class="chart-container"></div>
+
+    <h2>Scatter Chart</h2>
+    <div id="scatter-chart" class="chart-container"></div>
+  </body>
+</html>
