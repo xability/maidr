@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Highcharts Example</title>
+    <!-- Highcharts from CDN -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <!-- MAIDR script-tag build (auto-discovers maidr-data attributes) -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <!-- MAIDR Highcharts adapter (provides highchartsToMaidr on window) -->
+    <script type="module">
+      import { highchartsToMaidr, createHighchartsSync } from '../dist/highcharts.mjs';
+
+      document.addEventListener('DOMContentLoaded', () => {
+        // 1. Render a Highcharts chart.
+        const chart = Highcharts.chart('chart-container', {
+          chart: { type: 'column' },
+          title: { text: 'Fruit Consumption' },
+          xAxis: {
+            categories: ['Apples', 'Bananas', 'Oranges', 'Grapes', 'Strawberries'],
+            title: { text: 'Fruit' },
+          },
+          yAxis: { title: { text: 'Quantity Consumed' } },
+          series: [
+            {
+              name: 'Sales',
+              data: [120, 200, 150, 80, 170],
+            },
+          ],
+        });
+
+        // 2. Convert to MAIDR data.
+        const maidrData = highchartsToMaidr(chart, {
+          id: 'chart-container',
+          title: 'Fruit Consumption',
+        });
+
+        // 3. Attach maidr-data attribute so the script-tag build discovers it.
+        const container = document.getElementById('chart-container');
+        container.setAttribute('maidr-data', JSON.stringify(maidrData));
+
+        // 4. Re-initialize MAIDR for the newly attributed element.
+        //    (In production, you'd render the chart before MAIDR's script runs,
+        //     or use the React component approach instead.)
+
+        // 5. Optional: create visual sync for tooltip + point highlighting.
+        const sync = createHighchartsSync(chart);
+        // sync.highlightPoint(0, 2); // Would highlight the 3rd bar.
+        window._sync = sync; // Expose for debugging.
+
+        console.log('MAIDR data generated:', maidrData);
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + Highcharts Integration Example</h1>
+    <p>
+      This example demonstrates how to use the MAIDR Highcharts adapter to make
+      a Highcharts column chart accessible via audio sonification, text
+      descriptions, braille output, and keyboard navigation.
+    </p>
+    <div id="chart-container" style="width: 720px; height: 432px"></div>
+  </body>
+</html>
