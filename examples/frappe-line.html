@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Frappe Charts Line - MAIDR Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
+    />
+  </head>
+
+  <body>
+    <h1>Frappe Charts Line Chart with MAIDR</h1>
+    <div id="chart"></div>
+
+    <script>
+      // 1. Create the Frappe line chart
+      const data = {
+        labels: [
+          '2018',
+          '2019',
+          '2020',
+          '2021',
+          '2022',
+          '2023',
+          '2024',
+          '2025',
+        ],
+        datasets: [
+          {
+            name: 'Revenue',
+            values: [45, 62, 38, 71, 85, 93, 110, 125],
+          },
+        ],
+      };
+
+      const chart = new frappe.Chart('#chart', {
+        title: 'Annual Revenue (in thousands)',
+        data: data,
+        type: 'line',
+        height: 400,
+        colors: ['#743ee2'],
+        lineOptions: {
+          dotSize: 5,
+        },
+      });
+
+      // 2. After rendering, extract data and build MAIDR schema
+      setTimeout(() => {
+        const container = document.querySelector('#chart');
+        const svg = container.querySelector('svg.frappe-chart');
+
+        if (!svg) {
+          console.error('Frappe Charts SVG not found');
+          return;
+        }
+
+        // Frappe Charts renders line data points as <circle> elements inside
+        // <g class="dataset-units dataset-line dataset-0">
+        // and the line path as <path class="line-graph-path">
+        const pointSelector = '.dataset-units.dataset-line circle';
+
+        // Build MAIDR data points from Frappe Charts data
+        // Line traces in MAIDR expect an array of arrays (one array per line)
+        const maidrPoints = [
+          data.labels.map((label, i) => ({
+            x: Number(label),
+            y: data.datasets[0].values[i],
+          })),
+        ];
+
+        // 3. Construct the MAIDR JSON schema
+        const maidr = {
+          id: 'frappe-line-chart',
+          title: 'Annual Revenue (in thousands)',
+          subplots: [
+            [
+              {
+                layers: [
+                  {
+                    id: '0',
+                    type: 'line',
+                    selectors: [pointSelector],
+                    axes: {
+                      x: 'Year',
+                      y: 'Revenue (thousands USD)',
+                    },
+                    data: maidrPoints,
+                  },
+                ],
+              },
+            ],
+          ],
+        };
+
+        // 4. Attach MAIDR data to the SVG element
+        svg.setAttribute('maidr-data', JSON.stringify(maidr));
+        svg.id = maidr.id;
+
+        // 5. Dynamically load maidr.js so it initializes on the ready SVG
+        const script = document.createElement('script');
+        script.src = '../dist/maidr.js';
+        document.body.appendChild(script);
+      }, 100);
+    </script>
+  </body>
+</html>

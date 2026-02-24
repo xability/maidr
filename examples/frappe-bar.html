@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Frappe Charts Bar - MAIDR Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
+    />
+  </head>
+
+  <body>
+    <h1>Frappe Charts Bar Chart with MAIDR</h1>
+    <div id="chart"></div>
+
+    <script>
+      // 1. Create the Frappe bar chart
+      const data = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+          {
+            name: 'Visitors',
+            values: [120, 240, 180, 300, 150, 90, 210],
+          },
+        ],
+      };
+
+      const chart = new frappe.Chart('#chart', {
+        title: 'Daily Website Visitors',
+        data: data,
+        type: 'bar',
+        height: 400,
+        colors: ['#7cd6fd'],
+      });
+
+      // 2. After rendering, extract data and build MAIDR schema
+      //    Frappe Charts renders synchronously, but we use a short delay
+      //    to ensure DOM is fully updated.
+      setTimeout(() => {
+        const container = document.querySelector('#chart');
+        const svg = container.querySelector('svg.frappe-chart');
+
+        if (!svg) {
+          console.error('Frappe Charts SVG not found');
+          return;
+        }
+
+        // Frappe Charts renders bars as <rect class="bar mini"> inside
+        // <g class="dataset-units dataset-bars dataset-0">
+        const barSelector = '.dataset-units.dataset-bars rect.bar';
+
+        // Build MAIDR data points from Frappe Charts data
+        const maidrPoints = data.labels.map((label, i) => ({
+          x: label,
+          y: data.datasets[0].values[i],
+        }));
+
+        // 3. Construct the MAIDR JSON schema
+        const maidr = {
+          id: 'frappe-bar-chart',
+          title: 'Daily Website Visitors',
+          subplots: [
+            [
+              {
+                layers: [
+                  {
+                    id: '0',
+                    type: 'bar',
+                    selectors: barSelector,
+                    axes: {
+                      x: 'Day of Week',
+                      y: 'Number of Visitors',
+                    },
+                    data: maidrPoints,
+                  },
+                ],
+              },
+            ],
+          ],
+        };
+
+        // 4. Attach MAIDR data to the SVG element
+        svg.setAttribute('maidr-data', JSON.stringify(maidr));
+        svg.id = maidr.id;
+
+        // 5. Dynamically load maidr.js so it initializes on the ready SVG
+        const script = document.createElement('script');
+        script.src = '../dist/maidr.js';
+        document.body.appendChild(script);
+      }, 100);
+    </script>
+  </body>
+</html>
