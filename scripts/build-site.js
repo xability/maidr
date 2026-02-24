@@ -44,14 +44,15 @@ function markdownToHtml(md) {
 /**
  * Generate a page from template
  */
-function generatePage(title, content, activePage) {
+function generatePage(title, content, activePage, basePath = '') {
   const page = template
     .replace('{{TITLE}}', title)
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
     .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
     .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
-    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '');
+    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '')
+    .replace(/\{\{BASE_PATH\}\}/g, basePath);
 
   return page;
 }
@@ -59,12 +60,17 @@ function generatePage(title, content, activePage) {
 // Build index.html from README
 console.log('Building index.html from README.md...');
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
+let readmeContentHtml = markdownToHtml(readme);
+// Rewrite docs/*.md links to docs/*.html for the built site
+readmeContentHtml = readmeContentHtml.replace(/href="docs\/([^"]+)\.[mM][dD]"/g, 'href="docs/$1.html"');
+// React docs are built at root level, not in docs/ subdirectory
+readmeContentHtml = readmeContentHtml.replace(/href="docs\/react\.html"/g, 'href="react.html"');
 const readmeHtml = `
 <div class="hero">
   <img src="media/logo.svg" alt="MAIDR Logo" />
 </div>
 <div class="content">
-  ${markdownToHtml(readme)}
+  ${readmeContentHtml}
 </div>
 `;
 const indexPage = generatePage('Home', readmeHtml, 'home');
@@ -100,6 +106,14 @@ if (fs.existsSync(mediaSource)) {
   fs.cpSync(mediaSource, mediaDest, { recursive: true });
 }
 
+// Copy dist folder
+console.log('Copying dist folder...');
+const distSource = path.join(ROOT, 'dist');
+const distDest = path.join(SITE_DIR, 'dist');
+if (fs.existsSync(distSource)) {
+  fs.cpSync(distSource, distDest, { recursive: true });
+}
+
 // Copy examples folder
 console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');
@@ -108,20 +122,41 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
-// Copy docs folder static assets (excluding template.html and examples/)
-// Note: examples/ is already copied from root, so we skip docs/examples/ to avoid overwriting
+// Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
+const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file !== 'template.html' && file !== 'examples') {
-      const src = path.join(docsSource, file);
-      const dest = path.join(SITE_DIR, file);
-      if (fs.statSync(src).isDirectory()) {
-        fs.cpSync(src, dest, { recursive: true });
-      } else {
-        fs.copyFileSync(src, dest);
+    if (file === 'template.html' || file === 'examples' || file === 'react.md')
+      continue;
+
+    const src = path.join(docsSource, file);
+    const ext = path.extname(file).toLowerCase();
+
+    if (ext === '.md') {
+      // Convert markdown files to HTML pages in _site/docs/
+      console.log(`Building docs/${file}...`);
+      if (!fs.existsSync(docsSiteDest)) {
+        fs.mkdirSync(docsSiteDest, { recursive: true });
       }
+      const md = fs.readFileSync(src, 'utf-8');
+      const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
+      const baseName = path.basename(file, path.extname(file));
+      const titleMap = {
+        SCHEMA: 'Data Schema',
+        BRAILLE: 'Braille Generation',
+        CONTROLS: 'Keyboard Controls',
+      };
+      const title = titleMap[baseName] ?? baseName;
+      const docPage = generatePage(title, htmlContent, '', '../');
+      fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
+    } else if (fs.statSync(src).isDirectory()) {
+      // Copy directories to _site/ root
+      fs.cpSync(src, path.join(SITE_DIR, file), { recursive: true });
+    } else {
+      // Copy other static files to _site/ root
+      fs.copyFileSync(src, path.join(SITE_DIR, file));
     }
   }
 }
