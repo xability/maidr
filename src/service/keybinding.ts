@@ -55,7 +55,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_POINT: `space`,
   ANNOUNCE_POSITION: `p`,
 
   // rotor functionality
@@ -78,9 +78,9 @@ const FIGURE_LABEL_KEYMAP = {
   DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_SUBTITLE: `s`,
-  DESCRIBE_CAPTION: `c`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_SUBTITLE: `s`,
+  ANNOUNCE_CAPTION: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -101,8 +101,8 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: `l`,
 
   // Description
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_POINT: `space`,
   ANNOUNCE_POSITION: `p`,
 
   // Navigation
@@ -133,12 +133,12 @@ const TRACE_LABEL_KEYMAP = {
   DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
-  DESCRIBE_X: `x`,
-  DESCRIBE_Y: `y`,
-  DESCRIBE_FILL: `f`,
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_SUBTITLE: `s`,
-  DESCRIBE_CAPTION: `c`,
+  ANNOUNCE_X: `x`,
+  ANNOUNCE_Y: `y`,
+  ANNOUNCE_FILL: `f`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_SUBTITLE: `s`,
+  ANNOUNCE_CAPTION: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -214,7 +214,7 @@ const TRACE_KEYMAP = {
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_POINT: `space`,
   ANNOUNCE_POSITION: `p`,
 
   // Go To functionality

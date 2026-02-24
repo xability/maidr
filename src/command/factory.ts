@@ -225,13 +225,13 @@ export class CommandFactory {
         return new CommandPaletteSelectCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
-      case 'DESCRIBE_X':
+      case 'ANNOUNCE_X':
         return new DescribeXCommand(this.context, this.textViewModel);
-      case 'DESCRIBE_Y':
+      case 'ANNOUNCE_Y':
         return new DescribeYCommand(this.context, this.textViewModel);
-      case 'DESCRIBE_FILL':
+      case 'ANNOUNCE_FILL':
         return new DescribeFillCommand(this.context, this.textViewModel);
-      case 'DESCRIBE_POINT':
+      case 'ANNOUNCE_POINT':
         return new DescribePointCommand(
           this.context,
           this.audioService,
@@ -239,11 +239,11 @@ export class CommandFactory {
           this.brailleViewModel,
           this.textViewModel,
         );
-      case 'DESCRIBE_TITLE':
+      case 'ANNOUNCE_TITLE':
         return new DescribeTitleCommand(this.context, this.textViewModel);
-      case 'DESCRIBE_SUBTITLE':
+      case 'ANNOUNCE_SUBTITLE':
         return new DescribeSubtitleCommand(this.context, this.textViewModel);
-      case 'DESCRIBE_CAPTION':
+      case 'ANNOUNCE_CAPTION':
         return new DescribeCaptionCommand(this.context, this.textViewModel);
       case 'ANNOUNCE_POSITION':
         return new AnnouncePositionCommand(
