@@ -13,6 +13,11 @@
       "types": "./dist/react.d.mts",
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
+    },
+    "./amcharts": {
+      "types": "./dist/amcharts.d.mts",
+      "import": "./dist/amcharts.mjs",
+      "default": "./dist/amcharts.mjs"
     }
   },
   "main": "dist/maidr.js",
@@ -20,7 +25,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build && vite build --config vite.react.config.ts",
+    "build": "vite build && vite build --config vite.react.config.ts && vite build --config vite.amcharts.config.ts",
+    "build:amcharts": "vite build --config vite.amcharts.config.ts",
     "build:script": "vite build",
     "build:react": "vite build --config vite.react.config.ts",
     "prepublishOnly": "npm run build",
