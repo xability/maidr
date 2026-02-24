@@ -22,10 +22,14 @@ import type { AmAxis, AmDataItem, AmXYSeries } from './types';
 export function readAxisLabel(axis: AmAxis | undefined, fallback: string): string {
   if (!axis)
     return fallback;
-  const titleEntity = axis.get('title') as { get?: (k: string) => unknown } | undefined;
-  const text = titleEntity?.get?.('text');
-  if (typeof text === 'string' && text.length > 0)
-    return text;
+
+  const titleEntity = axis.get('title');
+  if (titleEntity != null && typeof (titleEntity as Record<string, unknown>).get === 'function') {
+    const text = (titleEntity as { get: (k: string) => unknown }).get('text');
+    if (typeof text === 'string' && text.length > 0)
+      return text;
+  }
+
   const name = axis.get('name');
   if (typeof name === 'string' && name.length > 0)
     return name;
@@ -78,11 +82,12 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Extract {@link LinePoint} data from a line series.
- * Returns a 2D array (outer = series group, inner = points) as MAIDR expects.
+ * Extract {@link LinePoint} data from a single line series.
+ * Returns a flat array of points for one series. The adapter aggregates
+ * multiple series into the 2D array (`LinePoint[][]`) that MAIDR expects.
  */
 export function extractLinePoints(series: AmXYSeries): LinePoint[] {
-  const seriesName = (series.get('name') as string | undefined) ?? undefined;
+  const seriesName = series.get('name') as string | undefined;
   const points: LinePoint[] = [];
 
   for (const item of series.dataItems) {

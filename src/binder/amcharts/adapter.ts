@@ -248,16 +248,28 @@ function findXYChart(root: AmRoot): AmXYChart | undefined {
 
 function readChartTitle(chart: AmXYChart): string | undefined {
   // amCharts 5 titles are typically children of the chart.
-  // A title entity has className "Label" and text property.
-  const children = (chart as unknown as { children?: { values: Array<{ className?: string; get: (k: string) => unknown }> } }).children;
-  if (!children)
+  // A title entity has className "Label" or "Title" and a text property.
+  if (!('children' in chart))
     return undefined;
 
-  for (const child of children.values) {
-    if (child.className === 'Label' || child.className === 'Title') {
-      const text = child.get('text');
-      if (typeof text === 'string' && text.length > 0)
-        return text;
+  const children = (chart as unknown as Record<string, unknown>).children;
+  if (children == null || typeof children !== 'object')
+    return undefined;
+
+  const values = (children as Record<string, unknown>).values;
+  if (!Array.isArray(values))
+    return undefined;
+
+  for (const child of values) {
+    if (child == null || typeof child !== 'object')
+      continue;
+    const c = child as Record<string, unknown>;
+    if (c.className === 'Label' || c.className === 'Title') {
+      if (typeof c.get === 'function') {
+        const text = (c as { get: (k: string) => unknown }).get('text');
+        if (typeof text === 'string' && text.length > 0)
+          return text;
+      }
     }
   }
   return undefined;
