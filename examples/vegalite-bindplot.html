@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR core (must load before vegalite adapter) -->
+    <script src="../dist/vegalite.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin-top: 2rem;
+      }
+      .chart-container {
+        margin: 1rem 0 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Integration Examples</h1>
+    <p>
+      Each chart below is rendered by Vega-Lite and then made accessible
+      with MAIDR. Focus on a chart and use arrow keys to navigate.
+    </p>
+
+    <h2>Bar Chart</h2>
+    <div id="bar-chart" class="chart-container"></div>
+
+    <h2>Line Chart</h2>
+    <div id="line-chart" class="chart-container"></div>
+
+    <h2>Scatter Plot</h2>
+    <div id="scatter-chart" class="chart-container"></div>
+
+    <script>
+      // ---- Bar Chart ----
+      const barSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Number of Tips by Day',
+        data: {
+          values: [
+            { day: 'Sat', count: 87 },
+            { day: 'Sun', count: 76 },
+            { day: 'Thur', count: 62 },
+            { day: 'Fri', count: 19 },
+          ],
+        },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'day', type: 'nominal', title: 'Day' },
+          y: { field: 'count', type: 'quantitative', title: 'Count' },
+        },
+      };
+
+      // ---- Line Chart ----
+      const lineSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Monthly Average Temperature',
+        data: {
+          values: [
+            { month: 'Jan', temp: 28 },
+            { month: 'Feb', temp: 32 },
+            { month: 'Mar', temp: 45 },
+            { month: 'Apr', temp: 55 },
+            { month: 'May', temp: 68 },
+            { month: 'Jun', temp: 78 },
+            { month: 'Jul', temp: 82 },
+            { month: 'Aug', temp: 80 },
+            { month: 'Sep', temp: 72 },
+            { month: 'Oct', temp: 58 },
+            { month: 'Nov', temp: 42 },
+            { month: 'Dec', temp: 30 },
+          ],
+        },
+        mark: 'line',
+        encoding: {
+          x: { field: 'month', type: 'ordinal', title: 'Month' },
+          y: { field: 'temp', type: 'quantitative', title: 'Temperature (F)' },
+        },
+      };
+
+      // ---- Scatter Plot ----
+      const scatterSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Horsepower vs. Miles per Gallon',
+        data: {
+          values: [
+            { hp: 130, mpg: 18 },
+            { hp: 165, mpg: 15 },
+            { hp: 150, mpg: 18 },
+            { hp: 150, mpg: 16 },
+            { hp: 140, mpg: 17 },
+            { hp: 198, mpg: 15 },
+            { hp: 220, mpg: 14 },
+            { hp: 215, mpg: 14 },
+            { hp: 225, mpg: 14 },
+            { hp: 190, mpg: 15 },
+            { hp: 97, mpg: 24 },
+            { hp: 88, mpg: 22 },
+            { hp: 70, mpg: 18 },
+            { hp: 76, mpg: 21 },
+            { hp: 86, mpg: 27 },
+          ],
+        },
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'hp',
+            type: 'quantitative',
+            title: 'Horsepower',
+          },
+          y: {
+            field: 'mpg',
+            type: 'quantitative',
+            title: 'Miles per Gallon',
+          },
+        },
+      };
+
+      // Render & bind
+      async function init() {
+        const opts = { actions: false };
+
+        const barResult = await vegaEmbed('#bar-chart', barSpec, opts);
+        maidrVegaLite.bindVegaLite(barResult.view, barSpec, {
+          id: 'tips-bar',
+        });
+
+        const lineResult = await vegaEmbed('#line-chart', lineSpec, opts);
+        maidrVegaLite.bindVegaLite(lineResult.view, lineSpec, {
+          id: 'temp-line',
+        });
+
+        const scatterResult = await vegaEmbed(
+          '#scatter-chart',
+          scatterSpec,
+          opts,
+        );
+        maidrVegaLite.bindVegaLite(scatterResult.view, scatterSpec, {
+          id: 'cars-scatter',
+        });
+      }
+
+      init();
+    </script>
+  </body>
+</html>

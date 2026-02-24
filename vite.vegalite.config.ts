@@ -1,0 +1,40 @@
+import path from 'node:path';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    lib: {
+      entry: path.resolve(__dirname, 'src/vegalite-entry.tsx'),
+      name: 'maidrVegaLite',
+      formats: ['es', 'umd'],
+      fileName: format => format === 'es' ? 'vegalite.mjs' : 'vegalite.js',
+    },
+    sourcemap: true,
+    outDir: 'dist',
+    emptyOutDir: false,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') {
+          return;
+        }
+        warn(warning);
+      },
+    },
+  },
+  define: {
+    'process.env': {},
+  },
+  resolve: {
+    alias: {
+      '@command': path.resolve(__dirname, 'src/command'),
+      '@model': path.resolve(__dirname, 'src/model'),
+      '@state': path.resolve(__dirname, 'src/state'),
+      '@service': path.resolve(__dirname, 'src/service'),
+      '@type': path.resolve(__dirname, 'src/type'),
+      '@ui': path.resolve(__dirname, 'src/ui'),
+      '@util': path.resolve(__dirname, 'src/util'),
+    },
+  },
+});
