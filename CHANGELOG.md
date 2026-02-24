@@ -1,3 +1,17 @@
+# [3.51.0](https://github.com/xability/maidr/compare/v3.50.1...v3.51.0) (2026-02-23)
+
+
+### Features
+
+* react component ([#532](https://github.com/xability/maidr/issues/532)) ([b5ce186](https://github.com/xability/maidr/commit/b5ce186aebb8ebc5b34f5585992c3ce7fedb5cdc))
+
+## [3.50.1](https://github.com/xability/maidr/compare/v3.50.0...v3.50.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* remove JAWS/NVDA special char announcement for spacebar ([#530](https://github.com/xability/maidr/issues/530)) ([6939df9](https://github.com/xability/maidr/commit/6939df90573e93a1b8859cfe7cc6897ef155a247))
+
 # [3.50.0](https://github.com/xability/maidr/compare/v3.49.0...v3.50.0) (2026-02-17)
 
 

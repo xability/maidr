@@ -1,8 +1,10 @@
 ---
 name: architect
-description: MAIDR architecture expert. Use proactively when designing new features, evaluating structural changes, or ensuring adherence to the MVVC layered architecture. Enforces unidirectional dependency flow and separation of concerns.
+description: MAIDR architecture expert. Evaluates design decisions, ensures MVVC compliance, and guides new feature structure. Use proactively when making structural changes or adding new components.
 tools: Read, Grep, Glob
 model: opus
+permissionMode: plan
+maxTurns: 30
 memory: project
 ---
 

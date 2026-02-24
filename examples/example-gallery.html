@@ -10,7 +10,7 @@
             padding: 20px;
         }
 
-        a {
+        ul a {
             display: block;
             margin: 8px 0;
             font-size: 18px;
@@ -29,6 +29,13 @@
     <h1>MAIDR Examples</h1>
     <h2>Click on one of the examples below to see a demonstration</h2>
 
+    <h3>React</h3>
+    <ul>
+        <li><a href="#" onclick="loadReact()">React Examples (Bar, Line, Smooth)</a></li>
+    </ul>
+    <p>See the <a href="../react.html" target="_top">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
+
+    <h3>HTML / Vanilla JS</h3>
     <ul>
         <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot')">Barplot</a></li>
         <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer')">Candlestick multilayer</a></li>
@@ -54,6 +61,30 @@
 </body>
 
 <script>
+    function loadReact() {
+        const heading = document.createElement('h2');
+        heading.id = 'example-heading';
+        heading.textContent = 'React Examples';
+        heading.tabIndex = -1;
+        heading.style.marginTop = '0';
+
+        const iframe = document.createElement('iframe');
+        iframe.src = 'react/index.html';
+        iframe.style.width = '100%';
+        iframe.style.height = '800px';
+        iframe.style.border = 'none';
+
+        const contentDiv = document.getElementById("content");
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(heading);
+        contentDiv.appendChild(iframe);
+        contentDiv.hidden = false;
+
+        setTimeout(() => {
+            heading.focus();
+        }, 100);
+    }
+
     function loadHTML(filename, headingText) {
         try {
             // Create heading element for better accessibility

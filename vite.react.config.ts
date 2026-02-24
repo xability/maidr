@@ -1,22 +1,34 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import dts from 'vite-plugin-dts';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    dts({
+      tsconfigPath: './tsconfig.build.json',
+      rollupTypes: true,
+      insertTypesEntry: false,
+    }),
+  ],
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'src/index.tsx'),
-      name: 'maidr',
-      formats: ['es', 'umd'],
-      fileName: () => `maidr.js`,
+      entry: path.resolve(__dirname, 'src/react-entry.ts'),
+      formats: ['es'],
+      fileName: () => 'react.mjs',
     },
     sourcemap: true,
     outDir: 'dist',
-    emptyOutDir: true,
+    emptyOutDir: false,
     rollupOptions: {
+      external: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+      ],
       onwarn(warning, warn) {
-        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
           return;
         }
         warn(warning);

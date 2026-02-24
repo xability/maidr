@@ -18,10 +18,10 @@ and encourages a multi-modal exploration on visualization.
 
 1. [Usage](#usage)
 2. [Data Schema](#data-schema)
-3. [Controls](#controls)
-4. [Braille Generation](#braille-generation)
-5. [Examples](#examples)
-6. [API](#api)
+3. [React Integration](#react-integration)
+4. [Controls](#controls)
+5. [Braille Generation](#braille-generation)
+6. [Examples](#examples)
 7. [Binders](#binders)
 8. [Papers](#papers)
 9. [License](#license)
@@ -60,6 +60,51 @@ To use maidr, follow these steps:
 The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, histograms, and segmented bar plots.
 For the full schema structure, object properties, and data formats, see the [Data Schema documentation](docs/SKIMA.md).
 
+## React Integration
+
+MAIDR provides a React component for use in React applications. Install via npm:
+
+```bash
+npm install maidr
+```
+
+Then import and use the `<Maidr>` component:
+
+```tsx
+import { Maidr } from 'maidr/react';
+import type { MaidrData } from 'maidr/react';
+
+const chartData: MaidrData = {
+  id: 'my-chart',
+  title: 'Sales by Quarter',
+  subplots: [[{
+    layers: [{
+      id: '0',
+      type: 'bar',
+      axes: { x: 'Quarter', y: 'Revenue' },
+      data: [
+        { x: 'Q1', y: 120 },
+        { x: 'Q2', y: 200 },
+        { x: 'Q3', y: 150 },
+        { x: 'Q4', y: 280 },
+      ],
+    }],
+  }]],
+};
+
+function App() {
+  return (
+    <Maidr data={chartData}>
+      <svg>{/* Your chart SVG */}</svg>
+    </Maidr>
+  );
+}
+```
+
+Each `<Maidr>` instance is fully isolated — you can render multiple accessible charts on the same page. Requires React 18 or 19.
+
+For the full React guide with TypeScript types reference, data examples for all plot types, and advanced usage, see the [React documentation](react.html).
+
 ## Controls
 
 maidr provides keyboard-based interaction for navigating and exploring plots. Users can move through data points with arrow keys and toggle between braille, text, and sonification modes.
@@ -76,18 +121,13 @@ Example plots are demonstrated [here](examples.html).
 
 For more information, refer to the example HTML files provided in the directory docs/examples
 
-## API
-
-MAIDR is available via a restful API.
-Learn more about the usage at [maidr-api](https://github.com/xability/maidr-api) repo.
-
 ## Binders
 
 We currently provide the following binders, all of which can be found at each repo:
 
-- [x] Python binder for matplotlib and seaborn: [Py maidr](https://github.com/xability/py-maidr).
+- Python binder for matplotlib and seaborn: [Py maidr](https://py.maidr.ai/).
 
-- [ ] R binder for ggplot2: [r maidr](https://github.com/xability/r-maidr).
+- R binder for ggplot2: [r maidr](https://r.maidr.ai/).
 
 ## Papers
 
