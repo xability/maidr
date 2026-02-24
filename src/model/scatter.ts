@@ -467,7 +467,47 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   /**
+   * Extracts the SVG position of an element by trying multiple attribute sources.
+   * Supports x/y attributes (matplotlib), cx/cy attributes (circle elements),
+   * and transform translate (Plotly).
+   * @param element - The SVG element to extract position from
+   * @returns The x and y coordinates, or null if position cannot be determined
+   */
+  private getElementPosition(element: SVGElement): { x: number; y: number } | null {
+    // Try x/y attributes (matplotlib-style elements like <use>)
+    const x = Number.parseFloat(element.getAttribute('x') || '');
+    const y = Number.parseFloat(element.getAttribute('y') || '');
+    if (!Number.isNaN(x) && !Number.isNaN(y)) {
+      return { x, y };
+    }
+
+    // Try cx/cy attributes (SVG circle/ellipse elements)
+    const cx = Number.parseFloat(element.getAttribute('cx') || '');
+    const cy = Number.parseFloat(element.getAttribute('cy') || '');
+    if (!Number.isNaN(cx) && !Number.isNaN(cy)) {
+      return { x: cx, y: cy };
+    }
+
+    // Try transform attribute (Plotly-style elements with translate)
+    const transform = element.getAttribute('transform');
+    if (transform) {
+      const match = transform.match(/translate\(\s*([-\d.e+]+)\s*[,\s]\s*([-\d.e+]+)\s*\)/);
+      if (match) {
+        const tx = Number.parseFloat(match[1]);
+        const ty = Number.parseFloat(match[2]);
+        if (!Number.isNaN(tx) && !Number.isNaN(ty)) {
+          return { x: tx, y: ty };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Maps scatter points to SVG elements grouped by X and Y coordinates.
+   * Supports multiple SVG rendering backends (matplotlib, Plotly, etc.) by
+   * extracting element positions from various attribute sources.
    * @param selector - CSS selector for SVG elements
    * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if unavailable
    */
@@ -486,20 +526,18 @@ export class ScatterTrace extends AbstractTrace {
     const xGroups = new Map<number, SVGElement[]>();
     const yGroups = new Map<number, SVGElement[]>();
     elements.forEach((element) => {
-      const x = Number.parseFloat(element.getAttribute('x') || '');
-      const y = Number.parseFloat(element.getAttribute('y') || '');
-
-      if (!Number.isNaN(x)) {
-        if (!xGroups.has(x))
-          xGroups.set(x, []);
-        xGroups.get(x)!.push(element);
+      const pos = this.getElementPosition(element);
+      if (!pos) {
+        return;
       }
 
-      if (!Number.isNaN(y)) {
-        if (!yGroups.has(y))
-          yGroups.set(y, []);
-        yGroups.get(y)!.push(element);
-      }
+      if (!xGroups.has(pos.x))
+        xGroups.set(pos.x, []);
+      xGroups.get(pos.x)!.push(element);
+
+      if (!yGroups.has(pos.y))
+        yGroups.set(pos.y, []);
+      yGroups.get(pos.y)!.push(element);
     });
 
     const sortedXElements = Array.from(xGroups.entries())
