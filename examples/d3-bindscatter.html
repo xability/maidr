@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Scatter Plot Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Scatter Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate between data points.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample data: height vs weight
+      const data = [
+        { height: 160, weight: 55 },
+        { height: 165, weight: 62 },
+        { height: 170, weight: 68 },
+        { height: 172, weight: 70 },
+        { height: 175, weight: 75 },
+        { height: 178, weight: 72 },
+        { height: 180, weight: 80 },
+        { height: 182, weight: 78 },
+        { height: 185, weight: 85 },
+        { height: 168, weight: 60 },
+        { height: 173, weight: 65 },
+        { height: 177, weight: 77 },
+        { height: 163, weight: 58 },
+        { height: 188, weight: 90 },
+        { height: 171, weight: 67 },
+      ];
+
+      // Chart dimensions
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-scatter-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const x = d3.scaleLinear()
+        .domain([155, 195])
+        .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([50, 95])
+        .range([height, 0]);
+
+      // Points
+      svg.selectAll('circle.dot')
+        .data(data)
+        .join('circle')
+        .attr('class', 'dot')
+        .attr('cx', d => x(d.height))
+        .attr('cy', d => y(d.weight))
+        .attr('r', 5)
+        .attr('fill', '#e74c3c')
+        .attr('opacity', 0.7);
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      svg.append('g')
+        .call(d3.axisLeft(y));
+
+      // Title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Height vs Weight');
+
+      // Axis labels
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .text('Height (cm)');
+
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .text('Weight (kg)');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-scatter-chart');
+      const result = maidrD3.bindD3Scatter(svgElement, {
+        selector: 'circle.dot',
+        title: 'Height vs Weight',
+        axes: { x: 'Height (cm)', y: 'Weight (kg)' },
+        x: 'height',
+        y: 'weight',
+      });
+
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>
