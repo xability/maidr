@@ -43,6 +43,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   const focusInTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track the previous data reference to detect prop-driven updates.
+  const prevDataRef = useRef(data);
+
   const [contextValue, setContextValue] = useState<MaidrContextValue | null>(null);
 
   const createController = useCallback((): Controller | null => {
@@ -148,6 +151,28 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       hasAnnouncedRef.current = false;
     }
   }, [disposeController]);
+
+  // Recreate the Controller when the data prop changes while one is active.
+  // This enables realtime / streaming updates: the parent can pass new `data`
+  // and the Controller is transparently rebuilt with the new values.
+  useEffect(() => {
+    if (prevDataRef.current === data)
+      return;
+    prevDataRef.current = data;
+
+    // Only recreate if a Controller currently exists (i.e., the chart is focused).
+    if (!controllerRef.current)
+      return;
+
+    disposeController();
+    const ctrl = createControllerRef.current();
+    if (!ctrl)
+      return;
+    controllerRef.current = ctrl;
+    setContextValue(ctrl.getContextValue());
+    ctrl.initializeHighContrast();
+    hasAnnouncedRef.current = false;
+  }, [data, disposeController]);
 
   // Register visibility change listener.
   useEffect(() => {
