@@ -13,6 +13,11 @@
       "types": "./dist/react.d.mts",
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
+    },
+    "./recharts": {
+      "types": "./dist/recharts.d.mts",
+      "import": "./dist/recharts.mjs",
+      "default": "./dist/recharts.mjs"
     }
   },
   "main": "dist/maidr.js",
@@ -20,9 +25,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build && vite build --config vite.react.config.ts",
+    "build": "vite build && vite build --config vite.react.config.ts && vite build --config vite.recharts.config.ts",
     "build:script": "vite build",
     "build:react": "vite build --config vite.react.config.ts",
+    "build:recharts": "vite build --config vite.recharts.config.ts",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
