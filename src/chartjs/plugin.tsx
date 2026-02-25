@@ -91,6 +91,17 @@ function createHighlightCallback(chart: ChartJsChart): NavigateCallback {
 }
 
 // ---------------------------------------------------------------------------
+// Plugin options helper
+// ---------------------------------------------------------------------------
+
+function getPluginOptions(chart: ChartJsChart): MaidrPluginOptions {
+  const raw = chart.options.plugins?.maidr;
+  if (!raw || typeof raw !== 'object')
+    return {};
+  return raw as MaidrPluginOptions;
+}
+
+// ---------------------------------------------------------------------------
 // MAIDR rendering
 // ---------------------------------------------------------------------------
 
@@ -130,17 +141,21 @@ function renderMaidr(
 // ---------------------------------------------------------------------------
 
 function initMaidrForChart(chart: ChartJsChart): void {
-  const pluginOptions = (chart.options.plugins?.maidr ?? {}) as MaidrPluginOptions;
-
-  if (pluginOptions.enabled === false) {
+  // Guard against duplicate initialization
+  if (chartBindings.has(chart))
     return;
-  }
 
-  // Extract MAIDR data from Chart.js instance
-  const maidrData = extractMaidrData(chart, pluginOptions);
+  const pluginOptions = getPluginOptions(chart);
 
-  // Attach highlight bridge
-  maidrData.onNavigate = createHighlightCallback(chart);
+  if (pluginOptions.enabled === false)
+    return;
+
+  // Extract MAIDR data with the highlight callback attached at construction
+  const maidrData = extractMaidrData(
+    chart,
+    pluginOptions,
+    createHighlightCallback(chart),
+  );
 
   // Render the MAIDR accessible interface around the canvas
   const { root, container } = renderMaidr(maidrData, chart.canvas);

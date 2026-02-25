@@ -393,11 +393,11 @@ export class Controller implements Disposable {
   private registerNavigateCallback(callback: NavigateCallback): void {
     const observer: Observer<TraceState> = {
       update: (state: TraceState) => {
-        if (!state.empty) {
+        if (!state.empty && !state.braille.empty) {
           callback({
             layerId: state.layerId,
-            row: state.audio.panning.y,
-            col: state.audio.panning.x,
+            row: state.braille.row,
+            col: state.braille.col,
           });
         }
       },

@@ -7,6 +7,25 @@
  */
 
 /**
+ * Union of data value shapes found in Chart.js datasets.
+ * Covers native chart types and popular plugins (boxplot, financial, matrix).
+ */
+export type ChartJsDataValue
+  = | number
+    | null
+    | { x: number; y: number; r?: number }
+    | { x: number | string; o: number; h: number; l: number; c: number }
+    | {
+      min: number;
+      q1: number;
+      median: number;
+      q3: number;
+      max: number;
+      outliers?: number[];
+    }
+    | { x: string | number; y: string | number; v: number };
+
+/**
  * Minimal representation of a Chart.js chart instance.
  */
 export interface ChartJsChart {
@@ -38,8 +57,9 @@ export interface ChartJsData {
  */
 export interface ChartJsDataset {
   label?: string;
-  data: (number | null | { x: number; y: number })[];
+  data: ChartJsDataValue[];
   type?: string;
+  stack?: string;
   backgroundColor?: string | string[];
   borderColor?: string | string[];
 }
@@ -48,6 +68,7 @@ export interface ChartJsDataset {
  * Chart.js options object.
  */
 export interface ChartJsOptions {
+  indexAxis?: 'x' | 'y';
   scales?: Record<string, ChartJsScale>;
   plugins?: Record<string, unknown>;
 }
@@ -58,6 +79,7 @@ export interface ChartJsOptions {
 export interface ChartJsScale {
   title?: { text?: string; display?: boolean };
   type?: string;
+  stacked?: boolean;
 }
 
 /**
