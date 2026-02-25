@@ -271,6 +271,7 @@ export class ScatterTrace extends AbstractTrace {
     this.row = 0;
     this.col = 0;
     this.mode = NavMode.COL;
+    this.movable.mode = 'col';
   }
 
   /**
@@ -292,6 +293,7 @@ export class ScatterTrace extends AbstractTrace {
       }
 
       this.mode = NavMode.ROW;
+      this.movable.mode = 'row';
     } else {
       // Switch from ROW to COL mode
       const currentYPoint = this.yPoints[this.row];
@@ -307,6 +309,7 @@ export class ScatterTrace extends AbstractTrace {
       }
 
       this.mode = NavMode.COL;
+      this.movable.mode = 'col';
       this.row = 0; // Set to 0 for COL mode since values[0] = xValues
     }
   }
@@ -598,6 +601,7 @@ export class ScatterTrace extends AbstractTrace {
   public moveToPoint(x: number, y: number): void {
     // set to vertical mode
     this.mode = NavMode.COL;
+    this.movable.mode = 'col';
 
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
