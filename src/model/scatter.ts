@@ -552,21 +552,22 @@ export class ScatterTrace extends AbstractTrace {
   /**
    * Extracts position from an element's bounding box as a last resort.
    * Works for any visible SVG element (<path>, <polygon>, <g>, etc.).
-   * Uses viewport coordinates rounded to avoid floating-point grouping issues.
+   * Uses getBBox() which returns coordinates in SVG user space, consistent
+   * with x/y and cx/cy attribute extraction methods above.
    * @param element - The SVG element to extract bounding box position from
-   * @returns The center coordinates, or null if bounding box is unavailable
+   * @returns The center coordinates in SVG user space, or null if unavailable
    */
   private getPositionFromBoundingBox(element: SVGElement): { x: number; y: number } | null {
     try {
-      const rect = element.getBoundingClientRect();
-      if (rect.width > 0 || rect.height > 0) {
+      const bbox = (element as SVGGraphicsElement).getBBox();
+      if (bbox.width > 0 || bbox.height > 0) {
         return {
-          x: Math.round(rect.x + rect.width / 2),
-          y: Math.round(rect.y + rect.height / 2),
+          x: bbox.x + bbox.width / 2,
+          y: bbox.y + bbox.height / 2,
         };
       }
     } catch {
-      // getBoundingClientRect may fail for elements not in the DOM
+      // getBBox may fail for elements not in the DOM or without geometric data
     }
     return null;
   }
