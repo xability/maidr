@@ -23,7 +23,7 @@ interface ScatterYPoint {
   y: number;
 }
 enum NavMode {
-  COL = 'column',
+  COL = 'col',
   ROW = 'row',
 }
 
@@ -122,7 +122,7 @@ export class ScatterTrace extends AbstractTrace {
    * @returns SVG elements for X-based or Y-based highlighting depending on mode
    */
   protected get highlightValues(): SVGElement[][] | null {
-    return this.movable.mode === 'col'
+    return this.mode === NavMode.COL
       ? this.highlightXValues
       : this.highlightYValues;
   }
@@ -184,7 +184,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
-    if (this.movable.mode === 'col') {
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         freq: {
@@ -218,7 +218,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get text(): TextState {
-    if (this.movable.mode === 'col') {
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -245,7 +245,7 @@ export class ScatterTrace extends AbstractTrace {
       return this.outOfBoundsState as HighlightState;
     }
 
-    const elements = this.movable.mode === 'col'
+    const elements = this.mode === NavMode.COL
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
@@ -271,7 +271,6 @@ export class ScatterTrace extends AbstractTrace {
     this.row = 0;
     this.col = 0;
     this.mode = NavMode.COL;
-    this.movable.mode = 'col';
   }
 
   /**
@@ -293,7 +292,6 @@ export class ScatterTrace extends AbstractTrace {
       }
 
       this.mode = NavMode.ROW;
-      this.movable.mode = 'row';
     } else {
       // Switch from ROW to COL mode
       const currentYPoint = this.yPoints[this.row];
@@ -309,7 +307,6 @@ export class ScatterTrace extends AbstractTrace {
       }
 
       this.mode = NavMode.COL;
-      this.movable.mode = 'col';
       this.row = 0; // Set to 0 for COL mode since values[0] = xValues
     }
   }
@@ -601,7 +598,6 @@ export class ScatterTrace extends AbstractTrace {
   public moveToPoint(x: number, y: number): void {
     // set to vertical mode
     this.mode = NavMode.COL;
-    this.movable.mode = 'col';
 
     const nearest = this.findNearestPoint(x, y);
     if (nearest) {
