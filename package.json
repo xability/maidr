@@ -13,6 +13,11 @@
       "types": "./dist/react.d.mts",
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
+    },
+    "./victory": {
+      "types": "./dist/victory.d.mts",
+      "import": "./dist/victory.mjs",
+      "default": "./dist/victory.mjs"
     }
   },
   "main": "dist/maidr.js",
@@ -20,9 +25,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build && vite build --config vite.react.config.ts",
+    "build": "vite build && vite build --config vite.react.config.ts && vite build --config vite.victory.config.ts",
     "build:script": "vite build",
     "build:react": "vite build --config vite.react.config.ts",
+    "build:victory": "vite build --config vite.victory.config.ts",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
@@ -42,13 +48,17 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0"
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "victory": "^37.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "victory": {
       "optional": true
     }
   },
