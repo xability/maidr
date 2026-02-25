@@ -1,17 +1,37 @@
 import type { Maidr as MaidrData, MaidrLayer } from '@type/grammar';
-import type { MaidrVictoryProps } from './types';
 import type { JSX } from 'react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { MaidrVictoryProps, VictoryLayerInfo } from './types';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Maidr } from '../maidr-component';
 import { extractVictoryLayers, toMaidrLayer } from './adapter';
-import { tagLayerElements } from './selectors';
+import { clearTaggedElements, tagLayerElements } from './selectors';
 
 /**
- * Builds a minimal valid {@link MaidrData} object with no layers.
- * Used as the initial value before Victory elements have rendered.
+ * Collects all legend labels across layers that define them.
  */
-function emptyMaidrData(id: string): MaidrData {
-  return { id, subplots: [[{ layers: [] }]] };
+function collectLegend(layers: VictoryLayerInfo[]): string[] | undefined {
+  const allLabels: string[] = [];
+  for (const layer of layers) {
+    if (layer.legend)
+      allLabels.push(...layer.legend);
+  }
+  return allLabels.length > 0 ? allLabels : undefined;
+}
+
+/**
+ * Produces a stable, serialisable fingerprint from extracted Victory layers.
+ *
+ * React `children` creates a new object reference on every render, which
+ * makes it an unstable dependency for hooks. Instead we compare the
+ * JSON-serialisable layer data: if the actual chart data hasn't changed
+ * the effect can skip DOM re-tagging.
+ */
+function layerFingerprint(layers: VictoryLayerInfo[]): string {
+  return JSON.stringify(layers.map(l => ({
+    t: l.victoryType,
+    d: l.data,
+    n: l.dataCount,
+  })));
 }
 
 /**
@@ -62,19 +82,51 @@ export function MaidrVictory({
   children,
 }: MaidrVictoryProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [maidrData, setMaidrData] = useState<MaidrData>(() => emptyMaidrData(id));
-
-  // Extract data from Victory component props (pure computation, no DOM).
-  // Memoized so that the useLayoutEffect only re-runs when Victory data
-  // actually changes rather than on every parent re-render.
-  const victoryLayers = useMemo(() => extractVictoryLayers(children), [children]);
+  const prevFingerprintRef = useRef<string>('');
+  const [maidrData, setMaidrData] = useState<MaidrData>(() => ({
+    id,
+    title,
+    subtitle,
+    caption,
+    subplots: [[{ layers: [] }]],
+  }));
 
   // useLayoutEffect runs synchronously after DOM mutations, before paint.
   // This guarantees Victory's SVG elements exist when we inspect the DOM
   // for selector tagging.
   useLayoutEffect(() => {
     const container = containerRef.current;
-    if (!container || victoryLayers.length === 0) return;
+    if (!container)
+      return;
+
+    // Extract data from Victory component props via React children
+    // introspection (pure computation, does not require DOM).
+    const victoryLayers = extractVictoryLayers(children);
+
+    // Skip DOM re-tagging when the underlying data hasn't changed.
+    // This avoids redundant work when the parent re-renders with the
+    // same chart data (children reference changes but content is equal).
+    const fp = layerFingerprint(victoryLayers);
+    if (fp === prevFingerprintRef.current)
+      return;
+    prevFingerprintRef.current = fp;
+
+    // Clear stale data-maidr-victory-* attributes from a previous tagging
+    // pass to avoid ghost selectors.
+    clearTaggedElements(container);
+
+    if (victoryLayers.length === 0) {
+      // Preserve metadata (title, subtitle, caption) even when no
+      // supported Victory data components are found.
+      setMaidrData({
+        id,
+        title,
+        subtitle,
+        caption,
+        subplots: [[{ layers: [] }]],
+      });
+      return;
+    }
 
     // Tag rendered SVG elements with data attributes for reliable
     // CSS-selector-based highlighting.
@@ -92,10 +144,10 @@ export function MaidrVictory({
       caption,
       subplots: [[{
         layers: maidrLayers,
-        legend: victoryLayers.find(l => l.legend)?.legend,
+        legend: collectLegend(victoryLayers),
       }]],
     });
-  }, [victoryLayers, id, title, subtitle, caption]);
+  });
 
   return (
     <Maidr data={maidrData}>

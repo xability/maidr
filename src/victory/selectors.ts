@@ -7,6 +7,27 @@ import type { VictoryLayerInfo } from './types';
 const ATTR_PREFIX = 'data-maidr-victory';
 
 /**
+ * Removes all `data-maidr-victory-*` attributes from elements inside the
+ * container. Must be called before re-tagging to prevent stale attributes
+ * from accumulating across re-renders.
+ */
+export function clearTaggedElements(container: HTMLElement): void {
+  const svg = container.querySelector('svg');
+  if (!svg)
+    return;
+
+  const tagged = svg.querySelectorAll(`[${ATTR_PREFIX}-0], [${ATTR_PREFIX}-1], [${ATTR_PREFIX}-2], [${ATTR_PREFIX}-3], [${ATTR_PREFIX}-4], [${ATTR_PREFIX}-5], [${ATTR_PREFIX}-6], [${ATTR_PREFIX}-7], [${ATTR_PREFIX}-8], [${ATTR_PREFIX}-9]`);
+  for (const el of tagged) {
+    const attrs = Array.from(el.attributes);
+    for (const attr of attrs) {
+      if (attr.name.startsWith(ATTR_PREFIX)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+}
+
+/**
  * Finds the Victory data elements inside a container for a given layer,
  * tags them with a unique data attribute, and returns the CSS selector
  * that matches exactly those elements.
@@ -20,6 +41,13 @@ const ATTR_PREFIX = 'data-maidr-victory';
  *    elements were already claimed.
  * 4. Each claimed element receives a `data-maidr-victory-<layerIndex>`
  *    attribute so MAIDR can select them deterministically.
+ *
+ * @remarks
+ * This relies on Victory's `role="presentation"` attribute on data
+ * elements, which is a stable Victory convention (tested with v37).
+ * If Victory changes this convention, selector tagging will silently
+ * degrade and highlighting will stop working (audio/text/braille are
+ * unaffected).
  *
  * @param container  - The DOM node wrapping the Victory chart
  * @param layer      - The extracted layer info
@@ -35,7 +63,8 @@ export function tagLayerElements(
   claimed: Set<Element>,
 ): string | undefined {
   const svg = container.querySelector('svg');
-  if (!svg) return undefined;
+  if (!svg)
+    return undefined;
 
   const attrName = `${ATTR_PREFIX}-${layerIndex}`;
   const { victoryType } = layer;
@@ -52,7 +81,11 @@ export function tagLayerElements(
     return undefined;
   }
 
-  // Discrete-element charts: one SVG element per data point
+  // Discrete-element charts: one SVG element per data point.
+  // VictoryBar and VictoryHistogram render <rect> elements.
+  // VictoryScatter, VictoryPie, VictoryGroup, and VictoryStack render
+  // <path> elements (VictoryPie uses <path> for arc slices, not <rect>,
+  // despite being mapped to TraceType.BAR for data representation).
   const tag = victoryType === 'VictoryBar' || victoryType === 'VictoryHistogram'
     ? 'rect'
     : 'path';
@@ -108,7 +141,8 @@ function tagLineOrAreaElements(
     svg.querySelectorAll('path[role="presentation"]'),
   ).filter(el => !claimed.has(el));
 
-  if (candidates.length === 0) return undefined;
+  if (candidates.length === 0)
+    return undefined;
 
   // Heuristic: pick the first path whose `d` attribute contains enough
   // SVG commands to plausibly represent the data points.

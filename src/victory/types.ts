@@ -28,17 +28,17 @@ export interface MaidrVictoryProps {
 /**
  * Victory chart component types that MAIDR can extract data from.
  */
-export type VictoryComponentType =
-  | 'VictoryBar'
-  | 'VictoryLine'
-  | 'VictoryScatter'
-  | 'VictoryArea'
-  | 'VictoryPie'
-  | 'VictoryBoxPlot'
-  | 'VictoryCandlestick'
-  | 'VictoryHistogram'
-  | 'VictoryGroup'
-  | 'VictoryStack';
+export type VictoryComponentType
+  = | 'VictoryBar'
+    | 'VictoryLine'
+    | 'VictoryScatter'
+    | 'VictoryArea'
+    | 'VictoryPie'
+    | 'VictoryBoxPlot'
+    | 'VictoryCandlestick'
+    | 'VictoryHistogram'
+    | 'VictoryGroup'
+    | 'VictoryStack';
 
 /**
  * Discriminated union of all supported layer data shapes.
@@ -47,14 +47,14 @@ export type VictoryComponentType =
  * layer's data is validated at extraction time and carries the correct
  * type through to the MAIDR schema conversion.
  */
-export type VictoryLayerData =
-  | { kind: 'bar'; points: BarPoint[] }
-  | { kind: 'line'; points: LinePoint[][] }
-  | { kind: 'scatter'; points: ScatterPoint[] }
-  | { kind: 'box'; points: BoxPoint[] }
-  | { kind: 'candlestick'; points: CandlestickPoint[] }
-  | { kind: 'histogram'; points: HistogramPoint[] }
-  | { kind: 'segmented'; points: SegmentedPoint[][] };
+export type VictoryLayerData
+  = | { kind: 'bar'; points: BarPoint[] }
+    | { kind: 'line'; points: LinePoint[][] }
+    | { kind: 'scatter'; points: ScatterPoint[] }
+    | { kind: 'box'; points: BoxPoint[] }
+    | { kind: 'candlestick'; points: CandlestickPoint[] }
+    | { kind: 'histogram'; points: HistogramPoint[] }
+    | { kind: 'segmented'; points: SegmentedPoint[][] };
 
 /**
  * Intermediate representation of a Victory data layer before conversion

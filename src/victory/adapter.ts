@@ -9,10 +9,10 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
-import type { VictoryComponentType, VictoryLayerData, VictoryLayerInfo } from './types';
 import type { ReactElement, ReactNode } from 'react';
-import { Children, isValidElement } from 'react';
+import type { VictoryComponentType, VictoryLayerData, VictoryLayerInfo } from './types';
 import { TraceType } from '@type/grammar';
+import { Children, isValidElement } from 'react';
 
 // ---------------------------------------------------------------------------
 // Component name detection
@@ -26,7 +26,8 @@ import { TraceType } from '@type/grammar';
  * conventions such as `WrappedComponent`, `render`, and `type`.
  */
 function getVictoryDisplayName(type: unknown): string | null {
-  if (!type) return null;
+  if (!type)
+    return null;
 
   if (typeof type === 'function' || typeof type === 'object') {
     const obj = type as Record<string, unknown>;
@@ -35,12 +36,16 @@ function getVictoryDisplayName(type: unknown): string | null {
     const name = (obj.displayName as string | undefined)
       ?? (obj.name as string | undefined)
       ?? '';
-    if (name.startsWith('Victory')) return name;
+    if (name.startsWith('Victory'))
+      return name;
 
     // HOC-wrapped components (e.g. React.memo, React.forwardRef)
-    if (obj.WrappedComponent) return getVictoryDisplayName(obj.WrappedComponent);
-    if (obj.render) return getVictoryDisplayName(obj.render);
-    if (obj.type) return getVictoryDisplayName(obj.type);
+    if (obj.WrappedComponent)
+      return getVictoryDisplayName(obj.WrappedComponent);
+    if (obj.render)
+      return getVictoryDisplayName(obj.render);
+    if (obj.type)
+      return getVictoryDisplayName(obj.type);
   }
 
   return null;
@@ -75,8 +80,10 @@ function isDataComponent(name: string): name is VictoryComponentType {
  * (defaults to "x" / "y").
  */
 function resolveAccessor(accessor: unknown, fallback: string): (d: Record<string, unknown>) => unknown {
-  if (typeof accessor === 'function') return accessor as (d: Record<string, unknown>) => unknown;
-  if (typeof accessor === 'string') return (d: Record<string, unknown>) => d[accessor];
+  if (typeof accessor === 'function')
+    return accessor as (d: Record<string, unknown>) => unknown;
+  if (typeof accessor === 'string')
+    return (d: Record<string, unknown>) => d[accessor];
   return (d: Record<string, unknown>) => d[fallback];
 }
 
@@ -91,13 +98,16 @@ function extractAxisLabels(children: ReactNode): { x?: string; y?: string } {
   const result: { x?: string; y?: string } = {};
 
   Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement(child))
+      return;
     const name = getVictoryDisplayName(child.type);
-    if (name !== 'VictoryAxis') return;
+    if (name !== 'VictoryAxis')
+      return;
 
     const props = child.props as Record<string, unknown>;
     const label = props.label as string | undefined;
-    if (!label) return;
+    if (!label)
+      return;
 
     if (props.dependentAxis) {
       result.y = label;
@@ -117,7 +127,8 @@ function extractAxisLabels(children: ReactNode): { x?: string; y?: string } {
  * Validates that `rawData` is a non-empty array of objects.
  */
 function validateRawData(rawData: unknown): rawData is Record<string, unknown>[] {
-  return Array.isArray(rawData) && rawData.length > 0 && typeof rawData[0] === 'object';
+  return Array.isArray(rawData) && rawData.length > 0
+    && typeof rawData[0] === 'object' && rawData[0] !== null;
 }
 
 /**
@@ -127,7 +138,8 @@ function extractBarData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
@@ -146,7 +158,8 @@ function extractLineData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
@@ -165,7 +178,8 @@ function extractScatterData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
@@ -189,7 +203,8 @@ function extractBoxData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const points: BoxPoint[] = rawData.map((d) => {
     const x = d.x as string | number;
@@ -217,7 +232,8 @@ function extractCandlestickData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const points: CandlestickPoint[] = rawData.map((d) => {
     const open = Number(d.open);
@@ -226,8 +242,10 @@ function extractCandlestickData(
     const low = Number(d.low);
 
     let trend: CandlestickTrend = 'Neutral';
-    if (close > open) trend = 'Bull';
-    else if (close < open) trend = 'Bear';
+    if (close > open)
+      trend = 'Bull';
+    else if (close < open)
+      trend = 'Bear';
 
     return {
       value: String(d.x),
@@ -255,7 +273,8 @@ function extractHistogramData(
   props: Record<string, unknown>,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
-  if (!validateRawData(rawData)) return null;
+  if (!validateRawData(rawData))
+    return null;
 
   const getX = resolveAccessor(props.x, 'x');
   const values = rawData.map(d => Number(getX(d)));
@@ -264,8 +283,11 @@ function extractHistogramData(
     ? (props.bins as number)
     : Math.ceil(Math.sqrt(values.length));
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  // Use reduce instead of Math.min/max(...values) to avoid stack overflow
+  // on large datasets (spread arguments hit the engine's call stack limit
+  // at ~100k elements).
+  const min = values.reduce((a, b) => (a < b ? a : b), values[0]);
+  const max = values.reduce((a, b) => (a > b ? a : b), values[0]);
   const binWidth = (max - min) / binCount || 1;
 
   // Build histogram bins
@@ -280,7 +302,8 @@ function extractHistogramData(
 
   for (const v of values) {
     let idx = Math.floor((v - min) / binWidth);
-    if (idx >= binCount) idx = binCount - 1;
+    if (idx >= binCount)
+      idx = binCount - 1;
     bins[idx].count++;
   }
 
@@ -305,7 +328,8 @@ function extractLayerFromElement(
   axisLabels: { x?: string; y?: string },
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
-  if (!name || !isDataComponent(name)) return null;
+  if (!name || !isDataComponent(name))
+    return null;
 
   const props = element.props as Record<string, unknown>;
 
@@ -334,7 +358,8 @@ function extractLayerFromElement(
       break;
   }
 
-  if (!extracted) return null;
+  if (!extracted)
+    return null;
 
   return {
     id: String(layerId),
@@ -369,13 +394,16 @@ function extractSegmentedLayer(
   let totalElements = 0;
 
   Children.forEach(containerProps.children, (child) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement(child))
+      return;
     const name = getVictoryDisplayName(child.type);
-    if (name !== 'VictoryBar') return;
+    if (name !== 'VictoryBar')
+      return;
 
     const props = child.props as Record<string, unknown>;
     const rawData = props.data;
-    if (!validateRawData(rawData)) return;
+    if (!validateRawData(rawData))
+      return;
 
     const getX = resolveAccessor(props.x, 'x');
     const getY = resolveAccessor(props.y, 'y');
@@ -392,7 +420,8 @@ function extractSegmentedLayer(
     totalElements += rawData.length;
   });
 
-  if (series.length === 0) return null;
+  if (series.length === 0)
+    return null;
 
   const traceType: VictoryComponentType = containerType;
 
@@ -425,10 +454,12 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
 
   function processChildren(childNodes: ReactNode, axisLabels: { x?: string; y?: string }): void {
     Children.forEach(childNodes, (child) => {
-      if (!isValidElement(child)) return;
+      if (!isValidElement(child))
+        return;
 
       const name = getVictoryDisplayName(child.type);
-      if (!name) return;
+      if (!name)
+        return;
 
       // VictoryGroup / VictoryStack → segmented bar
       if (name === 'VictoryGroup' || name === 'VictoryStack') {
@@ -450,7 +481,8 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
   }
 
   Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement(child))
+      return;
 
     const name = getVictoryDisplayName(child.type);
 
