@@ -40,8 +40,9 @@
 
 import type { JSX } from 'react';
 import type { MaidrRechartsProps } from './types';
+import { useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
-import { useRechartsAdapter } from './useRechartsAdapter';
+import { convertRechartsToMaidr } from './converters';
 
 /**
  * Wrapper component that makes Recharts charts accessible via MAIDR.
@@ -64,22 +65,29 @@ export function MaidrRecharts({
   xLabel,
   yLabel,
   orientation,
+  fillKeys,
+  binConfig,
   children,
 }: MaidrRechartsProps): JSX.Element {
-  const maidrData = useRechartsAdapter({
-    id,
-    title,
-    subtitle,
-    caption,
-    data,
-    chartType,
-    xKey,
-    yKeys,
-    layers,
-    xLabel,
-    yLabel,
-    orientation,
-  });
+  const maidrData = useMemo(
+    () => convertRechartsToMaidr({
+      id,
+      title,
+      subtitle,
+      caption,
+      data,
+      chartType,
+      xKey,
+      yKeys,
+      layers,
+      xLabel,
+      yLabel,
+      orientation,
+      fillKeys,
+      binConfig,
+    }),
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, xLabel, yLabel, orientation, fillKeys, binConfig],
+  );
 
   return (
     <Maidr data={maidrData}>

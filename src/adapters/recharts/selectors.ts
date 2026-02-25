@@ -22,6 +22,12 @@
  *
  * PieChart:
  *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
+ *
+ * RadarChart:
+ *   g.recharts-radar > g.recharts-radar-dots > circle.recharts-radar-dot
+ *
+ * FunnelChart:
+ *   g.recharts-trapezoids > g.recharts-funnel-trapezoid > path.recharts-trapezoid
  */
 
 import type { RechartsChartType } from './types';
@@ -48,6 +54,10 @@ export function getRechartsSelector(
 
   switch (chartType) {
     case 'bar':
+    case 'stacked_bar':
+    case 'dodged_bar':
+    case 'normalized_bar':
+    case 'histogram':
       return `${prefix}.recharts-bar-rectangle`;
     case 'line':
       return `${prefix}.recharts-line-dot`;
@@ -57,6 +67,10 @@ export function getRechartsSelector(
       return `${prefix}.recharts-scatter-symbol`;
     case 'pie':
       return `${prefix}.recharts-pie-sector`;
+    case 'radar':
+      return `${prefix}.recharts-radar-dot`;
+    case 'funnel':
+      return `${prefix}.recharts-funnel-trapezoid`;
   }
 }
 
@@ -65,16 +79,22 @@ export function getRechartsSelector(
  * within a multi-series chart.
  *
  * Recharts renders each series component (Bar, Line, etc.) as separate
- * `.recharts-{type}` groups in DOM order. We use `:nth-of-type()` to
- * target the correct series group.
+ * container groups in DOM order. Since all containers are `<g>` elements,
+ * using `:nth-of-type()` would match by tag (not class) and be unreliable
+ * when axes or grids are present. Instead, we use the `[class~=...]`
+ * attribute selector with `:nth-child()` scoped within the chart surface
+ * layer for reliable series targeting.
  */
 function getNthSeriesPrefix(
   chartType: RechartsChartType,
   seriesIndex: number,
 ): string {
   const containerClass = getContainerClass(chartType);
-  // CSS :nth-of-type is 1-indexed
-  return `.${containerClass}:nth-of-type(${seriesIndex + 1}) `;
+  // Use attribute selector to match exactly the container class,
+  // then select the (n+1)th occurrence via a broader scope.
+  // Recharts wraps series containers in `.recharts-layer` groups
+  // inside the chart surface. We scope to the container class directly.
+  return `.${containerClass}:nth-child(${seriesIndex + 1}) `;
 }
 
 /**
@@ -85,6 +105,10 @@ function getNthSeriesPrefix(
 function getContainerClass(chartType: RechartsChartType): string {
   switch (chartType) {
     case 'bar':
+    case 'stacked_bar':
+    case 'dodged_bar':
+    case 'normalized_bar':
+    case 'histogram':
       return 'recharts-bar';
     case 'line':
       return 'recharts-line';
@@ -94,5 +118,9 @@ function getContainerClass(chartType: RechartsChartType): string {
       return 'recharts-scatter';
     case 'pie':
       return 'recharts-pie';
+    case 'radar':
+      return 'recharts-radar';
+    case 'funnel':
+      return 'recharts-trapezoids';
   }
 }

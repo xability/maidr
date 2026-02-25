@@ -41,6 +41,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@adapters': path.resolve(__dirname, 'src/adapters'),
       '@command': path.resolve(__dirname, 'src/command'),
       '@model': path.resolve(__dirname, 'src/model'),
       '@state': path.resolve(__dirname, 'src/state'),

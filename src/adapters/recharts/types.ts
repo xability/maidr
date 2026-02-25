@@ -9,8 +9,32 @@ import type { Orientation } from '@type/grammar';
 
 /**
  * Recharts chart types supported by the adapter.
+ *
+ * Mapping to MAIDR trace types:
+ * - `'bar'` → `TraceType.BAR` — Simple bar chart
+ * - `'stacked_bar'` → `TraceType.STACKED` — Stacked bar chart (Recharts `<Bar stackId="...">`)
+ * - `'dodged_bar'` → `TraceType.DODGED` — Grouped/dodged bar chart (multiple `<Bar>` without stackId)
+ * - `'normalized_bar'` → `TraceType.NORMALIZED` — Stacked normalized (100%) bar chart
+ * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
+ * - `'line'` → `TraceType.LINE` — Line chart
+ * - `'area'` → `TraceType.LINE` — Area chart (treated as line for sonification/navigation)
+ * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
+ * - `'pie'` → `TraceType.BAR` — Pie chart (sectors mapped as bar categories)
+ * - `'radar'` → `TraceType.LINE` — Radar chart (dimensions mapped as line points)
+ * - `'funnel'` → `TraceType.BAR` — Funnel chart (segments mapped as bar categories)
  */
-export type RechartsChartType = 'bar' | 'line' | 'area' | 'scatter' | 'pie';
+export type RechartsChartType
+  = | 'bar'
+    | 'stacked_bar'
+    | 'dodged_bar'
+    | 'normalized_bar'
+    | 'histogram'
+    | 'line'
+    | 'area'
+    | 'scatter'
+    | 'pie'
+    | 'radar'
+    | 'funnel';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -26,12 +50,27 @@ export interface RechartsLayerConfig {
 }
 
 /**
+ * Configuration for histogram bin ranges.
+ * Required when `chartType` is `'histogram'`.
+ */
+export interface HistogramBinConfig {
+  /** Key in data objects for the lower bin edge. */
+  xMinKey: string;
+  /** Key in data objects for the upper bin edge. */
+  xMaxKey: string;
+  /** Key in data objects for the minimum count (typically 0). Defaults to 0. */
+  yMinKey?: string;
+  /** Key in data objects for the maximum count. Defaults to the yKey value. */
+  yMaxKey?: string;
+}
+
+/**
  * Configuration for the Recharts-to-MAIDR adapter.
  *
  * Supports two configuration modes:
- * 1. **Simple mode** - Set `chartType` and `yKeys` for a single chart type
+ * 1. **Simple mode** — Set `chartType` and `yKeys` for a single chart type
  *    with one or more data series.
- * 2. **Composed mode** - Set `layers` for mixed chart types (e.g., bar + line).
+ * 2. **Composed mode** — Set `layers` for mixed chart types (e.g., bar + line).
  *
  * @example Simple bar chart
  * ```typescript
@@ -47,17 +86,33 @@ export interface RechartsLayerConfig {
  * };
  * ```
  *
- * @example Multi-series line chart
+ * @example Stacked bar chart
  * ```typescript
  * const config: RechartsAdapterConfig = {
- *   id: 'temp-chart',
- *   title: 'Temperature by City',
- *   data: [{ month: 1, nyc: 32, la: 58 }, { month: 2, nyc: 35, la: 60 }],
- *   chartType: 'line',
+ *   id: 'stacked-chart',
+ *   title: 'Revenue by Product',
+ *   data: [{ month: 'Jan', productA: 50, productB: 30 }],
+ *   chartType: 'stacked_bar',
  *   xKey: 'month',
- *   yKeys: ['nyc', 'la'],
+ *   yKeys: ['productA', 'productB'],
+ *   fillKeys: ['Product A', 'Product B'],
  *   xLabel: 'Month',
- *   yLabel: 'Temperature (F)',
+ *   yLabel: 'Revenue',
+ * };
+ * ```
+ *
+ * @example Histogram
+ * ```typescript
+ * const config: RechartsAdapterConfig = {
+ *   id: 'hist-chart',
+ *   title: 'Score Distribution',
+ *   data: [{ bin: '0-10', count: 5, xMin: 0, xMax: 10 }],
+ *   chartType: 'histogram',
+ *   xKey: 'bin',
+ *   yKeys: ['count'],
+ *   binConfig: { xMinKey: 'xMin', xMaxKey: 'xMax' },
+ *   xLabel: 'Score',
+ *   yLabel: 'Frequency',
  * };
  * ```
  *
@@ -124,6 +179,19 @@ export interface RechartsAdapterConfig {
 
   /** Bar/box chart orientation. Defaults to vertical. */
   orientation?: Orientation;
+
+  /**
+   * Display names for each series in stacked/dodged/normalized bar charts.
+   * Maps 1:1 with `yKeys` — the i-th fillKey names the i-th yKey.
+   * When omitted, the yKey strings are used as fill labels.
+   */
+  fillKeys?: string[];
+
+  /**
+   * Histogram bin range configuration.
+   * Required when `chartType` is `'histogram'`.
+   */
+  binConfig?: HistogramBinConfig;
 }
 
 /**

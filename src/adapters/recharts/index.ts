@@ -12,6 +12,7 @@ export { convertRechartsToMaidr } from './converters';
 export { MaidrRecharts } from './MaidrRecharts';
 export { getRechartsSelector } from './selectors';
 export type {
+  HistogramBinConfig,
   MaidrRechartsProps,
   RechartsAdapterConfig,
   RechartsChartType,

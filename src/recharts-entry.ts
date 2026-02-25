@@ -84,6 +84,7 @@ export {
 } from './adapters/recharts';
 
 export type {
+  HistogramBinConfig,
   MaidrRechartsProps,
   RechartsAdapterConfig,
   RechartsChartType,
