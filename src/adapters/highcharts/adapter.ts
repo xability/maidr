@@ -27,7 +27,6 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
-  SmoothPoint,
 } from '../../type/grammar';
 import type { HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -40,7 +39,6 @@ import {
   histogramSelector,
   lineSelectors,
   scatterSelector,
-  smoothSelectors,
 } from './selectors';
 
 /**
@@ -56,13 +54,6 @@ export interface HighchartsAdapterOptions {
 }
 
 let chartCounter = 0;
-
-/**
- * Resets the internal chart counter. Useful for deterministic output in tests.
- */
-export function resetChartCounter(): void {
-  chartCounter = 0;
-}
 
 /**
  * Converts a rendered Highcharts chart into a MAIDR data structure.
@@ -81,7 +72,6 @@ export function resetChartCounter(): void {
  * - Stacked `column`/`bar` → {@link TraceType.STACKED}
  * - Grouped (dodged) `column`/`bar` → {@link TraceType.DODGED}
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
- * - `spline` (smooth) → {@link TraceType.SMOOTH} (when only one series)
  *
  * @param chart - A Highcharts chart instance (the return value of `Highcharts.chart()`).
  * @param options - Optional overrides for ID, title, or series filtering.
@@ -224,7 +214,17 @@ function convertBarGroup(
     return [];
 
   const first = barSeries[0];
-  const stacking = getStackingMode(first, chart);
+
+  // Check stacking mode across all series and warn on inconsistencies.
+  const stackingModes = barSeries.map(s => getStackingMode(s, chart));
+  const uniqueModes = [...new Set(stackingModes)];
+  if (uniqueModes.length > 1) {
+    console.warn(
+      `[MAIDR Highcharts] Inconsistent stacking modes across bar series: ${
+        JSON.stringify(uniqueModes)}. Using mode from first series.`,
+    );
+  }
+  const stacking = stackingModes[0];
 
   const isInverted = chart.options.chart?.inverted === true;
   const seriesType = resolveSeriesType(first, chart);
@@ -456,16 +456,36 @@ function convertBoxSeries(
   series: HighchartsSeries,
   containerId: string,
 ): MaidrLayer {
-  const data: BoxPoint[] = series.data.map(p => ({
-    fill: p.category ?? p.name ?? String(p.x),
-    lowerOutliers: [],
-    min: p.low ?? 0,
-    q1: p.q1 ?? 0,
-    q2: p.median ?? 0,
-    q3: p.q3 ?? 0,
-    max: p.high ?? 0,
-    upperOutliers: [],
-  }));
+  const data: BoxPoint[] = series.data.map((p, i) => {
+    const missing: string[] = [];
+    if (p.low == null)
+      missing.push('low');
+    if (p.q1 == null)
+      missing.push('q1');
+    if (p.median == null)
+      missing.push('median');
+    if (p.q3 == null)
+      missing.push('q3');
+    if (p.high == null)
+      missing.push('high');
+
+    if (missing.length > 0) {
+      console.warn(
+        `[MAIDR Highcharts] Boxplot series "${series.name}" point ${i}: missing ${missing.join(', ')}; defaulting to 0.`,
+      );
+    }
+
+    return {
+      fill: p.category ?? p.name ?? String(p.x),
+      lowerOutliers: [],
+      min: p.low ?? 0,
+      q1: p.q1 ?? 0,
+      q2: p.median ?? 0,
+      q3: p.q3 ?? 0,
+      max: p.high ?? 0,
+      upperOutliers: [],
+    };
+  });
 
   return {
     id: String(series.index),
@@ -631,60 +651,6 @@ function convertCandlestickSeries(
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
-    },
-    data,
-  };
-}
-
-/**
- * Converts a Highcharts spline series into a MAIDR smooth trace.
- *
- * The smooth trace includes both data coordinates (x, y) and SVG pixel
- * coordinates (svg_x, svg_y) extracted from rendered point positions.
- * If SVG coordinates cannot be determined, data coordinates are used as fallback.
- */
-export function convertSmoothSeries(
-  seriesList: HighchartsSeries[],
-  containerId: string,
-): MaidrLayer | null {
-  if (seriesList.length === 0)
-    return null;
-
-  const data: SmoothPoint[][] = seriesList.map(series =>
-    series.data
-      .filter(p => p.y !== null)
-      .map((p) => {
-        // Attempt to read SVG pixel coordinates from the rendered graphic.
-        const graphic = p.graphic?.element;
-        let svgX = p.x;
-        let svgY = p.y as number;
-
-        if (graphic) {
-          const bbox = graphic.getBoundingClientRect();
-          svgX = bbox.x + bbox.width / 2;
-          svgY = bbox.y + bbox.height / 2;
-        }
-
-        return {
-          x: p.x,
-          y: p.y as number,
-          svg_x: svgX,
-          svg_y: svgY,
-        };
-      }),
-  );
-
-  const first = seriesList[0];
-  const selectors = smoothSelectors(containerId, seriesList.map(s => s.index));
-
-  return {
-    id: seriesList.map(s => String(s.index)).join('-'),
-    type: TraceType.SMOOTH,
-    title: first.name || undefined,
-    selectors,
-    axes: {
-      x: getAxisLabel(first, 'x'),
-      y: getAxisLabel(first, 'y'),
     },
     data,
   };

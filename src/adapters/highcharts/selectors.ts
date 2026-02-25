@@ -25,6 +25,11 @@ export function resetSelectorCounter(): void {
  * Ensures the chart's render target has an `id` attribute so CSS selectors
  * can be scoped to this specific chart.
  *
+ * **Side effect:** If the element does not already have an `id`, this function
+ * mutates the DOM by assigning a generated `id` (`maidr-hc-{n}`). This is
+ * necessary because MAIDR's highlight system uses `document.querySelectorAll`
+ * with selectors that must be scoped to a specific chart container.
+ *
  * @returns The element's `id` value (existing or newly assigned).
  */
 export function ensureContainerId(chart: HighchartsChart): string {
@@ -101,15 +106,4 @@ export function candlestickSelector(containerId: string, seriesIndex: number): s
  */
 export function boxplotSelector(containerId: string, seriesIndex: number): string {
   return `#${containerId} .highcharts-series-${seriesIndex} g.highcharts-point`;
-}
-
-/**
- * Generates CSS selectors for smooth/spline series using the graph path.
- *
- * Smooth curves use the same selector pattern as line charts — one path per series.
- */
-export function smoothSelectors(containerId: string, seriesIndices: number[]): string[] {
-  return seriesIndices.map(
-    i => `#${containerId} .highcharts-series-${i} path.highcharts-graph`,
-  );
 }
