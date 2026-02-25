@@ -463,7 +463,115 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   /**
+   * Extracts the SVG position of an element by trying multiple attribute sources.
+   * Supports: x/y attributes (matplotlib <use>, <rect>), cx/cy attributes (D3 <circle>),
+   * transform translate/matrix (Plotly <path>/<g>), and getBoundingClientRect fallback.
+   * @param element - The SVG element to extract position from
+   * @returns The x and y coordinates, or null if position cannot be determined
+   */
+  private getElementPosition(element: SVGElement): { x: number; y: number } | null {
+    // Try x/y attributes (matplotlib-style <use>, <rect>, <image>, <text> elements)
+    const x = Number.parseFloat(element.getAttribute('x') || '');
+    const y = Number.parseFloat(element.getAttribute('y') || '');
+    if (!Number.isNaN(x) && !Number.isNaN(y)) {
+      return { x, y };
+    }
+
+    // Try cx/cy attributes (D3/Bokeh <circle>, <ellipse> elements)
+    const cx = Number.parseFloat(element.getAttribute('cx') || '');
+    const cy = Number.parseFloat(element.getAttribute('cy') || '');
+    if (!Number.isNaN(cx) && !Number.isNaN(cy)) {
+      return { x: cx, y: cy };
+    }
+
+    // Try transform attribute (Plotly-style <path>/<g> elements)
+    const pos = this.getPositionFromTransform(element);
+    if (pos) {
+      return pos;
+    }
+
+    // Fallback: use bounding box center for any remaining SVG element types
+    // (e.g. <path> with absolute coordinates in d attribute, or <polygon>)
+    return this.getPositionFromBoundingBox(element);
+  }
+
+  /**
+   * Extracts position from an SVG transform attribute.
+   * Handles translate(x,y), translate(x), and matrix(a,b,c,d,e,f) forms.
+   * @param element - The SVG element to extract transform position from
+   * @returns The x and y coordinates, or null if no valid transform found
+   */
+  private getPositionFromTransform(element: SVGElement): { x: number; y: number } | null {
+    const transform = element.getAttribute('transform');
+    if (!transform) {
+      return null;
+    }
+
+    // Try translate(x, y) or translate(x y)
+    const translateMatch = transform.match(
+      /translate\(\s*([-\d.e+]+)[,\s]+([-\d.e+]+)\s*\)/,
+    );
+    if (translateMatch) {
+      const tx = Number.parseFloat(translateMatch[1]);
+      const ty = Number.parseFloat(translateMatch[2]);
+      if (!Number.isNaN(tx) && !Number.isNaN(ty)) {
+        return { x: tx, y: ty };
+      }
+    }
+
+    // Try translate(x) — single argument, y defaults to 0
+    const translateSingleMatch = transform.match(
+      /translate\(\s*([-\d.e+]+)\s*\)/,
+    );
+    if (translateSingleMatch) {
+      const tx = Number.parseFloat(translateSingleMatch[1]);
+      if (!Number.isNaN(tx)) {
+        return { x: tx, y: 0 };
+      }
+    }
+
+    // Try matrix(a, b, c, d, e, f) — e and f are the translation components
+    const matrixMatch = transform.match(
+      /matrix\(\s*[-\d.e+]+[,\s]+[-\d.e+]+[,\s]+[-\d.e+]+[,\s]+[-\d.e+]+[,\s]+([-\d.e+]+)[,\s]+([-\d.e+]+)\s*\)/,
+    );
+    if (matrixMatch) {
+      const tx = Number.parseFloat(matrixMatch[1]);
+      const ty = Number.parseFloat(matrixMatch[2]);
+      if (!Number.isNaN(tx) && !Number.isNaN(ty)) {
+        return { x: tx, y: ty };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extracts position from an element's bounding box as a last resort.
+   * Works for any visible SVG element (<path>, <polygon>, <g>, etc.).
+   * Uses getBBox() which returns coordinates in SVG user space, consistent
+   * with x/y and cx/cy attribute extraction methods above.
+   * @param element - The SVG element to extract bounding box position from
+   * @returns The center coordinates in SVG user space, or null if unavailable
+   */
+  private getPositionFromBoundingBox(element: SVGElement): { x: number; y: number } | null {
+    try {
+      const bbox = (element as SVGGraphicsElement).getBBox();
+      if (bbox.width > 0 || bbox.height > 0) {
+        return {
+          x: bbox.x + bbox.width / 2,
+          y: bbox.y + bbox.height / 2,
+        };
+      }
+    } catch {
+      // getBBox may fail for elements not in the DOM or without geometric data
+    }
+    return null;
+  }
+
+  /**
    * Maps scatter points to SVG elements grouped by X and Y coordinates.
+   * Supports multiple SVG rendering backends (matplotlib, Plotly, etc.) by
+   * extracting element positions from various attribute sources.
    * @param selector - CSS selector for SVG elements
    * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if unavailable
    */
@@ -482,20 +590,18 @@ export class ScatterTrace extends AbstractTrace {
     const xGroups = new Map<number, SVGElement[]>();
     const yGroups = new Map<number, SVGElement[]>();
     elements.forEach((element) => {
-      const x = Number.parseFloat(element.getAttribute('x') || '');
-      const y = Number.parseFloat(element.getAttribute('y') || '');
-
-      if (!Number.isNaN(x)) {
-        if (!xGroups.has(x))
-          xGroups.set(x, []);
-        xGroups.get(x)!.push(element);
+      const pos = this.getElementPosition(element);
+      if (!pos) {
+        return;
       }
 
-      if (!Number.isNaN(y)) {
-        if (!yGroups.has(y))
-          yGroups.set(y, []);
-        yGroups.get(y)!.push(element);
-      }
+      if (!xGroups.has(pos.x))
+        xGroups.set(pos.x, []);
+      xGroups.get(pos.x)!.push(element);
+
+      if (!yGroups.has(pos.y))
+        yGroups.set(pos.y, []);
+      yGroups.get(pos.y)!.push(element);
     });
 
     const sortedXElements = Array.from(xGroups.entries())
