@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr + AnyChart Example</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      #container {
+        width: 600px;
+        height: 400px;
+        margin-bottom: 1rem;
+      }
+      p { max-width: 600px; }
+    </style>
+    <!--
+      1. Load AnyChart (CDN).
+         Replace the version / URL with your own if you have a licence.
+    -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+
+    <!-- 2. Load the core MAIDR runtime (handles maidr-data attribute). -->
+    <script src="../dist/maidr.js"></script>
+
+    <!-- 3. Load the MAIDR AnyChart adapter. -->
+    <script type="module">
+      import { bindAnyChart } from '../dist/anychart.mjs';
+
+      // Wait for AnyChart and the DOM to be ready.
+      document.addEventListener('DOMContentLoaded', () => {
+        // Create an AnyChart bar chart.
+        const chart = anychart.bar([
+          ['Sat', 87],
+          ['Sun', 76],
+          ['Thur', 62],
+          ['Fri', 19],
+        ]);
+
+        chart.title('The Number of Tips by Day');
+        chart.xAxis().title('Day');
+        chart.yAxis().title('Count');
+        chart.container('container');
+        chart.draw();
+
+        // Bind the chart to MAIDR – extracts data, sets maidr-data, and
+        // dispatches the initialisation event.
+        bindAnyChart(chart, {
+          id: 'anychart-bar',
+          title: 'The Number of Tips by Day',
+          axes: { x: 'Day', y: 'Count' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>maidr + AnyChart Integration</h1>
+    <p>
+      This example shows how to use the <code>maidr/anychart</code> adapter
+      to make an AnyChart bar chart accessible via audio sonification, text
+      descriptions, braille output, and keyboard navigation.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>
