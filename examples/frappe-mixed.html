@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Mixed Axis - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
+         If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"
+      integrity="sha384-oIj1GL49K/irZ6Webc7IYYAOjw3d/OzrJWDEF0bpI4aeq8xW/Chzc/YBYAMhAsu/"
+      crossorigin="anonymous"
+      onerror="document.getElementById('error').hidden=false"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
+      integrity="sha384-2HTXu4gz74CXcykbd4twJUks9w/p4XNK6tSdc3WcQJVfFr9KggfJTBUr04JpK/Y5"
+      crossorigin="anonymous"
+    />
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Mixed Axis Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Guard: skip if Frappe Charts failed to load from CDN.
+      if (typeof frappe !== 'undefined') {
+        // 1. Create the Frappe mixed axis chart (bar + line)
+        const data = {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [
+            {
+              name: 'Sales',
+              chartType: 'bar',
+              values: [50, 70, 85, 60, 95, 110],
+            },
+            {
+              name: 'Trend',
+              chartType: 'line',
+              values: [55, 65, 75, 70, 80, 100],
+            },
+          ],
+        };
+
+        const chart = new frappe.Chart('#chart', {
+          title: 'Monthly Sales with Trend Line',
+          data: data,
+          type: 'axis-mixed',
+          height: 400,
+          colors: ['#7cd6fd', '#e44c55'],
+        });
+
+        // 2. Use requestAnimationFrame with fallback DOM check
+        requestAnimationFrame(function initMaidr() {
+          const container = document.querySelector('#chart');
+          const svg = container.querySelector('svg.frappe-chart');
+
+          if (!svg) {
+            requestAnimationFrame(initMaidr);
+            return;
+          }
+
+          // Frappe Charts v1.6.2 renders:
+          //   - Bars: <rect class="bar mini"> inside
+          //           <g class="dataset-units dataset-bars dataset-0">
+          //   - Line path: <path class="line-graph-path"> inside
+          //           <g class="dataset-units dataset-line dataset-1">
+          const barSelector = '.dataset-units.dataset-bars rect.bar';
+          const linePathSelector =
+            '.dataset-units.dataset-line .line-graph-path';
+
+          // Build MAIDR data for the bar layer
+          const barData = data.labels.map((label, i) => ({
+            x: label,
+            y: data.datasets[0].values[i],
+          }));
+
+          // Build MAIDR data for the line layer (array of arrays)
+          const lineData = [
+            data.labels.map((label, i) => ({
+              x: label,
+              y: data.datasets[1].values[i],
+            })),
+          ];
+
+          // 3. Construct the MAIDR JSON schema with two layers
+          const maidr = {
+            id: 'frappe-mixed-chart',
+            title: 'Monthly Sales with Trend Line',
+            subplots: [
+              [
+                {
+                  layers: [
+                    {
+                      id: '0',
+                      type: 'bar',
+                      title: 'Sales (Bar)',
+                      selectors: barSelector,
+                      axes: {
+                        x: 'Month',
+                        y: 'Sales (units)',
+                      },
+                      data: barData,
+                    },
+                    {
+                      id: '1',
+                      type: 'line',
+                      title: 'Trend (Line)',
+                      // LineTrace expects string[] (one selector per line)
+                      selectors: [linePathSelector],
+                      axes: {
+                        x: 'Month',
+                        y: 'Trend (units)',
+                      },
+                      data: lineData,
+                    },
+                  ],
+                },
+              ],
+            ],
+          };
+
+          // 4. Attach MAIDR data to the SVG element
+          svg.setAttribute('maidr-data', JSON.stringify(maidr));
+          svg.id = maidr.id;
+
+          // 5. Dynamically load maidr.js so it initializes on the ready SVG.
+          //    Unlike static examples where maidr.js is loaded via a <script> tag
+          //    before the SVG exists, Frappe Charts generates the SVG at runtime.
+          //    Loading maidr.js dynamically ensures its main() function finds the
+          //    SVG element with the maidr-data attribute already attached.
+          const script = document.createElement('script');
+          script.src = '../dist/maidr.js';
+          document.body.appendChild(script);
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Stacked Bar - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
+         If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"
+      integrity="sha384-oIj1GL49K/irZ6Webc7IYYAOjw3d/OzrJWDEF0bpI4aeq8xW/Chzc/YBYAMhAsu/"
+      crossorigin="anonymous"
+      onerror="document.getElementById('error').hidden=false"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
+      integrity="sha384-2HTXu4gz74CXcykbd4twJUks9w/p4XNK6tSdc3WcQJVfFr9KggfJTBUr04JpK/Y5"
+      crossorigin="anonymous"
+    />
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Stacked Bar Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Guard: skip if Frappe Charts failed to load from CDN.
+      if (typeof frappe !== 'undefined') {
+        // 1. Create the Frappe stacked bar chart
+        const data = {
+          labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+          datasets: [
+            {
+              name: 'Product A',
+              values: [25, 40, 30, 35],
+            },
+            {
+              name: 'Product B',
+              values: [40, 54, 45, 60],
+            },
+            {
+              name: 'Product C',
+              values: [15, 20, 25, 18],
+            },
+          ],
+        };
+
+        const chart = new frappe.Chart('#chart', {
+          title: 'Quarterly Revenue by Product',
+          data: data,
+          type: 'bar',
+          height: 400,
+          colors: ['#7cd6fd', '#743ee2', '#e44c55'],
+          barOptions: {
+            stacked: true,
+          },
+        });
+
+        // 2. Use requestAnimationFrame with fallback DOM check
+        requestAnimationFrame(function initMaidr() {
+          const container = document.querySelector('#chart');
+          const svg = container.querySelector('svg.frappe-chart');
+
+          if (!svg) {
+            requestAnimationFrame(initMaidr);
+            return;
+          }
+
+          // Frappe Charts v1.6.2 renders stacked bars as <rect class="bar mini">
+          // elements across multiple <g class="dataset-units dataset-bars dataset-{index}">
+          // groups. Each dataset-{i} group contains rects for one series.
+          //
+          // MAIDR's SegmentedTrace expects a single selector that returns ALL
+          // rect elements in DOM order. For stacked bars with Frappe Charts,
+          // elements are ordered: dataset-0 rects, then dataset-1 rects, etc.
+          // The SegmentedTrace's SVGRectElement handler iterates column-by-column,
+          // then group-by-group within each column.
+          //
+          // Frappe Charts renders rects dataset-by-dataset (all rects for dataset-0,
+          // then all for dataset-1). This matches the 'forward' groupDirection
+          // if we think of it as: for each category, the DOM has groups stacked
+          // bottom-to-top. Setting groupDirection to 'forward' aligns the mapping.
+          const barSelector = '.dataset-units.dataset-bars rect.bar';
+
+          // Build MAIDR SegmentedPoint data (array of arrays, one per fill group).
+          // The fill field is a string label identifying each segment; SegmentedTrace
+          // uses it for display text (e.g., "Level: Product A"). Both descriptive
+          // names and positional indices (e.g., "0", "1") are valid.
+          const maidrPoints = data.datasets.map((ds) =>
+            data.labels.map((label, i) => ({
+              x: label,
+              y: ds.values[i],
+              fill: ds.name,
+            })),
+          );
+
+          // 3. Construct the MAIDR JSON schema
+          const maidr = {
+            id: 'frappe-stacked-bar-chart',
+            title: 'Quarterly Revenue by Product',
+            subplots: [
+              [
+                {
+                  layers: [
+                    {
+                      id: '0',
+                      type: 'stacked_bar',
+                      selectors: barSelector,
+                      axes: {
+                        x: 'Quarter',
+                        y: 'Revenue (thousands USD)',
+                        fill: 'Product',
+                      },
+                      data: maidrPoints,
+                    },
+                  ],
+                },
+              ],
+            ],
+          };
+
+          // 4. Attach MAIDR data to the SVG element
+          svg.setAttribute('maidr-data', JSON.stringify(maidr));
+          svg.id = maidr.id;
+
+          // 5. Dynamically load maidr.js so it initializes on the ready SVG.
+          //    Unlike static examples where maidr.js is loaded via a <script> tag
+          //    before the SVG exists, Frappe Charts generates the SVG at runtime.
+          //    Loading maidr.js dynamically ensures its main() function finds the
+          //    SVG element with the maidr-data attribute already attached.
+          const script = document.createElement('script');
+          script.src = '../dist/maidr.js';
+          document.body.appendChild(script);
+        });
+      }
+    </script>
+  </body>
+</html>
