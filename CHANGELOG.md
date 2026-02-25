@@ -1,3 +1,10 @@
+## [3.51.1](https://github.com/xability/maidr/compare/v3.51.0...v3.51.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#562](https://github.com/xability/maidr/issues/562)) ([3b12fa8](https://github.com/xability/maidr/commit/3b12fa822cc0c821a14b06e325b117ec67dfea88))
+
 # [3.51.0](https://github.com/xability/maidr/compare/v3.50.1...v3.51.0) (2026-02-23)
 
 
