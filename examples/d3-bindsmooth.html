@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Smooth/Regression Line Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Smooth/Regression Line</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Generate sample data with a smooth regression line
+      const rawData = [];
+      for (let i = 0; i <= 20; i++) {
+        rawData.push({ x: i, y: 2 * i + 5 + (Math.random() - 0.5) * 10 });
+      }
+
+      // Simple linear regression for smooth line
+      const n = rawData.length;
+      const sumX = rawData.reduce((s, d) => s + d.x, 0);
+      const sumY = rawData.reduce((s, d) => s + d.y, 0);
+      const sumXY = rawData.reduce((s, d) => s + d.x * d.y, 0);
+      const sumX2 = rawData.reduce((s, d) => s + d.x * d.x, 0);
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-smooth-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const x = d3.scaleLinear().domain([0, 20]).range([0, width]);
+      const y = d3.scaleLinear().domain([0, 55]).range([height, 0]);
+
+      // Scatter points
+      svg.selectAll('circle.data-point')
+        .data(rawData)
+        .join('circle')
+        .attr('class', 'data-point')
+        .attr('cx', d => x(d.x))
+        .attr('cy', d => y(d.y))
+        .attr('r', 4)
+        .attr('fill', '#2196f3');
+
+      // Smooth regression line points
+      const smoothPoints = [];
+      for (let i = 0; i <= 20; i += 0.5) {
+        const yPred = slope * i + intercept;
+        smoothPoints.push({ x: i, y: yPred, svg_x: x(i), svg_y: y(yPred) });
+      }
+
+      const line = d3.line().x(d => x(d.x)).y(d => y(d.y));
+      svg.append('g')
+        .attr('class', 'smooth-group')
+        .append('path')
+        .datum(smoothPoints)
+        .attr('class', 'smooth')
+        .attr('d', line)
+        .attr('fill', 'none')
+        .attr('stroke', '#f44336')
+        .attr('stroke-width', 2);
+
+      // Add regression points
+      svg.select('g.smooth-group')
+        .selectAll('circle.smooth-point')
+        .data(smoothPoints)
+        .join('circle')
+        .attr('class', 'smooth-point')
+        .attr('cx', d => x(d.x))
+        .attr('cy', d => y(d.y))
+        .attr('r', 2)
+        .attr('fill', '#f44336')
+        .attr('opacity', 0.5);
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').style('font-size', '16px').text('Linear Regression');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-smooth-chart');
+      const result = maidrD3.bindD3Smooth(svgElement, {
+        selector: 'path.smooth',
+        pointSelector: 'circle.smooth-point',
+        title: 'Linear Regression',
+        axes: { x: 'X', y: 'Predicted Y' },
+        x: 'x',
+        y: 'y',
+        svgX: 'svg_x',
+        svgY: 'svg_y',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

@@ -8,6 +8,7 @@
 import type {
   BarPoint,
   BoxPoint,
+  CandlestickPoint,
   FormatConfig,
   HeatmapData,
   HistogramPoint,
@@ -16,6 +17,9 @@ import type {
   MaidrLayer,
   Orientation,
   ScatterPoint,
+  SegmentedPoint,
+  SmoothPoint,
+  TraceType,
 } from '../type/grammar';
 
 /**
@@ -167,6 +171,64 @@ export interface D3HistogramConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 segmented bar chart (stacked, dodged, or normalized).
+ */
+export interface D3SegmentedConfig extends D3BinderConfig {
+  /** CSS selector for the bar elements (e.g., `'rect.bar'`, `'rect'`). */
+  selector: string;
+  /** The segmented bar chart type. @default TraceType.STACKED */
+  type?: TraceType.STACKED | TraceType.DODGED | TraceType.NORMALIZED;
+  /** Accessor for the x-axis (category) value. @default 'x' */
+  x?: DataAccessor<string | number>;
+  /** Accessor for the y-axis (numeric) value. @default 'y' */
+  y?: DataAccessor<number | string>;
+  /** Accessor for the fill/group label. @default 'fill' */
+  fill?: DataAccessor<string>;
+  /** Chart orientation. @default Orientation.VERTICAL */
+  orientation?: Orientation;
+}
+
+/**
+ * Configuration for binding a D3 candlestick (OHLC) chart.
+ */
+export interface D3CandlestickConfig extends D3BinderConfig {
+  /** CSS selector for the candlestick group elements (e.g., `'g.candle'`). */
+  selector: string;
+  /** Accessor for the x-axis label (e.g., date). @default 'value' */
+  value?: DataAccessor<string>;
+  /** Accessor for the open price. @default 'open' */
+  open?: DataAccessor<number>;
+  /** Accessor for the high price. @default 'high' */
+  high?: DataAccessor<number>;
+  /** Accessor for the low price. @default 'low' */
+  low?: DataAccessor<number>;
+  /** Accessor for the close price. @default 'close' */
+  close?: DataAccessor<number>;
+  /** Accessor for the volume. @default 'volume' */
+  volume?: DataAccessor<number>;
+}
+
+/**
+ * Configuration for binding a D3 smooth/regression line chart.
+ */
+export interface D3SmoothConfig extends D3BinderConfig {
+  /** CSS selector for the smooth line path elements (e.g., `'path.smooth'`). */
+  selector: string;
+  /** CSS selector for individual point elements along the smooth line. */
+  pointSelector?: string;
+  /** Accessor for the x-axis data value. @default 'x' */
+  x?: DataAccessor<number>;
+  /** Accessor for the y-axis data value. @default 'y' */
+  y?: DataAccessor<number>;
+  /** Accessor for the SVG x pixel coordinate. @default 'svg_x' */
+  svgX?: DataAccessor<number>;
+  /** Accessor for the SVG y pixel coordinate. @default 'svg_y' */
+  svgY?: DataAccessor<number>;
+  /** Accessor for the series/fill label. @default 'fill' */
+  fill?: DataAccessor<string>;
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -182,9 +244,12 @@ export interface D3BinderResult {
  * Union of all supported data point types extracted by the D3 binder.
  */
 export type D3ExtractedData
-  = | BarPoint[]
+  = BarPoint[]
     | BoxPoint[]
+    | CandlestickPoint[]
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
-    | ScatterPoint[];
+    | ScatterPoint[]
+    | SegmentedPoint[][]
+    | SmoothPoint[][];

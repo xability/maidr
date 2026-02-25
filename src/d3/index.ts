@@ -17,6 +17,9 @@
  * - **Heatmaps** via {@link bindD3Heatmap}
  * - **Box plots** via {@link bindD3Box}
  * - **Histograms** via {@link bindD3Histogram}
+ * - **Stacked / Dodged / Normalized bar charts** via {@link bindD3Segmented}
+ * - **Candlestick (OHLC) charts** via {@link bindD3Candlestick}
+ * - **Smooth / Regression lines** via {@link bindD3Smooth}
  *
  * ## How It Works
  *
@@ -80,24 +83,30 @@
 // Re-export commonly needed MAIDR types for convenience
 export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from '../type/grammar';
 export { Orientation, TraceType } from '../type/grammar';
+
 // Binder functions
 export { bindD3Bar } from './bindBar';
 export { bindD3Box } from './bindBox';
+export { bindD3Candlestick } from './bindCandlestick';
 export { bindD3Heatmap } from './bindHeatmap';
 export { bindD3Histogram } from './bindHistogram';
-
 export { bindD3Line } from './bindLine';
-
 export { bindD3Scatter } from './bindScatter';
+export { bindD3Segmented } from './bindSegmented';
+export { bindD3Smooth } from './bindSmooth';
+
 // Types
 export type {
   D3BarConfig,
   D3BinderConfig,
   D3BinderResult,
   D3BoxConfig,
+  D3CandlestickConfig,
   D3HeatmapConfig,
   D3HistogramConfig,
   D3LineConfig,
   D3ScatterConfig,
+  D3SegmentedConfig,
+  D3SmoothConfig,
   DataAccessor,
 } from './types';

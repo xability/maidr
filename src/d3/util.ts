@@ -31,18 +31,19 @@ export function getD3Datum(element: Element): unknown {
  * @param datum - The data object bound to a D3 element.
  * @param accessor - Property key or function to extract the value.
  * @param index - The index of the element in its selection.
- * @returns The extracted value.
+ * @returns The extracted value, or `undefined` if the property does not exist.
  */
 export function resolveAccessor<T>(
   datum: unknown,
   accessor: DataAccessor<T>,
   index: number,
-): T {
+): T | undefined {
   if (typeof accessor === 'function') {
     return accessor(datum, index);
   }
   // String accessor: use as property key
-  return (datum as Record<string, T>)[accessor];
+  const record = datum as Record<string, unknown>;
+  return record[accessor] as T | undefined;
 }
 
 /**
@@ -145,36 +146,4 @@ export function scopeSelector(container: Element, selector: string): string {
  */
 export function generateId(): string {
   return `d3-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Extracts data from D3-bound elements using the provided accessors.
- * Falls back to DOM attribute extraction if `__data__` is not available.
- */
-export function extractBarDataFromDOM(
-  elements: Element[],
-  orientation: 'vert' | 'horz',
-): { x: string | number; y: number }[] {
-  return elements.map((el) => {
-    const datum = getD3Datum(el);
-    if (datum && typeof datum === 'object') {
-      return datum as { x: string | number; y: number };
-    }
-
-    // Fallback: try to infer from SVG attributes (rect elements)
-    const tag = el.tagName.toLowerCase();
-    if (tag === 'rect') {
-      const x = Number(el.getAttribute('x') ?? 0);
-      const y = Number(el.getAttribute('y') ?? 0);
-      const width = Number(el.getAttribute('width') ?? 0);
-      const height = Number(el.getAttribute('height') ?? 0);
-
-      if (orientation === 'vert') {
-        return { x: x + width / 2, y: height };
-      }
-      return { x: width, y: y + height / 2 };
-    }
-
-    return { x: 0, y: 0 };
-  });
 }

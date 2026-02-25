@@ -54,8 +54,8 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
       );
     }
     return {
-      x: resolveAccessor<number>(datum, xAccessor, index),
-      y: resolveAccessor<number>(datum, yAccessor, index),
+      x: resolveAccessor<number>(datum, xAccessor, index) as number,
+      y: resolveAccessor<number>(datum, yAccessor, index) as number,
     };
   });
 

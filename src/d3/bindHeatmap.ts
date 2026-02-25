@@ -57,10 +57,16 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
         + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
       );
     }
+    const value = resolveAccessor<number>(datum, valueAccessor, index);
+    if (value === undefined || Number.isNaN(Number(value))) {
+      console.warn(
+        `[maidr/d3] Heatmap cell at index ${index} has a non-numeric value (${String(value)}). Defaulting to 0.`,
+      );
+    }
     return {
       x: String(resolveAccessor<string>(datum, xAccessor, index)),
       y: String(resolveAccessor<string>(datum, yAccessor, index)),
-      value: resolveAccessor<number>(datum, valueAccessor, index),
+      value: Number(value) || 0,
     };
   });
 
@@ -81,19 +87,38 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     }
   }
 
-  // Build the 2D points grid (y rows x columns)
-  const points: number[][] = [];
-  const cellMap = new Map<string, number>();
+  // Build the 2D points grid using a nested Map (avoids delimiter collisions).
+  const cellMap = new Map<string, Map<string, number>>();
   for (const cell of cells) {
-    cellMap.set(`${cell.y}::${cell.x}`, cell.value);
+    let yMap = cellMap.get(cell.y);
+    if (!yMap) {
+      yMap = new Map<string, number>();
+      cellMap.set(cell.y, yMap);
+    }
+    yMap.set(cell.x, cell.value);
   }
 
+  const expectedCells = xLabels.length * yLabels.length;
+  let missingCells = 0;
+  const points: number[][] = [];
   for (const yLabel of yLabels) {
     const row: number[] = [];
+    const yMap = cellMap.get(yLabel);
     for (const xLabel of xLabels) {
-      row.push(cellMap.get(`${yLabel}::${xLabel}`) ?? 0);
+      const val = yMap?.get(xLabel);
+      if (val === undefined) {
+        missingCells++;
+      }
+      row.push(val ?? 0);
     }
     points.push(row);
+  }
+
+  if (missingCells > 0) {
+    console.warn(
+      `[maidr/d3] Heatmap has ${missingCells} missing cell(s) out of ${expectedCells} expected. `
+      + `Missing cells default to 0, which may be indistinguishable from actual zero values.`,
+    );
   }
 
   const data: HeatmapData = {

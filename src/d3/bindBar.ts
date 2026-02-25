@@ -63,8 +63,8 @@ export function bindD3Bar(svg: Element, config: D3BarConfig): D3BinderResult {
       );
     }
     return {
-      x: resolveAccessor<string | number>(datum, xAccessor, index),
-      y: resolveAccessor<number | string>(datum, yAccessor, index),
+      x: resolveAccessor<string | number>(datum, xAccessor, index) as string | number,
+      y: resolveAccessor<number | string>(datum, yAccessor, index) as number | string,
     };
   });
 

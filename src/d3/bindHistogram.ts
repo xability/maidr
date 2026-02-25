@@ -66,14 +66,20 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
 
     // For D3 bin data, the datum is typically an array with x0/x1 properties.
     // The "y" value is usually the array length (count of items in the bin).
-    const xValue = resolveAccessor<string | number>(datum, xAccessor, index);
-    const yValue = resolveAccessor<number | string>(datum, yAccessor, index);
-    const xMin = resolveAccessor<number>(datum, xMinAccessor, index);
-    const xMax = resolveAccessor<number>(datum, xMaxAccessor, index);
-    const yMin = resolveAccessor<number>(datum, yMinAccessor, index);
+    const xValue = resolveAccessor<string | number>(datum, xAccessor, index) as string | number;
+    const yValue = resolveAccessor<number | string>(datum, yAccessor, index) as number | string;
+    const xMin = resolveAccessor<number>(datum, xMinAccessor, index) as number;
+    const xMax = resolveAccessor<number>(datum, xMaxAccessor, index) as number;
+    const yMin = resolveAccessor<number>(datum, yMinAccessor, index) as number;
     const yMax = yMaxAccessor
-      ? resolveAccessor<number>(datum, yMaxAccessor, index)
+      ? resolveAccessor<number>(datum, yMaxAccessor, index) as number
       : Number(yValue);
+
+    if (Number.isNaN(xMin) || Number.isNaN(xMax)) {
+      console.warn(
+        `[maidr/d3] Histogram bin at index ${index} has NaN boundaries (xMin=${xMin}, xMax=${xMax}).`,
+      );
+    }
 
     return {
       x: xValue,
