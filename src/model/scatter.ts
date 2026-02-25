@@ -437,31 +437,27 @@ export class ScatterTrace extends AbstractTrace {
 
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD': {
-          const forwardResult = this.col < this.xPoints.length - 1;
-          return forwardResult;
-        }
-        case 'BACKWARD': {
-          const backwardResult = this.col > 0;
-          return backwardResult;
-        }
+        case 'FORWARD':
+          return this.col < this.xPoints.length - 1;
+        case 'BACKWARD':
+          return this.col > 0;
         case 'UPWARD':
         case 'DOWNWARD':
           return true;
+        default:
+          return false;
       }
     } else {
       switch (target) {
-        case 'UPWARD': {
-          const upwardResult = this.row < this.yPoints.length - 1;
-          return upwardResult;
-        }
-        case 'DOWNWARD': {
-          const downwardResult = this.row > 0;
-          return downwardResult;
-        }
+        case 'UPWARD':
+          return this.row < this.yPoints.length - 1;
+        case 'DOWNWARD':
+          return this.row > 0;
         case 'FORWARD':
         case 'BACKWARD':
           return true;
+        default:
+          return false;
       }
     }
   }
