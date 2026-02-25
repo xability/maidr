@@ -49,4 +49,15 @@ export interface ExtremaTarget {
    * Used for multiline plots to track which lines are involved in the intersection
    */
   intersectingLines?: number[];
+
+  /**
+   * Structured display data for UI rendering.
+   * Avoids string parsing in UI components.
+   */
+  display?: {
+    /** Pre-formatted coordinates string (e.g., "x=1.50, y=2.50") */
+    coords?: string;
+    /** Names of other lines involved (for intersections, excludes current line) */
+    otherLines?: string;
+  };
 }

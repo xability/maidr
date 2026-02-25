@@ -39,6 +39,15 @@ export class LineTrace extends AbstractTrace {
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
 
+  // Cache for intersection results, keyed by row index
+  // Invalidated when active row changes
+  private intersectionCache: Map<number, Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+  }>> = new Map();
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -625,27 +634,28 @@ export class LineTrace extends AbstractTrace {
     return null;
   }
 
+  /** Tolerance for comparing intersection coordinates (for deduplication) */
+  private static readonly INTERSECTION_EPSILON = 1e-6;
+
   /**
    * Find all points where the current line intersects with other lines
    * Uses line segment intersection algorithm to find crossings between data points
+   * Results are cached per row and invalidated when the active row changes
    * @returns Array of intersection info containing nearest point index and intersecting line indices
    */
   private findAllIntersectionsForCurrentLine(): Array<{
     pointIndex: number;
-    x: number | string;
+    x: number;
     y: number;
     intersectingLines: number[];
   }> {
-    // Map to track intersections by their approximate location (to group multi-line intersections)
-    // Key is a string representation of the x coordinate rounded for grouping
-    const intersectionMap = new Map<string, {
-      pointIndex: number;
-      x: number;
-      y: number;
-      intersectingLines: Set<number>;
-    }>();
-
     const currentGroup = this.row;
+
+    // Return cached results if available
+    if (this.intersectionCache.has(currentGroup)) {
+      return this.intersectionCache.get(currentGroup)!;
+    }
+
     if (currentGroup < 0 || currentGroup >= this.points.length) {
       return [];
     }
@@ -659,6 +669,14 @@ export class LineTrace extends AbstractTrace {
     if (currentLinePoints.length < 2) {
       return [];
     }
+
+    // Collect all raw intersections first
+    const rawIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      otherLine: number;
+    }> = [];
 
     // For each segment on the current line
     for (let segIndex = 0; segIndex < currentLinePoints.length - 1; segIndex++) {
@@ -691,56 +709,78 @@ export class LineTrace extends AbstractTrace {
 
           if (intersection) {
             // Find the nearest point on the current line to navigate to
-            // Choose the segment endpoint closest to the intersection
             const distToStart = Math.abs(intersection.x - seg1Start.x);
             const distToEnd = Math.abs(intersection.x - seg1End.x);
             const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
 
-            // Create a key based on rounded x value to group nearby intersections
-            const roundedX = Math.round(intersection.x * 100) / 100;
-            const key = `${roundedX}`;
-
-            if (intersectionMap.has(key)) {
-              // Add to existing intersection group
-              const existing = intersectionMap.get(key)!;
-              existing.intersectingLines.add(otherLine);
-              existing.intersectingLines.add(currentGroup);
-            } else {
-              // Create new intersection entry
-              const intersectingLines = new Set<number>();
-              intersectingLines.add(currentGroup);
-              intersectingLines.add(otherLine);
-
-              intersectionMap.set(key, {
-                pointIndex: nearestPointIndex,
-                x: intersection.x,
-                y: intersection.y,
-                intersectingLines,
-              });
-            }
+            rawIntersections.push({
+              pointIndex: nearestPointIndex,
+              x: intersection.x,
+              y: intersection.y,
+              otherLine,
+            });
           }
         }
       }
     }
 
-    // Convert map to array and sort by x coordinate
-    return Array.from(intersectionMap.values())
+    // Group intersections using tolerance-based deduplication
+    const groupedIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      intersectingLines: Set<number>;
+    }> = [];
+
+    for (const raw of rawIntersections) {
+      // Find existing group within tolerance
+      const existingGroup = groupedIntersections.find(
+        g => Math.abs(g.x - raw.x) < LineTrace.INTERSECTION_EPSILON
+          && Math.abs(g.y - raw.y) < LineTrace.INTERSECTION_EPSILON,
+      );
+
+      if (existingGroup) {
+        existingGroup.intersectingLines.add(raw.otherLine);
+      } else {
+        const intersectingLines = new Set<number>();
+        intersectingLines.add(raw.otherLine);
+        groupedIntersections.push({
+          pointIndex: raw.pointIndex,
+          x: raw.x,
+          y: raw.y,
+          intersectingLines,
+        });
+      }
+    }
+
+    // Convert to final format and sort by x coordinate
+    // Note: intersectingLines excludes currentGroup (only other lines)
+    const result = groupedIntersections
       .map(entry => ({
         pointIndex: entry.pointIndex,
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
       }))
-      .sort((a, b) => Number(a.x) - Number(b.x));
+      .sort((a, b) => a.x - b.x);
+
+    // Cache the result
+    this.intersectionCache.set(currentGroup, result);
+
+    return result;
   }
 
   /**
    * Get a formatted label for intersecting lines
-   * @param intersectingLines Array of line indices that intersect
+   * Note: intersectingLines should only contain OTHER lines (not the current line)
+   * since the user is already on the current line.
+   * @param intersectingLines Array of line indices that intersect (excluding current line)
    * @returns Formatted string of line names (e.g., "Line A, Line B")
    */
   private getIntersectionLabel(intersectingLines: number[]): string {
     return intersectingLines.map((lineIndex) => {
+      // Access first point to get the line's fill/name
+      // Falls back to "Line N" if fill is not defined
       const firstPoint = this.points[lineIndex][0];
       return firstPoint?.fill || `Line ${lineIndex + 1}`;
     }).join(', ');
@@ -805,20 +845,23 @@ export class LineTrace extends AbstractTrace {
     // Add intersection targets for multiline plots
     const intersections = this.findAllIntersectionsForCurrentLine();
     for (const intersection of intersections) {
-      const intersectingLineNames = this.getIntersectionLabel(intersection.intersectingLines);
+      // intersectingLines only contains OTHER lines (not current line)
+      const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
       // Format the intersection coordinates for display
-      const xDisplay = typeof intersection.x === 'number'
-        ? Number(intersection.x).toFixed(2)
-        : intersection.x;
-      const yDisplay = Number(intersection.y).toFixed(2);
+      const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+
       targets.push({
-        label: `Intersection at x=${xDisplay}, y=${yDisplay}`,
+        label: `Intersection at ${coordsDisplay}`,
         value: intersection.y,
         pointIndex: intersection.pointIndex,
-        segment: `intersection (${intersectingLineNames})`,
+        segment: 'intersection',
         type: 'intersection',
         navigationType: 'point',
         intersectingLines: intersection.intersectingLines,
+        display: {
+          coords: coordsDisplay,
+          otherLines: otherLineNames,
+        },
       });
     }
 

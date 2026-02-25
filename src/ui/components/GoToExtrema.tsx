@@ -327,7 +327,7 @@ export const GoToExtrema: React.FC = () => {
           >
             <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
-                Go To Extrema
+                Go To
               </Typography>
               <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
                 <Close />
@@ -336,30 +336,31 @@ export const GoToExtrema: React.FC = () => {
 
             <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-                {state.description || 'Navigate to statistical extremes'}
+                {state.description || 'Navigate to points of interest'}
               </Typography>
             </Box>
 
-            <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+            <Box ref={listContainerRef} role="listbox" aria-label="Navigation targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
               {state.targets.map((target: ExtremaTarget, index: number) => {
-                // Format display based on target type
+                // Format display based on target type using structured display fields when available
                 const isIntersection = target.type === 'intersection';
                 let displayLabel: string;
 
-                if (isIntersection) {
-                  // For intersections, show: "Intersection with Line A, Line B at x=1.50, y=2.50"
-                  const lineNames = target.segment.replace('intersection (', '').replace(')', '');
-                  const coordPart = target.label.replace('Intersection at ', '');
-                  displayLabel = `Intersection with ${lineNames} at ${coordPart}`;
+                if (isIntersection && target.display) {
+                  // Use structured display fields for intersections
+                  displayLabel = `Intersection with ${target.display.otherLines} at ${target.display.coords}`;
+                } else if (isIntersection) {
+                  // Fallback for intersection without display fields
+                  displayLabel = target.label;
                 } else {
-                  // For min/max, show: "Max point Value: 8.00 at 8"
+                  // For min/max, show: "Max point Value: 8.00 at X"
                   const labelParts = target.label.split(' at ');
                   displayLabel = `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`;
                 }
 
                 return (
                   <Box
-                    key={`${target.segment}-${target.type}-${target.pointIndex}`}
+                    key={`target-${index}-${target.type}-${target.label}`}
                     ref={index === state.selectedIndex ? selectedItemRef : null}
                     id={`extrema-target-${index}`}
                     onClick={() => handleTargetSelect(target)}
