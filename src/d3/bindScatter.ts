@@ -8,7 +8,7 @@
 import type { Maidr, MaidrLayer, ScatterPoint } from '../type/grammar';
 import type { D3BinderResult, D3ScatterConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js scatter plot to MAIDR, generating the accessible data representation.
@@ -45,6 +45,12 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
   } = config;
 
   const elements = queryD3Elements(svg, selector);
+  if (elements.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the point elements.`,
+    );
+  }
 
   const data: ScatterPoint[] = elements.map(({ datum, index }) => {
     if (!datum) {
@@ -65,12 +71,7 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
     type: TraceType.SCATTER,
     title,
     selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

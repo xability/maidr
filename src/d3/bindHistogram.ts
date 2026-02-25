@@ -8,7 +8,7 @@
 import type { HistogramPoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3HistogramConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js histogram to MAIDR, generating the accessible data representation.
@@ -55,6 +55,12 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
   } = config;
 
   const elements = queryD3Elements(svg, selector);
+  if (elements.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the histogram bar elements.`,
+    );
+  }
 
   const data: HistogramPoint[] = elements.map(({ datum, index }) => {
     if (!datum) {
@@ -91,12 +97,7 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
     type: TraceType.HISTOGRAM,
     title,
     selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

@@ -6,9 +6,9 @@
  */
 
 import type { LinePoint, Maidr, MaidrLayer } from '../type/grammar';
-import type { D3BinderResult, D3LineConfig } from './types';
+import type { D3BinderResult, D3LineConfig, DataAccessor } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
 
 /**
  * Binds a D3.js line chart to MAIDR, generating the accessible data representation.
@@ -53,23 +53,52 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   } = config;
 
   const lineElements = queryD3Elements(svg, selector);
+  if (lineElements.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the line path elements.`,
+    );
+  }
+
   const data: LinePoint[][] = [];
 
   if (pointSelector) {
-    // Track which point elements we've already processed to avoid
-    // double-counting when multiple line paths share a parent <g>.
-    const processedPoints = new Set<Element>();
+    // Determine whether line paths have distinct parent elements.
+    // Pattern A: Each <path> lives in its own <g> with its <circle> points.
+    // Pattern B: All <path>s and <circle>s share a single parent <g>.
+    const parents = new Set(
+      lineElements.map(({ element }) => element.parentElement ?? svg),
+    );
 
-    for (const { element } of lineElements) {
-      const parent = element.parentElement ?? svg;
-      const points = queryD3Elements(parent, pointSelector);
+    if (parents.size >= lineElements.length) {
+      // Pattern A: distinct parents – scope point queries per parent
+      for (const { element } of lineElements) {
+        const parent = element.parentElement ?? svg;
+        const points = queryD3Elements(parent, pointSelector);
+        const lineData = extractPointsFromElements(
+          points,
+          xAccessor,
+          yAccessor,
+          fillAccessor,
+          pointSelector,
+        );
+        if (lineData.length > 0) {
+          data.push(lineData);
+        }
+      }
+    } else {
+      // Pattern B: shared parent – query all points once and group by fill
+      const allPoints = queryD3Elements(svg, pointSelector);
+      if (allPoints.length === 0) {
+        throw new Error(
+          `No point elements found for selector "${pointSelector}" within the SVG.`,
+        );
+      }
 
-      const lineData: LinePoint[] = [];
-      for (const { element: pointEl, datum, index } of points) {
-        if (processedPoints.has(pointEl))
-          continue;
-        processedPoints.add(pointEl);
+      const lineMap = new Map<string, LinePoint[]>();
+      const lineOrder: string[] = [];
 
+      for (const { datum, index } of allPoints) {
         if (!datum) {
           throw new Error(
             `No D3 data bound to point element at index ${index}. `
@@ -84,11 +113,17 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
         if (fill !== undefined) {
           point.fill = fill;
         }
-        lineData.push(point);
+
+        const key = fill ?? '__default__';
+        if (!lineMap.has(key)) {
+          lineOrder.push(key);
+          lineMap.set(key, []);
+        }
+        lineMap.get(key)!.push(point);
       }
 
-      if (lineData.length > 0) {
-        data.push(lineData);
+      for (const key of lineOrder) {
+        data.push(lineMap.get(key)!);
       }
     }
   } else {
@@ -138,12 +173,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     type: TraceType.LINE,
     title,
     selectors: selectorValue,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 
@@ -159,4 +189,35 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   };
 
   return { maidr, layer };
+}
+
+/**
+ * Extracts LinePoint data from a set of queried D3 elements.
+ */
+function extractPointsFromElements(
+  points: { element: Element; datum: unknown; index: number }[],
+  xAccessor: DataAccessor<number | string>,
+  yAccessor: DataAccessor<number>,
+  fillAccessor: DataAccessor<string>,
+  pointSelector: string,
+): LinePoint[] {
+  const lineData: LinePoint[] = [];
+  for (const { datum, index } of points) {
+    if (!datum) {
+      throw new Error(
+        `No D3 data bound to point element at index ${index}. `
+        + `Ensure D3's .data() join has been applied to the "${pointSelector}" elements.`,
+      );
+    }
+    const point: LinePoint = {
+      x: resolveAccessor<number | string>(datum, xAccessor, index),
+      y: resolveAccessor<number>(datum, yAccessor, index),
+    };
+    const fill = resolveAccessorOptional<string>(datum, fillAccessor, index);
+    if (fill !== undefined) {
+      point.fill = fill;
+    }
+    lineData.push(point);
+  }
+  return lineData;
 }

@@ -3,7 +3,8 @@
  * Handles extracting data from D3.js-bound DOM elements.
  */
 
-import type { DataAccessor } from './types';
+import type { FormatConfig } from '../type/grammar';
+import type { D3BinderConfig, DataAccessor } from './types';
 
 /**
  * Interface for DOM elements with D3's `__data__` property.
@@ -11,6 +12,19 @@ import type { DataAccessor } from './types';
  */
 interface D3BoundElement extends Element {
   __data__?: unknown;
+}
+
+/**
+ * Escapes a string for use in CSS selectors.
+ * Uses the native `CSS.escape` when available (browsers), and falls
+ * back to a basic escape for Node.js / SSR environments.
+ */
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  // Fallback: escape characters that are special in CSS identifiers
+  return value.replace(/([^\w-])/g, '\\$1');
 }
 
 /**
@@ -81,11 +95,15 @@ export function resolveAccessorOptional<T>(
  * @param container - The root element (typically an SVG) to query within.
  * @param selector - CSS selector for the target elements.
  * @returns Array of `{ element, datum, index }` tuples.
+ * @throws Error if the selector is empty.
  */
 export function queryD3Elements(
   container: Element,
   selector: string,
 ): { element: Element; datum: unknown; index: number }[] {
+  if (!selector) {
+    throw new Error('CSS selector must not be empty.');
+  }
   const elements = Array.from(container.querySelectorAll(selector));
   return elements.map((element, index) => ({
     element,
@@ -111,7 +129,12 @@ export function generateSelector(
   container: Element,
 ): string {
   if (element.id) {
-    return `#${CSS.escape(element.id)}`;
+    return `#${cssEscape(element.id)}`;
+  }
+
+  // Edge case: element IS the container
+  if (element === container) {
+    return element.tagName.toLowerCase();
   }
 
   // Build a selector based on the element's parent chain relative to container
@@ -122,13 +145,13 @@ export function generateSelector(
     let part = current.tagName.toLowerCase();
 
     if (current.id) {
-      parts.unshift(`#${CSS.escape(current.id)} > ${part}`);
+      parts.unshift(`#${cssEscape(current.id)} > ${part}`);
       break;
     }
 
     // Add classes if present
     const classes = Array.from(current.classList)
-      .map(c => `.${CSS.escape(c)}`)
+      .map(c => `.${cssEscape(c)}`)
       .join('');
     if (classes) {
       part += classes;
@@ -160,14 +183,43 @@ export function generateSelector(
  */
 export function scopeSelector(container: Element, selector: string): string {
   if (container.id) {
-    return `#${CSS.escape(container.id)} ${selector}`;
+    return `#${cssEscape(container.id)} ${selector}`;
   }
   return selector;
 }
 
 /**
  * Generates a unique ID string for use in MAIDR data structures.
+ * Uses `crypto.randomUUID()` when available, with a fallback for
+ * environments that lack crypto support.
  */
 export function generateId(): string {
-  return `d3-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `d3-${crypto.randomUUID()}`;
+  }
+  // Fallback: combine timestamp with multiple random segments
+  const timestamp = Date.now().toString(36);
+  const a = Math.random().toString(36).slice(2, 8);
+  const b = Math.random().toString(36).slice(2, 8);
+  return `d3-${timestamp}-${a}${b}`;
+}
+
+/**
+ * Builds the axes configuration for a MAIDR layer, merging axis labels
+ * with optional format config.
+ *
+ * @param axes - Axis label configuration.
+ * @param format - Optional format configuration.
+ * @returns The merged axes object, or `undefined` if no axes provided.
+ */
+export function buildAxes(
+  axes?: D3BinderConfig['axes'],
+  format?: FormatConfig,
+): Record<string, unknown> | undefined {
+  if (!axes)
+    return undefined;
+  return {
+    ...axes,
+    ...(format ? { format } : {}),
+  };
 }

@@ -8,7 +8,7 @@
 import type { Maidr, MaidrLayer, SmoothPoint } from '../type/grammar';
 import type { D3BinderResult, D3SmoothConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js smooth/regression curve to MAIDR.
@@ -50,6 +50,12 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
   } = config;
 
   const elements = queryD3Elements(svg, selector);
+  if (elements.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the smooth curve elements.`,
+    );
+  }
 
   // Extract points - group into a single series (2D array with one row)
   const points: SmoothPoint[] = elements.map(({ datum, index }) => {
@@ -75,12 +81,7 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
     type: TraceType.SMOOTH,
     title,
     selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

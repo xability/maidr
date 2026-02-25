@@ -8,7 +8,7 @@
 import type { Maidr, MaidrLayer, SegmentedPoint } from '../type/grammar';
 import type { D3BinderResult, D3SegmentedConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js segmented bar chart (stacked, dodged, or normalized) to MAIDR.
@@ -23,7 +23,7 @@ import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './u
  *
  * @example
  * ```ts
- * // Stacked bar chart
+ * // Flat structure: each rect has { x, y, fill } data
  * const result = bindD3Segmented(svgElement, {
  *   selector: 'rect.bar',
  *   type: 'stacked_bar',
@@ -34,12 +34,14 @@ import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './u
  *   fill: 'region',
  * });
  *
- * // Dodged bar chart
+ * // d3.stack() structure: groups contain segments
  * const result = bindD3Segmented(svgElement, {
- *   selector: 'rect.bar',
- *   type: 'dodged_bar',
- *   title: 'Comparison by Category',
- *   axes: { x: 'Category', y: 'Value', fill: 'Group' },
+ *   groupSelector: 'g.series',
+ *   selector: 'rect',
+ *   type: 'stacked_bar',
+ *   title: 'Revenue by Region and Quarter',
+ *   x: (d) => d.data.category,
+ *   y: (d) => d[1] - d[0],
  * });
  * ```
  */
@@ -52,54 +54,100 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     axes,
     format,
     selector,
+    groupSelector,
     type = TraceType.STACKED,
     x: xAccessor = 'x',
     y: yAccessor = 'y',
     fill: fillAccessor = 'fill',
   } = config;
 
-  const elements = queryD3Elements(svg, selector);
+  const groupOrder: string[] = [];
+  const data: SegmentedPoint[][] = [];
 
-  // Extract flat list of segmented points
-  const flatPoints: SegmentedPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+  if (groupSelector) {
+    // d3.stack() pattern: each group <g> contains segment <rect>s.
+    // The group's datum typically has a .key property (d3.stack output).
+    const groupElements = queryD3Elements(svg, groupSelector);
+    if (groupElements.length === 0) {
       throw new Error(
-        `No D3 data bound to element at index ${index}. `
-        + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
+        `No group elements found for selector "${groupSelector}". `
+        + `Ensure the D3 chart has been rendered and the selector matches the group elements.`,
       );
     }
-    return {
-      x: resolveAccessor<string | number>(datum, xAccessor, index),
-      y: resolveAccessor<number | string>(datum, yAccessor, index),
-      fill: resolveAccessor<string>(datum, fillAccessor, index),
-    };
-  });
 
-  // Group by fill value to form 2D array (each group = one series)
-  const groupOrder: string[] = [];
-  const groups = new Map<string, SegmentedPoint[]>();
-  for (const point of flatPoints) {
-    if (!groups.has(point.fill)) {
-      groupOrder.push(point.fill);
-      groups.set(point.fill, []);
+    for (const { element: groupEl, datum: groupDatum } of groupElements) {
+      const segments = queryD3Elements(groupEl, selector);
+      if (segments.length === 0)
+        continue;
+
+      // Derive fill from group datum's .key (d3.stack) or first segment
+      const groupKey = (groupDatum as Record<string, unknown> | null)?.key as string | undefined;
+
+      const groupPoints: SegmentedPoint[] = segments.map(({ datum, index }) => {
+        if (!datum) {
+          throw new Error(
+            `No D3 data bound to segment element at index ${index} within group. `
+            + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
+          );
+        }
+        const fillValue = groupKey ?? resolveAccessor<string>(datum, fillAccessor, index);
+        return {
+          x: resolveAccessor<string | number>(datum, xAccessor, index),
+          y: resolveAccessor<number | string>(datum, yAccessor, index),
+          fill: fillValue,
+        };
+      });
+
+      if (groupPoints.length > 0) {
+        groupOrder.push(groupPoints[0].fill);
+        data.push(groupPoints);
+      }
     }
-    groups.get(point.fill)!.push(point);
+  } else {
+    // Flat structure: all segments in one container, grouped by fill value
+    const elements = queryD3Elements(svg, selector);
+    if (elements.length === 0) {
+      throw new Error(
+        `No elements found for selector "${selector}". `
+        + `Ensure the D3 chart has been rendered and the selector matches the bar elements.`,
+      );
+    }
+
+    const groups = new Map<string, SegmentedPoint[]>();
+    for (const { datum, index } of elements) {
+      if (!datum) {
+        throw new Error(
+          `No D3 data bound to element at index ${index}. `
+          + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
+        );
+      }
+      const point: SegmentedPoint = {
+        x: resolveAccessor<string | number>(datum, xAccessor, index),
+        y: resolveAccessor<number | string>(datum, yAccessor, index),
+        fill: resolveAccessor<string>(datum, fillAccessor, index),
+      };
+      if (!groups.has(point.fill)) {
+        groupOrder.push(point.fill);
+        groups.set(point.fill, []);
+      }
+      groups.get(point.fill)!.push(point);
+    }
+    for (const fill of groupOrder) {
+      data.push(groups.get(fill)!);
+    }
   }
 
-  const data: SegmentedPoint[][] = groupOrder.map(fill => groups.get(fill)!);
-
   const layerId = generateId();
+  const selectorValue = groupSelector
+    ? scopeSelector(svg, `${groupSelector} ${selector}`)
+    : scopeSelector(svg, selector);
+
   const layer: MaidrLayer = {
     id: layerId,
     type,
     title,
-    selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    selectors: selectorValue,
+    axes: buildAxes(axes, format),
     data,
   };
 

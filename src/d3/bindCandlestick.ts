@@ -8,7 +8,7 @@
 import type { CandlestickPoint, CandlestickTrend, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3CandlestickConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
 
 /**
  * Binds a D3.js candlestick chart to MAIDR.
@@ -55,6 +55,12 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
   } = config;
 
   const elements = queryD3Elements(svg, selector);
+  if (elements.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the candlestick elements.`,
+    );
+  }
 
   const data: CandlestickPoint[] = elements.map(({ datum, index }) => {
     if (!datum) {
@@ -101,12 +107,7 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
     type: TraceType.CANDLESTICK,
     title,
     selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

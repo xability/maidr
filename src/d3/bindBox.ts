@@ -8,7 +8,7 @@
 import type { BoxPoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3BoxConfig } from './types';
 import { Orientation, TraceType } from '../type/grammar';
-import { generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
+import { buildAxes, generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
 
 /**
  * Binds a D3.js box plot to MAIDR, generating the accessible data representation.
@@ -60,6 +60,12 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
   } = config;
 
   const boxGroups = queryD3Elements(svg, selector);
+  if (boxGroups.length === 0) {
+    throw new Error(
+      `No elements found for selector "${selector}". `
+      + `Ensure the D3 chart has been rendered and the selector matches the box group elements.`,
+    );
+  }
 
   const data: BoxPoint[] = boxGroups.map(({ element, datum, index }) => {
     // Try to get data from the group element's D3 binding first
@@ -103,12 +109,7 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     title,
     selectors: scopeSelector(svg, selector),
     orientation,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

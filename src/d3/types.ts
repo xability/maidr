@@ -202,10 +202,38 @@ export type SegmentedTraceType
 
 /**
  * Configuration for binding a D3 segmented bar chart (stacked, dodged, or normalized).
+ *
+ * Supports two common D3 patterns:
+ *
+ * 1. **Flat structure** (no `groupSelector`): All bar `<rect>` elements are queried
+ *    from the SVG root, and each element's datum must include `x`, `y`, and `fill`.
+ *
+ * 2. **`d3.stack()` structure** (with `groupSelector`): Each series lives in a
+ *    `<g>` group element whose datum has a `.key` property identifying the series.
+ *    Use function accessors to extract values from the `d3.stack()` tuple format.
+ *
+ * @example
+ * ```ts
+ * // d3.stack() pattern
+ * bindD3Segmented(svg, {
+ *   groupSelector: 'g.series',
+ *   selector: 'rect',
+ *   type: 'stacked_bar',
+ *   x: (d) => d.data.category,
+ *   y: (d) => d[1] - d[0],
+ * });
+ * ```
  */
 export interface D3SegmentedConfig extends D3BinderConfig {
-  /** CSS selector for all bar segment elements (e.g., `'rect.bar'`). */
+  /** CSS selector for all bar segment elements (e.g., `'rect.bar'`, `'rect'`). */
   selector: string;
+  /**
+   * CSS selector for series group elements (e.g., `'g.series'`).
+   * When provided, bar segments are queried within each group and the
+   * fill/series key is read from each group's D3 datum `.key` property
+   * (standard `d3.stack()` output) unless overridden by the `fill` accessor.
+   */
+  groupSelector?: string;
   /** The type of segmented chart. @default TraceType.STACKED */
   type?: SegmentedTraceType;
   /** Accessor for the x-axis (category) value. @default 'x' */
