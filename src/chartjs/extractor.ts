@@ -9,7 +9,7 @@
  */
 
 import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, NavigateCallback, ScatterPoint, SegmentedPoint } from '../type/grammar';
-import type { ChartJsChart, ChartJsDataValue, MaidrPluginOptions } from './types';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../type/grammar';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ export function extractMaidrData(
   const layers = extractLayers(chart, chartType, pluginOptions);
 
   return {
-    id: `maidr-chartjs-${chart.canvas.id || String(nextId++)}`,
+    id: `maidr-chartjs-${chart.canvas.id || 'chart'}-${nextId++}`,
     title: pluginOptions?.title ?? getChartTitle(chart),
     subplots: [[{ layers }]],
     ...(onNavigate ? { onNavigate } : {}),
@@ -142,6 +142,7 @@ function extractLayers(
     case 'matrix':
       return extractHeatmapLayers(chart, pluginOptions);
     default:
+      console.warn(`MAIDR Chart.js plugin: unknown chart type "${chartType}", falling back to bar extraction`);
       return extractBarLayers(chart, pluginOptions);
   }
 }
@@ -199,7 +200,7 @@ function extractSegmentedBarLayers(
 ): MaidrLayer[] {
   const data = chart.data;
   const labels = data.labels ?? [];
-  const numCategories = Math.max(labels.length, ...data.datasets.map(ds => ds.data.length));
+  const numCategories = Math.max(0, labels.length, ...data.datasets.map(ds => ds.data.length));
 
   const points: SegmentedPoint[][] = [];
   for (let i = 0; i < numCategories; i++) {
@@ -266,27 +267,32 @@ function extractScatterLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer[] {
-  const scatterData: ScatterPoint[] = [];
+  // Preserve per-dataset layers so multi-series scatter plots keep
+  // their dataset distinction (needed for correct highlighting).
+  return chart.data.datasets.map((dataset, idx) => {
+    const scatterData: ScatterPoint[] = datasetToScatterPoints(dataset);
 
-  for (const dataset of chart.data.datasets) {
-    for (const point of dataset.data) {
-      if (isPointValue(point)) {
-        scatterData.push({ x: point.x, y: point.y });
-      }
-    }
-  }
-
-  return [
-    {
-      id: '0',
+    return {
+      id: String(idx),
       type: TraceType.SCATTER,
+      title: dataset.label,
       axes: {
         x: getAxisLabel(chart, 'x', pluginOptions),
         y: getAxisLabel(chart, 'y', pluginOptions),
       },
       data: scatterData,
-    },
-  ];
+    };
+  });
+}
+
+function datasetToScatterPoints(dataset: ChartJsDataset): ScatterPoint[] {
+  const points: ScatterPoint[] = [];
+  for (const point of dataset.data) {
+    if (isPointValue(point)) {
+      points.push({ x: point.x, y: point.y });
+    }
+  }
+  return points;
 }
 
 // ---------------------------------------------------------------------------
@@ -418,6 +424,7 @@ function extractCandlestickLayers(
           high: point.h,
           low: point.l,
           close: point.c,
+          // Chart.js financial plugin does not include volume data; default to 0
           volume: 0,
           trend: point.c > point.o ? 'Bull' : point.c < point.o ? 'Bear' : 'Neutral',
           volatility: point.h - point.l,
@@ -466,13 +473,13 @@ function extractHeatmapLayers(
           ySet.add(y);
           yLabels.push(y);
         }
-        valueMap.set(`${x}|${y}`, point.v);
+        valueMap.set(`${x}\0${y}`, point.v);
       }
     }
   }
 
   const points: number[][] = yLabels.map(y =>
-    xLabels.map(x => valueMap.get(`${x}|${y}`) ?? 0),
+    xLabels.map(x => valueMap.get(`${x}\0${y}`) ?? 0),
   );
 
   const heatmapData: HeatmapData = { x: xLabels, y: yLabels, points };

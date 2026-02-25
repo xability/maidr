@@ -22,11 +22,12 @@
 
 import type { JSX } from 'react';
 import type { Root } from 'react-dom/client';
-import type { Maidr as MaidrData, NavigateCallback } from '../type/grammar';
+import type { Maidr as MaidrData, MaidrLayer, NavigateCallback } from '../type/grammar';
 import type { ChartJsChart, ChartJsPlugin, MaidrPluginOptions } from './types';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../maidr-component';
+import { TraceType } from '../type/grammar';
 import { extractMaidrData } from './extractor';
 
 // ---------------------------------------------------------------------------
@@ -66,17 +67,36 @@ function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
 // Chart.js highlight bridge
 // ---------------------------------------------------------------------------
 
-function createHighlightCallback(chart: ChartJsChart): NavigateCallback {
-  return ({ row, col }) => {
+function isSegmentedType(type: string): boolean {
+  return type === TraceType.STACKED || type === TraceType.DODGED || type === TraceType.NORMALIZED;
+}
+
+function createHighlightCallback(chart: ChartJsChart, layers: MaidrLayer[]): NavigateCallback {
+  return ({ layerId, row, col }) => {
     try {
-      chart.setActiveElements([{ datasetIndex: row, index: col }]);
+      // For segmented (stacked/dodged) bars, MAIDR's row = category index
+      // and col = group index, but Chart.js uses datasetIndex = group
+      // and index = category. Swap accordingly.
+      const layer = layers.find(l => l.id === layerId);
+      let datasetIndex: number;
+      let index: number;
+
+      if (layer && isSegmentedType(layer.type)) {
+        datasetIndex = col;
+        index = row;
+      } else {
+        datasetIndex = row;
+        index = col;
+      }
+
+      chart.setActiveElements([{ datasetIndex, index }]);
 
       if (chart.tooltip) {
-        const meta = chart.getDatasetMeta(row);
-        const element = meta?.data?.[col];
+        const meta = chart.getDatasetMeta(datasetIndex);
+        const element = meta?.data?.[index];
         if (element) {
           chart.tooltip.setActiveElements(
-            [{ datasetIndex: row, index: col }],
+            [{ datasetIndex, index }],
             { x: element.x, y: element.y },
           );
         }
@@ -108,16 +128,17 @@ function getPluginOptions(chart: ChartJsChart): MaidrPluginOptions {
 function renderMaidr(
   maidrData: MaidrData,
   canvas: HTMLCanvasElement,
-): { root: Root; container: HTMLElement } {
+): { root: Root; container: HTMLElement } | null {
+  const parent = canvas.parentElement;
+  if (!parent) {
+    console.error('MAIDR Chart.js plugin: canvas must be in the DOM');
+    return null;
+  }
+
   // Create a transparent container that wraps the canvas
   const container = document.createElement('div');
   container.style.display = 'contents';
   container.setAttribute('data-maidr-chartjs', maidrData.id);
-
-  const parent = canvas.parentElement;
-  if (!parent) {
-    throw new Error('MAIDR Chart.js plugin: canvas must be in the DOM');
-  }
 
   // Insert container and move canvas into it
   parent.insertBefore(container, canvas);
@@ -150,23 +171,33 @@ function initMaidrForChart(chart: ChartJsChart): void {
   if (pluginOptions.enabled === false)
     return;
 
-  // Extract MAIDR data with the highlight callback attached at construction
-  const maidrData = extractMaidrData(
-    chart,
-    pluginOptions,
-    createHighlightCallback(chart),
-  );
+  // Extract data first, then create a layer-aware highlight callback
+  const extracted = extractMaidrData(chart, pluginOptions);
+  const layers = extracted.subplots[0][0].layers;
+  const maidrData: MaidrData = {
+    ...extracted,
+    onNavigate: createHighlightCallback(chart, layers),
+  };
 
   // Render the MAIDR accessible interface around the canvas
-  const { root, container } = renderMaidr(maidrData, chart.canvas);
+  const result = renderMaidr(maidrData, chart.canvas);
+  if (!result)
+    return;
 
-  chartBindings.set(chart, { maidrData, root, container });
+  chartBindings.set(chart, { maidrData, root: result.root, container: result.container });
 }
 
 function destroyMaidrForChart(chart: ChartJsChart): void {
   const binding = chartBindings.get(chart);
   if (!binding)
     return;
+
+  // Restore canvas to its original parent position before removing container
+  const canvas = chart.canvas;
+  const parent = binding.container.parentElement;
+  if (parent) {
+    parent.insertBefore(canvas, binding.container);
+  }
 
   binding.root.unmount();
   binding.container.remove();
