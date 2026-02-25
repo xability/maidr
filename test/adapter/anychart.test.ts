@@ -1,6 +1,9 @@
+/* eslint-disable perfectionist/sort-imports -- setup-dom must run before adapter import */
+import './setup-dom';
+
 import type { AnyChartInstance, AnyChartIterator, AnyChartSeries } from '@type/anychart';
 import type { CandlestickPoint, HeatmapData, HistogramPoint } from '@type/grammar';
-import { anyChartToMaidr, extractRawRows, mapSeriesType, resolveContainerElement } from '../../src/adapter/anychart';
+import { anyChartToMaidr, bindAnyChart, extractRawRows, mapSeriesType, resolveContainerElement } from '../../src/adapter/anychart';
 import { TraceType } from '../../src/type/grammar';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +70,8 @@ function createMockChart(
 // ---------------------------------------------------------------------------
 
 describe('mapSeriesType', () => {
+  afterEach(() => jest.restoreAllMocks());
+
   it('maps standard Cartesian types', () => {
     expect(mapSeriesType('bar')).toBe(TraceType.BAR);
     expect(mapSeriesType('column')).toBe(TraceType.BAR);
@@ -87,15 +92,32 @@ describe('mapSeriesType', () => {
   it('maps line variants', () => {
     expect(mapSeriesType('spline')).toBe(TraceType.LINE);
     expect(mapSeriesType('step-line')).toBe(TraceType.LINE);
+  });
+
+  it('maps area types to LINE with a warning', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
     expect(mapSeriesType('area')).toBe(TraceType.LINE);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('mapped to LINE trace'),
+    );
+
+    warnSpy.mockClear();
     expect(mapSeriesType('step-area')).toBe(TraceType.LINE);
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockClear();
+    expect(mapSeriesType('spline_area')).toBe(TraceType.LINE);
+    expect(warnSpy).toHaveBeenCalled();
   });
 
   it('normalises underscores and mixed case', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
     expect(mapSeriesType('spline_area')).toBe(TraceType.LINE);
     expect(mapSeriesType('Spline_Area')).toBe(TraceType.LINE);
     expect(mapSeriesType('STEP_LINE')).toBe(TraceType.LINE);
     expect(mapSeriesType('Bar')).toBe(TraceType.BAR);
+    warnSpy.mockRestore();
   });
 
   it('returns null for unsupported types', () => {
@@ -379,12 +401,12 @@ describe('anyChartToMaidr – options', () => {
     expect(layer.axes).toEqual({ x: 'X Label', y: 'Y Label' });
   });
 
-  it('applies string selectors to layers', () => {
+  it('applies single shared selector to layers', () => {
     const series = createMockSeries('bar', [{ x: 'A', value: 1 }]);
     const chart = createMockChart([series]);
     const result = anyChartToMaidr(chart, {
       id: 'sel-test',
-      selectors: '.my-bar rect',
+      selectors: ['.my-bar rect'],
     });
 
     const layer = result!.subplots[0][0].layers[0];
@@ -448,5 +470,118 @@ describe('anyChartToMaidr – multi-series', () => {
     const layers = result!.subplots[0][0].layers;
     expect(layers[0].selectors).toBe('.bar-el rect');
     expect(layers[1].selectors).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// bindAnyChart – DOM behaviour
+//
+// These tests use a minimal mock DOM since the default Jest environment is
+// `node` and `jest-environment-jsdom` is not installed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a lightweight mock HTMLElement sufficient for bindAnyChart tests.
+ *
+ * Uses `Object.create(HTMLElement.prototype)` so the adapter's
+ * `container instanceof HTMLElement` check passes in the Node environment.
+ */
+function createMockHTMLElement(id: string): HTMLElement {
+  const attrs = new Map<string, string>();
+  const listeners = new Map<string, Array<(evt: any) => void>>();
+
+  const el = Object.create(HTMLElement.prototype);
+  el.id = id;
+  el.getAttribute = (name: string) => attrs.get(name) ?? null;
+  el.setAttribute = (name: string, value: string) => attrs.set(name, value);
+  el.addEventListener = (type: string, handler: (evt: any) => void) => {
+    if (!listeners.has(type))
+      listeners.set(type, []);
+    listeners.get(type)!.push(handler);
+  };
+  el.dispatchEvent = (event: { type: string; [key: string]: any }) => {
+    const handlers = listeners.get(event.type) ?? [];
+    for (const h of handlers)
+      h(event);
+    return true;
+  };
+
+  return el as HTMLElement;
+}
+
+describe('bindAnyChart', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function chartWithMockContainer(
+    series: AnyChartSeries[],
+    containerEl: HTMLElement,
+  ): AnyChartInstance {
+    return createMockChart(series, {
+      container: () => containerEl as any,
+    });
+  }
+
+  it('sets maidr-data attribute on the container', () => {
+    const containerEl = createMockHTMLElement('test-container');
+    const series = createMockSeries('bar', [{ x: 'A', value: 1 }]);
+    const chart = chartWithMockContainer([series], containerEl);
+
+    bindAnyChart(chart, { id: 'bind-test' });
+
+    const attr = containerEl.getAttribute('maidr-data');
+    expect(attr).not.toBeNull();
+    const parsed = JSON.parse(attr!);
+    expect(parsed.id).toBe('bind-test');
+  });
+
+  it('dispatches maidr:bindchart event on the container', () => {
+    const containerEl = createMockHTMLElement('event-container');
+    const series = createMockSeries('bar', [{ x: 'A', value: 1 }]);
+    const chart = chartWithMockContainer([series], containerEl);
+
+    const eventSpy = jest.fn();
+    containerEl.addEventListener('maidr:bindchart', eventSpy);
+
+    bindAnyChart(chart, { id: 'event-test' });
+
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+    const event = eventSpy.mock.calls[0][0];
+    expect(event.detail.id).toBe('event-test');
+  });
+
+  it('returns null when container cannot be resolved', () => {
+    const series = createMockSeries('bar', [{ x: 'A', value: 1 }]);
+    const chart = createMockChart([series], {
+      container: () => null as any,
+    });
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    const result = bindAnyChart(chart, { id: 'no-container' });
+
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Could not find the chart container element'),
+    );
+  });
+
+  it('guards against double-initialisation on the same container', () => {
+    const containerEl = createMockHTMLElement('double-container');
+    const series = createMockSeries('bar', [{ x: 'A', value: 1 }]);
+    const chart = chartWithMockContainer([series], containerEl);
+
+    const eventSpy = jest.fn();
+    containerEl.addEventListener('maidr:bindchart', eventSpy);
+
+    const first = bindAnyChart(chart, { id: 'double-test' });
+    const second = bindAnyChart(chart, { id: 'double-test' });
+
+    // Event should fire only once.
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+    // Both calls return a valid Maidr object.
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(first!.id).toBe(second!.id);
   });
 });

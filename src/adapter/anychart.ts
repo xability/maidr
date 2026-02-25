@@ -48,20 +48,39 @@ import { TraceType } from '../type/grammar';
 // ---------------------------------------------------------------------------
 
 /**
+ * AnyChart series types that are visually different from their MAIDR
+ * representation (e.g. filled area rendered as a line trace). A runtime
+ * warning is emitted for these so developers are aware of the semantic
+ * difference their screen-reader users will experience.
+ */
+const AREA_TYPES = new Set(['area', 'step-area', 'spline-area']);
+
+/**
  * Map AnyChart series type strings to MAIDR TraceType values.
  *
  * AnyChart uses lowercase type names such as "bar", "line", "column", etc.
  * Multi-word types are normalised to kebab-case before lookup.
  * This mapping covers the chart types that MAIDR currently supports.
+ *
+ * @remarks
+ * - `"bar"` (horizontal) and `"column"` (vertical) both map to
+ *   {@link TraceType.BAR}. MAIDR does not currently distinguish
+ *   bar orientation at the trace-type level.
+ * - Area-family types (`area`, `step-area`, `spline-area`) map to
+ *   {@link TraceType.LINE}. The fill is lost in the conversion; a
+ *   runtime warning is emitted so developers are aware.
  */
 export function mapSeriesType(anyChartType: string): TraceType | null {
   const normalized = anyChartType.toLowerCase().replace(/[_\s]/g, '-');
   const mapping: Record<string, TraceType> = {
+    // Both horizontal bar and vertical column map to BAR.
+    // MAIDR does not currently distinguish bar orientation at the trace level.
     'bar': TraceType.BAR,
     'column': TraceType.BAR,
     'line': TraceType.LINE,
     'spline': TraceType.LINE,
     'step-line': TraceType.LINE,
+    // Area types are represented as LINE; the fill is lost.
     'area': TraceType.LINE,
     'step-area': TraceType.LINE,
     'spline-area': TraceType.LINE,
@@ -74,7 +93,18 @@ export function mapSeriesType(anyChartType: string): TraceType | null {
     'candlestick': TraceType.CANDLESTICK,
     'ohlc': TraceType.CANDLESTICK,
   };
-  return mapping[normalized] ?? null;
+
+  const traceType = mapping[normalized] ?? null;
+
+  // Warn when an area series is silently downgraded to a line trace.
+  if (traceType === TraceType.LINE && AREA_TYPES.has(normalized)) {
+    console.warn(
+      `[maidr/anychart] AnyChart "${anyChartType}" series mapped to LINE trace. `
+      + 'The filled-area visual will be represented as a line for accessibility.',
+    );
+  }
+
+  return traceType;
 }
 
 /** Safely extract the title text from an AnyChart chart. */
@@ -197,23 +227,16 @@ function resolveSelector(
   seriesIndex: number,
   options?: AnyChartBinderOptions,
 ): string | string[] | undefined {
-  if (!options?.selectors)
+  if (!options?.selectors || options.selectors.length === 0)
     return undefined;
 
-  // Single value applied to all series.
-  if (typeof options.selectors === 'string')
-    return options.selectors;
+  // If the array has exactly one element and it is a string, apply it to all
+  // series as a shared selector.
+  if (options.selectors.length === 1 && typeof options.selectors[0] === 'string')
+    return options.selectors[0];
 
-  // Array – could be a flat string[] for all series, or indexed per-series.
-  const arr = options.selectors;
-
-  // If any element is undefined or is itself an array, treat as per-series.
-  const isPerSeries = arr.some(v => v === undefined || Array.isArray(v));
-  if (!isPerSeries)
-    return arr as string[];
-
-  // Per-series indexed array.
-  return arr[seriesIndex] ?? undefined;
+  // Per-series: look up by index.
+  return options.selectors[seriesIndex] ?? undefined;
 }
 
 function asNumber(v: unknown, fallback = 0): number {
@@ -286,6 +309,18 @@ function buildScatterLayer(
   };
 }
 
+/**
+ * Build a BOX layer from an AnyChart box series.
+ *
+ * @remarks
+ * AnyChart exposes quartile data (lowest, q1, median, q3, highest) through
+ * its iterator, but does not provide direct access to outlier arrays via the
+ * standard data iterator API.  As a result, `lowerOutliers` and
+ * `upperOutliers` are always empty.  If your chart contains outliers and you
+ * need them in the accessible representation, supply them manually by
+ * post-processing the {@link Maidr} object returned from
+ * {@link anyChartToMaidr}.
+ */
 function buildBoxLayer(
   series: AnyChartSeries,
   seriesIndex: number,
@@ -294,6 +329,7 @@ function buildBoxLayer(
   const rows = extractRawRows(series);
   const data: BoxPoint[] = rows.map(r => ({
     fill: asString(r.x ?? r.name ?? r._index),
+    // Outlier arrays are not available through AnyChart's iterator API.
     lowerOutliers: [],
     min: asNumber(r.lowest),
     q1: asNumber(r.q1),
@@ -581,6 +617,9 @@ export function anyChartToMaidr(
   return maidr;
 }
 
+/** Elements that have already been bound via {@link bindAnyChart}. */
+const boundElements = new WeakSet<HTMLElement>();
+
 /**
  * Bind an AnyChart chart to MAIDR for accessible interaction.
  *
@@ -592,6 +631,10 @@ export function anyChartToMaidr(
  * The MAIDR runtime (`maidr.js`) must be loaded on the page. It
  * listens for `maidr:bindchart` events and initialises accessibility
  * features for the target element.
+ *
+ * Calling this function multiple times on the same chart is safe: if the
+ * container has already been bound, the existing {@link Maidr} data is
+ * returned without re-dispatching the initialisation event.
  *
  * @param chart - A drawn AnyChart chart instance.
  * @param options - Optional overrides.
@@ -617,6 +660,14 @@ export function bindAnyChart(
     return null;
   }
 
+  // Prevent double-initialisation. If the same container was already bound,
+  // return the previously generated schema without re-dispatching the event
+  // (which would create duplicate handlers and observers).
+  if (boundElements.has(container)) {
+    const existing = container.getAttribute('maidr-data');
+    return existing ? JSON.parse(existing) as Maidr : null;
+  }
+
   const maidr = anyChartToMaidr(chart, {
     ...options,
     id: options?.id ?? container.id ?? 'anychart-maidr',
@@ -626,6 +677,9 @@ export function bindAnyChart(
     console.warn('[maidr/anychart] Could not extract data from AnyChart chart.');
     return null;
   }
+
+  // Mark the container as bound before mutating the DOM.
+  boundElements.add(container);
 
   // Inject MAIDR data onto the container element.
   container.setAttribute('maidr-data', JSON.stringify(maidr));

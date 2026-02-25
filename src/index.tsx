@@ -23,6 +23,11 @@ if (document.readyState === 'loading') {
 // Support for third-party adapters (e.g. maidr/anychart) that bind charts
 // after the initial DOM scan.  When an adapter sets `maidr-data` on an
 // element and dispatches this event, we initialise MAIDR for that element.
+//
+// This listener is intentionally permanent (never removed) because adapter
+// bindings can happen at any point during the page's lifetime — there is no
+// deterministic teardown moment.  A WeakSet or similar guard in the adapter
+// prevents duplicate initialisation for the same element.
 document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
   const target = event.target;
   if (!(target instanceof HTMLElement))

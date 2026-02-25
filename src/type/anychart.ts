@@ -119,14 +119,21 @@ export interface AnyChartBinderOptions {
   /**
    * CSS selector overrides for SVG element highlighting.
    *
-   * - A single `string` or `string[]` is applied to every series.
-   * - An `Array` indexed by series position allows per-series overrides;
-   *   use `undefined` at a given index to fall back to the default for
-   *   that series.
+   * Each element in the array corresponds to a series by index. Use
+   * `undefined` at a given position to skip that series (no highlighting).
    *
    * AnyChart's internal SVG structure does not expose stable class names,
    * so consumers should inspect the rendered DOM and provide explicit
    * selectors for reliable highlighting.
+   *
+   * @example
+   * ```ts
+   * // Apply per-series selectors (2 series, second has none):
+   * selectors: ['.series-0 rect', undefined]
+   *
+   * // Apply the same selector to all series:
+   * selectors: ['.chart rect']
+   * ```
    */
-  selectors?: string | string[] | Array<string | string[] | undefined>;
+  selectors?: Array<string | string[] | undefined>;
 }
