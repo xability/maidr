@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Smooth Curve Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Smooth / Regression Curve</h1>
+    <p>Click on the chart and use arrow keys to navigate along the fitted curve.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Generate sample data points along a smooth curve
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const xScale = d3.scaleLinear().domain([0, 10]).range([0, width]);
+      const yScale = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+
+      // Generate smooth curve data
+      const curveData = d3.range(0, 10.1, 0.5).map(x => {
+        const y = 5 * x + 10 * Math.sin(x) + 20;
+        return {
+          x,
+          y,
+          svg_x: xScale(x),
+          svg_y: yScale(y),
+        };
+      });
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-smooth-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Draw the smooth line
+      const line = d3.line()
+        .x(d => xScale(d.x))
+        .y(d => yScale(d.y))
+        .curve(d3.curveCatmullRom);
+
+      svg.append('path')
+        .datum(curveData)
+        .attr('fill', 'none')
+        .attr('stroke', '#e74c3c')
+        .attr('stroke-width', 2)
+        .attr('d', line);
+
+      // Draw data points
+      svg.selectAll('circle.smooth')
+        .data(curveData)
+        .join('circle')
+        .attr('class', 'smooth')
+        .attr('cx', d => xScale(d.x))
+        .attr('cy', d => yScale(d.y))
+        .attr('r', 4)
+        .attr('fill', '#e74c3c');
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(xScale));
+      svg.append('g').call(d3.axisLeft(yScale));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Fitted Curve');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-smooth-chart');
+      const result = maidrD3.bindD3Smooth(svgElement, {
+        selector: 'circle.smooth',
+        title: 'Fitted Curve',
+        axes: { x: 'X', y: 'Y (fitted)' },
+        x: 'x',
+        y: 'y',
+        svgX: 'svg_x',
+        svgY: 'svg_y',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

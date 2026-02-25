@@ -8,7 +8,7 @@
 import type { BoxPoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3BoxConfig } from './types';
 import { Orientation, TraceType } from '../type/grammar';
-import { generateId, getD3Datum, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
 
 /**
  * Binds a D3.js box plot to MAIDR, generating the accessible data representation.
@@ -80,29 +80,19 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
       );
     }
 
-    let lowerOutliers: number[];
-    try {
-      lowerOutliers = resolveAccessor<number[]>(effectiveDatum, lowerOutliersAccessor, index);
-    } catch {
-      lowerOutliers = [];
-    }
-
-    let upperOutliers: number[];
-    try {
-      upperOutliers = resolveAccessor<number[]>(effectiveDatum, upperOutliersAccessor, index);
-    } catch {
-      upperOutliers = [];
-    }
+    // Outlier arrays are optional - use resolveAccessorOptional
+    const lowerOutliers = resolveAccessorOptional<number[]>(effectiveDatum, lowerOutliersAccessor, index) ?? [];
+    const upperOutliers = resolveAccessorOptional<number[]>(effectiveDatum, upperOutliersAccessor, index) ?? [];
 
     return {
       fill: resolveAccessor<string>(effectiveDatum, fillAccessor, index),
-      lowerOutliers: lowerOutliers ?? [],
+      lowerOutliers,
       min: resolveAccessor<number>(effectiveDatum, minAccessor, index),
       q1: resolveAccessor<number>(effectiveDatum, q1Accessor, index),
       q2: resolveAccessor<number>(effectiveDatum, q2Accessor, index),
       q3: resolveAccessor<number>(effectiveDatum, q3Accessor, index),
       max: resolveAccessor<number>(effectiveDatum, maxAccessor, index),
-      upperOutliers: upperOutliers ?? [],
+      upperOutliers,
     };
   });
 

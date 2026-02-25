@@ -8,6 +8,7 @@
 import type {
   BarPoint,
   BoxPoint,
+  CandlestickPoint,
   FormatConfig,
   HeatmapData,
   HistogramPoint,
@@ -16,6 +17,9 @@ import type {
   MaidrLayer,
   Orientation,
   ScatterPoint,
+  SegmentedPoint,
+  SmoothPoint,
+  TraceType,
 } from '../type/grammar';
 
 /**
@@ -167,6 +171,68 @@ export interface D3HistogramConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 candlestick chart.
+ */
+export interface D3CandlestickConfig extends D3BinderConfig {
+  /** CSS selector for the candlestick body elements (e.g., `'rect.candle'`). */
+  selector: string;
+  /** Accessor for the label/date value. @default 'value' */
+  value?: DataAccessor<string>;
+  /** Accessor for the open price. @default 'open' */
+  open?: DataAccessor<number>;
+  /** Accessor for the high price. @default 'high' */
+  high?: DataAccessor<number>;
+  /** Accessor for the low price. @default 'low' */
+  low?: DataAccessor<number>;
+  /** Accessor for the close price. @default 'close' */
+  close?: DataAccessor<number>;
+  /** Accessor for the trading volume. @default 'volume' */
+  volume?: DataAccessor<number>;
+  /** Accessor for the trend direction. Auto-computed from open/close if not provided. */
+  trend?: DataAccessor<'Bull' | 'Bear' | 'Neutral'>;
+}
+
+/**
+ * Segmented bar chart type for stacked, dodged, or normalized.
+ */
+export type SegmentedTraceType
+  = | typeof TraceType.STACKED
+    | typeof TraceType.DODGED
+    | typeof TraceType.NORMALIZED;
+
+/**
+ * Configuration for binding a D3 segmented bar chart (stacked, dodged, or normalized).
+ */
+export interface D3SegmentedConfig extends D3BinderConfig {
+  /** CSS selector for all bar segment elements (e.g., `'rect.bar'`). */
+  selector: string;
+  /** The type of segmented chart. @default TraceType.STACKED */
+  type?: SegmentedTraceType;
+  /** Accessor for the x-axis (category) value. @default 'x' */
+  x?: DataAccessor<string | number>;
+  /** Accessor for the y-axis (numeric) value. @default 'y' */
+  y?: DataAccessor<number | string>;
+  /** Accessor for the fill/group identifier. @default 'fill' */
+  fill?: DataAccessor<string>;
+}
+
+/**
+ * Configuration for binding a D3 smooth/regression curve.
+ */
+export interface D3SmoothConfig extends D3BinderConfig {
+  /** CSS selector for the smooth curve point elements (e.g., `'circle.smooth'`). */
+  selector: string;
+  /** Accessor for the x-axis data value. @default 'x' */
+  x?: DataAccessor<number>;
+  /** Accessor for the y-axis data value. @default 'y' */
+  y?: DataAccessor<number>;
+  /** Accessor for the SVG x coordinate. @default 'svg_x' */
+  svgX?: DataAccessor<number>;
+  /** Accessor for the SVG y coordinate. @default 'svg_y' */
+  svgY?: DataAccessor<number>;
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -184,7 +250,10 @@ export interface D3BinderResult {
 export type D3ExtractedData
   = | BarPoint[]
     | BoxPoint[]
+    | CandlestickPoint[]
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
-    | ScatterPoint[];
+    | ScatterPoint[]
+    | SegmentedPoint[][]
+    | SmoothPoint[][];

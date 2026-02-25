@@ -64,7 +64,7 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
     id: layerId,
     type: TraceType.SCATTER,
     title,
-    selectors: [scopeSelector(svg, selector)],
+    selectors: scopeSelector(svg, selector),
     axes: axes
       ? {
           ...axes,

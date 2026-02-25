@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Candlestick Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Candlestick Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate between trading days.</p>
+    <div id="chart"></div>
+
+    <script>
+      const data = [
+        { date: 'Mon', open: 100, high: 110, low: 95, close: 105, volume: 1200 },
+        { date: 'Tue', open: 105, high: 115, low: 100, close: 112, volume: 1500 },
+        { date: 'Wed', open: 112, high: 118, low: 108, close: 109, volume: 1100 },
+        { date: 'Thu', open: 109, high: 114, low: 104, close: 113, volume: 1400 },
+        { date: 'Fri', open: 113, high: 120, low: 110, close: 118, volume: 1800 },
+      ];
+
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 500 - margin.left - margin.right;
+      const height = 350 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-candlestick-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const x = d3.scaleBand().domain(data.map(d => d.date)).range([0, width]).padding(0.3);
+      const y = d3.scaleLinear().domain([90, 125]).range([height, 0]);
+
+      // Wicks
+      svg.selectAll('line.wick')
+        .data(data)
+        .join('line')
+        .attr('class', 'wick')
+        .attr('x1', d => x(d.date) + x.bandwidth() / 2)
+        .attr('x2', d => x(d.date) + x.bandwidth() / 2)
+        .attr('y1', d => y(d.high))
+        .attr('y2', d => y(d.low))
+        .attr('stroke', '#333');
+
+      // Bodies
+      svg.selectAll('rect.candle')
+        .data(data)
+        .join('rect')
+        .attr('class', 'candle')
+        .attr('x', d => x(d.date))
+        .attr('y', d => y(Math.max(d.open, d.close)))
+        .attr('width', x.bandwidth())
+        .attr('height', d => Math.abs(y(d.open) - y(d.close)) || 1)
+        .attr('fill', d => d.close >= d.open ? '#4caf50' : '#f44336');
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Weekly Stock Price');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-candlestick-chart');
+      const result = maidrD3.bindD3Candlestick(svgElement, {
+        selector: 'rect.candle',
+        title: 'Weekly Stock Price',
+        axes: { x: 'Day', y: 'Price ($)' },
+        value: 'date',
+        open: 'open',
+        high: 'high',
+        low: 'low',
+        close: 'close',
+        volume: 'volume',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

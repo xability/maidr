@@ -29,15 +29,4 @@ export default defineConfig({
       },
     },
   },
-  resolve: {
-    alias: {
-      '@command': path.resolve(__dirname, 'src/command'),
-      '@model': path.resolve(__dirname, 'src/model'),
-      '@state': path.resolve(__dirname, 'src/state'),
-      '@service': path.resolve(__dirname, 'src/service'),
-      '@type': path.resolve(__dirname, 'src/type'),
-      '@ui': path.resolve(__dirname, 'src/ui'),
-      '@util': path.resolve(__dirname, 'src/util'),
-    },
-  },
 });

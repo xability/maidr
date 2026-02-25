@@ -8,13 +8,15 @@
 import type { LinePoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3LineConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
 
 /**
  * Binds a D3.js line chart to MAIDR, generating the accessible data representation.
  *
  * Supports both single-line and multi-line charts. Data can be extracted from:
  * 1. D3-bound data on point elements (circles, etc.) via `pointSelector`.
+ *    When using `pointSelector`, each line path and its associated points
+ *    must share the same parent `<g>` group element for correct scoping.
  * 2. D3-bound data on the path elements themselves (array of points per path).
  *
  * @param svg - The SVG element containing the D3 line chart.
@@ -52,16 +54,22 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 
   const lineElements = queryD3Elements(svg, selector);
   const data: LinePoint[][] = [];
-  const selectors: string[] = [];
 
   if (pointSelector) {
-    // Extract data from individual point elements grouped by line
-    // Each line path has associated point elements
+    // Track which point elements we've already processed to avoid
+    // double-counting when multiple line paths share a parent <g>.
+    const processedPoints = new Set<Element>();
+
     for (const { element } of lineElements) {
       const parent = element.parentElement ?? svg;
       const points = queryD3Elements(parent, pointSelector);
 
-      const lineData: LinePoint[] = points.map(({ datum, index }) => {
+      const lineData: LinePoint[] = [];
+      for (const { element: pointEl, datum, index } of points) {
+        if (processedPoints.has(pointEl))
+          continue;
+        processedPoints.add(pointEl);
+
         if (!datum) {
           throw new Error(
             `No D3 data bound to point element at index ${index}. `
@@ -72,20 +80,15 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
           x: resolveAccessor<number | string>(datum, xAccessor, index),
           y: resolveAccessor<number>(datum, yAccessor, index),
         };
-        try {
-          const fill = resolveAccessor<string>(datum, fillAccessor, index);
-          if (fill !== undefined) {
-            point.fill = fill;
-          }
-        } catch {
-          // fill accessor not available, skip
+        const fill = resolveAccessorOptional<string>(datum, fillAccessor, index);
+        if (fill !== undefined) {
+          point.fill = fill;
         }
-        return point;
-      });
+        lineData.push(point);
+      }
 
       if (lineData.length > 0) {
         data.push(lineData);
-        selectors.push(scopeSelector(svg, `${pointSelector}`));
       }
     }
   } else {
@@ -106,13 +109,9 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
           x: resolveAccessor<number | string>(d, xAccessor, index),
           y: resolveAccessor<number>(d, yAccessor, index),
         };
-        try {
-          const fill = resolveAccessor<string>(d, fillAccessor, index);
-          if (fill !== undefined) {
-            point.fill = fill;
-          }
-        } catch {
-          // fill accessor not available, skip
+        const fill = resolveAccessorOptional<string>(d, fillAccessor, index);
+        if (fill !== undefined) {
+          point.fill = fill;
         }
         return point;
       });
@@ -121,8 +120,6 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
         data.push(lineData);
       }
     }
-
-    selectors.push(scopeSelector(svg, selector));
   }
 
   // Extract legend labels from fill values
@@ -135,11 +132,12 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   }
 
   const layerId = generateId();
+  const selectorValue = scopeSelector(svg, selector);
   const layer: MaidrLayer = {
     id: layerId,
     type: TraceType.LINE,
     title,
-    selectors: selectors.length === 1 ? selectors[0] : selectors,
+    selectors: selectorValue,
     axes: axes
       ? {
           ...axes,

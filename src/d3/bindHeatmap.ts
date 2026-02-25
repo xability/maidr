@@ -20,6 +20,7 @@ import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './u
  * @param svg - The SVG element containing the D3 heatmap.
  * @param config - Configuration specifying the selector and data accessors.
  * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ * @throws Error if any cell coordinate pair is missing from the extracted data.
  *
  * @example
  * ```ts
@@ -64,7 +65,7 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     };
   });
 
-  // Build unique sorted x and y labels (preserving order of appearance)
+  // Build unique x and y labels (preserving order of appearance)
   const xLabels: string[] = [];
   const yLabels: string[] = [];
   const seenX = new Set<string>();
@@ -81,17 +82,31 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     }
   }
 
-  // Build the 2D points grid (y rows x columns)
-  const points: number[][] = [];
-  const cellMap = new Map<string, number>();
+  // Build the 2D points grid using nested Maps to avoid key collisions
+  const cellMap = new Map<string, Map<string, number>>();
   for (const cell of cells) {
-    cellMap.set(`${cell.y}::${cell.x}`, cell.value);
+    let row = cellMap.get(cell.y);
+    if (!row) {
+      row = new Map();
+      cellMap.set(cell.y, row);
+    }
+    row.set(cell.x, cell.value);
   }
 
+  const points: number[][] = [];
   for (const yLabel of yLabels) {
     const row: number[] = [];
+    const rowMap = cellMap.get(yLabel);
     for (const xLabel of xLabels) {
-      row.push(cellMap.get(`${yLabel}::${xLabel}`) ?? 0);
+      const value = rowMap?.get(xLabel);
+      if (value === undefined) {
+        throw new Error(
+          `Missing heatmap cell for y="${yLabel}", x="${xLabel}". `
+          + `Expected a complete grid of ${yLabels.length} x ${xLabels.length} cells `
+          + `but found ${cells.length} elements.`,
+        );
+      }
+      row.push(value);
     }
     points.push(row);
   }
