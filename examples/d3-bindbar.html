@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Bar Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample data
+      const data = [
+        { day: 'Mon', count: 45 },
+        { day: 'Tue', count: 72 },
+        { day: 'Wed', count: 89 },
+        { day: 'Thu', count: 64 },
+        { day: 'Fri', count: 53 },
+        { day: 'Sat', count: 95 },
+        { day: 'Sun', count: 38 },
+      ];
+
+      // Chart dimensions
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-bar-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const x = d3.scaleBand()
+        .domain(data.map(d => d.day))
+        .range([0, width])
+        .padding(0.2);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.count)])
+        .nice()
+        .range([height, 0]);
+
+      // Bars
+      svg.selectAll('rect.bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => x(d.day))
+        .attr('y', d => y(d.count))
+        .attr('width', x.bandwidth())
+        .attr('height', d => height - y(d.count))
+        .attr('fill', '#4682b4');
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      svg.append('g')
+        .call(d3.axisLeft(y));
+
+      // Title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Daily Activity Count');
+
+      // Axis labels
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .text('Day of Week');
+
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .text('Count');
+
+      // === MAIDR Integration ===
+      // Use the D3 binder to generate MAIDR data from the D3 chart
+      const svgElement = document.getElementById('d3-bar-chart');
+      const result = maidrD3.bindD3Bar(svgElement, {
+        selector: 'rect.bar',
+        title: 'Daily Activity Count',
+        axes: { x: 'Day of Week', y: 'Count' },
+        x: 'day',
+        y: 'count',
+      });
+
+      // Apply MAIDR data to the SVG element
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Stacked Bar Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Stacked Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate segments.</p>
+    <div id="chart"></div>
+
+    <script>
+      const data = [
+        { quarter: 'Q1', region: 'East', revenue: 120 },
+        { quarter: 'Q1', region: 'West', revenue: 90 },
+        { quarter: 'Q1', region: 'South', revenue: 60 },
+        { quarter: 'Q2', region: 'East', revenue: 150 },
+        { quarter: 'Q2', region: 'West', revenue: 110 },
+        { quarter: 'Q2', region: 'South', revenue: 80 },
+        { quarter: 'Q3', region: 'East', revenue: 180 },
+        { quarter: 'Q3', region: 'West', revenue: 130 },
+        { quarter: 'Q3', region: 'South', revenue: 95 },
+        { quarter: 'Q4', region: 'East', revenue: 200 },
+        { quarter: 'Q4', region: 'West', revenue: 145 },
+        { quarter: 'Q4', region: 'South', revenue: 110 },
+      ];
+
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const regions = ['East', 'West', 'South'];
+      const colors = { East: '#2196F3', West: '#FF9800', South: '#4CAF50' };
+
+      const margin = { top: 40, right: 100, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-stacked-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Group data by quarter for stacking
+      const grouped = d3.group(data, d => d.quarter);
+      const stackData = quarters.map(q => {
+        const row = { quarter: q };
+        for (const r of regions) {
+          row[r] = grouped.get(q).find(d => d.region === r).revenue;
+        }
+        return row;
+      });
+
+      const stack = d3.stack().keys(regions);
+      const series = stack(stackData);
+
+      const x = d3.scaleBand().domain(quarters).range([0, width]).padding(0.2);
+      const y = d3.scaleLinear().domain([0, 500]).range([height, 0]);
+
+      // Create stacked rects with original data bound
+      for (const s of series) {
+        svg.selectAll(`rect.bar.${s.key}`)
+          .data(s.map((d, i) => ({
+            x: quarters[i],
+            y: d[1] - d[0],
+            fill: s.key,
+            y0: d[0],
+            y1: d[1],
+          })))
+          .join('rect')
+          .attr('class', 'bar')
+          .attr('x', d => x(d.x))
+          .attr('y', d => y(d.y1))
+          .attr('width', x.bandwidth())
+          .attr('height', d => y(d.y0) - y(d.y1))
+          .attr('fill', d => colors[d.fill]);
+      }
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Revenue by Region');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-stacked-chart');
+      const result = maidrD3.bindD3Segmented(svgElement, {
+        selector: 'rect.bar',
+        type: 'stacked_bar',
+        title: 'Revenue by Region and Quarter',
+        axes: { x: 'Quarter', y: 'Revenue ($K)', fill: 'Region' },
+        x: 'x',
+        y: 'y',
+        fill: 'fill',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Box Plot Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Box Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate between boxes.</p>
+    <div id="chart"></div>
+
+    <script>
+      const data = [
+        { fill: 'Group A', min: 15, q1: 25, q2: 35, q3: 45, max: 55, lowerOutliers: [5, 8], upperOutliers: [62, 70] },
+        { fill: 'Group B', min: 20, q1: 30, q2: 42, q3: 52, max: 65, lowerOutliers: [12], upperOutliers: [72] },
+        { fill: 'Group C', min: 10, q1: 22, q2: 30, q3: 40, max: 50, lowerOutliers: [], upperOutliers: [58] },
+      ];
+
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 500 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-box-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const x = d3.scaleBand().domain(data.map(d => d.fill)).range([0, width]).padding(0.3);
+      const y = d3.scaleLinear().domain([0, 80]).range([height, 0]);
+
+      // Draw box groups
+      const groups = svg.selectAll('g.box')
+        .data(data)
+        .join('g')
+        .attr('class', 'box')
+        .attr('transform', d => `translate(${x(d.fill)}, 0)`);
+
+      // IQR box
+      groups.append('rect')
+        .attr('y', d => y(d.q3))
+        .attr('width', x.bandwidth())
+        .attr('height', d => y(d.q1) - y(d.q3))
+        .attr('fill', '#87ceeb')
+        .attr('stroke', '#333');
+
+      // Median
+      groups.append('line')
+        .attr('x1', 0).attr('x2', x.bandwidth())
+        .attr('y1', d => y(d.q2)).attr('y2', d => y(d.q2))
+        .attr('stroke', '#333').attr('stroke-width', 2);
+
+      // Whiskers
+      groups.append('line')
+        .attr('x1', x.bandwidth() / 2).attr('x2', x.bandwidth() / 2)
+        .attr('y1', d => y(d.min)).attr('y2', d => y(d.q1))
+        .attr('stroke', '#333');
+
+      groups.append('line')
+        .attr('x1', x.bandwidth() / 2).attr('x2', x.bandwidth() / 2)
+        .attr('y1', d => y(d.q3)).attr('y2', d => y(d.max))
+        .attr('stroke', '#333');
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Distribution by Group');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-box-chart');
+      const result = maidrD3.bindD3Box(svgElement, {
+        selector: 'g.box',
+        title: 'Distribution by Group',
+        axes: { x: 'Group', y: 'Value' },
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

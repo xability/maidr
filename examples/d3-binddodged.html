@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Dodged Bar Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Dodged (Grouped) Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate bars.</p>
+    <div id="chart"></div>
+
+    <script>
+      const data = [
+        { subject: 'Math', grade: 'A', count: 30 },
+        { subject: 'Math', grade: 'B', count: 45 },
+        { subject: 'Math', grade: 'C', count: 20 },
+        { subject: 'Science', grade: 'A', count: 35 },
+        { subject: 'Science', grade: 'B', count: 40 },
+        { subject: 'Science', grade: 'C', count: 25 },
+        { subject: 'English', grade: 'A', count: 40 },
+        { subject: 'English', grade: 'B', count: 35 },
+        { subject: 'English', grade: 'C', count: 15 },
+      ];
+
+      const subjects = ['Math', 'Science', 'English'];
+      const grades = ['A', 'B', 'C'];
+      const colors = { A: '#4CAF50', B: '#2196F3', C: '#FF9800' };
+
+      const margin = { top: 40, right: 100, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-dodged-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const x0 = d3.scaleBand().domain(subjects).range([0, width]).padding(0.2);
+      const x1 = d3.scaleBand().domain(grades).range([0, x0.bandwidth()]).padding(0.05);
+      const y = d3.scaleLinear().domain([0, 50]).range([height, 0]);
+
+      svg.selectAll('rect.bar')
+        .data(data.map(d => ({ x: d.subject, y: d.count, fill: d.grade })))
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => x0(d.x) + x1(d.fill))
+        .attr('y', d => y(d.y))
+        .attr('width', x1.bandwidth())
+        .attr('height', d => height - y(d.y))
+        .attr('fill', d => colors[d.fill]);
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x0));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Student Grades by Subject');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-dodged-chart');
+      const result = maidrD3.bindD3Segmented(svgElement, {
+        selector: 'rect.bar',
+        type: 'dodged_bar',
+        title: 'Student Grades by Subject',
+        axes: { x: 'Subject', y: 'Count', fill: 'Grade' },
+        x: 'x',
+        y: 'y',
+        fill: 'fill',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>
