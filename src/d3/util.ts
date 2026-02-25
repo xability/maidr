@@ -3,6 +3,7 @@
  * Handles extracting data from D3.js-bound DOM elements.
  */
 
+import type { FormatConfig } from '../type/grammar';
 import type { DataAccessor } from './types';
 
 /**
@@ -11,6 +12,19 @@ import type { DataAccessor } from './types';
  */
 interface D3BoundElement extends Element {
   __data__?: unknown;
+}
+
+/**
+ * CSS.escape polyfill for SSR environments (Node.js / Next.js / Gatsby).
+ * In browsers, delegates to the native `CSS.escape`. In Node.js where
+ * `CSS` is not defined, falls back to a basic escaping implementation.
+ */
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  // Fallback: escape characters that are not valid in CSS identifiers.
+  return value.replace(/([^\w-])/g, '\\$1');
 }
 
 /**
@@ -48,7 +62,7 @@ export function resolveAccessor<T>(
 
 /**
  * Queries all matching elements within a container and returns them with
- * their D3-bound data.
+ * their D3-bound data. Warns if no elements are found.
  *
  * @param container - The root element (typically an SVG) to query within.
  * @param selector - CSS selector for the target elements.
@@ -59,6 +73,12 @@ export function queryD3Elements(
   selector: string,
 ): { element: Element; datum: unknown; index: number }[] {
   const elements = Array.from(container.querySelectorAll(selector));
+  if (elements.length === 0) {
+    console.warn(
+      `[maidr/d3] No elements found for selector "${selector}" within the container. `
+      + `Verify that the selector matches the D3-rendered SVG elements.`,
+    );
+  }
   return elements.map((element, index) => ({
     element,
     datum: getD3Datum(element),
@@ -82,8 +102,16 @@ export function generateSelector(
   element: Element,
   container: Element,
 ): string {
+  // If the element IS the container, return a tag-based self-selector
+  if (element === container) {
+    if (element.id) {
+      return `#${cssEscape(element.id)}`;
+    }
+    return element.tagName.toLowerCase();
+  }
+
   if (element.id) {
-    return `#${CSS.escape(element.id)}`;
+    return `#${cssEscape(element.id)}`;
   }
 
   // Build a selector based on the element's parent chain relative to container
@@ -94,13 +122,13 @@ export function generateSelector(
     let part = current.tagName.toLowerCase();
 
     if (current.id) {
-      parts.unshift(`#${CSS.escape(current.id)} > ${part}`);
+      parts.unshift(`#${cssEscape(current.id)} > ${part}`);
       break;
     }
 
     // Add classes if present
     const classes = Array.from(current.classList)
-      .map(c => `.${CSS.escape(c)}`)
+      .map(c => `.${cssEscape(c)}`)
       .join('');
     if (classes) {
       part += classes;
@@ -109,8 +137,9 @@ export function generateSelector(
     // Add nth-of-type for disambiguation
     const parent = current.parentElement;
     if (parent) {
+      const tagName = current.tagName;
       const siblings = Array.from(parent.children).filter(
-        s => s.tagName === current!.tagName,
+        s => s.tagName === tagName,
       );
       if (siblings.length > 1) {
         const idx = siblings.indexOf(current) + 1;
@@ -136,14 +165,42 @@ export function generateSelector(
  */
 export function scopeSelector(container: Element, selector: string): string {
   if (container.id) {
-    return `#${CSS.escape(container.id)} ${selector}`;
+    return `#${cssEscape(container.id)} ${selector}`;
   }
   return selector;
 }
 
 /**
+ * Monotonic counter to prevent ID collisions during synchronous multi-chart init.
+ */
+let idCounter = 0;
+
+/**
  * Generates a unique ID string for use in MAIDR data structures.
+ * Uses a monotonic counter combined with timestamp and random suffix to
+ * avoid collisions when multiple charts are initialized synchronously.
  */
 export function generateId(): string {
-  return `d3-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `d3-${Date.now().toString(36)}-${(idCounter++).toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * Builds the axes configuration for a MAIDR layer from the common
+ * binder config fields.
+ *
+ * @param axes - Axis labels from the binder config.
+ * @param format - Optional format configuration.
+ * @returns The axes object for the MAIDR layer, or `undefined` if no axes provided.
+ */
+export function buildAxes(
+  axes: { x?: string; y?: string; fill?: string } | undefined,
+  format: FormatConfig | undefined,
+): { x?: string; y?: string; fill?: string; format?: FormatConfig } | undefined {
+  if (!axes) {
+    return undefined;
+  }
+  return {
+    ...axes,
+    ...(format ? { format } : {}),
+  };
 }

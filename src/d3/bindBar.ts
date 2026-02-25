@@ -8,7 +8,7 @@
 import type { BarPoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BarConfig, D3BinderResult } from './types';
 import { Orientation, TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js bar chart to MAIDR, generating the accessible data representation.
@@ -75,12 +75,7 @@ export function bindD3Bar(svg: Element, config: D3BarConfig): D3BinderResult {
     title,
     selectors: scopeSelector(svg, selector),
     orientation,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

@@ -8,7 +8,7 @@
 import type { LinePoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3LineConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Extracts a single line's point data from a set of D3-bound point elements.
@@ -89,9 +89,9 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 
   if (pointSelector) {
     // Extract data from individual point elements grouped by line.
-    // Each line path's direct parent <g> should contain its associated
-    // points. We scope queries to each parent to avoid matching points
-    // from other lines that share a higher-level ancestor.
+    // Group line elements by their parent <g> to avoid querying the
+    // same parent multiple times when multiple lines share one.
+    const processedParents = new Set<Element>();
     let usedScopedExtraction = false;
 
     for (const { element } of lineElements) {
@@ -99,6 +99,11 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
       // Only scope to parent if it is a distinct <g> wrapper for this line
       // (not the SVG root itself, which would match all points).
       if (parent && parent !== svg && parent.tagName.toLowerCase() === 'g') {
+        if (processedParents.has(parent)) {
+          continue;
+        }
+        processedParents.add(parent);
+
         const points = queryD3Elements(parent, pointSelector);
         const lineData = extractLinePoints(points, xAccessor, yAccessor, fillAccessor, pointSelector);
         if (lineData.length > 0) {
@@ -178,12 +183,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     type: TraceType.LINE,
     title,
     selectors: selectors.length === 1 ? selectors[0] : selectors,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

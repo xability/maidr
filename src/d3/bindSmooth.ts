@@ -8,7 +8,7 @@
 import type { Maidr, MaidrLayer, SmoothPoint } from '../type/grammar';
 import type { D3BinderResult, D3SmoothConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js smooth/regression line to MAIDR, generating the accessible data representation.
@@ -53,14 +53,23 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
   const lineElements = queryD3Elements(svg, selector);
   const data: SmoothPoint[][] = [];
   const selectors: string[] = [];
+  const fillLabels: string[] = [];
 
   if (pointSelector) {
     // Extract from individual point elements grouped by line
+    const processedParents = new Set<Element>();
+
     for (const { element } of lineElements) {
       const parent = element.parentElement;
       const container = (parent && parent !== svg && parent.tagName.toLowerCase() === 'g')
         ? parent
         : svg;
+
+      if (processedParents.has(container)) {
+        continue;
+      }
+      processedParents.add(container);
+
       const points = queryD3Elements(container, pointSelector);
 
       const lineData: SmoothPoint[] = points.map(({ datum, element: el, index }) => {
@@ -88,6 +97,15 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
       if (lineData.length > 0) {
         data.push(lineData);
         selectors.push(scopeSelector(svg, pointSelector));
+
+        // Extract fill label from first point's datum
+        const firstDatum = points[0]?.datum;
+        if (firstDatum) {
+          const fill = resolveAccessor<string>(firstDatum, fillAccessor, 0);
+          if (fill !== undefined) {
+            fillLabels.push(fill);
+          }
+        }
       }
     }
   } else {
@@ -116,33 +134,13 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
     selectors.push(scopeSelector(svg, selector));
   }
 
-  // Extract legend labels
-  const legend: string[] = [];
-  if (fillAccessor && pointSelector) {
-    for (const _lineData of data) {
-      // Attempt to extract fill from the first point's raw datum
-      const firstPointElements = queryD3Elements(svg, pointSelector);
-      if (firstPointElements.length > 0 && firstPointElements[0].datum) {
-        const fill = resolveAccessor<string>(firstPointElements[0].datum, fillAccessor, 0);
-        if (fill !== undefined) {
-          legend.push(fill);
-        }
-      }
-    }
-  }
-
   const layerId = generateId();
   const layer: MaidrLayer = {
     id: layerId,
     type: TraceType.SMOOTH,
     title,
     selectors: selectors.length === 1 ? selectors[0] : selectors,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 
@@ -152,7 +150,7 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
     subtitle,
     caption,
     subplots: [[{
-      ...(legend.length > 0 ? { legend } : {}),
+      ...(fillLabels.length > 0 ? { legend: fillLabels } : {}),
       layers: [layer],
     }]],
   };

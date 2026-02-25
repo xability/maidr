@@ -8,7 +8,7 @@
 import type { HeatmapData, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3HeatmapConfig } from './types';
 import { TraceType } from '../type/grammar';
-import { generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js heatmap to MAIDR, generating the accessible data representation.
@@ -133,12 +133,7 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     type: TraceType.HEATMAP,
     title,
     selectors: scopeSelector(svg, selector),
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 

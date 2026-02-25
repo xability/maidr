@@ -8,7 +8,7 @@
 import type { BoxPoint, Maidr, MaidrLayer } from '../type/grammar';
 import type { D3BinderResult, D3BoxConfig } from './types';
 import { Orientation, TraceType } from '../type/grammar';
-import { generateId, getD3Datum, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import { buildAxes, generateId, getD3Datum, queryD3Elements, resolveAccessor, scopeSelector } from './util';
 
 /**
  * Binds a D3.js box plot to MAIDR, generating the accessible data representation.
@@ -102,12 +102,7 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     title,
     selectors: scopeSelector(svg, selector),
     orientation,
-    axes: axes
-      ? {
-          ...axes,
-          ...(format ? { format } : {}),
-        }
-      : undefined,
+    axes: buildAxes(axes, format),
     data,
   };
 
