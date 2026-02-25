@@ -337,34 +337,52 @@ export class BoxTrace extends AbstractTrace {
         return clone;
       });
 
-      const min = this.cloneElementOrEmpty(original.min);
-      const max = this.cloneElementOrEmpty(original.max);
-      const q2 = this.cloneElementOrEmpty(original.q2);
+      let sections: (SVGElement[] | SVGElement)[];
 
-      // Only create line elements if iq selector exists and element was found
-      // If iq is empty/missing, create empty line elements instead
-      // Check if IQR direction should be reversed (for Base R vertical boxplots)
-      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
-      const [q1, q3] = original.iq
-        ? (isVertical
-            ? isIqrReversed
-              ? [
-                  Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
-                  Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
-                ]
+      if (this.isSinglePathBox(original)) {
+        // Plotly-style single-path box: create data-driven overlay elements
+        // isSinglePathBox guarantees at least 2 non-null elements pointing to the same node
+        const referenceElement = (original.iq ?? original.min ?? original.max ?? original.q2)!;
+        // Use original (unreversed) data to match selector order
+        const point = (this.layer.data as BoxPoint[])[boxIdx];
+        sections = this.createDataDrivenOverlays(
+          referenceElement,
+          point,
+          isVertical,
+          lowerOutliers,
+          upperOutliers,
+        );
+      } else {
+        // Standard multi-element box (e.g., matplotlib): clone individual elements
+        const min = this.cloneElementOrEmpty(original.min);
+        const max = this.cloneElementOrEmpty(original.max);
+        const q2 = this.cloneElementOrEmpty(original.q2);
+
+        // Only create line elements if iq selector exists and element was found
+        // If iq is empty/missing, create empty line elements instead
+        // Check if IQR direction should be reversed (for Base R vertical boxplots)
+        const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+        const [q1, q3] = original.iq
+          ? (isVertical
+              ? isIqrReversed
+                ? [
+                    Svg.createLineElement(original.iq, 'top'), // Q1 (25%) = top edge (reversed)
+                    Svg.createLineElement(original.iq, 'bottom'), // Q3 (75%) = bottom edge (reversed)
+                  ]
+                : [
+                    Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
+                    Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
+                  ]
               : [
-                  Svg.createLineElement(original.iq, 'bottom'), // Q1 (25%) = bottom edge (default)
-                  Svg.createLineElement(original.iq, 'top'), // Q3 (75%) = top edge (default)
-                ]
-            : [
-                Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
-                Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
-              ])
-        : [
-            Svg.createEmptyElement('line'), // Empty line element for Q1
-            Svg.createEmptyElement('line'), // Empty line element for Q3
-          ];
-      const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+                  Svg.createLineElement(original.iq, 'left'), // Q1 (25%) = left boundary
+                  Svg.createLineElement(original.iq, 'right'), // Q3 (75%) = right boundary
+                ])
+          : [
+              Svg.createEmptyElement('line'), // Empty line element for Q1
+              Svg.createEmptyElement('line'), // Empty line element for Q3
+            ];
+        sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
+      }
 
       if (isVertical) {
         sections.forEach((section, sectionIdx) => {
@@ -391,6 +409,112 @@ export class BoxTrace extends AbstractTrace {
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     original.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
+  }
+
+  /**
+   * Detects whether all non-outlier selectors resolve to the same SVG element.
+   * This occurs with Plotly box plots where the entire box is rendered as a single <path>.
+   * @param original - The collected original SVG elements for a box
+   * @param original.min - The min whisker SVG element or null
+   * @param original.max - The max whisker SVG element or null
+   * @param original.iq - The interquartile range SVG element or null
+   * @param original.q2 - The median SVG element or null
+   * @returns True if this is a single-path box plot (Plotly-style)
+   */
+  private isSinglePathBox(original: {
+    min: SVGElement | null;
+    max: SVGElement | null;
+    iq: SVGElement | null;
+    q2: SVGElement | null;
+  }): boolean {
+    const elements = [original.min, original.max, original.iq, original.q2].filter(
+      (el): el is SVGElement => el !== null,
+    );
+    if (elements.length <= 1) {
+      if (elements.length === 1) {
+        console.warn(
+          '[BoxTrace] Only one non-outlier selector resolved to a DOM element. '
+          + 'Check that all box plot selectors (min, max, iq, q2) are correct.',
+        );
+      }
+      return false;
+    }
+    return elements.every(el => el === elements[0]);
+  }
+
+  /**
+   * Creates synthetic SVG line overlays positioned using data values for single-path box plots.
+   * Maps data coordinates to SVG coordinates using the reference element's bounding box.
+   *
+   * Assumption: The bounding box of the single-path element spans exactly from the data min
+   * to the data max. This holds for Plotly-generated box plots where the path includes whisker
+   * endpoints as the outermost drawn coordinates. If the path has padding or decorative elements
+   * beyond the whiskers, overlay positions may be slightly offset.
+   *
+   * @param referenceElement - The single path element encompassing the entire box
+   * @param point - The box plot data point with statistical values
+   * @param isVertical - Whether this is a vertical box plot
+   * @param lowerOutliers - Pre-cloned lower outlier elements
+   * @param upperOutliers - Pre-cloned upper outlier elements
+   * @returns Array of sections [lowerOutliers, min, q1, q2, q3, max, upperOutliers]
+   */
+  private createDataDrivenOverlays(
+    referenceElement: SVGElement,
+    point: BoxPoint,
+    isVertical: boolean,
+    lowerOutliers: SVGElement[],
+    upperOutliers: SVGElement[],
+  ): (SVGElement[] | SVGElement)[] {
+    const svg = referenceElement as SVGGraphicsElement;
+    const bbox = svg.getBBox();
+
+    const dataMin = point.min;
+    const dataMax = point.max;
+    const dataRange = dataMax - dataMin;
+
+    if (dataRange === 0) {
+      return [
+        lowerOutliers,
+        Svg.createEmptyElement('line'),
+        Svg.createEmptyElement('line'),
+        Svg.createEmptyElement('line'),
+        Svg.createEmptyElement('line'),
+        Svg.createEmptyElement('line'),
+        upperOutliers,
+      ];
+    }
+
+    const createLineAtValue = (value: number): SVGElement => {
+      if (isVertical) {
+        const y = bbox.y + ((dataMax - value) / dataRange) * bbox.height;
+        return Svg.createPositionedLineElement(
+          bbox.x,
+          y,
+          bbox.x + bbox.width,
+          y,
+          referenceElement,
+        );
+      } else {
+        const x = bbox.x + ((value - dataMin) / dataRange) * bbox.width;
+        return Svg.createPositionedLineElement(
+          x,
+          bbox.y,
+          x,
+          bbox.y + bbox.height,
+          referenceElement,
+        );
+      }
+    };
+
+    return [
+      lowerOutliers,
+      createLineAtValue(point.min),
+      createLineAtValue(point.q1),
+      createLineAtValue(point.q2),
+      createLineAtValue(point.q3),
+      createLineAtValue(point.max),
+      upperOutliers,
+    ];
   }
 
   /**

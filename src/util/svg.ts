@@ -171,17 +171,37 @@ export abstract class Svg {
         break;
     }
 
-    const style = window.getComputedStyle(box);
+    return this.createPositionedLineElement(x1, y1, x2, y2, box);
+  }
+
+  /**
+   * Creates a hidden line element at specified coordinates, styled to match a reference element.
+   * Used by createLineElement for bounding box edges and by BoxTrace for data-driven overlays.
+   * @param x1 - Start x-coordinate
+   * @param y1 - Start y-coordinate
+   * @param x2 - End x-coordinate
+   * @param y2 - End y-coordinate
+   * @param referenceElement - Element to inherit stroke styling from
+   * @returns The newly created line element
+   */
+  public static createPositionedLineElement(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    referenceElement: SVGElement,
+  ): SVGElement {
+    const style = window.getComputedStyle(referenceElement);
     const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
     line.setAttribute(Constant.X1, String(x1));
     line.setAttribute(Constant.Y1, String(y1));
     line.setAttribute(Constant.X2, String(x2));
     line.setAttribute(Constant.Y2, String(y2));
-    line.setAttribute(Constant.STROKE, style.stroke);
+    line.setAttribute(Constant.STROKE, style.stroke || '#000000');
     line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
     line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
 
-    box.insertAdjacentElement(Constant.AFTER_END, line);
+    referenceElement.insertAdjacentElement(Constant.AFTER_END, line);
     return line;
   }
 
