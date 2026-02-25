@@ -348,6 +348,12 @@ export class Heatmap extends AbstractTrace {
    * corresponds to the visual TOP of the heatmap. The image element's bbox.y
    * is also the visual top, so r=0 → bbox.y is the correct mapping.
    *
+   * Note: High-contrast mode ({@link HighContrastService}) relies on
+   * {@link AbstractTrace.getAllOriginalElements} to find the visible "original"
+   * sibling of each hidden clone. Overlay rects are new elements (not clones of
+   * existing originals), so `getAllOriginalElements()` correctly returns an empty
+   * array — rasterized image pixel colors cannot be modified via SVG attributes.
+   *
    * @param selectorMatches - Pre-queried DOM elements matching the layer selector
    * @param numRows - Number of rows in the heatmap grid
    * @param numCols - Number of columns in the heatmap grid
@@ -376,6 +382,7 @@ export class Heatmap extends AbstractTrace {
     const cellWidth = bbox.width / numCols;
     const cellHeight = bbox.height / numRows;
     const svgElements: SVGElement[][] = [];
+    const fragment = document.createDocumentFragment();
 
     for (let r = 0; r < numRows; r++) {
       const row: SVGElement[] = [];
@@ -390,12 +397,13 @@ export class Heatmap extends AbstractTrace {
         rect.setAttribute('visibility', 'hidden');
         rect.setAttribute('aria-hidden', 'true');
 
-        parentGroup.appendChild(rect);
+        fragment.appendChild(rect);
         row.push(rect);
       }
       svgElements.push(row);
     }
 
+    parentGroup.appendChild(fragment);
     return svgElements;
   }
 
@@ -421,10 +429,11 @@ export class Heatmap extends AbstractTrace {
         if (img instanceof SVGElement) {
           return img;
         }
-        // Also check the parent group for an image sibling
-        const parent = firstEl.closest('g');
+        // Check only the immediate parent for an image sibling to avoid
+        // walking up the tree and matching unrelated images.
+        const parent = firstEl.parentElement;
         if (parent) {
-          const siblingImg = parent.querySelector('image');
+          const siblingImg = parent.querySelector(':scope > image');
           if (siblingImg instanceof SVGElement) {
             return siblingImg;
           }
