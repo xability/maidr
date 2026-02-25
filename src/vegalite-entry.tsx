@@ -69,5 +69,8 @@ export function bindVegaLite(
 
   const maidr: Maidr = vegaLiteToMaidr(spec, view, { ...options, id });
 
-  initMaidrOnElement(maidr, svg as unknown as HTMLElement);
+  // SVGSVGElement is not an HTMLElement, but initMaidrOnElement only
+  // needs basic DOM node capabilities (parentNode, attributes).
+  // Widen through Element which both SVG and HTML elements extend.
+  initMaidrOnElement(maidr, svg as Element as HTMLElement);
 }

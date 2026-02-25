@@ -116,6 +116,20 @@ export function vegaLiteToMaidr(
     return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view);
   }
 
+  // Unsupported composite spec types — warn and return an empty chart.
+  if (spec.facet) {
+    console.warn('[maidr/vegalite] Faceted specs are not yet supported.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+  if (spec.repeat) {
+    console.warn('[maidr/vegalite] Repeat specs are not yet supported.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+  if (spec.spec && !spec.mark && !spec.layer) {
+    console.warn('[maidr/vegalite] Wrapped "spec" compositions are not yet supported.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
   // Handle layered specs.
   const isLayered = spec.layer != null && spec.layer.length > 0;
   if (isLayered) {
@@ -330,6 +344,11 @@ function resolveData(
     if (Array.isArray(d.values))
       return d.values;
   }
+
+  console.warn(
+    `[maidr/vegalite] Could not resolve dataset for layer index ${layerIndex}. `
+    + `Tried names: ${datasetNames.join(', ')}`,
+  );
   return [];
 }
 
@@ -370,13 +389,23 @@ function extractHistogramData(
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
 
-  // Vega compiles binned data with bin_maxbins_N_field and _end fields.
-  const binStart = `bin_maxbins_10_${xField}`;
-  const binEnd = `bin_maxbins_10_${xField}_end`;
+  // Vega compiles binned data with `bin_maxbins_N_<field>` and
+  // `bin_maxbins_N_<field>_end` fields.  The maxbins value varies
+  // so we detect the actual field names from the first row.
+  let binStart: string | undefined;
+  let binEnd: string | undefined;
+  if (rows.length > 0) {
+    const keys = Object.keys(rows[0]);
+    const binPrefix = `bin_`;
+    const binSuffix = `_${xField}`;
+    const endSuffix = `_${xField}_end`;
+    binStart = keys.find(k => k.startsWith(binPrefix) && k.endsWith(binSuffix) && !k.endsWith(endSuffix));
+    binEnd = keys.find(k => k.startsWith(binPrefix) && k.endsWith(endSuffix));
+  }
 
   return rows.map((row) => {
-    const xMin = Number(row[binStart] ?? row[xField] ?? 0);
-    const xMax = Number(row[binEnd] ?? xMin + 1);
+    const xMin = Number((binStart ? row[binStart] : undefined) ?? row[xField] ?? 0);
+    const xMax = Number((binEnd ? row[binEnd] : undefined) ?? xMin + 1);
     const yVal = Number(row.__count ?? row[yField] ?? 0);
 
     return {
@@ -490,6 +519,14 @@ function extractHeatmapData(
   return { x: xLabels, y: yLabels, points };
 }
 
+/**
+ * Extract box plot data, preferring pre-computed Vega statistics when
+ * available.  Vega-Lite's `boxplot` mark compiles to datasets with
+ * `lower_box_<field>`, `upper_box_<field>`, `mid_box_<field>`,
+ * `lower_whisker_<field>`, and `upper_whisker_<field>` columns.
+ * When those are present we use them directly; otherwise we compute
+ * quartiles from the raw values.
+ */
 function extractBoxData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -499,6 +536,33 @@ function extractBoxData(
     ? (encoding.x?.field ?? 'x')
     : (encoding.y?.field ?? 'y');
 
+  // Detect pre-computed Vega statistics.
+  const lowerBoxKey = `lower_box_${valField}`;
+  const upperBoxKey = `upper_box_${valField}`;
+  const midBoxKey = `mid_box_${valField}`;
+  const lowerWhiskerKey = `lower_whisker_${valField}`;
+  const upperWhiskerKey = `upper_whisker_${valField}`;
+
+  const hasPrecomputed = rows.length > 0 && lowerBoxKey in rows[0];
+
+  if (hasPrecomputed) {
+    // Each row is one category with pre-computed stats.
+    return rows.map((row) => {
+      const fill = String(row[catField] ?? '');
+      return {
+        fill,
+        lowerOutliers: [],
+        min: Number(row[lowerWhiskerKey] ?? row[lowerBoxKey] ?? 0),
+        q1: Number(row[lowerBoxKey] ?? 0),
+        q2: Number(row[midBoxKey] ?? 0),
+        q3: Number(row[upperBoxKey] ?? 0),
+        max: Number(row[upperWhiskerKey] ?? row[upperBoxKey] ?? 0),
+        upperOutliers: [],
+      };
+    });
+  }
+
+  // Fall back to computing from raw values.
   const groups = new Map<string, number[]>();
   for (const row of rows) {
     const key = String(row[catField] ?? '');
@@ -662,14 +726,28 @@ function buildConcatMaidr(
   direction: 'horizontal' | 'vertical' | 'wrap',
   view?: VegaView,
 ): Maidr {
+  // Track a global layer counter so that each concat child resolves
+  // dataset names independently (Vega names datasets sequentially
+  // across the entire compiled spec, not per-child).
+  let globalLayerIndex = 0;
+
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
     if (childSpec.layer) {
-      const layers = childSpec.layer.map((layerSpec, j) =>
-        convertLayerSpec(layerSpec, j, view, childSpec.encoding, true),
-      ).filter(Boolean) as MaidrLayer[];
+      const layers = childSpec.layer.map((layerSpec, j) => {
+        const layer = convertLayerSpec(layerSpec, globalLayerIndex, view, childSpec.encoding, true);
+        // Assign a unique ID that encodes both the concat index and the
+        // layer index within the child to avoid duplicates across subplots.
+        if (layer)
+          layer.id = `${i}_${j}`;
+        globalLayerIndex++;
+        return layer;
+      }).filter(Boolean) as MaidrLayer[];
       return { layers };
     }
-    const layer = convertLayerSpec(childSpec, i, view, undefined, false);
+    const layer = convertLayerSpec(childSpec, globalLayerIndex, view, undefined, false);
+    if (layer)
+      layer.id = `${i}_0`;
+    globalLayerIndex++;
     return { layers: layer ? [layer] : [] };
   });
 
