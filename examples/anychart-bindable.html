@@ -46,13 +46,11 @@
 
         // Bind the chart to MAIDR – extracts data, sets maidr-data, and
         // dispatches the initialisation event.
-        const maidrData = bindAnyChart(chart, {
+        bindAnyChart(chart, {
           id: 'anychart-bar',
           title: 'The Number of Tips by Day',
           axes: { x: 'Day', y: 'Count' },
         });
-
-        console.log('Generated MAIDR data:', maidrData);
       });
     </script>
   </head>

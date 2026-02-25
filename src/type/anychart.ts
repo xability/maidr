@@ -117,9 +117,16 @@ export interface AnyChartBinderOptions {
   };
 
   /**
-   * CSS selector override for SVG element highlighting.
-   * By default the adapter generates selectors targeting AnyChart's
-   * internal SVG structure.
+   * CSS selector overrides for SVG element highlighting.
+   *
+   * - A single `string` or `string[]` is applied to every series.
+   * - An `Array` indexed by series position allows per-series overrides;
+   *   use `undefined` at a given index to fall back to the default for
+   *   that series.
+   *
+   * AnyChart's internal SVG structure does not expose stable class names,
+   * so consumers should inspect the rendered DOM and provide explicit
+   * selectors for reliable highlighting.
    */
-  selectors?: string | string[];
+  selectors?: string | string[] | Array<string | string[] | undefined>;
 }

@@ -20,6 +20,20 @@ if (document.readyState === 'loading') {
   main();
 }
 
+// Support for third-party adapters (e.g. maidr/anychart) that bind charts
+// after the initial DOM scan.  When an adapter sets `maidr-data` on an
+// element and dispatches this event, we initialise MAIDR for that element.
+document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement))
+    return;
+
+  const json = target.getAttribute(Constant.MAIDR_DATA);
+  if (json) {
+    parseAndInit(target, json, 'maidr-data');
+  }
+}) as EventListener);
+
 function parseAndInit(
   plot: HTMLElement,
   json: string,

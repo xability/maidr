@@ -28,11 +28,18 @@ import type {
 } from '../type/anychart';
 import type {
   BarPoint,
+  BoxPoint,
+  CandlestickPoint,
+  CandlestickTrend,
+  HeatmapData,
+  HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
   ScatterPoint,
+  SegmentedPoint,
+  SmoothPoint,
 } from '../type/grammar';
 import { TraceType } from '../type/grammar';
 
@@ -44,10 +51,11 @@ import { TraceType } from '../type/grammar';
  * Map AnyChart series type strings to MAIDR TraceType values.
  *
  * AnyChart uses lowercase type names such as "bar", "line", "column", etc.
+ * Multi-word types are normalised to kebab-case before lookup.
  * This mapping covers the chart types that MAIDR currently supports.
  */
-function mapSeriesType(anyChartType: string): TraceType | null {
-  const normalized = anyChartType.toLowerCase();
+export function mapSeriesType(anyChartType: string): TraceType | null {
+  const normalized = anyChartType.toLowerCase().replace(/[_\s]/g, '-');
   const mapping: Record<string, TraceType> = {
     'bar': TraceType.BAR,
     'column': TraceType.BAR,
@@ -56,7 +64,7 @@ function mapSeriesType(anyChartType: string): TraceType | null {
     'step-line': TraceType.LINE,
     'area': TraceType.LINE,
     'step-area': TraceType.LINE,
-    'spline_area': TraceType.LINE,
+    'spline-area': TraceType.LINE,
     'scatter': TraceType.SCATTER,
     'marker': TraceType.SCATTER,
     'bubble': TraceType.SCATTER,
@@ -64,6 +72,7 @@ function mapSeriesType(anyChartType: string): TraceType | null {
     'heatmap': TraceType.HEATMAP,
     'heat': TraceType.HEATMAP,
     'candlestick': TraceType.CANDLESTICK,
+    'ohlc': TraceType.CANDLESTICK,
   };
   return mapping[normalized] ?? null;
 }
@@ -97,7 +106,7 @@ function extractAxisTitle(
 }
 
 /** Resolve the DOM element that holds the AnyChart SVG rendering. */
-function resolveContainerElement(
+export function resolveContainerElement(
   chart: AnyChartInstance,
 ): HTMLElement | null {
   try {
@@ -131,40 +140,95 @@ function resolveContainerElement(
 }
 
 /**
- * Extract data points from an AnyChart series using its iterator.
+ * Extract raw data rows from an AnyChart series using its iterator.
  *
- * Returns an array of `{ x, y }` objects.  The concrete field names
- * depend on the AnyChart series type – most Cartesian series expose `"x"`
- * and `"value"` (mapped to y).  We try several common field names.
+ * Returns an array of field maps. The concrete field names depend on the
+ * AnyChart series type – most Cartesian series expose `"x"` and `"value"`.
+ * Box series expose `"lowest"`, `"q1"`, `"median"`, `"q3"`, `"highest"`.
+ * Candlestick/OHLC series expose `"open"`, `"high"`, `"low"`, `"close"`.
  */
-function extractSeriesData(
+export function extractRawRows(
   series: AnyChartSeries,
-): Array<{ x: unknown; y: unknown }> {
-  const points: Array<{ x: unknown; y: unknown }> = [];
+): Array<Record<string, unknown>> {
+  const rows: Array<Record<string, unknown>> = [];
   const iterator: AnyChartIterator = series.getIterator();
   iterator.reset();
   while (iterator.advance()) {
-    const x = iterator.get('x') ?? iterator.get('name') ?? iterator.getIndex();
-    const y = iterator.get('value') ?? iterator.get('y') ?? 0;
-    points.push({ x, y });
+    const row: Record<string, unknown> = { _index: iterator.getIndex() };
+    for (const field of [
+      'x',
+      'name',
+      'value',
+      'y',
+      // Box fields
+      'lowest',
+      'q1',
+      'median',
+      'q3',
+      'highest',
+      // Candlestick/OHLC fields
+      'open',
+      'high',
+      'low',
+      'close',
+      'volume',
+      // Grouping
+      'fill',
+      'group',
+    ]) {
+      const v = iterator.get(field);
+      if (v !== undefined && v !== null)
+        row[field] = v;
+    }
+    rows.push(row);
   }
-  return points;
+  return rows;
 }
 
 /**
- * Build a CSS selector string that targets AnyChart SVG elements for a
- * given series index.  AnyChart renders each series as a `<g>` group
- * containing path / rect elements.  The exact DOM structure varies by
- * chart type, so we rely on AnyChart's series-level CSS class names.
+ * Resolve the CSS selector for a specific series index.
+ *
+ * AnyChart's internal SVG structure does not use stable, predictable class
+ * names. Consumers should supply explicit selectors via `options.selectors`
+ * for reliable highlighting. When no selectors are provided, no selector is
+ * emitted (highlighting will be unavailable).
  */
-function buildSeriesSelector(seriesIndex: number): string {
-  // AnyChart adds data attributes and class names to series groups.
-  // A reasonable default targets paths inside the series group.
-  return `.anychart-series-${seriesIndex} path, .anychart-series-${seriesIndex} rect`;
+function resolveSelector(
+  seriesIndex: number,
+  options?: AnyChartBinderOptions,
+): string | string[] | undefined {
+  if (!options?.selectors)
+    return undefined;
+
+  // Single value applied to all series.
+  if (typeof options.selectors === 'string')
+    return options.selectors;
+
+  // Array – could be a flat string[] for all series, or indexed per-series.
+  const arr = options.selectors;
+
+  // If any element is undefined or is itself an array, treat as per-series.
+  const isPerSeries = arr.some(v => v === undefined || Array.isArray(v));
+  if (!isPerSeries)
+    return arr as string[];
+
+  // Per-series indexed array.
+  return arr[seriesIndex] ?? undefined;
+}
+
+function asNumber(v: unknown, fallback = 0): number {
+  if (typeof v === 'number')
+    return v;
+  const n = Number(v);
+  return Number.isNaN(n) ? fallback : n;
+}
+
+function asString(v: unknown, fallback = ''): string {
+  return v != null ? String(v) : fallback;
 }
 
 // ---------------------------------------------------------------------------
-// Layer builders per MAIDR trace type
+// Layer builders – one per MAIDR trace type
 // ---------------------------------------------------------------------------
 
 function buildBarLayer(
@@ -172,15 +236,15 @@ function buildBarLayer(
   seriesIndex: number,
   selectors: string | string[] | undefined,
 ): MaidrLayer {
-  const raw = extractSeriesData(series);
-  const data: BarPoint[] = raw.map(p => ({
-    x: p.x != null ? String(p.x) : '',
-    y: typeof p.y === 'number' ? p.y : Number(p.y) || 0,
+  const rows = extractRawRows(series);
+  const data: BarPoint[] = rows.map(r => ({
+    x: asString(r.x ?? r.name ?? r._index),
+    y: asNumber(r.value ?? r.y),
   }));
   return {
     id: String(seriesIndex),
     type: TraceType.BAR,
-    selectors: selectors ?? buildSeriesSelector(seriesIndex),
+    ...(selectors ? { selectors } : {}),
     data,
   };
 }
@@ -190,17 +254,16 @@ function buildLineLayer(
   seriesIndex: number,
   selectors: string | string[] | undefined,
 ): MaidrLayer {
-  const raw = extractSeriesData(series);
-  const data: LinePoint[][] = [
-    raw.map(p => ({
-      x: typeof p.x === 'number' ? p.x : String(p.x),
-      y: typeof p.y === 'number' ? p.y : Number(p.y) || 0,
-    })),
-  ];
+  const rows = extractRawRows(series);
+  const points: LinePoint[] = rows.map(r => ({
+    x: r.x !== undefined ? (typeof r.x === 'number' ? r.x : String(r.x)) : asNumber(r._index),
+    y: asNumber(r.value ?? r.y),
+  }));
+  const data: LinePoint[][] = [points];
   return {
     id: String(seriesIndex),
     type: TraceType.LINE,
-    selectors: selectors ?? buildSeriesSelector(seriesIndex),
+    ...(selectors ? { selectors } : {}),
     data,
   };
 }
@@ -210,17 +273,239 @@ function buildScatterLayer(
   seriesIndex: number,
   selectors: string | string[] | undefined,
 ): MaidrLayer {
-  const raw = extractSeriesData(series);
-  const data: ScatterPoint[] = raw.map(p => ({
-    x: typeof p.x === 'number' ? p.x : Number(p.x) || 0,
-    y: typeof p.y === 'number' ? p.y : Number(p.y) || 0,
+  const rows = extractRawRows(series);
+  const data: ScatterPoint[] = rows.map(r => ({
+    x: asNumber(r.x),
+    y: asNumber(r.value ?? r.y),
   }));
   return {
     id: String(seriesIndex),
     type: TraceType.SCATTER,
-    selectors: selectors ?? buildSeriesSelector(seriesIndex),
+    ...(selectors ? { selectors } : {}),
     data,
   };
+}
+
+function buildBoxLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+  const data: BoxPoint[] = rows.map(r => ({
+    fill: asString(r.x ?? r.name ?? r._index),
+    lowerOutliers: [],
+    min: asNumber(r.lowest),
+    q1: asNumber(r.q1),
+    q2: asNumber(r.median),
+    q3: asNumber(r.q3),
+    max: asNumber(r.highest),
+    upperOutliers: [],
+  }));
+  return {
+    id: String(seriesIndex),
+    type: TraceType.BOX,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+function buildHeatmapLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+
+  // Collect unique x and y labels in insertion order.
+  const xLabels: string[] = [];
+  const yLabels: string[] = [];
+  const xSet = new Set<string>();
+  const ySet = new Set<string>();
+
+  for (const r of rows) {
+    const xVal = asString(r.x);
+    const yVal = asString(r.y ?? r.name);
+    if (!xSet.has(xVal)) {
+      xLabels.push(xVal);
+      xSet.add(xVal);
+    }
+    if (!ySet.has(yVal)) {
+      yLabels.push(yVal);
+      ySet.add(yVal);
+    }
+  }
+
+  // Build the 2D points matrix (y rows × x columns).
+  const points: number[][] = Array.from(
+    { length: yLabels.length },
+    () => Array.from<number>({ length: xLabels.length }).fill(0),
+  );
+  for (const r of rows) {
+    const xi = xLabels.indexOf(asString(r.x));
+    const yi = yLabels.indexOf(asString(r.y ?? r.name));
+    if (xi >= 0 && yi >= 0)
+      points[yi][xi] = asNumber(r.value ?? r.fill);
+  }
+
+  const data: HeatmapData = { x: xLabels, y: yLabels, points };
+  return {
+    id: String(seriesIndex),
+    type: TraceType.HEATMAP,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+function buildCandlestickLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+  const data: CandlestickPoint[] = rows.map((r) => {
+    const open = asNumber(r.open);
+    const close = asNumber(r.close);
+    const high = asNumber(r.high);
+    const low = asNumber(r.low);
+
+    let trend: CandlestickTrend = 'Neutral';
+    if (close > open)
+      trend = 'Bull';
+    else if (close < open)
+      trend = 'Bear';
+
+    const midpoint = (high + low) / 2;
+    return {
+      value: asString(r.x ?? r.name ?? r._index),
+      open,
+      high,
+      low,
+      close,
+      volume: asNumber(r.volume),
+      trend,
+      volatility: midpoint > 0 ? (high - low) / midpoint : 0,
+    };
+  });
+  return {
+    id: String(seriesIndex),
+    type: TraceType.CANDLESTICK,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+function buildHistogramLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+  const data: HistogramPoint[] = rows.map((r) => {
+    const y = asNumber(r.value ?? r.y);
+    const x = asNumber(r.x);
+    return {
+      x,
+      y,
+      xMin: x - 0.5,
+      xMax: x + 0.5,
+      yMin: 0,
+      yMax: y,
+    };
+  });
+  return {
+    id: String(seriesIndex),
+    type: TraceType.HISTOGRAM,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+function buildSegmentedLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+  traceType: TraceType.STACKED | TraceType.DODGED | TraceType.NORMALIZED,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+  // Group by fill/group value to form the 2D array.
+  const groups = new Map<string, SegmentedPoint[]>();
+  for (const r of rows) {
+    const fill = asString(r.fill ?? r.group ?? seriesIndex);
+    if (!groups.has(fill))
+      groups.set(fill, []);
+    groups.get(fill)!.push({
+      x: asString(r.x ?? r.name ?? r._index),
+      y: asNumber(r.value ?? r.y),
+      fill,
+    });
+  }
+  const data: SegmentedPoint[][] = [...groups.values()];
+  return {
+    id: String(seriesIndex),
+    type: traceType,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+function buildSmoothLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const rows = extractRawRows(series);
+  // Smooth traces include SVG coordinates. Since we extract from AnyChart's
+  // data model rather than SVG DOM, svg_x/svg_y are set to 0 as placeholders.
+  const points: SmoothPoint[] = rows.map(r => ({
+    x: asNumber(r.x),
+    y: asNumber(r.value ?? r.y),
+    svg_x: 0,
+    svg_y: 0,
+  }));
+  const data: SmoothPoint[][] = [points];
+  return {
+    id: String(seriesIndex),
+    type: TraceType.SMOOTH,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Layer builder dispatch
+// ---------------------------------------------------------------------------
+
+function buildLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  traceType: TraceType,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  switch (traceType) {
+    case TraceType.BAR:
+      return buildBarLayer(series, seriesIndex, selectors);
+    case TraceType.LINE:
+      return buildLineLayer(series, seriesIndex, selectors);
+    case TraceType.SCATTER:
+      return buildScatterLayer(series, seriesIndex, selectors);
+    case TraceType.BOX:
+      return buildBoxLayer(series, seriesIndex, selectors);
+    case TraceType.HEATMAP:
+      return buildHeatmapLayer(series, seriesIndex, selectors);
+    case TraceType.CANDLESTICK:
+      return buildCandlestickLayer(series, seriesIndex, selectors);
+    case TraceType.HISTOGRAM:
+      return buildHistogramLayer(series, seriesIndex, selectors);
+    case TraceType.STACKED:
+    case TraceType.DODGED:
+    case TraceType.NORMALIZED:
+      return buildSegmentedLayer(series, seriesIndex, selectors, traceType);
+    case TraceType.SMOOTH:
+      return buildSmoothLayer(series, seriesIndex, selectors);
+    default:
+      return buildBarLayer(series, seriesIndex, selectors);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +517,7 @@ function buildScatterLayer(
  *
  * This function inspects the chart's series and metadata after it has been
  * drawn, then constructs a {@link Maidr} JSON structure that can be passed
- * to `initMaidr()` or the `<Maidr>` React component.
+ * to the `<Maidr>` React component or used with `bindAnyChart()`.
  *
  * @param chart - A drawn AnyChart chart instance.
  * @param options - Optional overrides for id, title, axes, and selectors.
@@ -269,19 +554,8 @@ export function anyChartToMaidr(
       continue;
     }
 
-    let layer: MaidrLayer;
-    switch (traceType) {
-      case TraceType.LINE:
-        layer = buildLineLayer(series, i, options?.selectors);
-        break;
-      case TraceType.SCATTER:
-        layer = buildScatterLayer(series, i, options?.selectors);
-        break;
-      default:
-        // BAR is the default for column / bar / histogram-like types.
-        layer = buildBarLayer(series, i, options?.selectors);
-        break;
-    }
+    const selectors = resolveSelector(i, options);
+    const layer = buildLayer(series, i, traceType, selectors);
 
     // Attach axis labels.
     if (xAxisLabel || yAxisLabel) {
@@ -310,10 +584,14 @@ export function anyChartToMaidr(
 /**
  * Bind an AnyChart chart to MAIDR for accessible interaction.
  *
- * This is the primary high-level API.  It extracts data from a drawn
+ * This is the primary high-level API. It extracts data from a drawn
  * AnyChart chart, generates the MAIDR schema, injects it as a
  * `maidr-data` attribute on the chart's container element, and
- * dispatches a DOM event so the MAIDR runtime picks it up.
+ * dispatches a `maidr:bindchart` event so the MAIDR runtime picks it up.
+ *
+ * The MAIDR runtime (`maidr.js`) must be loaded on the page. It
+ * listens for `maidr:bindchart` events and initialises accessibility
+ * features for the target element.
  *
  * @param chart - A drawn AnyChart chart instance.
  * @param options - Optional overrides.
@@ -330,18 +608,22 @@ export function bindAnyChart(
   chart: AnyChartInstance,
   options?: AnyChartBinderOptions,
 ): Maidr | null {
-  const maidr = anyChartToMaidr(chart, options);
-  if (!maidr) {
-    console.warn('[maidr/anychart] Could not extract data from AnyChart chart.');
-    return null;
-  }
-
   const container = resolveContainerElement(chart);
   if (!container) {
     console.warn(
       '[maidr/anychart] Could not find the chart container element. '
       + 'Make sure the chart has been drawn before calling bindAnyChart().',
     );
+    return null;
+  }
+
+  const maidr = anyChartToMaidr(chart, {
+    ...options,
+    id: options?.id ?? container.id ?? 'anychart-maidr',
+  });
+
+  if (!maidr) {
+    console.warn('[maidr/anychart] Could not extract data from AnyChart chart.');
     return null;
   }
 
