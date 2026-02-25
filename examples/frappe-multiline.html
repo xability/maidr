@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Frappe Charts Bar - MAIDR Example</title>
+    <title>Frappe Charts Multi-Line - MAIDR Example</title>
     <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
          If upgrading, verify SVG class names match. -->
     <script
@@ -17,7 +17,7 @@
 
   <body>
     <main>
-      <h1>Frappe Charts Bar Chart with MAIDR</h1>
+      <h1>Frappe Charts Multi-Line Chart with MAIDR</h1>
       <p id="error" hidden>
         Failed to load Frappe Charts from CDN. Please check your internet
         connection.
@@ -29,27 +29,33 @@
       if (typeof frappe === 'undefined') {
         // Frappe Charts failed to load; bail out gracefully.
       } else {
-        // 1. Create the Frappe bar chart
+        // 1. Create the Frappe multi-line chart
         const data = {
-          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
           datasets: [
             {
-              name: 'Visitors',
-              values: [120, 240, 180, 300, 150, 90, 210],
+              name: 'Product A',
+              values: [18, 40, 30, 35, 50, 42],
+            },
+            {
+              name: 'Product B',
+              values: [36, 20, 48, 46, 30, 55],
             },
           ],
         };
 
         const chart = new frappe.Chart('#chart', {
-          title: 'Daily Website Visitors',
+          title: 'Monthly Product Sales',
           data: data,
-          type: 'bar',
+          type: 'line',
           height: 400,
-          colors: ['#7cd6fd'],
+          colors: ['#7cd6fd', '#e44c55'],
+          lineOptions: {
+            dotSize: 5,
+          },
         });
 
-        // 2. Use requestAnimationFrame to wait for Frappe's synchronous render
-        //    to complete and the DOM to be updated.
+        // 2. Use requestAnimationFrame to wait for render completion
         requestAnimationFrame(() => {
           const container = document.querySelector('#chart');
           const svg = container.querySelector('svg.frappe-chart');
@@ -59,31 +65,43 @@
             return;
           }
 
-          // Frappe Charts v1.6.2 renders bars as <rect class="bar mini">
-          // inside <g class="dataset-units dataset-bars dataset-{index}">
-          const barSelector = '.dataset-units.dataset-bars rect.bar';
+          // Frappe Charts v1.6.2 renders each line as a separate
+          // <path class="line-graph-path"> inside its own dataset group:
+          //   <g class="dataset-units dataset-line dataset-0">
+          //   <g class="dataset-units dataset-line dataset-1">
+          //
+          // MAIDR LineTrace expects a string[] of selectors, one per line.
+          // Each selector should match the SVG path element for that line.
+          const lineSelectors = data.datasets.map(
+            (_, i) =>
+              `.dataset-units.dataset-line.dataset-${i} .line-graph-path`,
+          );
 
-          // Build MAIDR data points from Frappe Charts data
-          const maidrPoints = data.labels.map((label, i) => ({
-            x: label,
-            y: data.datasets[0].values[i],
-          }));
+          // Build MAIDR line data (array of arrays, one per line)
+          const maidrPoints = data.datasets.map((ds) =>
+            data.labels.map((label, i) => ({
+              x: label,
+              y: ds.values[i],
+            })),
+          );
 
           // 3. Construct the MAIDR JSON schema
           const maidr = {
-            id: 'frappe-bar-chart',
-            title: 'Daily Website Visitors',
+            id: 'frappe-multiline-chart',
+            title: 'Monthly Product Sales',
             subplots: [
               [
                 {
+                  legend: data.datasets.map((ds) => ds.name),
                   layers: [
                     {
                       id: '0',
-                      type: 'bar',
-                      selectors: barSelector,
+                      type: 'line',
+                      // LineTrace expects string[] (one selector per line)
+                      selectors: lineSelectors,
                       axes: {
-                        x: 'Day of Week',
-                        y: 'Number of Visitors',
+                        x: 'Month',
+                        y: 'Sales (thousands USD)',
                       },
                       data: maidrPoints,
                     },

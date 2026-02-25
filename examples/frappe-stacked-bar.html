@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Frappe Charts Bar - MAIDR Example</title>
+    <title>Frappe Charts Stacked Bar - MAIDR Example</title>
     <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
          If upgrading, verify SVG class names match. -->
     <script
@@ -17,7 +17,7 @@
 
   <body>
     <main>
-      <h1>Frappe Charts Bar Chart with MAIDR</h1>
+      <h1>Frappe Charts Stacked Bar Chart with MAIDR</h1>
       <p id="error" hidden>
         Failed to load Frappe Charts from CDN. Please check your internet
         connection.
@@ -29,27 +29,37 @@
       if (typeof frappe === 'undefined') {
         // Frappe Charts failed to load; bail out gracefully.
       } else {
-        // 1. Create the Frappe bar chart
+        // 1. Create the Frappe stacked bar chart
         const data = {
-          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          labels: ['Q1', 'Q2', 'Q3', 'Q4'],
           datasets: [
             {
-              name: 'Visitors',
-              values: [120, 240, 180, 300, 150, 90, 210],
+              name: 'Product A',
+              values: [25, 40, 30, 35],
+            },
+            {
+              name: 'Product B',
+              values: [40, 54, 45, 60],
+            },
+            {
+              name: 'Product C',
+              values: [15, 20, 25, 18],
             },
           ],
         };
 
         const chart = new frappe.Chart('#chart', {
-          title: 'Daily Website Visitors',
+          title: 'Quarterly Revenue by Product',
           data: data,
           type: 'bar',
           height: 400,
-          colors: ['#7cd6fd'],
+          colors: ['#7cd6fd', '#743ee2', '#e44c55'],
+          barOptions: {
+            stacked: true,
+          },
         });
 
-        // 2. Use requestAnimationFrame to wait for Frappe's synchronous render
-        //    to complete and the DOM to be updated.
+        // 2. Use requestAnimationFrame to wait for render completion
         requestAnimationFrame(() => {
           const container = document.querySelector('#chart');
           const svg = container.querySelector('svg.frappe-chart');
@@ -59,31 +69,47 @@
             return;
           }
 
-          // Frappe Charts v1.6.2 renders bars as <rect class="bar mini">
-          // inside <g class="dataset-units dataset-bars dataset-{index}">
+          // Frappe Charts v1.6.2 renders stacked bars as <rect class="bar mini">
+          // elements across multiple <g class="dataset-units dataset-bars dataset-{index}">
+          // groups. Each dataset-{i} group contains rects for one series.
+          //
+          // MAIDR's SegmentedTrace expects a single selector that returns ALL
+          // rect elements in DOM order. For stacked bars with Frappe Charts,
+          // elements are ordered: dataset-0 rects, then dataset-1 rects, etc.
+          // The SegmentedTrace's SVGRectElement handler iterates column-by-column,
+          // then group-by-group within each column.
+          //
+          // Frappe Charts renders rects dataset-by-dataset (all rects for dataset-0,
+          // then all for dataset-1). This matches the 'forward' groupDirection
+          // if we think of it as: for each category, the DOM has groups stacked
+          // bottom-to-top. Setting groupDirection to 'forward' aligns the mapping.
           const barSelector = '.dataset-units.dataset-bars rect.bar';
 
-          // Build MAIDR data points from Frappe Charts data
-          const maidrPoints = data.labels.map((label, i) => ({
-            x: label,
-            y: data.datasets[0].values[i],
-          }));
+          // Build MAIDR SegmentedPoint data (array of arrays, one per fill group)
+          const maidrPoints = data.datasets.map((ds) =>
+            data.labels.map((label, i) => ({
+              x: label,
+              y: ds.values[i],
+              fill: ds.name,
+            })),
+          );
 
           // 3. Construct the MAIDR JSON schema
           const maidr = {
-            id: 'frappe-bar-chart',
-            title: 'Daily Website Visitors',
+            id: 'frappe-stacked-bar-chart',
+            title: 'Quarterly Revenue by Product',
             subplots: [
               [
                 {
                   layers: [
                     {
                       id: '0',
-                      type: 'bar',
+                      type: 'stacked_bar',
                       selectors: barSelector,
                       axes: {
-                        x: 'Day of Week',
-                        y: 'Number of Visitors',
+                        x: 'Quarter',
+                        y: 'Revenue (thousands USD)',
+                        fill: 'Product',
                       },
                       data: maidrPoints,
                     },
