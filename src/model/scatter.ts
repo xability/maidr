@@ -23,7 +23,7 @@ interface ScatterYPoint {
   y: number;
 }
 enum NavMode {
-  COL = 'column',
+  COL = 'col',
   ROW = 'row',
 }
 
@@ -122,7 +122,7 @@ export class ScatterTrace extends AbstractTrace {
    * @returns SVG elements for X-based or Y-based highlighting depending on mode
    */
   protected get highlightValues(): SVGElement[][] | null {
-    return this.movable.mode === 'col'
+    return this.mode === NavMode.COL
       ? this.highlightXValues
       : this.highlightYValues;
   }
@@ -184,7 +184,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
-    if (this.movable.mode === 'col') {
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         freq: {
@@ -218,7 +218,7 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get text(): TextState {
-    if (this.movable.mode === 'col') {
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -245,7 +245,7 @@ export class ScatterTrace extends AbstractTrace {
       return this.outOfBoundsState as HighlightState;
     }
 
-    const elements = this.movable.mode === 'col'
+    const elements = this.mode === NavMode.COL
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
@@ -437,31 +437,27 @@ export class ScatterTrace extends AbstractTrace {
 
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD': {
-          const forwardResult = this.col < this.xPoints.length - 1;
-          return forwardResult;
-        }
-        case 'BACKWARD': {
-          const backwardResult = this.col > 0;
-          return backwardResult;
-        }
+        case 'FORWARD':
+          return this.col < this.xPoints.length - 1;
+        case 'BACKWARD':
+          return this.col > 0;
         case 'UPWARD':
         case 'DOWNWARD':
           return true;
+        default:
+          return false;
       }
     } else {
       switch (target) {
-        case 'UPWARD': {
-          const upwardResult = this.row < this.yPoints.length - 1;
-          return upwardResult;
-        }
-        case 'DOWNWARD': {
-          const downwardResult = this.row > 0;
-          return downwardResult;
-        }
+        case 'UPWARD':
+          return this.row < this.yPoints.length - 1;
+        case 'DOWNWARD':
+          return this.row > 0;
         case 'FORWARD':
         case 'BACKWARD':
           return true;
+        default:
+          return false;
       }
     }
   }
