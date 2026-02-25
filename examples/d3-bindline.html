@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Line Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Line Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate along the line.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample data: monthly temperatures for two cities
+      const cityA = [
+        { month: 'Jan', temp: 32, city: 'New York' },
+        { month: 'Feb', temp: 35, city: 'New York' },
+        { month: 'Mar', temp: 45, city: 'New York' },
+        { month: 'Apr', temp: 55, city: 'New York' },
+        { month: 'May', temp: 65, city: 'New York' },
+        { month: 'Jun', temp: 75, city: 'New York' },
+        { month: 'Jul', temp: 80, city: 'New York' },
+        { month: 'Aug', temp: 78, city: 'New York' },
+        { month: 'Sep', temp: 70, city: 'New York' },
+        { month: 'Oct', temp: 58, city: 'New York' },
+        { month: 'Nov', temp: 45, city: 'New York' },
+        { month: 'Dec', temp: 35, city: 'New York' },
+      ];
+
+      const cityB = [
+        { month: 'Jan', temp: 55, city: 'San Francisco' },
+        { month: 'Feb', temp: 58, city: 'San Francisco' },
+        { month: 'Mar', temp: 58, city: 'San Francisco' },
+        { month: 'Apr', temp: 60, city: 'San Francisco' },
+        { month: 'May', temp: 62, city: 'San Francisco' },
+        { month: 'Jun', temp: 64, city: 'San Francisco' },
+        { month: 'Jul', temp: 65, city: 'San Francisco' },
+        { month: 'Aug', temp: 66, city: 'San Francisco' },
+        { month: 'Sep', temp: 68, city: 'San Francisco' },
+        { month: 'Oct', temp: 65, city: 'San Francisco' },
+        { month: 'Nov', temp: 58, city: 'San Francisco' },
+        { month: 'Dec', temp: 54, city: 'San Francisco' },
+      ];
+
+      const allData = [cityA, cityB];
+      const colors = ['#2196F3', '#FF9800'];
+
+      // Chart dimensions
+      const margin = { top: 40, right: 120, bottom: 50, left: 60 };
+      const width = 700 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+      const months = cityA.map(d => d.month);
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-line-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const x = d3.scalePoint()
+        .domain(months)
+        .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([25, 85])
+        .range([height, 0]);
+
+      // Line generator
+      const line = d3.line()
+        .x(d => x(d.month))
+        .y(d => y(d.temp));
+
+      // Draw lines
+      svg.selectAll('path.line')
+        .data(allData)
+        .join('path')
+        .attr('class', 'line')
+        .attr('d', d => line(d))
+        .attr('fill', 'none')
+        .attr('stroke', (d, i) => colors[i])
+        .attr('stroke-width', 2);
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      svg.append('g')
+        .call(d3.axisLeft(y));
+
+      // Title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Monthly Temperature by City');
+
+      // Axis labels
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .text('Month');
+
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .text('Temperature (°F)');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width + 10}, 0)`);
+
+      ['New York', 'San Francisco'].forEach((city, i) => {
+        const g = legend.append('g')
+          .attr('transform', `translate(0, ${i * 25})`);
+        g.append('rect').attr('width', 15).attr('height', 15).attr('fill', colors[i]);
+        g.append('text').attr('x', 20).attr('y', 12).text(city).style('font-size', '12px');
+      });
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-line-chart');
+      const result = maidrD3.bindD3Line(svgElement, {
+        selector: 'path.line',
+        title: 'Monthly Temperature by City',
+        axes: { x: 'Month', y: 'Temperature (°F)' },
+        x: 'month',
+        y: 'temp',
+        fill: 'city',
+      });
+
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

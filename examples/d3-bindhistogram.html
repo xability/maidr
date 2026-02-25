@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Histogram Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Histogram</h1>
+    <p>Click on the chart and use arrow keys to navigate between bins.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Generate sample data (normal distribution)
+      const randomNormal = d3.randomNormal(50, 15);
+      const rawData = Array.from({ length: 500 }, randomNormal);
+
+      // Chart dimensions
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-histogram-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const x = d3.scaleLinear()
+        .domain([0, 100])
+        .range([0, width]);
+
+      // Create bins
+      const bins = d3.bin()
+        .domain(x.domain())
+        .thresholds(x.ticks(20))(rawData);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(bins, d => d.length)])
+        .nice()
+        .range([height, 0]);
+
+      // Bars
+      svg.selectAll('rect.bar')
+        .data(bins)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => x(d.x0) + 1)
+        .attr('y', d => y(d.length))
+        .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+        .attr('height', d => height - y(d.length))
+        .attr('fill', '#69b3a2');
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      svg.append('g')
+        .call(d3.axisLeft(y));
+
+      // Title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Value Distribution');
+
+      // Axis labels
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .text('Value');
+
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .text('Frequency');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-histogram-chart');
+      const result = maidrD3.bindD3Histogram(svgElement, {
+        selector: 'rect.bar',
+        title: 'Value Distribution',
+        axes: { x: 'Value', y: 'Frequency' },
+        // D3 bins have x0, x1 properties and are arrays (length = count)
+        x: (d) => `${Math.round(d.x0)}-${Math.round(d.x1)}`,
+        y: (d) => d.length,
+        xMin: 'x0',
+        xMax: 'x1',
+        yMin: () => 0,
+        yMax: (d) => d.length,
+      });
+
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Heatmap Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Heatmap</h1>
+    <p>Click on the chart and use arrow keys to navigate cells.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample data: task scores by model
+      const models = ['GPT-4', 'Claude', 'Gemini', 'LLaMA'];
+      const tasks = ['Math', 'Code', 'Writing', 'Reasoning'];
+      const values = [
+        { model: 'GPT-4',   task: 'Math', score: 92 },
+        { model: 'GPT-4',   task: 'Code', score: 88 },
+        { model: 'GPT-4',   task: 'Writing', score: 85 },
+        { model: 'GPT-4',   task: 'Reasoning', score: 90 },
+        { model: 'Claude',  task: 'Math', score: 89 },
+        { model: 'Claude',  task: 'Code', score: 91 },
+        { model: 'Claude',  task: 'Writing', score: 93 },
+        { model: 'Claude',  task: 'Reasoning', score: 88 },
+        { model: 'Gemini',  task: 'Math', score: 86 },
+        { model: 'Gemini',  task: 'Code', score: 84 },
+        { model: 'Gemini',  task: 'Writing', score: 82 },
+        { model: 'Gemini',  task: 'Reasoning', score: 85 },
+        { model: 'LLaMA',   task: 'Math', score: 78 },
+        { model: 'LLaMA',   task: 'Code', score: 80 },
+        { model: 'LLaMA',   task: 'Writing', score: 75 },
+        { model: 'LLaMA',   task: 'Reasoning', score: 77 },
+      ];
+
+      // Chart dimensions
+      const margin = { top: 40, right: 20, bottom: 60, left: 80 };
+      const width = 500 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-heatmap-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const x = d3.scaleBand().domain(tasks).range([0, width]).padding(0.05);
+      const y = d3.scaleBand().domain(models).range([0, height]).padding(0.05);
+      const color = d3.scaleSequential(d3.interpolateYlOrRd).domain([70, 95]);
+
+      // Cells
+      svg.selectAll('rect.cell')
+        .data(values)
+        .join('rect')
+        .attr('class', 'cell')
+        .attr('x', d => x(d.task))
+        .attr('y', d => y(d.model))
+        .attr('width', x.bandwidth())
+        .attr('height', y.bandwidth())
+        .attr('fill', d => color(d.score))
+        .attr('stroke', '#fff');
+
+      // Cell labels
+      svg.selectAll('text.label')
+        .data(values)
+        .join('text')
+        .attr('class', 'label')
+        .attr('x', d => x(d.task) + x.bandwidth() / 2)
+        .attr('y', d => y(d.model) + y.bandwidth() / 2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .style('font-size', '12px')
+        .text(d => d.score);
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      svg.append('g')
+        .call(d3.axisLeft(y));
+
+      // Title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Model Scores by Task');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-heatmap-chart');
+      const result = maidrD3.bindD3Heatmap(svgElement, {
+        selector: 'rect.cell',
+        title: 'Model Scores by Task',
+        axes: { x: 'Task', y: 'Model', fill: 'Score' },
+        x: 'task',
+        y: 'model',
+        value: 'score',
+      });
+
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>
