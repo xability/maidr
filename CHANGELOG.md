@@ -1,3 +1,10 @@
+# [3.52.0](https://github.com/xability/maidr/compare/v3.51.1...v3.52.0) (2026-02-25)
+
+
+### Features
+
+* restore screen reader graphics navigation for interactive charts ([#561](https://github.com/xability/maidr/issues/561)) ([9e3a1e5](https://github.com/xability/maidr/commit/9e3a1e5f9cc094b9efd778a68d169bd475c86467))
+
 ## [3.51.1](https://github.com/xability/maidr/compare/v3.51.0...v3.51.1) (2026-02-25)
 
 
