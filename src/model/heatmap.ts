@@ -56,6 +56,8 @@ export class Heatmap extends AbstractTrace {
     this.x.length = 0;
     this.y.length = 0;
 
+    this.highlightCenters = null;
+
     super.dispose();
   }
 
@@ -118,8 +120,11 @@ export class Heatmap extends AbstractTrace {
       for (const el of domElements) {
         el.remove();
       }
-      // Try overlay approach for rasterized heatmaps (e.g., Plotly)
-      return this.createOverlayElements(selector, numRows, numCols);
+      // Try overlay approach for rasterized heatmaps (e.g., Plotly).
+      // Query the original (non-cloned) selector matches once and pass them
+      // through to avoid redundant DOM queries in findHeatmapImage.
+      const selectorMatches = document.querySelectorAll(selector);
+      return this.createOverlayElements(selectorMatches, numRows, numCols);
     }
 
     const svgElements = new Array<Array<SVGElement>>();
@@ -338,17 +343,22 @@ export class Heatmap extends AbstractTrace {
   /**
    * Creates SVG rect overlay elements for rasterized heatmaps (e.g., Plotly)
    * where individual cell elements don't exist in the DOM.
-   * @param selector - CSS selector that may match the heatmap image or container
+   *
+   * Row mapping: After the constructor reverses the data, heatmapValues[0]
+   * corresponds to the visual TOP of the heatmap. The image element's bbox.y
+   * is also the visual top, so r=0 → bbox.y is the correct mapping.
+   *
+   * @param selectorMatches - Pre-queried DOM elements matching the layer selector
    * @param numRows - Number of rows in the heatmap grid
    * @param numCols - Number of columns in the heatmap grid
    * @returns 2D array of SVG rect elements or null if image not found
    */
   private createOverlayElements(
-    selector: string,
+    selectorMatches: NodeListOf<Element>,
     numRows: number,
     numCols: number,
   ): SVGElement[][] | null {
-    const imageElement = this.findHeatmapImage(selector);
+    const imageElement = this.findHeatmapImage(selectorMatches);
     if (!(imageElement instanceof SVGGraphicsElement)) {
       return null;
     }
@@ -365,13 +375,12 @@ export class Heatmap extends AbstractTrace {
 
     const cellWidth = bbox.width / numCols;
     const cellHeight = bbox.height / numRows;
-    const SVG_NS = 'http://www.w3.org/2000/svg';
     const svgElements: SVGElement[][] = [];
 
     for (let r = 0; r < numRows; r++) {
       const row: SVGElement[] = [];
       for (let c = 0; c < numCols; c++) {
-        const rect = document.createElementNS(SVG_NS, 'rect') as SVGRectElement;
+        const rect = document.createElementNS(Svg.SVG_NAMESPACE, 'rect') as SVGRectElement;
         rect.setAttribute('x', String(bbox.x + c * cellWidth));
         rect.setAttribute('y', String(bbox.y + r * cellHeight));
         rect.setAttribute('width', String(cellWidth));
@@ -379,6 +388,7 @@ export class Heatmap extends AbstractTrace {
         rect.setAttribute('fill', 'transparent');
         rect.setAttribute('stroke', 'transparent');
         rect.setAttribute('visibility', 'hidden');
+        rect.setAttribute('aria-hidden', 'true');
 
         parentGroup.appendChild(rect);
         row.push(rect);
@@ -392,21 +402,20 @@ export class Heatmap extends AbstractTrace {
   /**
    * Finds the rasterized image element for a heatmap rendered as a single image
    * (e.g., Plotly heatmaps).
-   * @param selector - CSS selector to start searching from
+   * @param selectorMatches - Pre-queried DOM elements matching the layer selector
    * @returns The SVG image element or null if not found
    */
-  private findHeatmapImage(selector: string): SVGElement | null {
-    // Try the selector directly - it might match an image element
-    const elements = document.querySelectorAll(selector);
-    for (const el of elements) {
+  private findHeatmapImage(selectorMatches: NodeListOf<Element>): SVGElement | null {
+    // Try the pre-queried elements directly - the selector might match an image
+    for (const el of selectorMatches) {
       if (el instanceof SVGImageElement) {
         return el;
       }
     }
 
     // If the selector matches a container, look for an image inside it
-    if (elements.length > 0) {
-      const firstEl = elements[0];
+    if (selectorMatches.length > 0) {
+      const firstEl = selectorMatches[0];
       if (firstEl instanceof Element) {
         const img = firstEl.querySelector('image');
         if (img instanceof SVGElement) {
@@ -426,8 +435,8 @@ export class Heatmap extends AbstractTrace {
     // Try Plotly-specific DOM structure: .heatmaplayer > .hm > image
     // Scope search to the closest SVG ancestor of the selector match to avoid
     // matching heatmap images from other plots on the same page.
-    const scopeRoot = elements.length > 0
-      ? elements[0].closest('svg')
+    const scopeRoot = selectorMatches.length > 0
+      ? selectorMatches[0].closest('svg')
       : null;
     const searchRoot = scopeRoot ?? document;
     const plotlyImage = searchRoot.querySelector('.heatmaplayer image');

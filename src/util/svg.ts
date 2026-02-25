@@ -15,7 +15,7 @@ export abstract class Svg {
   /**
    * SVG namespace URI for creating SVG elements.
    */
-  private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+  static readonly SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
   /**
    * Converts an SVG element to a Base64-encoded JPEG data URL.
