@@ -18,11 +18,14 @@
 import type {
   BarPoint,
   CandlestickPoint,
+  HeatmapData,
+  HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
   ScatterPoint,
+  SegmentedPoint,
 } from '@type/grammar';
 import type {
   AmChartsBinderOptions,
@@ -35,8 +38,11 @@ import {
   classifySeriesKind,
   extractBarPoints,
   extractCandlestickPoints,
+  extractHeatmapData,
+  extractHistogramPoints,
   extractLinePoints,
   extractScatterPoints,
+  extractSegmentedPoints,
   readAxisLabel,
 } from './extractors';
 import {
@@ -96,15 +102,29 @@ export function fromXYChart(
   const lineLayers: LinePoint[][] = [];
   let lineLayerSelectors: string[] | undefined;
 
+  // Collect bar series for grouped handling (stacked/dodged/normalized).
+  const barSeriesList: AmXYSeries[] = [];
+
   for (const series of chart.series.values) {
     const kind = classifySeriesKind(series);
 
     switch (kind) {
       case 'bar': {
-        const data = extractBarPoints(series);
+        barSeriesList.push(series);
+        break;
+      }
+      case 'histogram': {
+        const data = extractHistogramPoints(series);
         if (data.length === 0)
           break;
-        layers.push(buildBarLayer(series, data, xLabel, yLabel, containerEl));
+        layers.push(buildHistogramLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'heatmap': {
+        const data = extractHeatmapData(series);
+        if (!data)
+          break;
+        layers.push(buildHeatmapLayer(data, xLabel, yLabel));
         break;
       }
       case 'line': {
@@ -137,6 +157,20 @@ export function fromXYChart(
       default:
         // Skip unsupported series types.
         break;
+    }
+  }
+
+  // Process bar series: single → BAR, multiple → STACKED/DODGED/NORMALIZED.
+  if (barSeriesList.length === 1) {
+    const series = barSeriesList[0];
+    const data = extractBarPoints(series);
+    if (data.length > 0) {
+      layers.push(buildBarLayer(series, data, xLabel, yLabel, containerEl));
+    }
+  } else if (barSeriesList.length > 1) {
+    const layer = buildSegmentedLayer(barSeriesList, chart, xLabel, yLabel, containerEl);
+    if (layer) {
+      layers.push(layer);
     }
   }
 
@@ -177,6 +211,91 @@ function buildBarLayer(
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    axes: { x: xLabel, y: yLabel },
+    data,
+  };
+}
+
+function buildSegmentedLayer(
+  barSeriesList: AmXYSeries[],
+  chart: AmXYChart,
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer | null {
+  const stackMode = detectStackMode(chart);
+
+  let traceType: TraceType;
+  switch (stackMode) {
+    case 'normal':
+      traceType = TraceType.STACKED;
+      break;
+    case '100%':
+      traceType = TraceType.NORMALIZED;
+      break;
+    default:
+      traceType = TraceType.DODGED;
+  }
+
+  // Each series becomes one group (row) in the SegmentedPoint[][] grid.
+  const data: SegmentedPoint[][] = [];
+  const selectorParts: string[] = [];
+
+  for (const series of barSeriesList) {
+    const points = extractSegmentedPoints(series);
+    if (points.length > 0) {
+      data.push(points);
+      const sel = buildColumnSelector(series, containerEl);
+      if (sel)
+        selectorParts.push(sel);
+    }
+  }
+
+  if (data.length === 0)
+    return null;
+
+  const isHorizontal = typeof barSeriesList[0].get('categoryYField') === 'string';
+  const combinedSelector = selectorParts.length > 0
+    ? selectorParts.join(', ')
+    : undefined;
+
+  return {
+    id: `segmented-${uid()}`,
+    type: traceType,
+    ...(combinedSelector ? { selectors: combinedSelector } : {}),
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    axes: { x: xLabel, y: yLabel },
+    data,
+  };
+}
+
+function buildHistogramLayer(
+  series: AmXYSeries,
+  data: HistogramPoint[],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.HISTOGRAM,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: xLabel, y: yLabel },
+    data,
+  };
+}
+
+function buildHeatmapLayer(
+  data: HeatmapData,
+  xLabel: string,
+  yLabel: string,
+): MaidrLayer {
+  return {
+    id: `heatmap-${uid()}`,
+    type: TraceType.HEATMAP,
     axes: { x: xLabel, y: yLabel },
     data,
   };
@@ -244,6 +363,26 @@ function findXYChart(root: AmRoot): AmXYChart | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * Detect the stacking mode from the chart's value axes.
+ *
+ * In amCharts 5, stacking is controlled by setting `stackMode` on a
+ * `ValueAxis`: `"normal"` for stacked, `"100%"` for normalized.
+ */
+function detectStackMode(chart: AmXYChart): 'none' | 'normal' | '100%' {
+  for (const axis of chart.yAxes.values) {
+    const mode = axis.get('stackMode');
+    if (mode === 'normal' || mode === '100%')
+      return mode;
+  }
+  for (const axis of chart.xAxes.values) {
+    const mode = axis.get('stackMode');
+    if (mode === 'normal' || mode === '100%')
+      return mode;
+  }
+  return 'none';
 }
 
 function readChartTitle(chart: AmXYChart): string | undefined {
