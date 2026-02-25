@@ -192,6 +192,24 @@ export interface RechartsAdapterConfig {
    * Required when `chartType` is `'histogram'`.
    */
   binConfig?: HistogramBinConfig;
+
+  /**
+   * Custom CSS selector override for SVG highlighting.
+   *
+   * By default the adapter generates selectors from Recharts' built-in
+   * class names. For multi-series charts, CSS selectors cannot reliably
+   * distinguish between series, so highlighting is disabled.
+   *
+   * To enable highlighting for multi-series charts, add a custom
+   * `className` to each Recharts component and pass the selector here:
+   *
+   * @example
+   * ```tsx
+   * <Bar className="revenue-bar" dataKey="revenue" />
+   * // then set selectorOverride: '.revenue-bar .recharts-bar-rectangle'
+   * ```
+   */
+  selectorOverride?: string;
 }
 
 /**

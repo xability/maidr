@@ -28,6 +28,22 @@
  *
  * FunnelChart:
  *   g.recharts-trapezoids > g.recharts-funnel-trapezoid > path.recharts-trapezoid
+ *
+ * ## Multi-series limitation
+ *
+ * Recharts renders axes, grids, and series as sibling `<g>` elements inside
+ * a shared surface layer. Because they all share the same tag, CSS positional
+ * pseudo-classes (`:nth-child`, `:nth-of-type`) cannot reliably distinguish
+ * between series when non-series siblings are interspersed.
+ *
+ * For **single-series** charts the class selector is unambiguous and
+ * highlighting works out of the box.
+ *
+ * For **multi-series** charts the adapter returns `undefined` for selectors,
+ * which disables visual highlighting while preserving audio, text, and braille.
+ * To enable highlighting for multi-series charts, add a custom `className` to
+ * each Recharts component (e.g. `<Bar className="revenue" />`) and pass the
+ * resulting selector via the `selectorOverride` config option.
  */
 
 import type { RechartsChartType } from './types';
@@ -36,91 +52,42 @@ import type { RechartsChartType } from './types';
  * Returns the CSS selector string for individual data point elements
  * of the given Recharts chart type.
  *
- * For multi-series charts, provide the `seriesIndex` (0-based) to target
- * elements from a specific series. Recharts renders series as sibling
- * groups in DOM order matching their declaration order.
+ * Returns `undefined` when `seriesIndex` is provided, because CSS alone
+ * cannot reliably target a specific series in Recharts' SVG structure.
+ * See the module-level documentation for details.
  *
  * @param chartType - The Recharts chart type
- * @param seriesIndex - Optional 0-based index for multi-series charts
- * @returns CSS selector string matching individual data point elements
+ * @param seriesIndex - When set, indicates a multi-series chart — returns undefined
+ * @returns CSS selector string, or undefined for multi-series targeting
  */
 export function getRechartsSelector(
   chartType: RechartsChartType,
   seriesIndex?: number,
-): string {
-  const prefix = seriesIndex != null
-    ? getNthSeriesPrefix(chartType, seriesIndex)
-    : '';
-
-  switch (chartType) {
-    case 'bar':
-    case 'stacked_bar':
-    case 'dodged_bar':
-    case 'normalized_bar':
-    case 'histogram':
-      return `${prefix}.recharts-bar-rectangle`;
-    case 'line':
-      return `${prefix}.recharts-line-dot`;
-    case 'area':
-      return `${prefix}.recharts-area-dot`;
-    case 'scatter':
-      return `${prefix}.recharts-scatter-symbol`;
-    case 'pie':
-      return `${prefix}.recharts-pie-sector`;
-    case 'radar':
-      return `${prefix}.recharts-radar-dot`;
-    case 'funnel':
-      return `${prefix}.recharts-funnel-trapezoid`;
+): string | undefined {
+  // Multi-series positional targeting is unreliable with CSS alone.
+  // Return undefined to gracefully disable highlighting.
+  if (seriesIndex != null) {
+    return undefined;
   }
-}
 
-/**
- * Returns a CSS prefix that scopes selection to a specific series
- * within a multi-series chart.
- *
- * Recharts renders each series component (Bar, Line, etc.) as separate
- * container groups in DOM order. Since all containers are `<g>` elements,
- * using `:nth-of-type()` would match by tag (not class) and be unreliable
- * when axes or grids are present. Instead, we use the `[class~=...]`
- * attribute selector with `:nth-child()` scoped within the chart surface
- * layer for reliable series targeting.
- */
-function getNthSeriesPrefix(
-  chartType: RechartsChartType,
-  seriesIndex: number,
-): string {
-  const containerClass = getContainerClass(chartType);
-  // Use attribute selector to match exactly the container class,
-  // then select the (n+1)th occurrence via a broader scope.
-  // Recharts wraps series containers in `.recharts-layer` groups
-  // inside the chart surface. We scope to the container class directly.
-  return `.${containerClass}:nth-child(${seriesIndex + 1}) `;
-}
-
-/**
- * Returns the Recharts container class for a chart type.
- * This is the class on the top-level `<g>` that wraps all elements
- * for a single series.
- */
-function getContainerClass(chartType: RechartsChartType): string {
   switch (chartType) {
     case 'bar':
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
     case 'histogram':
-      return 'recharts-bar';
+      return '.recharts-bar-rectangle';
     case 'line':
-      return 'recharts-line';
+      return '.recharts-line-dot';
     case 'area':
-      return 'recharts-area';
+      return '.recharts-area-dot';
     case 'scatter':
-      return 'recharts-scatter';
+      return '.recharts-scatter-symbol';
     case 'pie':
-      return 'recharts-pie';
+      return '.recharts-pie-sector';
     case 'radar':
-      return 'recharts-radar';
+      return '.recharts-radar-dot';
     case 'funnel':
-      return 'recharts-trapezoids';
+      return '.recharts-funnel-trapezoid';
   }
 }

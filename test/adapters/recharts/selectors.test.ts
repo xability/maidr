@@ -48,28 +48,29 @@ describe('getRechartsSelector', () => {
   });
 
   describe('multi-series (with seriesIndex)', () => {
-    it('prefixes bar selector with nth-child for series 0', () => {
-      expect(getRechartsSelector('bar', 0)).toBe('.recharts-bar:nth-child(1) .recharts-bar-rectangle');
+    it('returns undefined for bar with seriesIndex', () => {
+      expect(getRechartsSelector('bar', 0)).toBeUndefined();
     });
 
-    it('prefixes bar selector with nth-child for series 2', () => {
-      expect(getRechartsSelector('bar', 2)).toBe('.recharts-bar:nth-child(3) .recharts-bar-rectangle');
+    it('returns undefined for line with seriesIndex', () => {
+      expect(getRechartsSelector('line', 1)).toBeUndefined();
     });
 
-    it('prefixes line selector with nth-child', () => {
-      expect(getRechartsSelector('line', 1)).toBe('.recharts-line:nth-child(2) .recharts-line-dot');
+    it('returns undefined for scatter with seriesIndex', () => {
+      expect(getRechartsSelector('scatter', 0)).toBeUndefined();
     });
 
-    it('prefixes scatter selector with nth-child', () => {
-      expect(getRechartsSelector('scatter', 0)).toBe('.recharts-scatter:nth-child(1) .recharts-scatter-symbol');
+    it('returns undefined for radar with seriesIndex', () => {
+      expect(getRechartsSelector('radar', 0)).toBeUndefined();
     });
 
-    it('prefixes radar selector with nth-child', () => {
-      expect(getRechartsSelector('radar', 0)).toBe('.recharts-radar:nth-child(1) .recharts-radar-dot');
+    it('returns undefined for funnel with seriesIndex', () => {
+      expect(getRechartsSelector('funnel', 0)).toBeUndefined();
     });
 
-    it('prefixes funnel selector with nth-child', () => {
-      expect(getRechartsSelector('funnel', 0)).toBe('.recharts-trapezoids:nth-child(1) .recharts-funnel-trapezoid');
+    it('returns undefined regardless of seriesIndex value', () => {
+      expect(getRechartsSelector('bar', 2)).toBeUndefined();
+      expect(getRechartsSelector('line', 5)).toBeUndefined();
     });
   });
 });

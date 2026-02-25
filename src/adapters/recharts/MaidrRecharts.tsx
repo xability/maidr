@@ -67,6 +67,7 @@ export function MaidrRecharts({
   orientation,
   fillKeys,
   binConfig,
+  selectorOverride,
   children,
 }: MaidrRechartsProps): JSX.Element {
   const maidrData = useMemo(
@@ -85,8 +86,9 @@ export function MaidrRecharts({
       orientation,
       fillKeys,
       binConfig,
+      selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, xLabel, yLabel, orientation, fillKeys, binConfig],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
   );
 
   return (

@@ -60,6 +60,10 @@ describe('convertRechartsToMaidr', () => {
       expect(layers[0].title).toBe('s1');
       expect(layers[1].title).toBe('s2');
 
+      // Multi-series selectors are undefined (CSS unreliable)
+      expect(layers[0].selectors).toBeUndefined();
+      expect(layers[1].selectors).toBeUndefined();
+
       const data0 = layers[0].data as BarPoint[];
       expect(data0[0]).toEqual({ x: 'A', y: 10 });
 
@@ -113,6 +117,27 @@ describe('convertRechartsToMaidr', () => {
       expect(data[0][0].fill).toBe('s1');
       expect(data[0][1].fill).toBe('s2');
     });
+
+    it('falls back to BAR type when stacked_bar has single yKey', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'stacked-single',
+        data: [
+          { x: 'A', y: 10 },
+          { x: 'B', y: 20 },
+        ],
+        chartType: 'stacked_bar',
+        xKey: 'x',
+        yKeys: ['y'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const layer = result.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.BAR);
+
+      const data = layer.data as BarPoint[];
+      expect(data[0]).toEqual({ x: 'A', y: 10 });
+    });
   });
 
   describe('dodged bar chart', () => {
@@ -128,6 +153,19 @@ describe('convertRechartsToMaidr', () => {
       const result = convertRechartsToMaidr(config);
       expect(result.subplots[0][0].layers[0].type).toBe(TraceType.DODGED);
     });
+
+    it('falls back to BAR type when dodged_bar has single yKey', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'dodged-single',
+        data: [{ x: 'A', y: 10 }],
+        chartType: 'dodged_bar',
+        xKey: 'x',
+        yKeys: ['y'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      expect(result.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    });
   });
 
   describe('normalized bar chart', () => {
@@ -142,6 +180,19 @@ describe('convertRechartsToMaidr', () => {
 
       const result = convertRechartsToMaidr(config);
       expect(result.subplots[0][0].layers[0].type).toBe(TraceType.NORMALIZED);
+    });
+
+    it('falls back to BAR type when normalized_bar has single yKey', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'normalized-single',
+        data: [{ x: 'A', y: 10 }],
+        chartType: 'normalized_bar',
+        xKey: 'x',
+        yKeys: ['y'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      expect(result.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
     });
   });
 
@@ -210,6 +261,25 @@ describe('convertRechartsToMaidr', () => {
       expect(data[0][0]).toEqual({ x: 1, y: 10 });
     });
 
+    it('preserves string x-axis values for line charts', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'line-string-x',
+        data: [
+          { month: 'Jan', value: 10 },
+          { month: 'Feb', value: 20 },
+        ],
+        chartType: 'line',
+        xKey: 'month',
+        yKeys: ['value'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
+
+      expect(data[0][0]).toEqual({ x: 'Jan', y: 10 });
+      expect(data[0][1]).toEqual({ x: 'Feb', y: 20 });
+    });
+
     it('converts multi-series line data with fill labels', () => {
       const config: RechartsAdapterConfig = {
         id: 'multi-line',
@@ -232,6 +302,44 @@ describe('convertRechartsToMaidr', () => {
       expect(data[0][0]).toEqual({ x: 1, y: 10, fill: 's1' });
       expect(data[1][0]).toEqual({ x: 1, y: 20, fill: 's2' });
     });
+
+    it('preserves string x-axis values in multi-series line charts', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'multi-line-string',
+        data: [
+          { month: 'Jan', s1: 10, s2: 20 },
+          { month: 'Feb', s1: 15, s2: 25 },
+        ],
+        chartType: 'line',
+        xKey: 'month',
+        yKeys: ['s1', 's2'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
+
+      expect(data[0][0].x).toBe('Jan');
+      expect(data[1][0].x).toBe('Jan');
+    });
+
+    it('returns undefined selectors for multi-series line', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'multi-line',
+        data: [
+          { x: 1, s1: 10, s2: 20 },
+        ],
+        chartType: 'line',
+        xKey: 'x',
+        yKeys: ['s1', 's2'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const selectors = result.subplots[0][0].layers[0].selectors;
+
+      // Multi-series selectors are omitted (undefined) because CSS
+      // cannot reliably distinguish series in Recharts SVG
+      expect(selectors).toBeUndefined();
+    });
   });
 
   describe('area chart', () => {
@@ -246,6 +354,20 @@ describe('convertRechartsToMaidr', () => {
 
       const result = convertRechartsToMaidr(config);
       expect(result.subplots[0][0].layers[0].type).toBe(TraceType.LINE);
+    });
+
+    it('preserves string x-axis values for area charts', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'area-string-x',
+        data: [{ month: 'Jan', value: 10 }],
+        chartType: 'area',
+        xKey: 'month',
+        yKeys: ['value'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
+      expect(data[0][0].x).toBe('Jan');
     });
   });
 
@@ -316,6 +438,20 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.type).toBe(TraceType.LINE);
       expect(layer.selectors).toBe('.recharts-radar-dot');
     });
+
+    it('preserves string x-axis values for radar charts', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'radar-string-x',
+        data: [{ subject: 'Math', score: 80 }],
+        chartType: 'radar',
+        xKey: 'subject',
+        yKeys: ['score'],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
+      expect(data[0][0].x).toBe('Math');
+    });
   });
 
   describe('funnel chart', () => {
@@ -366,7 +502,7 @@ describe('convertRechartsToMaidr', () => {
       expect(layers[1].title).toBe('Trend');
     });
 
-    it('indexes series correctly with multiple same-type layers', () => {
+    it('returns undefined selectors for multiple same-type layers', () => {
       const config: RechartsAdapterConfig = {
         id: 'composed',
         data: [{ x: 'A', y1: 10, y2: 20 }],
@@ -380,8 +516,126 @@ describe('convertRechartsToMaidr', () => {
       const result = convertRechartsToMaidr(config);
       const layers = result.subplots[0][0].layers;
 
-      expect(layers[0].selectors).toBe('.recharts-bar:nth-child(1) .recharts-bar-rectangle');
-      expect(layers[1].selectors).toBe('.recharts-bar:nth-child(2) .recharts-bar-rectangle');
+      // First bar has seriesIndex 0 → getRechartsSelector returns undefined
+      // Second bar has seriesIndex 1 → also undefined
+      // (CSS cannot reliably distinguish series in Recharts)
+      expect(layers[0].selectors).toBeUndefined();
+      expect(layers[1].selectors).toBeUndefined();
+    });
+
+    it('returns selector for single-occurrence chart types in composed mode', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'composed',
+        data: [{ x: 'A', y1: 10, y2: 20 }],
+        xKey: 'x',
+        layers: [
+          { yKey: 'y1', chartType: 'bar', name: 'Bar' },
+          { yKey: 'y2', chartType: 'line', name: 'Line' },
+        ],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const layers = result.subplots[0][0].layers;
+
+      // Each type appears once, seriesIndex = 0, so getRechartsSelector
+      // still returns undefined because seriesIndex is provided
+      expect(layers[0].selectors).toBeUndefined();
+      expect(layers[1].selectors).toBeUndefined();
+    });
+  });
+
+  describe('selectorOverride', () => {
+    it('uses selectorOverride for simple bar chart', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override',
+        data: [{ x: 'A', y: 10 }],
+        chartType: 'bar',
+        xKey: 'x',
+        yKeys: ['y'],
+        selectorOverride: '.custom-bar',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      expect(result.subplots[0][0].layers[0].selectors).toBe('.custom-bar');
+    });
+
+    it('uses selectorOverride for multi-series bar chart', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override-multi',
+        data: [{ x: 'A', s1: 10, s2: 20 }],
+        chartType: 'bar',
+        xKey: 'x',
+        yKeys: ['s1', 's2'],
+        selectorOverride: '.custom-bar',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const layers = result.subplots[0][0].layers;
+
+      expect(layers[0].selectors).toBe('.custom-bar');
+      expect(layers[1].selectors).toBe('.custom-bar');
+    });
+
+    it('uses selectorOverride for segmented bar chart', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override-stacked',
+        data: [{ x: 'A', s1: 10, s2: 20 }],
+        chartType: 'stacked_bar',
+        xKey: 'x',
+        yKeys: ['s1', 's2'],
+        selectorOverride: '.custom-stacked',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      expect(result.subplots[0][0].layers[0].selectors).toBe('.custom-stacked');
+    });
+
+    it('uses selectorOverride for histogram', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override-hist',
+        data: [{ bin: 'A', count: 5 }],
+        chartType: 'histogram',
+        xKey: 'bin',
+        yKeys: ['count'],
+        selectorOverride: '.custom-hist',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      expect(result.subplots[0][0].layers[0].selectors).toBe('.custom-hist');
+    });
+
+    it('uses selectorOverride for multi-series line chart', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override-line',
+        data: [{ x: 1, s1: 10, s2: 20 }],
+        chartType: 'line',
+        xKey: 'x',
+        yKeys: ['s1', 's2'],
+        selectorOverride: '.custom-line',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const selectors = result.subplots[0][0].layers[0].selectors;
+      expect(selectors).toEqual(['.custom-line', '.custom-line']);
+    });
+
+    it('uses selectorOverride in composed mode', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'override-composed',
+        data: [{ x: 'A', y1: 10, y2: 20 }],
+        xKey: 'x',
+        layers: [
+          { yKey: 'y1', chartType: 'bar', name: 'Bar' },
+          { yKey: 'y2', chartType: 'line', name: 'Line' },
+        ],
+        selectorOverride: '.custom-selector',
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const layers = result.subplots[0][0].layers;
+
+      expect(layers[0].selectors).toBe('.custom-selector');
+      expect(layers[1].selectors).toBe('.custom-selector');
     });
   });
 
@@ -441,7 +695,7 @@ describe('convertRechartsToMaidr', () => {
   });
 
   describe('data coercion', () => {
-    it('coerces string numbers to numbers', () => {
+    it('coerces string numbers to numbers for scatter', () => {
       const config: RechartsAdapterConfig = {
         id: 'coerce',
         data: [{ x: '1', y: '10.5' }],
