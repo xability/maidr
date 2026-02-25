@@ -15,11 +15,13 @@ import type {
   BarPoint,
   BoxPoint,
   HeatmapData,
+  HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
   ScatterPoint,
+  SegmentedPoint,
 } from '../type/grammar';
 import { Orientation, TraceType } from '../type/grammar';
 
@@ -31,15 +33,13 @@ import { Orientation, TraceType } from '../type/grammar';
 /** Minimal subset of a Vega `View` that the adapter needs. */
 export interface VegaView {
   data: (name: string) => Record<string, unknown>[];
-  signal: (name: string) => unknown;
-  getState: (options?: Record<string, unknown>) => Record<string, unknown>;
   container: () => HTMLElement;
 }
 
 /** Minimal Vega-Lite top-level spec shape. */
 export interface VegaLiteSpec {
   $schema?: string;
-  title?: string | { text?: string };
+  title?: string | { text?: string; subtitle?: string };
   description?: string;
   data?: unknown;
   mark?: string | { type: string };
@@ -69,6 +69,7 @@ interface VegaLiteChannelDef {
   title?: string;
   axis?: { title?: string } | null;
   bin?: boolean | Record<string, unknown>;
+  stack?: boolean | string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,16 +102,18 @@ export function vegaLiteToMaidr(
 ): Maidr {
   const id = options?.id ?? 'vl-chart';
   const title = options?.title ?? extractTitle(spec);
+  const subtitle = extractSubtitle(spec);
+  const caption = spec.description;
 
   // Handle composite views (concat / facet).
   if (spec.hconcat) {
-    return buildConcatMaidr(id, title, spec.hconcat, 'horizontal', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view);
   }
   if (spec.vconcat) {
-    return buildConcatMaidr(id, title, spec.vconcat, 'vertical', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, spec.concat, 'wrap', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view);
   }
 
   // Handle layered specs.
@@ -120,28 +123,35 @@ export function vegaLiteToMaidr(
       convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered),
     ).filter(Boolean) as MaidrLayer[];
 
-    return {
-      id,
-      title,
-      subplots: [[{ layers }]],
-    };
+    return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
 
   // Single view.
   const layer = convertLayerSpec(spec, 0, view, undefined, false);
   if (!layer) {
-    return { id, title, subplots: [[{ layers: [] }]] };
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
-  return {
-    id,
-    title,
-    subplots: [[{ layers: [layer] }]],
-  };
+  return buildMaidr(id, title, subtitle, caption, [[{ layers: [layer] }]]);
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+function buildMaidr(
+  id: string,
+  title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
+  subplots: MaidrSubplot[][],
+): Maidr {
+  const maidr: Maidr = { id, title, subplots };
+  if (subtitle)
+    maidr.subtitle = subtitle;
+  if (caption)
+    maidr.caption = caption;
+  return maidr;
+}
 
 function extractTitle(spec: VegaLiteSpec): string {
   if (!spec.title)
@@ -151,22 +161,56 @@ function extractTitle(spec: VegaLiteSpec): string {
   return spec.title.text ?? 'Vega-Lite Chart';
 }
 
+function extractSubtitle(spec: VegaLiteSpec): string | undefined {
+  if (!spec.title || typeof spec.title === 'string')
+    return undefined;
+  return spec.title.subtitle;
+}
+
 function getMarkType(spec: VegaLiteSpec): string | null {
   if (!spec.mark)
     return null;
   return typeof spec.mark === 'string' ? spec.mark : spec.mark.type;
 }
 
-/** Map Vega-Lite mark types to MAIDR trace types. */
-function markToTraceType(mark: string): TraceType | null {
+/**
+ * Map a Vega-Lite mark type + encoding to a MAIDR trace type.
+ *
+ * Some marks produce different MAIDR types depending on encoding:
+ * - `bar` with `stack` encoding → STACKED / NORMALIZED / DODGED
+ * - `bar` with `bin` on x/y → HISTOGRAM
+ * - `rect` with color → HEATMAP
+ * - `tick` → SCATTER (individual value marks)
+ */
+function resolveTraceType(
+  mark: string,
+  encoding?: VegaLiteEncoding,
+): TraceType | null {
   switch (mark) {
-    case 'bar':
+    case 'bar': {
+      // Check for histogram: bar with binned encoding.
+      if (encoding?.x?.bin || encoding?.y?.bin) {
+        return TraceType.HISTOGRAM;
+      }
+      // Check for stacked/grouped bar: bar with color or fill encoding.
+      if (encoding?.color?.field || encoding?.fill?.field) {
+        const stack = encoding?.y?.stack ?? encoding?.x?.stack;
+        if (stack === false || stack === null) {
+          return TraceType.DODGED;
+        }
+        if (stack === 'normalize') {
+          return TraceType.NORMALIZED;
+        }
+        return TraceType.STACKED;
+      }
       return TraceType.BAR;
+    }
     case 'line':
       return TraceType.LINE;
     case 'point':
     case 'circle':
     case 'square':
+    case 'tick':
       return TraceType.SCATTER;
     case 'area':
       return TraceType.LINE;
@@ -174,8 +218,6 @@ function markToTraceType(mark: string): TraceType | null {
       return TraceType.HEATMAP;
     case 'boxplot':
       return TraceType.BOX;
-    case 'tick':
-      return TraceType.BAR;
     default:
       return null;
   }
@@ -219,21 +261,19 @@ function buildSelector(mark: string, layerIndex: number, isLayered: boolean): st
 }
 
 /**
- * Build an array of CSS selectors for line/area charts (one per series).
- *
- * Line marks in Vega render each series as a single `<path>` element inside
- * a mark group. For multi-series lines, the `color` encoding produces one
- * `<path>` per group.
+ * Build selectors for line/area charts (one per series).
  */
 function buildLineSelectors(
+  mark: string,
   seriesCount: number,
   layerIndex: number,
   isLayered: boolean,
 ): string[] {
+  const cssClass = markToCssClass(mark);
   const marksClass = isLayered ? `layer_${layerIndex}_marks` : 'marks';
   const selectors: string[] = [];
   for (let i = 0; i < seriesCount; i++) {
-    selectors.push(`g.mark-line.role-mark.${marksClass} path:nth-child(${i + 1})`);
+    selectors.push(`g.${cssClass}.role-mark.${marksClass} path:nth-child(${i + 1})`);
   }
   return selectors;
 }
@@ -258,10 +298,20 @@ function getAxisLabel(channel?: VegaLiteChannelDef): string {
  */
 function resolveData(
   spec: VegaLiteSpec,
+  layerIndex: number,
   view?: VegaView,
 ): Record<string, unknown>[] {
   // Common Vega dataset names produced by the VL compiler.
-  const datasetNames = ['data_0', 'source_0', 'data_1', 'source', 'data_2'];
+  // Include layer-specific dataset names for composite specs.
+  const datasetNames = [
+    `data_${layerIndex}`,
+    'data_0',
+    'source_0',
+    `data_${layerIndex + 1}`,
+    'data_1',
+    'source',
+    'data_2',
+  ];
   if (view) {
     for (const name of datasetNames) {
       try {
@@ -294,7 +344,6 @@ function extractBarData(
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
 
-  // Determine which axis is the category and which is the measure.
   const xIsQuantitative = encoding.x?.type === 'quantitative'
     || encoding.x?.aggregate != null;
   const yIsQuantitative = encoding.y?.type === 'quantitative'
@@ -302,18 +351,67 @@ function extractBarData(
 
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
-      // Horizontal bar: x is measure, y is category.
       return {
         x: Number(row[xField] ?? 0),
         y: String(row[yField] ?? ''),
       };
     }
-    // Default vertical bar: x is category, y is measure.
     return {
       x: String(row[xField] ?? ''),
       y: Number(row[yField] ?? 0),
     };
   });
+}
+
+function extractHistogramData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): HistogramPoint[] {
+  const xField = encoding.x?.field ?? 'x';
+  const yField = encoding.y?.field ?? 'y';
+
+  // Vega compiles binned data with bin_maxbins_N_field and _end fields.
+  const binStart = `bin_maxbins_10_${xField}`;
+  const binEnd = `bin_maxbins_10_${xField}_end`;
+
+  return rows.map((row) => {
+    const xMin = Number(row[binStart] ?? row[xField] ?? 0);
+    const xMax = Number(row[binEnd] ?? xMin + 1);
+    const yVal = Number(row.__count ?? row[yField] ?? 0);
+
+    return {
+      x: `${xMin}-${xMax}`,
+      y: yVal,
+      xMin,
+      xMax,
+      yMin: 0,
+      yMax: yVal,
+    };
+  });
+}
+
+function extractSegmentedData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): SegmentedPoint[][] {
+  const xField = encoding.x?.field ?? 'x';
+  const yField = encoding.y?.field ?? 'y';
+  const colorField = encoding.color?.field ?? encoding.fill?.field ?? 'group';
+
+  // Group by fill value. Each group becomes a row in the 2D array.
+  const groups = new Map<string, SegmentedPoint[]>();
+  for (const row of rows) {
+    const fill = String(row[colorField] ?? '');
+    const pt: SegmentedPoint = {
+      x: String(row[xField] ?? ''),
+      y: Number(row[yField] ?? 0),
+      fill,
+    };
+    if (!groups.has(fill))
+      groups.set(fill, []);
+    groups.get(fill)!.push(pt);
+  }
+  return [...groups.values()];
 }
 
 function extractLineData(
@@ -325,7 +423,6 @@ function extractLineData(
   const colorField = encoding.color?.field ?? encoding.fill?.field;
 
   if (colorField) {
-    // Multi-series: group by color field.
     const groups = new Map<string, LinePoint[]>();
     for (const row of rows) {
       const key = String(row[colorField] ?? '');
@@ -341,7 +438,6 @@ function extractLineData(
     return [...groups.values()];
   }
 
-  // Single series.
   const pts: LinePoint[] = rows.map(row => ({
     x: (row[xField] ?? 0) as number | string,
     y: Number(row[yField] ?? 0),
@@ -370,7 +466,6 @@ function extractHeatmapData(
   const yField = encoding.y?.field ?? 'y';
   const colorField = encoding.color?.field ?? encoding.fill?.field ?? 'value';
 
-  // Collect unique x / y labels.
   const xLabelsSet = new Set<string>();
   const yLabelsSet = new Set<string>();
   for (const row of rows) {
@@ -380,7 +475,6 @@ function extractHeatmapData(
   const xLabels = [...xLabelsSet];
   const yLabels = [...yLabelsSet];
 
-  // Build 2D points grid.
   const xIndex = new Map(xLabels.map((l, i) => [l, i]));
   const yIndex = new Map(yLabels.map((l, i) => [l, i]));
   const points: number[][] = yLabels.map(() => xLabels.map(() => 0));
@@ -405,7 +499,6 @@ function extractBoxData(
     ? (encoding.x?.field ?? 'x')
     : (encoding.y?.field ?? 'y');
 
-  // Group values by category.
   const groups = new Map<string, number[]>();
   for (const row of rows) {
     const key = String(row[catField] ?? '');
@@ -470,17 +563,17 @@ function convertLayerSpec(
   if (!mark)
     return null;
 
-  const traceType = markToTraceType(mark);
-  if (!traceType)
-    return null;
-
   // Merge parent encoding (from layered spec) with layer encoding.
   const encoding: VegaLiteEncoding = {
     ...parentEncoding,
     ...spec.encoding,
   };
 
-  const rows = resolveData(spec, view);
+  const traceType = resolveTraceType(mark, encoding);
+  if (!traceType)
+    return null;
+
+  const rows = resolveData(spec, index, view);
 
   const axes: MaidrLayer['axes'] = {
     x: getAxisLabel(encoding.x),
@@ -497,7 +590,6 @@ function convertLayerSpec(
     case TraceType.BAR: {
       data = extractBarData(rows, encoding);
       selectors = buildSelector(mark, index, layered);
-      // Detect horizontal bars.
       const xIsQuant = encoding.x?.type === 'quantitative'
         || encoding.x?.aggregate != null;
       const yIsQuant = encoding.y?.type === 'quantitative'
@@ -507,11 +599,23 @@ function convertLayerSpec(
       }
       break;
     }
+    case TraceType.HISTOGRAM: {
+      data = extractHistogramData(rows, encoding);
+      selectors = buildSelector(mark, index, layered);
+      break;
+    }
+    case TraceType.STACKED:
+    case TraceType.DODGED:
+    case TraceType.NORMALIZED: {
+      data = extractSegmentedData(rows, encoding);
+      selectors = buildSelector(mark, index, layered);
+      break;
+    }
     case TraceType.LINE: {
       const lineData = extractLineData(rows, encoding);
       data = lineData;
-      // Line traces expect selectors as string[] (one per series).
-      selectors = buildLineSelectors(lineData.length, index, layered);
+      // Line/area traces expect selectors as string[] (one per series).
+      selectors = buildLineSelectors(mark, lineData.length, index, layered);
       break;
     }
     case TraceType.SCATTER:
@@ -552,12 +656,13 @@ function convertLayerSpec(
 function buildConcatMaidr(
   id: string,
   title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
   specs: VegaLiteSpec[],
   direction: 'horizontal' | 'vertical' | 'wrap',
   view?: VegaView,
 ): Maidr {
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
-    // Handle child specs that are themselves layered.
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) =>
         convertLayerSpec(layerSpec, j, view, childSpec.encoding, true),
@@ -569,7 +674,7 @@ function buildConcatMaidr(
   });
 
   // vconcat produces one subplot per row (column layout).
-  // hconcat produces all subplots in a single row (row layout).
+  // hconcat produces all subplots in a single row.
   let subplots: MaidrSubplot[][];
   if (direction === 'vertical') {
     subplots = subplotEntries.map(s => [s]);
@@ -577,5 +682,5 @@ function buildConcatMaidr(
     subplots = [subplotEntries];
   }
 
-  return { id, title, subplots };
+  return buildMaidr(id, title, subtitle, caption, subplots);
 }

@@ -17,14 +17,10 @@
  * @packageDocumentation
  */
 
-import type { JSX } from 'react';
 import type { VegaLiteSpec, VegaLiteToMaidrOptions, VegaView } from './binder/vegalite';
 import type { Maidr } from './type/grammar';
-import { useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
 import { vegaLiteToMaidr } from './binder/vegalite';
-import { Maidr as MaidrComponent } from './maidr-component';
-import { Constant } from './util/constant';
+import { initMaidrOnElement } from './util/initMaidr';
 
 export {
   type VegaLiteSpec,
@@ -33,27 +29,6 @@ export {
   type VegaView,
 } from './binder/vegalite';
 export type { Maidr as MaidrData } from './type/grammar';
-
-/**
- * Adopt an existing DOM node into the React tree (same pattern as the
- * script-tag entry point).
- */
-function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
-  const ref = useCallback(
-    (container: HTMLDivElement | null) => {
-      if (container) {
-        if (!container.contains(node)) {
-          container.appendChild(node);
-        }
-      } else {
-        node.parentNode?.removeChild(node);
-      }
-    },
-    [node],
-  );
-
-  return <div ref={ref} style={{ display: 'contents' }} />;
-}
 
 /**
  * Initialize MAIDR on a Vega-Lite chart.
@@ -87,33 +62,12 @@ export function bindVegaLite(
   }
 
   // Derive an id from the container or the options.
+  // Use || for container.id since empty string is falsy but not nullish.
   const id = options?.id
-    ?? container.id
-    ?? `vl-${Date.now()}`;
+    || container.id
+    || `vl-${Date.now()}`;
 
   const maidr: Maidr = vegaLiteToMaidr(spec, view, { ...options, id });
 
   initMaidrOnElement(maidr, svg as unknown as HTMLElement);
-}
-
-/**
- * Low-level initialization: renders the `<Maidr>` component around the
- * provided plot element (same as the core script-tag entry).
- */
-function initMaidrOnElement(maidr: Maidr, plot: HTMLElement): void {
-  if (!plot.parentNode) {
-    console.error('[maidr/vegalite] Plot element has no parent node.');
-    return;
-  }
-
-  const wrapper = document.createElement(Constant.DIV);
-  wrapper.style.display = 'contents';
-  plot.parentNode.replaceChild(wrapper, plot);
-
-  const root = createRoot(wrapper, { identifierPrefix: maidr.id });
-  root.render(
-    <MaidrComponent data={maidr}>
-      <DomNodeAdapter node={plot} />
-    </MaidrComponent>,
-  );
 }

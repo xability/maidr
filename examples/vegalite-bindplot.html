@@ -7,12 +7,12 @@
     <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-    <!-- MAIDR core (must load before vegalite adapter) -->
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
     <script src="../dist/vegalite.js"></script>
     <style>
       body {
         font-family: system-ui, sans-serif;
-        max-width: 800px;
+        max-width: 900px;
         margin: 2rem auto;
         padding: 0 1rem;
       }
@@ -38,13 +38,30 @@
     <h2>Bar Chart</h2>
     <div id="bar-chart" class="chart-container"></div>
 
+    <h2>Stacked Bar Chart</h2>
+    <div id="stacked-bar-chart" class="chart-container"></div>
+
+    <h2>Histogram</h2>
+    <div id="histogram-chart" class="chart-container"></div>
+
     <h2>Line Chart</h2>
     <div id="line-chart" class="chart-container"></div>
 
     <h2>Scatter Plot</h2>
     <div id="scatter-chart" class="chart-container"></div>
 
+    <h2>Heatmap</h2>
+    <div id="heatmap-chart" class="chart-container"></div>
+
+    <h2>Box Plot</h2>
+    <div id="box-chart" class="chart-container"></div>
+
+    <h2>Tick Plot (Dot Strip)</h2>
+    <div id="tick-chart" class="chart-container"></div>
+
     <script>
+      const opts = { actions: false };
+
       // ---- Bar Chart ----
       const barSpec = {
         $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -61,6 +78,48 @@
         encoding: {
           x: { field: 'day', type: 'nominal', title: 'Day' },
           y: { field: 'count', type: 'quantitative', title: 'Count' },
+        },
+      };
+
+      // ---- Stacked Bar Chart ----
+      const stackedBarSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Passengers by Class and Survival',
+        data: {
+          values: [
+            { class: 'First', survived: 'No', count: 80 },
+            { class: 'First', survived: 'Yes', count: 136 },
+            { class: 'Second', survived: 'No', count: 97 },
+            { class: 'Second', survived: 'Yes', count: 87 },
+            { class: 'Third', survived: 'No', count: 372 },
+            { class: 'Third', survived: 'Yes', count: 119 },
+          ],
+        },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'class', type: 'nominal', title: 'Class' },
+          y: {
+            field: 'count',
+            type: 'quantitative',
+            title: 'Passengers',
+          },
+          color: { field: 'survived', type: 'nominal', title: 'Survived' },
+        },
+      };
+
+      // ---- Histogram ----
+      const histogramSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Distribution of Values',
+        data: {
+          values: Array.from({ length: 100 }, () => ({
+            value: Math.round(Math.random() * 100),
+          })),
+        },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'value', type: 'quantitative', bin: true, title: 'Value' },
+          y: { aggregate: 'count', title: 'Frequency' },
         },
       };
 
@@ -87,7 +146,11 @@
         mark: 'line',
         encoding: {
           x: { field: 'month', type: 'ordinal', title: 'Month' },
-          y: { field: 'temp', type: 'quantitative', title: 'Temperature (F)' },
+          y: {
+            field: 'temp',
+            type: 'quantitative',
+            title: 'Temperature (F)',
+          },
         },
       };
 
@@ -116,11 +179,7 @@
         },
         mark: 'point',
         encoding: {
-          x: {
-            field: 'hp',
-            type: 'quantitative',
-            title: 'Horsepower',
-          },
+          x: { field: 'hp', type: 'quantitative', title: 'Horsepower' },
           y: {
             field: 'mpg',
             type: 'quantitative',
@@ -129,13 +188,113 @@
         },
       };
 
-      // Render & bind
-      async function init() {
-        const opts = { actions: false };
+      // ---- Heatmap ----
+      const heatmapSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Weekly Activity Heatmap',
+        data: {
+          values: [
+            { day: 'Mon', hour: 'Morning', value: 5 },
+            { day: 'Mon', hour: 'Afternoon', value: 8 },
+            { day: 'Mon', hour: 'Evening', value: 3 },
+            { day: 'Tue', hour: 'Morning', value: 7 },
+            { day: 'Tue', hour: 'Afternoon', value: 6 },
+            { day: 'Tue', hour: 'Evening', value: 4 },
+            { day: 'Wed', hour: 'Morning', value: 9 },
+            { day: 'Wed', hour: 'Afternoon', value: 5 },
+            { day: 'Wed', hour: 'Evening', value: 7 },
+          ],
+        },
+        mark: 'rect',
+        encoding: {
+          x: { field: 'day', type: 'ordinal', title: 'Day' },
+          y: { field: 'hour', type: 'ordinal', title: 'Time of Day' },
+          color: {
+            field: 'value',
+            type: 'quantitative',
+            title: 'Activity Level',
+          },
+        },
+      };
 
+      // ---- Box Plot ----
+      const boxSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Score Distribution by Group',
+        description: 'Box plot showing score distributions.',
+        data: {
+          values: [
+            ...Array.from({ length: 30 }, () => ({
+              group: 'A',
+              score: 50 + Math.round(Math.random() * 40),
+            })),
+            ...Array.from({ length: 30 }, () => ({
+              group: 'B',
+              score: 60 + Math.round(Math.random() * 30),
+            })),
+            ...Array.from({ length: 30 }, () => ({
+              group: 'C',
+              score: 40 + Math.round(Math.random() * 50),
+            })),
+          ],
+        },
+        mark: 'boxplot',
+        encoding: {
+          x: { field: 'group', type: 'nominal', title: 'Group' },
+          y: { field: 'score', type: 'quantitative', title: 'Score' },
+        },
+      };
+
+      // ---- Tick Plot ----
+      const tickSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Precipitation Distribution',
+        data: {
+          values: [
+            { precip: 0.0 },
+            { precip: 0.1 },
+            { precip: 0.3 },
+            { precip: 0.5 },
+            { precip: 0.8 },
+            { precip: 1.2 },
+            { precip: 1.8 },
+            { precip: 2.5 },
+            { precip: 3.1 },
+            { precip: 4.0 },
+          ],
+        },
+        mark: 'tick',
+        encoding: {
+          x: {
+            field: 'precip',
+            type: 'quantitative',
+            title: 'Precipitation (inches)',
+          },
+        },
+      };
+
+      async function init() {
         const barResult = await vegaEmbed('#bar-chart', barSpec, opts);
         maidrVegaLite.bindVegaLite(barResult.view, barSpec, {
           id: 'tips-bar',
+        });
+
+        const stackedResult = await vegaEmbed(
+          '#stacked-bar-chart',
+          stackedBarSpec,
+          opts,
+        );
+        maidrVegaLite.bindVegaLite(stackedResult.view, stackedBarSpec, {
+          id: 'titanic-stacked',
+        });
+
+        const histResult = await vegaEmbed(
+          '#histogram-chart',
+          histogramSpec,
+          opts,
+        );
+        maidrVegaLite.bindVegaLite(histResult.view, histogramSpec, {
+          id: 'dist-hist',
         });
 
         const lineResult = await vegaEmbed('#line-chart', lineSpec, opts);
@@ -150,6 +309,25 @@
         );
         maidrVegaLite.bindVegaLite(scatterResult.view, scatterSpec, {
           id: 'cars-scatter',
+        });
+
+        const heatmapResult = await vegaEmbed(
+          '#heatmap-chart',
+          heatmapSpec,
+          opts,
+        );
+        maidrVegaLite.bindVegaLite(heatmapResult.view, heatmapSpec, {
+          id: 'activity-heatmap',
+        });
+
+        const boxResult = await vegaEmbed('#box-chart', boxSpec, opts);
+        maidrVegaLite.bindVegaLite(boxResult.view, boxSpec, {
+          id: 'scores-box',
+        });
+
+        const tickResult = await vegaEmbed('#tick-chart', tickSpec, opts);
+        maidrVegaLite.bindVegaLite(tickResult.view, tickSpec, {
+          id: 'precip-tick',
         });
       }
 
