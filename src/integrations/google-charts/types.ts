@@ -60,4 +60,11 @@ export type GoogleChartType
     | 'ScatterChart'
     | 'Histogram'
     | 'CandlestickChart'
-    | 'ComboChart';
+    | 'ComboChart'
+    | 'StackedColumnChart'
+    | 'StackedBarChart'
+    | 'NormalizedColumnChart'
+    | 'NormalizedBarChart'
+    | 'DodgedColumnChart'
+    | 'DodgedBarChart'
+    | 'Heatmap';

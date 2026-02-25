@@ -11,12 +11,14 @@ import type {
   BarPoint,
   CandlestickPoint,
   CandlestickTrend,
+  HeatmapData,
   HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
   ScatterPoint,
+  SegmentedPoint,
 } from '../../type/grammar';
 import type { GoogleChart, GoogleChartType, GoogleDataTable } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -36,6 +38,10 @@ export interface GoogleChartAdapterOptions {
   /**
    * The Google Charts chart type string (e.g. `'BarChart'`, `'LineChart'`).
    * Must be provided because the chart instance does not expose its own type.
+   *
+   * For stacked, normalized, or grouped (dodged) variants of bar / column
+   * charts, use the explicit adapter type strings such as
+   * `'StackedColumnChart'`, `'NormalizedBarChart'`, or `'DodgedColumnChart'`.
    */
   chartType: GoogleChartType;
 }
@@ -124,11 +130,27 @@ function buildLayer(
     case 'ComboChart':
       // Combo charts default to bar representation for the primary series.
       return buildBarLayer(dt, container, Orientation.VERTICAL);
+    case 'StackedColumnChart':
+      return buildSegmentedLayer(dt, container, Orientation.VERTICAL, TraceType.STACKED);
+    case 'StackedBarChart':
+      return buildSegmentedLayer(dt, container, Orientation.HORIZONTAL, TraceType.STACKED);
+    case 'NormalizedColumnChart':
+      return buildSegmentedLayer(dt, container, Orientation.VERTICAL, TraceType.NORMALIZED);
+    case 'NormalizedBarChart':
+      return buildSegmentedLayer(dt, container, Orientation.HORIZONTAL, TraceType.NORMALIZED);
+    case 'DodgedColumnChart':
+      return buildSegmentedLayer(dt, container, Orientation.VERTICAL, TraceType.DODGED);
+    case 'DodgedBarChart':
+      return buildSegmentedLayer(dt, container, Orientation.HORIZONTAL, TraceType.DODGED);
+    case 'Heatmap':
+      return buildHeatmapLayer(dt, container);
     default:
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
-        + 'Supported types: AreaChart, BarChart, ColumnChart, LineChart, '
-        + 'ScatterChart, Histogram, CandlestickChart, ComboChart.',
+        + 'Supported types: AreaChart, BarChart, CandlestickChart, ColumnChart, '
+        + 'ComboChart, DodgedBarChart, DodgedColumnChart, Heatmap, Histogram, '
+        + 'LineChart, NormalizedBarChart, NormalizedColumnChart, ScatterChart, '
+        + 'StackedBarChart, StackedColumnChart.',
       );
   }
 }
@@ -156,6 +178,52 @@ function buildBarLayer(
   return {
     id: '0',
     type: TraceType.BAR,
+    orientation,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: dt.getColumnLabel(0) || undefined,
+      y: dt.getColumnLabel(1) || undefined,
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Segmented bars (stacked, dodged / grouped, normalized)
+// ---------------------------------------------------------------------------
+
+function buildSegmentedLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  orientation: Orientation,
+  traceType: TraceType.STACKED | TraceType.DODGED | TraceType.NORMALIZED,
+): MaidrLayer {
+  const cols = dt.getNumberOfColumns();
+  const rows = dt.getNumberOfRows();
+
+  // Each data column (1 .. cols-1) represents a group/fill level.
+  // The result is an array-of-arrays: one inner array per group/fill.
+  const data: SegmentedPoint[][] = [];
+
+  for (let c = 1; c < cols; c++) {
+    if (isRoleColumn(dt, c))
+      continue;
+    const series: SegmentedPoint[] = [];
+    const fillLabel = dt.getColumnLabel(c) || `Series ${c}`;
+
+    for (let r = 0; r < rows; r++) {
+      const label = String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0));
+      const value = Number(dt.getValue(r, c)) || 0;
+      series.push({ x: label, y: value, fill: fillLabel });
+    }
+    data.push(series);
+  }
+
+  const selector = buildSelector(container, 'rect');
+
+  return {
+    id: '0',
+    type: traceType,
     orientation,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -325,6 +393,69 @@ function buildCandlestickLayer(
     axes: {
       x: dt.getColumnLabel(0) || undefined,
       y: 'Price',
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Heatmap
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a heatmap layer from a DataTable.
+ *
+ * The expected DataTable layout is:
+ * - Column 0: row labels (string)
+ * - Columns 1…N: numeric values, where each column label becomes an x-axis label.
+ *
+ * Example DataTable for a 3×4 heatmap:
+ * ```
+ *  ['',     'Mon', 'Tue', 'Wed', 'Thu']
+ *  ['AM',    2,     5,     3,     7  ]
+ *  ['PM',    8,     1,     4,     6  ]
+ *  ['Night', 3,     9,     2,     5  ]
+ * ```
+ */
+function buildHeatmapLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const cols = dt.getNumberOfColumns();
+  const rows = dt.getNumberOfRows();
+
+  const xLabels: string[] = [];
+  for (let c = 1; c < cols; c++) {
+    if (isRoleColumn(dt, c))
+      continue;
+    xLabels.push(dt.getColumnLabel(c) || `Col ${c}`);
+  }
+
+  const yLabels: string[] = [];
+  const points: number[][] = [];
+
+  for (let r = 0; r < rows; r++) {
+    yLabels.push(String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0)));
+    const row: number[] = [];
+    for (let c = 1; c < cols; c++) {
+      if (isRoleColumn(dt, c))
+        continue;
+      row.push(Number(dt.getValue(r, c)) || 0);
+    }
+    points.push(row);
+  }
+
+  const data: HeatmapData = { x: xLabels, y: yLabels, points };
+
+  const selector = buildSelector(container, 'rect');
+
+  return {
+    id: '0',
+    type: TraceType.HEATMAP,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: dt.getColumnLabel(0) || undefined,
+      y: 'Value',
     },
     data,
   };
