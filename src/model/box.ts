@@ -341,28 +341,17 @@ export class BoxTrace extends AbstractTrace {
 
       if (this.isSinglePathBox(original)) {
         // Plotly-style single-path box: create data-driven overlay elements
-        const referenceElement = original.iq ?? original.min ?? original.max ?? original.q2;
-        if (referenceElement) {
-          // Use original (unreversed) data to match selector order
-          const point = (this.layer.data as BoxPoint[])[boxIdx];
-          sections = this.createDataDrivenOverlays(
-            referenceElement,
-            point,
-            isVertical,
-            lowerOutliers,
-            upperOutliers,
-          );
-        } else {
-          sections = [
-            lowerOutliers,
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-            upperOutliers,
-          ];
-        }
+        // isSinglePathBox guarantees at least 2 non-null elements pointing to the same node
+        const referenceElement = (original.iq ?? original.min ?? original.max ?? original.q2)!;
+        // Use original (unreversed) data to match selector order
+        const point = (this.layer.data as BoxPoint[])[boxIdx];
+        sections = this.createDataDrivenOverlays(
+          referenceElement,
+          point,
+          isVertical,
+          lowerOutliers,
+          upperOutliers,
+        );
       } else {
         // Standard multi-element box (e.g., matplotlib): clone individual elements
         const min = this.cloneElementOrEmpty(original.min);
@@ -442,6 +431,12 @@ export class BoxTrace extends AbstractTrace {
       (el): el is SVGElement => el !== null,
     );
     if (elements.length <= 1) {
+      if (elements.length === 1) {
+        console.warn(
+          '[BoxTrace] Only one non-outlier selector resolved to a DOM element. '
+          + 'Check that all box plot selectors (min, max, iq, q2) are correct.',
+        );
+      }
       return false;
     }
     return elements.every(el => el === elements[0]);
@@ -450,6 +445,12 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Creates synthetic SVG line overlays positioned using data values for single-path box plots.
    * Maps data coordinates to SVG coordinates using the reference element's bounding box.
+   *
+   * Assumption: The bounding box of the single-path element spans exactly from the data min
+   * to the data max. This holds for Plotly-generated box plots where the path includes whisker
+   * endpoints as the outermost drawn coordinates. If the path has padding or decorative elements
+   * beyond the whiskers, overlay positions may be slightly offset.
+   *
    * @param referenceElement - The single path element encompassing the entire box
    * @param point - The box plot data point with statistical values
    * @param isVertical - Whether this is a vertical box plot
