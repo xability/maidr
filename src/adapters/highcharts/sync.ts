@@ -6,6 +6,12 @@
  * This provides bidirectional visual feedback: the sonification and text
  * descriptions from MAIDR are reinforced by the visual cue in the chart.
  *
+ * ## Integration with MAIDR
+ *
+ * MAIDR fires `aria-live` region updates and highlights SVG elements when the
+ * user navigates. To keep the Highcharts tooltip in sync, listen for MAIDR's
+ * highlight changes on the chart container:
+ *
  * @example
  * ```ts
  * import Highcharts from 'highcharts';
@@ -15,9 +21,32 @@
  * const maidrData = highchartsToMaidr(chart);
  * const sync = createHighchartsSync(chart);
  *
- * // Attach to a MutationObserver or MAIDR's navigation events.
- * // When MAIDR navigates to point index `i`, call:
- * sync.highlightPoint(0, i);
+ * // Option 1: Observe MAIDR's SVG visibility changes via MutationObserver.
+ * // MAIDR toggles `visibility` on cloned SVG elements when navigating.
+ * const svgRoot = chart.container.querySelector('svg');
+ * if (svgRoot) {
+ *   const observer = new MutationObserver((mutations) => {
+ *     for (const m of mutations) {
+ *       if (m.attributeName === 'visibility') {
+ *         const el = m.target as SVGElement;
+ *         if (el.getAttribute('visibility') === 'visible') {
+ *           // Find the point index from the element's position among siblings.
+ *           const parent = el.parentElement;
+ *           if (parent) {
+ *             const siblings = Array.from(parent.children);
+ *             const idx = Math.floor(siblings.indexOf(el) / 2); // cloned pairs
+ *             sync.highlightPoint(0, idx);
+ *           }
+ *         }
+ *       }
+ *     }
+ *   });
+ *   observer.observe(svgRoot, { attributes: true, subtree: true });
+ * }
+ *
+ * // Option 2: If using the React <Maidr> component, use an effect that
+ * // watches the MAIDR Redux state for navigation changes and calls
+ * // sync.highlightPoint() accordingly.
  *
  * // Clean up when done:
  * sync.dispose();

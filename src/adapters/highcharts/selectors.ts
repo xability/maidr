@@ -15,6 +15,13 @@ import type { HighchartsChart } from './types';
 let selectorCounter = 0;
 
 /**
+ * Resets the internal selector counter. Useful for deterministic output in tests.
+ */
+export function resetSelectorCounter(): void {
+  selectorCounter = 0;
+}
+
+/**
  * Ensures the chart's render target has an `id` attribute so CSS selectors
  * can be scoped to this specific chart.
  *
@@ -76,4 +83,33 @@ export function heatmapSelector(containerId: string, seriesIndex: number): strin
  */
 export function histogramSelector(containerId: string, seriesIndex: number): string {
   return `#${containerId} .highcharts-series-${seriesIndex} rect.highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for candlestick group elements.
+ *
+ * Each candlestick is a `g.highcharts-point` containing body and wick paths.
+ */
+export function candlestickSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-${seriesIndex} g.highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for boxplot group elements.
+ *
+ * Each boxplot is a `g.highcharts-point` containing box, median, and whisker paths.
+ */
+export function boxplotSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-${seriesIndex} g.highcharts-point`;
+}
+
+/**
+ * Generates CSS selectors for smooth/spline series using the graph path.
+ *
+ * Smooth curves use the same selector pattern as line charts — one path per series.
+ */
+export function smoothSelectors(containerId: string, seriesIndices: number[]): string[] {
+  return seriesIndices.map(
+    i => `#${containerId} .highcharts-series-${i} path.highcharts-graph`,
+  );
 }

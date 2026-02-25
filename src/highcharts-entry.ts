@@ -30,8 +30,11 @@
  * @packageDocumentation
  */
 export {
+  convertSmoothSeries,
   createHighchartsSync,
   highchartsToMaidr,
+  resetChartCounter,
+  resetSelectorCounter,
 } from './adapters/highcharts/index';
 export type {
   HighchartsAdapterOptions,

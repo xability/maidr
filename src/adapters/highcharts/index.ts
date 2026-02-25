@@ -7,8 +7,9 @@
  * @packageDocumentation
  */
 
-export { highchartsToMaidr } from './adapter';
+export { convertSmoothSeries, highchartsToMaidr, resetChartCounter } from './adapter';
 export type { HighchartsAdapterOptions } from './adapter';
+export { resetSelectorCounter } from './selectors';
 export { createHighchartsSync } from './sync';
 export type { HighchartsSync } from './sync';
 export type {

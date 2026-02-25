@@ -23,6 +23,11 @@ export interface HighchartsChart {
   renderTo: HTMLElement;
   options: {
     chart?: { type?: string; inverted?: boolean };
+    plotOptions?: {
+      series?: { stacking?: string };
+      column?: { stacking?: string };
+      bar?: { stacking?: string };
+    };
   };
   tooltip?: {
     refresh: (point: HighchartsPoint | HighchartsPoint[]) => void;
@@ -43,6 +48,7 @@ export interface HighchartsSeries {
   visible: boolean;
   options: {
     type?: string;
+    stacking?: string;
   };
 }
 
@@ -68,6 +74,8 @@ export interface HighchartsPoint {
   open?: number;
   /** Candlestick close value. */
   close?: number;
+  /** Percentage of total when stacking is 'percent'. */
+  percentage?: number;
   options?: Record<string, unknown>;
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
