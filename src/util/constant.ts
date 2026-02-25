@@ -88,8 +88,12 @@ export abstract class Constant {
   // Attribute values.
   /** DOM insertion position after the element */
   static readonly AFTER_END = 'afterend';
-  /** ARIA application role value */
-  static readonly APPLICATION = 'application';
+  /** ARIA graphics-document role value for interactive SVG charts (WAI-ARIA Graphics Module) */
+  static readonly GRAPHICS_DOCUMENT = 'graphics-document';
+  /** ARIA roledescription attribute name */
+  static readonly ARIA_ROLEDESCRIPTION = 'aria-roledescription';
+  /** Custom role description announced by screen readers for interactive charts */
+  static readonly INTERACTIVE_CHART = 'interactive chart';
   /** Text string for 'are' with spaces */
   static readonly ARE = ' are ';
   /** SVG circle element tag name */

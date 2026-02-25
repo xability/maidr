@@ -101,30 +101,40 @@ export class DisplayService implements Disposable {
 
   /**
    * Adds instruction ARIA labels to the plot element.
+   * Restores the plot to a passive image role for screen reader graphics navigation.
    */
   private addInstruction(): void {
     this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
     this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
+    this.plot.removeAttribute(Constant.ARIA_ROLEDESCRIPTION);
     this.plot.tabIndex = 0;
   }
 
   /**
    * Removes or updates instruction ARIA labels when entering interactive mode.
+   *
+   * Uses {@link Constant.GRAPHICS_DOCUMENT role="graphics-document"} from the
+   * WAI-ARIA Graphics Module (https://www.w3.org/TR/graphics-aria-1.0/) to preserve
+   * screen reader quick-navigation (e.g. "g" key in NVDA, VO+Cmd+G in VoiceOver)
+   * while indicating this is an interactive graphical document.
+   *
+   * AT compatibility notes (tested roles, not exhaustive):
+   * - VoiceOver (macOS/iOS): good support for graphics-document
+   * - NVDA + Firefox/Chrome: support varies by version; verify after updates
+   * - JAWS + Chrome/Edge: support varies by version; verify after updates
    */
   private removeInstruction(): void {
     const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
     if (instruction) {
       this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
-      this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      this.plot.tabIndex = 0;
     } else {
       this.plot.removeAttribute(Constant.ARIA_LABEL);
-      this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      this.plot.tabIndex = 0;
     }
+    this.plot.removeAttribute(Constant.TITLE);
+    this.plot.setAttribute(Constant.ROLE, Constant.GRAPHICS_DOCUMENT);
+    this.plot.setAttribute(Constant.ARIA_ROLEDESCRIPTION, Constant.INTERACTIVE_CHART);
+    this.plot.tabIndex = 0;
   }
 
   /**
@@ -208,7 +218,8 @@ export class DisplayService implements Disposable {
           this.plot.removeAttribute(Constant.ARIA_LABEL);
         }
 
-        this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+        this.plot.setAttribute(Constant.ROLE, Constant.GRAPHICS_DOCUMENT);
+        this.plot.setAttribute(Constant.ARIA_ROLEDESCRIPTION, Constant.INTERACTIVE_CHART);
         this.plot.focus();
         if (!this.hasEnteredInteractive) {
           this.hasEnteredInteractive = true;
