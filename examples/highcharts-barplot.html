@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Highcharts Example</title>
+    <!-- Highcharts from CDN -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Highcharts Integration Example</h1>
+    <p>
+      This example demonstrates how to use the MAIDR Highcharts adapter to make
+      a Highcharts column chart accessible via audio sonification, text
+      descriptions, braille output, and keyboard navigation.
+    </p>
+    <p>
+      Click on the chart and use arrow keys to navigate data points.
+    </p>
+    <div id="chart-container" style="width: 720px; height: 432px"></div>
+
+    <!--
+      Load order matters: Highcharts renders the chart first, then the adapter
+      generates maidr-data, and finally MAIDR's script discovers and initializes it.
+    -->
+    <script type="module">
+      import { highchartsToMaidr, createHighchartsSync } from '../dist/highcharts.mjs';
+
+      // 1. Render a Highcharts chart.
+      const chart = Highcharts.chart('chart-container', {
+        chart: { type: 'column' },
+        title: { text: 'Fruit Consumption' },
+        xAxis: {
+          categories: ['Apples', 'Bananas', 'Oranges', 'Grapes', 'Strawberries'],
+          title: { text: 'Fruit' },
+        },
+        yAxis: { title: { text: 'Quantity Consumed' } },
+        series: [
+          {
+            name: 'Sales',
+            data: [120, 200, 150, 80, 170],
+          },
+        ],
+      });
+
+      // 2. Convert to MAIDR data.
+      const maidrData = highchartsToMaidr(chart, {
+        id: 'chart-container',
+        title: 'Fruit Consumption',
+      });
+
+      // 3. Attach maidr-data attribute so the MAIDR script-tag build discovers it.
+      const container = document.getElementById('chart-container');
+      container.setAttribute('maidr-data', JSON.stringify(maidrData));
+
+      // 4. Optional: create visual sync for tooltip + point highlighting.
+      const sync = createHighchartsSync(chart);
+
+      // 5. Load MAIDR *after* the attribute is set so it discovers the chart.
+      const script = document.createElement('script');
+      script.src = '../dist/maidr.js';
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
