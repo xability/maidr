@@ -3,7 +3,8 @@
  *
  * Provides the `<Maidr>` component for adding accessible, non-visual access to
  * statistical visualizations in React applications. Supports audio sonification,
- * text descriptions, braille output, and keyboard navigation.
+ * text descriptions, braille output, keyboard navigation, and realtime data
+ * updates via the `MaidrRef` imperative handle.
  *
  * @remarks
  * Requires React 18 or 19 as a peer dependency.
@@ -39,7 +40,7 @@
  *
  * @packageDocumentation
  */
-export { Maidr, type MaidrProps } from './maidr-component';
+export { Maidr, type MaidrProps, type MaidrRef } from './maidr-component';
 
 /**
  * Re-exported types for constructing the MAIDR data prop.

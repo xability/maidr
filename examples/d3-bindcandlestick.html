@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Candlestick Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Candlestick Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample OHLC data
+      const data = [
+        { date: 'Jan 1', open: 100, high: 115, low: 95, close: 110, volume: 50000 },
+        { date: 'Jan 2', open: 110, high: 120, low: 105, close: 108, volume: 45000 },
+        { date: 'Jan 3', open: 108, high: 125, low: 100, close: 122, volume: 60000 },
+        { date: 'Jan 4', open: 122, high: 130, low: 118, close: 119, volume: 40000 },
+        { date: 'Jan 5', open: 119, high: 128, low: 112, close: 125, volume: 55000 },
+        { date: 'Jan 6', open: 125, high: 135, low: 120, close: 130, volume: 70000 },
+        { date: 'Jan 7', open: 130, high: 132, low: 115, close: 118, volume: 48000 },
+      ];
+
+      const margin = { top: 40, right: 20, bottom: 50, left: 60 };
+      const width = 600 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-candlestick-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const x = d3.scaleBand().domain(data.map(d => d.date)).range([0, width]).padding(0.3);
+      const y = d3.scaleLinear().domain([d3.min(data, d => d.low) - 5, d3.max(data, d => d.high) + 5]).range([height, 0]);
+
+      // Draw candles
+      const candles = svg.selectAll('g.candle')
+        .data(data)
+        .join('g')
+        .attr('class', 'candle');
+
+      // Wick (high-low line)
+      candles.append('line')
+        .attr('x1', d => x(d.date) + x.bandwidth() / 2)
+        .attr('x2', d => x(d.date) + x.bandwidth() / 2)
+        .attr('y1', d => y(d.high))
+        .attr('y2', d => y(d.low))
+        .attr('stroke', 'black');
+
+      // Body (open-close rect)
+      candles.append('rect')
+        .attr('x', d => x(d.date))
+        .attr('y', d => y(Math.max(d.open, d.close)))
+        .attr('width', x.bandwidth())
+        .attr('height', d => Math.abs(y(d.open) - y(d.close)))
+        .attr('fill', d => d.close >= d.open ? '#4caf50' : '#f44336');
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').style('font-size', '16px').text('Stock Price');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-candlestick-chart');
+      const result = maidrD3.bindD3Candlestick(svgElement, {
+        selector: 'g.candle',
+        title: 'Stock Price',
+        axes: { x: 'Date', y: 'Price ($)' },
+        value: 'date',
+        open: 'open',
+        high: 'high',
+        low: 'low',
+        close: 'close',
+        volume: 'volume',
+      });
+      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+    </script>
+  </body>
+</html>

@@ -1,16 +1,40 @@
 import type { JSX } from 'react';
+import type { MaidrRef } from './maidr-component';
 import type { Maidr } from './type/grammar';
-import { useCallback } from 'react';
+import { createRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from './maidr-component';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
 
+/**
+ * Global registry of MAIDR plot handles, keyed by plot ID.
+ *
+ * Script-tag consumers can use `maidrPlots.get(id)` to obtain a
+ * {@link MaidrRef} handle for programmatic data updates.
+ *
+ * @example
+ * ```js
+ * // After MAIDR has initialized a plot with id "my-chart":
+ * const handle = maidrPlots.get('my-chart');
+ * handle?.setData(newMaidrJson);
+ * ```
+ */
+export const maidrPlots = new Map<string, MaidrRef>();
+
 declare global {
   interface Window {
     maidr?: Maidr;
+    /**
+     * Global registry of initialized MAIDR plot handles.
+     * Available when using the script-tag entry point.
+     */
+    maidrPlots?: Map<string, MaidrRef>;
   }
 }
+
+// Expose the registry on window for script-tag consumers.
+window.maidrPlots = maidrPlots;
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
@@ -112,6 +136,10 @@ function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
  * React component. The existing plot element is adopted into React's tree
  * via {@link DomNodeAdapter}, giving both script-tag and React consumers
  * the same single code path.
+ *
+ * The returned {@link MaidrRef} handle is also registered in the global
+ * {@link maidrPlots} map so that script-tag consumers can access it via
+ * `window.maidrPlots.get(maidr.id)`.
  */
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   // Create a transparent container for the React root.
@@ -120,10 +148,23 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   container.style.display = 'contents';
   plot.parentNode!.replaceChild(container, plot);
 
+  // Create a ref to capture the imperative handle from the <Maidr> component.
+  const maidrRef = createRef<MaidrRef>();
+
   const root = createRoot(container, { identifierPrefix: maidr.id });
   root.render(
-    <MaidrComponent data={maidr}>
+    <MaidrComponent ref={maidrRef} data={maidr}>
       <DomNodeAdapter node={plot} />
     </MaidrComponent>,
   );
+
+  // Register a proxy handle in the global registry. The proxy delegates to the
+  // ref once React has committed the render (the ref is null during the first
+  // synchronous render pass but populated immediately after commit).
+  const handle: MaidrRef = {
+    setData(newData) {
+      maidrRef.current?.setData(newData);
+    },
+  };
+  maidrPlots.set(maidr.id, handle);
 }
