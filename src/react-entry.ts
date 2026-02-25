@@ -45,7 +45,7 @@ export { Maidr, type MaidrProps } from './maidr-component';
  * Re-exported types for constructing the MAIDR data prop.
  * `MaidrData` is the root type passed to `<Maidr data={...}>`.
  */
-export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from './type/grammar';
+export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot, NavigateCallback } from './type/grammar';
 
 /**
  * Re-exported enums for specifying plot trace types and orientations.

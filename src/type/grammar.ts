@@ -123,6 +123,17 @@ export interface FormatConfig {
  * };
  * ```
  */
+/**
+ * Callback invoked when the active data point changes during navigation.
+ * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+ *
+ * @param info - Object containing the current navigation position
+ * @param info.layerId - The ID of the active layer/trace
+ * @param info.row - The current row index (e.g., dataset index)
+ * @param info.col - The current column index (e.g., data point index)
+ */
+export type NavigateCallback = (info: { layerId: string; row: number; col: number }) => void;
+
 export interface Maidr {
   /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
@@ -137,6 +148,15 @@ export interface Maidr {
    * For a single chart, use `[[{ layers: [...] }]]`.
    */
   subplots: MaidrSubplot[][];
+  /**
+   * Optional callback invoked when the active data point changes.
+   * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,
+   * since canvas elements cannot be targeted with CSS selectors.
+   *
+   * This field is not serializable as JSON; it is only available when constructing
+   * MAIDR data programmatically (e.g., via the Chart.js plugin or React API).
+   */
+  onNavigate?: NavigateCallback;
 }
 
 /**
