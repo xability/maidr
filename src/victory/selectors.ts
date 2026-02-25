@@ -7,26 +7,6 @@ import type { VictoryLayerInfo } from './types';
 const ATTR_PREFIX = 'data-maidr-victory';
 
 /**
- * Maps a Victory component type to the SVG element tag name it renders
- * for each data point.
- *
- * Victory's default data components produce:
- * - VictoryBar  → `<rect>`  (one per bar)
- * - VictoryLine → `<path>`  (one path for the whole line, handled separately)
- * - VictoryArea → `<path>`  (similar to line)
- * - VictoryScatter → `<path>` (one per point, symbol shapes)
- * - VictoryPie  → `<path>`  (one slice per data point)
- */
-function svgTagForVictoryType(victoryType: string): string {
-  switch (victoryType) {
-    case 'VictoryBar':
-      return 'rect';
-    default:
-      return 'path';
-  }
-}
-
-/**
  * Finds the Victory data elements inside a container for a given layer,
  * tags them with a unique data attribute, and returns the CSS selector
  * that matches exactly those elements.
@@ -57,25 +37,32 @@ export function tagLayerElements(
   const svg = container.querySelector('svg');
   if (!svg) return undefined;
 
-  const tag = svgTagForVictoryType(layer.victoryType);
   const attrName = `${ATTR_PREFIX}-${layerIndex}`;
+  const { victoryType } = layer;
 
-  // For line and area charts, the entire line/area is a single <path>.
-  // MAIDR's line trace handles highlighting by parsing the path's `d`
-  // attribute to extract individual point coordinates, so we need the
-  // selector to match the line path element.
-  if (layer.victoryType === 'VictoryLine' || layer.victoryType === 'VictoryArea') {
+  // Line and area charts: single <path> representing the full series
+  if (victoryType === 'VictoryLine' || victoryType === 'VictoryArea') {
     return tagLineOrAreaElements(svg, layer, attrName, claimed);
   }
 
-  // For discrete-element charts (bar, scatter, pie), each data point
-  // has its own SVG element.
+  // Box, candlestick: complex multi-element compositions that don't map
+  // cleanly to a single selector strategy. Skip selector tagging so that
+  // MAIDR's audio/text/braille still work (highlighting degrades).
+  if (victoryType === 'VictoryBoxPlot' || victoryType === 'VictoryCandlestick') {
+    return undefined;
+  }
+
+  // Discrete-element charts: one SVG element per data point
+  const tag = victoryType === 'VictoryBar' || victoryType === 'VictoryHistogram'
+    ? 'rect'
+    : 'path';
+
   return tagDiscreteElements(svg, tag, layer, attrName, claimed);
 }
 
 /**
  * Tags discrete SVG elements (one element per data point) for bar,
- * scatter, and pie charts.
+ * histogram, scatter, pie, and segmented (stacked/dodged) charts.
  */
 function tagDiscreteElements(
   svg: SVGElement,
@@ -121,16 +108,12 @@ function tagLineOrAreaElements(
     svg.querySelectorAll('path[role="presentation"]'),
   ).filter(el => !claimed.has(el));
 
-  // For line/area, we need exactly one unclaimed path element.
-  // Victory renders the line path before any scatter point symbols,
-  // so the first unclaimed path is typically the line.
   if (candidates.length === 0) return undefined;
 
   // Heuristic: pick the first path whose `d` attribute contains enough
-  // commands to represent the data (at least dataCount - 1 segments).
+  // SVG commands to plausibly represent the data points.
   for (const candidate of candidates) {
     const d = candidate.getAttribute('d') ?? '';
-    // Count move/line commands (M, L, C, Q, etc.)
     const commandCount = (d.match(/[MLCQTSA]/gi) ?? []).length;
     if (commandCount >= layer.dataCount) {
       candidate.setAttribute(attrName, '');
@@ -139,7 +122,7 @@ function tagLineOrAreaElements(
     }
   }
 
-  // Fallback: just use the first unclaimed path
+  // Fallback: use the first unclaimed path.
   const fallback = candidates[0];
   fallback.setAttribute(attrName, '');
   claimed.add(fallback);

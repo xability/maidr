@@ -1,7 +1,7 @@
 import type { Maidr as MaidrData, MaidrLayer } from '@type/grammar';
 import type { MaidrVictoryProps } from './types';
 import type { JSX } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maidr } from '../maidr-component';
 import { extractVictoryLayers, toMaidrLayer } from './adapter';
 import { tagLayerElements } from './selectors';
@@ -18,6 +18,18 @@ function emptyMaidrData(id: string): MaidrData {
  * React component that wraps Victory chart components and provides
  * accessible, non-visual access through MAIDR's audio sonification,
  * text descriptions, braille output, and keyboard navigation.
+ *
+ * Supports all Victory data components that have MAIDR equivalents:
+ * - `VictoryBar` → bar chart
+ * - `VictoryLine` → line chart
+ * - `VictoryArea` → line chart (filled)
+ * - `VictoryScatter` → scatter plot
+ * - `VictoryPie` → bar chart (categorical data)
+ * - `VictoryBoxPlot` → box plot
+ * - `VictoryCandlestick` → candlestick chart
+ * - `VictoryHistogram` → histogram
+ * - `VictoryGroup` → dodged/grouped bar chart
+ * - `VictoryStack` → stacked bar chart
  *
  * @example
  * ```tsx
@@ -52,34 +64,38 @@ export function MaidrVictory({
   const containerRef = useRef<HTMLDivElement>(null);
   const [maidrData, setMaidrData] = useState<MaidrData>(() => emptyMaidrData(id));
 
+  // Extract data from Victory component props (pure computation, no DOM).
+  // Memoized so that the useLayoutEffect only re-runs when Victory data
+  // actually changes rather than on every parent re-render.
+  const victoryLayers = useMemo(() => extractVictoryLayers(children), [children]);
+
   // useLayoutEffect runs synchronously after DOM mutations, before paint.
-  // This guarantees Victory's SVG elements exist when we inspect the DOM.
+  // This guarantees Victory's SVG elements exist when we inspect the DOM
+  // for selector tagging.
   useLayoutEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || victoryLayers.length === 0) return;
 
-    // 1. Extract data from Victory component props via React children
-    //    introspection (does not require DOM).
-    const victoryLayers = extractVictoryLayers(children);
-    if (victoryLayers.length === 0) return;
-
-    // 2. Tag rendered SVG elements with data attributes for reliable
-    //    CSS-selector-based highlighting.
+    // Tag rendered SVG elements with data attributes for reliable
+    // CSS-selector-based highlighting.
     const claimed = new Set<Element>();
     const maidrLayers: MaidrLayer[] = victoryLayers.map((layer, index) => {
       const selector = tagLayerElements(container, layer, index, claimed);
       return toMaidrLayer(layer, selector);
     });
 
-    // 3. Build the MAIDR data schema.
+    // Build the MAIDR data schema.
     setMaidrData({
       id,
       title,
       subtitle,
       caption,
-      subplots: [[{ layers: maidrLayers }]],
+      subplots: [[{
+        layers: maidrLayers,
+        legend: victoryLayers.find(l => l.legend)?.legend,
+      }]],
     });
-  }, [children, id, title, subtitle, caption]);
+  }, [victoryLayers, id, title, subtitle, caption]);
 
   return (
     <Maidr data={maidrData}>
