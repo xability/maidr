@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Example</title>
+
+    <!-- amCharts 5 (loaded from CDN for demo purposes) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- MAIDR (script-tag build) -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+
+    <style>
+      #chartdiv {
+        width: 720px;
+        height: 432px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5: Bar Chart</h1>
+    <p>
+      This example demonstrates how to use the MAIDR amCharts binder.
+      After the amCharts chart renders, the binder extracts data and
+      generates a MAIDR JSON object that enables audio sonification,
+      text descriptions, braille output, and keyboard navigation.
+    </p>
+
+    <div id="chartdiv"></div>
+
+    <script>
+      // ---------------------------------------------------------------
+      // 1. Create a standard amCharts 5 bar chart.
+      // ---------------------------------------------------------------
+      var root = am5.Root.new("chartdiv");
+
+      var chart = root.container.children.push(
+        am5xy.XYChart.new(root, {
+          panX: false,
+          panY: false,
+          wheelX: "none",
+          wheelY: "none",
+        })
+      );
+
+      // Add X axis (category)
+      var xAxis = chart.xAxes.push(
+        am5xy.CategoryAxis.new(root, {
+          categoryField: "day",
+          renderer: am5xy.AxisRendererX.new(root, {}),
+        })
+      );
+
+      // Add Y axis (value)
+      var yAxis = chart.yAxes.push(
+        am5xy.ValueAxis.new(root, {
+          renderer: am5xy.AxisRendererY.new(root, {}),
+        })
+      );
+
+      // Add column series
+      var series = chart.series.push(
+        am5xy.ColumnSeries.new(root, {
+          name: "Tips Count",
+          xAxis: xAxis,
+          yAxis: yAxis,
+          valueYField: "count",
+          categoryXField: "day",
+        })
+      );
+
+      // Set data
+      var data = [
+        { day: "Sat", count: 87 },
+        { day: "Sun", count: 76 },
+        { day: "Thur", count: 62 },
+        { day: "Fri", count: 19 },
+      ];
+
+      xAxis.data.setAll(data);
+      series.data.setAll(data);
+    </script>
+
+    <!-- ---------------------------------------------------------------
+         2. After the chart renders, generate MAIDR data.
+
+         With the ES module build you would write:
+
+           import { fromAmCharts } from 'maidr/amcharts';
+           const maidrData = fromAmCharts(root);
+
+         Since this demo uses script-tag loading, we import the
+         binder as a dynamic ES module below.
+    ---------------------------------------------------------------- -->
+    <script type="module">
+      import { fromAmCharts } from '../dist/amcharts.mjs';
+
+      // Wait for amCharts to finish rendering data.
+      // In production, listen to chart.events.on("datavalidated", ...).
+      setTimeout(() => {
+        const maidrData = fromAmCharts(root, {
+          title: 'The Number of Tips by Day',
+          axisLabels: { x: 'Day', y: 'Count' },
+        });
+
+        document
+          .getElementById('chartdiv')
+          .setAttribute('maidr-data', JSON.stringify(maidrData));
+      }, 1000);
+    </script>
+  </body>
+</html>
