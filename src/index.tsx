@@ -1,10 +1,7 @@
-import type { JSX } from 'react';
 import type { Maidr } from './type/grammar';
-import { useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
-import { Maidr as MaidrComponent } from './maidr-component';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
+import { initMaidrOnElement } from './util/initMaidr';
 
 declare global {
   interface Window {
@@ -27,7 +24,7 @@ function parseAndInit(
 ): void {
   try {
     const maidr = JSON.parse(json) as Maidr;
-    initMaidr(maidr, plot);
+    initMaidrOnElement(maidr, plot);
   } catch (error) {
     console.error(`Error parsing ${source} attribute:`, error);
   }
@@ -79,51 +76,5 @@ function main(): void {
     console.error('Plot not found for maidr:', maidr.id);
     return;
   }
-  initMaidr(maidr, plot);
-}
-
-/**
- * Adopts an existing DOM node into React's tree via a ref callback.
- * Used by the script-tag entry point to render a pre-existing plot element
- * as children of the {@link MaidrComponent}.
- */
-function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
-  const ref = useCallback(
-    (container: HTMLDivElement | null) => {
-      if (container) {
-        // Setup: adopt the existing DOM node into React's tree.
-        if (!container.contains(node)) {
-          container.appendChild(node);
-        }
-      } else {
-        // Cleanup (unmount / Strict Mode remount): detach the node so it
-        // can be re-adopted when the ref callback fires again with a new container.
-        node.parentNode?.removeChild(node);
-      }
-    },
-    [node],
-  );
-
-  return <div ref={ref} style={{ display: 'contents' }} />;
-}
-
-/**
- * Initializes MAIDR for a plot element by rendering the {@link MaidrComponent}
- * React component. The existing plot element is adopted into React's tree
- * via {@link DomNodeAdapter}, giving both script-tag and React consumers
- * the same single code path.
- */
-function initMaidr(maidr: Maidr, plot: HTMLElement): void {
-  // Create a transparent container for the React root.
-  // Replace the plot in the DOM; it will be re-adopted inside <Maidr>.
-  const container = document.createElement(Constant.DIV);
-  container.style.display = 'contents';
-  plot.parentNode!.replaceChild(container, plot);
-
-  const root = createRoot(container, { identifierPrefix: maidr.id });
-  root.render(
-    <MaidrComponent data={maidr}>
-      <DomNodeAdapter node={plot} />
-    </MaidrComponent>,
-  );
+  initMaidrOnElement(maidr, plot);
 }
