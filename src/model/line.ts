@@ -39,6 +39,15 @@ export class LineTrace extends AbstractTrace {
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
 
+  // Cache for intersection results, keyed by row index
+  // Invalidated when active row changes
+  private intersectionCache: Map<number, Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+  }>> = new Map();
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -582,8 +591,205 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * Check if two line segments intersect and return the intersection point
+   * Uses parametric line intersection formula
+   * @param p1 Start point of first segment
+   * @param p2 End point of first segment
+   * @param p3 Start point of second segment
+   * @param p4 End point of second segment
+   * @returns Intersection point {x, y} if segments intersect, null otherwise
+   */
+  private getSegmentIntersection(
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    p4: { x: number; y: number },
+  ): { x: number; y: number } | null {
+    const x1 = p1.x;
+    const y1 = p1.y;
+    const x2 = p2.x;
+    const y2 = p2.y;
+    const x3 = p3.x;
+    const y3 = p3.y;
+    const x4 = p4.x;
+    const y4 = p4.y;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+    // Lines are parallel (no intersection or infinite intersections)
+    if (Math.abs(denom) < 1e-10) {
+      return null;
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    // Check if intersection is within both segments (t and u must be in [0, 1])
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const intersectX = x1 + t * (x2 - x1);
+      const intersectY = y1 + t * (y2 - y1);
+      return { x: intersectX, y: intersectY };
+    }
+
+    return null;
+  }
+
+  /** Tolerance for comparing intersection coordinates (for deduplication) */
+  private static readonly INTERSECTION_EPSILON = 1e-6;
+
+  /**
+   * Find all points where the current line intersects with other lines
+   * Uses line segment intersection algorithm to find crossings between data points
+   * Results are cached per row and invalidated when the active row changes
+   * @returns Array of intersection info containing nearest point index and intersecting line indices
+   */
+  private findAllIntersectionsForCurrentLine(): Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+  }> {
+    const currentGroup = this.row;
+
+    // Return cached results if available
+    if (this.intersectionCache.has(currentGroup)) {
+      return this.intersectionCache.get(currentGroup)!;
+    }
+
+    if (currentGroup < 0 || currentGroup >= this.points.length) {
+      return [];
+    }
+
+    // Only check for intersections if there are multiple lines
+    if (this.points.length <= 1) {
+      return [];
+    }
+
+    const currentLinePoints = this.points[currentGroup];
+    if (currentLinePoints.length < 2) {
+      return [];
+    }
+
+    // Collect all raw intersections first
+    const rawIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      otherLine: number;
+    }> = [];
+
+    // For each segment on the current line
+    for (let segIndex = 0; segIndex < currentLinePoints.length - 1; segIndex++) {
+      const p1 = currentLinePoints[segIndex];
+      const p2 = currentLinePoints[segIndex + 1];
+
+      // Convert to numeric for calculation
+      const seg1Start = { x: Number(p1.x), y: Number(p1.y) };
+      const seg1End = { x: Number(p2.x), y: Number(p2.y) };
+
+      // Check against all segments from other lines
+      for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
+        if (otherLine === currentGroup) {
+          continue;
+        }
+
+        const otherLinePoints = this.points[otherLine];
+        if (otherLinePoints.length < 2) {
+          continue;
+        }
+
+        for (let otherSegIndex = 0; otherSegIndex < otherLinePoints.length - 1; otherSegIndex++) {
+          const p3 = otherLinePoints[otherSegIndex];
+          const p4 = otherLinePoints[otherSegIndex + 1];
+
+          const seg2Start = { x: Number(p3.x), y: Number(p3.y) };
+          const seg2End = { x: Number(p4.x), y: Number(p4.y) };
+
+          const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
+
+          if (intersection) {
+            // Find the nearest point on the current line to navigate to
+            // Use Euclidean distance for accuracy with nearly vertical segments
+            const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
+            const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
+            const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
+
+            rawIntersections.push({
+              pointIndex: nearestPointIndex,
+              x: intersection.x,
+              y: intersection.y,
+              otherLine,
+            });
+          }
+        }
+      }
+    }
+
+    // Group intersections using tolerance-based deduplication
+    const groupedIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      intersectingLines: Set<number>;
+    }> = [];
+
+    for (const raw of rawIntersections) {
+      // Find existing group within tolerance
+      const existingGroup = groupedIntersections.find(
+        g => Math.abs(g.x - raw.x) < LineTrace.INTERSECTION_EPSILON
+          && Math.abs(g.y - raw.y) < LineTrace.INTERSECTION_EPSILON,
+      );
+
+      if (existingGroup) {
+        existingGroup.intersectingLines.add(raw.otherLine);
+      } else {
+        const intersectingLines = new Set<number>();
+        intersectingLines.add(raw.otherLine);
+        groupedIntersections.push({
+          pointIndex: raw.pointIndex,
+          x: raw.x,
+          y: raw.y,
+          intersectingLines,
+        });
+      }
+    }
+
+    // Convert to final format and sort by x coordinate
+    // Note: intersectingLines excludes currentGroup (only other lines)
+    const result = groupedIntersections
+      .map(entry => ({
+        pointIndex: entry.pointIndex,
+        x: entry.x,
+        y: entry.y,
+        intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+      }))
+      .sort((a, b) => a.x - b.x);
+
+    // Cache the result
+    this.intersectionCache.set(currentGroup, result);
+
+    return result;
+  }
+
+  /**
+   * Get a formatted label for intersecting lines
+   * Note: intersectingLines should only contain OTHER lines (not the current line)
+   * since the user is already on the current line.
+   * @param intersectingLines Array of line indices that intersect (excluding current line)
+   * @returns Formatted string of line names (e.g., "Line A, Line B")
+   */
+  private getIntersectionLabel(intersectingLines: number[]): string {
+    return intersectingLines.map((lineIndex) => {
+      // Access first point to get the line's fill/name
+      // Falls back to "Line N" if fill is not defined
+      const firstPoint = this.points[lineIndex][0];
+      return firstPoint?.fill || `Line ${lineIndex + 1}`;
+    }).join(', ');
+  }
+
+  /**
    * Get extrema targets for the current line plot
-   * Returns min and max values within the current group
+   * Returns min, max values, and intersection points within the current group
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -634,6 +840,29 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'min',
         navigationType: 'point',
+      });
+    }
+
+    // Add intersection targets for multiline plots
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    for (const intersection of intersections) {
+      // intersectingLines only contains OTHER lines (not current line)
+      const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
+      // Format the intersection coordinates for display
+      const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+
+      targets.push({
+        label: `Intersection at ${coordsDisplay}`,
+        value: intersection.y,
+        pointIndex: intersection.pointIndex,
+        segment: 'intersection',
+        type: 'intersection',
+        navigationType: 'point',
+        intersectingLines: intersection.intersectingLines,
+        display: {
+          coords: coordsDisplay,
+          otherLines: otherLineNames,
+        },
       });
     }
 
