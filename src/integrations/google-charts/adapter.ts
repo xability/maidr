@@ -20,8 +20,19 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
-import type { GoogleChart, GoogleChartType, GoogleDataTable } from './types';
+import type { GoogleChartType, GoogleDataTable } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+
+// ---------------------------------------------------------------------------
+// Monotonic counter for generating collision-free IDs when multiple charts
+// are created synchronously (Date.now() alone would collide).
+// ---------------------------------------------------------------------------
+
+let idCounter = 0;
+
+function nextId(prefix: string): string {
+  return `${prefix}-${++idCounter}`;
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -53,7 +64,8 @@ export interface GoogleChartAdapterOptions {
  * `google.visualization.events.addListener(chart, 'ready', …)` callback)
  * so that the container DOM already contains the SVG elements.
  *
- * @param chart     - The Google Charts chart instance.
+ * @param _chart    - The Google Charts chart instance. Reserved for future
+ *                    bidirectional selection sync; not read today.
  * @param dataTable - The `google.visualization.DataTable` (or DataView) used
  *                    to draw the chart.
  * @param container - The DOM element the chart was drawn into.
@@ -85,13 +97,16 @@ export interface GoogleChartAdapterOptions {
  * ```
  */
 export function createMaidrFromGoogleChart(
-  chart: GoogleChart,
+  _chart: unknown,
   dataTable: GoogleDataTable,
   container: HTMLElement,
   options: GoogleChartAdapterOptions,
 ): Maidr {
-  const id = options.id ?? container.id ?? `maidr-gc-${Date.now()}`;
+  const id = options.id ?? container.id ?? nextId('maidr-gc');
   const title = options.title ?? '';
+
+  // Assign a stable container id up-front (used for scoped CSS selectors).
+  ensureContainerId(container);
 
   const layer = buildLayer(dataTable, container, options.chartType);
 
@@ -115,9 +130,9 @@ function buildLayer(
 ): MaidrLayer {
   switch (chartType) {
     case 'ColumnChart':
-      return buildBarLayer(dt, container, Orientation.VERTICAL);
+      return buildBarOrSegmentedLayer(dt, container, Orientation.VERTICAL);
     case 'BarChart':
-      return buildBarLayer(dt, container, Orientation.HORIZONTAL);
+      return buildBarOrSegmentedLayer(dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
     case 'AreaChart':
       return buildLineLayer(dt, container);
@@ -128,8 +143,12 @@ function buildLayer(
     case 'CandlestickChart':
       return buildCandlestickLayer(dt, container);
     case 'ComboChart':
-      // Combo charts default to bar representation for the primary series.
-      return buildBarLayer(dt, container, Orientation.VERTICAL);
+      console.warn(
+        '[maidr/google-charts] ComboChart is mapped as a bar chart. '
+        + 'Non-bar series (lines, areas, etc.) are not represented. '
+        + 'For full fidelity, convert each series type individually.',
+      );
+      return buildBarOrSegmentedLayer(dt, container, Orientation.VERTICAL);
     case 'StackedColumnChart':
       return buildSegmentedLayer(dt, container, Orientation.VERTICAL, TraceType.STACKED);
     case 'StackedBarChart':
@@ -156,8 +175,25 @@ function buildLayer(
 }
 
 // ---------------------------------------------------------------------------
-// Bar / Column
+// Bar / Column — auto-detects single vs multi-series
 // ---------------------------------------------------------------------------
+
+/**
+ * Inspects the DataTable and delegates to {@link buildBarLayer} for a single
+ * data column, or to {@link buildSegmentedLayer} when multiple data columns
+ * are present (grouped / dodged layout).
+ */
+function buildBarOrSegmentedLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  orientation: Orientation,
+): MaidrLayer {
+  const dataColCount = countDataColumns(dt);
+  if (dataColCount > 1) {
+    return buildSegmentedLayer(dt, container, orientation, TraceType.DODGED);
+  }
+  return buildBarLayer(dt, container, orientation);
+}
 
 function buildBarLayer(
   dt: GoogleDataTable,
@@ -168,15 +204,15 @@ function buildBarLayer(
   const rows = dt.getNumberOfRows();
 
   for (let r = 0; r < rows; r++) {
-    const label = String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0));
-    const value = Number(dt.getValue(r, 1)) || 0;
+    const label = formatCellValue(dt, r, 0);
+    const value = numericValue(dt, r, 1);
     data.push({ x: label, y: value });
   }
 
-  const selector = buildSelector(container, 'rect');
+  const selector = buildDataSelector(container, 'rect');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.BAR,
     orientation,
     ...(selector ? { selectors: selector } : {}),
@@ -212,17 +248,17 @@ function buildSegmentedLayer(
     const fillLabel = dt.getColumnLabel(c) || `Series ${c}`;
 
     for (let r = 0; r < rows; r++) {
-      const label = String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0));
-      const value = Number(dt.getValue(r, c)) || 0;
+      const label = formatCellValue(dt, r, 0);
+      const value = numericValue(dt, r, c);
       series.push({ x: label, y: value, fill: fillLabel });
     }
     data.push(series);
   }
 
-  const selector = buildSelector(container, 'rect');
+  const selector = buildDataSelector(container, 'rect');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: traceType,
     orientation,
     ...(selector ? { selectors: selector } : {}),
@@ -253,23 +289,19 @@ function buildLineLayer(
       continue;
     const series: LinePoint[] = [];
     for (let r = 0; r < rows; r++) {
-      const x = dt.getValue(r, 0);
-      const y = Number(dt.getValue(r, c)) || 0;
+      const x = formatCellValue(dt, r, 0);
+      const y = numericValue(dt, r, c);
       const fill = dt.getColumnLabel(c) || `Series ${c}`;
-      series.push({
-        x: x instanceof Date ? x.getTime() : (x as number | string),
-        y,
-        fill,
-      });
+      series.push({ x, y, fill });
     }
     data.push(series);
   }
 
-  const selector = buildSelector(container, 'path[fill="none"]')
-    || buildSelector(container, 'path');
+  const selector = buildDataSelector(container, 'path[fill="none"]')
+    || buildDataSelector(container, 'path');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.LINE,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -292,15 +324,15 @@ function buildScatterLayer(
   const data: ScatterPoint[] = [];
 
   for (let r = 0; r < rows; r++) {
-    const x = Number(dt.getValue(r, 0)) || 0;
-    const y = Number(dt.getValue(r, 1)) || 0;
+    const x = numericValue(dt, r, 0);
+    const y = numericValue(dt, r, 1);
     data.push({ x, y });
   }
 
-  const selector = buildSelector(container, 'circle');
+  const selector = buildDataSelector(container, 'circle');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.SCATTER,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -315,6 +347,16 @@ function buildScatterLayer(
 // Histogram
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a histogram layer from a DataTable.
+ *
+ * Google Charts `Histogram` auto-computes bins from raw data, so the
+ * DataTable contains individual observations rather than pre-binned counts.
+ * Because the computed bin boundaries are not exposed via the DataTable API,
+ * this adapter treats each row as a labelled data point and uses the row
+ * value as the bar height. Consumers who need precise bin boundaries should
+ * supply pre-binned data (label + count) in the DataTable.
+ */
 function buildHistogramLayer(
   dt: GoogleDataTable,
   container: HTMLElement,
@@ -323,22 +365,24 @@ function buildHistogramLayer(
   const data: HistogramPoint[] = [];
 
   for (let r = 0; r < rows; r++) {
-    const label = String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0));
-    const value = Number(dt.getValue(r, 1)) || 0;
+    const label = formatCellValue(dt, r, 0);
+    const value = numericValue(dt, r, 1);
+
+    // Use the value itself for bin extents rather than meaningless row indices.
     data.push({
       x: label,
       y: value,
-      xMin: r,
-      xMax: r + 1,
+      xMin: value,
+      xMax: value,
       yMin: 0,
       yMax: value,
     });
   }
 
-  const selector = buildSelector(container, 'rect');
+  const selector = buildDataSelector(container, 'rect');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.HISTOGRAM,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -362,11 +406,11 @@ function buildCandlestickLayer(
 
   // Google Candlestick expects columns: label, low, open, close, high
   for (let r = 0; r < rows; r++) {
-    const label = String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0));
-    const low = Number(dt.getValue(r, 1)) || 0;
-    const open = Number(dt.getValue(r, 2)) || 0;
-    const close = Number(dt.getValue(r, 3)) || 0;
-    const high = Number(dt.getValue(r, 4)) || 0;
+    const label = formatCellValue(dt, r, 0);
+    const low = numericValue(dt, r, 1);
+    const open = numericValue(dt, r, 2);
+    const close = numericValue(dt, r, 3);
+    const high = numericValue(dt, r, 4);
 
     const trend: CandlestickTrend
       = close > open ? 'Bull' : close < open ? 'Bear' : 'Neutral';
@@ -378,16 +422,16 @@ function buildCandlestickLayer(
       high,
       low,
       close,
-      volume: 0, // Google Charts doesn't include volume
+      volume: 0,
       trend,
       volatility,
     });
   }
 
-  const selector = buildSelector(container, 'rect');
+  const selector = buildDataSelector(container, 'rect');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.CANDLESTICK,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -435,22 +479,22 @@ function buildHeatmapLayer(
   const points: number[][] = [];
 
   for (let r = 0; r < rows; r++) {
-    yLabels.push(String(dt.getFormattedValue(r, 0) || dt.getValue(r, 0)));
+    yLabels.push(formatCellValue(dt, r, 0));
     const row: number[] = [];
     for (let c = 1; c < cols; c++) {
       if (isRoleColumn(dt, c))
         continue;
-      row.push(Number(dt.getValue(r, c)) || 0);
+      row.push(numericValue(dt, r, c));
     }
     points.push(row);
   }
 
   const data: HeatmapData = { x: xLabels, y: yLabels, points };
 
-  const selector = buildSelector(container, 'rect');
+  const selector = buildDataSelector(container, 'rect');
 
   return {
-    id: '0',
+    id: nextId('layer'),
     type: TraceType.HEATMAP,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -462,50 +506,112 @@ function buildHeatmapLayer(
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — cell value extraction
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a scoped CSS selector for chart data elements inside the container.
+ * Returns a human-readable string for a cell value.
  *
- * Google Charts renders SVG inside the container `<div>`. We scope
- * selectors to that container so multiple charts on the same page don't
- * interfere with each other.
- *
- * @returns A CSS selector string, or `undefined` if no matching elements
- *          are found.
+ * Prefers the formatted value (which respects locale and date formatting)
+ * and only falls back to the raw value when the formatted string is empty.
  */
-function buildSelector(
-  container: HTMLElement,
-  elementSelector: string,
-): string | undefined {
-  // Ensure the container has an id for scoping.
-  if (!container.id) {
-    container.id = `maidr-gc-container-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  }
+function formatCellValue(dt: GoogleDataTable, row: number, col: number): string {
+  const formatted = dt.getFormattedValue(row, col);
+  if (formatted)
+    return formatted;
 
-  const svg = container.querySelector('svg');
-  if (!svg)
-    return undefined;
-
-  // Google Charts nests the data elements inside `<g>` groups.
-  // We look for the chart-area `<g>` that contains the actual data elements.
-  // The chart-area clip-path group typically contains the data rects/paths/circles.
-  const candidates = svg.querySelectorAll(elementSelector);
-  if (candidates.length === 0)
-    return undefined;
-
-  return `#${container.id} svg ${elementSelector}`;
+  const raw = dt.getValue(row, col);
+  if (raw instanceof Date)
+    return raw.toLocaleDateString();
+  return String(raw ?? '');
 }
 
 /**
- * Returns `true` when column `c` is a "role" column (tooltip, annotation, etc.)
- * rather than a data column.
+ * Extracts a numeric value from a cell, returning `NaN` for genuinely
+ * missing data instead of silently coercing it to `0`.
+ */
+function numericValue(dt: GoogleDataTable, row: number, col: number): number {
+  const raw = dt.getValue(row, col);
+  if (raw === null || raw === undefined)
+    return Number.NaN;
+  return Number(raw);
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — DataTable inspection
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns `true` when column `c` is a "role" column (tooltip, annotation,
+ * style, etc.) rather than a data column.
  */
 function isRoleColumn(dt: GoogleDataTable, c: number): boolean {
-  if (typeof dt.getColumnRole === 'function') {
+  if (dt.getColumnRole) {
     const role = dt.getColumnRole(c);
     return role !== '' && role !== 'data';
   }
   return false;
+}
+
+/**
+ * Counts non-role data columns (excluding the domain/label column 0).
+ */
+function countDataColumns(dt: GoogleDataTable): number {
+  let count = 0;
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c))
+      count++;
+  }
+  return count;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — DOM / CSS selectors
+// ---------------------------------------------------------------------------
+
+/**
+ * Assigns a stable, unique `id` to the container element if it doesn't
+ * already have one. This is called once, up-front, so that the per-layer
+ * `buildDataSelector` calls don't mutate the DOM as a side-effect.
+ */
+function ensureContainerId(container: HTMLElement): void {
+  if (!container.id) {
+    container.id = nextId('maidr-gc-container');
+  }
+}
+
+/**
+ * Builds a scoped CSS selector targeting chart data elements inside the
+ * container.
+ *
+ * Google Charts renders its SVG inside the container `<div>`. The chart-area
+ * data elements live inside a `<g>` with a `clip-path` attribute, which
+ * distinguishes them from axes, gridlines, legends, and background rects.
+ * We prefer the narrower `g[clip-path] > <element>` selector; if no
+ * clip-path group exists we fall back to the broader `svg <element>`.
+ *
+ * @returns A CSS selector string, or `undefined` when no matching elements
+ *          are found.
+ */
+function buildDataSelector(
+  container: HTMLElement,
+  elementSelector: string,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg)
+    return undefined;
+
+  // Prefer elements inside the chart-area clip-path group (excludes axes,
+  // gridlines, legends, background rects).
+  const clippedSelector = `g[clip-path] > ${elementSelector}`;
+  const clippedCandidates = svg.querySelectorAll(clippedSelector);
+  if (clippedCandidates.length > 0)
+    return `#${container.id} svg ${clippedSelector}`;
+
+  // Fallback: any matching element in the SVG.
+  const candidates = svg.querySelectorAll(elementSelector);
+  if (candidates.length > 0)
+    return `#${container.id} svg ${elementSelector}`;
+
+  return undefined;
 }
