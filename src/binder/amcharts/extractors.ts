@@ -71,9 +71,13 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
     if (category == null || value == null)
       continue;
 
+    const numValue = toNumber(value);
+    if (numValue == null)
+      continue;
+
     points.push({
-      x: isHorizontal ? toNumber(value) : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : toNumber(value),
+      x: isHorizontal ? numValue : toStringOrNumber(category),
+      y: isHorizontal ? toStringOrNumber(category) : numValue,
     });
   }
 
@@ -88,7 +92,8 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
  * Extract {@link SegmentedPoint} data from a single column series that is
  * part of a multi-series (segmented) bar chart.
  *
- * The series name is used as the `fill` group identifier.
+ * The series name is used as the `fill` group identifier — this follows the
+ * ggplot2 convention where `fill` maps a variable to grouped visual encoding.
  */
 export function extractSegmentedPoints(series: AmXYSeries): SegmentedPoint[] {
   const points: SegmentedPoint[] = [];
@@ -105,9 +110,13 @@ export function extractSegmentedPoints(series: AmXYSeries): SegmentedPoint[] {
     if (category == null || value == null)
       continue;
 
+    const numValue = toNumber(value);
+    if (numValue == null)
+      continue;
+
     points.push({
-      x: isHorizontal ? toNumber(value) : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : toNumber(value),
+      x: isHorizontal ? numValue : toStringOrNumber(category),
+      y: isHorizontal ? toStringOrNumber(category) : numValue,
       fill,
     });
   }
@@ -135,8 +144,11 @@ export function extractHistogramPoints(series: AmXYSeries): HistogramPoint[] {
       continue;
 
     const xEnd = toNumber(valueX);
-    const xStart = openValueX != null ? toNumber(openValueX) : xEnd;
     const y = toNumber(valueY);
+    if (xEnd == null || y == null)
+      continue;
+
+    const xStart = openValueX != null ? (toNumber(openValueX) ?? xEnd) : xEnd;
 
     const xMin = Math.min(xStart, xEnd);
     const xMax = Math.max(xStart, xEnd);
@@ -240,7 +252,11 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
     if (x == null || y == null)
       continue;
 
-    const point: LinePoint = { x: toStringOrNumber(x), y: toNumber(y) };
+    const yNum = toNumber(y);
+    if (yNum == null)
+      continue;
+
+    const point: LinePoint = { x: toStringOrNumber(x), y: yNum };
     if (seriesName)
       point.fill = seriesName;
     points.push(point);
@@ -266,7 +282,12 @@ export function extractScatterPoints(series: AmXYSeries): ScatterPoint[] {
     if (x == null || y == null)
       continue;
 
-    points.push({ x: toNumber(x), y: toNumber(y) });
+    const xNum = toNumber(x);
+    const yNum = toNumber(y);
+    if (xNum == null || yNum == null)
+      continue;
+
+    points.push({ x: xNum, y: yNum });
   }
 
   return points;
@@ -295,8 +316,11 @@ export function extractCandlestickPoints(series: AmXYSeries): CandlestickPoint[]
 
     const openNum = toNumber(open);
     const closeNum = toNumber(close);
-    const highNum = high != null ? toNumber(high) : Math.max(openNum, closeNum);
-    const lowNum = low != null ? toNumber(low) : Math.min(openNum, closeNum);
+    if (openNum == null || closeNum == null)
+      continue;
+
+    const highNum = (high != null ? toNumber(high) : null) ?? Math.max(openNum, closeNum);
+    const lowNum = (low != null ? toNumber(low) : null) ?? Math.min(openNum, closeNum);
 
     let trend: CandlestickTrend = 'Neutral';
     if (closeNum > openNum)
@@ -310,7 +334,7 @@ export function extractCandlestickPoints(series: AmXYSeries): CandlestickPoint[]
       high: highNum,
       low: lowNum,
       close: closeNum,
-      volume: volume != null ? toNumber(volume) : 0,
+      volume: (volume != null ? toNumber(volume) : null) ?? 0,
       trend,
       volatility: highNum - lowNum,
     });
@@ -406,9 +430,14 @@ function readXValue(item: AmDataItem, series: AmXYSeries): unknown {
   return undefined;
 }
 
-function toNumber(value: unknown): number {
+/**
+ * Convert an unknown value to a finite number, or `null` if the
+ * conversion is not possible. Callers should skip data items that
+ * return `null` to avoid silent data corruption.
+ */
+function toNumber(value: unknown): number | null {
   const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
 
 function toStringOrNumber(value: unknown): string | number {

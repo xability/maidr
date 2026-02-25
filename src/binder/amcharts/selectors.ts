@@ -14,6 +14,19 @@
 import type { AmXYSeries } from './types';
 
 /**
+ * Escape a string for use in a CSS selector.
+ * Uses the native `CSS.escape` when available (browsers), otherwise falls
+ * back to a minimal replacement that covers the most common special chars.
+ */
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  // Minimal fallback for Node.js / test environments.
+  return value.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+}
+
+/**
  * Attempt to build a CSS selector string for the SVG elements of a
  * column (bar) series.
  *
@@ -143,13 +156,13 @@ function buildCommonSelector(
   const tag = first.tagName.toLowerCase();
 
   if (parentId) {
-    return `#${CSS.escape(parentId)} > ${tag}`;
+    return `#${cssEscape(parentId)} > ${tag}`;
   }
 
   // Fallback: use the element's tag plus class.
   const cls = first.getAttribute('class');
   if (cls) {
-    return `${tag}.${CSS.escape(cls.split(' ')[0])}`;
+    return `${tag}.${cssEscape(cls.split(' ')[0])}`;
   }
 
   return undefined;
@@ -163,9 +176,9 @@ function selectorForElement(
   _container: HTMLElement,
 ): string | undefined {
   if (el.id)
-    return `#${CSS.escape(el.id)}`;
+    return `#${cssEscape(el.id)}`;
   const cls = el.getAttribute('class');
   if (cls)
-    return `${el.tagName.toLowerCase()}.${CSS.escape(cls.split(' ')[0])}`;
+    return `${el.tagName.toLowerCase()}.${cssEscape(cls.split(' ')[0])}`;
   return undefined;
 }

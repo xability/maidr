@@ -101,6 +101,7 @@ export function fromXYChart(
   const layers: MaidrLayer[] = [];
   const lineLayers: LinePoint[][] = [];
   let lineLayerSelectors: string[] | undefined;
+  const lineSeriesNames: string[] = [];
 
   // Collect bar series for grouped handling (stacked/dodged/normalized).
   const barSeriesList: AmXYSeries[] = [];
@@ -132,6 +133,10 @@ export function fromXYChart(
         if (points.length === 0)
           break;
         lineLayers.push(points);
+
+        const name = seriesName(series);
+        if (name)
+          lineSeriesNames.push(name);
 
         const sel = buildLineSelector(series, containerEl);
         if (sel) {
@@ -176,7 +181,10 @@ export function fromXYChart(
 
   // Merge all line series into a single multi-line layer.
   if (lineLayers.length > 0) {
-    layers.push(buildLineLayer(lineLayers, lineLayerSelectors, xLabel, yLabel));
+    const lineTitle = lineSeriesNames.length > 0
+      ? lineSeriesNames.join(', ')
+      : undefined;
+    layers.push(buildLineLayer(lineLayers, lineLayerSelectors, xLabel, yLabel, lineTitle));
   }
 
   const id = `amcharts-${containerEl.id || uid()}`;
@@ -306,10 +314,12 @@ function buildLineLayer(
   selectors: string[] | undefined,
   xLabel: string,
   yLabel: string,
+  title?: string,
 ): MaidrLayer {
   return {
     id: `line-${uid()}`,
     type: TraceType.LINE,
+    ...(title ? { title } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: { x: xLabel, y: yLabel },
     data,
@@ -420,10 +430,25 @@ function seriesName(series: AmXYSeries): string | undefined {
 }
 
 function layerId(series: AmXYSeries): string {
-  return `amcharts-series-${series.uid ?? uid()}`;
+  return `amcharts-series-${series.uid ?? counter()}`;
 }
 
+/**
+ * Monotonically increasing counter used as a fallback when no deterministic
+ * ID (e.g. container id, series uid) is available.
+ *
+ * IDs produced by this counter are ephemeral — they are not stable across
+ * page loads or hot reloads and must not be persisted.
+ */
 let _counter = 0;
-function uid(): string {
+function counter(): string {
   return String(++_counter);
+}
+
+/**
+ * Produce a short identifier for a generated layer.
+ * Prefers the container's DOM `id`; falls back to the monotonic counter.
+ */
+function uid(): string {
+  return counter();
 }

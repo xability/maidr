@@ -81,47 +81,34 @@
 
       xAxis.data.setAll(data);
       series.data.setAll(data);
+    </script>
 
-      // ---------------------------------------------------------------
-      // 2. After the chart renders, generate MAIDR data.
-      //    In a real application you would use the ES module import:
-      //
-      //      import { fromAmCharts } from 'maidr/amcharts';
-      //      const maidrData = fromAmCharts(root);
-      //
-      //    For this script-tag demo we manually construct the JSON
-      //    since the amCharts binder module is an ES module export.
-      // ---------------------------------------------------------------
+    <!-- ---------------------------------------------------------------
+         2. After the chart renders, generate MAIDR data.
 
-      // For the script-tag approach, provide the MAIDR JSON directly:
-      var maidr = {
-        id: "chartdiv",
-        title: "The Number of Tips by Day",
-        subplots: [
-          [
-            {
-              layers: [
-                {
-                  id: "0",
-                  type: "bar",
-                  axes: { x: "Day", y: "Count" },
-                  data: [
-                    { x: "Sat", y: 87 },
-                    { x: "Sun", y: 76 },
-                    { x: "Thur", y: 62 },
-                    { x: "Fri", y: 19 },
-                  ],
-                },
-              ],
-            },
-          ],
-        ],
-      };
+         With the ES module build you would write:
 
-      // Attach to the chart element so MAIDR picks it up.
-      document
-        .getElementById("chartdiv")
-        .setAttribute("maidr-data", JSON.stringify(maidr));
+           import { fromAmCharts } from 'maidr/amcharts';
+           const maidrData = fromAmCharts(root);
+
+         Since this demo uses script-tag loading, we import the
+         binder as a dynamic ES module below.
+    ---------------------------------------------------------------- -->
+    <script type="module">
+      import { fromAmCharts } from '../dist/amcharts.mjs';
+
+      // Wait for amCharts to finish rendering data.
+      // In production, listen to chart.events.on("datavalidated", ...).
+      setTimeout(() => {
+        const maidrData = fromAmCharts(root, {
+          title: 'The Number of Tips by Day',
+          axisLabels: { x: 'Day', y: 'Count' },
+        });
+
+        document
+          .getElementById('chartdiv')
+          .setAttribute('maidr-data', JSON.stringify(maidrData));
+      }, 1000);
     </script>
   </body>
 </html>
