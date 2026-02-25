@@ -709,8 +709,9 @@ export class LineTrace extends AbstractTrace {
 
           if (intersection) {
             // Find the nearest point on the current line to navigate to
-            const distToStart = Math.abs(intersection.x - seg1Start.x);
-            const distToEnd = Math.abs(intersection.x - seg1End.x);
+            // Use Euclidean distance for accuracy with nearly vertical segments
+            const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
+            const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
             const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
 
             rawIntersections.push({

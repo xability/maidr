@@ -355,7 +355,10 @@ export const GoToExtrema: React.FC = () => {
                 } else {
                   // For min/max, show: "Max point Value: 8.00 at X"
                   const labelParts = target.label.split(' at ');
-                  displayLabel = `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`;
+                  // Guard against labels without " at " separator
+                  displayLabel = labelParts[1]
+                    ? `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`
+                    : `${labelParts[0]} Value: ${target.value.toFixed(2)}`;
                 }
 
                 return (

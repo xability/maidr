@@ -381,7 +381,7 @@ test.describe('Multi Lineplot', () => {
 
   test.describe('Go To Navigation', () => {
     test('should open Go To dialog with g key', async ({ page }) => {
-      const multiLineplotPage = await setupMultiLineplotPage(page);
+      await setupMultiLineplotPage(page);
 
       // Press 'g' to open the Go To dialog
       await page.keyboard.press('g');
@@ -396,7 +396,7 @@ test.describe('Multi Lineplot', () => {
     });
 
     test('should show intersection targets in Go To dialog', async ({ page }) => {
-      const multiLineplotPage = await setupMultiLineplotPage(page);
+      await setupMultiLineplotPage(page);
 
       // Press 'g' to open the Go To dialog
       await page.keyboard.press('g');
@@ -422,7 +422,7 @@ test.describe('Multi Lineplot', () => {
     });
 
     test('should navigate to intersection point', async ({ page }) => {
-      const multiLineplotPage = await setupMultiLineplotPage(page);
+      await setupMultiLineplotPage(page);
 
       // Press 'g' to open the Go To dialog
       await page.keyboard.press('g');
@@ -436,17 +436,19 @@ test.describe('Multi Lineplot', () => {
         hasText: /Intersection/,
       }).first();
 
-      // If there's an intersection target, click it
-      if (await intersectionTarget.count() > 0) {
-        await intersectionTarget.click();
+      // Ensure intersection targets exist in the test data
+      const intersectionCount = await intersectionTarget.count();
+      expect(intersectionCount).toBeGreaterThan(0);
 
-        // Dialog should close after selection
-        await expect(dialog).not.toBeVisible({ timeout: 5000 });
-      }
+      // Click the intersection target
+      await intersectionTarget.click();
+
+      // Dialog should close after selection
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
     });
 
     test('should close Go To dialog with Escape', async ({ page }) => {
-      const multiLineplotPage = await setupMultiLineplotPage(page);
+      await setupMultiLineplotPage(page);
 
       // Press 'g' to open the Go To dialog
       await page.keyboard.press('g');
@@ -463,7 +465,7 @@ test.describe('Multi Lineplot', () => {
     });
 
     test('should show only intersections involving current line', async ({ page }) => {
-      const multiLineplotPage = await setupMultiLineplotPage(page);
+      await setupMultiLineplotPage(page);
 
       // Move to a specific line first (e.g., navigate up/down)
       await page.keyboard.press('ArrowUp');
