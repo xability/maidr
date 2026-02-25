@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- 2. Load MAIDR (standalone script-tag build) -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+
+    <!--
+      3. Load MAIDR Google Charts adapter.
+         In a bundled project you would instead:
+           import { createMaidrFromGoogleChart } from 'maidr/google-charts';
+    -->
+    <script type="module">
+      // When using the ESM bundle directly (no bundler), import from the dist file.
+      import { createMaidrFromGoogleChart } from '../dist/google-charts.mjs';
+
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawBarChart();
+        drawLineChart();
+        drawScatterChart();
+        drawHistogramChart();
+        drawCandlestickChart();
+        drawStackedBarChart();
+        drawDodgedBarChart();
+        drawNormalizedBarChart();
+        drawHeatmapChart();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          var maidr = createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Bar / Column Chart
+      // ---------------------------------------------------------------
+      function drawBarChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Day', 'Tips'],
+          ['Sat', 87],
+          ['Sun', 76],
+          ['Thur', 62],
+          ['Fri', 19],
+        ]);
+
+        var container = document.getElementById('bar-chart');
+        var chart = new google.visualization.ColumnChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'ColumnChart',
+          title: 'The Number of Tips by Day',
+        });
+
+        chart.draw(data, {
+          title: 'The Number of Tips by Day',
+          legend: { position: 'none' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Line Chart (multi-series)
+      // ---------------------------------------------------------------
+      function drawLineChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Year', 'Sales', 'Expenses'],
+          ['2020', 1000, 400],
+          ['2021', 1170, 460],
+          ['2022', 660, 1120],
+          ['2023', 1030, 540],
+        ]);
+
+        var container = document.getElementById('line-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'LineChart',
+          title: 'Company Performance',
+        });
+
+        chart.draw(data, {
+          title: 'Company Performance',
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Scatter Chart
+      // ---------------------------------------------------------------
+      function drawScatterChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Age', 'Weight'],
+          [8, 12],
+          [4, 5.5],
+          [11, 14],
+          [4, 5],
+          [3, 3.5],
+          [6.5, 7],
+        ]);
+
+        var container = document.getElementById('scatter-chart');
+        var chart = new google.visualization.ScatterChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'ScatterChart',
+          title: 'Age vs. Weight',
+        });
+
+        chart.draw(data, {
+          title: 'Age vs. Weight',
+          hAxis: { title: 'Age' },
+          vAxis: { title: 'Weight' },
+          legend: 'none',
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Histogram
+      // ---------------------------------------------------------------
+      function drawHistogramChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Dinosaur', 'Length'],
+          ['Acrocanthosaurus', 12.2],
+          ['Albertosaurus', 9.1],
+          ['Allosaurus', 8.5],
+          ['Apatosaurus', 22.9],
+          ['Deinonychus', 3.4],
+          ['Diplodocus', 27.1],
+          ['Giganotosaurus', 13.2],
+          ['Spinosaurus', 15.2],
+          ['Tyrannosaurus', 12.3],
+          ['Velociraptor', 1.8],
+        ]);
+
+        var container = document.getElementById('histogram-chart');
+        var chart = new google.visualization.Histogram(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Histogram',
+          title: 'Lengths of Dinosaurs (meters)',
+        });
+
+        chart.draw(data, {
+          title: 'Lengths of Dinosaurs (meters)',
+          legend: { position: 'none' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Candlestick Chart
+      // ---------------------------------------------------------------
+      function drawCandlestickChart() {
+        var data = google.visualization.arrayToDataTable(
+          [
+            ['Day', 'Low', 'Open', 'Close', 'High'],
+            ['Mon', 20, 28, 38, 45],
+            ['Tue', 31, 38, 55, 66],
+            ['Wed', 50, 55, 77, 80],
+            ['Thu', 77, 77, 66, 50],
+            ['Fri', 68, 76, 22, 15],
+          ],
+          true,
+        );
+
+        var container = document.getElementById('candlestick-chart');
+        var chart = new google.visualization.CandlestickChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'CandlestickChart',
+          title: 'Stock Prices',
+        });
+
+        chart.draw(data, {
+          title: 'Stock Prices',
+          legend: 'none',
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Stacked Column Chart
+      // ---------------------------------------------------------------
+      function drawStackedBarChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Class', 'Did not survive', 'Survived'],
+          ['First', 80, 136],
+          ['Second', 97, 87],
+          ['Third', 372, 119],
+        ]);
+
+        var container = document.getElementById('stacked-chart');
+        var chart = new google.visualization.ColumnChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'StackedColumnChart',
+          title: 'Passenger Count by Class and Survival',
+        });
+
+        chart.draw(data, {
+          title: 'Passenger Count by Class and Survival',
+          isStacked: true,
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Dodged / Grouped Column Chart
+      // ---------------------------------------------------------------
+      function drawDodgedBarChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['City', '2020 Population', '2025 Population'],
+          ['New York', 8336, 8258],
+          ['Los Angeles', 3979, 3898],
+          ['Chicago', 2693, 2665],
+          ['Houston', 2320, 2314],
+        ]);
+
+        var container = document.getElementById('dodged-chart');
+        var chart = new google.visualization.ColumnChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'DodgedColumnChart',
+          title: 'City Populations (thousands)',
+        });
+
+        chart.draw(data, {
+          title: 'City Populations (thousands)',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Normalized (100% Stacked) Column Chart
+      // ---------------------------------------------------------------
+      function drawNormalizedBarChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Genre', 'Fantasy', 'Romance', 'Mystery', 'General', 'Western', 'Literature'],
+          ['2020', 10, 24, 20, 32, 18, 5],
+          ['2021', 16, 22, 23, 30, 16, 9],
+          ['2022', 28, 19, 29, 30, 12, 13],
+        ]);
+
+        var container = document.getElementById('normalized-chart');
+        var chart = new google.visualization.ColumnChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'NormalizedColumnChart',
+          title: 'Book Genre Proportions by Year',
+        });
+
+        chart.draw(data, {
+          title: 'Book Genre Proportions by Year',
+          isStacked: 'percent',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Heatmap (using a table-based DataTable)
+      // ---------------------------------------------------------------
+      function drawHeatmapChart() {
+        // Google Charts doesn't have a native heatmap chart, so we use
+        // a table-style DataTable to represent the 2D matrix.
+        // In practice, users might use a Bubble chart or a third-party
+        // Google Charts heatmap library.
+        var data = google.visualization.arrayToDataTable([
+          ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+          ['Morning', 2, 5, 3, 7, 4],
+          ['Afternoon', 8, 1, 4, 6, 3],
+          ['Evening', 3, 9, 2, 5, 7],
+        ]);
+
+        var container = document.getElementById('heatmap-chart');
+
+        // For the heatmap, we create a Table visualization to show the
+        // data, then bind MAIDR for accessible navigation.
+        var chart = new google.visualization.Table(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Heatmap',
+          title: 'Activity Intensity by Time of Day',
+        });
+
+        chart.draw(data, {
+          title: 'Activity Intensity by Time of Day',
+          width: 600,
+          height: 200,
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts Integration</h1>
+    <p>
+      Each chart below is rendered by Google Charts and then made accessible
+      via MAIDR. Click on a chart and use keyboard navigation (arrow keys) to
+      explore the data through audio, text, and braille.
+    </p>
+
+    <h2>Column Chart (Bar)</h2>
+    <div id="bar-chart" class="chart-container"></div>
+
+    <h2>Line Chart (multi-series)</h2>
+    <div id="line-chart" class="chart-container"></div>
+
+    <h2>Scatter Chart</h2>
+    <div id="scatter-chart" class="chart-container"></div>
+
+    <h2>Histogram</h2>
+    <div id="histogram-chart" class="chart-container"></div>
+
+    <h2>Candlestick Chart</h2>
+    <div id="candlestick-chart" class="chart-container"></div>
+
+    <h2>Stacked Column Chart</h2>
+    <div id="stacked-chart" class="chart-container"></div>
+
+    <h2>Dodged / Grouped Column Chart</h2>
+    <div id="dodged-chart" class="chart-container"></div>
+
+    <h2>Normalized (100% Stacked) Column Chart</h2>
+    <div id="normalized-chart" class="chart-container"></div>
+
+    <h2>Heatmap</h2>
+    <div id="heatmap-chart" class="chart-container"></div>
+  </body>
+</html>
