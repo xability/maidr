@@ -341,23 +341,40 @@ export const GoToExtrema: React.FC = () => {
             </Box>
 
             <Box ref={listContainerRef} role="listbox" aria-label="Extrema targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
-              {state.targets.map((target: ExtremaTarget, index: number) => (
-                <Box
-                  key={`${target.segment}-${target.type}-${target.pointIndex}`}
-                  ref={index === state.selectedIndex ? selectedItemRef : null}
-                  id={`extrema-target-${index}`}
-                  onClick={() => handleTargetSelect(target)}
-                  role="option"
-                  aria-selected={state.selectedIndex === index}
-                  aria-label={`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
-                  tabIndex={0}
-                  sx={getTargetBoxSx(state.selectedIndex === index)}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {`${target.label.split(' at ')[0]} Value: ${target.value.toFixed(2)} at ${target.label.split(' at ')[1]}`}
-                  </Typography>
-                </Box>
-              ))}
+              {state.targets.map((target: ExtremaTarget, index: number) => {
+                // Format display based on target type
+                const isIntersection = target.type === 'intersection';
+                let displayLabel: string;
+
+                if (isIntersection) {
+                  // For intersections, show: "Intersection with Line A, Line B at x=1.50, y=2.50"
+                  const lineNames = target.segment.replace('intersection (', '').replace(')', '');
+                  const coordPart = target.label.replace('Intersection at ', '');
+                  displayLabel = `Intersection with ${lineNames} at ${coordPart}`;
+                } else {
+                  // For min/max, show: "Max point Value: 8.00 at 8"
+                  const labelParts = target.label.split(' at ');
+                  displayLabel = `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`;
+                }
+
+                return (
+                  <Box
+                    key={`${target.segment}-${target.type}-${target.pointIndex}`}
+                    ref={index === state.selectedIndex ? selectedItemRef : null}
+                    id={`extrema-target-${index}`}
+                    onClick={() => handleTargetSelect(target)}
+                    role="option"
+                    aria-selected={state.selectedIndex === index}
+                    aria-label={displayLabel}
+                    tabIndex={0}
+                    sx={getTargetBoxSx(state.selectedIndex === index)}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {displayLabel}
+                    </Typography>
+                  </Box>
+                );
+              })}
 
               {/* 4th option: Searchable combobox */}
               {availableXValues.length > 0 && (

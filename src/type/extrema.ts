@@ -32,8 +32,8 @@ export interface ExtremaTarget {
   /** Identifier for the segment/group this extrema belongs to */
   segment: string;
 
-  /** Type of extrema - maximum or minimum */
-  type: 'max' | 'min';
+  /** Type of extrema - maximum, minimum, or intersection */
+  type: 'max' | 'min' | 'intersection';
 
   /** Index of the group this extrema belongs to (for group-based plots) */
   groupIndex?: number;
@@ -43,4 +43,10 @@ export interface ExtremaTarget {
 
   /** Type of navigation this extrema requires */
   navigationType: 'point' | 'group';
+
+  /**
+   * For intersection targets: indices of all lines that intersect at this point
+   * Used for multiline plots to track which lines are involved in the intersection
+   */
+  intersectingLines?: number[];
 }
