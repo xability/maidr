@@ -25,60 +25,92 @@
             },
             "data": [
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  5,
+                  10
+                ],
                 "min": 20,
                 "q1": 40,
                 "q2": 55,
                 "q3": 70,
                 "max": 90,
-                "upperOutliers": [],
+                "upperOutliers": [
+                  95,
+                  98
+                ],
                 "fill": "Group A"
               },
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  15,
+                  20
+                ],
                 "min": 30,
                 "q1": 50,
                 "q2": 65,
                 "q3": 80,
                 "max": 95,
-                "upperOutliers": [],
+                "upperOutliers": [
+                  100,
+                  108,
+                  115
+                ],
                 "fill": "Group B"
               },
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  -10,
+                  -5,
+                  0
+                ],
                 "min": 10,
                 "q1": 35,
                 "q2": 50,
                 "q3": 75,
                 "max": 100,
-                "upperOutliers": [],
+                "upperOutliers": [
+                  110,
+                  120
+                ],
                 "fill": "Group C"
               }
             ],
             "selectors": [
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  "#plotly-outliers-1 > :nth-child(-n+2 of circle)"
+                ],
                 "min": "#plotly-box-1 > path",
                 "max": "#plotly-box-1 > path",
                 "q2": "#plotly-box-1 > path",
                 "iq": "#plotly-box-1 > path",
-                "upperOutliers": []
+                "upperOutliers": [
+                  "#plotly-outliers-1 > :nth-child(n+3 of circle)"
+                ]
               },
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  "#plotly-outliers-2 > :nth-child(-n+2 of circle)"
+                ],
                 "min": "#plotly-box-2 > path",
                 "max": "#plotly-box-2 > path",
                 "q2": "#plotly-box-2 > path",
                 "iq": "#plotly-box-2 > path",
-                "upperOutliers": []
+                "upperOutliers": [
+                  "#plotly-outliers-2 > :nth-child(n+3 of circle)"
+                ]
               },
               {
-                "lowerOutliers": [],
+                "lowerOutliers": [
+                  "#plotly-outliers-3 > :nth-child(-n+3 of circle)"
+                ],
                 "min": "#plotly-box-3 > path",
                 "max": "#plotly-box-3 > path",
                 "q2": "#plotly-box-3 > path",
                 "iq": "#plotly-box-3 > path",
-                "upperOutliers": []
+                "upperOutliers": [
+                  "#plotly-outliers-3 > :nth-child(n+4 of circle)"
+                ]
               }
             ],
             "orientation": "vert"
@@ -99,6 +131,7 @@
       <!--
         This SVG simulates Plotly's rendering approach where each box plot is drawn
         as a single <path> element containing whiskers, IQ box, and median line.
+        Outliers are rendered as separate circle elements (as Plotly does).
         This is in contrast to Matplotlib which renders each part as separate elements.
       -->
       <svg xmlns="http://www.w3.org/2000/svg" width="460.8pt" height="345.6pt"
@@ -123,11 +156,11 @@
                  Data: min=20, q1=40, q2=55, q3=70, max=90
                  Y range in SVG: y=307.584 (value=0) to y=41.472 (value=100)
                  Scale: (307.584 - 41.472) / 100 = 2.66112 per unit
-                 min=20 -> y = 307.584 - 20*2.66112 = 254.3616
-                 q1=40 -> y = 307.584 - 40*2.66112 = 201.1392
-                 q2=55 -> y = 307.584 - 55*2.66112 = 161.2224
-                 q3=70 -> y = 307.584 - 70*2.66112 = 121.3056
-                 max=90 -> y = 307.584 - 90*2.66112 = 67.6832
+                 min=20 -> y = 307.584 - 20*2.66112 = 254.362
+                 q1=40 -> y = 307.584 - 40*2.66112 = 201.139
+                 q2=55 -> y = 307.584 - 55*2.66112 = 161.222
+                 q3=70 -> y = 307.584 - 70*2.66112 = 121.306
+                 max=90 -> y = 307.584 - 90*2.66112 = 67.683
                  Box center x = 117.12, box half-width = 17.856
             -->
             <g id="plotly-box-1">
@@ -140,10 +173,22 @@
                 M 108.192 67.683 L 126.048 67.683
               " style="fill: rgba(173,216,230,0.5); stroke: #1f77b4; stroke-width: 1.5" />
             </g>
+            <!-- Outliers for Box 1: lower=[5,10], upper=[95,98]
+                 value=5  -> y = 307.584 - 5*2.66112 = 294.278
+                 value=10 -> y = 307.584 - 10*2.66112 = 280.973
+                 value=95 -> y = 307.584 - 95*2.66112 = 54.778
+                 value=98 -> y = 307.584 - 98*2.66112 = 46.795
+            -->
+            <g id="plotly-outliers-1">
+              <circle cx="117.12" cy="294.278" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="117.12" cy="280.973" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="117.12" cy="54.778" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="117.12" cy="46.795" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+            </g>
 
             <!-- Box 2 (Group B): single path for entire box
                  Data: min=30, q1=50, q2=65, q3=80, max=95
-                 min=30 -> y = 307.584 - 30*2.66112 = 227.7504
+                 min=30 -> y = 307.584 - 30*2.66112 = 227.750
                  q1=50 -> y = 307.584 - 50*2.66112 = 174.528
                  q2=65 -> y = 307.584 - 65*2.66112 = 134.611
                  q3=80 -> y = 307.584 - 80*2.66112 = 94.694
@@ -159,6 +204,20 @@
                 M 227.232 227.750 L 245.088 227.750
                 M 227.232 54.777 L 245.088 54.777
               " style="fill: rgba(144,238,144,0.5); stroke: #2ca02c; stroke-width: 1.5" />
+            </g>
+            <!-- Outliers for Box 2: lower=[15,20], upper=[100,108,115]
+                 value=15  -> y = 307.584 - 15*2.66112 = 267.667
+                 value=20  -> y = 307.584 - 20*2.66112 = 254.362
+                 value=100 -> y = 307.584 - 100*2.66112 = 41.472
+                 value=108 -> y = 307.584 - 108*2.66112 = 20.184 (approx, below chart)
+                 value=115 -> y = 307.584 - 115*2.66112 = 1.561 (approx, below chart)
+            -->
+            <g id="plotly-outliers-2">
+              <circle cx="236.16" cy="267.667" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="236.16" cy="254.362" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="236.16" cy="41.472" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="236.16" cy="20.184" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="236.16" cy="1.561" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
             </g>
 
             <!-- Box 3 (Group C): single path for entire box
@@ -179,6 +238,20 @@
                 M 346.272 280.973 L 364.128 280.973
                 M 346.272 41.472 L 364.128 41.472
               " style="fill: rgba(210,180,140,0.5); stroke: #d62728; stroke-width: 1.5" />
+            </g>
+            <!-- Outliers for Box 3: lower=[-10,-5,0], upper=[110,120]
+                 value=-10 -> y = 307.584 - (-10)*2.66112 = 334.195
+                 value=-5  -> y = 307.584 - (-5)*2.66112 = 320.890
+                 value=0   -> y = 307.584 - 0*2.66112 = 307.584
+                 value=110 -> y = 307.584 - 110*2.66112 = 14.861
+                 value=120 -> y = 307.584 - 120*2.66112 = -12.750 (below chart)
+            -->
+            <g id="plotly-outliers-3">
+              <circle cx="355.2" cy="334.195" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="355.2" cy="320.890" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="355.2" cy="307.584" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="355.2" cy="14.861" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="355.2" cy="-12.750" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
             </g>
 
             <!-- Axes -->

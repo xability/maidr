@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Plotly-style Horizontal Box Plot Example</title>
+  <script>
+    var maidr = {
+  "id": "plotly-boxplot-horizontal",
+  "subplots": [
+    [
+      {
+        "id": "subplot-1",
+        "layers": [
+          {
+            "id": "layer-1",
+            "type": "box",
+            "title": "Plotly-style Horizontal Box Plot: Groups and Values",
+            "axes": {
+              "x": "Values",
+              "y": "Group",
+              "format": {
+                "x": { "type": "fixed", "decimals": 1 }
+              }
+            },
+            "data": [
+              {
+                "lowerOutliers": [
+                  -20,
+                  -10
+                ],
+                "min": 8.75,
+                "q1": 61.31,
+                "q2": 78.91,
+                "q3": 100.73,
+                "max": 156.81,
+                "upperOutliers": [
+                  200,
+                  210
+                ],
+                "fill": "Group 3"
+              },
+              {
+                "lowerOutliers": [
+                  10,
+                  20
+                ],
+                "min": 32.23,
+                "q1": 73.98,
+                "q2": 89.67,
+                "q3": 102.79,
+                "max": 133.52,
+                "upperOutliers": [
+                  154.55,
+                  180,
+                  190
+                ],
+                "fill": "Group 2"
+              },
+              {
+                "lowerOutliers": [
+                  40,
+                  50
+                ],
+                "min": 77.27,
+                "q1": 93.90,
+                "q2": 99.79,
+                "q3": 106.53,
+                "max": 124.85,
+                "upperOutliers": [
+                  150,
+                  160
+                ],
+                "fill": "Group 1"
+              }
+            ],
+            "selectors": [
+              {
+                "lowerOutliers": [
+                  "#plotly-hbox-outliers-1 > :nth-child(-n+2 of circle)"
+                ],
+                "min": "#plotly-hbox-1 > path",
+                "max": "#plotly-hbox-1 > path",
+                "q2": "#plotly-hbox-1 > path",
+                "iq": "#plotly-hbox-1 > path",
+                "upperOutliers": [
+                  "#plotly-hbox-outliers-1 > :nth-child(n+3 of circle)"
+                ]
+              },
+              {
+                "lowerOutliers": [
+                  "#plotly-hbox-outliers-2 > :nth-child(-n+2 of circle)"
+                ],
+                "min": "#plotly-hbox-2 > path",
+                "max": "#plotly-hbox-2 > path",
+                "q2": "#plotly-hbox-2 > path",
+                "iq": "#plotly-hbox-2 > path",
+                "upperOutliers": [
+                  "#plotly-hbox-outliers-2 > :nth-child(n+3 of circle)"
+                ]
+              },
+              {
+                "lowerOutliers": [
+                  "#plotly-hbox-outliers-3 > :nth-child(-n+2 of circle)"
+                ],
+                "min": "#plotly-hbox-3 > path",
+                "max": "#plotly-hbox-3 > path",
+                "q2": "#plotly-hbox-3 > path",
+                "iq": "#plotly-hbox-3 > path",
+                "upperOutliers": [
+                  "#plotly-hbox-outliers-3 > :nth-child(n+3 of circle)"
+                ]
+              }
+            ],
+            "orientation": "horz"
+          }
+        ]
+      }
+    ]
+  ]
+}
+  </script>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../src/ui/css/styles.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        This SVG simulates Plotly's rendering approach for HORIZONTAL box plots.
+        Each box plot is drawn as a single <path> element containing whiskers,
+        IQ box, and median line. Outliers are rendered as separate circle elements.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="460.8pt" height="345.6pt"
+        viewBox="0 0 460.8 345.6" version="1.1" id="plotly-boxplot-horizontal">
+        <defs>
+          <style type="text/css">
+            * { stroke-linejoin: round; stroke-linecap: butt; }
+          </style>
+        </defs>
+        <g id="figure_1">
+          <!-- Background -->
+          <g id="maidr-bg">
+            <path d="M 0 345.6 L 460.8 345.6 L 460.8 0 L 0 0 z" style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <!-- Plot area background -->
+            <g id="maidr-plot-bg">
+              <path d="M 57.6 307.584 L 414.72 307.584 L 414.72 41.472 L 57.6 41.472 z" style="fill: #ffffff" />
+            </g>
+
+            <!-- Horizontal Box 1 (Group 3, bottom): single path
+                 Data: min=8.75, q1=61.31, q2=78.91, q3=100.73, max=156.81
+                 X range: x=57.6 (value=-50) to x=414.72 (value=250)
+                 Scale: (414.72 - 57.6) / 300 = 1.19040 per unit
+                 min=8.75   -> x = 57.6 + (8.75+50)*1.19040 = 127.536
+                 q1=61.31   -> x = 57.6 + (61.31+50)*1.19040 = 190.112
+                 q2=78.91   -> x = 57.6 + (78.91+50)*1.19040 = 211.067
+                 q3=100.73  -> x = 57.6 + (100.73+50)*1.19040 = 237.020
+                 max=156.81 -> x = 57.6 + (156.81+50)*1.19040 = 303.756
+                 Box center y = 263.232, box half-height = 13.3056
+            -->
+            <g id="plotly-hbox-1">
+              <path d="
+                M 127.536 263.232 L 190.112 263.232
+                M 190.112 249.926 L 190.112 276.538 L 237.020 276.538 L 237.020 249.926 L 190.112 249.926
+                M 211.067 249.926 L 211.067 276.538
+                M 237.020 263.232 L 303.756 263.232
+                M 127.536 256.579 L 127.536 269.885
+                M 303.756 256.579 L 303.756 269.885
+              " style="fill: rgba(210,180,140,0.5); stroke: #d62728; stroke-width: 1.5" />
+            </g>
+            <!-- Outliers for HBox 1: lower=[-20,-10], upper=[200,210]
+                 value=-20  -> x = 57.6 + (-20+50)*1.19040 = 93.312
+                 value=-10  -> x = 57.6 + (-10+50)*1.19040 = 105.216
+                 value=200  -> x = 57.6 + (200+50)*1.19040 = 355.200
+                 value=210  -> x = 57.6 + (210+50)*1.19040 = 367.104
+            -->
+            <g id="plotly-hbox-outliers-1">
+              <circle cx="93.312" cy="263.232" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="105.216" cy="263.232" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="355.200" cy="263.232" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+              <circle cx="367.104" cy="263.232" r="3" style="fill: #d62728; fill-opacity: 0.5; stroke: #d62728; stroke-opacity: 0.5" />
+            </g>
+
+            <!-- Horizontal Box 2 (Group 2, middle): single path
+                 Data: min=32.23, q1=73.98, q2=89.67, q3=102.79, max=133.52
+                 min=32.23  -> x = 57.6 + (32.23+50)*1.19040 = 155.496
+                 q1=73.98   -> x = 57.6 + (73.98+50)*1.19040 = 205.186
+                 q2=89.67   -> x = 57.6 + (89.67+50)*1.19040 = 223.861
+                 q3=102.79  -> x = 57.6 + (102.79+50)*1.19040 = 239.472
+                 max=133.52 -> x = 57.6 + (133.52+50)*1.19040 = 276.048
+                 Box center y = 174.528, box half-height = 13.3056
+            -->
+            <g id="plotly-hbox-2">
+              <path d="
+                M 155.496 174.528 L 205.186 174.528
+                M 205.186 161.222 L 205.186 187.834 L 239.472 187.834 L 239.472 161.222 L 205.186 161.222
+                M 223.861 161.222 L 223.861 187.834
+                M 239.472 174.528 L 276.048 174.528
+                M 155.496 167.875 L 155.496 181.181
+                M 276.048 167.875 L 276.048 181.181
+              " style="fill: rgba(144,238,144,0.5); stroke: #2ca02c; stroke-width: 1.5" />
+            </g>
+            <!-- Outliers for HBox 2: lower=[10,20], upper=[154.55,180,190]
+                 value=10    -> x = 57.6 + (10+50)*1.19040 = 129.024
+                 value=20    -> x = 57.6 + (20+50)*1.19040 = 140.928
+                 value=154.55-> x = 57.6 + (154.55+50)*1.19040 = 301.070
+                 value=180   -> x = 57.6 + (180+50)*1.19040 = 331.392
+                 value=190   -> x = 57.6 + (190+50)*1.19040 = 343.296
+            -->
+            <g id="plotly-hbox-outliers-2">
+              <circle cx="129.024" cy="174.528" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="140.928" cy="174.528" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="301.070" cy="174.528" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="331.392" cy="174.528" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+              <circle cx="343.296" cy="174.528" r="3" style="fill: #2ca02c; fill-opacity: 0.5; stroke: #2ca02c; stroke-opacity: 0.5" />
+            </g>
+
+            <!-- Horizontal Box 3 (Group 1, top): single path
+                 Data: min=77.27, q1=93.90, q2=99.79, q3=106.53, max=124.85
+                 min=77.27  -> x = 57.6 + (77.27+50)*1.19040 = 209.103
+                 q1=93.90   -> x = 57.6 + (93.90+50)*1.19040 = 228.899
+                 q2=99.79   -> x = 57.6 + (99.79+50)*1.19040 = 235.909
+                 q3=106.53  -> x = 57.6 + (106.53+50)*1.19040 = 243.933
+                 max=124.85 -> x = 57.6 + (124.85+50)*1.19040 = 265.734
+                 Box center y = 85.824, box half-height = 13.3056
+            -->
+            <g id="plotly-hbox-3">
+              <path d="
+                M 209.103 85.824 L 228.899 85.824
+                M 228.899 72.518 L 228.899 99.130 L 243.933 99.130 L 243.933 72.518 L 228.899 72.518
+                M 235.909 72.518 L 235.909 99.130
+                M 243.933 85.824 L 265.734 85.824
+                M 209.103 79.171 L 209.103 92.477
+                M 265.734 79.171 L 265.734 92.477
+              " style="fill: rgba(173,216,230,0.5); stroke: #1f77b4; stroke-width: 1.5" />
+            </g>
+            <!-- Outliers for HBox 3: lower=[40,50], upper=[150,160]
+                 value=40  -> x = 57.6 + (40+50)*1.19040 = 164.736
+                 value=50  -> x = 57.6 + (50+50)*1.19040 = 176.640
+                 value=150 -> x = 57.6 + (150+50)*1.19040 = 295.680
+                 value=160 -> x = 57.6 + (160+50)*1.19040 = 307.584
+            -->
+            <g id="plotly-hbox-outliers-3">
+              <circle cx="164.736" cy="85.824" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="176.640" cy="85.824" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="295.680" cy="85.824" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+              <circle cx="307.584" cy="85.824" r="3" style="fill: #1f77b4; fill-opacity: 0.5; stroke: #1f77b4; stroke-opacity: 0.5" />
+            </g>
+
+            <!-- Axes -->
+            <g id="matplotlib.axis_1">
+              <text x="236.16" y="335.860" text-anchor="middle" font-size="10">Values</text>
+            </g>
+            <g id="matplotlib.axis_2">
+              <g id="text_group_1">
+                <text x="47" y="266.232" text-anchor="end" font-size="10">Group 1</text>
+              </g>
+              <g id="text_group_2">
+                <text x="47" y="177.528" text-anchor="end" font-size="10">Group 2</text>
+              </g>
+              <g id="text_group_3">
+                <text x="47" y="88.824" text-anchor="end" font-size="10">Group 3</text>
+              </g>
+              <text x="15" y="174.528" text-anchor="middle" font-size="10" transform="rotate(-90, 15, 174.528)">Group</text>
+            </g>
+            <text x="236.16" y="30" text-anchor="middle" font-size="12" font-weight="bold">Plotly-style Horizontal Box Plot</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

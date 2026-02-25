@@ -171,23 +171,12 @@ export abstract class Svg {
         break;
     }
 
-    const style = window.getComputedStyle(box);
-    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
-    line.setAttribute(Constant.X1, String(x1));
-    line.setAttribute(Constant.Y1, String(y1));
-    line.setAttribute(Constant.X2, String(x2));
-    line.setAttribute(Constant.Y2, String(y2));
-    line.setAttribute(Constant.STROKE, style.stroke);
-    line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
-    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-
-    box.insertAdjacentElement(Constant.AFTER_END, line);
-    return line;
+    return this.createPositionedLineElement(x1, y1, x2, y2, box);
   }
 
   /**
    * Creates a hidden line element at specified coordinates, styled to match a reference element.
-   * Used for data-driven overlay elements in single-path box plots (e.g., Plotly).
+   * Used by createLineElement for bounding box edges and by BoxTrace for data-driven overlays.
    * @param x1 - Start x-coordinate
    * @param y1 - Start y-coordinate
    * @param x2 - End x-coordinate
