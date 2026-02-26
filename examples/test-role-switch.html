@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test: role="img" to role="application" switch</title>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script src="../dist/maidr.js"></script>
+    <style>
+      body { font-family: sans-serif; padding: 2rem; }
+      h1 { margin-bottom: 0.5rem; }
+      p { color: #555; margin-bottom: 2rem; }
+      .plot-container { margin-bottom: 3rem; border: 1px solid #ccc; padding: 1rem; }
+      h2 { margin-top: 0; }
+    </style>
+  </head>
+
+  <body>
+    <h1>Screen Reader Role Switch Test</h1>
+    <p>
+      Open this page with NVDA or JAWS. Press "g" in browse mode to jump between
+      graphics. Each chart should be discoverable as an image. On focus, the role
+      should switch to "application" so all single-letter keys work.
+    </p>
+
+    <!-- Plot 1: Simple Bar Chart -->
+    <div class="plot-container">
+      <h2>Plot 1: Bar Chart (Tips by Day)</h2>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="400" height="250" viewBox="0 0 400 250"
+        maidr-data='{
+          "id": "test-bar-1",
+          "title": "Tips by Day",
+          "subplots": [[{
+            "layers": [{
+              "id": "bar-layer-1",
+              "type": "bar",
+              "axes": { "x": "Day", "y": "Count" },
+              "data": [
+                { "x": "Mon", "y": 20 },
+                { "x": "Tue", "y": 35 },
+                { "x": "Wed", "y": 28 },
+                { "x": "Thu", "y": 42 },
+                { "x": "Fri", "y": 55 }
+              ]
+            }]
+          }]]
+        }'
+      >
+        <rect x="40" y="180" width="50" height="40" fill="steelblue" />
+        <rect x="110" y="145" width="50" height="75" fill="steelblue" />
+        <rect x="180" y="160" width="50" height="60" fill="steelblue" />
+        <rect x="250" y="130" width="50" height="90" fill="steelblue" />
+        <rect x="320" y="100" width="50" height="120" fill="steelblue" />
+        <text x="200" y="245" text-anchor="middle" font-size="12">Day</text>
+      </svg>
+    </div>
+
+    <!-- Plot 2: Another Bar Chart -->
+    <div class="plot-container">
+      <h2>Plot 2: Bar Chart (Sales by Region)</h2>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="400" height="250" viewBox="0 0 400 250"
+        maidr-data='{
+          "id": "test-bar-2",
+          "title": "Sales by Region",
+          "subplots": [[{
+            "layers": [{
+              "id": "bar-layer-2",
+              "type": "bar",
+              "axes": { "x": "Region", "y": "Sales ($K)" },
+              "data": [
+                { "x": "North", "y": 120 },
+                { "x": "South", "y": 85 },
+                { "x": "East", "y": 150 },
+                { "x": "West", "y": 95 }
+              ]
+            }]
+          }]]
+        }'
+      >
+        <rect x="50" y="100" width="60" height="120" fill="coral" />
+        <rect x="140" y="140" width="60" height="80" fill="coral" />
+        <rect x="230" y="70" width="60" height="150" fill="coral" />
+        <rect x="320" y="130" width="60" height="90" fill="coral" />
+        <text x="200" y="245" text-anchor="middle" font-size="12">Region</text>
+      </svg>
+    </div>
+
+    <!-- Plot 3: Line Chart -->
+    <div class="plot-container">
+      <h2>Plot 3: Line Chart (Temperature)</h2>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="400" height="250" viewBox="0 0 400 250"
+        maidr-data='{
+          "id": "test-line-1",
+          "title": "Temperature Over Time",
+          "subplots": [[{
+            "layers": [{
+              "id": "line-layer-1",
+              "type": "line",
+              "axes": { "x": "Month", "y": "Temp (F)" },
+              "data": [[
+                { "x": "Jan", "y": 32, "fill": "" },
+                { "x": "Feb", "y": 35, "fill": "" },
+                { "x": "Mar", "y": 45, "fill": "" },
+                { "x": "Apr", "y": 58, "fill": "" },
+                { "x": "May", "y": 68, "fill": "" },
+                { "x": "Jun", "y": 78, "fill": "" }
+              ]]
+            }]
+          }]]
+        }'
+      >
+        <polyline
+          points="40,200 110,190 180,160 250,120 320,90 390,60"
+          fill="none" stroke="green" stroke-width="2"
+        />
+        <text x="200" y="245" text-anchor="middle" font-size="12">Month</text>
+      </svg>
+    </div>
+
+    <h2>Test Instructions</h2>
+    <ol>
+      <li><strong>Before focus (browse mode):</strong> Press "g" in NVDA to jump between graphics. All 3 plots should be found.</li>
+      <li><strong>On focus:</strong> Tab to a plot or click it. The role should change to "application". Press "g" — it should open the Go To Extrema dialog.</li>
+      <li><strong>Other keys:</strong> While focused, press "b" (braille), "t" (text), "s" (sonification), "r" (review) — all should work.</li>
+      <li><strong>On blur:</strong> Tab away. The role should revert to "img". Press "g" to find graphics again.</li>
+    </ol>
+  </body>
+</html>
