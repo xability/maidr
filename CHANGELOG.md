@@ -1,3 +1,15 @@
+# [3.53.0](https://github.com/xability/maidr/compare/v3.52.0...v3.53.0) (2026-02-26)
+
+
+### Bug Fixes
+
+* address empty space SR announcement in react comps (JAWS & NVDA) ([#564](https://github.com/xability/maidr/issues/564)) ([d180d2e](https://github.com/xability/maidr/commit/d180d2edaa9e1a51c4e58dd8537ce47100b3af5e))
+
+
+### Features
+
+* address JAWS/NVDA not recognizing image assets ([#565](https://github.com/xability/maidr/issues/565)) ([c41495d](https://github.com/xability/maidr/commit/c41495dc19750f20c1b6d42c315d5b6272fafbee))
+
 # [3.52.0](https://github.com/xability/maidr/compare/v3.51.1...v3.52.0) (2026-02-25)
 
 
