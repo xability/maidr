@@ -8,6 +8,7 @@
  * - TypeDoc generates API docs separately
  */
 
+const { execSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { marked } = require('marked');
@@ -207,6 +208,10 @@ const distDest = path.join(SITE_DIR, 'dist');
 if (fs.existsSync(distSource)) {
   fs.cpSync(distSource, distDest, { recursive: true });
 }
+
+// Build React example
+console.log('Building React example...');
+execSync('npm run build:react-example', { stdio: 'inherit', cwd: ROOT });
 
 // Copy examples folder
 console.log('Copying examples folder...');

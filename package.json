@@ -38,7 +38,8 @@
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
     "e2e:ui": "npx playwright test --ui",
     "e2e:debug": "npx playwright test --debug",
-    "e2e:install": "npx playwright install --with-deps"
+    "e2e:install": "npx playwright install --with-deps",
+    "build:react-example": "vite build --config examples/react-app/vite.config.ts"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -101,7 +102,8 @@
     "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-singlefile": "^2.3.0"
   },
   "directories": {
     "doc": "docs",
