@@ -208,6 +208,12 @@ if (fs.existsSync(distSource)) {
   fs.cpSync(distSource, distDest, { recursive: true });
 }
 
+// Build React example
+console.log('Building React example...');
+const { execSync } = require('node:child_process');
+
+execSync('npm run build:react-example', { stdio: 'inherit', cwd: ROOT });
+
 // Copy examples folder
 console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');
