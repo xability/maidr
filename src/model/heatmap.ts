@@ -56,6 +56,8 @@ export class Heatmap extends AbstractTrace {
     this.x.length = 0;
     this.y.length = 0;
 
+    this.highlightCenters = null;
+
     super.dispose();
   }
 
@@ -114,7 +116,15 @@ export class Heatmap extends AbstractTrace {
     const numCols = this.heatmapValues[0].length;
     const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
-      return null;
+      // Clean up clones created by selectAllElements that won't be used
+      for (const el of domElements) {
+        el.remove();
+      }
+      // Try overlay approach for rasterized heatmaps (e.g., Plotly).
+      // Query the original (non-cloned) selector matches once and pass them
+      // through to avoid redundant DOM queries in findHeatmapImage.
+      const selectorMatches = document.querySelectorAll(selector);
+      return this.createOverlayElements(selectorMatches, numRows, numCols);
     }
 
     const svgElements = new Array<Array<SVGElement>>();
@@ -328,5 +338,121 @@ export class Heatmap extends AbstractTrace {
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
     };
+  }
+
+  /**
+   * Creates SVG rect overlay elements for rasterized heatmaps (e.g., Plotly)
+   * where individual cell elements don't exist in the DOM.
+   *
+   * Row mapping: After the constructor reverses the data, heatmapValues[0]
+   * corresponds to the visual TOP of the heatmap. The image element's bbox.y
+   * is also the visual top, so r=0 → bbox.y is the correct mapping.
+   *
+   * Note: High-contrast mode ({@link HighContrastService}) relies on
+   * {@link AbstractTrace.getAllOriginalElements} to find the visible "original"
+   * sibling of each hidden clone. Overlay rects are new elements (not clones of
+   * existing originals), so `getAllOriginalElements()` correctly returns an empty
+   * array — rasterized image pixel colors cannot be modified via SVG attributes.
+   *
+   * @param selectorMatches - Pre-queried DOM elements matching the layer selector
+   * @param numRows - Number of rows in the heatmap grid
+   * @param numCols - Number of columns in the heatmap grid
+   * @returns 2D array of SVG rect elements or null if image not found
+   */
+  private createOverlayElements(
+    selectorMatches: NodeListOf<Element>,
+    numRows: number,
+    numCols: number,
+  ): SVGElement[][] | null {
+    const imageElement = this.findHeatmapImage(selectorMatches);
+    if (!(imageElement instanceof SVGGraphicsElement)) {
+      return null;
+    }
+
+    const bbox = imageElement.getBBox();
+    if (bbox.width === 0 || bbox.height === 0) {
+      return null;
+    }
+
+    const parentGroup = imageElement.parentElement;
+    if (!parentGroup) {
+      return null;
+    }
+
+    const cellWidth = bbox.width / numCols;
+    const cellHeight = bbox.height / numRows;
+    const svgElements: SVGElement[][] = [];
+    const fragment = document.createDocumentFragment();
+
+    for (let r = 0; r < numRows; r++) {
+      const row: SVGElement[] = [];
+      for (let c = 0; c < numCols; c++) {
+        const rect = document.createElementNS(Svg.SVG_NAMESPACE, 'rect') as SVGRectElement;
+        rect.setAttribute('x', String(bbox.x + c * cellWidth));
+        rect.setAttribute('y', String(bbox.y + r * cellHeight));
+        rect.setAttribute('width', String(cellWidth));
+        rect.setAttribute('height', String(cellHeight));
+        rect.setAttribute('fill', 'transparent');
+        rect.setAttribute('stroke', 'transparent');
+        rect.setAttribute('visibility', 'hidden');
+        rect.setAttribute('aria-hidden', 'true');
+
+        fragment.appendChild(rect);
+        row.push(rect);
+      }
+      svgElements.push(row);
+    }
+
+    parentGroup.appendChild(fragment);
+    return svgElements;
+  }
+
+  /**
+   * Finds the rasterized image element for a heatmap rendered as a single image
+   * (e.g., Plotly heatmaps).
+   * @param selectorMatches - Pre-queried DOM elements matching the layer selector
+   * @returns The SVG image element or null if not found
+   */
+  private findHeatmapImage(selectorMatches: NodeListOf<Element>): SVGElement | null {
+    // Try the pre-queried elements directly - the selector might match an image
+    for (const el of selectorMatches) {
+      if (el instanceof SVGImageElement) {
+        return el;
+      }
+    }
+
+    // If the selector matches a container, look for an image inside it
+    if (selectorMatches.length > 0) {
+      const firstEl = selectorMatches[0];
+      if (firstEl instanceof Element) {
+        const img = firstEl.querySelector('image');
+        if (img instanceof SVGElement) {
+          return img;
+        }
+        // Check only the immediate parent for an image sibling to avoid
+        // walking up the tree and matching unrelated images.
+        const parent = firstEl.parentElement;
+        if (parent) {
+          const siblingImg = parent.querySelector(':scope > image');
+          if (siblingImg instanceof SVGElement) {
+            return siblingImg;
+          }
+        }
+      }
+    }
+
+    // Try Plotly-specific DOM structure: .heatmaplayer > .hm > image
+    // Scope search to the closest SVG ancestor of the selector match to avoid
+    // matching heatmap images from other plots on the same page.
+    const scopeRoot = selectorMatches.length > 0
+      ? selectorMatches[0].closest('svg')
+      : null;
+    const searchRoot = scopeRoot ?? document;
+    const plotlyImage = searchRoot.querySelector('.heatmaplayer image');
+    if (plotlyImage instanceof SVGElement) {
+      return plotlyImage;
+    }
+
+    return null;
   }
 }
