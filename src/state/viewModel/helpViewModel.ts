@@ -8,7 +8,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for the help menu containing available help items.
  */
-interface HelpMenuState {
+export interface HelpMenuState {
   items: HelpMenuItem[];
 }
 

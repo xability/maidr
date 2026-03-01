@@ -10,30 +10,34 @@ import rotorReducer from './viewModel/rotorNavigationViewModel';
 import settingsReducer from './viewModel/settingsViewModel';
 import textReducer from './viewModel/textViewModel';
 
-/**
- * Configures and creates the Redux store with all application view model reducers.
- */
-export const store = configureStore({
-  reducer: {
-    braille: brailleReducer,
-    chat: chatReducer,
-    commandPalette: commandPaletteReducer,
-    display: displayReducer,
-    goToExtrema: goToExtremaReducer,
-    help: helpMenuReducer,
-    review: reviewReducer,
-    settings: settingsReducer,
-    text: textReducer,
-    rotor: rotorReducer,
-  },
-});
+const reducers = {
+  braille: brailleReducer,
+  chat: chatReducer,
+  commandPalette: commandPaletteReducer,
+  display: displayReducer,
+  goToExtrema: goToExtremaReducer,
+  help: helpMenuReducer,
+  review: reviewReducer,
+  settings: settingsReducer,
+  text: textReducer,
+  rotor: rotorReducer,
+};
 
 /**
- * Root state type derived from the store's getState method.
+ * Creates a new Redux store instance with all application view model reducers.
+ * Each MAIDR plot instance should have its own store for state isolation.
  */
-export type RootState = ReturnType<typeof store.getState>;
+// eslint-disable-next-line ts/explicit-function-return-type -- Return type is inferred to derive AppStore and RootState types
+export function createMaidrStore() {
+  return configureStore({ reducer: reducers });
+}
 
 /**
  * Type representing the application store instance.
  */
-export type AppStore = typeof store;
+export type AppStore = ReturnType<typeof createMaidrStore>;
+
+/**
+ * Root state type derived from the store's reducer map.
+ */
+export type RootState = ReturnType<AppStore['getState']>;

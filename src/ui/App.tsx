@@ -1,7 +1,9 @@
+import type { MaidrContextValue } from '@state/context';
+import type { AppStore } from '@state/store';
 import type { Focus } from '@type/event';
+import type { FC, JSX } from 'react';
+import { MaidrContext } from '@state/context';
 import { useViewModelState } from '@state/hook/useViewModel';
-import { store } from '@state/store';
-import React from 'react';
 import { Provider } from 'react-redux';
 import Braille from './component/Braille';
 import Chat from './component/Chat';
@@ -17,10 +19,10 @@ interface AppProps {
   plot: HTMLElement;
 }
 
-const App: React.FC<AppProps> = ({ plot }) => {
+const App: FC<AppProps> = ({ plot }) => {
   const { focus, tooltip } = useViewModelState('display');
 
-  const renderFocusedComponent = (focused: Focus | null): React.JSX.Element | null => {
+  const renderFocusedComponent = (focused: Focus | null): JSX.Element | null => {
     switch (focused) {
       case 'BRAILLE':
         return <Braille />;
@@ -57,10 +59,18 @@ const App: React.FC<AppProps> = ({ plot }) => {
   );
 };
 
-export function MaidrApp(plot: HTMLElement): React.JSX.Element {
+interface MaidrAppProps {
+  plot: HTMLElement;
+  store: AppStore;
+  contextValue: MaidrContextValue;
+}
+
+export function MaidrApp({ plot, store, contextValue }: MaidrAppProps): JSX.Element {
   return (
     <Provider store={store}>
-      <App plot={plot} />
+      <MaidrContext.Provider value={contextValue}>
+        <App plot={plot} />
+      </MaidrContext.Provider>
     </Provider>
   );
 }

@@ -29,38 +29,19 @@ export interface ViewModelMap {
 }
 
 /**
- * Singleton registry for managing and accessing view models throughout the application.
+ * Registry for managing and accessing view models within a single MAIDR plot instance.
+ * Each Controller owns its own ViewModelRegistry for state isolation.
  */
 export class ViewModelRegistry implements Disposable {
-  private static registry: ViewModelRegistry | null;
-
-  private readonly viewModels: Map<keyof ViewModelMap, ViewModelMap[keyof ViewModelMap]>;
-
-  /**
-   * Private constructor to enforce singleton pattern.
-   */
-  private constructor() {
-    this.viewModels = new Map();
-  }
-
-  /**
-   * Gets the singleton instance of the ViewModelRegistry.
-   * @returns The ViewModelRegistry instance
-   */
-  public static get instance(): ViewModelRegistry {
-    if (!this.registry) {
-      this.registry = new ViewModelRegistry();
-    }
-    return this.registry;
-  }
+  private readonly viewModels = new Map<keyof ViewModelMap, ViewModelMap[keyof ViewModelMap]>();
 
   /**
    * Registers a view model instance with the registry.
    * @param key - The key identifying the view model
-   * @param factory - The view model instance to register
+   * @param viewModel - The view model instance to register
    */
-  public register<K extends keyof ViewModelMap>(key: K, factory: ViewModelMap[K]): void {
-    this.viewModels.set(key, factory);
+  public register<K extends keyof ViewModelMap>(key: K, viewModel: ViewModelMap[K]): void {
+    this.viewModels.set(key, viewModel);
   }
 
   /**
@@ -77,10 +58,11 @@ export class ViewModelRegistry implements Disposable {
   }
 
   /**
-   * Disposes the registry and clears all registered view models.
+   * Clears all registered view model references.
+   * Note: This does NOT dispose individual view models -- the Controller
+   * is responsible for disposing each view model before calling this.
    */
   public dispose(): void {
     this.viewModels.clear();
-    ViewModelRegistry.registry = null;
   }
 }

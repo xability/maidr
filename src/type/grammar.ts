@@ -105,21 +105,60 @@ export interface FormatConfig {
 
 /**
  * Root MAIDR data structure containing figure metadata and subplot grid.
+ * This is the type for the `data` prop passed to the `<Maidr>` React component.
+ *
+ * @example
+ * ```typescript
+ * const data: Maidr = {
+ *   id: 'my-chart',
+ *   title: 'Sales by Quarter',
+ *   subplots: [[{
+ *     layers: [{
+ *       id: '0',
+ *       type: 'bar',
+ *       axes: { x: 'Quarter', y: 'Revenue' },
+ *       data: [{ x: 'Q1', y: 120 }, { x: 'Q2', y: 200 }],
+ *     }],
+ *   }]],
+ * };
+ * ```
  */
 export interface Maidr {
+  /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
+  /** Chart title displayed in text descriptions. */
   title?: string;
+  /** Chart subtitle. */
   subtitle?: string;
+  /** Chart caption. */
   caption?: string;
+  /**
+   * 2D grid of subplots. Each row is an array of subplots.
+   * For a single chart, use `[[{ layers: [...] }]]`.
+   */
   subplots: MaidrSubplot[][];
 }
 
 /**
  * Subplot data structure containing optional legend and trace layers.
+ * A subplot groups one or more layers (traces) that share the same coordinate space.
+ *
+ * @example
+ * ```typescript
+ * const subplot: MaidrSubplot = {
+ *   layers: [
+ *     { id: '0', type: 'bar', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *     { id: '1', type: 'line', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *   ],
+ * };
+ * ```
  */
 export interface MaidrSubplot {
+  /** Legend labels for multi-series plots. */
   legend?: string[];
+  /** CSS selector for the subplot container element. */
   selector?: string;
+  /** Array of trace layers in this subplot. */
   layers: MaidrLayer[];
 }
 
@@ -318,11 +357,21 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | SmoothPoint[][];
 }
 
 /**
  * Enumeration of supported plot trace types.
+ * Use these values for the `type` field in {@link MaidrLayer}.
+ *
+ * @example
+ * ```typescript
+ * import { TraceType } from 'maidr/react';
+ * const layer = { id: '0', type: TraceType.BAR, ... };
+ * // Or use the string value directly:
+ * const layer2 = { id: '0', type: 'bar', ... };
+ * ```
  */
 export enum TraceType {
   BAR = 'bar',
