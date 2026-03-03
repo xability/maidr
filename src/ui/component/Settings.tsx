@@ -11,6 +11,7 @@ import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Alert,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -270,7 +271,7 @@ const Settings: React.FC = () => {
 
   const handleGeneralChange = (
     key: keyof GeneralSettings,
-    value: string | number | AriaMode | HoverMode,
+    value: string | number | AriaMode | boolean | HoverMode,
   ): void => {
     // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
@@ -408,6 +409,109 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Highlight Color',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Mode"
+              input={(
+                <FormControl>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={generalSettings.highContrastMode}
+                        onChange={e =>
+                          handleGeneralChange('highContrastMode', e.target.checked)}
+                        size="small"
+                      />
+                    )}
+                    label={generalSettings.highContrastMode ? 'On' : 'Off'}
+                    slotProps={{
+                      typography: {
+                        variant: 'body2',
+                      },
+                    }}
+                    aria-label="High Contrast Mode"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Levels"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.highContrastLevels}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'highContrastLevels',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Levels',
+                          'min': 2,
+                          'max': 20,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Light Color"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highContrastLightColor}
+                    onChange={e =>
+                      handleGeneralChange('highContrastLightColor', e.target.value)}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Light Color',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="High Contrast Dark Color"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="color"
+                    size="small"
+                    value={generalSettings.highContrastDarkColor}
+                    onChange={e =>
+                      handleGeneralChange('highContrastDarkColor', e.target.value)}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'High Contrast Dark Color',
                         },
                       },
                     }}

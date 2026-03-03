@@ -7,7 +7,7 @@ import { AbstractViewModel } from '@state/viewModel/viewModel';
 /**
  * State interface for rotor navigation containing the current rotor value.
  */
-interface RotorState {
+export interface RotorState {
   rotor_value: string | null;
 }
 const initialState: RotorState = {

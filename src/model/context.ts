@@ -12,7 +12,8 @@ type Plot = Figure | Subplot | Trace;
 
 export class Context implements Disposable {
   public readonly id: string;
-  private readonly instructionContext: Plot;
+  public readonly instructionContext: Plot;
+  public readonly selectorList: string[] = [];
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
@@ -86,8 +87,48 @@ export class Context implements Disposable {
     return this.isRotorActive;
   }
 
+  /**
+   * Returns whether this figure has multiple subplots (facets/multi-panel).
+   */
+  public get isMultiPanel(): boolean {
+    const figureState = this.figure.state;
+    return !figureState.empty && figureState.size > 1;
+  }
+
+  /**
+   * Returns the figure-level title (the top-level plot title).
+   */
+  public get figureTitle(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.title;
+    }
+    return 'unavailable';
+  }
+
+  /**
+   * Returns the figure-level subtitle.
+   */
+  public get figureSubtitle(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.subtitle;
+    }
+    return 'unavailable';
+  }
+
+  /**
+   * Returns the figure-level caption.
+   */
+  public get figureCaption(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.caption;
+    }
+    return 'unavailable';
+  }
+
   public toggleScope(scope: Scope): void {
-    // Clear the scope context and set the new scope
     this.scopeContext.clear();
     this.scopeContext.push(scope);
 

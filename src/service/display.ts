@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
-import { Emitter } from '@type/event';
+import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 
@@ -163,7 +163,22 @@ export class DisplayService implements Disposable {
       this.focusStack.push(focus);
     }
 
-    const newScope = this.focusStack.peek()!;
+    let newScope = this.focusStack.peek()!;
+
+    // When returning from a modal, the focusStack base may be stale.
+    // For example, the user may have entered a subplot (SUBPLOT → TRACE)
+    // before opening the modal, but the focusStack base was never updated.
+    // Derive the correct navigation scope from the context's active plot element.
+    if (this.isReturningFromModeToggle && (newScope === 'SUBPLOT' || newScope === 'TRACE')) {
+      const activeType = this.context.state.type;
+      const correctScope = (activeType === 'trace' ? Scope.TRACE : Scope.SUBPLOT) as Focus;
+      if (newScope !== correctScope) {
+        this.focusStack.clear();
+        this.focusStack.push(correctScope);
+        newScope = correctScope;
+      }
+    }
+
     this.context.toggleScope(newScope);
     this.updateFocus(newScope);
   }

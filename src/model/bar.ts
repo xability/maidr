@@ -104,6 +104,8 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return {
       main: { label: mainLabel, value: mainValue },
       cross: { label: crossLabel, value: crossValue },
+      mainAxis: isVertical ? 'x' : 'y',
+      crossAxis: isVertical ? 'y' : 'x',
     };
   }
 
@@ -372,7 +374,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       }
       i += step;
     }
-
+    this.notifyRotorBounds();
     return false;
   }
 }

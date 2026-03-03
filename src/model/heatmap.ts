@@ -93,7 +93,7 @@ export class Heatmap extends AbstractTrace {
       cross: { label: this.yAxis, value: this.y[this.row] },
       fill: {
         label: this.fill,
-        value: String(this.heatmapValues[this.row][this.col]),
+        value: this.heatmapValues[this.row][this.col],
       },
     };
   }
@@ -180,6 +180,7 @@ export class Heatmap extends AbstractTrace {
       case 'down':
         return this.search_in_col(direction, type);
       default:
+        this.notifyRotorBounds();
         return false;
     }
   }
@@ -205,6 +206,7 @@ export class Heatmap extends AbstractTrace {
       }
       i += step;
     }
+    this.notifyRotorBounds();
     return false;
   }
 

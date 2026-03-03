@@ -13,6 +13,7 @@ export type FigureState
   = | {
     empty: true;
     type: 'figure';
+    warning?: boolean;
   }
   | {
     empty: false;
@@ -34,6 +35,7 @@ export type SubplotState
   = | {
     empty: true;
     type: 'subplot';
+    warning?: boolean;
   }
   | {
     empty: false;
@@ -52,6 +54,7 @@ interface TraceEmptyState {
   type: 'trace';
   traceType: TraceType;
   audio: AudioEmptyState;
+  warning?: boolean;
 }
 
 /**
@@ -62,6 +65,8 @@ export type TraceState
     | {
       empty: false;
       type: 'trace';
+      /** Unique identifier for the layer/trace */
+      layerId: string;
       traceType: TraceType;
       plotType: string;
       title: string;
@@ -239,14 +244,31 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 }
 
 /**
+ * Axis type identifier for formatting.
+ */
+export type AxisType = 'x' | 'y' | 'fill';
+
+/**
  * Text description state containing labels and values for screen reader output.
  */
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  fill?: { label: string; value: string };
+  fill?: { label: string; value: number | string };
   range?: { min: number; max: number };
   section?: string;
+  /**
+   * Original axis identity for main value.
+   * For vertical plots: 'x', for horizontal plots: 'y'.
+   * Used to apply correct formatter regardless of orientation.
+   */
+  mainAxis?: AxisType;
+  /**
+   * Original axis identity for cross value.
+   * For vertical plots: 'y', for horizontal plots: 'x'.
+   * Used to apply correct formatter regardless of orientation.
+   */
+  crossAxis?: AxisType;
 }
 
 /**

@@ -10,6 +10,8 @@ import { LineTrace } from './line';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
+import { ViolinKdeTrace } from './violin';
+import { ViolinBoxTrace } from './violinBox';
 
 /**
  * Abstract factory class for creating appropriate trace instances based on layer type.
@@ -18,34 +20,15 @@ export abstract class TraceFactory {
   /**
    * Factory method for creating trace instances.
    *
-   * This method is intentionally kept lightweight and only receives
-   * trace-local data (`layer`) plus minimal plot-level hints via `options`.
-   * It must **not** receive or inspect the full layers array to keep
-   * construction decoupled from subplot-wide state.
+   * Each layer's type maps directly to a trace class. No heuristic detection needed.
    */
-  public static create(
-    layer: MaidrLayer,
-    options?: {
-      /**
-       * Hint that this subplot represents a violin plot.
-       *
-       * Detection is performed upstream (in `Subplot`) using:
-       * 1. Explicit `violinLayer` metadata from the backend (preferred)
-       * 2. Structural fallback: BOX + SMOOTH layers in same subplot
-       *
-       * This factory does not perform detection itself.
-       */
-      isViolinPlot?: boolean;
-    },
-  ): Trace {
-    const isViolinPlot = options?.isViolinPlot === true;
-
+  public static create(layer: MaidrLayer): Trace {
     switch (layer.type) {
       case TraceType.BAR:
         return new BarTrace(layer);
 
       case TraceType.BOX:
-        return new BoxTrace(layer, isViolinPlot);
+        return new BoxTrace(layer);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);
@@ -63,12 +46,18 @@ export abstract class TraceFactory {
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
-        return createSmoothTrace(layer, isViolinPlot);
+        return createSmoothTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:
       case TraceType.STACKED:
         return new SegmentedTrace(layer);
+
+      case TraceType.VIOLIN_KDE:
+        return new ViolinKdeTrace(layer);
+
+      case TraceType.VIOLIN_BOX:
+        return new ViolinBoxTrace(layer);
 
       default:
         throw new Error(`Invalid trace type: ${layer.type}`);

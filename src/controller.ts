@@ -1,3 +1,4 @@
+import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr } from '@type/grammar';
 import { Context } from '@model/context';
@@ -9,8 +10,10 @@ import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
 import { DisplayService } from '@service/display';
+import { FormatterService } from '@service/formatter';
 import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
+import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
 import { NotificationService } from '@service/notification';
@@ -19,7 +22,6 @@ import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
-import { store } from '@state/store';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -31,6 +33,7 @@ import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { resolveSubplotLayout } from '@util/subplotLayout';
 
 /**
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
@@ -42,6 +45,7 @@ export class Controller implements Disposable {
   private readonly displayService: DisplayService;
   private readonly notificationService: NotificationService;
   private readonly settingsService: SettingsService;
+  private readonly formatterService: FormatterService;
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
@@ -51,6 +55,7 @@ export class Controller implements Disposable {
   private readonly rotorNavigationService: RotorNavigationService;
 
   private readonly autoplayService: AutoplayService;
+  private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
@@ -69,18 +74,23 @@ export class Controller implements Disposable {
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
   private readonly commandExecutor: CommandExecutor;
+  private readonly viewModelRegistry: ViewModelRegistry;
 
   /**
    * Initializes the controller with all necessary services, view models, and bindings.
    * @param maidr - The MAIDR configuration object containing plot data and settings
    * @param plot - The HTML element containing the plot to be made accessible
+   * @param store - The Redux store instance for this plot's state management
    */
-  public constructor(maidr: Maidr, plot: HTMLElement) {
+  public constructor(maidr: Maidr, plot: HTMLElement, store: AppStore) {
+    this.viewModelRegistry = new ViewModelRegistry();
     this.figure = new Figure(maidr);
+    this.figure.applyLayout(resolveSubplotLayout(this.figure.subplots));
     this.context = new Context(this.figure);
 
     this.notificationService = new NotificationService();
-    this.textService = new TextService(this.notificationService);
+    this.formatterService = new FormatterService(maidr);
+    this.textService = new TextService(this.notificationService, this.formatterService);
     this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(
       new LocalStorageService(),
@@ -104,6 +114,13 @@ export class Controller implements Disposable {
     );
 
     this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
+    this.highContrastService = new HighContrastService(
+      this.settingsService,
+      this.notificationService,
+      this.displayService,
+      this.figure,
+      this.context,
+    );
     this.highlightService = new HighlightService(this.settingsService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
@@ -154,9 +171,15 @@ export class Controller implements Disposable {
 
     this.keybinding = new KeybindingService({
       context: this.context,
+
       audioService: this.audioService,
       autoplayService: this.autoplayService,
+      displayService: this.displayService,
+      highContrastService: this.highContrastService,
       highlightService: this.highlightService,
+      rotorNavigationService: this.rotorNavigationService,
+      settingsService: this.settingsService,
+      textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
@@ -167,7 +190,6 @@ export class Controller implements Disposable {
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
-      rotorNavigationService: this.rotorNavigationService,
     });
     this.mousebinding = new Mousebindingservice(
       {
@@ -175,7 +197,12 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        displayService: this.displayService,
+        highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
+        textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
@@ -186,7 +213,6 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
-        rotorNavigationService: this.rotorNavigationService,
       },
       this.settingsService,
       this.displayService,
@@ -195,9 +221,16 @@ export class Controller implements Disposable {
     this.commandExecutor = new CommandExecutor(
       {
         context: this.context,
+
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        displayService: this.displayService,
+        highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        rotorNavigationService: this.rotorNavigationService,
+        settingsService: this.settingsService,
+        textService: this.textService,
+
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
@@ -207,7 +240,6 @@ export class Controller implements Disposable {
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
-        rotorNavigationService: this.rotorNavigationService,
       },
       this.context.scope,
     );
@@ -221,14 +253,11 @@ export class Controller implements Disposable {
    * Announces the initial instruction to screen readers using a live region.
    */
   public announceInitialInstruction(): void {
-    // Prime the live region with an invisible separator to force a DOM-change event
-    // U+2063: INVISIBLE SEPARATOR (not trimmed by String.trim())
-    this.notificationService.notify('\u2063');
-    setTimeout(() => {
-      this.notificationService.notify(
-        this.displayService.getInstruction(false),
-      );
-    }, 50);
+    const instruction = this.displayService.getInstruction(false);
+    // Use textViewModel.update() so the revision counter is bumped,
+    // which forces the View to re-mount the role="alert" element and
+    // triggers a screen-reader announcement.
+    this.textViewModel.update(instruction);
   }
 
   /**
@@ -250,13 +279,30 @@ export class Controller implements Disposable {
   }
 
   /**
+   * Initialize high contrast mode if enabled in settings.
+   * Call this after the Controller is fully set up and will persist (not the throwaway init).
+   */
+  public initializeHighContrast(): void {
+    this.highContrastService.initializeHighContrast();
+  }
+
+  /**
+   * Suspend high contrast mode visually (restore original colors).
+   * Call this on blur to return the chart to its original appearance.
+   */
+  public suspendHighContrast(): void {
+    this.highContrastService.suspendHighContrast();
+  }
+
+  /**
    * Cleans up all services, view models, and event listeners.
    */
   public dispose(): void {
     this.keybinding.unregister();
     this.mousebinding.dispose();
+    this.commandExecutor.dispose();
 
-    ViewModelRegistry.instance.dispose();
+    this.viewModelRegistry.dispose();
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
@@ -266,7 +312,9 @@ export class Controller implements Disposable {
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
+    this.rotorNavigationViewModel.dispose();
 
+    this.highContrastService.dispose();
     this.highlightService.dispose();
     this.autoplayService.dispose();
 
@@ -274,6 +322,7 @@ export class Controller implements Disposable {
     this.reviewService.dispose();
     this.brailleService.dispose();
     this.audioService.dispose();
+    this.formatterService.dispose();
 
     this.settingsService.dispose();
     this.notificationService.dispose();
@@ -283,28 +332,31 @@ export class Controller implements Disposable {
   }
 
   /**
-   * Registers all view models with the central registry for global access.
+   * Returns the context value for React dependency injection.
+   * Used by the React component tree to access view models and command executor.
+   */
+  public getContextValue(): { viewModelRegistry: ViewModelRegistry; commandExecutor: CommandExecutor } {
+    return {
+      viewModelRegistry: this.viewModelRegistry,
+      commandExecutor: this.commandExecutor,
+    };
+  }
+
+  /**
+   * Registers all view models with this controller's registry.
    */
   private registerViewModels(): void {
-    ViewModelRegistry.instance.register('text', this.textViewModel);
-    ViewModelRegistry.instance.register('braille', this.brailleViewModel);
-    ViewModelRegistry.instance.register(
-      'goToExtrema',
-      this.goToExtremaViewModel,
-    );
-    ViewModelRegistry.instance.register('review', this.reviewViewModel);
-    ViewModelRegistry.instance.register('display', this.displayViewModel);
-    ViewModelRegistry.instance.register('help', this.helpViewModel);
-    ViewModelRegistry.instance.register('chat', this.chatViewModel);
-    ViewModelRegistry.instance.register('settings', this.settingsViewModel);
-    ViewModelRegistry.instance.register(
-      'commandPalette',
-      this.commandPaletteViewModel,
-    );
-    ViewModelRegistry.instance.register(
-      'commandExecutor',
-      this.commandExecutor,
-    );
+    this.viewModelRegistry.register('text', this.textViewModel);
+    this.viewModelRegistry.register('braille', this.brailleViewModel);
+    this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
+    this.viewModelRegistry.register('review', this.reviewViewModel);
+    this.viewModelRegistry.register('display', this.displayViewModel);
+    this.viewModelRegistry.register('help', this.helpViewModel);
+    this.viewModelRegistry.register('chat', this.chatViewModel);
+    this.viewModelRegistry.register('settings', this.settingsViewModel);
+    this.viewModelRegistry.register('commandPalette', this.commandPaletteViewModel);
+    this.viewModelRegistry.register('commandExecutor', this.commandExecutor);
+    this.viewModelRegistry.register('rotor', this.rotorNavigationViewModel);
   }
 
   /**

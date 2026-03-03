@@ -17,6 +17,7 @@ const TRACE_HELP_MENU = [
   { description: 'Toggle Text Mode', key: 't' },
   { description: 'Toggle Sonification Mode', key: 's' },
   { description: 'Toggle Review Mode', key: 'r' },
+  { description: 'Toggle High Contrast Mode', key: 'c' },
 
   { description: 'Autoplay Outward', key: `${Platform.ctrl} + shift + arrow keys` },
   { description: 'Stop Autoplay', key: `${Platform.ctrl}` },

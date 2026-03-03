@@ -5,31 +5,196 @@
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
 /**
- * Supported violin plot layer types for explicit identification.
- * These values are set by the Python backend to indicate violin plot layers:
- * - 'mpl_violin': Matplotlib violin box layer
- * - 'sns_violin': Seaborn violin box layer (alternative name: 'seaborn_violin')
- * - 'kde': Violin KDE (kernel density estimation) smooth layer
+ * Format function signature for axis values.
+ * Takes a value (number or string) and returns a formatted string.
+ *
+ * @example
+ * // Currency formatting
+ * const currencyFormat: FormatFunction = (v) => `$${Number(v).toFixed(2)}`;
+ *
+ * @example
+ * // Date formatting
+ * const dateFormat: FormatFunction = (v) => new Date(v).toLocaleDateString();
  */
-export type ViolinLayerType = 'mpl_violin' | 'seaborn_violin' | 'sns_violin' | 'kde';
+export type FormatFunction = (value: number | string) => string;
+
+/**
+ * Supported format type specifiers for JSON/HTML API.
+ */
+export type FormatType = 'currency' | 'percent' | 'fixed' | 'number' | 'date' | 'scientific';
+
+/**
+ * Configuration for formatting values on an axis.
+ *
+ * Two ways to specify formatting:
+ * 1. `function` - Function body string (for custom logic)
+ * 2. `type` - Format type specifier (for common patterns)
+ *
+ * @example
+ * // Using function string
+ * { "function": "return `$${Number(value).toFixed(2)}`" }
+ *
+ * @example
+ * // Using type specifier
+ * { "type": "currency", "decimals": 2 }
+ */
+export interface AxisFormat {
+  /**
+   * Function body string for custom formatting.
+   * The function receives `value` as parameter and must return a string.
+   *
+   * @example
+   * // Currency formatting
+   * { "function": "return `$${Number(value).toFixed(2)}`" }
+   *
+   * @example
+   * // Date formatting
+   * { "function": "return new Date(value).toLocaleDateString('en-US')" }
+   */
+  function?: string;
+
+  /**
+   * Format type specifier for common formatting patterns.
+   * Use with `decimals`, `currency`, `locale`, `dateOptions` for customization.
+   *
+   * @example
+   * { "type": "currency", "currency": "USD", "decimals": 2 }
+   * { "type": "percent", "decimals": 1 }
+   * { "type": "date", "dateOptions": { "month": "short", "day": "numeric" } }
+   */
+  type?: FormatType;
+
+  /**
+   * Number of decimal places for numeric formatters.
+   * Used with: currency, percent, fixed, number, scientific
+   * @default varies by type
+   */
+  decimals?: number;
+
+  /**
+   * ISO 4217 currency code for currency formatter.
+   * @default 'USD'
+   */
+  currency?: string;
+
+  /**
+   * BCP 47 locale string for locale-aware formatters.
+   * Used with: currency, number, date
+   * @default 'en-US'
+   */
+  locale?: string;
+
+  /**
+   * Options for Intl.DateTimeFormat when using date type.
+   *
+   * @example
+   * { "month": "short", "day": "numeric" } // "Jan 15"
+   * { "year": "numeric", "month": "long" } // "January 2024"
+   */
+  dateOptions?: Intl.DateTimeFormatOptions;
+}
+
+/**
+ * Configuration for formatting values across all axes in a layer.
+ */
+export interface FormatConfig {
+  x?: AxisFormat;
+  y?: AxisFormat;
+  fill?: AxisFormat;
+}
+
+/**
+ * Configuration options for violin plot display.
+ * Controls which summary statistics are shown in the violin box overlay.
+ * Sent from the Python backend alongside violin_kde and violin_box layers.
+ */
+export interface ViolinOptions {
+  /** Show median line marker. Default: true */
+  showMedian?: boolean;
+  /** Show mean value marker. Default: false */
+  showMean?: boolean;
+  /** Show extrema (min/max) markers. Default: true */
+  showExtrema?: boolean;
+  /** Show outlier points. Default: true */
+  showOutliers?: boolean;
+}
+
+/**
+ * Data point for violin KDE (kernel density estimation) curves.
+ * Library-agnostic — no SVG coordinates embedded in data.
+ * The density field falls back to width if absent.
+ */
+export interface ViolinKdePoint {
+  /** Categorical label for the violin (e.g., "setosa") */
+  x: string | number;
+  /** Position along the density axis */
+  y: number;
+  /** KDE density value at this point. Falls back to `width` if absent. */
+  density?: number;
+  /** Half-width of the violin at this Y level (used as density fallback) */
+  width?: number;
+  /** SVG viewport x-coordinate for highlight positioning (provided by backend) */
+  svg_x?: number;
+  /** SVG viewport y-coordinate for highlight positioning (provided by backend) */
+  svg_y?: number;
+}
 
 /**
  * Root MAIDR data structure containing figure metadata and subplot grid.
+ * This is the type for the `data` prop passed to the `<Maidr>` React component.
+ *
+ * @example
+ * ```typescript
+ * const data: Maidr = {
+ *   id: 'my-chart',
+ *   title: 'Sales by Quarter',
+ *   subplots: [[{
+ *     layers: [{
+ *       id: '0',
+ *       type: 'bar',
+ *       axes: { x: 'Quarter', y: 'Revenue' },
+ *       data: [{ x: 'Q1', y: 120 }, { x: 'Q2', y: 200 }],
+ *     }],
+ *   }]],
+ * };
+ * ```
  */
 export interface Maidr {
+  /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
+  /** Chart title displayed in text descriptions. */
   title?: string;
+  /** Chart subtitle. */
   subtitle?: string;
+  /** Chart caption. */
   caption?: string;
+  /**
+   * 2D grid of subplots. Each row is an array of subplots.
+   * For a single chart, use `[[{ layers: [...] }]]`.
+   */
   subplots: MaidrSubplot[][];
 }
 
 /**
  * Subplot data structure containing optional legend and trace layers.
+ * A subplot groups one or more layers (traces) that share the same coordinate space.
+ *
+ * @example
+ * ```typescript
+ * const subplot: MaidrSubplot = {
+ *   layers: [
+ *     { id: '0', type: 'bar', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *     { id: '1', type: 'line', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *   ],
+ * };
+ * ```
  */
 export interface MaidrSubplot {
+  /** Legend labels for multi-series plots. */
   legend?: string[];
+  /** CSS selector for the subplot container element. */
   selector?: string;
+  /** Array of trace layers in this subplot. */
   layers: MaidrLayer[];
 }
 
@@ -53,7 +218,7 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
-  /** Mean value for matplotlib violin plots when showmeans=True. */
+  /** Mean value for violin plots when mean display is enabled. */
   mean?: number;
 }
 
@@ -67,7 +232,7 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
-  /** CSS selector for mean marker element in matplotlib violin plots. */
+  /** CSS selector for mean marker element in violin plots. */
   mean?: string;
 }
 
@@ -191,21 +356,44 @@ export interface MaidrLayer {
      */
     iqrDirection?: 'forward' | 'reverse';
   };
+  /**
+   * Axis configuration including labels and optional formatting.
+   *
+   * @example
+   * // Basic axis labels
+   * axes: { x: "Date", y: "Price" }
+   *
+   * @example
+   * // With formatting
+   * axes: {
+   *   x: "Date",
+   *   y: "Price",
+   *   format: {
+   *     y: { type: "currency", decimals: 2 }
+   *   }
+   * }
+   */
   axes?: {
     x?: string;
     y?: string;
     fill?: string;
+    /**
+     * Optional formatting configuration for axis values.
+     * When provided, values displayed in text descriptions will be formatted.
+     *
+     * @example
+     * format: {
+     *   x: { function: "return new Date(value).toLocaleDateString()" },
+     *   y: { type: "currency", decimals: 2 }
+     * }
+     */
+    format?: FormatConfig;
   };
   /**
-   * Optional violin plot hints for BOX and SMOOTH layers.
-   * Used to distinguish between matplotlib and seaborn violin implementations.
+   * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
+   * Controls which summary statistics are shown in the violin box overlay.
    */
-  violinLayer?: ViolinLayerType;
-  violinOptions?: {
-    showMeans?: boolean;
-    showMedians?: boolean;
-    showExtrema?: boolean;
-  };
+  violinOptions?: ViolinOptions;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -214,11 +402,22 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | SmoothPoint[][]
+    | ViolinKdePoint[][];
 }
 
 /**
  * Enumeration of supported plot trace types.
+ * Use these values for the `type` field in {@link MaidrLayer}.
+ *
+ * @example
+ * ```typescript
+ * import { TraceType } from 'maidr/react';
+ * const layer = { id: '0', type: TraceType.BAR, ... };
+ * // Or use the string value directly:
+ * const layer2 = { id: '0', type: 'bar', ... };
+ * ```
  */
 export enum TraceType {
   BAR = 'bar',
@@ -232,4 +431,6 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  VIOLIN_BOX = 'violin_box',
+  VIOLIN_KDE = 'violin_kde',
 }
