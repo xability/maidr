@@ -1,3 +1,10 @@
+## [3.55.1](https://github.com/xability/maidr/compare/v3.55.0...v3.55.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* address violin plot horizonatal orientation bug ([#567](https://github.com/xability/maidr/issues/567)) ([f9efcdc](https://github.com/xability/maidr/commit/f9efcdcd89b8d3a25df076e4133510251ccbfb12))
+
 # [3.55.0](https://github.com/xability/maidr/compare/v3.54.0...v3.55.0) (2026-03-05)
 
 
