@@ -1,10 +1,9 @@
 import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
-import type { Trace } from './plot';
-import { TraceType } from '@type/grammar';
+import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -21,11 +20,15 @@ const MIN_DENSITY_RANGE = 0.001;
  *
  * Data layout: points[violin][curvePosition] = ViolinKdePoint
  *   - Row index = which violin (categorical group)
- *   - Col index = position along the KDE curve (bottom to top)
+ *   - Col index = position along the KDE curve
  *
- * Navigation:
+ * Navigation (vertical):
  *   - Left/Right (FORWARD/BACKWARD) = switch between violins (change row)
  *   - Up/Down (UPWARD/DOWNWARD) = traverse along the curve (change col)
+ *
+ * Navigation (horizontal):
+ *   - Up/Down (UPWARD/DOWNWARD) = switch between violins (change row)
+ *   - Left/Right (FORWARD/BACKWARD) = traverse along the curve (change col)
  *
  * Audio:
  *   - Pitch: derived from density values of the reference violin (row 0)
@@ -39,6 +42,7 @@ export class ViolinKdeTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
 
+  private readonly orientation: Orientation;
   private readonly points: ViolinKdePoint[][];
   private readonly densityValues: number[][];
   private readonly yValues: number[][];
@@ -50,10 +54,26 @@ export class ViolinKdeTrace extends AbstractTrace {
   private readonly minDensity: number[];
   private readonly maxDensity: number[];
 
+  /**
+   * Precomputed safe min/max for the reference violin (row 0) used in audio pitch scaling.
+   * Cached to avoid recomputing Math.min/max over ~200-element arrays on every autoplay tick.
+   */
+  private readonly refSafeMin: number;
+  private readonly refSafeMax: number;
+  private readonly refHasPositive: boolean;
+
   constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = layer.data as ViolinKdePoint[][];
+    this.orientation = layer.orientation ?? Orientation.VERTICAL;
+
+    // For horizontal orientation, reverse points to match visual order
+    // (same convention as ViolinBoxTrace)
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.points = [...(layer.data as ViolinKdePoint[][])].reverse();
+    } else {
+      this.points = layer.data as ViolinKdePoint[][];
+    }
 
     // Extract density and y values for each violin
     // Falls back to `width` when `density` is absent (legacy format support)
@@ -67,7 +87,24 @@ export class ViolinKdeTrace extends AbstractTrace {
     this.minDensity = this.densityValues.map(row => MathUtil.safeMin(row.filter(d => d > 0)));
     this.maxDensity = this.densityValues.map(row => MathUtil.safeMax(row));
 
+    // Cache reference violin (row 0) audio values once at construction
+    const refDensity = this.densityValues[0];
+    if (refDensity && refDensity.length > 0 && this.minDensity[0] > 0) {
+      this.refHasPositive = true;
+      const refMin = this.minDensity[0];
+      const refMax = this.maxDensity[0];
+      this.refSafeMin = refMin === refMax ? Math.max(0, refMin - MIN_DENSITY_RANGE) : refMin;
+      this.refSafeMax = refMin === refMax ? refMax + MIN_DENSITY_RANGE : refMax;
+    } else {
+      this.refHasPositive = false;
+      this.refSafeMin = 0;
+      this.refSafeMax = 1;
+    }
+
     this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    if (this.orientation === Orientation.HORIZONTAL) {
+      this.highlightValues?.reverse();
+    }
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<ViolinKdePoint>(this.points, { row: 0 });
   }
@@ -105,9 +142,23 @@ export class ViolinKdeTrace extends AbstractTrace {
       );
     }
 
-    // Swapped navigation for violin plots:
-    // FORWARD/BACKWARD check row bounds (switch between violins)
-    // UPWARD/DOWNWARD check col bounds (traverse along curve)
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    if (isHorizontal) {
+      // Horizontal: UPWARD/DOWNWARD switch violins (row), FORWARD/BACKWARD traverse curve (col)
+      switch (target) {
+        case 'UPWARD':
+          return this.row < this.points.length - 1;
+        case 'DOWNWARD':
+          return this.row > 0;
+        case 'FORWARD':
+          return this.col < (this.points[this.row]?.length ?? 0) - 1;
+        case 'BACKWARD':
+          return this.col > 0;
+      }
+    }
+
+    // Vertical: FORWARD/BACKWARD switch violins (row), UPWARD/DOWNWARD traverse curve (col)
     switch (target) {
       case 'FORWARD':
         return this.row < this.points.length - 1;
@@ -138,10 +189,37 @@ export class ViolinKdeTrace extends AbstractTrace {
       return false;
     }
 
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    if (isHorizontal) {
+      // Horizontal: UPWARD/DOWNWARD switch violins, FORWARD/BACKWARD traverse curve
+      switch (direction) {
+        case 'UPWARD':
+          this.row += 1;
+          this.col = 0;
+          this.notifyStateUpdate();
+          return true;
+        case 'DOWNWARD':
+          this.row -= 1;
+          this.col = 0;
+          this.notifyStateUpdate();
+          return true;
+        case 'FORWARD':
+          this.col += 1;
+          this.notifyStateUpdate();
+          return true;
+        case 'BACKWARD':
+          this.col -= 1;
+          this.notifyStateUpdate();
+          return true;
+      }
+    }
+
+    // Vertical: FORWARD/BACKWARD switch violins, UPWARD/DOWNWARD traverse curve
     switch (direction) {
       case 'FORWARD':
         this.row += 1;
-        this.col = 0; // Reset to bottom when switching violins
+        this.col = 0;
         this.notifyStateUpdate();
         return true;
 
@@ -163,55 +241,94 @@ export class ViolinKdeTrace extends AbstractTrace {
     }
   }
 
+  /**
+   * Override moveToExtreme for violin navigation.
+   * Orientation-aware: swaps violin-switch and curve-traverse directions.
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+      this.notifyStateUpdate();
+      return true;
+    }
+
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    if (isHorizontal) {
+      // Horizontal: UPWARD/DOWNWARD switch violins, FORWARD/BACKWARD traverse curve
+      switch (direction) {
+        case 'UPWARD':
+          this.row = this.points.length - 1;
+          this.col = 0;
+          break;
+        case 'DOWNWARD':
+          this.row = 0;
+          this.col = 0;
+          break;
+        case 'FORWARD':
+          this.col = (this.points[this.row]?.length ?? 1) - 1;
+          break;
+        case 'BACKWARD':
+          this.col = 0;
+          break;
+      }
+    } else {
+      // Vertical: FORWARD/BACKWARD switch violins, UPWARD/DOWNWARD traverse curve
+      switch (direction) {
+        case 'FORWARD':
+          this.row = this.points.length - 1;
+          this.col = 0;
+          break;
+        case 'BACKWARD':
+          this.row = 0;
+          this.col = 0;
+          break;
+        case 'UPWARD':
+          this.col = (this.points[this.row]?.length ?? 1) - 1;
+          break;
+        case 'DOWNWARD':
+          this.col = 0;
+          break;
+      }
+    }
+
+    this.notifyStateUpdate();
+    return true;
+  }
+
   // ── Audio ───────────────────────────────────────────────────────────
 
   protected get audio(): AudioState {
-    // Use the first violin (row 0) for reference density => consistent pitch across violins
-    const referenceRow = 0;
-    const refDensity = this.densityValues[referenceRow];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const colCount = this.points[this.row]?.length ?? 0;
+    const panning = isHorizontal
+      ? { x: this.col, y: this.row, rows: this.points.length, cols: colCount }
+      : { y: this.row, x: this.col, rows: this.points.length, cols: colCount };
 
-    if (!refDensity || refDensity.length === 0) {
-      // Fallback: empty audio
-      return {
-        freq: { min: 0, max: 1, raw: 0 },
-        panning: { y: this.row, x: this.col, rows: this.points.length, cols: this.points[this.row]?.length ?? 0 },
-      };
+    // Use precomputed reference violin values (cached in constructor)
+    if (!this.refHasPositive) {
+      return { freq: { min: 0, max: 1, raw: 0 }, panning };
     }
 
-    const positiveRef = refDensity.filter(d => d > 0);
-    if (positiveRef.length === 0) {
-      return {
-        freq: { min: 0, max: 1, raw: 0 },
-        panning: { y: this.row, x: this.col, rows: this.points.length, cols: this.points[this.row]?.length ?? 0 },
-      };
-    }
-
-    const refMin = Math.min(...positiveRef);
-    const refMax = Math.max(...refDensity);
-
-    // Safety: if min===max, widen range to avoid division by zero
-    const safeMin = refMin === refMax ? Math.max(0, refMin - MIN_DENSITY_RANGE) : refMin;
-    const safeMax = refMin === refMax ? refMax + MIN_DENSITY_RANGE : refMax;
-
-    // Clamp col to reference row bounds for pitch
+    // Pitch from reference violin (row 0) density — use cached safe min/max
+    const refDensity = this.densityValues[0];
     const safeCol = Math.min(this.col, refDensity.length - 1);
-    const getDensity = (i: number): number =>
-      refDensity[Math.max(0, Math.min(i, refDensity.length - 1))];
+    const clamp = (i: number): number => refDensity[Math.max(0, Math.min(i, refDensity.length - 1))];
 
-    const prevDensity = safeCol > 0 ? getDensity(safeCol - 1) : getDensity(safeCol);
-    const currDensity = getDensity(safeCol);
-    const nextDensity = safeCol < refDensity.length - 1 ? getDensity(safeCol + 1) : getDensity(safeCol);
+    const prevDensity = safeCol > 0 ? clamp(safeCol - 1) : clamp(safeCol);
+    const currDensity = clamp(safeCol);
+    const nextDensity = safeCol < refDensity.length - 1 ? clamp(safeCol + 1) : clamp(safeCol);
 
-    // Volume from current violin's density (varies per violin)
-    const currentRowDensity = this.densityValues[this.row];
+    // Volume from current violin's density — use cached min/max per row
     let volumeScale = 1.0;
+    const currentRowDensity = this.densityValues[this.row];
     if (currentRowDensity && currentRowDensity.length > 0) {
       const currentCol = Math.min(this.col, currentRowDensity.length - 1);
       const currentDensity = currentRowDensity[currentCol];
-      const currentMax = Math.max(...currentRowDensity);
+      const currentMax = this.maxDensity[this.row];
 
       if (currentMax > 0 && currentDensity > 0) {
-        const currentMin = Math.min(...currentRowDensity.filter(d => d > 0));
+        const currentMin = this.minDensity[this.row];
         const safeCurrentMax = currentMin === currentMax
           ? currentMax + MIN_DENSITY_RANGE
           : currentMax;
@@ -221,18 +338,41 @@ export class ViolinKdeTrace extends AbstractTrace {
 
     return {
       freq: {
-        min: safeMin,
-        max: safeMax,
+        min: this.refSafeMin,
+        max: this.refSafeMax,
         raw: [prevDensity, currDensity, nextDensity],
       },
-      panning: {
-        y: this.row,
-        x: this.col,
-        rows: this.points.length,
-        cols: this.points[this.row]?.length ?? 0,
-      },
+      panning,
       isContinuous: true,
       volumeScale,
+    };
+  }
+
+  // ── Autoplay ──────────────────────────────────────────────────────
+
+  /**
+   * Override autoplay state for orientation-aware violin navigation.
+   * Maps directions to the number of steps in each direction.
+   */
+  protected override get autoplay(): AutoplayState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    if (isHorizontal) {
+      // Horizontal: UPWARD/DOWNWARD switch violins (rows), FORWARD/BACKWARD traverse curve (cols)
+      return {
+        UPWARD: this.dimension.rows,
+        DOWNWARD: this.dimension.rows,
+        FORWARD: this.dimension.cols,
+        BACKWARD: this.dimension.cols,
+      };
+    }
+
+    // Vertical: FORWARD/BACKWARD switch violins (rows), UPWARD/DOWNWARD traverse curve (cols)
+    return {
+      UPWARD: this.dimension.cols,
+      DOWNWARD: this.dimension.cols,
+      FORWARD: this.dimension.rows,
+      BACKWARD: this.dimension.rows,
     };
   }
 
@@ -241,23 +381,28 @@ export class ViolinKdeTrace extends AbstractTrace {
   protected get text(): TextState {
     const currentPoint = this.points[this.row][this.col];
     const roundTo4 = (num: number): number => Math.round(num * 10000) / 10000;
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
-    // X label: categorical label for the violin
-    let xDisplayValue: number | string;
+    // Categorical label for the violin (shared across all points in a row)
+    let categoricalValue: number | string;
     if (typeof currentPoint.x === 'string') {
-      xDisplayValue = currentPoint.x;
+      categoricalValue = currentPoint.x;
     } else {
-      // Fallback: try first point in row (all points in a row share same x label)
       const firstInRow = this.points[this.row][0];
-      xDisplayValue = typeof firstInRow?.x === 'string'
+      categoricalValue = typeof firstInRow?.x === 'string'
         ? firstInRow.x
         : `Violin ${this.row + 1}`;
     }
 
     const roundedY = roundTo4(Number(currentPoint.y));
+
+    // For horizontal: main = yAxis (categorical), cross = xAxis (continuous)
+    // For vertical:   main = xAxis (categorical), cross = yAxis (continuous)
     const textState: TextState = {
-      main: { label: this.xAxis, value: xDisplayValue },
-      cross: { label: this.yAxis, value: roundedY },
+      main: { label: isHorizontal ? this.yAxis : this.xAxis, value: categoricalValue },
+      cross: { label: isHorizontal ? this.xAxis : this.yAxis, value: roundedY },
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
     };
 
     // Volume (width) in fill field if available
@@ -344,6 +489,10 @@ export class ViolinKdeTrace extends AbstractTrace {
    * Moves to a specific violin (X) and closest Y position on the KDE curve.
    */
   public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     if (typeof xValue !== 'number') {
       return false;
     }
@@ -378,44 +527,6 @@ export class ViolinKdeTrace extends AbstractTrace {
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
     return true;
-  }
-
-  /**
-   * Handles layer switching from the violin box layer.
-   * Preserves both violin position (X) and Y value when switching.
-   */
-  public onSwitchFrom(previousTrace: Trace): boolean {
-    const prevState = previousTrace.state;
-    const prevType = prevState.empty ? null : prevState.traceType;
-
-    // Only handle switching from violin box layer
-    if (prevType !== TraceType.VIOLIN_BOX) {
-      return false;
-    }
-
-    const xValue = previousTrace.getCurrentXValue();
-
-    if (previousTrace.getCurrentYValue) {
-      const yValue = previousTrace.getCurrentYValue();
-      if (yValue !== null && xValue !== null) {
-        const handled = this.moveToXAndYValue(xValue, yValue);
-        if (handled) {
-          this.isInitialEntry = false;
-        }
-        return handled;
-      }
-    }
-
-    // Fallback: just set X position
-    if (xValue !== null) {
-      const success = this.moveToXValue(xValue);
-      if (success) {
-        this.isInitialEntry = false;
-      }
-      return success;
-    }
-
-    return false;
   }
 
   // ── SVG highlight ───────────────────────────────────────────────────

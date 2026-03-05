@@ -115,8 +115,6 @@ export interface ViolinOptions {
   showMean?: boolean;
   /** Show extrema (min/max) markers. Default: true */
   showExtrema?: boolean;
-  /** Show outlier points. Default: true */
-  showOutliers?: boolean;
 }
 
 /**

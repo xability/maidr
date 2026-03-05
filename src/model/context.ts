@@ -4,9 +4,27 @@ import type { PlotState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
+import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
+
+/**
+ * Build a human-readable plot type string with optional orientation prefix.
+ * Returns just the type when orientation is absent/empty (no extra whitespace).
+ */
+function formatPlotType(plotType: string, orientation?: Orientation | string): string {
+  if (!orientation) {
+    return plotType;
+  }
+  if (orientation === Orientation.HORIZONTAL || orientation === 'horz') {
+    return `horizontal ${plotType}`;
+  }
+  if (orientation === Orientation.VERTICAL || orientation === 'vert') {
+    return `vertical ${plotType}`;
+  }
+  return plotType;
+}
 
 type Plot = Figure | Subplot | Trace;
 
@@ -230,11 +248,14 @@ export class Context implements Disposable {
         return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
         Use arrow keys to navigate subplots and press 'ENTER'.`;
 
-      case 'subplot':
+      case 'subplot': {
+        const subplotTraceOrientation = !state.trace.empty ? state.trace.orientation : undefined;
+        const subplotPlotType = formatPlotType(state.trace.traceType, subplotTraceOrientation);
         return `This is a maidr plot containing ${state.size} layers, and
-        this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
+        this is layer 1 of ${state.size}: ${subplotPlotType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
+      }
 
       case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
@@ -249,7 +270,9 @@ export class Context implements Disposable {
             ? ` with ${state.groupCount} groups`
             : '';
 
-        return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        const displayType = formatPlotType(effectivePlotType, state.orientation);
+
+        return `This is a maidr plot of type: ${displayType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }
   }
