@@ -1,3 +1,10 @@
+# [3.55.0](https://github.com/xability/maidr/compare/v3.54.0...v3.55.0) (2026-03-05)
+
+
+### Features
+
+* go to intersection ([#563](https://github.com/xability/maidr/issues/563)) ([fc19a99](https://github.com/xability/maidr/commit/fc19a994c51e891c46bf083f22c2bd6ec8446af6))
+
 # [3.54.0](https://github.com/xability/maidr/compare/v3.53.0...v3.54.0) (2026-03-04)
 
 
