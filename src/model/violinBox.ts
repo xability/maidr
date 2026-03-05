@@ -3,9 +3,8 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
-import type { Trace } from './plot';
 import { BoxplotSection } from '@type/boxplotSection';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -16,8 +15,9 @@ import { MovableGrid } from './movable';
  * Concrete trace for violin box (summary statistics) layers.
  *
  * This is the box-plot overlay that sits inside a violin plot, showing
- * configurable summary statistics (median, mean, extrema, outliers)
+ * configurable summary statistics (median, mean, extrema)
  * controlled by ViolinOptions from the backend.
+ * Outliers are excluded — violin plots do not produce outliers.
  *
  * Data layout depends on orientation:
  *   - Vertical: boxValues[section][violinIndex] — row=section, col=violin
@@ -83,23 +83,23 @@ export class ViolinBoxTrace extends AbstractTrace {
 
     this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
 
-    // Cache MIN section index
+    // Cache MIN section index (always 0 since outliers are excluded)
     const minIdx = this.sections.indexOf(BoxplotSection.MIN);
-    this.minSectionIndex = minIdx >= 0 ? minIdx : 1;
+    this.minSectionIndex = minIdx >= 0 ? minIdx : 0;
   }
 
   /**
    * Build sections and accessors based on ViolinOptions.
-   * Always includes: LOWER_OUTLIER, MIN, Q1, Q3, MAX, UPPER_OUTLIER.
-   * Conditionally adds: Q2 (median), MEAN based on options.
+   * Always includes: MIN, Q1, Q3.
+   * Conditionally adds: Q2 (median), MEAN, MAX based on options.
+   * Outliers are excluded — violin plots do not produce outliers.
    */
   private buildViolinSections(): {
     sections: string[];
     accessors: ((p: BoxPoint) => number | number[])[];
   } {
-    const sections: string[] = [BoxplotSection.LOWER_OUTLIER, BoxplotSection.MIN];
+    const sections: string[] = [BoxplotSection.MIN];
     const accessors: ((p: BoxPoint) => number | number[])[] = [
-      (p: BoxPoint) => p.lowerOutliers,
       (p: BoxPoint) => p.min,
     ];
 
@@ -128,9 +128,6 @@ export class ViolinBoxTrace extends AbstractTrace {
       sections.push(BoxplotSection.MAX);
       accessors.push((p: BoxPoint) => p.max);
     }
-
-    sections.push(BoxplotSection.UPPER_OUTLIER);
-    accessors.push((p: BoxPoint) => p.upperOutliers);
 
     return { sections, accessors };
   }
@@ -273,6 +270,8 @@ export class ViolinBoxTrace extends AbstractTrace {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
     };
   }
 
@@ -383,6 +382,10 @@ export class ViolinBoxTrace extends AbstractTrace {
    * Moves to a specific violin (X) and finds the closest section matching Y value.
    */
   public moveToXAndYValue(xValue: XValue, yValue: number): boolean {
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     if (typeof xValue !== 'number') {
       return false;
     }
@@ -465,43 +468,6 @@ export class ViolinBoxTrace extends AbstractTrace {
     return true;
   }
 
-  /**
-   * Handles layer switching from the violin KDE layer.
-   * Preserves both violin position (X) and Y value when switching.
-   */
-  public onSwitchFrom(previousTrace: Trace): boolean {
-    const prevState = previousTrace.state;
-    const prevType = prevState.empty ? null : prevState.traceType;
-
-    // Only handle switching from violin KDE layer
-    if (prevType !== TraceType.VIOLIN_KDE) {
-      return false;
-    }
-
-    const xValue = previousTrace.getCurrentXValue();
-
-    if (previousTrace.getCurrentYValue) {
-      const yValue = previousTrace.getCurrentYValue();
-      if (yValue !== null && xValue !== null) {
-        const handled = this.moveToXAndYValue(xValue, yValue);
-        if (handled) {
-          this.isInitialEntry = false;
-        }
-        return handled;
-      }
-    }
-
-    if (xValue !== null) {
-      const success = this.moveToXValue(xValue);
-      if (success) {
-        this.isInitialEntry = false;
-      }
-      return success;
-    }
-
-    return false;
-  }
-
   // ── SVG highlight ───────────────────────────────────────────────────
 
   private mapToSvgElements(
@@ -522,8 +488,6 @@ export class ViolinBoxTrace extends AbstractTrace {
 
     // Phase 1: Collect all original elements without cloning
     const originals: Array<{
-      lowerOutliers: SVGElement[];
-      upperOutliers: SVGElement[];
       min: SVGElement | null;
       max: SVGElement | null;
       iq: SVGElement | null;
@@ -532,12 +496,6 @@ export class ViolinBoxTrace extends AbstractTrace {
     }> = [];
 
     selectors.forEach((selector) => {
-      const lowerOutliersOriginals = selector.lowerOutliers?.flatMap(s =>
-        Svg.selectAllElements(s, false),
-      ) ?? [];
-      const upperOutliersOriginals = selector.upperOutliers?.flatMap(s =>
-        Svg.selectAllElements(s, false),
-      ) ?? [];
       const minOriginal = Svg.selectElement(selector.min, false);
       const maxOriginal = Svg.selectElement(selector.max, false);
       const iqOriginal = Svg.selectElement(selector.iq, false);
@@ -545,8 +503,6 @@ export class ViolinBoxTrace extends AbstractTrace {
       const meanOriginal = selector.mean ? Svg.selectElement(selector.mean, false) : null;
 
       originals.push({
-        lowerOutliers: lowerOutliersOriginals,
-        upperOutliers: upperOutliersOriginals,
         min: minOriginal,
         max: maxOriginal,
         iq: iqOriginal,
@@ -557,19 +513,6 @@ export class ViolinBoxTrace extends AbstractTrace {
 
     // Phase 2: Clone elements
     originals.forEach((original, boxIdx) => {
-      const lowerOutliers = original.lowerOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
-        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-        el.insertAdjacentElement(Constant.AFTER_END, clone);
-        return clone;
-      });
-      const upperOutliers = original.upperOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
-        clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-        el.insertAdjacentElement(Constant.AFTER_END, clone);
-        return clone;
-      });
-
       const min = this.cloneElementOrEmpty(original.min);
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
@@ -591,8 +534,8 @@ export class ViolinBoxTrace extends AbstractTrace {
             Svg.createEmptyElement('line'),
           ];
 
-      // Build sections array matching this.sections
-      const sectionElements: (SVGElement[] | SVGElement)[] = [lowerOutliers];
+      // Build sections array matching this.sections (no outlier sections)
+      const sectionElements: (SVGElement[] | SVGElement)[] = [];
 
       // MIN
       sectionElements.push(min);
@@ -617,9 +560,6 @@ export class ViolinBoxTrace extends AbstractTrace {
       if (this.violinOptions.showExtrema !== false) {
         sectionElements.push(max);
       }
-
-      // UPPER_OUTLIER
-      sectionElements.push(upperOutliers);
 
       if (isVertical) {
         sectionElements.forEach((section, sectionIdx) => {

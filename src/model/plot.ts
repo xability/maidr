@@ -550,25 +550,8 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * - For ViolinKdeTrace: Coordinates map to (violin index, y-value within KDE curve)
    * - For ViolinBoxTrace: Coordinates map to (section index, violin index) for vertical
    *   orientation, or (violin index, section index) for horizontal orientation
-   * - Layer switching between violin layers preserves both X (violin) and Y (section/value) positions
    */
   moveToPoint: (x: number, y: number) => void;
-
-  /**
-   * Handle switching from another trace.
-   * Called by Context when switching layers. Traces can implement this
-   * to handle special layer switching behavior (e.g., preserving Y values).
-   *
-   * IMPORTANT CONTRACT:
-   * - If this method returns true, it MUST have modified the trace position appropriately.
-   * - If this method returns false, it MUST NOT modify the trace position at all.
-   *   The Context will then apply default behavior (moveToXValue) after this returns.
-   *
-   * @param previousTrace - The trace we're switching from
-   * @returns true if this trace handled the switch (and modified position),
-   *          false to use default behavior (position must remain unchanged)
-   */
-  onSwitchFrom?: (previousTrace: Trace) => boolean;
 
   /**
    * Gets extrema targets for navigation.

@@ -10,7 +10,7 @@ import { Emitter } from '@type/event';
 /** Default autoplay speed in milliseconds between movements. */
 const DEFAULT_SPEED = 250;
 /** Minimum speed (fastest playback) in milliseconds between movements. */
-const MIN_SPEED = 50;
+const MIN_SPEED = 10;
 /** Maximum speed (slowest playback) in milliseconds between movements. */
 const MAX_SPEED = 500;
 
@@ -153,7 +153,7 @@ export class AutoplayService implements Disposable {
    */
   public speedUp(): void {
     const newSpeed = this.userSpeed ?? this.autoplayRate;
-    if (newSpeed - this.interval > this.minSpeed) {
+    if (newSpeed - this.interval >= this.minSpeed) {
       this.userSpeed = newSpeed - this.interval;
       this.autoplayRate = this.userSpeed;
       this.restart();
