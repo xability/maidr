@@ -56,6 +56,7 @@ const BRAILLE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
@@ -102,6 +103,7 @@ const SUBPLOT_KEYMAP = {
   // Description
   DESCRIBE_TITLE: `t`,
   DESCRIBE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // Navigation
   MOVE_UP: `up`,
@@ -213,6 +215,7 @@ const TRACE_KEYMAP = {
 
   // Description
   DESCRIBE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: `g`,

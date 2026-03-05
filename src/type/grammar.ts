@@ -104,6 +104,42 @@ export interface FormatConfig {
 }
 
 /**
+ * Configuration options for violin plot display.
+ * Controls which summary statistics are shown in the violin box overlay.
+ * Sent from the Python backend alongside violin_kde and violin_box layers.
+ */
+export interface ViolinOptions {
+  /** Show median line marker. Default: true */
+  showMedian?: boolean;
+  /** Show mean value marker. Default: false */
+  showMean?: boolean;
+  /** Show extrema (min/max) markers. Default: true */
+  showExtrema?: boolean;
+  /** Show outlier points. Default: true */
+  showOutliers?: boolean;
+}
+
+/**
+ * Data point for violin KDE (kernel density estimation) curves.
+ * Library-agnostic — no SVG coordinates embedded in data.
+ * The density field falls back to width if absent.
+ */
+export interface ViolinKdePoint {
+  /** Categorical label for the violin (e.g., "setosa") */
+  x: string | number;
+  /** Position along the density axis */
+  y: number;
+  /** KDE density value at this point. Falls back to `width` if absent. */
+  density?: number;
+  /** Half-width of the violin at this Y level (used as density fallback) */
+  width?: number;
+  /** SVG viewport x-coordinate for highlight positioning (provided by backend) */
+  svg_x?: number;
+  /** SVG viewport y-coordinate for highlight positioning (provided by backend) */
+  svg_y?: number;
+}
+
+/**
  * Root MAIDR data structure containing figure metadata and subplot grid.
  * This is the type for the `data` prop passed to the `<Maidr>` React component.
  *
@@ -182,6 +218,8 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  /** Mean value for violin plots when mean display is enabled. */
+  mean?: number;
 }
 
 /**
@@ -194,6 +232,8 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  /** CSS selector for mean marker element in violin plots. */
+  mean?: string;
 }
 
 /**
@@ -349,6 +389,11 @@ export interface MaidrLayer {
      */
     format?: FormatConfig;
   };
+  /**
+   * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
+   * Controls which summary statistics are shown in the violin box overlay.
+   */
+  violinOptions?: ViolinOptions;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -358,7 +403,8 @@ export interface MaidrLayer {
     | LinePoint[][]
     | ScatterPoint[]
     | SegmentedPoint[][]
-    | SmoothPoint[][];
+    | SmoothPoint[][]
+    | ViolinKdePoint[][];
 }
 
 /**
@@ -385,4 +431,6 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  VIOLIN_BOX = 'violin_box',
+  VIOLIN_KDE = 'violin_kde',
 }

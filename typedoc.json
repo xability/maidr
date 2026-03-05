@@ -8,7 +8,9 @@
     "**/*.test.ts",
     "**/*.spec.ts",
     "**/node_modules/**",
-    "test-react-app/**"
+    "test-react-app/**",
+    "examples/**",
+    "_site/**"
   ],
   "name": "MAIDR Documentation",
   "includeVersion": true,

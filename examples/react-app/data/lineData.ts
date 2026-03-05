@@ -1,19 +1,48 @@
-<!doctype html>
-<html lang="en">
+import { TraceType } from 'maidr/react';
+import type { MaidrData } from 'maidr/react';
 
-<head>
-  <meta charset="utf-8" />
-</head>
+export const lineData: MaidrData = {
+  id: '151f3961-0445-4713-94f4-e2059c74c53a',
+  subplots: [
+    [
+      {
+        layers: [
+          {
+            id: 'c4ac3f68-6266-4f35-8125-33d8cdff1e9a',
+            type: TraceType.LINE,
+            title:
+              'Line: Total Passengers per Year\nFrom the Flights Dataset',
+            axes: {
+              x: 'Year',
+              y: 'Total Passengers (Thousands)',
+            },
+            data: [
+              [
+                { x: 1949.0, y: 1520.0 },
+                { x: 1950.0, y: 1676.0 },
+                { x: 1951.0, y: 2042.0 },
+                { x: 1952.0, y: 2364.0 },
+                { x: 1953.0, y: 2700.0 },
+                { x: 1954.0, y: 2867.0 },
+                { x: 1955.0, y: 3408.0 },
+                { x: 1956.0, y: 3939.0 },
+                { x: 1957.0, y: 4421.0 },
+                { x: 1958.0, y: 4572.0 },
+                { x: 1959.0, y: 5140.0 },
+                { x: 1960.0, y: 5714.0 },
+              ],
+            ],
+            selectors: [
+              "g[id='maidr-bc200021-0bee-4a65-b89e-5bc56843df54'] path",
+            ],
+          },
+        ],
+      },
+    ],
+  ],
+};
 
-<body>
-  <div>
-    <link rel="stylesheet" href="../dist/maidr.css" />
-    <script type="text/javascript" src="../dist/maidr.js"></script>
-    <div>
-      <svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="1008pt" height="504pt"
-        viewBox="0 0 1008 504" version="1.1"
-        maidr-data='{&#10;  "id": "151f3961-0445-4713-94f4-e2059c74c53a",&#10;  "subplots": [&#10;    [&#10;      {&#10;        "id": "d54fac17-e805-4ade-8b78-f110c534984c",&#10;        "layers": [&#10;          {&#10;            "id": "c4ac3f68-6266-4f35-8125-33d8cdff1e9a",&#10;            "type": "line",&#10;            "title": "Line: Total Passengers per Year\nFrom the Flights Dataset",&#10;            "axes": {&#10;              "x": "Year",&#10;              "y": "Total Passengers (Thousands)"&#10;            },&#10;            "data": [&#10;              [&#10;                {&#10;                  "x": 1949.0,&#10;                  "y": 1520.0&#10;                },&#10;                {&#10;                  "x": 1950.0,&#10;                  "y": 1676.0&#10;                },&#10;                {&#10;                  "x": 1951.0,&#10;                  "y": 2042.0&#10;                },&#10;                {&#10;                  "x": 1952.0,&#10;                  "y": 2364.0&#10;                },&#10;                {&#10;                  "x": 1953.0,&#10;                  "y": 2700.0&#10;                },&#10;                {&#10;                  "x": 1954.0,&#10;                  "y": 2867.0&#10;                },&#10;                {&#10;                  "x": 1955.0,&#10;                  "y": 3408.0&#10;                },&#10;                {&#10;                  "x": 1956.0,&#10;                  "y": 3939.0&#10;                },&#10;                {&#10;                  "x": 1957.0,&#10;                  "y": 4421.0&#10;                },&#10;                {&#10;                  "x": 1958.0,&#10;                  "y": 4572.0&#10;                },&#10;                {&#10;                  "x": 1959.0,&#10;                  "y": 5140.0&#10;                },&#10;                {&#10;                  "x": 1960.0,&#10;                  "y": 5714.0&#10;                }&#10;              ]&#10;            ],&#10;            "selectors": [&#10;              "g[id=&apos;maidr-bc200021-0bee-4a65-b89e-5bc56843df54&apos;] path"&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
-        <metadata>
+export const lineSvgInnerHTML = `<metadata>
           <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#"
             xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
             <cc:Work>
@@ -24,7 +53,7 @@
                 <cc:Agent>
                   <dc:title>Matplotlib v3.9.4, https://matplotlib.org/</dc:title>
                 </cc:Agent>
-              </dc:creator>
+              </cc:creator>
             </cc:Work>
           </rdf:RDF>
         </metadata>
@@ -479,10 +508,4 @@
           <clipPath id="pa28f2191b7">
             <rect x="126" y="60.48" width="781.2" height="388.08" />
           </clipPath>
-        </defs>
-      </svg>
-    </div>
-  </div>
-</body>
-
-</html>
+        </defs>`;

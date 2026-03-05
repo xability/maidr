@@ -110,6 +110,25 @@ In the braille representation of segmented bar plots, braille depends on where y
 - Summary level: Same as regular level, but values now reflect the combined size of all levels' values for this point.
 - Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
 
+## Violin Plot
+
+Violin plots have two layers, each with their own braille representation:
+
+### Violin KDE (Density Curve)
+
+The braille representation for the KDE layer uses the same encoding as bar plots, based on the density value at each point along the curve. Low density values use bottom dots, high density values use top dots:
+
+- ⣀ represents values from 0% to 25%
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+
+The braille string represents the density profile of the current violin from bottom to top of the curve.
+
+### Violin Box (Summary Statistics)
+
+The braille representation for the box layer is identical to the standard box plot encoding described above. It uses the same characters and proportional allocation algorithm to represent whiskers, quartiles, median, and outliers.
+
 ## Line plot
 
 In the Braille representation of a line plot, braille is nearly identical to the above bar plot:

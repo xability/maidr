@@ -33,6 +33,24 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
 
+## Violin Plot Controls
+
+Violin plots have two layers (box and KDE) that share the same subplot. Navigation differs by layer:
+
+| Function                                | Key (Windows)               | Key (Mac)                   |
+| --------------------------------------- | --------------------------- | --------------------------- |
+| Switch between layers                   | Page Up / Page Down         | Page Up / Page Down         |
+| Move between violins                    | Left / Right (vertical)     | Left / Right (vertical)     |
+| Move along curve or between sections    | Up / Down                   | Up / Down                   |
+| Jump to first/last violin               | Control + Left/Right        | Command + Left/Right        |
+| Jump to top/bottom of curve or section  | Control + Up/Down           | Command + Up/Down           |
+
+**Box layer:** Left/Right moves between violins (resets to minimum section), Up/Down moves between summary statistics (min, Q1, Q2, Q3, max, outliers).
+
+**KDE layer:** Left/Right moves between violins (resets to bottom of curve), Up/Down traverses the density curve point by point.
+
+**Horizontal orientation:** Up/Down moves between violins, Left/Right moves along sections or curve.
+
 ## Segmented Bar Controls
 
 In the various segmented bar plots (stacked bar, dodged bar, and normalized stacked bar),

@@ -245,17 +245,9 @@ export class TextService implements Observer<PlotState>, Disposable {
           : this.formatSingleValue(state.text.main.value as number | string, mainAxisType);
         parts.push(`${state.text.main.label} is ${mainValue}`);
       }
-      // Exclude cross value for violin box plots during layer switch
-      // Violin plots are uniquely identified by having exactly 2 layers: BOX + SMOOTH (KDE)
-      // Detection heuristic: box plot (traceType === 'box') with exactly 2 layers (size === 2)
-      //
-      // Note: This is a structural detection heuristic. While it works well in practice because:
-      // - Regular box plots typically have only 1 layer
-      // - Regular smooth plots (regression lines) typically have only 1 layer
-      // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
-      // Edge case: If a subplot intentionally combines an independent box plot and regression line,
-      // this would incorrectly exclude the cross value. This is rare in practice.
-      const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
+      // Exclude cross value for violin box plots during layer switch.
+      // With explicit violin_box trace type, no heuristic is needed.
+      const isViolinBoxPlot = state.traceType === 'violin_box';
       if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
         const crossValue = Array.isArray(state.text.cross.value)
           ? this.formatArrayValue(state.text.cross.value as (number | string)[], crossAxisType).join(', ')

@@ -28,6 +28,7 @@ import {
   StopAutoplayCommand,
 } from './autoplay';
 import {
+  AnnouncePositionCommand,
   DescribeCaptionCommand,
   DescribeFillCommand,
   DescribePointCommand,
@@ -245,6 +246,13 @@ export class CommandFactory {
         return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'DESCRIBE_CAPTION':
         return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_POSITION':
+        return new AnnouncePositionCommand(
+          this.context,
+          this.textService,
+          this.textViewModel,
+          this.audioService,
+        );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':

@@ -28,5 +28,5 @@
     "skipLibCheck": true
   },
 
-  "exclude": ["node_modules", "dist", "test-react-app"]
+  "exclude": ["node_modules", "dist", "test-react-app", "examples", "_site"]
 }

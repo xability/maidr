@@ -1,3 +1,36 @@
+# [3.54.0](https://github.com/xability/maidr/compare/v3.53.0...v3.54.0) (2026-03-04)
+
+
+### Features
+
+* support matplotlib violin plot ([#510](https://github.com/xability/maidr/issues/510)) ([30b16c3](https://github.com/xability/maidr/commit/30b16c32e50acfb420651974fcbaa3de7b3507c6))
+
+# [3.53.0](https://github.com/xability/maidr/compare/v3.52.0...v3.53.0) (2026-02-26)
+
+
+### Bug Fixes
+
+* address empty space SR announcement in react comps (JAWS & NVDA) ([#564](https://github.com/xability/maidr/issues/564)) ([d180d2e](https://github.com/xability/maidr/commit/d180d2edaa9e1a51c4e58dd8537ce47100b3af5e))
+
+
+### Features
+
+* address JAWS/NVDA not recognizing image assets ([#565](https://github.com/xability/maidr/issues/565)) ([c41495d](https://github.com/xability/maidr/commit/c41495dc19750f20c1b6d42c315d5b6272fafbee))
+
+# [3.52.0](https://github.com/xability/maidr/compare/v3.51.1...v3.52.0) (2026-02-25)
+
+
+### Features
+
+* restore screen reader graphics navigation for interactive charts ([#561](https://github.com/xability/maidr/issues/561)) ([9e3a1e5](https://github.com/xability/maidr/commit/9e3a1e5f9cc094b9efd778a68d169bd475c86467))
+
+## [3.51.1](https://github.com/xability/maidr/compare/v3.51.0...v3.51.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#562](https://github.com/xability/maidr/issues/562)) ([3b12fa8](https://github.com/xability/maidr/commit/3b12fa822cc0c821a14b06e325b117ec67dfea88))
+
 # [3.51.0](https://github.com/xability/maidr/compare/v3.50.1...v3.51.0) (2026-02-23)
 
 
