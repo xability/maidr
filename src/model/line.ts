@@ -594,9 +594,17 @@ export class LineTrace extends AbstractTrace {
    * Check if two line segments intersect and return the intersection point
    * Uses parametric line intersection formula
    * @param p1 Start point of first segment
+   * @param p1.x X coordinate of start point of first segment
+   * @param p1.y Y coordinate of start point of first segment
    * @param p2 End point of first segment
+   * @param p2.x X coordinate of end point of first segment
+   * @param p2.y Y coordinate of end point of first segment
    * @param p3 Start point of second segment
+   * @param p3.x X coordinate of start point of second segment
+   * @param p3.y Y coordinate of start point of second segment
    * @param p4 End point of second segment
+   * @param p4.x X coordinate of end point of second segment
+   * @param p4.y Y coordinate of end point of second segment
    * @returns Intersection point {x, y} if segments intersect, null otherwise
    */
   private getSegmentIntersection(
