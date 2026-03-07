@@ -1,3 +1,10 @@
+## [3.55.2](https://github.com/xability/maidr/compare/v3.55.1...v3.55.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* support svg polygon element highlighting ([#568](https://github.com/xability/maidr/issues/568)) ([0098c1f](https://github.com/xability/maidr/commit/0098c1f9103f32020883afa6815c1282b94fabbd))
+
 ## [3.55.1](https://github.com/xability/maidr/compare/v3.55.0...v3.55.1) (2026-03-05)
 
 
