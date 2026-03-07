@@ -518,13 +518,21 @@ export class ViolinBoxTrace extends AbstractTrace {
       const q2 = this.cloneElementOrEmpty(original.q2);
       const mean = this.cloneElementOrEmpty(original.mean);
 
-      // Create Q1/Q3 line elements from IQ box (same approach as BoxTrace)
+      // Create Q1/Q3 line elements from IQ box (same approach as BoxTrace).
+      // Check if IQR direction should be reversed (for gridSVG vertical plots
+      // where scale(1,-1) Y-flip inverts getBBox top/bottom edges).
+      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
       const [q1, q3] = original.iq
         ? (isVertical
-            ? [
-                Svg.createLineElement(original.iq, 'bottom'),
-                Svg.createLineElement(original.iq, 'top'),
-              ]
+            ? isIqrReversed
+              ? [
+                  Svg.createLineElement(original.iq, 'top'),
+                  Svg.createLineElement(original.iq, 'bottom'),
+                ]
+              : [
+                  Svg.createLineElement(original.iq, 'bottom'),
+                  Svg.createLineElement(original.iq, 'top'),
+                ]
             : [
                 Svg.createLineElement(original.iq, 'left'),
                 Svg.createLineElement(original.iq, 'right'),
