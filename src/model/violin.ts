@@ -101,10 +101,14 @@ export class ViolinKdeTrace extends AbstractTrace {
       this.refSafeMax = 1;
     }
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.highlightValues?.reverse();
-    }
+    // For horizontal, selectors must be reversed to match the already-reversed
+    // points array. mapToSvgElements pairs selectors[i] with this.points[i],
+    // so both must be in the same order. No separate highlightValues.reverse()
+    // is needed since the selectors are pre-aligned.
+    const kdeSelectors = this.orientation === Orientation.HORIZONTAL
+      ? [...(layer.selectors as string[])].reverse()
+      : (layer.selectors as string[]);
+    this.highlightValues = this.mapToSvgElements(kdeSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<ViolinKdePoint>(this.points, { row: 0 });
   }
@@ -554,10 +558,16 @@ export class ViolinKdeTrace extends AbstractTrace {
       }
 
       const matchedElements = Svg.selectAllElements(selector, false);
-      // Resolve primary element: prefer <use> reference elements, fall back to <path> geometry
+      // Resolve primary element: prefer <use> reference elements, fall back to
+      // <path> geometry, then <polygon> (gridSVG/R renders violins as polygons).
       const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
       const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
-      const candidates = useElements.length > 0 ? useElements : pathElements;
+      const polygonElements = matchedElements.filter(el => el instanceof SVGPolygonElement);
+      const candidates = useElements.length > 0
+        ? useElements
+        : pathElements.length > 0
+          ? pathElements
+          : polygonElements;
       const primaryElement = candidates.length > 0
         ? candidates[isOnePerViolin ? 0 : (r < candidates.length ? r : 0)]
         : null;
