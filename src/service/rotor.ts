@@ -4,18 +4,19 @@ import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
 
 /**
- * Current rotor modes: data point navigation, lower value and higher value navigation
+ * Current rotor modes: data point navigation, lower value, higher value, and grid navigation
  */
 const ROTOR_MODES: Record<number, string> = {
   0: Constant.DATA_MODE,
   1: Constant.LOWER_VALUE_MODE,
   2: Constant.HIGHER_VALUE_MODE,
+  3: Constant.GRID_MODE,
 };
 /**
  * Manages rotor-based navigation for the active trace via alt+shift+up and alt+shift+down
  *
  * Purpose:
- * - Provide modal navigation over a trace by rotating through three modes.
+ * - Provide modal navigation over a trace by rotating through four modes.
  *
  * Navigation modes:
  * - DATA_MODE: Default data browsing. Focus remains in the trace scope; no compare behavior.
@@ -23,6 +24,8 @@ const ROTOR_MODES: Record<number, string> = {
  *   to the current point (supports left/right and, when available, up/down semantics).
  * - HIGHER_VALUE_MODE: Navigate to the next/previous data point with a higher y-value relative
  *   to the current point (supports left/right and, when available, up/down semantics).
+ * - GRID_MODE: Navigate by grid cells in scatter plots. Arrow keys move between cells;
+ *   all points within the current cell are announced.
  *
  * Responsibilities:
  * - Track the current rotor mode and expose helpers to cycle forward/backward across modes.
@@ -70,6 +73,11 @@ export class RotorNavigationService {
   public moveToNextRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
 
+    // Skip GRID_MODE if the active trace doesn't support it
+    if (this.isGridMode() && !this.activeSupportsGrid()) {
+      this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
+    }
+
     this.setMode();
     return this.getMode();
   }
@@ -81,13 +89,18 @@ export class RotorNavigationService {
   public moveToPrevRotorUnit(): string {
     this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
 
+    // Skip GRID_MODE if the active trace doesn't support it
+    if (this.isGridMode() && !this.activeSupportsGrid()) {
+      this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
+    }
+
     this.setMode();
     return this.getMode();
   }
 
   /**
    * Gets the current rotor mode index.
-   * @returns The current rotor index (0-2)
+   * @returns The current rotor index (0-3)
    */
   public getCurrentUnit(): number {
     return this.rotorIndex;
@@ -126,10 +139,15 @@ export class RotorNavigationService {
   }
 
   /**
-   * Moves up to a data point with lower/higher value based on rotor mode.
+   * Moves up to a data point with lower/higher value based on rotor mode,
+   * or moves up one grid cell in grid mode.
    * @returns Error message if move failed, null otherwise
    */
   public moveUp(): string | null {
+    if (this.isGridMode()) {
+      return this.moveGrid('up');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
@@ -148,10 +166,15 @@ export class RotorNavigationService {
   }
 
   /**
-   * Moves down to a data point with lower/higher value based on rotor mode.
+   * Moves down to a data point with lower/higher value based on rotor mode,
+   * or moves down one grid cell in grid mode.
    * @returns Error message if move failed, null otherwise
    */
   public moveDown(): string | null {
+    if (this.isGridMode()) {
+      return this.moveGrid('down');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
@@ -170,10 +193,15 @@ export class RotorNavigationService {
   }
 
   /**
-   * Moves left to a data point with lower/higher value based on rotor mode.
+   * Moves left to a data point with lower/higher value based on rotor mode,
+   * or moves left one grid cell in grid mode.
    * @returns Error message if move failed, null otherwise
    */
   public moveLeft(): string | null {
+    if (this.isGridMode()) {
+      return this.moveGrid('left');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
@@ -192,10 +220,15 @@ export class RotorNavigationService {
   }
 
   /**
-   * Moves right to a data point with lower/higher value based on rotor mode.
+   * Moves right to a data point with lower/higher value based on rotor mode,
+   * or moves right one grid cell in grid mode.
    * @returns Error message if move failed, null otherwise
    */
   public moveRight(): string | null {
+    if (this.isGridMode()) {
+      return this.moveGrid('right');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
@@ -220,9 +253,11 @@ export class RotorNavigationService {
     const curr_mode = ROTOR_MODES[this.rotorIndex];
     if (curr_mode === Constant.DATA_MODE) {
       this.context.setRotorEnabled(false);
+      this.notifyGridMode(false);
       return;
     }
     this.context.setRotorEnabled(true);
+    this.notifyGridMode(curr_mode === Constant.GRID_MODE);
   }
 
   /**
@@ -257,5 +292,67 @@ export class RotorNavigationService {
     }
     const position = direction === 'above' || direction === 'below' ? '' : `to the ${direction} of`;
     return `No ${nav_type} value found ${position} the current value.`;
+  }
+
+  /**
+   * Checks if the active trace supports grid navigation.
+   */
+  private activeSupportsGrid(): boolean {
+    const activeTrace = this.context.active;
+    return activeTrace instanceof AbstractTrace && activeTrace.supportsGridMode();
+  }
+
+  /**
+   * Checks if the current rotor mode is GRID_MODE.
+   */
+  private isGridMode(): boolean {
+    return this.getMode() === Constant.GRID_MODE;
+  }
+
+  /**
+   * Notifies the active trace to enter or exit grid mode.
+   */
+  private notifyGridMode(enabled: boolean): void {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      activeTrace.setGridMode(enabled);
+    }
+  }
+
+  /**
+   * Handles grid navigation in the specified direction.
+   * @returns Error message if move failed or grid not supported, null otherwise
+   */
+  private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      return null;
+    }
+
+    if (!activeTrace.supportsGridMode()) {
+      return this.getMessage('grid', direction);
+    }
+
+    let moved: boolean;
+    switch (direction) {
+      case 'up':
+        moved = activeTrace.moveGridUp();
+        break;
+      case 'down':
+        moved = activeTrace.moveGridDown();
+        break;
+      case 'left':
+        moved = activeTrace.moveGridLeft();
+        break;
+      case 'right':
+        moved = activeTrace.moveGridRight();
+        break;
+    }
+
+    if (!moved) {
+      const dirLabel = direction === 'up' ? 'above' : direction === 'down' ? 'below' : direction;
+      return this.getMessage('grid', dirLabel);
+    }
+    return null;
   }
 }

@@ -253,6 +253,52 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
+
+  /**
+   * Sets whether grid navigation mode is active. Override in traces that support grid navigation.
+   */
+  public setGridMode(_enabled: boolean): void {
+    // No-op for traces that don't support grid navigation.
+  }
+
+  /**
+   * Returns true if this trace supports grid navigation.
+   */
+  public supportsGridMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Grid navigation: move up one cell. Returns false if at boundary.
+   */
+  public moveGridUp(): boolean {
+    this.notifyRotorBounds();
+    return false;
+  }
+
+  /**
+   * Grid navigation: move down one cell. Returns false if at boundary.
+   */
+  public moveGridDown(): boolean {
+    this.notifyRotorBounds();
+    return false;
+  }
+
+  /**
+   * Grid navigation: move left one cell. Returns false if at boundary.
+   */
+  public moveGridLeft(): boolean {
+    this.notifyRotorBounds();
+    return false;
+  }
+
+  /**
+   * Grid navigation: move right one cell. Returns false if at boundary.
+   */
+  public moveGridRight(): boolean {
+    this.notifyRotorBounds();
+    return false;
+  }
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
@@ -276,8 +322,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
-    this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
+    const axisX = layer.axes?.x;
+    const axisY = layer.axes?.y;
+    this.xAxis = (typeof axisX === 'object' ? axisX.label : axisX) ?? DEFAULT_X_AXIS;
+    this.yAxis = (typeof axisY === 'object' ? axisY.label : axisY) ?? DEFAULT_Y_AXIS;
     this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
   }
 
