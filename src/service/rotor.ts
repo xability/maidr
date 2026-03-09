@@ -4,46 +4,32 @@ import { AbstractTrace } from '@model/abstract';
 import { Constant } from '@util/constant';
 
 /**
- * Current rotor modes: data point navigation, lower value, higher value, and grid navigation
- */
-const ROTOR_MODES: Record<number, string> = {
-  0: Constant.DATA_MODE,
-  1: Constant.LOWER_VALUE_MODE,
-  2: Constant.HIGHER_VALUE_MODE,
-  3: Constant.GRID_MODE,
-};
-/**
  * Manages rotor-based navigation for the active trace via alt+shift+up and alt+shift+down
  *
  * Purpose:
- * - Provide modal navigation over a trace by rotating through four modes.
+ * - Provide modal navigation over a trace by rotating through available modes.
  *
- * Navigation modes:
- * - DATA_MODE: Default data browsing. Focus remains in the trace scope; no compare behavior.
- * - LOWER_VALUE_MODE: Navigate to the next/previous data point with a lower y-value relative
- *   to the current point (supports left/right and, when available, up/down semantics).
- * - HIGHER_VALUE_MODE: Navigate to the next/previous data point with a higher y-value relative
- *   to the current point (supports left/right and, when available, up/down semantics).
- * - GRID_MODE: Navigate by grid cells in scatter plots. Arrow keys move between cells;
- *   all points within the current cell are announced.
+ * Available modes vary by trace type:
+ * - Non-scatter traces: DATA_MODE → LOWER_VALUE_MODE → HIGHER_VALUE_MODE
+ * - Scatter traces (with grid): ROW_COL_MODE → GRID_MODE
+ * - Scatter traces (no grid): ROW_COL_MODE only
+ *
+ * Mode descriptions:
+ * - DATA_MODE / ROW_COL_MODE: Default data browsing. The display name is trace-specific.
+ * - LOWER_VALUE_MODE: Navigate to data points with lower y-values (non-scatter only).
+ * - HIGHER_VALUE_MODE: Navigate to data points with higher y-values (non-scatter only).
+ * - GRID_MODE: Navigate by grid cells in scatter plots (scatter with grid config only).
  *
  * Responsibilities:
  * - Track the current rotor mode and expose helpers to cycle forward/backward across modes.
  * - Coordinate scope focus: entering a compare mode (LOWER/HIGHER) may switch focus to
- *   the rotor scope; returning to DATA_MODE restores focus to the trace scope.
+ *   the rotor scope; returning to data mode restores focus to the trace scope.
  * - Delegate directional movement to the active {@link AbstractTrace} implementation using
  *   rotor-aware APIs, with a fallback to compare-based traversal when rotor methods are
  *   unavailable.
  *
- * Mode management:
- * - getMode(): Returns the symbolic mode string for the current index.
- * - setMode(): Applies mode side-effects (e.g., restore trace scope in DATA_MODE).
- * - getCompareType(): Maps the current mode to 'lower' or 'higher' for compare operations
- *   (DATA_MODE falls back to 'lower').
- *
  * Dependencies:
  * - Context: Provides the active trace and current scope.
- * - DisplayService: Toggles UI focus between scopes (trace vs. rotor).
  * - TextService: Reserved for user-facing feedback/messages and parity with other services.
  *
  * Notes:
@@ -71,12 +57,8 @@ export class RotorNavigationService {
    * @returns The name of the new rotor mode
    */
   public moveToNextRotorUnit(): string {
-    this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
-
-    // Skip GRID_MODE if the active trace doesn't support it
-    if (this.isGridMode() && !this.activeSupportsGrid()) {
-      this.rotorIndex = (this.rotorIndex + 1) % Constant.NO_OF_ROTOR_NAV_MODES;
-    }
+    const modes = this.getAvailableModes();
+    this.rotorIndex = (this.rotorIndex + 1) % modes.length;
 
     this.setMode();
     return this.getMode();
@@ -87,12 +69,8 @@ export class RotorNavigationService {
    * @returns The name of the new rotor mode
    */
   public moveToPrevRotorUnit(): string {
-    this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
-
-    // Skip GRID_MODE if the active trace doesn't support it
-    if (this.isGridMode() && !this.activeSupportsGrid()) {
-      this.rotorIndex = (this.rotorIndex - 1 + Constant.NO_OF_ROTOR_NAV_MODES) % Constant.NO_OF_ROTOR_NAV_MODES;
-    }
+    const modes = this.getAvailableModes();
+    this.rotorIndex = (this.rotorIndex - 1 + modes.length) % modes.length;
 
     this.setMode();
     return this.getMode();
@@ -100,7 +78,7 @@ export class RotorNavigationService {
 
   /**
    * Gets the current rotor mode index.
-   * @returns The current rotor index (0-3)
+   * @returns The current rotor index
    */
   public getCurrentUnit(): number {
     return this.rotorIndex;
@@ -250,8 +228,8 @@ export class RotorNavigationService {
    * Sets the rotor mode based on the current index and updates context state.
    */
   public setMode(): void {
-    const curr_mode = ROTOR_MODES[this.rotorIndex];
-    if (curr_mode === Constant.DATA_MODE) {
+    const curr_mode = this.getMode();
+    if (this.isDataMode(curr_mode)) {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
       return;
@@ -262,11 +240,13 @@ export class RotorNavigationService {
 
   /**
    * Gets the current rotor mode name.
-   * @returns The name of the current rotor mode (e.g., 'DATA_MODE', 'LOWER_VALUE_MODE')
+   * @returns The display name of the current rotor mode
    */
   public getMode(): string {
-    const curr_mode = ROTOR_MODES[this.rotorIndex];
-    return curr_mode;
+    const modes = this.getAvailableModes();
+    // Clamp index in case modes list changed between cycles
+    const idx = this.rotorIndex % modes.length;
+    return modes[idx];
   }
 
   /**
@@ -295,11 +275,38 @@ export class RotorNavigationService {
   }
 
   /**
-   * Checks if the active trace supports grid navigation.
+   * Builds the list of available rotor modes based on active trace capabilities.
+   * - Always includes the trace's data mode name (DATA_MODE or ROW_COL_MODE)
+   * - Includes LOWER/HIGHER value modes if trace supports compare
+   * - Includes GRID_MODE if trace supports grid navigation
    */
-  private activeSupportsGrid(): boolean {
+  private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
-    return activeTrace instanceof AbstractTrace && activeTrace.supportsGridMode();
+    const modes: string[] = [];
+
+    if (activeTrace instanceof AbstractTrace) {
+      modes.push(activeTrace.dataModeName());
+
+      if (activeTrace.supportsCompareMode()) {
+        modes.push(Constant.LOWER_VALUE_MODE);
+        modes.push(Constant.HIGHER_VALUE_MODE);
+      }
+
+      if (activeTrace.supportsGridMode()) {
+        modes.push(Constant.GRID_MODE);
+      }
+    } else {
+      modes.push(Constant.DATA_MODE);
+    }
+
+    return modes;
+  }
+
+  /**
+   * Checks if the given mode name is a data mode (either DATA_MODE or ROW_COL_MODE).
+   */
+  private isDataMode(mode: string): boolean {
+    return mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE;
   }
 
   /**

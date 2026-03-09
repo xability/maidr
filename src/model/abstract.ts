@@ -15,6 +15,7 @@ import type {
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
+import { Constant } from '@util/constant';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -257,6 +258,22 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   /**
    * Sets whether grid navigation mode is active. Override in traces that support grid navigation.
    */
+  /**
+   * Returns true if this trace supports compare (lower/higher value) navigation.
+   * Override to false for trace types that don't use compare modes (e.g., scatter).
+   */
+  public supportsCompareMode(): boolean {
+    return true;
+  }
+
+  /**
+   * Returns the display name for the default data navigation mode.
+   * Override to provide a trace-specific name (e.g., "ROW AND COLUMN NAVIGATION" for scatter).
+   */
+  public dataModeName(): string {
+    return Constant.DATA_MODE;
+  }
+
   public setGridMode(_enabled: boolean): void {
     // No-op for traces that don't support grid navigation.
   }

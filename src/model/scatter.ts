@@ -2,6 +2,7 @@ import type { AxisConfig, MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
+import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -573,6 +574,14 @@ export class ScatterTrace extends AbstractTrace {
       this.gridCol = 0;
       this.notifyStateUpdate();
     }
+  }
+
+  public override supportsCompareMode(): boolean {
+    return false;
+  }
+
+  public override dataModeName(): string {
+    return Constant.ROW_COL_MODE;
   }
 
   public override supportsGridMode(): boolean {

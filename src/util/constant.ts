@@ -148,8 +148,7 @@ export abstract class Constant {
   static readonly LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
   /** Rotor mode for navigating data points */
   static readonly DATA_MODE = 'DATA POINT NAVIGATION';
+  static readonly ROW_COL_MODE = 'ROW AND COLUMN NAVIGATION';
   /** Rotor mode for navigating grid cells in scatter plots */
   static readonly GRID_MODE = 'GRID NAVIGATION';
-  /** Total number of rotor navigation modes */
-  static readonly NO_OF_ROTOR_NAV_MODES = 4;
 }
