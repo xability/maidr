@@ -417,6 +417,12 @@ export class AnnouncePositionCommand extends DescribeCommand {
       return;
     }
 
+    // Grid mode: announce axis ranges without points
+    if (state.text.gridPoints !== undefined && state.text.range && state.text.crossRange) {
+      this.announceGridPosition(state);
+      return;
+    }
+
     // Get position from audio.panning (contains x, y, rows, cols)
     const { panning } = state.audio;
     const { x, y, rows, cols } = panning;
@@ -487,6 +493,28 @@ export class AnnouncePositionCommand extends DescribeCommand {
     } else {
       this.textViewModel.update(
         `Position is column ${colPos} of ${cols}, row ${rowPos} of ${rows}`,
+      );
+    }
+  }
+
+  /**
+   * Announces position for grid navigation mode.
+   * Shows axis ranges without the points list.
+   */
+  private announceGridPosition(state: NonEmptyTraceState): void {
+    const { text } = state;
+    const xRange = text.range!;
+    const yRange = text.crossRange!;
+
+    if (this.textService.isTerse()) {
+      this.textViewModel.update(
+        `${xRange.min} through ${xRange.max}, ${yRange.min} through ${yRange.max}`,
+      );
+    } else {
+      const xLabel = text.main.label || 'x';
+      const yLabel = text.cross.label || 'y';
+      this.textViewModel.update(
+        `${xLabel} is ${xRange.min} through ${xRange.max}, ${yLabel} is ${yRange.min} through ${yRange.max}`,
       );
     }
   }

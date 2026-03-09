@@ -292,8 +292,11 @@ export class ScatterTrace extends AbstractTrace {
     if (this.isInGridMode && this.gridCells) {
       const cell = this.gridCells[this.gridRow][this.gridCol];
       return {
-        main: { label: this.xAxis, value: `${cell.xRange.min} - ${cell.xRange.max}` },
-        cross: { label: this.yAxis, value: cell.yValues.length > 0 ? cell.yValues : [] },
+        main: { label: this.xAxis, value: '' },
+        cross: { label: this.yAxis, value: '' },
+        range: { min: cell.xRange.min, max: cell.xRange.max },
+        crossRange: { min: cell.yRange.min, max: cell.yRange.max },
+        gridPoints: cell.points,
       };
     }
 
