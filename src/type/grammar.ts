@@ -302,6 +302,33 @@ export interface SmoothPoint {
 }
 
 /**
+ * Extended axis configuration that includes an optional label and grid navigation properties.
+ * Used when an axis needs both a label and grid config (min, max, tickStep).
+ *
+ * @example
+ * // axes.x as an object with grid config
+ * axes: { x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 } }
+ */
+export interface AxisConfig {
+  label?: string;
+  min?: number;
+  max?: number;
+  tickStep?: number;
+}
+
+/**
+ * Alternate grid configuration shape where grid properties are grouped by property name.
+ * Supports `axes.min.x`, `axes.max.x`, `axes.tickStep.x` etc.
+ *
+ * @example
+ * axes: { x: "Sepal Length", min: { x: 4.3, y: 2 }, max: { x: 7.9, y: 4.4 }, tickStep: { x: 0.7, y: 0.5 } }
+ */
+export interface AxisGridProperty {
+  x?: number;
+  y?: number;
+}
+
+/**
  * Chart orientation for bar and box plots.
  */
 export enum Orientation {
@@ -355,26 +382,40 @@ export interface MaidrLayer {
     iqrDirection?: 'forward' | 'reverse';
   };
   /**
-   * Axis configuration including labels and optional formatting.
+   * Axis configuration including labels, optional formatting, and grid navigation properties.
+   *
+   * Supports two shapes for grid config (both can coexist):
+   *
+   * **Format A** – per-axis objects (`axes.x.min`):
+   * ```json
+   * { "axes": { "x": { "label": "Sepal Length", "min": 4.3, "max": 7.9, "tickStep": 0.7 } } }
+   * ```
+   *
+   * **Format B** – grouped by property (`axes.min.x`):
+   * ```json
+   * { "axes": { "x": "Sepal Length", "min": { "x": 4.3, "y": 2 }, "tickStep": { "x": 0.7, "y": 0.5 } } }
+   * ```
    *
    * @example
-   * // Basic axis labels
+   * // Basic axis labels (no grid)
    * axes: { x: "Date", y: "Price" }
    *
    * @example
    * // With formatting
-   * axes: {
-   *   x: "Date",
-   *   y: "Price",
-   *   format: {
-   *     y: { type: "currency", decimals: 2 }
-   *   }
-   * }
+   * axes: { x: "Date", y: "Price", format: { y: { type: "currency", decimals: 2 } } }
    */
   axes?: {
-    x?: string;
-    y?: string;
+    /** Axis label (string) or axis config object with label + grid properties. */
+    x?: string | AxisConfig;
+    /** Axis label (string) or axis config object with label + grid properties. */
+    y?: string | AxisConfig;
     fill?: string;
+    /** Grouped grid property: `min: { x: 4.3, y: 2 }` */
+    min?: AxisGridProperty;
+    /** Grouped grid property: `max: { x: 7.9, y: 4.4 }` */
+    max?: AxisGridProperty;
+    /** Grouped grid property: `tickStep: { x: 0.7, y: 0.5 }` */
+    tickStep?: AxisGridProperty;
     /**
      * Optional formatting configuration for axis values.
      * When provided, values displayed in text descriptions will be formatted.
