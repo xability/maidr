@@ -1,3 +1,10 @@
+# [3.56.0](https://github.com/xability/maidr/compare/v3.55.2...v3.56.0) (2026-03-10)
+
+
+### Features
+
+* go to extrema in heatmap ([#569](https://github.com/xability/maidr/issues/569)) ([7946bdc](https://github.com/xability/maidr/commit/7946bdc5e63218388a13c42afa85f44914ac1ca4))
+
 ## [3.55.2](https://github.com/xability/maidr/compare/v3.55.1...v3.55.2) (2026-03-07)
 
 
