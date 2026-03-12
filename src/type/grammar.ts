@@ -5,22 +5,160 @@
 export type CandlestickTrend = 'Bull' | 'Bear' | 'Neutral';
 
 /**
+ * Format function signature for axis values.
+ * Takes a value (number or string) and returns a formatted string.
+ *
+ * @example
+ * // Currency formatting
+ * const currencyFormat: FormatFunction = (v) => `$${Number(v).toFixed(2)}`;
+ *
+ * @example
+ * // Date formatting
+ * const dateFormat: FormatFunction = (v) => new Date(v).toLocaleDateString();
+ */
+export type FormatFunction = (value: number | string) => string;
+
+/**
+ * Supported format type specifiers for JSON/HTML API.
+ */
+export type FormatType = 'currency' | 'percent' | 'fixed' | 'number' | 'date' | 'scientific';
+
+/**
+ * Configuration for formatting values on an axis.
+ *
+ * Two ways to specify formatting:
+ * 1. `function` - Function body string (for custom logic)
+ * 2. `type` - Format type specifier (for common patterns)
+ *
+ * @example
+ * // Using function string
+ * { "function": "return `$${Number(value).toFixed(2)}`" }
+ *
+ * @example
+ * // Using type specifier
+ * { "type": "currency", "decimals": 2 }
+ */
+export interface AxisFormat {
+  /**
+   * Function body string for custom formatting.
+   * The function receives `value` as parameter and must return a string.
+   *
+   * @example
+   * // Currency formatting
+   * { "function": "return `$${Number(value).toFixed(2)}`" }
+   *
+   * @example
+   * // Date formatting
+   * { "function": "return new Date(value).toLocaleDateString('en-US')" }
+   */
+  function?: string;
+
+  /**
+   * Format type specifier for common formatting patterns.
+   * Use with `decimals`, `currency`, `locale`, `dateOptions` for customization.
+   *
+   * @example
+   * { "type": "currency", "currency": "USD", "decimals": 2 }
+   * { "type": "percent", "decimals": 1 }
+   * { "type": "date", "dateOptions": { "month": "short", "day": "numeric" } }
+   */
+  type?: FormatType;
+
+  /**
+   * Number of decimal places for numeric formatters.
+   * Used with: currency, percent, fixed, number, scientific
+   * @default varies by type
+   */
+  decimals?: number;
+
+  /**
+   * ISO 4217 currency code for currency formatter.
+   * @default 'USD'
+   */
+  currency?: string;
+
+  /**
+   * BCP 47 locale string for locale-aware formatters.
+   * Used with: currency, number, date
+   * @default 'en-US'
+   */
+  locale?: string;
+
+  /**
+   * Options for Intl.DateTimeFormat when using date type.
+   *
+   * @example
+   * { "month": "short", "day": "numeric" } // "Jan 15"
+   * { "year": "numeric", "month": "long" } // "January 2024"
+   */
+  dateOptions?: Intl.DateTimeFormatOptions;
+}
+
+/**
+ * Configuration for formatting values across all axes in a layer.
+ */
+export interface FormatConfig {
+  x?: AxisFormat;
+  y?: AxisFormat;
+  fill?: AxisFormat;
+}
+
+/**
  * Root MAIDR data structure containing figure metadata and subplot grid.
+ * This is the type for the `data` prop passed to the `<Maidr>` React component.
+ *
+ * @example
+ * ```typescript
+ * const data: Maidr = {
+ *   id: 'my-chart',
+ *   title: 'Sales by Quarter',
+ *   subplots: [[{
+ *     layers: [{
+ *       id: '0',
+ *       type: 'bar',
+ *       axes: { x: 'Quarter', y: 'Revenue' },
+ *       data: [{ x: 'Q1', y: 120 }, { x: 'Q2', y: 200 }],
+ *     }],
+ *   }]],
+ * };
+ * ```
  */
 export interface Maidr {
+  /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
+  /** Chart title displayed in text descriptions. */
   title?: string;
+  /** Chart subtitle. */
   subtitle?: string;
+  /** Chart caption. */
   caption?: string;
+  /**
+   * 2D grid of subplots. Each row is an array of subplots.
+   * For a single chart, use `[[{ layers: [...] }]]`.
+   */
   subplots: MaidrSubplot[][];
 }
 
 /**
  * Subplot data structure containing optional legend and trace layers.
+ * A subplot groups one or more layers (traces) that share the same coordinate space.
+ *
+ * @example
+ * ```typescript
+ * const subplot: MaidrSubplot = {
+ *   layers: [
+ *     { id: '0', type: 'bar', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *     { id: '1', type: 'line', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *   ],
+ * };
+ * ```
  */
 export interface MaidrSubplot {
+  /** Legend labels for multi-series plots. */
   legend?: string[];
+  /** CSS selector for the subplot container element. */
   selector?: string;
+  /** Array of trace layers in this subplot. */
   layers: MaidrLayer[];
 }
 
@@ -178,10 +316,38 @@ export interface MaidrLayer {
      */
     iqrDirection?: 'forward' | 'reverse';
   };
+  /**
+   * Axis configuration including labels and optional formatting.
+   *
+   * @example
+   * // Basic axis labels
+   * axes: { x: "Date", y: "Price" }
+   *
+   * @example
+   * // With formatting
+   * axes: {
+   *   x: "Date",
+   *   y: "Price",
+   *   format: {
+   *     y: { type: "currency", decimals: 2 }
+   *   }
+   * }
+   */
   axes?: {
     x?: string;
     y?: string;
     fill?: string;
+    /**
+     * Optional formatting configuration for axis values.
+     * When provided, values displayed in text descriptions will be formatted.
+     *
+     * @example
+     * format: {
+     *   x: { function: "return new Date(value).toLocaleDateString()" },
+     *   y: { type: "currency", decimals: 2 }
+     * }
+     */
+    format?: FormatConfig;
   };
   data:
     | BarPoint[]
@@ -191,11 +357,21 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | SmoothPoint[][];
 }
 
 /**
  * Enumeration of supported plot trace types.
+ * Use these values for the `type` field in {@link MaidrLayer}.
+ *
+ * @example
+ * ```typescript
+ * import { TraceType } from 'maidr/react';
+ * const layer = { id: '0', type: TraceType.BAR, ... };
+ * // Or use the string value directly:
+ * const layer2 = { id: '0', type: 'bar', ... };
+ * ```
  */
 export enum TraceType {
   BAR = 'bar',

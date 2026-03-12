@@ -29,13 +29,13 @@ import {
 } from './autoplay';
 import {
   AnnouncePositionCommand,
-  DescribeCaptionCommand,
-  DescribeFillCommand,
-  DescribePointCommand,
-  DescribeSubtitleCommand,
-  DescribeTitleCommand,
-  DescribeXCommand,
-  DescribeYCommand,
+  AnnounceCaptionCommand,
+  AnnounceFillCommand,
+  AnnouncePointCommand,
+  AnnounceSubtitleCommand,
+  AnnounceTitleCommand,
+  AnnounceXCommand as AnnounceXCommand,
+  AnnounceYCommand,
 } from './describe';
 import { GoToExtremaToggleCommand } from './goTo';
 import {
@@ -226,30 +226,32 @@ export class CommandFactory {
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
       case 'ANNOUNCE_X':
-        return new DescribeXCommand(this.context, this.textViewModel);
+        return new AnnounceXCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel);
+        return new AnnounceYCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel);
+        return new AnnounceFillCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_POINT':
-        return new DescribePointCommand(
+        return new AnnouncePointCommand(
           this.context,
           this.audioService,
           this.highlightService,
           this.brailleViewModel,
           this.textViewModel,
+          this.textService,
         );
       case 'ANNOUNCE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel);
+        return new AnnounceTitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel);
+        return new AnnounceSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel);
+        return new AnnounceCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_POSITION':
         return new AnnouncePositionCommand(
           this.context,
           this.textService,
           this.textViewModel,
+          this.audioService,
         );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':

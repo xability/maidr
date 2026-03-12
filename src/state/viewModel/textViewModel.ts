@@ -11,10 +11,15 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for text display and announcement functionality.
  */
-interface TextState {
+export interface TextState {
   enabled: boolean;
   announce: boolean;
   value: string;
+  /**
+   * Monotonic counter that increments on every update (including same-text updates).
+   *  Used by the View to detect re-announcement requests without invisible characters.
+   */
+  revision: number;
   message: string | null;
 }
 
@@ -22,6 +27,7 @@ const initialState: TextState = {
   enabled: true,
   announce: true,
   value: '',
+  revision: 0,
   message: null,
 };
 
@@ -31,6 +37,7 @@ const textSlice = createSlice({
   reducers: {
     update(state, action: PayloadAction<string>): void {
       state.value = action.payload;
+      state.revision += 1;
     },
     announceText(state, action: PayloadAction<boolean>): void {
       state.announce = action.payload;
@@ -137,6 +144,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
 
   /**
    * Updates the displayed text with formatted content.
+   * Each dispatch increments a revision counter in the Redux state, so the View
+   * always receives a new state — even when the text is identical. This allows
+   * the View to force a screen-reader re-announcement by re-mounting the alert
+   * element with a new React key, without relying on invisible Unicode characters.
    * @param text - The text or plot state to display
    */
   public update(text: string | PlotState): void {

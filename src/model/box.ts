@@ -260,6 +260,8 @@ export class BoxTrace extends AbstractTrace {
       main: { label: mainLabel, value: point.fill },
       cross: { label: crossLabel, value: crossValue },
       section,
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
     };
   }
 

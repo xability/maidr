@@ -1,3 +1,99 @@
+# [3.53.0](https://github.com/xability/maidr/compare/v3.52.0...v3.53.0) (2026-02-26)
+
+
+### Bug Fixes
+
+* address empty space SR announcement in react comps (JAWS & NVDA) ([#564](https://github.com/xability/maidr/issues/564)) ([d180d2e](https://github.com/xability/maidr/commit/d180d2edaa9e1a51c4e58dd8537ce47100b3af5e))
+
+
+### Features
+
+* address JAWS/NVDA not recognizing image assets ([#565](https://github.com/xability/maidr/issues/565)) ([c41495d](https://github.com/xability/maidr/commit/c41495dc19750f20c1b6d42c315d5b6272fafbee))
+
+# [3.52.0](https://github.com/xability/maidr/compare/v3.51.1...v3.52.0) (2026-02-25)
+
+
+### Features
+
+* restore screen reader graphics navigation for interactive charts ([#561](https://github.com/xability/maidr/issues/561)) ([9e3a1e5](https://github.com/xability/maidr/commit/9e3a1e5f9cc094b9efd778a68d169bd475c86467))
+
+## [3.51.1](https://github.com/xability/maidr/compare/v3.51.0...v3.51.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#562](https://github.com/xability/maidr/issues/562)) ([3b12fa8](https://github.com/xability/maidr/commit/3b12fa822cc0c821a14b06e325b117ec67dfea88))
+
+# [3.51.0](https://github.com/xability/maidr/compare/v3.50.1...v3.51.0) (2026-02-23)
+
+
+### Features
+
+* react component ([#532](https://github.com/xability/maidr/issues/532)) ([b5ce186](https://github.com/xability/maidr/commit/b5ce186aebb8ebc5b34f5585992c3ce7fedb5cdc))
+
+## [3.50.1](https://github.com/xability/maidr/compare/v3.50.0...v3.50.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* remove JAWS/NVDA special char announcement for spacebar ([#530](https://github.com/xability/maidr/issues/530)) ([6939df9](https://github.com/xability/maidr/commit/6939df90573e93a1b8859cfe7cc6897ef155a247))
+
+# [3.50.0](https://github.com/xability/maidr/compare/v3.49.0...v3.50.0) (2026-02-17)
+
+
+### Features
+
+* fix terse mode label announcements ([#525](https://github.com/xability/maidr/issues/525)) ([c2c5c27](https://github.com/xability/maidr/commit/c2c5c27b59ca359fb5c34860ffba7c81daf7bcf7))
+
+# [3.49.0](https://github.com/xability/maidr/compare/v3.48.1...v3.49.0) (2026-02-10)
+
+
+### Features
+
+* smooth stereo panning ([#518](https://github.com/xability/maidr/issues/518)) ([b464c87](https://github.com/xability/maidr/commit/b464c87aed31aafca1865d87c0d391f3efcd54db))
+
+## [3.48.1](https://github.com/xability/maidr/compare/v3.48.0...v3.48.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* resolve layer switching regression ([#519](https://github.com/xability/maidr/issues/519)) ([2433ce9](https://github.com/xability/maidr/commit/2433ce9134b8bd76d698c734e2c1e2ceaebcb2fc))
+
+# [3.48.0](https://github.com/xability/maidr/compare/v3.47.0...v3.48.0) (2026-01-31)
+
+
+### Features
+
+* fix audio panning for line plots ([#516](https://github.com/xability/maidr/issues/516)) ([47d6122](https://github.com/xability/maidr/commit/47d61221655642ed0c42b8ed97ac9b38b46388d3))
+
+# [3.47.0](https://github.com/xability/maidr/compare/v3.46.2...v3.47.0) (2026-01-30)
+
+
+### Features
+
+* support custom formatting ([#515](https://github.com/xability/maidr/issues/515)) ([52ee8bb](https://github.com/xability/maidr/commit/52ee8bb768269dc4c23196c9a9b1669e35e5722d))
+
+## [3.46.2](https://github.com/xability/maidr/compare/v3.46.1...v3.46.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* add back sine, square, sawtooth, triangle waveforms ([#514](https://github.com/xability/maidr/issues/514)) ([94f3db3](https://github.com/xability/maidr/commit/94f3db34e7a44ea94518a9d9417f1580db3a96d2))
+
+## [3.46.1](https://github.com/xability/maidr/compare/v3.46.0...v3.46.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* exit l scope when axis/figure metadata is present ([#513](https://github.com/xability/maidr/issues/513)) ([c19b2f5](https://github.com/xability/maidr/commit/c19b2f53daf7041fdf3668648de2b78a8a61455a))
+
+# [3.46.0](https://github.com/xability/maidr/compare/v3.45.0...v3.46.0) (2026-01-27)
+
+
+### Features
+
+* fix label scope freeze wherever data is not available ([#512](https://github.com/xability/maidr/issues/512)) ([ddc3de9](https://github.com/xability/maidr/commit/ddc3de99f66e284ceef828fb59f626ff5e16ef4a))
+
 # [3.45.0](https://github.com/xability/maidr/compare/v3.44.1...v3.45.0) (2026-01-19)
 
 

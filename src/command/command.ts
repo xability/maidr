@@ -48,7 +48,7 @@ export interface CommandContext {
   /** Rotor navigation service for alternative navigation. */
   rotorNavigationService: RotorNavigationService;
   settingsService: SettingsService;
-  /** Text service for text formatting and mode management. */
+  /** Text service for mode-aware text formatting. */
   textService: TextService;
 
   /** Braille view model for braille display. */

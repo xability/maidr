@@ -320,6 +320,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {
       empty: false,
       type: 'trace',
+      layerId: this.id,
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
