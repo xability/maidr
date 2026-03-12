@@ -232,6 +232,10 @@ export interface BoxSelector {
   upperOutliers: string[];
   /** CSS selector for mean marker element in violin plots. */
   mean?: string;
+  /** Optional direct CSS selector for Q1 element (bypasses iq edge derivation). */
+  q1?: string;
+  /** Optional direct CSS selector for Q3 element (bypasses iq edge derivation). */
+  q3?: string;
 }
 
 /**

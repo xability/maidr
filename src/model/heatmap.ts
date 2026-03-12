@@ -112,7 +112,17 @@ export class Heatmap extends AbstractTrace {
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Svg.selectAllElements(selector);
+    const domElements = Svg.selectAllElements(selector, false);
+
+    // Plotly renders heatmaps as a single <image> element (canvas PNG).
+    // Create transparent overlay rects so the highlight service can work.
+    if (
+      domElements.length === 1
+      && domElements[0] instanceof SVGImageElement
+    ) {
+      return this.createOverlayRects(domElements[0], numRows, numCols);
+    }
+
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
       return null;
     }
@@ -150,6 +160,54 @@ export class Heatmap extends AbstractTrace {
           svgElements.push(row);
         }
       }
+    }
+
+    return svgElements;
+  }
+
+  /**
+   * Create transparent overlay <rect> elements on top of a Plotly heatmap
+   * <image> element so the highlight service can target individual cells.
+   */
+  private createOverlayRects(
+    imageEl: SVGImageElement,
+    numRows: number,
+    numCols: number,
+  ): SVGElement[][] | null {
+    const imgX = Number.parseFloat(imageEl.getAttribute('x') ?? '0');
+    const imgY = Number.parseFloat(imageEl.getAttribute('y') ?? '0');
+    const imgW = Number.parseFloat(imageEl.getAttribute('width') ?? '0');
+    const imgH = Number.parseFloat(imageEl.getAttribute('height') ?? '0');
+
+    if (imgW === 0 || imgH === 0) {
+      return null;
+    }
+
+    const cellW = imgW / numCols;
+    const cellH = imgH / numRows;
+    const parent = imageEl.parentElement;
+    if (!parent) {
+      return null;
+    }
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svgElements = new Array<Array<SVGElement>>();
+
+    for (let r = 0; r < numRows; r++) {
+      const row = new Array<SVGElement>();
+      for (let c = 0; c < numCols; c++) {
+        const rect = document.createElementNS(svgNS, 'rect') as SVGRectElement;
+        rect.setAttribute('x', String(imgX + c * cellW));
+        rect.setAttribute('y', String(imgY + r * cellH));
+        rect.setAttribute('width', String(cellW));
+        rect.setAttribute('height', String(cellH));
+        rect.setAttribute('fill', 'transparent');
+        rect.setAttribute('stroke', 'none');
+        rect.setAttribute('pointer-events', 'none');
+        parent.appendChild(rect);
+        row.push(rect);
+      }
+      svgElements.push(row);
     }
 
     return svgElements;

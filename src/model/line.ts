@@ -12,7 +12,7 @@ import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
 const SVG_PATH_LINE_POINT_REGEX
-  = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+  = /[ML]\s*(-?\d+(?:\.\d+)?)[\s,]+(-?\d+(?:\.\d+)?)/g;
 
 /**
  * Represents a line trace plot with support for single and multi-line navigation
@@ -464,20 +464,57 @@ export class LineTrace extends AbstractTrace {
           });
         }
       }
-      if (coordinates.length !== this.lineValues[r].length) {
-        if (coordinates.length < this.lineValues[r].length) {
-          while (coordinates.length < this.lineValues[r].length) {
+      // Handle coordinate count mismatch.
+      // SVG renderers (e.g. Plotly) may simplify paths by removing collinear
+      // points.  When fewer coordinates than data points are found, interpolate
+      // the missing positions along the simplified path segments so every data
+      // point gets a highlight circle at the correct visual position.
+      const expected = this.lineValues[r].length;
+      if (coordinates.length !== expected) {
+        if (coordinates.length >= 2 && coordinates.length < expected) {
+          const pathXMin = Number(coordinates[0].x);
+          const pathXMax = Number(coordinates[coordinates.length - 1].x);
+          const dataPoints = this.points[r];
+          const dataXMin = Number(dataPoints[0].x);
+          const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
+          const dataXRange = dataXMax - dataXMin;
+
+          const full: LinePoint[] = [];
+          for (let i = 0; i < expected; i++) {
+            const dataX = Number(dataPoints[i].x);
+            const svgX = dataXRange > 0
+              ? pathXMin + ((dataX - dataXMin) / dataXRange) * (pathXMax - pathXMin)
+              : pathXMin;
+
+            // Find y by interpolating along the simplified path segments
+            let svgY = Number(coordinates[0].y);
+            for (let j = 0; j < coordinates.length - 1; j++) {
+              const cjx = Number(coordinates[j].x);
+              const cj1x = Number(coordinates[j + 1].x);
+              if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
+                const segLen = cj1x - cjx;
+                const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
+                svgY = Number(coordinates[j].y) + t * (Number(coordinates[j + 1].y) - Number(coordinates[j].y));
+                break;
+              }
+            }
+            full.push({ x: svgX, y: svgY });
+          }
+          coordinates.length = 0;
+          coordinates.push(...full);
+        } else if (coordinates.length < expected) {
+          while (coordinates.length < expected) {
             coordinates.push({ x: Number.NaN, y: Number.NaN });
           }
-        } else if (coordinates.length > this.lineValues[r].length) {
-          coordinates.length = this.lineValues[r].length;
+        } else {
+          coordinates.length = expected;
         }
       }
 
       const linePointElements: SVGElement[] = [];
       let lineFailed = false;
       for (const coordinate of coordinates) {
-        if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
+        if (Number.isNaN(Number(coordinate.x)) || Number.isNaN(coordinate.y)) {
           lineFailed = true;
           break;
         }

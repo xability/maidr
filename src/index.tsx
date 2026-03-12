@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+import { isPlotlyPlot, normalizePlotlySvg } from './adapter/plotly';
 import { Maidr as MaidrComponent } from './maidr-component';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -27,6 +28,12 @@ function parseAndInit(
 ): void {
   try {
     const maidr = JSON.parse(json) as Maidr;
+
+    // Plotly SVGs need DOM normalization before maidr can process them.
+    if (isPlotlyPlot(plot)) {
+      normalizePlotlySvg(plot as unknown as SVGSVGElement, maidr);
+    }
+
     initMaidr(maidr, plot);
   } catch (error) {
     console.error(`Error parsing ${source} attribute:`, error);

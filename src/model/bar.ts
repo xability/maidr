@@ -125,13 +125,38 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       return null;
     }
 
-    const svgElements = [Svg.selectAllElements(selector)];
+    const queried = Svg.selectAllElements(selector);
+    const svgElements = [queried];
+
     if (svgElements.length !== this.points.length) {
       return null;
     }
+
     for (let row = 0; row < this.points.length; row++) {
-      if (svgElements[row].length !== this.points[row].length) {
-        return null;
+      if (svgElements[row].length === this.points[row].length) {
+        continue; // exact match — nothing to do
+      }
+
+      // SVG renderers (e.g. Plotly) may omit zero-height bars from the DOM.
+      // When fewer SVG elements than data points exist, align them by
+      // assigning each non-zero data point the next queried element and
+      // inserting an invisible placeholder for zero-value points.
+      if (svgElements[row].length < this.points[row].length) {
+        const aligned: SVGElement[] = [];
+        let svgIdx = 0;
+        for (let col = 0; col < this.points[row].length; col++) {
+          const value = this.orientation === Orientation.VERTICAL
+            ? Number(this.points[row][col].y)
+            : Number(this.points[row][col].x);
+          if (value !== 0 && svgIdx < svgElements[row].length) {
+            aligned.push(svgElements[row][svgIdx++]);
+          } else {
+            aligned.push(Svg.createEmptyElement());
+          }
+        }
+        svgElements[row] = aligned;
+      } else {
+        return null; // more SVG elements than data points — unexpected
       }
     }
 
