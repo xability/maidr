@@ -29,13 +29,13 @@ import {
 } from './autoplay';
 import {
   AnnouncePositionCommand,
-  DescribeCaptionCommand,
-  DescribeFillCommand,
-  DescribePointCommand,
-  DescribeSubtitleCommand,
-  DescribeTitleCommand,
-  DescribeXCommand,
-  DescribeYCommand,
+  AnnounceCaptionCommand,
+  AnnounceFillCommand,
+  AnnouncePointCommand,
+  AnnounceSubtitleCommand,
+  AnnounceTitleCommand,
+  AnnounceXCommand as AnnounceXCommand,
+  AnnounceYCommand,
 } from './describe';
 import { GoToExtremaToggleCommand } from './goTo';
 import {
@@ -225,14 +225,14 @@ export class CommandFactory {
         return new CommandPaletteSelectCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
-      case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_POINT':
-        return new DescribePointCommand(
+      case 'ANNOUNCE_X':
+        return new AnnounceXCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_Y':
+        return new AnnounceYCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_FILL':
+        return new AnnounceFillCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_POINT':
+        return new AnnouncePointCommand(
           this.context,
           this.audioService,
           this.highlightService,
@@ -240,12 +240,12 @@ export class CommandFactory {
           this.textViewModel,
           this.textService,
         );
-      case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_TITLE':
+        return new AnnounceTitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_SUBTITLE':
+        return new AnnounceSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_CAPTION':
+        return new AnnounceCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
       case 'ANNOUNCE_POSITION':
         return new AnnouncePositionCommand(
           this.context,
@@ -255,10 +255,11 @@ export class CommandFactory {
         );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL, this.textViewModel);
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL, this.textViewModel);
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE);
       case 'AUTOPLAY_UPWARD':

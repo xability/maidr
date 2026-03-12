@@ -293,21 +293,25 @@ export class CommandPaletteSelectCommand implements Command {
 export class ToggleScopeCommand implements Command {
   private readonly context: Context;
   private readonly scope: Scope;
+  private readonly textViewModel?: TextViewModel;
 
   /**
    * Creates an instance of ToggleScopeCommand.
    * @param {Context} context - The application context.
    * @param {Scope} scope - The scope to toggle.
+   * @param {TextViewModel} [textViewModel] - Optional text view model for text-off warnings.
    */
-  public constructor(context: Context, scope: Scope) {
+  public constructor(context: Context, scope: Scope, textViewModel?: TextViewModel) {
     this.context = context;
     this.scope = scope;
+    this.textViewModel = textViewModel;
   }
 
   /**
    * Toggles the specified scope in the context.
    */
   public execute(): void {
+    this.textViewModel?.warnIfTextOff();
     this.context.toggleScope(this.scope);
   }
 }

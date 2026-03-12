@@ -12,14 +12,14 @@ import { TraceType } from '@type/grammar';
 /**
  * Abstract base class for describe commands.
  */
-abstract class DescribeCommand implements Command {
+abstract class AnnounceCommand implements Command {
   protected readonly context: Context;
   protected readonly textViewModel: TextViewModel;
   protected readonly audioService: AudioService;
   protected readonly textService: TextService;
 
   /**
-   * Creates an instance of DescribeCommand.
+   * Creates an instance of AnnounceCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -54,9 +54,9 @@ abstract class DescribeCommand implements Command {
 /**
  * Command to describe the X-axis label.
  */
-export class DescribeXCommand extends DescribeCommand {
+export class AnnounceXCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeXCommand.
+   * Creates an instance of AnnounceXCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -90,9 +90,9 @@ export class DescribeXCommand extends DescribeCommand {
 /**
  * Command to describe the Y-axis label.
  */
-export class DescribeYCommand extends DescribeCommand {
+export class AnnounceYCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeYCommand.
+   * Creates an instance of AnnounceYCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -126,9 +126,9 @@ export class DescribeYCommand extends DescribeCommand {
 /**
  * Command to describe the fill property.
  */
-export class DescribeFillCommand extends DescribeCommand {
+export class AnnounceFillCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeFillCommand.
+   * Creates an instance of AnnounceFillCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -162,9 +162,9 @@ export class DescribeFillCommand extends DescribeCommand {
 /**
  * Command to describe the title of the figure or subplot.
  */
-export class DescribeTitleCommand extends DescribeCommand {
+export class AnnounceTitleCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeTitleCommand.
+   * Creates an instance of AnnounceTitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -253,9 +253,9 @@ export class DescribeTitleCommand extends DescribeCommand {
 /**
  * Command to describe the subtitle of the figure.
  */
-export class DescribeSubtitleCommand extends DescribeCommand {
+export class AnnounceSubtitleCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeSubtitleCommand.
+   * Creates an instance of AnnounceSubtitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -291,9 +291,9 @@ export class DescribeSubtitleCommand extends DescribeCommand {
 /**
  * Command to describe the caption of the figure.
  */
-export class DescribeCaptionCommand extends DescribeCommand {
+export class AnnounceCaptionCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeCaptionCommand.
+   * Creates an instance of AnnounceCaptionCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -329,13 +329,13 @@ export class DescribeCaptionCommand extends DescribeCommand {
 /**
  * Command to describe the current point with audio, braille, and highlight.
  */
-export class DescribePointCommand extends DescribeCommand {
+export class AnnouncePointCommand extends AnnounceCommand {
   private readonly audio: AudioService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly highlight: HighlightService;
 
   /**
-   * Creates an instance of DescribePointCommand.
+   * Creates an instance of AnnouncePointCommand.
    * @param {Context} context - The application context.
    * @param {AudioService} audioService - The audio service.
    * @param {HighlightService} highlightService - The highlight service.
@@ -382,7 +382,7 @@ export class DescribePointCommand extends DescribeCommand {
  * Command to announce the current position in the chart.
  * Formats output based on text mode (terse/verbose) and chart type.
  */
-export class AnnouncePositionCommand extends DescribeCommand {
+export class AnnouncePositionCommand extends AnnounceCommand {
   /**
    * Creates an instance of AnnouncePositionCommand.
    * @param {Context} context - The application context.
@@ -403,17 +403,17 @@ export class AnnouncePositionCommand extends DescribeCommand {
    * Executes the command to announce the current position.
    */
   public execute(): void {
-    // Check if speech is off
-    if (this.textService.isOff()) {
-      return;
-    }
-
     // Get current state
     const state = this.context.state;
 
     // Handle no data case
     if (state.empty || state.type !== 'trace') {
       this.textViewModel.update('Not in a chart, unable to show position.');
+      return;
+    }
+
+    // Warn if text mode is off instead of announcing position
+    if (this.textViewModel.warnIfTextOff()) {
       return;
     }
 
@@ -435,12 +435,25 @@ export class AnnouncePositionCommand extends DescribeCommand {
     ) {
       this.announceSegmentedBarPosition(state, x, cols);
     } else if (traceType === TraceType.SMOOTH) {
-      // Violin KDE plots: y=violin index, x=position within violin
-      this.announceViolinPosition(y, rows, x, cols);
-    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
-      // Multi-line plots: x=line index, y=position within line
-      this.announceMultiLinePosition(x, rows, y, cols);
-    } else if (this.is2DPlot(rows, cols)) {
+      if (rows > 1) {
+        // Multi-violin plots: y=violin index, x=position within violin
+        this.announceMultiViolinPosition(y, rows, x, cols);
+      } else {
+        // Single smooth/violin plot: 1D position within the curve
+        this.announceSmoothPosition(x, cols);
+      }
+    }
+    // Check for multi plots (multiline, panel, layer, facet)
+    else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+      // Multi-line plots: x=position in the line, y=line index
+      this.announceMultiLinePosition(x, cols, y, rows);
+    }
+    else if (traceType === TraceType.SCATTER) {
+      // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
+      this.announceScatter(x, y, rows, cols);
+    }
+    // Default position announcement
+    else if (this.is2DPlot(rows, cols)) {
       this.announce2DPosition(x, y, rows, cols);
     } else {
       this.announce1DPosition(x, cols);
@@ -461,7 +474,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const position = x + 1;
     const total = cols;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%`);
     } else {
@@ -476,7 +489,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const colPos = x + 1;
     const rowPos = y + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
       this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
@@ -501,7 +514,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const totalBoxes = braille.values.length;
     const position = boxIndex + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalBoxes > 1 ? Math.round((boxIndex / (totalBoxes - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
     } else {
@@ -523,7 +536,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const totalCandles = braille.values[0].length;
     const position = candleIndex + 1;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalCandles > 1 ? Math.round((candleIndex / (totalCandles - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
     } else {
@@ -540,7 +553,7 @@ export class AnnouncePositionCommand extends DescribeCommand {
     const position = x + 1;
     const total = cols;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${level}`);
     } else {
@@ -549,10 +562,22 @@ export class AnnouncePositionCommand extends DescribeCommand {
   }
 
   /**
-   * Announces position for violin plots.
-   * Shows which violin (row) and position within that violin (col).
+   * Announces position for smooth/violin plots.
+   * Treats as 1D plot - only announces position within the curve.
    */
-  private announceViolinPosition(
+  private announceSmoothPosition(
+    posIndex: number,
+    totalPos: number,
+  ): void {
+    // Smooth plots are 1D - just use position within the curve
+    this.announce1DPosition(posIndex, totalPos);
+  }
+
+  /**
+   * Announces position for multi-violin plots.
+   * Shows which violin and position within that violin.
+   */
+  private announceMultiViolinPosition(
     violinIndex: number,
     totalViolins: number,
     posIndex: number,
@@ -560,13 +585,13 @@ export class AnnouncePositionCommand extends DescribeCommand {
   ): void {
     const violinPos = violinIndex + 1;
     const pos = posIndex + 1;
+    const violinPrefix = `Violin ${violinPos} of ${totalViolins}`;
 
-    if (this.textService.isTerse()) {
-      const violinPercent = totalViolins > 1 ? Math.round((violinIndex / (totalViolins - 1)) * 100) : 0;
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${violinPercent}%, ${posPercent}%`);
+      this.textViewModel.update(`${violinPrefix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update(`Position is ${violinPos} of ${totalViolins}, ${pos} of ${totalPos}`);
+      this.textViewModel.update(`${violinPrefix}, Position is ${pos} of ${totalPos}`);
     }
   }
 
@@ -575,20 +600,38 @@ export class AnnouncePositionCommand extends DescribeCommand {
    * Always shows "Plot X of Y" prefix, followed by position within the line.
    */
   private announceMultiLinePosition(
-    lineIndex: number,
-    totalLines: number,
     posIndex: number,
     totalPos: number,
+    lineIndex: number,
+    totalLines: number,
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
     const plotPrefix = `Plot ${linePos} of ${totalLines}`;
 
-    if (this.textService.isTerse()) {
+    if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
       this.textViewModel.update(`${plotPrefix}, ${posPercent}%`);
     } else {
       this.textViewModel.update(`${plotPrefix}, Position is ${pos} of ${totalPos}`);
     }
   }
+  /**
+   * Announces position for 2D plots (e.g., heatmaps).
+   */
+  private announceScatter(x: number, y: number, rows: number, cols: number): void {
+    const colPos = x + 1;
+    const rowPos = y + 1;
+
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
+      const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
+      this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
+    } else {
+      this.textViewModel.update(
+        `Column ${colPos} of ${cols}, row ${rowPos} of ${rows}`,
+      );
+    }
+  }
+
 }
