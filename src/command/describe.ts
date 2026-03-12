@@ -12,14 +12,14 @@ import { Scope } from '@type/event';
 /**
  * Abstract base class for describe commands.
  */
-abstract class DescribeCommand implements Command {
+abstract class AnnounceCommand implements Command {
   protected readonly context: Context;
   protected readonly textViewModel: TextViewModel;
   protected readonly audioService: AudioService;
   protected readonly textService: TextService;
 
   /**
-   * Creates an instance of DescribeCommand.
+   * Creates an instance of AnnounceCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -54,9 +54,9 @@ abstract class DescribeCommand implements Command {
 /**
  * Command to describe the X-axis label.
  */
-export class DescribeXCommand extends DescribeCommand {
+export class AnnounceXCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeXCommand.
+   * Creates an instance of AnnounceXCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -90,9 +90,9 @@ export class DescribeXCommand extends DescribeCommand {
 /**
  * Command to describe the Y-axis label.
  */
-export class DescribeYCommand extends DescribeCommand {
+export class AnnounceYCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeYCommand.
+   * Creates an instance of AnnounceYCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -126,9 +126,9 @@ export class DescribeYCommand extends DescribeCommand {
 /**
  * Command to describe the fill property.
  */
-export class DescribeFillCommand extends DescribeCommand {
+export class AnnounceFillCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeFillCommand.
+   * Creates an instance of AnnounceFillCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -162,9 +162,9 @@ export class DescribeFillCommand extends DescribeCommand {
 /**
  * Command to describe the title of the figure or subplot.
  */
-export class DescribeTitleCommand extends DescribeCommand {
+export class AnnounceTitleCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeTitleCommand.
+   * Creates an instance of AnnounceTitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -253,9 +253,9 @@ export class DescribeTitleCommand extends DescribeCommand {
 /**
  * Command to describe the subtitle of the figure.
  */
-export class DescribeSubtitleCommand extends DescribeCommand {
+export class AnnounceSubtitleCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeSubtitleCommand.
+   * Creates an instance of AnnounceSubtitleCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -291,9 +291,9 @@ export class DescribeSubtitleCommand extends DescribeCommand {
 /**
  * Command to describe the caption of the figure.
  */
-export class DescribeCaptionCommand extends DescribeCommand {
+export class AnnounceCaptionCommand extends AnnounceCommand {
   /**
-   * Creates an instance of DescribeCaptionCommand.
+   * Creates an instance of AnnounceCaptionCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
@@ -329,13 +329,13 @@ export class DescribeCaptionCommand extends DescribeCommand {
 /**
  * Command to describe the current point with audio, braille, and highlight.
  */
-export class DescribePointCommand extends DescribeCommand {
+export class AnnouncePointCommand extends AnnounceCommand {
   private readonly audio: AudioService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly highlight: HighlightService;
 
   /**
-   * Creates an instance of DescribePointCommand.
+   * Creates an instance of AnnouncePointCommand.
    * @param {Context} context - The application context.
    * @param {AudioService} audioService - The audio service.
    * @param {HighlightService} highlightService - The highlight service.
@@ -382,7 +382,7 @@ export class DescribePointCommand extends DescribeCommand {
  * Command to announce the current position in the chart.
  * Formats output based on text mode (terse/verbose) and chart type.
  */
-export class AnnouncePositionCommand extends DescribeCommand {
+export class AnnouncePositionCommand extends AnnounceCommand {
   /**
    * Creates an instance of AnnouncePositionCommand.
    * @param {Context} context - The application context.
