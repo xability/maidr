@@ -8,8 +8,8 @@ import type { Maidr } from '../type/grammar';
  */
 export function isPlotlyPlot(plot: HTMLElement): boolean {
   return (
-    plot.classList.contains('main-svg') ||
-    plot.closest('.plotly-graph-div') !== null
+    plot.classList.contains('main-svg')
+    || plot.closest('.plotly-graph-div') !== null
   );
 }
 
@@ -81,10 +81,11 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
   unique.sort((a, b) => {
     const ay = Number.parseFloat(a.getAttribute('y') ?? '0');
     const by = Number.parseFloat(b.getAttribute('y') ?? '0');
-    if (Math.abs(ay - by) > 1) return ay - by;
+    if (Math.abs(ay - by) > 1)
+      return ay - by;
     return (
-      Number.parseFloat(a.getAttribute('x') ?? '0') -
-      Number.parseFloat(b.getAttribute('x') ?? '0')
+      Number.parseFloat(a.getAttribute('x') ?? '0')
+      - Number.parseFloat(b.getAttribute('x') ?? '0')
     );
   });
 
@@ -96,7 +97,8 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
       const sel = cell.selector;
       if (sel) {
         const m = sel.match(/id="([^"]+)"/);
-        if (m) selectorIds.push(m[1]);
+        if (m)
+          selectorIds.push(m[1]);
       }
     }
   }
@@ -125,20 +127,24 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
 function setupStrokeMirror(bglayer: SVGGElement): void {
   new MutationObserver((mutations) => {
     for (const mut of mutations) {
-      if (mut.type !== 'attributes') continue;
+      if (mut.type !== 'attributes')
+        continue;
       const target = mut.target as SVGElement;
       const hiddenGroup = target.closest(
         'g[id^="axes_"][visibility="hidden"]',
       );
-      if (!hiddenGroup) continue;
+      if (!hiddenGroup)
+        continue;
 
       const visibleGroup = bglayer.querySelector(
         `g[id="${hiddenGroup.id}"]:not([visibility])`,
       );
-      if (!visibleGroup) continue;
+      if (!visibleGroup)
+        continue;
 
       const visibleRect = visibleGroup.querySelector('rect');
-      if (!visibleRect) continue;
+      if (!visibleRect)
+        continue;
 
       const stroke = target.getAttribute('stroke');
       if (stroke) {
@@ -211,9 +217,9 @@ function setupLayoutObserver(svg: SVGSVGElement): void {
       'div[id^="react-container-"]',
     );
     if (rc && svg) {
-      const h =
-        svg.getAttribute('height') ??
-        String(svg.getBoundingClientRect().height);
+      const h
+        = svg.getAttribute('height')
+          ?? String(svg.getBoundingClientRect().height);
       if (h) {
         rc.style.paddingTop = `${Number.parseFloat(h)}px`;
         requestAnimationFrame(() => {
@@ -255,7 +261,8 @@ function setupLayoutObserver(svg: SVGSVGElement): void {
  */
 function fixModebarTabOrder(): void {
   const modebar = document.querySelector('.modebar-container');
-  if (!modebar) return;
+  if (!modebar)
+    return;
 
   modebar.setAttribute('aria-hidden', 'true');
   modebar.setAttribute('tabindex', '-1');
@@ -278,10 +285,11 @@ function fixModebarTabOrder(): void {
  * Forward clicks to maidr's focusable div.
  */
 function setupClickToFocus(): void {
-  const container =
-    document.querySelector('.plotly-graph-div') ??
-    document.querySelector('.svg-container');
-  if (!container) return;
+  const container
+    = document.querySelector('.plotly-graph-div')
+      ?? document.querySelector('.svg-container');
+  if (!container)
+    return;
 
   container.addEventListener(
     'click',
@@ -289,7 +297,8 @@ function setupClickToFocus(): void {
       const wrapper = document.querySelector<HTMLElement>(
         'figure[id^="maidr-figure"] > div[tabindex="0"]',
       );
-      if (wrapper) wrapper.focus();
+      if (wrapper)
+        wrapper.focus();
     },
     true,
   );
