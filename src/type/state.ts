@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, Orientation, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 /**
@@ -90,6 +90,10 @@ export type TraceState
        * Only present for multiline plots where plotType === 'multiline'.
        */
       groupCount?: number;
+      /**
+       * Plot orientation, if applicable (e.g. bar, box, violin).
+       */
+      orientation?: Orientation;
     };
 
 /**

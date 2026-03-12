@@ -333,6 +333,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       text: this.text,
       autoplay: this.autoplay,
       highlight: this.highlight,
+      orientation: this.layer.orientation,
     };
   }
 
@@ -430,7 +431,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {};
   }
 
-  private get autoplay(): AutoplayState {
+  protected get autoplay(): AutoplayState {
     return {
       UPWARD: this.dimension.rows,
       DOWNWARD: this.dimension.rows,

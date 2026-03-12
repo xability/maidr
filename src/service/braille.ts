@@ -714,6 +714,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.NORMALIZED, new BarBrailleEncoder()],
       [TraceType.SMOOTH, new LineBrailleEncoder()],
       [TraceType.STACKED, new BarBrailleEncoder()],
+      [TraceType.VIOLIN_KDE, new LineBrailleEncoder()],
+      [TraceType.VIOLIN_BOX, new BoxBrailleEncoder()],
     ]);
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();

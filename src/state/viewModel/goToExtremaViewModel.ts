@@ -175,8 +175,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * @returns A description appropriate for the plot type
    */
   private generateDescription(traceType: TraceType): string {
-    // Simple string replacement, no case statements
-    return `Navigate to statistical extremes within the current ${traceType}`;
+    return `Navigate to points of interest within the current ${traceType}`;
   }
 
   /**

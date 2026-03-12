@@ -302,17 +302,15 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
         ? firstLayerSelectors[0]
         : null;
 
-    // Structural detection for violin plots is done once at subplot level:
-    // BOX + SMOOTH in the same subplot => violin plot.
+    // Violin detection: explicit layer types (VIOLIN_KDE / VIOLIN_BOX)
     const layerTypes = layers.map(layer => layer.type);
-    const hasBox = layerTypes.includes(TraceType.BOX);
-    const hasSmooth = layerTypes.includes(TraceType.SMOOTH);
-    const isViolinPlot = hasBox && hasSmooth;
-    this.isViolinPlot = isViolinPlot;
+    this.isViolinPlot
+      = layerTypes.includes(TraceType.VIOLIN_KDE)
+        || layerTypes.includes(TraceType.VIOLIN_BOX);
 
-    // Pass only a minimal hint into the factory; do not leak full layers array.
+    // Each layer's type maps directly to a trace — no heuristic needed.
     this.traces = layers.map(layer => [
-      TraceFactory.create(layer, { isViolinPlot }),
+      TraceFactory.create(layer),
     ]);
     this.traceTypes = this.traces.flat().map((trace) => {
       const state = trace.state;
@@ -535,25 +533,23 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   getAllOriginalElements: () => SVGElement[];
 
   /**
-   * Handle switching from another trace.
-   * Called by Context when switching layers. Traces can implement this
-   * to handle special layer switching behavior (e.g., preserving Y values).
+   * Move the active point within this trace to the given (x, y) viewport
+   * coordinates. Implemented by all concrete traces via AbstractPlot /
+   * AbstractTrace, and used by Context for hover / click navigation.
    *
-   * IMPORTANT CONTRACT:
-   * - If this method returns true, it MUST have modified the trace position appropriately.
-   * - If this method returns false, it MUST NOT modify the trace position at all.
-   *   The Context will then apply default behavior (moveToXValue) after this returns.
+   * @param x - The x-coordinate in viewport pixels to move to.
+   * @param y - The y-coordinate in viewport pixels to move to.
    *
-   * @param previousTrace - The trace we're switching from
-   * @returns true if this trace handled the switch (and modified position),
-   *          false to use default behavior (position must remain unchanged)
-   */
-  onSwitchFrom?: (previousTrace: Trace) => boolean;
-
-  /**
-   * Moves the trace to a specific point based on x and y coordinates.
-   * @param x - The x coordinate
-   * @param y - The y coordinate
+   * Behavior:
+   * - Finds the nearest data point to the given coordinates
+   * - If no valid nearest point exists or coordinates are out of bounds, no action is taken
+   * - If coordinates are within bounds and position is different, triggers state update via moveToIndex
+   * - If already at the target position, returns without triggering state update
+   *
+   * Violin Plot Specific Behavior:
+   * - For ViolinKdeTrace: Coordinates map to (violin index, y-value within KDE curve)
+   * - For ViolinBoxTrace: Coordinates map to (section index, violin index) for vertical
+   *   orientation, or (violin index, section index) for horizontal orientation
    */
   moveToPoint: (x: number, y: number) => void;
 
