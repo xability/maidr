@@ -445,11 +445,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     }
     // Check for multi plots (multiline, panel, layer, facet)
     else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
-      // Multi-line plots: x=line index, y=position within line
-      this.announceMultiLinePosition(x, rows, y, cols);
-    } else if (traceType === TraceType.LINE) {
-      // Single line plot: y=position within line, cols=total points
-      this.announce1DPosition(y, cols);
+      // Multi-line plots: x=position in the line, y=line index
+      this.announceMultiLinePosition(x, cols, y, rows);
     }
     else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
@@ -603,10 +600,10 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * Always shows "Plot X of Y" prefix, followed by position within the line.
    */
   private announceMultiLinePosition(
-    lineIndex: number,
-    totalLines: number,
     posIndex: number,
     totalPos: number,
+    lineIndex: number,
+    totalLines: number,
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
