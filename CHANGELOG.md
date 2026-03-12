@@ -1,3 +1,10 @@
+# [3.57.0](https://github.com/xability/maidr/compare/v3.56.0...v3.57.0) (2026-03-12)
+
+
+### Features
+
+* notify users of current position with p key ([7e0172a](https://github.com/xability/maidr/commit/7e0172a554d4f83d2d38ef7fcedb4cc2107e700d))
+
 # [3.56.0](https://github.com/xability/maidr/compare/v3.55.2...v3.56.0) (2026-03-10)
 
 
