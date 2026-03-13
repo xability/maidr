@@ -1,3 +1,10 @@
+## [3.58.1](https://github.com/xability/maidr/compare/v3.58.0...v3.58.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* unify instruction text announcement ([#583](https://github.com/xability/maidr/issues/583)) ([76859e7](https://github.com/xability/maidr/commit/76859e748fe429ae5eb908c608c452c13b13bf18))
+
 # [3.58.0](https://github.com/xability/maidr/compare/v3.57.0...v3.58.0) (2026-03-13)
 
 
