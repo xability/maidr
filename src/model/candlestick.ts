@@ -774,6 +774,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -787,6 +788,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     } else {
@@ -820,6 +822,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -835,6 +838,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     }

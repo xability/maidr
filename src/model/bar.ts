@@ -313,6 +313,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'max',
       navigationType: 'point',
+      xValue: this.getPointRawValue(maxIndex),
     });
 
     // Add min target
@@ -323,6 +324,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'min',
       navigationType: 'point',
+      xValue: this.getPointRawValue(minIndex),
     });
 
     return targets;
@@ -357,6 +359,14 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     }
 
     return `Point ${pointIndex}`;
+  }
+
+  /** Returns the raw x-axis value for a point (for formatter use). */
+  private getPointRawValue(pointIndex: number): number | string | undefined {
+    const point = this.points[this.row]?.[pointIndex];
+    if (!point)
+      return undefined;
+    return this.orientation === Orientation.VERTICAL ? point.x : point.y;
   }
 
   /**

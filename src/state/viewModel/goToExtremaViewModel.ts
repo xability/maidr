@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { FormatterService } from '@service/formatter';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { AppStore } from '@state/store';
 import type { ExtremaTarget } from '@type/extrema';
@@ -62,11 +63,18 @@ const { show, hide, updateSelectedIndex } = goToExtremaSlice.actions;
 export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly context: Context;
+  private readonly formatter?: FormatterService;
 
-  public constructor(store: AppStore, goToExtremaService: GoToExtremaService, context: Context) {
+  public constructor(
+    store: AppStore,
+    goToExtremaService: GoToExtremaService,
+    context: Context,
+    formatter?: FormatterService,
+  ) {
     super(store);
     this.goToExtremaService = goToExtremaService;
     this.context = context;
+    this.formatter = formatter;
   }
 
   public dispose(): void {
@@ -91,11 +99,14 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       // Get extrema targets from the plot class
       const extremaTargets = activeTrace.getExtremaTargets();
 
+      // Apply formatting to target labels using FormatterService
+      const formattedTargets = this.formatTargetLabels(extremaTargets, state.layerId);
+
       // Generate description based on current trace type
       const description = this.generateDescription(state.traceType);
 
       // Store the targets and description in the state
-      this.store.dispatch(show({ targets: extremaTargets, description }));
+      this.store.dispatch(show({ targets: formattedTargets, description }));
 
       // Then change scope to show the modal
       this.goToExtremaService.toggle(state);
@@ -167,6 +178,31 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     } else {
       this.goToExtremaService.returnToTraceScope();
     }
+  }
+
+  /**
+   * Format extrema target labels by replacing raw xValues with formatted ones.
+   * When no custom formatter is configured the labels pass through unchanged.
+   */
+  private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
+    if (!this.formatter || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+      return targets;
+    }
+
+    return targets.map((target) => {
+      if (target.xValue === undefined) {
+        return target;
+      }
+      const formatted = this.formatter!.formatSingleValue(target.xValue, layerId, 'x');
+      const raw = String(target.xValue);
+      if (formatted === raw) {
+        return target;
+      }
+      return {
+        ...target,
+        label: target.label.replace(raw, formatted),
+      };
+    });
   }
 
   /**
