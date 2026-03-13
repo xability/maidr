@@ -28,13 +28,13 @@ import {
   StopAutoplayCommand,
 } from './autoplay';
 import {
-  AnnouncePositionCommand,
   AnnounceCaptionCommand,
   AnnounceFillCommand,
   AnnouncePointCommand,
+  AnnouncePositionCommand,
   AnnounceSubtitleCommand,
   AnnounceTitleCommand,
-  AnnounceXCommand as AnnounceXCommand,
+  AnnounceXCommand,
   AnnounceYCommand,
 } from './describe';
 import { GoToExtremaToggleCommand } from './goTo';

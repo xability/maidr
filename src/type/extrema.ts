@@ -35,6 +35,9 @@ export interface ExtremaTarget {
   /** Type of extrema - maximum, minimum, or intersection */
   type: 'max' | 'min' | 'intersection';
 
+  /** Classification for intersection targets */
+  intersectionKind?: 'point' | 'slope';
+
   /** Index of the group this extrema belongs to (for group-based plots) */
   groupIndex?: number;
 
