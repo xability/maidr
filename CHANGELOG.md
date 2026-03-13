@@ -1,3 +1,10 @@
+# [3.58.0](https://github.com/xability/maidr/compare/v3.57.0...v3.58.0) (2026-03-13)
+
+
+### Features
+
+* support plotly plots ([#577](https://github.com/xability/maidr/issues/577)) ([acd6f89](https://github.com/xability/maidr/commit/acd6f89bee204b03d5842a52e93651708e187aaa))
+
 # [3.57.0](https://github.com/xability/maidr/compare/v3.56.0...v3.57.0) (2026-03-12)
 
 
