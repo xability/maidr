@@ -75,6 +75,16 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const maxCategoryLabel = this.getCategoryLabel(maxIndex);
     const minCategoryLabel = this.getCategoryLabel(minIndex);
 
+    // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
+    const maxPoint = this.points[currentGroup]?.[maxIndex];
+    const minPoint = this.points[currentGroup]?.[minIndex];
+    const maxXValue = maxPoint
+      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
+      : undefined;
+    const minXValue = minPoint
+      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
+      : undefined;
+
     // Add max target
     targets.push({
       label: `Max ${groupLabel} at ${maxCategoryLabel}`,
@@ -85,6 +95,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       groupIndex: currentGroup,
       categoryIndex: maxIndex,
       navigationType: 'group',
+      xValue: maxXValue,
     });
 
     // Add min target
@@ -97,6 +108,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       groupIndex: currentGroup,
       categoryIndex: minIndex,
       navigationType: 'group',
+      xValue: minXValue,
     });
 
     return targets;

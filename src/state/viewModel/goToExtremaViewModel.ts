@@ -200,7 +200,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       }
       return {
         ...target,
-        label: target.label.replace(raw, formatted),
+        label: target.label.replaceAll(raw, formatted),
       };
     });
   }

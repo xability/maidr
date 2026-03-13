@@ -305,6 +305,16 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     const maxIndex = groupValues.indexOf(groupMax);
     const minIndex = groupValues.indexOf(groupMin);
 
+    // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
+    const maxPoint = this.points[currentGroup]?.[maxIndex];
+    const minPoint = this.points[currentGroup]?.[minIndex];
+    const maxXValue = maxPoint
+      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
+      : undefined;
+    const minXValue = minPoint
+      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
+      : undefined;
+
     // Add max target
     targets.push({
       label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
@@ -313,7 +323,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'max',
       navigationType: 'point',
-      xValue: this.getPointRawValue(maxIndex),
+      xValue: maxXValue,
     });
 
     // Add min target
@@ -324,7 +334,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'min',
       navigationType: 'point',
-      xValue: this.getPointRawValue(minIndex),
+      xValue: minXValue,
     });
 
     return targets;
@@ -359,14 +369,6 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     }
 
     return `Point ${pointIndex}`;
-  }
-
-  /** Returns the raw x-axis value for a point (for formatter use). */
-  private getPointRawValue(pointIndex: number): number | string | undefined {
-    const point = this.points[this.row]?.[pointIndex];
-    if (!point)
-      return undefined;
-    return this.orientation === Orientation.VERTICAL ? point.x : point.y;
   }
 
   /**
