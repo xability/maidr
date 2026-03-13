@@ -410,6 +410,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: globalMax.row,
         categoryIndex: globalMax.col,
+        xValue: this.x[globalMax.col],
       });
     }
 
@@ -425,6 +426,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: globalMin.row,
         categoryIndex: globalMin.col,
+        xValue: this.x[globalMin.col],
       });
     }
 
@@ -440,6 +442,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: currentRow,
         categoryIndex: rowMax.col,
+        xValue: this.x[rowMax.col],
       });
     }
 
@@ -455,6 +458,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: currentRow,
         categoryIndex: rowMin.col,
+        xValue: this.x[rowMin.col],
       });
     }
 
@@ -470,6 +474,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: colMax.row,
         categoryIndex: currentCol,
+        xValue: this.x[currentCol],
       });
     }
 
@@ -485,6 +490,7 @@ export class Heatmap extends AbstractTrace {
         navigationType: 'group',
         groupIndex: colMin.row,
         categoryIndex: currentCol,
+        xValue: this.x[currentCol],
       });
     }
 

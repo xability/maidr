@@ -1,7 +1,7 @@
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode } from 'react';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { useMemo, useRef } from 'react';
 import { useMaidrController } from './state/hook/useMaidrController';
 import { createMaidrStore } from './state/store';
@@ -74,13 +74,28 @@ function getInitialInstruction(data: MaidrData): string {
   const layerCount = firstSubplot?.layers.length ?? 0;
   const firstLayer = firstSubplot?.layers[0];
   const traceType = firstLayer?.type ?? 'chart';
-  const displayType = formatPlotType(traceType, firstLayer?.orientation);
+
+  // Normalize line plot type: data is LinePoint[][] where outer array = groups.
+  // A line trace with exactly 1 group is "single line", not "multiline".
+  let plotType: string = traceType;
+  let groupCountText = '';
+  if (traceType === TraceType.LINE && Array.isArray(firstLayer?.data)) {
+    const groupCount = firstLayer.data.length;
+    if (groupCount > 1) {
+      plotType = 'multiline';
+      groupCountText = ` with ${groupCount} groups`;
+    } else {
+      plotType = 'single line';
+    }
+  }
+
+  const displayType = formatPlotType(plotType, firstLayer?.orientation);
 
   if (layerCount > 1) {
     return `This is a maidr plot containing ${layerCount} layers, and this is layer 1 of ${layerCount}: ${displayType} plot. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
   }
 
-  return `This is a maidr plot of type: ${displayType}. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+  return `This is a maidr plot of type: ${displayType}${groupCountText}. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
 }
 
 export function Maidr({ data, children }: MaidrProps): JSX.Element {

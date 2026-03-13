@@ -873,6 +873,7 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'max',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[maxIndex]?.x,
       });
     }
 
@@ -885,6 +886,7 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'min',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[minIndex]?.x,
       });
     }
 
