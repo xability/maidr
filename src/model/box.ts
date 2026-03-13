@@ -228,6 +228,8 @@ export class BoxTrace extends AbstractTrace {
       max: SVGElement | null;
       iq: SVGElement | null;
       q2: SVGElement | null;
+      q1Direct: SVGElement | null;
+      q3Direct: SVGElement | null;
     }> = [];
 
     selectors.forEach((selector) => {
@@ -243,6 +245,10 @@ export class BoxTrace extends AbstractTrace {
       const iqOriginal = Svg.selectElement(selector.iq, false);
       const q2Original = Svg.selectElement(selector.q2, false);
 
+      // Direct Q1/Q3 selectors bypass iq edge derivation (used by Plotly)
+      const q1DirectOriginal = selector.q1 ? Svg.selectElement(selector.q1, false) : null;
+      const q3DirectOriginal = selector.q3 ? Svg.selectElement(selector.q3, false) : null;
+
       originals.push({
         lowerOutliers: lowerOutliersOriginals,
         upperOutliers: upperOutliersOriginals,
@@ -250,6 +256,8 @@ export class BoxTrace extends AbstractTrace {
         max: maxOriginal,
         iq: iqOriginal,
         q2: q2Original,
+        q1Direct: q1DirectOriginal,
+        q3Direct: q3DirectOriginal,
       });
     });
 
@@ -272,27 +280,35 @@ export class BoxTrace extends AbstractTrace {
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
 
-      // Check if IQR direction should be reversed (for Base R vertical boxplots)
-      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
-      const [q1, q3] = original.iq
-        ? (isVertical
-            ? isIqrReversed
-              ? [
-                  Svg.createLineElement(original.iq, 'top'),
-                  Svg.createLineElement(original.iq, 'bottom'),
-                ]
+      // Use direct Q1/Q3 selectors if provided (Plotly: highlight entire box).
+      // Otherwise, derive Q1/Q3 line elements from iq edges (matplotlib/seaborn).
+      let q1: SVGElement;
+      let q3: SVGElement;
+      if (original.q1Direct && original.q3Direct) {
+        q1 = this.cloneElementOrEmpty(original.q1Direct);
+        q3 = this.cloneElementOrEmpty(original.q3Direct);
+      } else {
+        const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+        [q1, q3] = original.iq
+          ? (isVertical
+              ? isIqrReversed
+                ? [
+                    Svg.createLineElement(original.iq, 'top'),
+                    Svg.createLineElement(original.iq, 'bottom'),
+                  ]
+                : [
+                    Svg.createLineElement(original.iq, 'bottom'),
+                    Svg.createLineElement(original.iq, 'top'),
+                  ]
               : [
-                  Svg.createLineElement(original.iq, 'bottom'),
-                  Svg.createLineElement(original.iq, 'top'),
-                ]
-            : [
-                Svg.createLineElement(original.iq, 'left'),
-                Svg.createLineElement(original.iq, 'right'),
-              ])
-        : [
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-          ];
+                  Svg.createLineElement(original.iq, 'left'),
+                  Svg.createLineElement(original.iq, 'right'),
+                ])
+          : [
+              Svg.createEmptyElement('line'),
+              Svg.createEmptyElement('line'),
+            ];
+      }
 
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 

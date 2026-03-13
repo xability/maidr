@@ -142,7 +142,7 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
 
-    parent.parentElement?.insertAdjacentElement(Constant.AFTER_END, element);
+    parent.parentElement?.appendChild(element);
     return element;
   }
 
