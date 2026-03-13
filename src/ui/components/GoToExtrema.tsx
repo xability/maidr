@@ -348,7 +348,8 @@ export const GoToExtrema: React.FC = () => {
 
                 if (isIntersection && target.display) {
                   // Use structured display fields for intersections
-                  displayLabel = `Intersection with ${target.display.otherLines} at ${target.display.coords}`;
+                  const baseLabel = target.display.intersectionLabel || 'Intersection';
+                  displayLabel = `${baseLabel} with ${target.display.otherLines} at ${target.display.coords}`;
                 } else if (isIntersection) {
                   // Fallback for intersection without display fields
                   displayLabel = target.label;

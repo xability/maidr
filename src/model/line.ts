@@ -40,12 +40,13 @@ export class LineTrace extends AbstractTrace {
   private previousRow: number | null = null;
 
   // Cache for intersection results, keyed by row index
-  // Invalidated when active row changes
+  // Cached independently per active row
   private intersectionCache: Map<number, Array<{
     pointIndex: number;
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }>> = new Map();
 
   public constructor(layer: MaidrLayer) {
@@ -69,6 +70,7 @@ export class LineTrace extends AbstractTrace {
 
     this.min.length = 0;
     this.max.length = 0;
+    this.intersectionCache.clear();
 
     super.dispose();
   }
@@ -638,6 +640,19 @@ export class LineTrace extends AbstractTrace {
   private static readonly INTERSECTION_EPSILON = 1e-6;
 
   /**
+   * Compare two coordinates with epsilon tolerance.
+   */
+  private isSameCoordinate(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+  ): boolean {
+    return Math.abs(x1 - x2) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(y1 - y2) < LineTrace.INTERSECTION_EPSILON;
+  }
+
+  /**
    * Find all points where the current line intersects with other lines
    * Uses line segment intersection algorithm to find crossings between data points
    * Results are cached per row and invalidated when the active row changes
@@ -648,6 +663,7 @@ export class LineTrace extends AbstractTrace {
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }> {
     const currentGroup = this.row;
 
@@ -670,7 +686,52 @@ export class LineTrace extends AbstractTrace {
       return [];
     }
 
-    // Collect all raw intersections first
+    // Collect all exact data-point intersections first.
+    // A point intersection occurs when an explicit point in the current line
+    // is also present as an explicit point in another line.
+    const pointIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      intersectingLines: Set<number>;
+      intersectionKind: 'point';
+    }> = [];
+
+    for (let pointIndex = 0; pointIndex < currentLinePoints.length; pointIndex++) {
+      const currentPoint = currentLinePoints[pointIndex];
+      const currentX = Number(currentPoint.x);
+      const currentY = Number(currentPoint.y);
+      const otherLines = new Set<number>();
+
+      for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
+        if (otherLine === currentGroup) {
+          continue;
+        }
+
+        const hasMatchingPoint = this.points[otherLine].some((point) => {
+          const pointX = Number(point.x);
+          const pointY = Number(point.y);
+          return this.isSameCoordinate(currentX, currentY, pointX, pointY);
+        });
+
+        if (hasMatchingPoint) {
+          otherLines.add(otherLine);
+        }
+      }
+
+      if (otherLines.size > 0) {
+        pointIntersections.push({
+          pointIndex,
+          x: currentX,
+          y: currentY,
+          intersectingLines: otherLines,
+          intersectionKind: 'point',
+        });
+      }
+    }
+
+    // Collect all raw segment intersections.
+    // These can include slope intersections and, in edge cases, data-point intersections.
     const rawIntersections: Array<{
       pointIndex: number;
       x: number;
@@ -725,19 +786,30 @@ export class LineTrace extends AbstractTrace {
       }
     }
 
-    // Group intersections using tolerance-based deduplication
+    // Start grouping with explicit point intersections.
     const groupedIntersections: Array<{
       pointIndex: number;
       x: number;
       y: number;
       intersectingLines: Set<number>;
+      intersectionKind: 'point' | 'slope';
     }> = [];
 
+    for (const pointIntersection of pointIntersections) {
+      groupedIntersections.push({
+        pointIndex: pointIntersection.pointIndex,
+        x: pointIntersection.x,
+        y: pointIntersection.y,
+        intersectingLines: new Set<number>(pointIntersection.intersectingLines),
+        intersectionKind: 'point',
+      });
+    }
+
+    // Merge in segment intersections with tolerance-based deduplication.
     for (const raw of rawIntersections) {
       // Find existing group within tolerance
       const existingGroup = groupedIntersections.find(
-        g => Math.abs(g.x - raw.x) < LineTrace.INTERSECTION_EPSILON
-          && Math.abs(g.y - raw.y) < LineTrace.INTERSECTION_EPSILON,
+        g => this.isSameCoordinate(g.x, g.y, raw.x, raw.y),
       );
 
       if (existingGroup) {
@@ -750,6 +822,7 @@ export class LineTrace extends AbstractTrace {
           x: raw.x,
           y: raw.y,
           intersectingLines,
+          intersectionKind: 'slope',
         });
       }
     }
@@ -762,6 +835,7 @@ export class LineTrace extends AbstractTrace {
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+        intersectionKind: entry.intersectionKind,
       }))
       .sort((a, b) => a.x - b.x);
 
@@ -789,7 +863,7 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Get extrema targets for the current line plot
-   * Returns min, max values, and intersection points within the current group
+  * Returns min, max values, and intersection points within the current group
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -850,18 +924,24 @@ export class LineTrace extends AbstractTrace {
       const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
       // Format the intersection coordinates for display
       const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+      const intersectionLabel
+        = intersection.intersectionKind === 'point'
+          ? 'Point intersection'
+          : 'Slope intersection';
 
       targets.push({
-        label: `Intersection at ${coordsDisplay}`,
+        label: `${intersectionLabel} at ${coordsDisplay}`,
         value: intersection.y,
         pointIndex: intersection.pointIndex,
         segment: 'intersection',
         type: 'intersection',
         navigationType: 'point',
         intersectingLines: intersection.intersectingLines,
+        intersectionKind: intersection.intersectionKind,
         display: {
           coords: coordsDisplay,
           otherLines: otherLineNames,
+          intersectionLabel,
         },
       });
     }

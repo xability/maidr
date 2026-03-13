@@ -51,6 +51,12 @@ export interface ExtremaTarget {
   intersectingLines?: number[];
 
   /**
+   * For intersection targets: distinguishes exact data-point intersections
+   * from segment/slope intersections between data points.
+   */
+  intersectionKind?: 'point' | 'slope';
+
+  /**
    * Structured display data for UI rendering.
    * Avoids string parsing in UI components.
    */
@@ -59,5 +65,7 @@ export interface ExtremaTarget {
     coords?: string;
     /** Names of other lines involved (for intersections, excludes current line) */
     otherLines?: string;
+    /** Human-readable intersection classification label */
+    intersectionLabel?: string;
   };
 }
