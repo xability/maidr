@@ -348,7 +348,13 @@ export const GoToExtrema: React.FC = () => {
 
                 if (isIntersection && target.display) {
                   // Use structured display fields for intersections
-                  displayLabel = `Intersection with ${target.display.otherLines} at ${target.display.coords}`;
+                  // Prefix tells users whether this is sampled-point or segment-only crossing.
+                  const intersectionPrefix = target.intersectionKind === 'point'
+                    ? 'Point intersection'
+                    : target.intersectionKind === 'slope'
+                      ? 'Slope intersection'
+                      : 'Intersection';
+                  displayLabel = `${intersectionPrefix} with ${target.display.otherLines} at ${target.display.coords}`;
                 } else if (isIntersection) {
                   // Fallback for intersection without display fields
                   displayLabel = target.label;

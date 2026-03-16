@@ -46,6 +46,7 @@ export class LineTrace extends AbstractTrace {
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }>> = new Map();
 
   public constructor(layer: MaidrLayer) {
@@ -693,6 +694,7 @@ export class LineTrace extends AbstractTrace {
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }> {
     const currentGroup = this.row;
 
@@ -807,6 +809,13 @@ export class LineTrace extends AbstractTrace {
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+        // Classify once during target generation so UI can announce the right type.
+        intersectionKind: this.classifyIntersectionKind(
+          currentGroup,
+          Array.from(entry.intersectingLines),
+          entry.x,
+          entry.y,
+        ),
       }))
       .sort((a, b) => a.x - b.x);
 
@@ -830,6 +839,52 @@ export class LineTrace extends AbstractTrace {
       const firstPoint = this.points[lineIndex][0];
       return firstPoint?.fill || `Line ${lineIndex + 1}`;
     }).join(', ');
+  }
+
+  /**
+   * Check whether a line contains a sampled point at the given coordinate.
+   * @param lineIndex The line index to inspect
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @returns True if the coordinate exists in the line's sampled points
+   */
+  private hasPointAtCoordinate(lineIndex: number, x: number, y: number): boolean {
+    if (lineIndex < 0 || lineIndex >= this.points.length) {
+      return false;
+    }
+
+    return this.points[lineIndex].some(point =>
+      Math.abs(Number(point.x) - x) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(Number(point.y) - y) < LineTrace.INTERSECTION_EPSILON,
+    );
+  }
+
+  /**
+   * Classify an intersection as either point-based (sampled in SVG data) or
+   * slope-based (created by segment crossing between sampled points).
+   * @param currentLine The current active line index
+   * @param intersectingLines Other lines participating in this intersection
+   * @param x Intersection x coordinate
+   * @param y Intersection y coordinate
+   * @returns Intersection kind
+   */
+  private classifyIntersectionKind(
+    currentLine: number,
+    intersectingLines: number[],
+    x: number,
+    y: number,
+  ): 'point' | 'slope' {
+    // Point intersection requires both lines to contain the sampled coordinate.
+    const currentHasPoint = this.hasPointAtCoordinate(currentLine, x, y);
+    if (!currentHasPoint) {
+      return 'slope';
+    }
+
+    const otherHasPoint = intersectingLines.some(lineIndex =>
+      this.hasPointAtCoordinate(lineIndex, x, y),
+    );
+
+    return otherHasPoint ? 'point' : 'slope';
   }
 
   /**
@@ -897,13 +952,17 @@ export class LineTrace extends AbstractTrace {
       const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
       // Format the intersection coordinates for display
       const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+      const intersectionLabel = intersection.intersectionKind === 'point'
+        ? 'Point intersection'
+        : 'Slope intersection';
 
       targets.push({
-        label: `Intersection at ${coordsDisplay}`,
+        label: `${intersectionLabel} at ${coordsDisplay}`,
         value: intersection.y,
         pointIndex: intersection.pointIndex,
         segment: 'intersection',
         type: 'intersection',
+        intersectionKind: intersection.intersectionKind,
         navigationType: 'point',
         intersectingLines: intersection.intersectingLines,
         display: {
