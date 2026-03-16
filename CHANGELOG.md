@@ -1,3 +1,10 @@
+## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* clarify point or slope intersection in multiline plot ([#582](https://github.com/xability/maidr/issues/582)) ([d1931ae](https://github.com/xability/maidr/commit/d1931ae82b5f88e61981e6b6943d7ca1d18f6b18))
+
 ## [3.58.1](https://github.com/xability/maidr/compare/v3.58.0...v3.58.1) (2026-03-13)
 
 
