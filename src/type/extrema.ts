@@ -47,6 +47,9 @@ export interface ExtremaTarget {
   /** Type of navigation this extrema requires */
   navigationType: 'point' | 'group';
 
+  /** Raw x-axis value for formatting (e.g., timestamp before date conversion) */
+  xValue?: number | string;
+
   /**
    * For intersection targets: indices of all lines that intersect at this point
    * Used for multiline plots to track which lines are involved in the intersection
