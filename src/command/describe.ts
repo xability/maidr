@@ -442,14 +442,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // Single smooth/violin plot: 1D position within the curve
         this.announceSmoothPosition(x, cols);
       }
-        } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
       this.announceMultiLinePosition(x, cols, y, rows);
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
-        } else if (this.is2DPlot(rows, cols)) {
+    } else if (this.is2DPlot(rows, cols)) {
       // Default position announcement
       this.announce2DPosition(x, y, rows, cols);
     } else {
