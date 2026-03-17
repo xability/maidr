@@ -42,12 +42,26 @@ function markdownToHtml(md) {
   return marked.parse(content);
 }
 
+// Per-page SEO descriptions
+const PAGE_DESCRIPTIONS = {
+  home: 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
+  react: 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  examples: 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
+  'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
+  'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+};
+
 /**
  * Generate a page from template
  */
-function generatePage(title, content, activePage, basePath = '') {
+function generatePage(title, content, activePage, basePath = '', slug = '') {
+  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+  const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
   const page = template
-    .replace('{{TITLE}}', title)
+    .replace(/\{\{TITLE\}\}/g, title)
+    .replace(/\{\{DESCRIPTION\}\}/g, description)
+    .replace(/\{\{CANONICAL_URL\}\}/g, canonicalUrl)
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
     .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
@@ -74,7 +88,7 @@ const readmeHtml = `
   ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage('Home', readmeHtml, 'home');
+const indexPage = generatePage('Home', readmeHtml, 'home', '', 'index.html');
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
 // Build react.html from docs/react.md
@@ -87,7 +101,7 @@ if (fs.existsSync(reactMdPath)) {
   ${marked.parse(reactMd)}
 </div>
 `;
-  const reactPage = generatePage('React', reactHtml, 'react');
+  const reactPage = generatePage('React', reactHtml, 'react', '', 'react.html');
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
@@ -190,7 +204,7 @@ const examplesContent = `
   }
 </script>
 `;
-const examplesPage = generatePage('Examples', examplesContent, 'examples');
+const examplesPage = generatePage('Examples', examplesContent, 'examples', '', 'examples.html');
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
 
 // Copy media folder
@@ -248,7 +262,7 @@ if (fs.existsSync(docsSource)) {
         CONTROLS: 'Keyboard Controls',
       };
       const title = titleMap[baseName] ?? baseName;
-      const docPage = generatePage(title, htmlContent, '', '../');
+      const docPage = generatePage(title, htmlContent, '', '../', `docs/${baseName}.html`);
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
@@ -259,6 +273,38 @@ if (fs.existsSync(docsSource)) {
     }
   }
 }
+
+// Copy docs-level static files (robots.txt, llms.txt) to _site root
+console.log('Copying static SEO files...');
+for (const staticFile of ['robots.txt', 'llms.txt']) {
+  const src = path.join(docsSource, staticFile);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, path.join(SITE_DIR, staticFile));
+  }
+}
+
+// Generate sitemap.xml
+console.log('Generating sitemap.xml...');
+const today = new Date().toISOString().split('T')[0];
+const sitemapUrls = [
+  { loc: 'https://maidr.ai/index.html', priority: '1.0' },
+  { loc: 'https://maidr.ai/react.html', priority: '0.8' },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8' },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7' },
+  { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6' },
+  { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6' },
+  { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6' },
+];
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapUrls.map(u => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+fs.writeFileSync(path.join(SITE_DIR, 'sitemap.xml'), sitemap);
 
 console.log('Site built successfully!');
 console.log('Run "npx typedoc" to generate API documentation in _site/api/');

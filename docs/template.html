@@ -4,7 +4,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{{DESCRIPTION}}" />
+  <link rel="canonical" href="{{CANONICAL_URL}}" />
+  <meta property="og:title" content="{{TITLE}} - MAIDR" />
+  <meta property="og:description" content="{{DESCRIPTION}}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="{{CANONICAL_URL}}" />
+  <meta property="og:image" content="https://maidr.ai/media/logo.jpg" />
+  <meta property="og:site_name" content="MAIDR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{TITLE}} - MAIDR" />
+  <meta name="twitter:description" content="{{DESCRIPTION}}" />
+  <meta name="twitter:image" content="https://maidr.ai/media/logo.jpg" />
   <title>{{TITLE}} - MAIDR</title>
+  <link rel="icon" type="image/svg+xml" href="{{BASE_PATH}}media/logo.svg" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MAIDR",
+    "alternateName": "Multimodal Access and Interactive Data Representation",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Web",
+    "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
+    "url": "https://maidr.ai",
+    "codeRepository": "https://github.com/xability/maidr",
+    "license": "https://opensource.org/licenses/GPL-3.0",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": {
+      "@type": "Organization",
+      "name": "(x)Ability Design Lab",
+      "url": "https://xability.github.io/"
+    }
+  }
+  </script>
   <!-- CookieConsent v3 — to regenerate SRI hashes after a version bump:
        curl -s <CDN_URL> | openssl dgst -sha384 -binary | openssl base64 -A -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.css" integrity="sha384-9KcNFt4axT+TNOVPHpwGHOm4Kv0UcMjdVya1kl+EPBQG+Vmqtz28cnx0f5PZYcnF" crossorigin="anonymous">
