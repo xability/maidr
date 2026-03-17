@@ -120,18 +120,18 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
   const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
 
   const page = template
-    .replace(/\{\{TITLE\}\}/g, title)
-    .replace(/\{\{DESCRIPTION\}\}/g, finalDescription)
-    .replace(/\{\{CANONICAL_URL\}\}/g, canonicalUrl)
-    .replace(/\{\{SOFTWARE_VERSION\}\}/g, PKG.version)
-    .replace(/\{\{OG_TYPE\}\}/g, ogType)
+    .replace(/\{\{TITLE\}\}/g, () => title)
+    .replace(/\{\{DESCRIPTION\}\}/g, () => finalDescription)
+    .replace(/\{\{CANONICAL_URL\}\}/g, () => canonicalUrl)
+    .replace(/\{\{SOFTWARE_VERSION\}\}/g, () => PKG.version)
+    .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
     .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
     .replace(/\{\{CONTENT\}\}/g, () => content)
-    .replace(/\{\{HOME_ACTIVE\}\}/g, activePage === 'home' ? 'active' : '')
-    .replace(/\{\{REACT_ACTIVE\}\}/g, activePage === 'react' ? 'active' : '')
-    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, activePage === 'examples' ? 'active' : '')
-    .replace(/\{\{API_ACTIVE\}\}/g, activePage === 'api' ? 'active' : '')
-    .replace(/\{\{BASE_PATH\}\}/g, basePath);
+    .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
+    .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
+    .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
+    .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
 
   return page;
 }
