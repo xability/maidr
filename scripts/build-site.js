@@ -112,8 +112,10 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
   const finalDescription = description || PAGE_DESCRIPTIONS.home;
   const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
 
-  // Always generate breadcrumb schema
-  const breadcrumbTag = `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`;
+  // Generate breadcrumb schema (skip for home page — single-item lists are unusual)
+  const breadcrumbTag = canonicalUrl !== 'https://maidr.ai/'
+    ? `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`
+    : '';
   const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
 
   const page = template
