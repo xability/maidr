@@ -111,7 +111,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
   if (!description) {
     console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
   }
-  const finalDescription = description || PAGE_DESCRIPTIONS['home'];
+  const finalDescription = description || PAGE_DESCRIPTIONS.home;
   const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
 
   // Always generate breadcrumb schema
@@ -329,7 +329,7 @@ if (fs.existsSync(docsSource)) {
       const docSlug = `docs/${baseName}.html`;
       const docCanonical = `https://maidr.ai/${docSlug}`;
       const fileMtime = fileMod(src);
-      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS['home'];
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
       const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
       const docPage = generatePage({
         title,
