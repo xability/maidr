@@ -5,8 +5,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{TITLE}} - MAIDR</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.css">
-  <script defer src="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.umd.js"></script>
+  <!-- CookieConsent v3 — to regenerate SRI hashes after a version bump:
+       curl -s <CDN_URL> | openssl dgst -sha384 -binary | openssl base64 -A -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.css" integrity="sha384-9KcNFt4axT+TNOVPHpwGHOm4Kv0UcMjdVya1kl+EPBQG+Vmqtz28cnx0f5PZYcnF" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.umd.js" integrity="sha384-xOY5eqzqHsjfa8YYAomICWjVJ3g9q1C1tWgRF09ut5PzRJjLFSpKH7gCsIN3hKcA" crossorigin="anonymous"></script>
   <script type="text/plain" data-category="analytics">
     (function(){
       var s=document.createElement('script');
@@ -15,6 +17,7 @@
       document.head.appendChild(s);
       window.dataLayer=window.dataLayer||[];
       function gtag(){dataLayer.push(arguments);}
+      window.gtag=gtag;
       gtag('js',new Date());
       gtag('config','G-179RKE1KL4');
     })();
@@ -278,13 +281,13 @@
                   description:
                     'This site uses cookies to help us understand how it is used. You can choose to accept or decline analytics cookies.',
                   acceptAllBtn: 'Accept all',
-                  acceptNecessaryBtn: 'Reject all',
+                  acceptNecessaryBtn: 'Accept necessary only',
                   showPreferencesBtn: 'Manage preferences',
                 },
                 preferencesModal: {
                   title: 'Cookie preferences',
                   acceptAllBtn: 'Accept all',
-                  acceptNecessaryBtn: 'Reject all',
+                  acceptNecessaryBtn: 'Accept necessary only',
                   savePreferencesBtn: 'Save preferences',
                   sections: [
                     {
