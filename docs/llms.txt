@@ -5,7 +5,7 @@
 MAIDR converts data visualizations into interactive, multimodal formats navigable entirely by keyboard. It supports bar charts, stacked/dodged bar charts, histograms, line plots, multi-line plots, scatter plots, box plots, violin plots, heatmaps, candlestick charts, smooth curves, faceted plots, and multi-panel layouts. Available as an npm package and as a React component library.
 
 ## Docs
-- [Home](https://maidr.ai/index.html): Overview and getting started guide
+- [Home](https://maidr.ai/): Overview and getting started guide
 - [React Integration](https://maidr.ai/react.html): How to use MAIDR with React
 - [Data Schema](https://maidr.ai/docs/SCHEMA.html): MAIDR data schema specification
 - [Keyboard Controls](https://maidr.ai/docs/CONTROLS.html): Keyboard controls reference

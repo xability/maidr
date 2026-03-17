@@ -60,10 +60,6 @@ const PAGE_DESCRIPTIONS = {
 function buildBreadcrumbSchema(title, canonicalUrl) {
   const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
   if (canonicalUrl !== 'https://maidr.ai/') {
-    // If this is a docs sub-page, add the intermediate "Docs" crumb
-    if (canonicalUrl.includes('/docs/')) {
-      crumbs.push({ name: 'Docs', url: 'https://maidr.ai/docs/' });
-    }
     crumbs.push({ name: title, url: canonicalUrl });
   }
   return JSON.stringify({
@@ -88,6 +84,7 @@ function buildTechArticleSchema(title, description, canonicalUrl, dateModified) 
     'headline': title,
     'description': description,
     'url': canonicalUrl,
+    'datePublished': '2024-01-15',
     'dateModified': dateModified,
     'publisher': { '@id': 'https://maidr.ai/#organization' },
     'isPartOf': { '@id': 'https://maidr.ai/#website' },
@@ -124,8 +121,8 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{CANONICAL_URL\}\}/g, canonicalUrl)
     .replace(/\{\{SOFTWARE_VERSION\}\}/g, PKG.version)
     .replace(/\{\{OG_TYPE\}\}/g, ogType)
-    .replace('{{PAGE_SCHEMA}}', allPageSchemas)
-    .replace('{{CONTENT}}', content)
+    .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
+    .replace(/\{\{CONTENT\}\}/g, () => content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
     .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
     .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
@@ -298,6 +295,17 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
+const today = new Date().toISOString().split('T')[0];
+
+/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
+function fileMod(filePath) {
+  try {
+    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
+  } catch {
+    return today;
+  }
+}
+
 // Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
 const docsSiteDest = path.join(SITE_DIR, 'docs');
@@ -353,22 +361,12 @@ if (fs.existsSync(docsSource)) {
 
 // Generate sitemap.xml
 console.log('Generating sitemap.xml...');
-const today = new Date().toISOString().split('T')[0];
-
-/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
-function fileMod(filePath) {
-  try {
-    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
-  } catch {
-    return today;
-  }
-}
 
 const sitemapUrls = [
   { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
   { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
-  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
-  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8' },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7' },
   { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'SCHEMA.md')) },
   { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'BRAILLE.md')) },
   { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'CONTROLS.md')) },
@@ -395,8 +393,7 @@ if (fs.existsSync(docsSource)) {
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls.map(u => `  <url>
-    <loc>${u.loc}</loc>
-    <lastmod>${u.lastmod}</lastmod>
+    <loc>${u.loc}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''}
     <changefreq>monthly</changefreq>
     <priority>${u.priority}</priority>
   </url>`).join('\n')}
