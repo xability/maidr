@@ -1,8 +1,8 @@
 # MAIDR
 
-> Multimodal Access and Interactive Data Representation - accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.
+> MAIDR (Multimodal Access and Interactive Data Representation) is a TypeScript/React library that provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions. Developed by the (x)Ability Design Lab at the University of Illinois Urbana-Champaign.
 
-MAIDR is a TypeScript/React library that converts data visualizations into interactive, multimodal formats. It supports bar charts, stacked/dodged bar charts, histograms, line plots, multi-line plots, scatter plots, box plots, violin plots, heatmaps, candlestick charts, smooth curves, faceted plots, and multi-panel layouts.
+MAIDR converts data visualizations into interactive, multimodal formats navigable entirely by keyboard. It supports bar charts, stacked/dodged bar charts, histograms, line plots, multi-line plots, scatter plots, box plots, violin plots, heatmaps, candlestick charts, smooth curves, faceted plots, and multi-panel layouts. Available as an npm package and as a React component library.
 
 ## Docs
 - [Home](https://maidr.ai/index.html): Overview and getting started guide
@@ -14,5 +14,7 @@ MAIDR is a TypeScript/React library that converts data visualizations into inter
 - [Examples](https://maidr.ai/examples.html): Interactive examples gallery
 
 ## Optional
-- [GitHub Repository](https://github.com/xability/maidr): Source code
-- [npm Package](https://www.npmjs.com/package/maidr): npm package page
+- [npm](https://www.npmjs.com/package/maidr): Install with `npm install maidr`
+- [GitHub](https://github.com/xability/maidr): Source code and issue tracker
+- [maidr for Python](https://py.maidr.ai/): Python binding (matplotlib, seaborn, plotly)
+- [maidr for R](https://r.maidr.ai/): R package (ggplot2, Base R)
