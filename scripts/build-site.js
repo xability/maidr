@@ -43,7 +43,9 @@ function markdownToHtml(md) {
   return marked.parse(content);
 }
 
-// Per-page SEO descriptions
+// Per-page SEO descriptions.
+// Keys are either activePage slugs ('home', 'react', 'examples') or page titles
+// ('Data Schema', etc.) for doc pages where activePage is '' and lookup falls back to title.
 const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
@@ -84,7 +86,7 @@ function buildTechArticleSchema(title, description, canonicalUrl, dateModified) 
     'headline': title,
     'description': description,
     'url': canonicalUrl,
-    'datePublished': '2024-01-15',
+    'datePublished': '2024-01-15', // project launch date; per-page dates not tracked
     'dateModified': dateModified,
     'publisher': { '@id': 'https://maidr.ai/#organization' },
     'isPartOf': { '@id': 'https://maidr.ai/#website' },
