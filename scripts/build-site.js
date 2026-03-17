@@ -347,15 +347,6 @@ if (fs.existsSync(docsSource)) {
   }
 }
 
-// Copy docs-level static files (robots.txt, llms.txt) to _site root
-console.log('Copying static SEO files...');
-for (const staticFile of ['robots.txt', 'llms.txt']) {
-  const src = path.join(docsSource, staticFile);
-  if (fs.existsSync(src)) {
-    fs.copyFileSync(src, path.join(SITE_DIR, staticFile));
-  }
-}
-
 // Generate sitemap.xml
 console.log('Generating sitemap.xml...');
 const today = new Date().toISOString().split('T')[0];
