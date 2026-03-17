@@ -107,7 +107,11 @@ function buildTechArticleSchema(title, description, canonicalUrl, dateModified) 
  * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
  */
 function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
-  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title];
+  if (!description) {
+    console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
+  }
+  const finalDescription = description || PAGE_DESCRIPTIONS['home'];
   const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
 
   // Always generate breadcrumb schema
@@ -116,7 +120,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
 
   const page = template
     .replace(/\{\{TITLE\}\}/g, title)
-    .replace(/\{\{DESCRIPTION\}\}/g, description)
+    .replace(/\{\{DESCRIPTION\}\}/g, finalDescription)
     .replace(/\{\{CANONICAL_URL\}\}/g, canonicalUrl)
     .replace(/\{\{SOFTWARE_VERSION\}\}/g, PKG.version)
     .replace(/\{\{OG_TYPE\}\}/g, ogType)
@@ -324,8 +328,8 @@ if (fs.existsSync(docsSource)) {
       const title = titleMap[baseName] ?? baseName;
       const docSlug = `docs/${baseName}.html`;
       const docCanonical = `https://maidr.ai/${docSlug}`;
-      const fileMtime = fs.statSync(src).mtime.toISOString().split('T')[0];
-      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+      const fileMtime = fileMod(src);
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS['home'];
       const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
       const docPage = generatePage({
         title,
@@ -368,10 +372,11 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'SCHEMA.md')) },
   { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'BRAILLE.md')) },
   { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'CONTROLS.md')) },
+  { loc: 'https://maidr.ai/docs/VIOLIN_PLOT_SPEC.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'VIOLIN_PLOT_SPEC.md')) },
 ];
 
 // Dynamically add any other doc .md files that were built but not listed above
-const knownDocSlugs = new Set(['SCHEMA', 'BRAILLE', 'CONTROLS']);
+const knownDocSlugs = new Set(['SCHEMA', 'BRAILLE', 'CONTROLS', 'VIOLIN_PLOT_SPEC']);
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
     if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md'))
