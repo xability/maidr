@@ -48,6 +48,7 @@ const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'api': 'TypeDoc API reference for the MAIDR TypeScript library.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
   'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
@@ -123,10 +124,10 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{OG_TYPE\}\}/g, ogType)
     .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
     .replace(/\{\{CONTENT\}\}/g, () => content)
-    .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
-    .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
-    .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
-    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '')
+    .replace(/\{\{HOME_ACTIVE\}\}/g, activePage === 'home' ? 'active' : '')
+    .replace(/\{\{REACT_ACTIVE\}\}/g, activePage === 'react' ? 'active' : '')
+    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, activePage === 'examples' ? 'active' : '')
+    .replace(/\{\{API_ACTIVE\}\}/g, activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, basePath);
 
   return page;
