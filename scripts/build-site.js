@@ -45,9 +45,9 @@ function markdownToHtml(md) {
 
 // Per-page SEO descriptions
 const PAGE_DESCRIPTIONS = {
-  home: 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
-  react: 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
-  examples: 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
+  'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
   'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
@@ -69,11 +69,11 @@ function buildBreadcrumbSchema(title, canonicalUrl) {
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: crumbs.map((c, i) => ({
+    'itemListElement': crumbs.map((c, i) => ({
       '@type': 'ListItem',
-      position: i + 1,
-      name: c.name,
-      item: c.url,
+      'position': i + 1,
+      'name': c.name,
+      'item': c.url,
     })),
   }, null, 2);
 }
@@ -85,13 +85,13 @@ function buildTechArticleSchema(title, description, canonicalUrl, dateModified) 
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
-    headline: title,
-    description,
-    url: canonicalUrl,
-    dateModified,
-    publisher: { '@id': 'https://maidr.ai/#organization' },
-    isPartOf: { '@id': 'https://maidr.ai/#website' },
-    about: { '@id': 'https://maidr.ai/#software' },
+    'headline': title,
+    'description': description,
+    'url': canonicalUrl,
+    'dateModified': dateModified,
+    'publisher': { '@id': 'https://maidr.ai/#organization' },
+    'isPartOf': { '@id': 'https://maidr.ai/#website' },
+    'about': { '@id': 'https://maidr.ai/#software' },
   }, null, 2);
 }
 
@@ -101,10 +101,10 @@ function buildTechArticleSchema(title, description, canonicalUrl, dateModified) 
  * @param {string} opts.title
  * @param {string} opts.content       - inner HTML
  * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
- * @param {string} [opts.basePath='']
- * @param {string} [opts.slug='']      - path portion after domain (e.g. 'react.html')
- * @param {string} [opts.ogType='website']
- * @param {string} [opts.pageSchema=''] - extra JSON-LD script tags
+ * @param {string} [opts.basePath]
+ * @param {string} [opts.slug]         - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.ogType]
+ * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
  */
 function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
   const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
@@ -362,8 +362,12 @@ const today = new Date().toISOString().split('T')[0];
 
 /** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
 function fileMod(filePath) {
-  try { return fs.statSync(filePath).mtime.toISOString().split('T')[0]; }
-  catch { return today; }
+  try {
+    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
+  }
+  catch {
+    return today;
+  }
 }
 
 const sitemapUrls = [
@@ -380,7 +384,8 @@ const sitemapUrls = [
 const knownDocSlugs = new Set(['SCHEMA', 'BRAILLE', 'CONTROLS']);
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md')) continue;
+    if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md'))
+      continue;
     const base = path.basename(f, '.md');
     if (!knownDocSlugs.has(base)) {
       sitemapUrls.push({
