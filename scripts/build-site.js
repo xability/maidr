@@ -16,6 +16,7 @@ const { marked } = require('marked');
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -50,18 +51,76 @@ const PAGE_DESCRIPTIONS = {
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
   'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+  'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
 };
 
 /**
- * Generate a page from template
+ * Build a BreadcrumbList JSON-LD block for the given page.
  */
-function generatePage(title, content, activePage, basePath = '', slug = '') {
+function buildBreadcrumbSchema(title, canonicalUrl) {
+  const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
+  if (canonicalUrl !== 'https://maidr.ai/') {
+    // If this is a docs sub-page, add the intermediate "Docs" crumb
+    if (canonicalUrl.includes('/docs/')) {
+      crumbs.push({ name: 'Docs', url: 'https://maidr.ai/docs/' });
+    }
+    crumbs.push({ name: title, url: canonicalUrl });
+  }
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: c.name,
+      item: c.url,
+    })),
+  }, null, 2);
+}
+
+/**
+ * Build a TechArticle JSON-LD block for documentation pages.
+ */
+function buildTechArticleSchema(title, description, canonicalUrl, dateModified) {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: title,
+    description,
+    url: canonicalUrl,
+    dateModified,
+    publisher: { '@id': 'https://maidr.ai/#organization' },
+    isPartOf: { '@id': 'https://maidr.ai/#website' },
+    about: { '@id': 'https://maidr.ai/#software' },
+  }, null, 2);
+}
+
+/**
+ * Generate a page from template.
+ * @param {object} opts
+ * @param {string} opts.title
+ * @param {string} opts.content       - inner HTML
+ * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
+ * @param {string} [opts.basePath='']
+ * @param {string} [opts.slug='']      - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.ogType='website']
+ * @param {string} [opts.pageSchema=''] - extra JSON-LD script tags
+ */
+function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
   const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
   const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
+
+  // Always generate breadcrumb schema
+  const breadcrumbTag = `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`;
+  const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
+
   const page = template
     .replace(/\{\{TITLE\}\}/g, title)
     .replace(/\{\{DESCRIPTION\}\}/g, description)
     .replace(/\{\{CANONICAL_URL\}\}/g, canonicalUrl)
+    .replace(/\{\{SOFTWARE_VERSION\}\}/g, PKG.version)
+    .replace(/\{\{OG_TYPE\}\}/g, ogType)
+    .replace('{{PAGE_SCHEMA}}', allPageSchemas)
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
     .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
@@ -88,7 +147,7 @@ const readmeHtml = `
   ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage('Home', readmeHtml, 'home', '', 'index.html');
+const indexPage = generatePage({ title: 'Home', content: readmeHtml, activePage: 'home', slug: '' });
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
 // Build react.html from docs/react.md
@@ -101,7 +160,7 @@ if (fs.existsSync(reactMdPath)) {
   ${marked.parse(reactMd)}
 </div>
 `;
-  const reactPage = generatePage('React', reactHtml, 'react', '', 'react.html');
+  const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
@@ -204,7 +263,7 @@ const examplesContent = `
   }
 </script>
 `;
-const examplesPage = generatePage('Examples', examplesContent, 'examples', '', 'examples.html');
+const examplesPage = generatePage({ title: 'Examples', content: examplesContent, activePage: 'examples', slug: 'examples.html' });
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
 
 // Copy media folder
@@ -260,9 +319,23 @@ if (fs.existsSync(docsSource)) {
         SCHEMA: 'Data Schema',
         BRAILLE: 'Braille Generation',
         CONTROLS: 'Keyboard Controls',
+        VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
       };
       const title = titleMap[baseName] ?? baseName;
-      const docPage = generatePage(title, htmlContent, '', '../', `docs/${baseName}.html`);
+      const docSlug = `docs/${baseName}.html`;
+      const docCanonical = `https://maidr.ai/${docSlug}`;
+      const fileMtime = fs.statSync(src).mtime.toISOString().split('T')[0];
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
+      const docPage = generatePage({
+        title,
+        content: htmlContent,
+        activePage: '',
+        basePath: '../',
+        slug: docSlug,
+        ogType: 'article',
+        pageSchema: techArticleTag,
+      });
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
@@ -286,20 +359,45 @@ for (const staticFile of ['robots.txt', 'llms.txt']) {
 // Generate sitemap.xml
 console.log('Generating sitemap.xml...');
 const today = new Date().toISOString().split('T')[0];
+
+/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
+function fileMod(filePath) {
+  try { return fs.statSync(filePath).mtime.toISOString().split('T')[0]; }
+  catch { return today; }
+}
+
 const sitemapUrls = [
-  { loc: 'https://maidr.ai/index.html', priority: '1.0' },
-  { loc: 'https://maidr.ai/react.html', priority: '0.8' },
-  { loc: 'https://maidr.ai/examples.html', priority: '0.8' },
-  { loc: 'https://maidr.ai/api/index.html', priority: '0.7' },
-  { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6' },
-  { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6' },
-  { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6' },
+  { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
+  { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+  { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'SCHEMA.md')) },
+  { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'BRAILLE.md')) },
+  { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'CONTROLS.md')) },
 ];
+
+// Dynamically add any other doc .md files that were built but not listed above
+const knownDocSlugs = new Set(['SCHEMA', 'BRAILLE', 'CONTROLS']);
+if (fs.existsSync(docsSource)) {
+  for (const f of fs.readdirSync(docsSource)) {
+    if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md')) continue;
+    const base = path.basename(f, '.md');
+    if (!knownDocSlugs.has(base)) {
+      sitemapUrls.push({
+        loc: `https://maidr.ai/docs/${base}.html`,
+        priority: '0.5',
+        lastmod: fileMod(path.join(docsSource, f)),
+      });
+    }
+  }
+}
+
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls.map(u => `  <url>
     <loc>${u.loc}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${u.lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>${u.priority}</priority>
   </url>`).join('\n')}
 </urlset>

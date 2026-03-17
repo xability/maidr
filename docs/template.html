@@ -8,11 +8,13 @@
   <link rel="canonical" href="{{CANONICAL_URL}}" />
   <meta property="og:title" content="{{TITLE}} - MAIDR" />
   <meta property="og:description" content="{{DESCRIPTION}}" />
-  <meta property="og:type" content="website" />
+  <meta property="og:type" content="{{OG_TYPE}}" />
   <meta property="og:url" content="{{CANONICAL_URL}}" />
   <meta property="og:image" content="https://maidr.ai/media/logo.jpg" />
+  <meta property="og:image:alt" content="MAIDR - Multimodal Access and Interactive Data Representation logo" />
   <meta property="og:site_name" content="MAIDR" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="{{TITLE}} - MAIDR" />
   <meta name="twitter:description" content="{{DESCRIPTION}}" />
   <meta name="twitter:image" content="https://maidr.ai/media/logo.jpg" />
@@ -21,23 +23,58 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "MAIDR",
-    "alternateName": "Multimodal Access and Interactive Data Representation",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Web",
-    "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
-    "url": "https://maidr.ai",
-    "codeRepository": "https://github.com/xability/maidr",
-    "license": "https://opensource.org/licenses/GPL-3.0",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "author": {
-      "@type": "Organization",
-      "name": "(x)Ability Design Lab",
-      "url": "https://xability.github.io/"
-    }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://maidr.ai/#organization",
+        "name": "(x)Ability Design Lab",
+        "url": "https://xability.github.io/",
+        "sameAs": [
+          "https://github.com/xability",
+          "https://www.npmjs.com/package/maidr"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://maidr.ai/#website",
+        "url": "https://maidr.ai/",
+        "name": "MAIDR",
+        "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
+        "publisher": { "@id": "https://maidr.ai/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://maidr.ai/#software",
+        "name": "MAIDR",
+        "alternateName": "Multimodal Access and Interactive Data Representation",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
+        "url": "https://maidr.ai",
+        "softwareVersion": "{{SOFTWARE_VERSION}}",
+        "downloadUrl": "https://www.npmjs.com/package/maidr",
+        "codeRepository": "https://github.com/xability/maidr",
+        "programmingLanguage": ["TypeScript", "JavaScript"],
+        "license": "https://opensource.org/licenses/GPL-3.0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@id": "https://maidr.ai/#organization" },
+        "featureList": [
+          "Audio sonification of chart data",
+          "Text descriptions for screen readers",
+          "Braille output for tactile displays",
+          "AI-powered chart descriptions",
+          "Keyboard navigation for all chart types",
+          "React component library"
+        ],
+        "sameAs": [
+          "https://github.com/xability/maidr",
+          "https://www.npmjs.com/package/maidr"
+        ]
+      }
+    ]
   }
   </script>
+  {{PAGE_SCHEMA}}
   <!-- CookieConsent v3 — to regenerate SRI hashes after a version bump:
        curl -s <CDN_URL> | openssl dgst -sha384 -binary | openssl base64 -A -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.css" integrity="sha384-9KcNFt4axT+TNOVPHpwGHOm4Kv0UcMjdVya1kl+EPBQG+Vmqtz28cnx0f5PZYcnF" crossorigin="anonymous">
