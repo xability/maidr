@@ -355,8 +355,7 @@ const today = new Date().toISOString().split('T')[0];
 function fileMod(filePath) {
   try {
     return fs.statSync(filePath).mtime.toISOString().split('T')[0];
-  }
-  catch {
+  } catch {
     return today;
   }
 }
