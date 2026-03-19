@@ -10,6 +10,7 @@ import type {
   BrailleState,
   HighlightState,
   TextState,
+  TouchGuidanceState,
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
@@ -25,6 +26,14 @@ const DEFAULT_FILL_AXIS = 'unavailable';
 export interface Dimension {
   rows: number;
   cols: number;
+}
+
+interface NearestPoint {
+  element: SVGElement;
+  row: number;
+  col: number;
+  centerX: number;
+  centerY: number;
 }
 
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
@@ -252,6 +261,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
+  }
+
+  /**
+   * Gets directional touch/pointer guidance near the active data geometry.
+   * Default behavior returns null for non-trace contexts.
+   *
+   * @param _x - Screen-space x position of the pointer/finger
+   * @param _y - Screen-space y position of the pointer/finger
+   * @returns Null when guidance is unavailable
+   */
+  public getTouchGuidance(_x: number, _y: number): TouchGuidanceState | null {
+    return null;
   }
 }
 
@@ -640,7 +661,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null;
+  ): NearestPoint | null;
 
   /**
    * Moves to the nearest point at the specified coordinates (used for hover functionality).
@@ -658,6 +679,27 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
         this.moveToIndex(nearest.row, nearest.col);
       }
     }
+  }
+
+  /**
+   * Computes directional guidance for pointer/touch exploration near curves.
+   *
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state relative to nearest point, or null when unavailable
+   */
+  public override getTouchGuidance(x: number, y: number): TouchGuidanceState | null {
+    const nearest = this.findNearestPoint(x, y);
+    if (!nearest) {
+      return null;
+    }
+
+    return {
+      onCurve: this.isPointInBounds(x, y, nearest),
+      distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
+      verticalRelation: y < nearest.centerY ? 'above' : 'below',
+      horizontalRelation: x < nearest.centerX ? 'left' : 'right',
+    };
   }
 
   /**

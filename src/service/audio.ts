@@ -1,10 +1,14 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { AudioState, PlotState } from '@type/state';
+import type { AudioState, PlotState, TouchGuidanceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
+import {
+  DEFAULT_TOUCH_GUIDANCE_CONFIG,
+  resolveTouchGuidanceBeep,
+} from './touchGuidance';
 
 interface Range {
   min: number;
@@ -40,6 +44,9 @@ const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
 
+const TOUCH_GUIDANCE_BEEP_DURATION = 0.06;
+const TOUCH_GUIDANCE_VOLUME = 0.35;
+
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
 
@@ -74,13 +81,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
+  private readonly activeAudioIds: Map<AudioId, AudioNode | AudioNode[]>;
 
   private volume: number;
   private minFrequency: number;
   private maxFrequency: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
+  private nextTouchGuidanceBeepAt: number;
 
   /**
    * Creates an instance of AudioService.
@@ -117,6 +125,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
+    this.nextTouchGuidanceBeepAt = 0;
   }
 
   /**
@@ -627,6 +636,81 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.playWarningTone();
   }
 
+  /**
+   * Plays directional touch/pointer guidance beeps for nearby curve exploration.
+   *
+   * Behavior:
+   * - No guidance beep when on-curve (regular sonification continues to apply).
+   * - Off-curve beeps repeat faster when closer and slower when farther.
+   * - High pitch when pointer is below the curve, low pitch when above.
+   * - Pan left when pointer is right of curve, pan right when left of curve.
+   *
+   * @param guidance - Touch guidance state from the active trace, or null to reset guidance
+   */
+  public playTouchGuidance(guidance: TouchGuidanceState | null): void {
+    if (
+      this.mode === AudioMode.OFF
+      || !guidance
+      || guidance.onCurve
+    ) {
+      this.nextTouchGuidanceBeepAt = 0;
+      return;
+    }
+
+    const now = this.audioContext.currentTime;
+    if (now < this.nextTouchGuidanceBeepAt) {
+      return;
+    }
+
+    const beep = resolveTouchGuidanceBeep(
+      guidance,
+      DEFAULT_TOUCH_GUIDANCE_CONFIG,
+    );
+    if (!beep) {
+      this.nextTouchGuidanceBeepAt = 0;
+      return;
+    }
+
+    this.playTouchGuidanceBeep(beep.frequency, beep.pan, now);
+    this.nextTouchGuidanceBeepAt = now + beep.interval;
+  }
+
+  private playTouchGuidanceBeep(
+    frequency: number,
+    pan: number,
+    startTime: number,
+  ): void {
+    const oscillator = this.audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+
+    const gainNode = this.audioContext.createGain();
+    const guidanceVolume = this.volume * TOUCH_GUIDANCE_VOLUME;
+    if (guidanceVolume <= 0) {
+      return;
+    }
+    gainNode.gain.setValueAtTime(guidanceVolume, startTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + TOUCH_GUIDANCE_BEEP_DURATION);
+
+    const stereoPanner = this.audioContext.createStereoPanner();
+    stereoPanner.pan.value = this.clamp(pan, -1, 1);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(stereoPanner);
+    stereoPanner.connect(this.compressor);
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + TOUCH_GUIDANCE_BEEP_DURATION);
+
+    const audioId = setTimeout(() => {
+      oscillator.disconnect();
+      gainNode.disconnect();
+      stereoPanner.disconnect();
+      this.activeAudioIds.delete(audioId);
+    }, TOUCH_GUIDANCE_BEEP_DURATION * 1000 * 2);
+    this.activeAudioIds.set(audioId, [oscillator, gainNode, stereoPanner]);
+  }
+
   private playZeroTone(panning: Panning): AudioId {
     const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
     // Y-axis not used for stereo panning
@@ -767,8 +851,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
       const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
-        node?.disconnect();
-        node?.stop();
+        this.stopAudioNode(node);
       });
 
       clearTimeout(audioId);
@@ -776,13 +859,23 @@ export class AudioService implements Observer<PlotState>, Disposable {
     });
   }
 
+  private stopAudioNode(node: AudioNode): void {
+    node.disconnect();
+    if ('stop' in node) {
+      try {
+        (node as OscillatorNode).stop();
+      } catch {
+        // Node may have already been stopped; safe to ignore.
+      }
+    }
+  }
+
   private stopAll(): void {
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {
-        node.disconnect();
-        node.stop();
+        this.stopAudioNode(node);
       });
     });
     this.activeAudioIds.clear();
