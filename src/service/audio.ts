@@ -5,6 +5,10 @@ import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
+import {
+  DEFAULT_TOUCH_GUIDANCE_CONFIG,
+  resolveTouchGuidanceBeep,
+} from './touchGuidance';
 
 interface Range {
   min: number;
@@ -40,13 +44,7 @@ const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
 
-const TOUCH_GUIDANCE_MAX_DISTANCE_PX = 160;
-const TOUCH_GUIDANCE_MIN_INTERVAL = 0.08;
-const TOUCH_GUIDANCE_MAX_INTERVAL = 0.55;
-const TOUCH_GUIDANCE_HIGH_FREQUENCY = 1280;
-const TOUCH_GUIDANCE_LOW_FREQUENCY = 420;
 const TOUCH_GUIDANCE_BEEP_DURATION = 0.06;
-const TOUCH_GUIDANCE_PAN_MAGNITUDE = 0.7;
 const TOUCH_GUIDANCE_VOLUME = 0.35;
 
 const DEFAULT_DURATION = 0.3;
@@ -83,7 +81,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
+  private readonly activeAudioIds: Map<AudioId, AudioNode | AudioNode[]>;
 
   private volume: number;
   private minFrequency: number;
@@ -654,7 +652,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.mode === AudioMode.OFF
       || !guidance
       || guidance.onCurve
-      || guidance.distancePx > TOUCH_GUIDANCE_MAX_DISTANCE_PX
     ) {
       this.nextTouchGuidanceBeepAt = 0;
       return;
@@ -665,26 +662,17 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    const distanceNorm = this.clamp(
-      guidance.distancePx / TOUCH_GUIDANCE_MAX_DISTANCE_PX,
-      0,
-      1,
+    const beep = resolveTouchGuidanceBeep(
+      guidance,
+      DEFAULT_TOUCH_GUIDANCE_CONFIG,
     );
-    const interval = this.interpolate(
-      distanceNorm,
-      { min: 0, max: 1 },
-      { min: TOUCH_GUIDANCE_MIN_INTERVAL, max: TOUCH_GUIDANCE_MAX_INTERVAL },
-    );
+    if (!beep) {
+      this.nextTouchGuidanceBeepAt = 0;
+      return;
+    }
 
-    const frequency = guidance.verticalRelation === 'below'
-      ? TOUCH_GUIDANCE_HIGH_FREQUENCY
-      : TOUCH_GUIDANCE_LOW_FREQUENCY;
-    const pan = guidance.horizontalRelation === 'right'
-      ? -TOUCH_GUIDANCE_PAN_MAGNITUDE
-      : TOUCH_GUIDANCE_PAN_MAGNITUDE;
-
-    this.playTouchGuidanceBeep(frequency, pan, now);
-    this.nextTouchGuidanceBeepAt = now + interval;
+    this.playTouchGuidanceBeep(beep.frequency, beep.pan, now);
+    this.nextTouchGuidanceBeepAt = now + beep.interval;
   }
 
   private playTouchGuidanceBeep(
@@ -697,7 +685,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     oscillator.frequency.value = frequency;
 
     const gainNode = this.audioContext.createGain();
-    const guidanceVolume = Math.max(this.volume * TOUCH_GUIDANCE_VOLUME, 0.05);
+    const guidanceVolume = this.volume * TOUCH_GUIDANCE_VOLUME;
+    if (guidanceVolume <= 0) {
+      return;
+    }
     gainNode.gain.setValueAtTime(guidanceVolume, startTime);
     gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + TOUCH_GUIDANCE_BEEP_DURATION);
 
@@ -717,7 +708,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       stereoPanner.disconnect();
       this.activeAudioIds.delete(audioId);
     }, TOUCH_GUIDANCE_BEEP_DURATION * 1000 * 2);
-    this.activeAudioIds.set(audioId, oscillator);
+    this.activeAudioIds.set(audioId, [oscillator, gainNode, stereoPanner]);
   }
 
   private playZeroTone(panning: Panning): AudioId {
@@ -860,8 +851,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
       const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
-        node?.disconnect();
-        node?.stop();
+        this.stopAudioNode(node);
       });
 
       clearTimeout(audioId);
@@ -869,13 +859,23 @@ export class AudioService implements Observer<PlotState>, Disposable {
     });
   }
 
+  private stopAudioNode(node: AudioNode): void {
+    node.disconnect();
+    if ('stop' in node) {
+      try {
+        (node as OscillatorNode).stop();
+      } catch {
+        // Node may have already been stopped; safe to ignore.
+      }
+    }
+  }
+
   private stopAll(): void {
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {
-        node.disconnect();
-        node.stop();
+        this.stopAudioNode(node);
       });
     });
     this.activeAudioIds.clear();

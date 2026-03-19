@@ -566,6 +566,7 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns Guidance state or null if unavailable
    */
   getTouchGuidance: (x: number, y: number) => TouchGuidanceState | null;
+
   /**
    * Gets extrema targets for navigation.
    * Optional method implemented by traces that support extrema navigation.

@@ -571,7 +571,7 @@ export class ScatterTrace extends AbstractTrace {
   public findNearestPoint(
     _x: number,
     _y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -597,6 +597,8 @@ export class ScatterTrace extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 

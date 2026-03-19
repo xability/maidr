@@ -6,6 +6,7 @@ import type { Keys } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { CommandFactory } from '@command/factory';
+import { PointerGuidanceCommand } from '@command/pointerGuidance';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Platform } from '@util/platform';
@@ -352,6 +353,7 @@ export class KeybindingService {
 export class Mousebindingservice implements Observer<Settings>, Disposable {
   private mouseListener!: (event: MouseEvent | PointerEvent) => void;
   private pointerLeaveListener!: () => void;
+  private readonly pointerGuidanceCommand: PointerGuidanceCommand;
 
   private readonly commandContext: CommandContext;
   private hoverMode: string = 'none';
@@ -374,6 +376,10 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     const initialSettings = settingsService.loadSettings();
     this.hoverMode = initialSettings.general.hoverMode;
     this.plot = displayService.plot;
+    this.pointerGuidanceCommand = new PointerGuidanceCommand(
+      this.commandContext.context,
+      this.commandContext.audioService,
+    );
 
     // Register as observer to listen for settings changes
     this.settingsService.addObserver(this);
@@ -386,19 +392,13 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     // Create the mouse listener if it doesn't exist
     if (!this.mouseListener) {
       this.mouseListener = (event: MouseEvent | PointerEvent) => {
-        const x = event.clientX;
-        const y = event.clientY;
-
-        this.commandContext.context.moveToPoint(x, y);
-
-        const guidance = this.commandContext.context.getTouchGuidance(x, y);
-        this.commandContext.audioService.playTouchGuidance(guidance);
+        this.pointerGuidanceCommand.execute(event);
       };
     }
 
     if (!this.pointerLeaveListener) {
       this.pointerLeaveListener = () => {
-        this.commandContext.audioService.playTouchGuidance(null);
+        this.pointerGuidanceCommand.execute();
       };
     }
 
@@ -413,7 +413,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
       this.plot.addEventListener('click', this.mouseListener);
       this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
     } else {
-      this.commandContext.audioService.playTouchGuidance(null);
+      this.pointerGuidanceCommand.execute();
     }
   }
 
@@ -428,7 +428,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     if (this.pointerLeaveListener) {
       this.plot.removeEventListener('pointerleave', this.pointerLeaveListener);
     }
-    this.commandContext.audioService.playTouchGuidance(null);
+    this.pointerGuidanceCommand.execute();
   }
 
   /**

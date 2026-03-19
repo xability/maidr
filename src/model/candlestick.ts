@@ -964,7 +964,7 @@ export class Candlestick extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -990,6 +990,8 @@ export class Candlestick extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
