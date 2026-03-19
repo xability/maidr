@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { PlotState, TouchGuidanceState } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
@@ -189,6 +189,17 @@ export class Context implements Disposable {
    */
   public moveToPoint(x: number, y: number): void {
     this.active.moveToPoint(x, y);
+  }
+
+  /**
+   * Gets directional guidance for pointer/touch exploration near the active trace.
+   *
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state, or null when unavailable for current scope
+   */
+  public getTouchGuidance(x: number, y: number): TouchGuidanceState | null {
+    return this.active.getTouchGuidance(x, y);
   }
 
   public stepTrace(direction: MovableDirection): void {

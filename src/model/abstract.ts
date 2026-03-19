@@ -10,6 +10,7 @@ import type {
   BrailleState,
   HighlightState,
   TextState,
+  TouchGuidanceState,
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
@@ -252,6 +253,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
+  }
+
+  /**
+   * Gets directional touch/pointer guidance near the active data geometry.
+   * Default behavior returns null for non-trace contexts.
+   *
+   * @param _x - Screen-space x position of the pointer/finger
+   * @param _y - Screen-space y position of the pointer/finger
+   * @returns Null when guidance is unavailable
+   */
+  public getTouchGuidance(_x: number, _y: number): TouchGuidanceState | null {
+    return null;
   }
 }
 
@@ -658,6 +671,31 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
         this.moveToIndex(nearest.row, nearest.col);
       }
     }
+  }
+
+  /**
+   * Computes directional guidance for pointer/touch exploration near curves.
+   *
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state relative to nearest point, or null when unavailable
+   */
+  public override getTouchGuidance(x: number, y: number): TouchGuidanceState | null {
+    const nearest = this.findNearestPoint(x, y);
+    if (!nearest) {
+      return null;
+    }
+
+    const bbox = nearest.element.getBoundingClientRect();
+    const centerX = bbox.x + bbox.width / 2;
+    const centerY = bbox.y + bbox.height / 2;
+
+    return {
+      onCurve: this.isPointInBounds(x, y, nearest),
+      distancePx: Math.hypot(centerX - x, centerY - y),
+      verticalRelation: y < centerY ? 'above' : 'below',
+      horizontalRelation: x < centerX ? 'left' : 'right',
+    };
   }
 
   /**

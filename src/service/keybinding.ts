@@ -350,7 +350,8 @@ export class KeybindingService {
  * Service for managing mouse interactions with plot elements based on hover settings.
  */
 export class Mousebindingservice implements Observer<Settings>, Disposable {
-  private mouseListener!: (event: MouseEvent) => void;
+  private mouseListener!: (event: MouseEvent | PointerEvent) => void;
+  private pointerLeaveListener!: () => void;
 
   private readonly commandContext: CommandContext;
   private hoverMode: string = 'none';
@@ -384,11 +385,20 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
   public registerEvents(): void {
     // Create the mouse listener if it doesn't exist
     if (!this.mouseListener) {
-      this.mouseListener = (event: MouseEvent) => {
+      this.mouseListener = (event: MouseEvent | PointerEvent) => {
         const x = event.clientX;
         const y = event.clientY;
 
         this.commandContext.context.moveToPoint(x, y);
+
+        const guidance = this.commandContext.context.getTouchGuidance(x, y);
+        this.commandContext.audioService.playTouchGuidance(guidance);
+      };
+    }
+
+    if (!this.pointerLeaveListener) {
+      this.pointerLeaveListener = () => {
+        this.commandContext.audioService.playTouchGuidance(null);
       };
     }
 
@@ -398,8 +408,12 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     // Add appropriate listeners based on hover mode
     if (this.hoverMode === 'pointermove') {
       this.plot.addEventListener('pointermove', this.mouseListener);
+      this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
     } else if (this.hoverMode === 'click') {
       this.plot.addEventListener('click', this.mouseListener);
+      this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
+    } else {
+      this.commandContext.audioService.playTouchGuidance(null);
     }
   }
 
@@ -411,6 +425,10 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
       this.plot.removeEventListener('pointermove', this.mouseListener);
       this.plot.removeEventListener('click', this.mouseListener);
     }
+    if (this.pointerLeaveListener) {
+      this.plot.removeEventListener('pointerleave', this.pointerLeaveListener);
+    }
+    this.commandContext.audioService.playTouchGuidance(null);
   }
 
   /**
