@@ -50,10 +50,12 @@ export interface Dimension {
   cols: number;
 }
 
-export interface NearestPoint {
+interface NearestPoint {
   element: SVGElement;
   row: number;
   col: number;
+  centerX: number;
+  centerY: number;
 }
 
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
@@ -786,15 +788,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       return null;
     }
 
-    const bbox = nearest.element.getBoundingClientRect();
-    const centerX = bbox.x + bbox.width / 2;
-    const centerY = bbox.y + bbox.height / 2;
-
     return {
       onCurve: this.isPointInBounds(x, y, nearest),
-      distancePx: Math.hypot(centerX - x, centerY - y),
-      verticalRelation: y < centerY ? 'above' : 'below',
-      horizontalRelation: x < centerX ? 'left' : 'right',
+      distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
+      verticalRelation: y < nearest.centerY ? 'above' : 'below',
+      horizontalRelation: x < nearest.centerX ? 'left' : 'right',
     };
   }
 

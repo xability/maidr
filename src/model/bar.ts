@@ -247,7 +247,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues
@@ -284,7 +284,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
           && y >= bbox.y
           && y <= bbox.y + bbox.height
         ) {
-          return { element: targetElement, row, col };
+          return {
+            element: targetElement,
+            row,
+            col,
+            centerX: bbox.x + bbox.width / 2,
+            centerY: bbox.y + bbox.height / 2,
+          };
         }
       }
     }
