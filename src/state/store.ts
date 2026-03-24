@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import brailleReducer from './viewModel/brailleViewModel';
 import chatReducer from './viewModel/chatViewModel';
 import commandPaletteReducer from './viewModel/commandPaletteViewModel';
+import descriptionReducer from './viewModel/descriptionViewModel';
 import displayReducer from './viewModel/displayViewModel';
 import goToExtremaReducer from './viewModel/goToExtremaViewModel';
 import helpMenuReducer from './viewModel/helpViewModel';
@@ -14,6 +15,7 @@ const reducers = {
   braille: brailleReducer,
   chat: chatReducer,
   commandPalette: commandPaletteReducer,
+  description: descriptionReducer,
   display: displayReducer,
   goToExtrema: goToExtremaReducer,
   help: helpMenuReducer,

@@ -8,6 +8,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  DescriptionState,
   HighlightState,
   TextState,
   TraceState,
@@ -455,6 +456,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract get braille(): BrailleState;
 
   protected abstract get text(): TextState;
+
+  public abstract get description(): DescriptionState;
 
   protected abstract get dimension(): Dimension;
 

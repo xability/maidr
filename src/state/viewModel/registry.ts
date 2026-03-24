@@ -2,6 +2,7 @@ import type { CommandExecutor } from '@service/commandExecutor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -19,6 +20,7 @@ export interface ViewModelMap {
   chat: ChatViewModel;
   commandExecutor: CommandExecutor;
   commandPalette: CommandPaletteViewModel;
+  description: DescriptionViewModel;
   display: DisplayViewModel;
   goToExtrema: GoToExtremaViewModel;
   help: HelpViewModel;

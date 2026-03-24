@@ -8,6 +8,7 @@ import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -75,6 +76,7 @@ import {
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleCommandPaletteCommand,
+  ToggleDescriptionCommand,
   ToggleHelpCommand,
   ToggleHighContrast,
   ToggleReviewCommand,
@@ -99,6 +101,7 @@ export class CommandFactory {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
+  private readonly descriptionViewModel: DescriptionViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
@@ -123,6 +126,7 @@ export class CommandFactory {
     this.brailleViewModel = commandContext.brailleViewModel;
     this.chatViewModel = commandContext.chatViewModel;
     this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
+    this.descriptionViewModel = commandContext.descriptionViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
@@ -201,6 +205,8 @@ export class CommandFactory {
         return new ToggleChatCommand(this.chatViewModel);
       case 'TOGGLE_COMMAND_PALETTE':
         return new ToggleCommandPaletteCommand(this.commandPaletteViewModel);
+      case 'TOGGLE_DESCRIPTION':
+        return new ToggleDescriptionCommand(this.descriptionViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
 

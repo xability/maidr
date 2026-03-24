@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -96,6 +96,33 @@ export class Heatmap extends AbstractTrace {
         label: this.fill,
         value: this.heatmapValues[this.row][this.col],
       },
+    };
+  }
+
+  /**
+   * Gets the description state for the heatmap trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const stats: DescriptionState['stats'] = [
+      { label: 'Rows', value: this.y.length },
+      { label: 'Columns', value: this.x.length },
+      { label: 'Min value', value: this.min },
+      { label: 'Max value', value: this.max },
+    ];
+
+    const headers = [this.yAxis, ...this.x];
+    const rows: (string | number)[][] = this.y.map((yLabel, r) => [
+      yLabel,
+      ...this.heatmapValues[r],
+    ]);
+
+    return {
+      chartType: 'heat',
+      title: this.title,
+      axes: { x: this.xAxis, y: this.yAxis },
+      stats,
+      dataTable: { headers, rows },
     };
   }
 
