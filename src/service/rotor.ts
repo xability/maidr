@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
+import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 
 /**
@@ -266,12 +267,13 @@ export class RotorNavigationService {
   public getMessage(nav_type: string, direction: string): string {
     if (this.text.isOff()) {
       return '';
-    } else if (this.text.isTerse()) {
-      const preposition = direction === 'above' || direction === 'below' ? '' : 'on the';
-      return `No ${nav_type} value found ${preposition} ${direction}`;
     }
-    const position = direction === 'above' || direction === 'below' ? '' : `to the ${direction} of`;
-    return `No ${nav_type} value found ${position} the current value.`;
+    if (this.text.isTerse()) {
+      const preposition = direction === 'above' || direction === 'below' ? '' : 'on the ';
+      return `No ${nav_type} value found ${preposition}${direction}`;
+    }
+    const position = direction === 'above' || direction === 'below' ? `${direction} ` : `to the ${direction} of `;
+    return `No ${nav_type} value found ${position}the current value.`;
   }
 
   /**
@@ -292,7 +294,7 @@ export class RotorNavigationService {
         modes.push(Constant.HIGHER_VALUE_MODE);
       }
 
-      if (activeTrace.supportsGridMode()) {
+      if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
         modes.push(Constant.GRID_MODE);
       }
     } else {
@@ -321,7 +323,7 @@ export class RotorNavigationService {
    */
   private notifyGridMode(enabled: boolean): void {
     const activeTrace = this.context.active;
-    if (activeTrace instanceof AbstractTrace) {
+    if (isGridNavigable(activeTrace)) {
       activeTrace.setGridMode(enabled);
     }
   }
@@ -332,11 +334,7 @@ export class RotorNavigationService {
    */
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
-    if (!(activeTrace instanceof AbstractTrace)) {
-      return null;
-    }
-
-    if (!activeTrace.supportsGridMode()) {
+    if (!isGridNavigable(activeTrace) || !activeTrace.supportsGridMode()) {
       return this.getMessage('grid', direction);
     }
 

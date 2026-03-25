@@ -1,5 +1,6 @@
 import type { AxisConfig, MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { GridNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
@@ -41,7 +42,7 @@ enum NavMode {
   ROW = 'row',
 }
 
-export class ScatterTrace extends AbstractTrace {
+export class ScatterTrace extends AbstractTrace implements GridNavigable {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -411,8 +412,11 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   public moveOnce(direction: MovableDirection): boolean {
-    // Exit grid mode when normal navigation resumes
-    this.isInGridMode = false;
+    // If moveOnce is called, we're not in grid mode (rotor routes grid arrows elsewhere).
+    // Clear the flag to stay in sync in case of unexpected code paths.
+    if (this.isInGridMode) {
+      this.setGridMode(false);
+    }
 
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -566,7 +570,7 @@ export class ScatterTrace extends AbstractTrace {
 
   // ── Grid navigation methods ───────────────────────────────────────────
 
-  public override setGridMode(enabled: boolean): void {
+  public setGridMode(enabled: boolean): void {
     if (!this.gridCells) {
       this.isInGridMode = false;
       return;
@@ -575,7 +579,6 @@ export class ScatterTrace extends AbstractTrace {
     if (enabled) {
       this.gridRow = 0;
       this.gridCol = 0;
-      this.notifyStateUpdate();
     }
   }
 
@@ -587,11 +590,11 @@ export class ScatterTrace extends AbstractTrace {
     return Constant.ROW_COL_MODE;
   }
 
-  public override supportsGridMode(): boolean {
+  public supportsGridMode(): boolean {
     return this.gridCells !== null;
   }
 
-  public override moveGridUp(): boolean {
+  public moveGridUp(): boolean {
     if (!this.gridCells)
       return false;
     if (this.gridRow >= this.numGridRows - 1) {
@@ -603,7 +606,7 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
-  public override moveGridDown(): boolean {
+  public moveGridDown(): boolean {
     if (!this.gridCells)
       return false;
     if (this.gridRow <= 0) {
@@ -615,7 +618,7 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
-  public override moveGridLeft(): boolean {
+  public moveGridLeft(): boolean {
     if (!this.gridCells)
       return false;
     if (this.gridCol <= 0) {
@@ -627,7 +630,7 @@ export class ScatterTrace extends AbstractTrace {
     return true;
   }
 
-  public override moveGridRight(): boolean {
+  public moveGridRight(): boolean {
     if (!this.gridCells)
       return false;
     if (this.gridCol >= this.numGridCols - 1) {

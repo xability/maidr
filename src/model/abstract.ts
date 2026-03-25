@@ -256,11 +256,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Sets whether grid navigation mode is active. Override in traces that support grid navigation.
-   */
-  /**
    * Returns true if this trace supports compare (lower/higher value) navigation.
-   * Override to false for trace types that don't use compare modes (e.g., scatter).
+   * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
+   * currently have).
    */
   public supportsCompareMode(): boolean {
     return true;
@@ -274,48 +272,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     return Constant.DATA_MODE;
   }
 
-  public setGridMode(_enabled: boolean): void {
-    // No-op for traces that don't support grid navigation.
-  }
-
-  /**
-   * Returns true if this trace supports grid navigation.
-   */
-  public supportsGridMode(): boolean {
-    return false;
-  }
-
-  /**
-   * Grid navigation: move up one cell. Returns false if at boundary.
-   */
-  public moveGridUp(): boolean {
-    this.notifyRotorBounds();
-    return false;
-  }
-
-  /**
-   * Grid navigation: move down one cell. Returns false if at boundary.
-   */
-  public moveGridDown(): boolean {
-    this.notifyRotorBounds();
-    return false;
-  }
-
-  /**
-   * Grid navigation: move left one cell. Returns false if at boundary.
-   */
-  public moveGridLeft(): boolean {
-    this.notifyRotorBounds();
-    return false;
-  }
-
-  /**
-   * Grid navigation: move right one cell. Returns false if at boundary.
-   */
-  public moveGridRight(): boolean {
-    this.notifyRotorBounds();
-    return false;
-  }
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
