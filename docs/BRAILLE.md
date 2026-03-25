@@ -89,8 +89,8 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ## Scatter plot
 
-In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2).
-The method is similar to that used for bar plots,
+In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
+The representation of the line layer is similar to that used for bar plots,
 wherein data values are represented as Braille characters based on their relative magnitude within the plot.
 Low values are denoted by dots along the bottom, while high values are indicated by dots along the top.
 With four height levels of Braille, the encoding is as follows:
