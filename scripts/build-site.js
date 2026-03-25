@@ -16,6 +16,7 @@ const { marked } = require('marked');
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -42,18 +43,95 @@ function markdownToHtml(md) {
   return marked.parse(content);
 }
 
+// Per-page SEO descriptions.
+// Keys are either activePage slugs ('home', 'react', 'examples') or page titles
+// ('Data Schema', etc.) for doc pages where activePage is '' and lookup falls back to title.
+const PAGE_DESCRIPTIONS = {
+  'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
+  'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
+  'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
+  'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+  'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
+};
+
 /**
- * Generate a page from template
+ * Build a BreadcrumbList JSON-LD block for the given page.
  */
-function generatePage(title, content, activePage, basePath = '') {
+function buildBreadcrumbSchema(title, canonicalUrl) {
+  const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
+  if (canonicalUrl !== 'https://maidr.ai/') {
+    crumbs.push({ name: title, url: canonicalUrl });
+  }
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'name': c.name,
+      'item': c.url,
+    })),
+  }, null, 2);
+}
+
+/**
+ * Build a TechArticle JSON-LD block for documentation pages.
+ */
+function buildTechArticleSchema(title, description, canonicalUrl, dateModified) {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    'headline': title,
+    'description': description,
+    'url': canonicalUrl,
+    'datePublished': '2024-01-15', // project launch date; per-page dates not tracked
+    'dateModified': dateModified,
+    'publisher': { '@id': 'https://maidr.ai/#organization' },
+    'isPartOf': { '@id': 'https://maidr.ai/#website' },
+    'about': { '@id': 'https://maidr.ai/#software' },
+  }, null, 2);
+}
+
+/**
+ * Generate a page from template.
+ * @param {object} opts
+ * @param {string} opts.title
+ * @param {string} opts.content       - inner HTML
+ * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
+ * @param {string} [opts.basePath]
+ * @param {string} [opts.slug]         - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.ogType]
+ * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
+ */
+function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
+  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title];
+  if (!description) {
+    console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
+  }
+  const finalDescription = description || PAGE_DESCRIPTIONS.home;
+  const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
+
+  // Generate breadcrumb schema (skip for home page — single-item lists are unusual)
+  const breadcrumbTag = canonicalUrl !== 'https://maidr.ai/'
+    ? `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`
+    : '';
+  const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
+
   const page = template
-    .replace('{{TITLE}}', title)
-    .replace('{{CONTENT}}', content)
-    .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
-    .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
-    .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
-    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '')
-    .replace(/\{\{BASE_PATH\}\}/g, basePath);
+    .replace(/\{\{TITLE\}\}/g, () => title)
+    .replace(/\{\{DESCRIPTION\}\}/g, () => finalDescription)
+    .replace(/\{\{CANONICAL_URL\}\}/g, () => canonicalUrl)
+    .replace(/\{\{SOFTWARE_VERSION\}\}/g, () => PKG.version)
+    .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
+    .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
+    .replace(/\{\{CONTENT\}\}/g, () => content)
+    .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
+    .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
+    .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
+    .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
 
   return page;
 }
@@ -74,7 +152,7 @@ const readmeHtml = `
   ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage('Home', readmeHtml, 'home');
+const indexPage = generatePage({ title: 'Home', content: readmeHtml, activePage: 'home', slug: '' });
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
 // Build react.html from docs/react.md
@@ -87,7 +165,7 @@ if (fs.existsSync(reactMdPath)) {
   ${marked.parse(reactMd)}
 </div>
 `;
-  const reactPage = generatePage('React', reactHtml, 'react');
+  const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
@@ -190,7 +268,7 @@ const examplesContent = `
   }
 </script>
 `;
-const examplesPage = generatePage('Examples', examplesContent, 'examples');
+const examplesPage = generatePage({ title: 'Examples', content: examplesContent, activePage: 'examples', slug: 'examples.html' });
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
 
 // Copy media folder
@@ -221,6 +299,17 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
+const today = new Date().toISOString().split('T')[0];
+
+/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
+function fileMod(filePath) {
+  try {
+    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
+  } catch {
+    return today;
+  }
+}
+
 // Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
 const docsSiteDest = path.join(SITE_DIR, 'docs');
@@ -246,9 +335,23 @@ if (fs.existsSync(docsSource)) {
         SCHEMA: 'Data Schema',
         BRAILLE: 'Braille Generation',
         CONTROLS: 'Keyboard Controls',
+        VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
       };
       const title = titleMap[baseName] ?? baseName;
-      const docPage = generatePage(title, htmlContent, '', '../');
+      const docSlug = `docs/${baseName}.html`;
+      const docCanonical = `https://maidr.ai/${docSlug}`;
+      const fileMtime = fileMod(src);
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
+      const docPage = generatePage({
+        title,
+        content: htmlContent,
+        activePage: '',
+        basePath: '../',
+        slug: docSlug,
+        ogType: 'article',
+        pageSchema: techArticleTag,
+      });
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
@@ -259,6 +362,42 @@ if (fs.existsSync(docsSource)) {
     }
   }
 }
+
+// Generate sitemap.xml — built dynamically from the docs/ folder so new pages
+// are included automatically without maintaining a hardcoded list.
+console.log('Generating sitemap.xml...');
+
+const sitemapUrls = [
+  { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
+  { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+];
+
+// Add all doc .md files that were built into _site/docs/
+if (fs.existsSync(docsSource)) {
+  for (const f of fs.readdirSync(docsSource)) {
+    if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md'))
+      continue;
+    const base = path.basename(f, '.md');
+    sitemapUrls.push({
+      loc: `https://maidr.ai/docs/${base}.html`,
+      priority: '0.6',
+      lastmod: fileMod(path.join(docsSource, f)),
+    });
+  }
+}
+
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapUrls.map(u => `  <url>
+    <loc>${u.loc}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''}
+    <changefreq>monthly</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+fs.writeFileSync(path.join(SITE_DIR, 'sitemap.xml'), sitemap);
 
 console.log('Site built successfully!');
 console.log('Run "npx typedoc" to generate API documentation in _site/api/');
