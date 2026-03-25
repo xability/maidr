@@ -533,7 +533,8 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // X range
     parts.push(
-      state.main.label, Constant.IS,
+      state.main.label,
+      Constant.IS,
       this.formatSingleValue(state.range!.min, mainAxisType),
       Constant.THROUGH,
       this.formatSingleValue(state.range!.max, mainAxisType),
@@ -541,7 +542,9 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Y range
     parts.push(
-      Constant.COMMA_SPACE, state.cross.label, Constant.IS,
+      Constant.COMMA_SPACE,
+      state.cross.label,
+      Constant.IS,
       this.formatSingleValue(state.crossRange!.min, crossAxisType),
       Constant.THROUGH,
       this.formatSingleValue(state.crossRange!.max, crossAxisType),

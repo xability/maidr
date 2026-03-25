@@ -655,7 +655,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     layer: MaidrLayer,
   ): { xMin: number; xMax: number; xTickStep: number; yMin: number; yMax: number; yTickStep: number } | null {
     const axes = layer.axes;
-    if (!axes) return null;
+    if (!axes)
+      return null;
 
     const axisX = typeof axes.x === 'object' ? axes.x as AxisConfig : null;
     const axisY = typeof axes.y === 'object' ? axes.y as AxisConfig : null;

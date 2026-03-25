@@ -271,7 +271,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public dataModeName(): string {
     return Constant.DATA_MODE;
   }
-
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {

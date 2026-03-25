@@ -443,14 +443,12 @@ export class AnnouncePositionCommand extends DescribeCommand {
     } else if (traceType === TraceType.SMOOTH) {
       // Violin KDE plots: y=violin index, x=position within violin
       this.announceViolinPosition(y, rows, x, cols);
-    }
-    // Check for multi plots (multiline, panel, layer, facet)
-    else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+      // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=line index, y=position within line
       this.announceMultiLinePosition(x, rows, y, cols);
-    }
-    // Default position announcement
-    else if (this.is2DPlot(rows, cols)) {
+    } else if (this.is2DPlot(rows, cols)) {
+      // Default position announcement
       this.announce2DPosition(x, y, rows, cols);
     } else {
       this.announce1DPosition(x, cols);

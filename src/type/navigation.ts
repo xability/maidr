@@ -6,12 +6,12 @@ import type { BarPoint, LinePoint, ScatterPoint, SegmentedPoint, SmoothPoint } f
  * navigable cells (e.g., ScatterTrace with grid config).
  */
 export interface GridNavigable {
-  setGridMode(enabled: boolean): void;
-  supportsGridMode(): boolean;
-  moveGridUp(): boolean;
-  moveGridDown(): boolean;
-  moveGridLeft(): boolean;
-  moveGridRight(): boolean;
+  setGridMode: (enabled: boolean) => void;
+  supportsGridMode: () => boolean;
+  moveGridUp: () => boolean;
+  moveGridDown: () => boolean;
+  moveGridLeft: () => boolean;
+  moveGridRight: () => boolean;
 }
 
 /**
