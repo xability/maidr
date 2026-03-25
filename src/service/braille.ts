@@ -441,6 +441,8 @@ implements BrailleEncoder<T> {
         indexToCell.push({ row, col: state.values[row].length });
       } else {
         // A wrap newline was already emitted at the end of this row.
+        // Add an explicit end-of-row sentinel to keep index mapping consistent.
+        indexToCell.push({ row, col: state.values[row].length });
         cellToIndex[row].push(indexToCell.length - 1);
       }
     }
@@ -670,6 +672,8 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
         indexToCell.push({ row, col: state.values[row].length });
       } else {
         // A wrap newline was already emitted at the end of this row.
+        // Add an explicit end-of-row sentinel to keep index mapping consistent.
+        indexToCell.push({ row, col: state.values[row].length });
         cellToIndex[row].push(indexToCell.length - 1);
       }
     }
