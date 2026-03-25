@@ -432,9 +432,17 @@ implements BrailleEncoder<T> {
         }
       }
 
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+      if (
+        state.values[row].length === 0
+        || state.values[row].length % displaySize !== 0
+      ) {
+        values.push(Constant.NEW_LINE);
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col: state.values[row].length });
+      } else {
+        // A wrap newline was already emitted at the end of this row.
+        cellToIndex[row].push(indexToCell.length - 1);
+      }
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -611,7 +619,11 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
    * @param state - Candlestick braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: CandlestickBrailleState): EncodedBraille {
+  public encode(
+    state: CandlestickBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = Math.max(1, Math.floor(size));
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
@@ -642,11 +654,24 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
+
+        if ((col + 1) % displaySize === 0) {
+          values.push(Constant.NEW_LINE);
+          indexToCell.push({ row, col });
+        }
       }
 
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+      if (
+        state.values[row].length === 0
+        || state.values[row].length % displaySize !== 0
+      ) {
+        values.push(Constant.NEW_LINE);
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col: state.values[row].length });
+      } else {
+        // A wrap newline was already emitted at the end of this row.
+        cellToIndex[row].push(indexToCell.length - 1);
+      }
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -694,6 +719,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private displaySize: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
+  private readonly disposables: Disposable[];
 
   private readonly encoders: Map<TraceType, BrailleEncoder<any>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
@@ -722,6 +748,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
+    this.disposables = [];
 
     this.encoders = new Map<TraceType, BrailleEncoder<any>>([
       [TraceType.BAR, new BarBrailleEncoder()],
@@ -741,7 +768,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
-    settings.onChange((event) => {
+    this.disposables.push(settings.onChange((event) => {
       if (!event.affectsSetting(BrailleSettings.DISPLAY_SIZE)) {
         return;
       }
@@ -752,7 +779,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       );
       this.cache = null;
       this.cacheId = Constant.EMPTY;
-    });
+    }));
   }
 
   /**
@@ -760,6 +787,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.disposables.forEach(disposable => disposable.dispose());
+    this.disposables.length = 0;
 
     this.cache = null;
     this.encoders.clear();
