@@ -363,34 +363,28 @@ if (fs.existsSync(docsSource)) {
   }
 }
 
-// Generate sitemap.xml
+// Generate sitemap.xml — built dynamically from the docs/ folder so new pages
+// are included automatically without maintaining a hardcoded list.
 console.log('Generating sitemap.xml...');
 
 const sitemapUrls = [
   { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
   { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
-  { loc: 'https://maidr.ai/examples.html', priority: '0.8' },
-  { loc: 'https://maidr.ai/api/index.html', priority: '0.7' },
-  { loc: 'https://maidr.ai/docs/SCHEMA.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'SCHEMA.md')) },
-  { loc: 'https://maidr.ai/docs/BRAILLE.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'BRAILLE.md')) },
-  { loc: 'https://maidr.ai/docs/CONTROLS.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'CONTROLS.md')) },
-  { loc: 'https://maidr.ai/docs/VIOLIN_PLOT_SPEC.html', priority: '0.6', lastmod: fileMod(path.join(ROOT, 'docs', 'VIOLIN_PLOT_SPEC.md')) },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
 
-// Dynamically add any other doc .md files that were built but not listed above
-const knownDocSlugs = new Set(['SCHEMA', 'BRAILLE', 'CONTROLS', 'VIOLIN_PLOT_SPEC']);
+// Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
     if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
-    if (!knownDocSlugs.has(base)) {
-      sitemapUrls.push({
-        loc: `https://maidr.ai/docs/${base}.html`,
-        priority: '0.5',
-        lastmod: fileMod(path.join(docsSource, f)),
-      });
-    }
+    sitemapUrls.push({
+      loc: `https://maidr.ai/docs/${base}.html`,
+      priority: '0.6',
+      lastmod: fileMod(path.join(docsSource, f)),
+    });
   }
 }
 
