@@ -1,3 +1,66 @@
+## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* clarify point or slope intersection in multiline plot ([#582](https://github.com/xability/maidr/issues/582)) ([d1931ae](https://github.com/xability/maidr/commit/d1931ae82b5f88e61981e6b6943d7ca1d18f6b18))
+
+## [3.58.1](https://github.com/xability/maidr/compare/v3.58.0...v3.58.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* unify instruction text announcement ([#583](https://github.com/xability/maidr/issues/583)) ([76859e7](https://github.com/xability/maidr/commit/76859e748fe429ae5eb908c608c452c13b13bf18))
+
+# [3.58.0](https://github.com/xability/maidr/compare/v3.57.0...v3.58.0) (2026-03-13)
+
+
+### Features
+
+* support plotly plots ([#577](https://github.com/xability/maidr/issues/577)) ([acd6f89](https://github.com/xability/maidr/commit/acd6f89bee204b03d5842a52e93651708e187aaa))
+
+# [3.57.0](https://github.com/xability/maidr/compare/v3.56.0...v3.57.0) (2026-03-12)
+
+
+### Features
+
+* notify users of current position with p key ([7e0172a](https://github.com/xability/maidr/commit/7e0172a554d4f83d2d38ef7fcedb4cc2107e700d))
+
+# [3.56.0](https://github.com/xability/maidr/compare/v3.55.2...v3.56.0) (2026-03-10)
+
+
+### Features
+
+* go to extrema in heatmap ([#569](https://github.com/xability/maidr/issues/569)) ([7946bdc](https://github.com/xability/maidr/commit/7946bdc5e63218388a13c42afa85f44914ac1ca4))
+
+## [3.55.2](https://github.com/xability/maidr/compare/v3.55.1...v3.55.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* support svg polygon element highlighting ([#568](https://github.com/xability/maidr/issues/568)) ([0098c1f](https://github.com/xability/maidr/commit/0098c1f9103f32020883afa6815c1282b94fabbd))
+
+## [3.55.1](https://github.com/xability/maidr/compare/v3.55.0...v3.55.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* address violin plot horizonatal orientation bug ([#567](https://github.com/xability/maidr/issues/567)) ([f9efcdc](https://github.com/xability/maidr/commit/f9efcdcd89b8d3a25df076e4133510251ccbfb12))
+
+# [3.55.0](https://github.com/xability/maidr/compare/v3.54.0...v3.55.0) (2026-03-05)
+
+
+### Features
+
+* go to intersection ([#563](https://github.com/xability/maidr/issues/563)) ([fc19a99](https://github.com/xability/maidr/commit/fc19a994c51e891c46bf083f22c2bd6ec8446af6))
+
+# [3.54.0](https://github.com/xability/maidr/compare/v3.53.0...v3.54.0) (2026-03-04)
+
+
+### Features
+
+* support matplotlib violin plot ([#510](https://github.com/xability/maidr/issues/510)) ([30b16c3](https://github.com/xability/maidr/commit/30b16c32e50acfb420651974fcbaa3de7b3507c6))
+
 # [3.53.0](https://github.com/xability/maidr/compare/v3.52.0...v3.53.0) (2026-02-26)
 
 

@@ -784,8 +784,22 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     const xGroups = new Map<number, SVGElement[]>();
     const yGroups = new Map<number, SVGElement[]>();
     elements.forEach((element) => {
-      const x = Number.parseFloat(element.getAttribute('x') || '');
-      const y = Number.parseFloat(element.getAttribute('y') || '');
+      let x = Number.parseFloat(element.getAttribute('x') || '');
+      let y = Number.parseFloat(element.getAttribute('y') || '');
+
+      // Plotly uses transform="translate(x, y)" instead of x/y attributes
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const transform = element.getAttribute('transform');
+        if (transform) {
+          const match = transform.match(
+            /translate\s*\(\s*([\d.eE+-]+)[\s,]+([\d.eE+-]+)/,
+          );
+          if (match) {
+            x = Number.parseFloat(match[1]);
+            y = Number.parseFloat(match[2]);
+          }
+        }
+      }
 
       if (!Number.isNaN(x)) {
         if (!xGroups.has(x))

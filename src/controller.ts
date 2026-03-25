@@ -134,12 +134,14 @@ export class Controller implements Disposable {
       this.textService,
       this.notificationService,
       this.autoplayService,
+      this.audioService,
     );
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.goToExtremaViewModel = new GoToExtremaViewModel(
       store,
       this.goToExtremaService,
       this.context,
+      this.formatterService,
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
