@@ -13,11 +13,16 @@ import type {
 } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
 const DEFAULT_BRAILLE_SIZE = 32;
+
+enum BrailleSettings {
+  DISPLAY_SIZE = 'general.brailleDisplaySize',
+}
 
 /**
  * Represents a cell position in a 2D grid.
@@ -391,7 +396,11 @@ implements BrailleEncoder<T> {
    * @param state - Time series braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: T): EncodedBraille {
+  public encode(
+    state: T,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = Math.max(1, Math.floor(size));
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
@@ -416,6 +425,11 @@ implements BrailleEncoder<T> {
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
+
+        if ((col + 1) % displaySize === 0) {
+          values.push(Constant.NEW_LINE);
+          indexToCell.push({ row, col });
+        }
       }
 
       values.push(Constant.NEW_LINE);
@@ -677,6 +691,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly display: DisplayService;
 
   private enabled: boolean;
+  private displaySize: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
 
@@ -694,12 +709,17 @@ implements Observer<SubplotState | TraceState>, Disposable {
     context: Context,
     notification: NotificationService,
     display: DisplayService,
+    settings: SettingsService,
   ) {
     this.context = context;
     this.notification = notification;
     this.display = display;
 
     this.enabled = false;
+    this.displaySize = Math.max(
+      1,
+      Math.floor(settings.get<number>(BrailleSettings.DISPLAY_SIZE)),
+    );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
 
@@ -720,6 +740,19 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+
+    settings.onChange((event) => {
+      if (!event.affectsSetting(BrailleSettings.DISPLAY_SIZE)) {
+        return;
+      }
+
+      this.displaySize = Math.max(
+        1,
+        Math.floor(event.get<number>(BrailleSettings.DISPLAY_SIZE)),
+      );
+      this.cache = null;
+      this.cacheId = Constant.EMPTY;
+    });
   }
 
   /**
@@ -753,7 +786,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const braille = trace.braille;
     if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
-      this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
+      this.cache = encoder.encode(braille as any, this.displaySize);
       this.cacheId = braille.id;
     }
 

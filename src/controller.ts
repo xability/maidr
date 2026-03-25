@@ -102,6 +102,7 @@ export class Controller implements Disposable {
       this.context,
       this.notificationService,
       this.displayService,
+      this.settingsService,
     );
     this.goToExtremaService = new GoToExtremaService(
       this.context,
