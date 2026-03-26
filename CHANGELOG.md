@@ -1,3 +1,10 @@
+## [3.58.3](https://github.com/xability/maidr/compare/v3.58.2...v3.58.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* clarify scatterplot without line layer ([#589](https://github.com/xability/maidr/issues/589)) ([a70daf8](https://github.com/xability/maidr/commit/a70daf8818bdf4359403f0c5c3caa48881f36cf6))
+
 ## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
 
 
