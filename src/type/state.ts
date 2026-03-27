@@ -182,6 +182,20 @@ export interface AudioState {
 }
 
 /**
+ * Directional guidance state for pointer/touch exploration near a curve.
+ */
+export interface TouchGuidanceState {
+  /** True when pointer/finger is touching the curve's active point region. */
+  onCurve: boolean;
+  /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+  distancePx: number;
+  /** Relative vertical relation of pointer/finger to the curve. */
+  verticalRelation: 'above' | 'below';
+  /** Relative horizontal relation of pointer/finger to the curve. */
+  horizontalRelation: 'left' | 'right';
+}
+
+/**
  * Union type for all braille display states across different plot types.
  */
 export type BrailleState

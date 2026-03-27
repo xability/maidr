@@ -3,7 +3,13 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
+import type {
+  FigureState,
+  HighlightState,
+  SubplotState,
+  TouchGuidanceState,
+  TraceState,
+} from '@type/state';
 import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
@@ -552,6 +558,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    *   orientation, or (violin index, section index) for horizontal orientation
    */
   moveToPoint: (x: number, y: number) => void;
+
+  /**
+   * Computes directional guidance for pointer/touch exploration near this trace.
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state or null if unavailable
+   */
+  getTouchGuidance: (x: number, y: number) => TouchGuidanceState | null;
 
   /**
    * Gets extrema targets for navigation.
