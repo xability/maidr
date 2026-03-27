@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Bar Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Bar Chart - Zero Config MAIDR</h1>
+    <p>
+      A plotly.js bar chart auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate bars.
+    </p>
+
+    <div id="bar-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var data = [{
+        x: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        y: [20, 14, 23, 25, 22],
+        type: 'bar',
+        name: 'Tips by Day',
+        marker: { color: '#2ca02c' }
+      }];
+
+      var layout = {
+        title: { text: 'Number of Tips by Day' },
+        xaxis: { title: { text: 'Day' } },
+        yaxis: { title: { text: 'Count' } }
+      };
+
+      Plotly.newPlot('bar-chart', data, layout);
+    </script>
+  </body>
+</html>

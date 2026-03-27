@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Histogram - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Histogram - Zero Config MAIDR</h1>
+    <p>
+      A plotly.js histogram auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="histogram-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      // Generate random normal-ish data
+      var x = [];
+      for (var i = 0; i < 500; i++) {
+        x.push(
+          Math.random() + Math.random() + Math.random() +
+          Math.random() + Math.random() + Math.random() - 3
+        );
+      }
+
+      var data = [{
+        x: x,
+        type: 'histogram',
+        xbins: { size: 0.5 }
+      }];
+
+      var layout = {
+        title: { text: 'Distribution of Values' },
+        xaxis: { title: { text: 'Value' } },
+        yaxis: { title: { text: 'Count' } }
+      };
+
+      Plotly.newPlot('histogram-chart', data, layout);
+    </script>
+  </body>
+</html>

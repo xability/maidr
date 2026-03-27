@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Heatmap - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Heatmap - Zero Config MAIDR</h1>
+    <p>
+      A plotly.js heatmap auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="heatmap-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var data = [{
+        z: [
+          [1, 20, 30],
+          [20, 1, 60],
+          [30, 60, 1]
+        ],
+        x: ['Monday', 'Tuesday', 'Wednesday'],
+        y: ['Morning', 'Afternoon', 'Evening'],
+        type: 'heatmap',
+        colorscale: 'Viridis'
+      }];
+
+      var layout = {
+        title: { text: 'Activity Heatmap' },
+        xaxis: { title: { text: 'Day' } },
+        yaxis: { title: { text: 'Time of Day' } }
+      };
+
+      Plotly.newPlot('heatmap-chart', data, layout);
+    </script>
+  </body>
+</html>

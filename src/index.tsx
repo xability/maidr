@@ -3,6 +3,7 @@ import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { isPlotlyPlot, normalizePlotlySvg } from './adapter/plotly';
+import { extractPlotlyData } from './adapter/plotly-extractor';
 import { Maidr as MaidrComponent } from './maidr-component';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -77,16 +78,111 @@ function main(): void {
   }
 
   const maidr = window.maidr;
-  if (!maidr) {
+  if (maidr) {
+    const plot = document.getElementById(maidr.id);
+    if (!plot) {
+      console.error('Plot not found for maidr:', maidr.id);
+      return;
+    }
+    initMaidr(maidr, plot);
     return;
   }
 
-  const plot = document.getElementById(maidr.id);
-  if (!plot) {
-    console.error('Plot not found for maidr:', maidr.id);
+  // Auto-detect plotly.js charts without any maidr attributes.
+  autoInitPlotlyCharts();
+}
+
+/**
+ * Scans the page for plotly.js charts and automatically extracts their
+ * data to make them accessible — no binder or maidr-data attribute needed.
+ *
+ * Plotly.newPlot() adds `.js-plotly-plot` to the graph div, creates
+ * `svg.main-svg`, sets `gd._fullData`/`gd._fullLayout`, and computes
+ * `gd.calcdata` — all synchronously before returning its Promise.
+ * By the time DOMContentLoaded fires, everything is ready.
+ *
+ * For dynamically-created charts (rendered after DOMContentLoaded), a
+ * MutationObserver watches for new `.js-plotly-plot` elements.
+ */
+function autoInitPlotlyCharts(): void {
+  // Plotly adds .js-plotly-plot synchronously during newPlot().
+  // By DOMContentLoaded, class + SVG + data are all present.
+  const plotlyDivs = document.querySelectorAll<HTMLElement>('.js-plotly-plot');
+
+  if (plotlyDivs.length > 0) {
+    for (const gd of plotlyDivs) {
+      initPlotlyChart(gd);
+    }
     return;
   }
-  initMaidr(maidr, plot);
+
+  // For charts created after DOMContentLoaded (e.g. SPA, dynamic loading),
+  // watch the DOM for .js-plotly-plot to appear.
+  observeForPlotlyDivs();
+}
+
+/**
+ * Extracts data and initialises MAIDR for a fully-rendered Plotly chart.
+ * Only proceeds when `svg.main-svg` exists — never replaces the graph
+ * div itself, which would break Plotly's internal event pipeline.
+ */
+function initPlotlyChart(gd: HTMLElement): void {
+  if (gd.hasAttribute('data-maidr-auto'))
+    return;
+
+  const maidrData = extractPlotlyData(gd);
+  if (!maidrData)
+    return;
+
+  // Require the SVG to exist. Replacing the graph div in the DOM would
+  // break Plotly's rendering pipeline — only the SVG is safe to adopt.
+  const svg = gd.querySelector<SVGSVGElement>('svg.main-svg');
+  if (!svg)
+    return;
+
+  gd.setAttribute('data-maidr-auto', '1');
+  normalizePlotlySvg(svg, maidrData);
+  initMaidr(maidrData, svg as unknown as HTMLElement);
+}
+
+/**
+ * Watches the DOM for `.js-plotly-plot` elements that appear after
+ * DOMContentLoaded (e.g. in SPAs or dynamically-loaded notebooks).
+ * Uses plotly_afterplot event as a secondary signal to ensure the
+ * SVG is fully rendered before initialising.
+ * Disconnects automatically after 30 seconds.
+ */
+function observeForPlotlyDivs(): void {
+  const observer = new MutationObserver(() => {
+    const divs = document.querySelectorAll<HTMLElement>(
+      '.js-plotly-plot:not([data-maidr-auto])',
+    );
+    if (divs.length === 0)
+      return;
+
+    // Process each new chart; do NOT disconnect — more charts may appear.
+    for (const gd of divs) {
+      // If SVG is ready, init now. Otherwise wait for plotly_afterplot.
+      if (gd.querySelector('svg.main-svg')) {
+        initPlotlyChart(gd);
+      } else {
+        gd.addEventListener('plotly_afterplot', function onAfterPlot() {
+          gd.removeEventListener('plotly_afterplot', onAfterPlot);
+          initPlotlyChart(gd);
+        });
+      }
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+
+  // Safety: stop watching after 30 seconds.
+  setTimeout(() => observer.disconnect(), 30_000);
 }
 
 /**
