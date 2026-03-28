@@ -7,6 +7,11 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { BrailleService } from '@service/braille';
 import { TraceType } from '@type/grammar';
 
+interface SettingsChangeEventMock {
+  affectsSetting: (settingPath: string) => boolean;
+  get: <T>(settingPath: string) => T;
+}
+
 interface BrailleCacheCell {
   row: number;
   col: number;
@@ -20,6 +25,11 @@ interface BrailleCache {
 
 interface BrailleServiceInternals {
   cache: BrailleCache | null;
+}
+
+interface SettingsMockController {
+  settings: SettingsService;
+  triggerDisplaySizeChange: (nextDisplaySize: number) => void;
 }
 
 /**
@@ -74,11 +84,48 @@ function createLineTraceState(values: number[][], row: number, col: number): Tra
 }
 
 /**
+ * Creates a settings mock and exposes a helper to emit display-size change events.
+ * @param displaySize - Initial display width used by the encoder
+ * @returns Settings service mock and change trigger
+ */
+function createSettingsMockController(displaySize: number): SettingsMockController {
+  let currentDisplaySize = displaySize;
+  let onChangeListener: ((event: SettingsChangeEventMock) => void) | null = null;
+
+  const settings = {
+    get: <T>(_settingPath: string): T => currentDisplaySize as T,
+    onChange: (listener: (event: SettingsChangeEventMock) => void) => {
+      onChangeListener = listener;
+      return {
+        dispose: () => {
+          onChangeListener = null;
+        },
+      };
+    },
+  } as unknown as SettingsService;
+
+  const triggerDisplaySizeChange = (nextDisplaySize: number): void => {
+    currentDisplaySize = nextDisplaySize;
+    if (onChangeListener === null) {
+      return;
+    }
+
+    onChangeListener({
+      affectsSetting: (settingPath: string): boolean =>
+        settingPath === 'general.brailleDisplaySize',
+      get: <T>(_settingPath: string): T => currentDisplaySize as T,
+    });
+  };
+
+  return { settings, triggerDisplaySizeChange };
+}
+
+/**
  * Creates a settings mock that returns a fixed braille display size.
  * @param displaySize - Display width used by the encoder
  * @returns Structural SettingsService mock
  */
-function createSettingsMock(displaySize: number): SettingsService {
+function createStaticSettingsMock(displaySize: number): SettingsService {
   return {
     get: <T>(_settingPath: string): T => displaySize as T,
     onChange: () => ({
@@ -109,10 +156,46 @@ function createBrailleService(displaySize: number): {
     toggleFocus: jest.fn(),
   } as unknown as DisplayService;
 
-  const settings = createSettingsMock(displaySize);
+  const settings = createStaticSettingsMock(displaySize);
 
   const service = new BrailleService(context, notification, display, settings);
   return { service, contextMoveToIndex };
+}
+
+/**
+ * Builds a BrailleService with a settings mock that can emit runtime changes.
+ * @param displaySize - Initial braille display size setting to use
+ * @returns Service instance and settings trigger for change-event assertions
+ */
+function createBrailleServiceWithSettingsTrigger(displaySize: number): {
+  service: BrailleService;
+  triggerDisplaySizeChange: (nextDisplaySize: number) => void;
+  setContextState: (state: TraceState) => void;
+} {
+  let currentState: TraceState | undefined;
+  const context = {
+    moveToIndex: jest.fn<(row: number, col: number) => void>(),
+    get state(): TraceState | undefined {
+      return currentState;
+    },
+  } as unknown as Context;
+
+  const notification = {
+    notify: jest.fn<(message: string) => void>(),
+  } as unknown as NotificationService;
+
+  const display = {
+    toggleFocus: jest.fn(),
+  } as unknown as DisplayService;
+
+  const { settings, triggerDisplaySizeChange } = createSettingsMockController(displaySize);
+  const service = new BrailleService(context, notification, display, settings);
+
+  const setContextState = (state: TraceState): void => {
+    currentState = state;
+  };
+
+  return { service, triggerDisplaySizeChange, setContextState };
 }
 
 /**
@@ -200,6 +283,29 @@ describe('BrailleService display-size encoding', () => {
 
     service.moveToIndex(mappedIndex);
     expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('re-emits braille output immediately when display size setting changes', () => {
+    const { service, triggerDisplaySizeChange, setContextState }
+      = createBrailleServiceWithSettingsTrigger(4);
+    const state = createLineTraceState([[1, 2, 3, 4]], 0, 0);
+    setContextState(state);
+
+    const values: string[] = [];
+    const disposable = service.onChange((event) => {
+      values.push(event.value);
+    });
+
+    service.toggle(state);
+    const beforeChange = values[values.length - 1];
+    triggerDisplaySizeChange(2);
+    const afterChange = values[values.length - 1];
+
+    expect(values.length).toBeGreaterThan(1);
+    expect(beforeChange).not.toEqual(afterChange);
 
     disposable.dispose();
     service.dispose();
