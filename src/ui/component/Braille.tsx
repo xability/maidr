@@ -7,6 +7,11 @@ const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
   const { value, index } = useViewModelState('braille');
+  const settings = useViewModelState('settings');
+  const brailleDisplaySize = Math.max(
+    1,
+    Math.floor(settings.general.brailleDisplaySize),
+  );
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -56,8 +61,11 @@ const Braille: React.FC = () => {
         ref={brailleRef}
         defaultValue={value}
         autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        wrap="off"
         rows={5}
-        cols={50}
+        cols={brailleDisplaySize}
       />
     </div>
   );

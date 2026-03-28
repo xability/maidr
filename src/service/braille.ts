@@ -13,11 +13,16 @@ import type {
 } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
 const DEFAULT_BRAILLE_SIZE = 32;
+
+enum BrailleSettings {
+  DISPLAY_SIZE = 'general.brailleDisplaySize',
+}
 
 /**
  * Represents a cell position in a 2D grid.
@@ -387,40 +392,70 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
 abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
 implements BrailleEncoder<T> {
   /**
+   * Encodes a single data point to a braille character.
+   * @param state - Time series state
+   * @param row - Row index
+   * @param col - Column index
+   * @returns Encoded braille character for the given point
+   */
+  protected encodeCell(state: T, row: number, col: number): string {
+    const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
+    const currentValue = state.values[row][col];
+    const prevValue = col > 0 ? state.values[row][col - 1] : null;
+
+    return this.getBrailleChar(
+      currentValue,
+      prevValue,
+      low,
+      medium,
+      high,
+      mediumHigh,
+    );
+  }
+
+  /**
    * Encodes time series state into braille representation with trend indicators.
    * @param state - Time series braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: T): EncodedBraille {
+  public encode(
+    state: T,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = Math.max(1, Math.floor(size));
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
 
     for (let row = 0; row < state.values.length; row++) {
       cellToIndex.push(new Array<number>());
-      const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
 
       for (let col = 0; col < state.values[row].length; col++) {
-        const currentValue = state.values[row][col];
-        const prevValue = col > 0 ? state.values[row][col - 1] : null;
-
-        const brailleChar = this.getBrailleChar(
-          currentValue,
-          prevValue,
-          low,
-          medium,
-          high,
-          mediumHigh,
-        );
+        const brailleChar = this.encodeCell(state, row, col);
         values.push(brailleChar);
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
+
+        if ((col + 1) % displaySize === 0) {
+          values.push(Constant.NEW_LINE);
+          indexToCell.push({ row, col });
+        }
       }
 
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+      if (
+        state.values[row].length === 0
+        || state.values[row].length % displaySize !== 0
+      ) {
+        values.push(Constant.NEW_LINE);
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col: state.values[row].length });
+      } else {
+        // A wrap newline was already emitted at the end of this row.
+        // Add an explicit end-of-row sentinel to keep index mapping consistent.
+        indexToCell.push({ row, col: state.values[row].length });
+        cellToIndex[row].push(indexToCell.length - 1);
+      }
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -593,49 +628,34 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
   }
 
   /**
-   * Encodes candlestick state into braille with bear/bull indicators.
+   * Encodes a single candlestick point using 6-dot braille and optional bear indicator.
    * @param state - Candlestick braille state
-   * @returns Encoded braille with cell mappings
+   * @param row - Row index
+   * @param col - Column index
+   * @returns Encoded braille character for the given point
    */
-  public encode(state: CandlestickBrailleState): EncodedBraille {
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
+  protected override encodeCell(
+    state: CandlestickBrailleState,
+    row: number,
+    col: number,
+  ): string {
+    const { low, medium, high } = this.getThresholds(row, state);
+    const currentValue = state.values[row][col];
+    const prevValue = col > 0 ? state.values[row][col - 1] : null;
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
-      const { low, medium, high } = this.getThresholds(row, state);
+    let brailleChar = this.getBraille6Char(
+      currentValue,
+      prevValue,
+      low,
+      medium,
+      high,
+    );
 
-      for (let col = 0; col < state.values[row].length; col++) {
-        const currentValue = state.values[row][col];
-        const prevValue = col > 0 ? state.values[row][col - 1] : null;
-
-        // get the standard 6 dot braille character
-        let brailleChar = this.getBraille6Char(
-          currentValue,
-          prevValue,
-          low,
-          medium,
-          high,
-        );
-
-        // add Bear indicator
-        if (state.custom?.[col] === 'Bear') {
-          brailleChar = this.addDot8(brailleChar);
-        }
-
-        values.push(brailleChar);
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-      }
-
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+    if (state.custom?.[col] === 'Bear') {
+      brailleChar = this.addDot8(brailleChar);
     }
 
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+    return brailleChar;
   }
 }
 
@@ -677,8 +697,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly display: DisplayService;
 
   private enabled: boolean;
+  private displaySize: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
+  private readonly disposables: Disposable[];
 
   private readonly encoders: Map<TraceType, BrailleEncoder<any>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
@@ -694,14 +716,20 @@ implements Observer<SubplotState | TraceState>, Disposable {
     context: Context,
     notification: NotificationService,
     display: DisplayService,
+    settings: SettingsService,
   ) {
     this.context = context;
     this.notification = notification;
     this.display = display;
 
     this.enabled = false;
+    this.displaySize = Math.max(
+      1,
+      Math.floor(settings.get<number>(BrailleSettings.DISPLAY_SIZE)),
+    );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
+    this.disposables = [];
 
     this.encoders = new Map<TraceType, BrailleEncoder<any>>([
       [TraceType.BAR, new BarBrailleEncoder()],
@@ -720,6 +748,28 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+
+    this.disposables.push(settings.onChange((event) => {
+      if (!event.affectsSetting(BrailleSettings.DISPLAY_SIZE)) {
+        return;
+      }
+
+      this.displaySize = Math.max(
+        1,
+        Math.floor(event.get<number>(BrailleSettings.DISPLAY_SIZE)),
+      );
+      this.cache = null;
+      this.cacheId = Constant.EMPTY;
+
+      if (!this.enabled) {
+        return;
+      }
+
+      const state = this.context.state;
+      if (state.type === 'trace' || state.type === 'subplot') {
+        this.update(state);
+      }
+    }));
   }
 
   /**
@@ -727,6 +777,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.disposables.forEach(disposable => disposable.dispose());
+    this.disposables.length = 0;
 
     this.cache = null;
     this.encoders.clear();
@@ -753,7 +805,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const braille = trace.braille;
     if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
-      this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
+      this.cache = encoder.encode(braille as any, this.displaySize);
       this.cacheId = braille.id;
     }
 
