@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Grouped Bar Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Grouped Bar Chart - Zero Config MAIDR</h1>
+    <p>
+      A plotly.js grouped (dodged) bar chart auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="grouped-bar-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var trace1 = {
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: [20, 14, 23, 25],
+        name: 'Product A',
+        type: 'bar'
+      };
+
+      var trace2 = {
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: [15, 18, 20, 22],
+        name: 'Product B',
+        type: 'bar'
+      };
+
+      var trace3 = {
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: [12, 16, 18, 20],
+        name: 'Product C',
+        type: 'bar'
+      };
+
+      var layout = {
+        barmode: 'group',
+        title: { text: 'Quarterly Sales by Product' },
+        xaxis: { title: { text: 'Quarter' } },
+        yaxis: { title: { text: 'Revenue ($M)' } }
+      };
+
+      Plotly.newPlot('grouped-bar-chart', [trace1, trace2, trace3], layout);
+    </script>
+  </body>
+</html>
