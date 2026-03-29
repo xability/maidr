@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
@@ -106,6 +106,41 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       cross: { label: crossLabel, value: crossValue },
       mainAxis: isVertical ? 'x' : 'y',
       crossAxis: isVertical ? 'y' : 'x',
+    };
+  }
+
+  /**
+   * Gets the description state for the bar plot trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of bars', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+    ];
+
+    if (this.points.length > 1) {
+      stats.push({ label: 'Number of groups', value: this.points.length });
+    }
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis]
+      : [this.yAxis, this.xAxis];
+
+    const rows: (string | number)[][] = this.points[0].map((p) => {
+      const main = isVertical ? p.x : p.y;
+      const cross = isVertical ? p.y : p.x;
+      return [main, cross];
+    });
+
+    return {
+      chartType: this.layer.type,
+      title: this.title,
+      axes: { x: this.xAxis, y: this.yAxis },
+      stats,
+      dataTable: { headers, rows },
     };
   }
 

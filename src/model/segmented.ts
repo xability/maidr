@@ -1,6 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
-import type { HighlightState, TextState } from '@type/state';
+import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -190,6 +190,51 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;
+  }
+
+  /**
+   * Gets the description state for the segmented bar trace.
+   * Overrides bar description to include fill category information.
+   * @returns The description state containing chart metadata and data table
+   */
+  public override get description(): DescriptionState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    // Exclude the summary row (last row) for stats and data
+    const dataPoints = this.points.slice(0, -1);
+
+    const fillCategories = [
+      ...new Set(
+        dataPoints.map(row => row[0]?.fill).filter(Boolean),
+      ),
+    ] as string[];
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of bars', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      { label: 'Number of groups', value: dataPoints.length },
+      { label: 'Fill categories', value: fillCategories.join(', ') },
+    ];
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis, LEVEL]
+      : [this.yAxis, this.xAxis, LEVEL];
+
+    const rows: (string | number)[][] = dataPoints.flatMap(group =>
+      group.map((p) => {
+        const main = isVertical ? p.x : p.y;
+        const cross = isVertical ? p.y : p.x;
+        return [main, cross, p.fill ?? UNDEFINED];
+      }),
+    );
+
+    return {
+      chartType: this.layer.type,
+      title: this.title,
+      axes: { x: this.xAxis, y: this.yAxis, fill: this.fill },
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   protected get text(): TextState {

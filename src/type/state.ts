@@ -283,6 +283,38 @@ export type AutoplayState = {
 };
 
 /**
+ * A single statistic entry for chart description (e.g., "Min: 5", "Groups: 3").
+ */
+export interface DescriptionStat {
+  label: string;
+  value: string | number;
+}
+
+/**
+ * Description state containing objective chart metadata for the description modal.
+ * Fetched on-demand when the user opens the description dialog.
+ */
+export interface DescriptionState {
+  /** Chart/trace type label (e.g., "Bar Chart", "Line Plot") */
+  chartType: string;
+  /** Chart title */
+  title: string;
+  /** Axes information */
+  axes: {
+    x?: string;
+    y?: string;
+    fill?: string;
+  };
+  /** Chart-specific summary statistics */
+  stats: DescriptionStat[];
+  /** Data table for raw data display */
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
+}
+
+/**
  * Highlight state for visual emphasis of current plot elements.
  */
 export type HighlightState

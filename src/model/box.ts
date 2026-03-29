@@ -1,6 +1,6 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -119,6 +119,39 @@ export class BoxTrace extends AbstractTrace {
         (p: BoxPoint) => p.max,
         (p: BoxPoint) => p.upperOutliers,
       ],
+    };
+  }
+
+  /**
+   * Gets the description state for the box plot trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const groupNames = this.points.map(p => p.fill).join(', ');
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of groups', value: this.points.length },
+      { label: 'Group names', value: groupNames },
+      { label: 'Min', value: this.min },
+      { label: 'Max', value: this.max },
+    ];
+
+    const headers = ['Group', 'Min', 'Q1', 'Q2', 'Q3', 'Max'];
+    const rows: (string | number)[][] = this.points.map(p => [
+      p.fill,
+      p.min,
+      p.q1,
+      p.q2,
+      p.q3,
+      p.max,
+    ]);
+
+    return {
+      chartType: 'box',
+      title: this.title,
+      axes: { x: this.xAxis, y: this.yAxis },
+      stats,
+      dataTable: { headers, rows },
     };
   }
 

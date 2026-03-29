@@ -58,6 +58,9 @@ const BRAILLE_KEYMAP = {
   ANNOUNCE_POINT: `space`,
   ANNOUNCE_POSITION: `p`,
 
+  // Chart description
+  TOGGLE_DESCRIPTION: `d`,
+
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
@@ -220,6 +223,9 @@ const TRACE_KEYMAP = {
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: `g`,
 
+  // Chart description
+  TOGGLE_DESCRIPTION: `d`,
+
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
@@ -235,6 +241,13 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_SELECT: 'enter',
   GO_TO_EXTREMA_CLOSE: 'esc',
   GO_TO_EXTREMA_TOGGLE: 'g',
+} as const;
+
+/**
+ * Keymap configuration for chart description modal interactions.
+ */
+const DESCRIPTION_KEYMAP = {
+  TOGGLE_DESCRIPTION: `esc`,
 } as const;
 
 /**
@@ -255,6 +268,7 @@ export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
+  [Scope.DESCRIPTION]: DESCRIPTION_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,

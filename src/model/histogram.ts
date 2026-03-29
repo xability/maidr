@@ -1,11 +1,54 @@
 import type { HistogramPoint, MaidrLayer } from '@type/grammar';
-import type { TextState } from '@type/state';
+import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as HistogramPoint[]]);
+  }
+
+  /**
+   * Gets the description state for the histogram trace.
+   * Overrides bar description to include bin range information.
+   * @returns The description state containing chart metadata and data table
+   */
+  public override get description(): DescriptionState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const points = this.points[0] as HistogramPoint[];
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    const binRangeMin = isVertical ? firstPoint.xMin : firstPoint.yMin;
+    const binRangeMax = isVertical ? lastPoint.xMax : lastPoint.yMax;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of bins', value: points.length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      { label: 'Bin range', value: `${binRangeMin} to ${binRangeMax}` },
+    ];
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis, 'Bin Min', 'Bin Max']
+      : [this.yAxis, this.xAxis, 'Bin Min', 'Bin Max'];
+
+    const rows: (string | number)[][] = points.map((p) => {
+      const main = isVertical ? p.x : p.y;
+      const cross = isVertical ? p.y : p.x;
+      const min = isVertical ? p.xMin : p.yMin;
+      const max = isVertical ? p.xMax : p.yMax;
+      return [main, cross, min, max];
+    });
+
+    return {
+      chartType: 'hist',
+      title: this.title,
+      axes: { x: this.xAxis, y: this.yAxis },
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   protected get text(): TextState {
