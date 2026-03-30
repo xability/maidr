@@ -20,6 +20,20 @@ import { Constant } from '@util/constant';
 
 const DEFAULT_BRAILLE_SIZE = 32;
 
+/**
+ * Normalizes configured braille display size to a safe positive integer.
+ * Falls back to default when the value is missing or invalid.
+ * @param size - Raw display size value from settings or caller
+ * @returns Normalized display size
+ */
+function normalizeDisplaySize(size: number | undefined): number {
+  if (!Number.isFinite(size) || size === undefined) {
+    return DEFAULT_BRAILLE_SIZE;
+  }
+
+  return Math.max(1, Math.floor(size));
+}
+
 enum BrailleSettings {
   DISPLAY_SIZE = 'general.brailleDisplaySize',
 }
@@ -72,7 +86,11 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
    * @param state - Bar chart braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: BarBrailleState): EncodedBraille {
+  public encode(
+    state: BarBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
@@ -100,11 +118,24 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
+
+        if ((col + 1) % displaySize === 0) {
+          values.push(Constant.NEW_LINE);
+          indexToCell.push({ row, col });
+        }
       }
 
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+      if (
+        state.values[row].length === 0
+        || state.values[row].length % displaySize !== 0
+      ) {
+        values.push(Constant.NEW_LINE);
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col: state.values[row].length });
+      } else {
+        indexToCell.push({ row, col: state.values[row].length });
+        cellToIndex[row].push(indexToCell.length - 1);
+      }
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -350,7 +381,11 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
    * @param state - Heatmap braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: HeatmapBrailleState): EncodedBraille {
+  public encode(
+    state: HeatmapBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
@@ -375,11 +410,24 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
 
         cellToIndex[row].push(indexToCell.length);
         indexToCell.push({ row, col });
+
+        if ((col + 1) % displaySize === 0) {
+          values.push(Constant.NEW_LINE);
+          indexToCell.push({ row, col });
+        }
       }
 
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+      if (
+        state.values[row].length === 0
+        || state.values[row].length % displaySize !== 0
+      ) {
+        values.push(Constant.NEW_LINE);
+        cellToIndex[row].push(indexToCell.length);
+        indexToCell.push({ row, col: state.values[row].length });
+      } else {
+        indexToCell.push({ row, col: state.values[row].length });
+        cellToIndex[row].push(indexToCell.length - 1);
+      }
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -422,7 +470,7 @@ implements BrailleEncoder<T> {
     state: T,
     size: number = DEFAULT_BRAILLE_SIZE,
   ): EncodedBraille {
-    const displaySize = Math.max(1, Math.floor(size));
+    const displaySize = normalizeDisplaySize(size);
     const values = new Array<string>();
     const cellToIndex = new Array<Array<number>>();
     const indexToCell = new Array<Cell>();
@@ -723,9 +771,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.display = display;
 
     this.enabled = false;
-    this.displaySize = Math.max(
-      1,
-      Math.floor(settings.get<number>(BrailleSettings.DISPLAY_SIZE)),
+    this.displaySize = normalizeDisplaySize(
+      settings.get<number>(BrailleSettings.DISPLAY_SIZE),
     );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
@@ -754,9 +801,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
         return;
       }
 
-      this.displaySize = Math.max(
-        1,
-        Math.floor(event.get<number>(BrailleSettings.DISPLAY_SIZE)),
+      this.displaySize = normalizeDisplaySize(
+        event.get<number>(BrailleSettings.DISPLAY_SIZE),
       );
       this.cache = null;
       this.cacheId = Constant.EMPTY;
@@ -810,7 +856,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     this.onChangeEmitter.fire({
-      value: this.cache.value.trim(),
+      value: this.cache.value,
       index: this.cache.cellToIndex[braille.row][braille.col],
     });
   }

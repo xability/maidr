@@ -2,7 +2,12 @@ import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
-import type { LineBrailleState, TraceState } from '@type/state';
+import type {
+  BarBrailleState,
+  HeatmapBrailleState,
+  LineBrailleState,
+  TraceState,
+} from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BrailleService } from '@service/braille';
 import { TraceType } from '@type/grammar';
@@ -57,6 +62,109 @@ function createLineTraceState(values: number[][], row: number, col: number): Tra
     traceType: TraceType.LINE,
     plotType: 'line',
     title: 'Line test trace',
+    xAxis: 'x',
+    yAxis: 'y',
+    fill: 'none',
+    hasMultiPoints: false,
+    audio: {
+      freq: { min: 200, max: 1000, raw: 300 },
+      panning: { y: 0, x: 0, rows: 1, cols: 1 },
+    },
+    braille,
+    text: {
+      main: { label: 'x', value: 0 },
+      cross: { label: 'y', value: 0 },
+    },
+    autoplay: {
+      UPWARD: 0,
+      DOWNWARD: 0,
+      FORWARD: 0,
+      BACKWARD: 0,
+    },
+    highlight: {
+      empty: false,
+      elements: [] as unknown as SVGElement[],
+    },
+  };
+}
+
+/**
+ * Creates a bar trace state with configurable braille cursor position.
+ * @param values - Braille value rows
+ * @param row - Active braille row
+ * @param col - Active braille column
+ * @returns Non-empty trace state for bar braille updates
+ */
+function createBarTraceState(values: number[][], row: number, col: number): TraceState {
+  const braille: BarBrailleState = {
+    id: `bar-braille-${values[0]?.length ?? 0}-${row}-${col}`,
+    empty: false,
+    row,
+    col,
+    values,
+    min: values.map(items => Math.min(...items)),
+    max: values.map(items => Math.max(...items)),
+  };
+
+  return {
+    empty: false,
+    type: 'trace',
+    layerId: 'test-layer',
+    traceType: TraceType.BAR,
+    plotType: 'bar',
+    title: 'Bar test trace',
+    xAxis: 'x',
+    yAxis: 'y',
+    fill: 'none',
+    hasMultiPoints: false,
+    audio: {
+      freq: { min: 200, max: 1000, raw: 300 },
+      panning: { y: 0, x: 0, rows: 1, cols: 1 },
+    },
+    braille,
+    text: {
+      main: { label: 'x', value: 0 },
+      cross: { label: 'y', value: 0 },
+    },
+    autoplay: {
+      UPWARD: 0,
+      DOWNWARD: 0,
+      FORWARD: 0,
+      BACKWARD: 0,
+    },
+    highlight: {
+      empty: false,
+      elements: [] as unknown as SVGElement[],
+    },
+  };
+}
+
+/**
+ * Creates a heatmap trace state with configurable braille cursor position.
+ * @param values - Braille value rows
+ * @param row - Active braille row
+ * @param col - Active braille column
+ * @returns Non-empty trace state for heatmap braille updates
+ */
+function createHeatmapTraceState(values: number[][], row: number, col: number): TraceState {
+  const flattened = values.flat();
+  const braille: HeatmapBrailleState = {
+    id: `heatmap-braille-${values[0]?.length ?? 0}-${row}-${col}`,
+    empty: false,
+    row,
+    col,
+    values,
+    min: Math.min(...flattened),
+    max: Math.max(...flattened),
+  };
+
+  return {
+    empty: false,
+    type: 'trace',
+    layerId: 'test-layer',
+    traceType: TraceType.HEATMAP,
+    plotType: 'heatmap',
+    title: 'Heatmap test trace',
     xAxis: 'x',
     yAxis: 'y',
     fill: 'none',
@@ -306,6 +414,67 @@ describe('BrailleService display-size encoding', () => {
 
     expect(values.length).toBeGreaterThan(1);
     expect(beforeChange).not.toEqual(afterChange);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('emits untrimmed braille value to preserve index mapping offsets', () => {
+    const { service } = createBrailleService(10);
+    const state = createLineTraceState([[1, 2, 3]], 0, 3);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    expect(emitted.endsWith('\n')).toBe(true);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('wraps bar braille output based on configured display size', () => {
+    const { service, contextMoveToIndex } = createBrailleService(2);
+    const state = createBarTraceState([[1, 2, 3, 4, 5]], 0, 5);
+
+    let lastIndex = -1;
+    const disposable = service.onChange((event) => {
+      lastIndex = event.index;
+    });
+
+    service.toggle(state);
+
+    const cache = getCache(service);
+    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    expect(newlineCount).toBe(3);
+
+    service.moveToIndex(lastIndex);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 5);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('wraps heatmap braille output based on configured display size', () => {
+    const { service, contextMoveToIndex } = createBrailleService(2);
+    const state = createHeatmapTraceState([[1, 2, 3, 4, 5]], 0, 5);
+
+    let lastIndex = -1;
+    const disposable = service.onChange((event) => {
+      lastIndex = event.index;
+    });
+
+    service.toggle(state);
+
+    const cache = getCache(service);
+    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    expect(newlineCount).toBe(3);
+
+    service.moveToIndex(lastIndex);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 5);
 
     disposable.dispose();
     service.dispose();
