@@ -17,11 +17,7 @@ import type { Orientation } from '@type/grammar';
  * - `'normalized_bar'` → `TraceType.NORMALIZED` — Stacked normalized (100%) bar chart
  * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
  * - `'line'` → `TraceType.LINE` — Line chart
- * - `'area'` → `TraceType.LINE` — Area chart (treated as line for sonification/navigation)
  * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
- * - `'pie'` → `TraceType.BAR` — Pie chart (sectors mapped as bar categories)
- * - `'radar'` → `TraceType.LINE` — Radar chart (dimensions mapped as line points)
- * - `'funnel'` → `TraceType.BAR` — Funnel chart (segments mapped as bar categories)
  */
 export type RechartsChartType
   = | 'bar'
@@ -30,11 +26,7 @@ export type RechartsChartType
     | 'normalized_bar'
     | 'histogram'
     | 'line'
-    | 'area'
-    | 'scatter'
-    | 'pie'
-    | 'radar'
-    | 'funnel';
+    | 'scatter';
 
 /**
  * A single data series/layer configuration for composed charts.

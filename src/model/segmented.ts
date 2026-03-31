@@ -201,14 +201,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected mapToSvgElements(selector?: string): SVGElement[][] {
+  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     const svgElements = new Array<Array<SVGElement>>();
@@ -218,7 +218,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         const row = new Array<SVGElement>();
         for (let c = 0; c < this.barValues[r].length; c++) {
           if (domIndex >= domElements.length) {
-            return new Array<Array<SVGElement>>();
+            return null;
           } else if (this.barValues[r][c] === 0) {
             row.push(Svg.createEmptyElement());
           } else {
@@ -237,7 +237,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         if (isForward) {
           for (let r = 0; r < this.barValues.length; r++) {
             if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
+              return null;
             } else if (this.barValues[r][c] === 0) {
               svgElements[r].push(Svg.createEmptyElement());
             } else {
@@ -247,7 +247,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         } else {
           for (let r = this.barValues.length - 1; r >= 0; r--) {
             if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
+              return null;
             } else if (this.barValues[r][c] === 0) {
               svgElements[r].push(Svg.createEmptyElement());
             } else {

@@ -38,13 +38,15 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "docs": "node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
+    "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
+    "docs": "npm run build:recharts-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",
     "docs:serve": "npm run docs && npx http-server _site -o",
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
     "e2e:ui": "npx playwright test --ui",
     "e2e:debug": "npx playwright test --debug",
-    "e2e:install": "npx playwright install --with-deps"
+    "e2e:install": "npx playwright install --with-deps",
+    "dev:recharts": "vite --config examples/recharts/vite.config.ts"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -103,6 +105,7 @@
     "marked": "^15.0.12",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "recharts": "^3.8.1",
     "semantic-release": "^24.2.3",
     "start-server-and-test": "^2.0.11",
     "ts-jest": "^29.3.2",
@@ -111,7 +114,8 @@
     "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-singlefile": "^2.3.2"
   },
   "directories": {
     "doc": "docs",

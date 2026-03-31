@@ -46,7 +46,11 @@ import { convertRechartsToMaidr } from './converters';
  *
  * The result is memoized: it only recomputes when individual config
  * fields change. You do **not** need to stabilize the config object
- * reference — the hook tracks each field independently.
+ * reference itself — the hook destructures it and tracks each field
+ * independently. However, fields that are arrays or objects (`data`,
+ * `yKeys`, `layers`, `fillKeys`, `binConfig`) are compared by
+ * reference. Define them outside the component or wrap them in
+ * `useMemo` to avoid unnecessary recomputation on every render.
  *
  * @param config - Recharts adapter configuration
  * @returns MaidrData ready to pass to `<Maidr data={...}>`

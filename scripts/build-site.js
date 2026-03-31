@@ -50,6 +50,7 @@ function generatePage(title, content, activePage, basePath = '') {
     .replace('{{CONTENT}}', content)
     .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
     .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
+    .replace('{{RECHARTS_ACTIVE}}', activePage === 'recharts' ? 'active' : '')
     .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
     .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, basePath);
@@ -90,6 +91,20 @@ if (fs.existsSync(reactMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
+// Build recharts.html from docs/recharts.md
+console.log('Building recharts.html from docs/recharts.md...');
+const rechartsMdPath = path.join(ROOT, 'docs', 'recharts.md');
+if (fs.existsSync(rechartsMdPath)) {
+  const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
+  const rechartsHtml = `
+<div class="content">
+  ${marked.parse(rechartsMd)}
+</div>
+`;
+  const rechartsPage = generatePage('Recharts', rechartsHtml, 'recharts');
+  fs.writeFileSync(path.join(SITE_DIR, 'recharts.html'), rechartsPage);
+}
+
 // Build examples.html
 console.log('Building examples.html...');
 const examplesContent = `
@@ -122,13 +137,26 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
+// Copy built Recharts example (single-file HTML) to _site/examples/recharts/
+console.log('Copying built Recharts example...');
+const rechartsBuilt = path.join(ROOT, 'examples', 'recharts', 'dist', 'index.html');
+const rechartsSiteDest = path.join(SITE_DIR, 'examples', 'recharts');
+if (fs.existsSync(rechartsBuilt)) {
+  if (!fs.existsSync(rechartsSiteDest)) {
+    fs.mkdirSync(rechartsSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(rechartsBuilt, path.join(rechartsSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Recharts example not found. Run "npm run build:recharts-example" first.');
+}
+
 // Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
 const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md')
       continue;
 
     const src = path.join(docsSource, file);

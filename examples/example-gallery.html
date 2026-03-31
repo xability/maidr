@@ -35,6 +35,12 @@
     </ul>
     <p>See the <a href="../react.html" target="_top">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
 
+    <h3>Recharts</h3>
+    <ul>
+        <li><a href="#" onclick="loadRecharts()">Recharts Examples (Bar, Stacked, Dodged, Normalized, Histogram, Line, Scatter, Composed)</a></li>
+    </ul>
+    <p>See the <a href="../recharts.html" target="_top">Recharts Integration Guide</a> for setup instructions, supported chart types, and code examples.</p>
+
     <h3>HTML / Vanilla JS</h3>
     <ul>
         <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot')">Barplot</a></li>
@@ -70,6 +76,30 @@
 
         const iframe = document.createElement('iframe');
         iframe.src = 'react/index.html';
+        iframe.style.width = '100%';
+        iframe.style.height = '800px';
+        iframe.style.border = 'none';
+
+        const contentDiv = document.getElementById("content");
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(heading);
+        contentDiv.appendChild(iframe);
+        contentDiv.hidden = false;
+
+        setTimeout(() => {
+            heading.focus();
+        }, 100);
+    }
+
+    function loadRecharts() {
+        const heading = document.createElement('h2');
+        heading.id = 'example-heading';
+        heading.textContent = 'Recharts Examples';
+        heading.tabIndex = -1;
+        heading.style.marginTop = '0';
+
+        const iframe = document.createElement('iframe');
+        iframe.src = 'recharts/index.html';
         iframe.style.width = '100%';
         iframe.style.height = '800px';
         iframe.style.border = 'none';

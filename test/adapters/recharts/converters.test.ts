@@ -32,7 +32,7 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.type).toBe(TraceType.BAR);
       expect(layer.axes?.x).toBe('Category');
       expect(layer.axes?.y).toBe('Value');
-      expect(layer.selectors).toBe('.recharts-bar-rectangle');
+      expect(layer.selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
 
       const data = layer.data as BarPoint[];
       expect(data).toHaveLength(3);
@@ -93,12 +93,13 @@ describe('convertRechartsToMaidr', () => {
 
       const data = layer.data as SegmentedPoint[][];
       expect(data).toHaveLength(2);
-      // First category (Jan): two segments
+      // First series (Product A): all categories
       expect(data[0]).toHaveLength(2);
       expect(data[0][0]).toEqual({ x: 'Jan', y: 10, fill: 'Product A' });
-      expect(data[0][1]).toEqual({ x: 'Jan', y: 20, fill: 'Product B' });
-      // Second category (Feb)
-      expect(data[1][0]).toEqual({ x: 'Feb', y: 15, fill: 'Product A' });
+      expect(data[0][1]).toEqual({ x: 'Feb', y: 15, fill: 'Product A' });
+      // Second series (Product B): all categories
+      expect(data[1]).toHaveLength(2);
+      expect(data[1][0]).toEqual({ x: 'Jan', y: 20, fill: 'Product B' });
       expect(data[1][1]).toEqual({ x: 'Feb', y: 25, fill: 'Product B' });
     });
 
@@ -115,7 +116,7 @@ describe('convertRechartsToMaidr', () => {
       const data = result.subplots[0][0].layers[0].data as SegmentedPoint[][];
 
       expect(data[0][0].fill).toBe('s1');
-      expect(data[0][1].fill).toBe('s2');
+      expect(data[1][0].fill).toBe('s2');
     });
 
     it('falls back to BAR type when stacked_bar has single yKey', () => {
@@ -342,35 +343,6 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
-  describe('area chart', () => {
-    it('maps area to LINE trace type', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'area',
-        data: [{ x: 1, y: 10 }],
-        chartType: 'area',
-        xKey: 'x',
-        yKeys: ['y'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      expect(result.subplots[0][0].layers[0].type).toBe(TraceType.LINE);
-    });
-
-    it('preserves string x-axis values for area charts', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'area-string-x',
-        data: [{ month: 'Jan', value: 10 }],
-        chartType: 'area',
-        xKey: 'month',
-        yKeys: ['value'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
-      expect(data[0][0].x).toBe('Jan');
-    });
-  });
-
   describe('scatter chart', () => {
     it('converts scatter data to ScatterPoint[]', () => {
       const config: RechartsAdapterConfig = {
@@ -392,86 +364,6 @@ describe('convertRechartsToMaidr', () => {
       const data = layer.data as ScatterPoint[];
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({ x: 1, y: 10 });
-    });
-  });
-
-  describe('pie chart', () => {
-    it('maps pie to BAR trace type', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'pie',
-        data: [
-          { name: 'A', value: 30 },
-          { name: 'B', value: 70 },
-        ],
-        chartType: 'pie',
-        xKey: 'name',
-        yKeys: ['value'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      const layer = result.subplots[0][0].layers[0];
-
-      expect(layer.type).toBe(TraceType.BAR);
-      expect(layer.selectors).toBe('.recharts-pie-sector');
-
-      const data = layer.data as BarPoint[];
-      expect(data[0]).toEqual({ x: 'A', y: 30 });
-    });
-  });
-
-  describe('radar chart', () => {
-    it('maps radar to LINE trace type', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'radar',
-        data: [
-          { subject: 'Math', score: 80 },
-          { subject: 'English', score: 90 },
-        ],
-        chartType: 'radar',
-        xKey: 'subject',
-        yKeys: ['score'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      const layer = result.subplots[0][0].layers[0];
-
-      expect(layer.type).toBe(TraceType.LINE);
-      expect(layer.selectors).toBe('.recharts-radar-dot');
-    });
-
-    it('preserves string x-axis values for radar charts', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'radar-string-x',
-        data: [{ subject: 'Math', score: 80 }],
-        chartType: 'radar',
-        xKey: 'subject',
-        yKeys: ['score'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      const data = result.subplots[0][0].layers[0].data as LinePoint[][];
-      expect(data[0][0].x).toBe('Math');
-    });
-  });
-
-  describe('funnel chart', () => {
-    it('maps funnel to BAR trace type', () => {
-      const config: RechartsAdapterConfig = {
-        id: 'funnel',
-        data: [
-          { name: 'Visits', value: 1000 },
-          { name: 'Signups', value: 500 },
-        ],
-        chartType: 'funnel',
-        xKey: 'name',
-        yKeys: ['value'],
-      };
-
-      const result = convertRechartsToMaidr(config);
-      const layer = result.subplots[0][0].layers[0];
-
-      expect(layer.type).toBe(TraceType.BAR);
-      expect(layer.selectors).toBe('.recharts-funnel-trapezoid');
     });
   });
 
@@ -537,10 +429,10 @@ describe('convertRechartsToMaidr', () => {
       const result = convertRechartsToMaidr(config);
       const layers = result.subplots[0][0].layers;
 
-      // Each type appears once, seriesIndex = 0, so getRechartsSelector
-      // still returns undefined because seriesIndex is provided
-      expect(layers[0].selectors).toBeUndefined();
-      expect(layers[1].selectors).toBeUndefined();
+      // Each type appears only once, so no seriesIndex is passed and
+      // getRechartsSelector returns the CSS selector for highlighting.
+      expect(layers[0].selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      expect(layers[1].selectors).toEqual(['.recharts-line-dots .recharts-line-dot']);
     });
   });
 
@@ -635,7 +527,8 @@ describe('convertRechartsToMaidr', () => {
       const layers = result.subplots[0][0].layers;
 
       expect(layers[0].selectors).toBe('.custom-selector');
-      expect(layers[1].selectors).toBe('.custom-selector');
+      // Line layers wrap selectors in an array (LineTrace expects string[])
+      expect(layers[1].selectors).toEqual(['.custom-selector']);
     });
   });
 

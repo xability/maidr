@@ -6,28 +6,26 @@
  * data point elements that MAIDR uses for visual highlighting during
  * keyboard navigation.
  *
- * SVG structure reference (Recharts v2.x):
+ * SVG structure reference (Recharts v2.x / v3.x):
  *
  * BarChart:
  *   g.recharts-bar > g.recharts-bar-rectangles > g.recharts-bar-rectangle > path.recharts-rectangle
+ *   [target: .recharts-bar-rectangle .recharts-rectangle]
  *
  * LineChart:
  *   g.recharts-line > g.recharts-line-dots > circle.recharts-line-dot
+ *   [target: .recharts-line-dots .recharts-line-dot]
  *
- * AreaChart:
- *   g.recharts-area > g.recharts-area-dots > circle.recharts-area-dot
+ *   The element-based approach in LineTrace picks up individual dots directly
+ *   (similar to how BarTrace uses individual rect elements).
  *
  * ScatterChart:
- *   g.recharts-scatter > g.recharts-scatter-symbol > svg.recharts-symbols
+ *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
+ *   [target: .recharts-scatter-symbol .recharts-symbols]
  *
- * PieChart:
- *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
- *
- * RadarChart:
- *   g.recharts-radar > g.recharts-radar-dots > circle.recharts-radar-dot
- *
- * FunnelChart:
- *   g.recharts-trapezoids > g.recharts-funnel-trapezoid > path.recharts-trapezoid
+ * Selectors are scoped to their parent container classes to avoid matching
+ * Recharts utility elements (e.g. Tooltip cursor rectangles) that share the
+ * same leaf class name.
  *
  * ## Multi-series limitation
  *
@@ -76,18 +74,10 @@ export function getRechartsSelector(
     case 'dodged_bar':
     case 'normalized_bar':
     case 'histogram':
-      return '.recharts-bar-rectangle';
+      return '.recharts-bar-rectangle .recharts-rectangle';
     case 'line':
-      return '.recharts-line-dot';
-    case 'area':
-      return '.recharts-area-dot';
+      return '.recharts-line-dots .recharts-line-dot';
     case 'scatter':
-      return '.recharts-scatter-symbol';
-    case 'pie':
-      return '.recharts-pie-sector';
-    case 'radar':
-      return '.recharts-radar-dot';
-    case 'funnel':
-      return '.recharts-funnel-trapezoid';
+      return '.recharts-scatter-symbol .recharts-symbols';
   }
 }

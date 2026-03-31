@@ -86,7 +86,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
     return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride)];
   }
 
-  // Line/area/radar with multiple series: single layer with 2D LinePoint[][] data
+  // Line with multiple series: single layer with 2D LinePoint[][] data
   if (isLineType(chartType) && hasMultipleSeries) {
     return [buildMultiSeriesLineLayer(data, xKey, yKeys, chartType, xLabel, yLabel, selectorOverride)];
   }
@@ -107,7 +107,8 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
       id: String(index),
       type: maidrType,
       title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
-      selectors: selector,
+      // LineTrace expects selectors as string[] (one per series), not a single string
+      selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
       axes: {
         x: xLabel,
@@ -121,9 +122,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
 /**
  * Builds a single segmented bar layer (stacked/dodged/normalized) with SegmentedPoint[][] data.
  *
- * SegmentedPoint[][] layout:
- *   outer array = categories (x values)
- *   inner array = segments within each category (one per yKey/fill)
+ * SegmentedPoint[][] layout (matches SegmentedTrace expectation):
+ *   outer array = groups / series (one per yKey/fill)
+ *   inner array = categories (x values)
  */
 function buildSegmentedBarLayer(
   data: Record<string, unknown>[],
@@ -136,8 +137,11 @@ function buildSegmentedBarLayer(
   fillKeys?: string[],
   selectorOverride?: string,
 ): MaidrLayer {
-  const segmentedData: SegmentedPoint[][] = data.map((item) => {
-    return yKeys.map((yKey, i) => ({
+  // SegmentedTrace expects [group/segment][category]:
+  //   outer array = series (one per yKey/fill)
+  //   inner array = categories (one per data item / x-value)
+  const segmentedData: SegmentedPoint[][] = yKeys.map((yKey, i) => {
+    return data.map(item => ({
       x: item[xKey] as string | number,
       y: toNumber(item[yKey]),
       fill: fillKeys?.[i] ?? yKey,
@@ -201,7 +205,7 @@ function buildHistogramLayer(
 }
 
 /**
- * Builds a single line/area/radar layer with multi-series 2D data.
+ * Builds a single line layer with multi-series 2D data.
  *
  * X-axis values are preserved as-is (string or number) to avoid
  * coercing category labels like 'Jan' to 0.
@@ -251,13 +255,22 @@ function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
     throw new Error('RechartsAdapter: layers array must not be empty in composed mode');
   }
 
-  // Track how many of each chart type we've seen for series indexing
+  // Count how many layers use each chart type to decide multi-series indexing.
+  // Only pass seriesIndex when a chart type appears more than once — a single
+  // occurrence is unambiguous and CSS selectors work fine.
+  const typeTotals = new Map<RechartsChartType, number>();
+  for (const l of layers) {
+    typeTotals.set(l.chartType, (typeTotals.get(l.chartType) ?? 0) + 1);
+  }
   const typeCounters = new Map<RechartsChartType, number>();
 
   return layers.map((layerConfig: RechartsLayerConfig, index: number) => {
     const { yKey, chartType, name } = layerConfig;
-    const seriesIndex = typeCounters.get(chartType) ?? 0;
-    typeCounters.set(chartType, seriesIndex + 1);
+    const currentIndex = typeCounters.get(chartType) ?? 0;
+    typeCounters.set(chartType, currentIndex + 1);
+
+    // Only use seriesIndex when there are multiple layers of the same chart type
+    const seriesIndex = (typeTotals.get(chartType) ?? 0) > 1 ? currentIndex : undefined;
 
     const maidrType = toTraceType(chartType);
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex);
@@ -267,7 +280,8 @@ function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
       id: String(index),
       type: maidrType,
       title: name,
-      selectors: selector,
+      // LineTrace expects selectors as string[] (one per series), not a single string
+      selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
       axes: {
         x: xLabel,
@@ -289,12 +303,8 @@ function convertData(
 ): BarPoint[] | LinePoint[][] | ScatterPoint[] {
   switch (chartType) {
     case 'bar':
-    case 'pie':
-    case 'funnel':
       return convertToBarPoints(data, xKey, yKey);
     case 'line':
-    case 'area':
-    case 'radar':
       return convertToLinePoints(data, xKey, yKey);
     case 'scatter':
       return convertToScatterPoints(data, xKey, yKey);
@@ -309,13 +319,6 @@ function convertData(
 
 /**
  * Converts data to BarPoint[] format.
- *
- * Used for:
- * - Bar charts
- * - Pie charts (sectors mapped as bar categories — screen readers will
- *   describe data using bar semantics such as "point N of M")
- * - Funnel charts (segments mapped as bar categories — screen readers will
- *   describe data using bar semantics such as "point N of M")
  */
 function convertToBarPoints(
   data: Record<string, unknown>[],
@@ -330,7 +333,6 @@ function convertToBarPoints(
 
 /**
  * Converts data to LinePoint[][] format (single series as 2D array).
- * Used for line, area, and radar charts.
  *
  * X-axis values are preserved as their original type (string or number).
  * This avoids coercing category labels (e.g. 'Jan', 'Feb') to 0.
@@ -370,9 +372,7 @@ function isBarType(chartType: RechartsChartType): boolean {
     || chartType === 'stacked_bar'
     || chartType === 'dodged_bar'
     || chartType === 'normalized_bar'
-    || chartType === 'histogram'
-    || chartType === 'funnel'
-    || chartType === 'pie';
+    || chartType === 'histogram';
 }
 
 /**
@@ -388,15 +388,11 @@ function isSegmentedBarType(chartType: RechartsChartType): boolean {
  * Returns true if the chart type maps to a line-like MAIDR type.
  */
 function isLineType(chartType: RechartsChartType): boolean {
-  return chartType === 'line' || chartType === 'area' || chartType === 'radar';
+  return chartType === 'line';
 }
 
 /**
  * Maps Recharts chart types to MAIDR TraceType enum values.
- *
- * Note: `'pie'` and `'funnel'` map to `TraceType.BAR`. Screen readers will
- * use bar terminology (e.g. "point 1 of 5") for these chart types because
- * MAIDR does not yet have dedicated pie or funnel trace types.
  */
 function toTraceType(chartType: RechartsChartType): TraceType {
   switch (chartType) {
@@ -411,14 +407,9 @@ function toTraceType(chartType: RechartsChartType): TraceType {
     case 'histogram':
       return TraceType.HISTOGRAM;
     case 'line':
-    case 'area':
-    case 'radar':
       return TraceType.LINE;
     case 'scatter':
       return TraceType.SCATTER;
-    case 'pie':
-    case 'funnel':
-      return TraceType.BAR;
   }
 }
 
