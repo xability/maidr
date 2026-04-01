@@ -786,7 +786,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       }
 
       const state = this.context.state;
-      if (state.type === 'trace' || state.type === 'subplot') {
+      if (state != null && (state.type === 'trace' || state.type === 'subplot')) {
         this.update(state);
       }
     }));

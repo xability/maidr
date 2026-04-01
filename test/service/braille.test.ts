@@ -561,4 +561,22 @@ describe('BrailleService display-size encoding', () => {
     disposable.dispose();
     service.dispose();
   });
+
+  test('does not re-emit when service is not enabled and display size changes', () => {
+    const { service, triggerDisplaySizeChange }
+      = createBrailleServiceWithSettingsTrigger(32);
+
+    let emitCount = 0;
+    const disposable = service.onChange(() => {
+      emitCount++;
+    });
+
+    // Service is never toggled on — enabled remains false
+    triggerDisplaySizeChange(20);
+
+    expect(emitCount).toBe(0);
+
+    disposable.dispose();
+    service.dispose();
+  });
 });
