@@ -229,14 +229,14 @@ export class RotorNavigationService {
    * Sets the rotor mode based on the current index and updates context state.
    */
   public setMode(): void {
-    const curr_mode = this.getMode();
-    if (this.isDataMode(curr_mode)) {
+    const currMode = this.getMode();
+    if (this.isDataMode(currMode)) {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
       return;
     }
     this.context.setRotorEnabled(true);
-    this.notifyGridMode(curr_mode === Constant.GRID_MODE);
+    this.notifyGridMode(currMode === Constant.GRID_MODE);
   }
 
   /**
@@ -255,25 +255,25 @@ export class RotorNavigationService {
    * @returns 'lower' or 'higher' based on the current mode
    */
   public getCompareType(): 'lower' | 'higher' {
-    const curr_mode = this.getMode();
-    if (curr_mode === Constant.HIGHER_VALUE_MODE) {
+    const currMode = this.getMode();
+    if (currMode === Constant.HIGHER_VALUE_MODE) {
       return 'higher';
-    } else if (curr_mode === Constant.LOWER_VALUE_MODE) {
+    } else if (currMode === Constant.LOWER_VALUE_MODE) {
       return 'lower';
     }
     return 'lower'; // fallback
   }
 
-  public getMessage(nav_type: string, direction: string): string {
+  public getMessage(navType: string, direction: string): string {
     if (this.text.isOff()) {
       return '';
     }
     if (this.text.isTerse()) {
       const preposition = direction === 'above' || direction === 'below' ? '' : 'on the ';
-      return `No ${nav_type} value found ${preposition}${direction}`;
+      return `No ${navType} value found ${preposition}${direction}`;
     }
     const position = direction === 'above' || direction === 'below' ? `${direction} ` : `to the ${direction} of `;
-    return `No ${nav_type} value found ${position}the current value.`;
+    return `No ${navType} value found ${position}the current value.`;
   }
 
   /**
@@ -338,7 +338,7 @@ export class RotorNavigationService {
       return this.getMessage('grid', direction);
     }
 
-    let moved: boolean;
+    let moved = false;
     switch (direction) {
       case 'up':
         moved = activeTrace.moveGridUp();

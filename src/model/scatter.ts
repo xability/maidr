@@ -415,6 +415,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     // If moveOnce is called, we're not in grid mode (rotor routes grid arrows elsewhere).
     // Clear the flag to stay in sync in case of unexpected code paths.
     if (this.isInGridMode) {
+      console.warn('[ScatterTrace] moveOnce() called while in grid mode — exiting grid mode. Rotor index may be out of sync.');
       this.setGridMode(false);
     }
 
