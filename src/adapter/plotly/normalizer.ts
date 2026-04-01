@@ -1,4 +1,4 @@
-import type { Maidr } from '../type/grammar';
+import type { Maidr } from '../../type/grammar';
 
 /**
  * Detects whether an SVG element lives inside a Plotly container.
@@ -9,7 +9,7 @@ import type { Maidr } from '../type/grammar';
 export function isPlotlyPlot(plot: HTMLElement): boolean {
   return (
     plot.classList.contains('main-svg')
-    || plot.closest('.plotly-graph-div') !== null
+    || plot.closest('.js-plotly-plot') !== null
   );
 }
 
@@ -41,11 +41,14 @@ export function normalizePlotlySvg(
   svg: SVGSVGElement,
   schema: Maidr,
 ): void {
+  // Resolve the plotly container for scoped queries.
+  const plotlyDiv = svg.closest('.js-plotly-plot') as HTMLElement | null;
+
   wrapSubplotBackgrounds(svg, schema);
   injectPlotlyStyles();
-  setupLayoutObserver(svg);
-  fixModebarTabOrder();
-  setupClickToFocus();
+  setupLayoutObserver(svg, plotlyDiv);
+  fixModebarTabOrder(plotlyDiv);
+  setupClickToFocus(plotlyDiv);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +128,7 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
  * user sees the highlight.
  */
 function setupStrokeMirror(bglayer: SVGGElement): void {
-  new MutationObserver((mutations) => {
+  const observer = new MutationObserver((mutations) => {
     for (const mut of mutations) {
       if (mut.type !== 'attributes')
         continue;
@@ -158,11 +161,16 @@ function setupStrokeMirror(bglayer: SVGGElement): void {
         visibleRect.removeAttribute('stroke-width');
       }
     }
-  }).observe(bglayer, {
+  });
+
+  observer.observe(bglayer, {
     attributes: true,
     attributeFilter: ['stroke', 'stroke-width'],
     subtree: true,
   });
+
+  // Store reference for disposal.
+  storeMutationObserver(bglayer, observer);
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +180,8 @@ function setupStrokeMirror(bglayer: SVGGElement): void {
 /**
  * Inject CSS overrides so maidr's `<article>/<figure>` wrapper doesn't
  * collapse inside Plotly's absolutely-positioned SVG container.
+ *
+ * Scoped to `[data-maidr-auto]` to avoid affecting non-MAIDR plotly charts.
  */
 function injectPlotlyStyles(): void {
   if (document.querySelector('style[data-maidr-plotly]')) {
@@ -180,17 +190,17 @@ function injectPlotlyStyles(): void {
   const style = document.createElement('style');
   style.setAttribute('data-maidr-plotly', '1');
   style.textContent = `
-    .svg-container { overflow: visible !important; }
-    .svg-container article[id^="maidr-article"] {
+    .js-plotly-plot[data-maidr-auto] .svg-container { overflow: visible !important; }
+    .js-plotly-plot .svg-container article[id^="maidr-article"] {
       position: relative !important;
       width: 100% !important;
     }
-    .svg-container article[id^="maidr-article"] > figure {
+    .js-plotly-plot .svg-container article[id^="maidr-article"] > figure {
       position: relative !important;
       width: 100% !important;
     }
-    .plotly-graph-div { overflow: visible !important; }
-    .svg-container:focus-within {
+    .js-plotly-plot[data-maidr-auto] { overflow: visible !important; }
+    .js-plotly-plot .svg-container:focus-within {
       outline: 2px solid #4A90D9;
       outline-offset: 2px;
     }
@@ -210,10 +220,15 @@ function injectPlotlyStyles(): void {
  * default) so the react-container renders at y=0, hidden behind the
  * chart.  Watch for the react-container to appear and push it below
  * the chart with padding-top.
+ *
+ * @param svg        - The main-svg element.
+ * @param plotlyDiv  - The `.js-plotly-plot` container (for scoped queries).
  */
-function setupLayoutObserver(svg: SVGSVGElement): void {
+function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null): void {
+  const scope = plotlyDiv ?? document;
+
   function fix(): void {
-    const rc = document.querySelector<HTMLElement>(
+    const rc = scope.querySelector<HTMLElement>(
       'div[id^="react-container-"]',
     );
     if (rc && svg) {
@@ -234,17 +249,21 @@ function setupLayoutObserver(svg: SVGSVGElement): void {
   }
 
   function observe(): void {
-    const article = document.querySelector(
+    const article = scope.querySelector(
       'article[id^="maidr-article"]',
     );
     if (!article) {
       requestAnimationFrame(observe);
       return;
     }
-    new MutationObserver(() => fix()).observe(article, {
+    const observer = new MutationObserver(() => fix());
+    observer.observe(article, {
       childList: true,
       subtree: true,
     });
+
+    // Store reference for disposal.
+    storeMutationObserver(article, observer);
   }
 
   // Defer until maidr has created its article wrapper.
@@ -258,9 +277,12 @@ function setupLayoutObserver(svg: SVGSVGElement): void {
 /**
  * Remove Plotly's modebar (toolbar) from the tab order and accessibility
  * tree so Tab goes directly to maidr's focusable div.
+ *
+ * @param plotlyDiv - The `.js-plotly-plot` container (for scoped queries).
  */
-function fixModebarTabOrder(): void {
-  const modebar = document.querySelector('.modebar-container');
+function fixModebarTabOrder(plotlyDiv: HTMLElement | null): void {
+  const scope = plotlyDiv ?? document;
+  const modebar = scope.querySelector('.modebar-container');
   if (!modebar)
     return;
 
@@ -283,18 +305,20 @@ function fixModebarTabOrder(): void {
  * Plotly renders overlay SVGs that capture mouse events.  After maidr
  * wraps `svg.main-svg`, these overlays are siblings outside the wrapper.
  * Forward clicks to maidr's focusable div.
+ *
+ * @param plotlyDiv - The `.js-plotly-plot` container (for scoped queries).
  */
-function setupClickToFocus(): void {
-  const container
-    = document.querySelector('.plotly-graph-div')
-      ?? document.querySelector('.svg-container');
+function setupClickToFocus(plotlyDiv: HTMLElement | null): void {
+  const container = plotlyDiv
+    ?? document.querySelector('.js-plotly-plot')
+    ?? document.querySelector('.svg-container');
   if (!container)
     return;
 
   container.addEventListener(
     'click',
     () => {
-      const wrapper = document.querySelector<HTMLElement>(
+      const wrapper = container.querySelector<HTMLElement>(
         'figure[id^="maidr-figure"] > div[tabindex="0"]',
       );
       if (wrapper)
@@ -302,4 +326,37 @@ function setupClickToFocus(): void {
     },
     true,
   );
+}
+
+// ---------------------------------------------------------------------------
+// MutationObserver disposal tracking
+// ---------------------------------------------------------------------------
+
+const OBSERVER_KEY = '__maidr_observers__';
+
+/**
+ * Stores a MutationObserver reference on a DOM element so it can be
+ * disconnected later (e.g. when the Controller disposes).
+ */
+function storeMutationObserver(el: Element, observer: MutationObserver): void {
+  const stored = (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY] ?? [];
+  stored.push(observer);
+  (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY] = stored;
+}
+
+/**
+ * Disconnects all MAIDR MutationObservers stored on a DOM element.
+ * Call this during disposal to prevent memory leaks.
+ */
+export function disconnectPlotlyObservers(root: Element): void {
+  const elements = root.querySelectorAll(`[${OBSERVER_KEY}]`);
+  for (const el of [root, ...elements]) {
+    const stored = (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY];
+    if (stored) {
+      for (const observer of stored) {
+        observer.disconnect();
+      }
+      delete (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY];
+    }
+  }
 }
