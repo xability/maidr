@@ -733,6 +733,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   /**
+   * Returns whether braille mode is currently enabled.
+   */
+  public get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /**
    * Updates the braille display based on plot state changes.
    * @param state - Updated subplot or trace state
    */

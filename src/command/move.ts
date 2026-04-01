@@ -1,5 +1,8 @@
 import type { Context } from '@model/context';
+import type { BrailleService } from '@service/braille';
+import type { DisplayService } from '@service/display';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Command to move the current position one step upward.
@@ -182,20 +185,36 @@ export class MoveToRightExtremeCommand implements Command {
  */
 export class MoveToTraceContextCommand implements Command {
   private readonly context: Context;
+  private readonly brailleService: BrailleService;
+  private readonly displayService: DisplayService;
 
   /**
    * Creates an instance of MoveToTraceContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
+   * @param {BrailleService} brailleService - The braille service to check enabled state.
+   * @param {DisplayService} displayService - The display service for managing focus.
    */
-  public constructor(context: Context) {
+  public constructor(context: Context, brailleService: BrailleService, displayService: DisplayService) {
     this.context = context;
+    this.brailleService = brailleService;
+    this.displayService = displayService;
   }
 
   /**
    * Executes the move operation to enter the subplot trace context.
+   * If braille was previously enabled, notifies the active trace's observers
+   * so the braille service receives the new trace's data, then restores
+   * braille display focus.
    */
   public execute(): void {
     this.context.enterSubplot();
+    if (this.brailleService.isEnabled) {
+      // Notify observers so the braille service encodes the new trace's data.
+      // Without this, the braille textarea would show stale data from the
+      // previous plot until the user navigates.
+      this.context.active.notifyStateUpdate();
+      this.displayService.toggleFocus(Scope.BRAILLE);
+    }
   }
 }
 
@@ -218,6 +237,40 @@ export class MoveToSubplotContextCommand implements Command {
    */
   public execute(): void {
     this.context.exitSubplot();
+  }
+}
+
+/**
+ * Command to dismiss braille focus and exit the subplot context in a single
+ * action. Used when Escape is pressed while braille mode is active.
+ *
+ * The ordering is important for screen reader compatibility:
+ * 1. dismissModalScope moves focus to the plot and clears the focus stack,
+ * 2. exitSubplot transitions the navigation context to the subplot level,
+ * 3. notifyFocusChange defers the UI update (textarea removal) so NVDA/JAWS
+ *    process the focus change before the braille textarea unmounts.
+ */
+export class ExitBrailleAndSubplotCommand implements Command {
+  private readonly context: Context;
+  private readonly displayService: DisplayService;
+
+  /**
+   * Creates an instance of ExitBrailleAndSubplotCommand.
+   * @param {Context} context - The navigation context.
+   * @param {DisplayService} displayService - The display service for focus management.
+   */
+  public constructor(context: Context, displayService: DisplayService) {
+    this.context = context;
+    this.displayService = displayService;
+  }
+
+  /**
+   * Dismisses braille focus and exits the subplot in a screen-reader-safe sequence.
+   */
+  public execute(): void {
+    this.displayService.dismissModalScope(Scope.BRAILLE);
+    this.context.exitSubplot();
+    this.displayService.notifyFocusChange(Scope.SUBPLOT);
   }
 }
 

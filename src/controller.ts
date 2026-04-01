@@ -176,6 +176,7 @@ export class Controller implements Disposable {
 
       audioService: this.audioService,
       autoplayService: this.autoplayService,
+      brailleService: this.brailleService,
       displayService: this.displayService,
       highContrastService: this.highContrastService,
       highlightService: this.highlightService,
@@ -199,6 +200,7 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        brailleService: this.brailleService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
@@ -226,6 +228,7 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        brailleService: this.brailleService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,

@@ -184,6 +184,33 @@ export class DisplayService implements Disposable {
   }
 
   /**
+   * Removes a modal scope (e.g. BRAILLE) from the focus stack and moves
+   * focus to the plot element. Does not fire a display change event — the
+   * caller must call {@link notifyFocusChange} after completing any
+   * follow-up scope transitions (e.g. exitSubplot) to avoid emitting a
+   * stale intermediate scope.
+   * @param {Focus} focus - The modal scope to remove from the focus stack
+   */
+  public dismissModalScope(focus: Focus): void {
+    this.plot.focus();
+    this.focusStack.removeLast(focus);
+  }
+
+  /**
+   * Fires a deferred display change event with the given scope. The
+   * deferral (setTimeout 0) gives screen readers one event-loop cycle to
+   * process the preceding focus change before React unmounts the modal
+   * element (e.g. the braille textarea). Without this, NVDA/JAWS exit
+   * focus mode when the focused element disappears from the DOM.
+   * @param {Focus} scope - The scope to emit as the new display focus
+   */
+  public notifyFocusChange(scope: Focus): void {
+    setTimeout(() => {
+      this.onChangeEmitter.fire({ value: scope });
+    }, 0);
+  }
+
+  /**
    * Updates the focus state and initializes the active trace if needed.
    * @param {Focus} newScope - The new focus scope
    */
