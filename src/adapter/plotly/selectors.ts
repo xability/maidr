@@ -15,8 +15,8 @@
  * py-maidr's proven approach.
  */
 
-import type { PlotlyGraphDiv } from './plotly-types';
-import { TraceType } from '../type/grammar';
+import type { PlotlyGraphDiv } from './types';
+import { TraceType } from '../../type/grammar';
 
 /**
  * Generates CSS selectors for a given trace type and index.

@@ -1,4 +1,4 @@
-import type { Maidr } from '../type/grammar';
+import type { Maidr } from '../../type/grammar';
 
 /**
  * Detects whether an SVG element lives inside a Plotly container.

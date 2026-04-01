@@ -22,7 +22,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
-} from '../type/grammar';
+} from '../../type/grammar';
 import type {
   PlotlyAxis,
   PlotlyCalcData,
@@ -30,9 +30,9 @@ import type {
   PlotlyGraphDiv,
   PlotlyLayout,
   PlotlyTrace,
-} from './plotly-types';
-import { Orientation, TraceType } from '../type/grammar';
-import { generatePlotlySelectors, subplotCssPrefix } from './plotly-selectors';
+} from './types';
+import { Orientation, TraceType } from '../../type/grammar';
+import { generatePlotlySelectors, subplotCssPrefix } from './selectors';
 
 // Monotonic counter for generating unique IDs when the graph div has no id.
 let plotlyIdCounter = 0;
