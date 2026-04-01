@@ -1,3 +1,10 @@
+# [3.59.0](https://github.com/xability/maidr/compare/v3.58.3...v3.59.0) (2026-04-01)
+
+
+### Features
+
+* support grid based movement for scatterplots ([#570](https://github.com/xability/maidr/issues/570)) ([951166e](https://github.com/xability/maidr/commit/951166ede1ff4338df47015359b8cdae9c51df94))
+
 ## [3.58.3](https://github.com/xability/maidr/compare/v3.58.2...v3.58.3) (2026-03-26)
 
 
