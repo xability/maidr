@@ -3,29 +3,10 @@ import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
 import React, { useEffect, useId, useRef } from 'react';
 
-const DEFAULT_BRAILLE_SIZE = 32;
-
-/**
- * Normalizes configured braille display size to a safe positive integer.
- * @param size - Raw display size value from settings state
- * @returns Normalized display size
- */
-function normalizeDisplaySize(size: number): number {
-  if (!Number.isFinite(size)) {
-    return DEFAULT_BRAILLE_SIZE;
-  }
-
-  return Math.max(1, Math.floor(size));
-}
-
 const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
-  const { value, index } = useViewModelState('braille');
-  const settings = useViewModelState('settings');
-  const brailleDisplaySize = normalizeDisplaySize(
-    settings.general.brailleDisplaySize,
-  );
+  const { value, index, displaySize } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -79,7 +60,7 @@ const Braille: React.FC = () => {
         spellCheck={false}
         wrap="off"
         rows={5}
-        cols={brailleDisplaySize}
+        cols={displaySize}
       />
     </div>
   );

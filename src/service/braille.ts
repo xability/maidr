@@ -52,6 +52,7 @@ interface Cell {
 interface BrailleChangedEvent {
   value: string;
   index: number;
+  displaySize: number;
 }
 
 /**
@@ -61,6 +62,60 @@ interface EncodedBraille {
   value: string;
   cellToIndex: number[][];
   indexToCell: Cell[];
+}
+
+/**
+ * Encodes a 2D grid of characters into a braille string with display-size wrapping
+ * and bidirectional index mapping. This is the shared wrapping logic used by all
+ * encoders that operate on row/col grids.
+ *
+ * @param rowCount - Number of rows in the data
+ * @param colCount - Function returning the number of columns for a given row
+ * @param getChar - Function returning the braille character for a given (row, col)
+ * @param displaySize - Maximum columns per display line before wrapping
+ * @returns Encoded braille with cell mappings
+ */
+function encodeWithWrapping(
+  rowCount: number,
+  colCount: (row: number) => number,
+  getChar: (row: number, col: number) => string,
+  displaySize: number,
+): EncodedBraille {
+  const values = new Array<string>();
+  const cellToIndex = new Array<Array<number>>();
+  const indexToCell = new Array<Cell>();
+
+  for (let row = 0; row < rowCount; row++) {
+    cellToIndex.push(new Array<number>());
+    const cols = colCount(row);
+
+    for (let col = 0; col < cols; col++) {
+      values.push(getChar(row, col));
+
+      cellToIndex[row].push(indexToCell.length);
+      indexToCell.push({ row, col });
+
+      // Insert a mid-row display-line wrap. The newline's indexToCell entry
+      // maps back to the last data cell so that clicking the newline position
+      // navigates to the preceding data point rather than an invalid location.
+      if ((col + 1) % displaySize === 0) {
+        values.push(Constant.NEW_LINE);
+        indexToCell.push({ row, col });
+      }
+    }
+
+    // End-of-row sentinel: append a newline (unless a mid-row wrap already
+    // emitted one at the exact end) and record a sentinel entry so that
+    // cellToIndex[row] has one more element than data columns.
+    const sentinelIdx = indexToCell.length;
+    indexToCell.push({ row, col: cols });
+    if (cols === 0 || cols % displaySize !== 0) {
+      values.push(Constant.NEW_LINE);
+    }
+    cellToIndex[row].push(sentinelIdx);
+  }
+
+  return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
 }
 
 /**
@@ -91,54 +146,29 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
     size: number = DEFAULT_BRAILLE_SIZE,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => {
+        const range = (state.max[row] - state.min[row]) / 4;
+        const low = state.min[row] + range;
+        const medium = low + range;
+        const high = medium + range;
+        const value = state.values[row][col];
 
-      const range = (state.max[row] - state.min[row]) / 4;
-      const low = state.min[row] + range;
-      const medium = low + range;
-      const high = medium + range;
-
-      for (let col = 0; col < state.values[row].length; col++) {
-        if (state.values[row][col] === 0) {
-          values.push(' ');
-        } else if (state.values[row][col] <= low) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= medium) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= high) {
-          values.push('⠒');
-        } else {
-          values.push('⠉');
-        }
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-
-        if ((col + 1) % displaySize === 0) {
-          values.push(Constant.NEW_LINE);
-          indexToCell.push({ row, col });
-        }
-      }
-
-      if (
-        state.values[row].length === 0
-        || state.values[row].length % displaySize !== 0
-      ) {
-        values.push(Constant.NEW_LINE);
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col: state.values[row].length });
-      } else {
-        indexToCell.push({ row, col: state.values[row].length });
-        cellToIndex[row].push(indexToCell.length - 1);
-      }
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+        if (value === 0)
+          return ' ';
+        if (value <= low)
+          return '⠤';
+        if (value <= medium)
+          return '⠤';
+        if (value <= high)
+          return '⠒';
+        return '⠉';
+      },
+      displaySize,
+    );
   }
 }
 
@@ -386,51 +416,26 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
     size: number = DEFAULT_BRAILLE_SIZE,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
-
     const range = (state.max - state.min) / 3;
     const low = state.min + range;
     const medium = low + range;
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => {
+        const value = state.values[row][col];
 
-      for (let col = 0; col < state.values[row].length; col++) {
-        if (state.values[row][col] === 0) {
-          values.push(' ');
-        } else if (state.values[row][col] <= low) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= medium) {
-          values.push('⠒');
-        } else {
-          values.push('⠉');
-        }
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-
-        if ((col + 1) % displaySize === 0) {
-          values.push(Constant.NEW_LINE);
-          indexToCell.push({ row, col });
-        }
-      }
-
-      if (
-        state.values[row].length === 0
-        || state.values[row].length % displaySize !== 0
-      ) {
-        values.push(Constant.NEW_LINE);
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col: state.values[row].length });
-      } else {
-        indexToCell.push({ row, col: state.values[row].length });
-        cellToIndex[row].push(indexToCell.length - 1);
-      }
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+        if (value === 0)
+          return ' ';
+        if (value <= low)
+          return '⠤';
+        if (value <= medium)
+          return '⠒';
+        return '⠉';
+      },
+      displaySize,
+    );
   }
 }
 
@@ -471,42 +476,13 @@ implements BrailleEncoder<T> {
     size: number = DEFAULT_BRAILLE_SIZE,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
-
-      for (let col = 0; col < state.values[row].length; col++) {
-        const brailleChar = this.encodeCell(state, row, col);
-        values.push(brailleChar);
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-
-        if ((col + 1) % displaySize === 0) {
-          values.push(Constant.NEW_LINE);
-          indexToCell.push({ row, col });
-        }
-      }
-
-      if (
-        state.values[row].length === 0
-        || state.values[row].length % displaySize !== 0
-      ) {
-        values.push(Constant.NEW_LINE);
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col: state.values[row].length });
-      } else {
-        // A wrap newline was already emitted at the end of this row.
-        // Add an explicit end-of-row sentinel to keep index mapping consistent.
-        indexToCell.push({ row, col: state.values[row].length });
-        cellToIndex[row].push(indexToCell.length - 1);
-      }
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => this.encodeCell(state, row, col),
+      displaySize,
+    );
   }
 
   /**
@@ -858,6 +834,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onChangeEmitter.fire({
       value: this.cache.value,
       index: this.cache.cellToIndex[braille.row][braille.col],
+      displaySize: this.displaySize,
     });
   }
 

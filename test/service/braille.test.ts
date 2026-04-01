@@ -479,4 +479,100 @@ describe('BrailleService display-size encoding', () => {
     disposable.dispose();
     service.dispose();
   });
+
+  test('handles multi-row data with correct per-row wrapping and navigation', () => {
+    const { service, contextMoveToIndex } = createBrailleService(3);
+    const state = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30]],
+      1,
+      2,
+    );
+
+    let lastIndex = -1;
+    const disposable = service.onChange((event) => {
+      lastIndex = event.index;
+    });
+
+    service.toggle(state);
+
+    const cache = getCache(service);
+    // Row 0: 5 items with displaySize 3 → wraps at col 2, then 2 remaining + row end = 2 newlines
+    // Row 1: 3 items with displaySize 3 → wraps at col 2, row end aligns = 1 newline
+    expect(cache.cellToIndex.length).toBe(2);
+
+    // Navigate to row 1, col 2
+    service.moveToIndex(lastIndex);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(1, 2);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('handles displaySize of 1 (every cell gets its own line)', () => {
+    const { service } = createBrailleService(1);
+    const state = createLineTraceState([[1, 2, 3]], 0, 0);
+
+    service.toggle(state);
+
+    const cache = getCache(service);
+    // Each cell followed by a newline, row end aligns exactly → 3 newlines total
+    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    expect(newlineCount).toBe(3);
+    expect(cache.value.includes('\n\n')).toBe(false);
+
+    service.dispose();
+  });
+
+  test('handles empty row without errors', () => {
+    const { service } = createBrailleService(10);
+    const state = createLineTraceState([[]], 0, 0);
+
+    // Should not throw when toggling with an empty row
+    // The sentinel for an empty row should still be created
+    service.toggle(state);
+
+    const cache = getCache(service);
+    expect(cache.cellToIndex.length).toBe(1);
+    expect(cache.cellToIndex[0].length).toBe(1); // Just the sentinel
+
+    service.dispose();
+  });
+
+  test('emits displaySize in onChange event', () => {
+    const { service } = createBrailleService(40);
+    const state = createLineTraceState([[1, 2, 3]], 0, 0);
+
+    let emittedDisplaySize = -1;
+    const disposable = service.onChange((event) => {
+      emittedDisplaySize = event.displaySize;
+    });
+
+    service.toggle(state);
+
+    expect(emittedDisplaySize).toBe(40);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('settings change updates displaySize in subsequent emissions', () => {
+    const { service, triggerDisplaySizeChange, setContextState }
+      = createBrailleServiceWithSettingsTrigger(32);
+    const state = createLineTraceState([[1, 2, 3]], 0, 0);
+    setContextState(state);
+
+    const displaySizes: number[] = [];
+    const disposable = service.onChange((event) => {
+      displaySizes.push(event.displaySize);
+    });
+
+    service.toggle(state);
+    triggerDisplaySizeChange(20);
+
+    expect(displaySizes).toContain(32);
+    expect(displaySizes).toContain(20);
+
+    disposable.dispose();
+    service.dispose();
+  });
 });

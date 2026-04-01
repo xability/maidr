@@ -11,11 +11,15 @@ import { AbstractViewModel } from './viewModel';
 export interface BrailleState {
   value: string;
   index: number;
+  displaySize: number;
 }
+
+const DEFAULT_BRAILLE_SIZE = 32;
 
 const initialState: BrailleState = {
   value: '',
   index: -1,
+  displaySize: DEFAULT_BRAILLE_SIZE,
 };
 
 const brailleSlice = createSlice({
