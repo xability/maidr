@@ -331,6 +331,11 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Verbose formatted text with complete coordinate information
    */
   private formatVerboseTraceText(state: TextState): string {
+    // Grid cell format: "{xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatVerboseGridText(state);
+    }
+
     const verbose = new Array<string>();
 
     // Use axis identity from TextState, fallback to default mapping
@@ -425,6 +430,11 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Terse formatted text with compact coordinate representation
    */
   private formatTerseTraceText(state: TextState): string {
+    // Grid cell format: "{xMin} through {xMax}, {yMin} through {yMax}, points: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatTerseGridText(state);
+    }
+
     const terse = new Array<string>();
 
     // Use axis identity from state (supports orientation-aware formatting)
@@ -502,6 +512,87 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     return terse.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in verbose mode.
+   * Output: "{xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: (x1, y1), ..."
+   */
+  private formatVerboseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // X range
+    parts.push(
+      state.main.label,
+      Constant.IS,
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      state.cross.label,
+      Constant.IS,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      const verb = points.length === 1 ? ' is' : 's are';
+      parts.push(Constant.COMMA_SPACE, `point${verb}: `, pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in terse mode.
+   * Output: "{xMin} through {xMax}, {yMin} through {yMax}, points: (x1, y1), ..."
+   */
+  private formatTerseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // X range
+    parts.push(
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      parts.push(Constant.COMMA_SPACE, 'points: ', pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
   }
 
   /**

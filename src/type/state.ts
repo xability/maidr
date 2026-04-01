@@ -273,6 +273,14 @@ export interface TextState {
    * Used to apply correct formatter regardless of orientation.
    */
   crossAxis?: AxisType;
+  /**
+   * Range for the cross axis, used in grid navigation to show both axis ranges.
+   */
+  crossRange?: { min: number; max: number };
+  /**
+   * Points in the current grid cell, listed as coordinate pairs.
+   */
+  gridPoints?: { x: number; y: number }[];
 }
 
 /**
