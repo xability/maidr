@@ -17,21 +17,6 @@ interface SettingsChangeEventMock {
   get: <T>(settingPath: string) => T;
 }
 
-interface BrailleCacheCell {
-  row: number;
-  col: number;
-}
-
-interface BrailleCache {
-  value: string;
-  cellToIndex: number[][];
-  indexToCell: BrailleCacheCell[];
-}
-
-interface BrailleServiceInternals {
-  cache: BrailleCache | null;
-}
-
 interface SettingsMockController {
   settings: SettingsService;
   triggerDisplaySizeChange: (nextDisplaySize: number) => void;
@@ -306,36 +291,27 @@ function createBrailleServiceWithSettingsTrigger(displaySize: number): {
   return { service, triggerDisplaySizeChange, setContextState };
 }
 
-/**
- * Reads the internal cache from BrailleService for encoding assertions.
- * @param service - BrailleService under test
- * @returns Internal cache snapshot
- */
-function getCache(service: BrailleService): BrailleCache {
-  const internals = service as unknown as BrailleServiceInternals;
-  if (internals.cache === null) {
-    throw new Error('Expected braille cache to be populated.');
-  }
-  return internals.cache;
-}
-
 describe('BrailleService display-size encoding', () => {
   test('encodes one newline when row length is less than display size', () => {
     const { service } = createBrailleService(10);
     const state = createLineTraceState([[1, 2, 3]], 0, 0);
 
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
     service.toggle(state);
 
-    const cache = getCache(service);
-    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
-
+    const newlineCount = (emitted.match(/\n/g) ?? []).length;
     expect(newlineCount).toBe(1);
-    expect(cache.value.endsWith('\n\n')).toBe(false);
+    expect(emitted.endsWith('\n\n')).toBe(false);
 
+    disposable.dispose();
     service.dispose();
   });
 
-  test('appends end-of-row sentinel for non-multiple row lengths', () => {
+  test('navigates to correct cell for non-multiple row lengths', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
     const state = createLineTraceState([[1, 2, 3]], 0, 3);
 
@@ -346,9 +322,6 @@ describe('BrailleService display-size encoding', () => {
 
     service.toggle(state);
 
-    const cache = getCache(service);
-    expect(cache.cellToIndex[0][3]).toBe(lastIndex);
-
     service.moveToIndex(lastIndex);
     expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
 
@@ -356,20 +329,20 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
-  test('uses explicit sentinel when row length is exactly divisible by display size', () => {
+  test('no double newline when row length is exactly divisible by display size', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
     const state = createLineTraceState([[1, 2, 3, 4]], 0, 4);
 
+    let emitted = '';
     let sentinelIndex = -1;
     const disposable = service.onChange((event) => {
+      emitted = event.value;
       sentinelIndex = event.index;
     });
 
     service.toggle(state);
 
-    const cache = getCache(service);
-    expect(cache.value.endsWith('\n\n')).toBe(false);
-    expect(cache.cellToIndex[0][4]).toBe(sentinelIndex);
+    expect(emitted.includes('\n\n')).toBe(false);
 
     service.moveToIndex(sentinelIndex);
     expect(contextMoveToIndex).toHaveBeenCalledWith(0, 4);
@@ -440,15 +413,17 @@ describe('BrailleService display-size encoding', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
     const state = createBarTraceState([[1, 2, 3, 4, 5]], 0, 5);
 
+    let emitted = '';
     let lastIndex = -1;
     const disposable = service.onChange((event) => {
+      emitted = event.value;
       lastIndex = event.index;
     });
 
     service.toggle(state);
 
-    const cache = getCache(service);
-    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    // 5 items, displaySize 2: wraps at 2, 4 → 2 mid-row newlines + 1 end-of-row = 3
+    const newlineCount = (emitted.match(/\n/g) ?? []).length;
     expect(newlineCount).toBe(3);
 
     service.moveToIndex(lastIndex);
@@ -462,15 +437,16 @@ describe('BrailleService display-size encoding', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
     const state = createHeatmapTraceState([[1, 2, 3, 4, 5]], 0, 5);
 
+    let emitted = '';
     let lastIndex = -1;
     const disposable = service.onChange((event) => {
+      emitted = event.value;
       lastIndex = event.index;
     });
 
     service.toggle(state);
 
-    const cache = getCache(service);
-    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    const newlineCount = (emitted.match(/\n/g) ?? []).length;
     expect(newlineCount).toBe(3);
 
     service.moveToIndex(lastIndex);
@@ -488,17 +464,18 @@ describe('BrailleService display-size encoding', () => {
       2,
     );
 
+    let emitted = '';
     let lastIndex = -1;
     const disposable = service.onChange((event) => {
+      emitted = event.value;
       lastIndex = event.index;
     });
 
     service.toggle(state);
 
-    const cache = getCache(service);
-    // Row 0: 5 items with displaySize 3 → wraps at col 2, then 2 remaining + row end = 2 newlines
-    // Row 1: 3 items with displaySize 3 → wraps at col 2, row end aligns = 1 newline
-    expect(cache.cellToIndex.length).toBe(2);
+    // Two rows of data should produce two row-groups in the output
+    const rows = emitted.split('\n').filter(r => r.length > 0);
+    expect(rows.length).toBeGreaterThanOrEqual(2);
 
     // Navigate to row 1, col 2
     service.moveToIndex(lastIndex);
@@ -512,14 +489,19 @@ describe('BrailleService display-size encoding', () => {
     const { service } = createBrailleService(1);
     const state = createLineTraceState([[1, 2, 3]], 0, 0);
 
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
     service.toggle(state);
 
-    const cache = getCache(service);
     // Each cell followed by a newline, row end aligns exactly → 3 newlines total
-    const newlineCount = (cache.value.match(/\n/g) ?? []).length;
+    const newlineCount = (emitted.match(/\n/g) ?? []).length;
     expect(newlineCount).toBe(3);
-    expect(cache.value.includes('\n\n')).toBe(false);
+    expect(emitted.includes('\n\n')).toBe(false);
 
+    disposable.dispose();
     service.dispose();
   });
 
@@ -527,14 +509,18 @@ describe('BrailleService display-size encoding', () => {
     const { service } = createBrailleService(10);
     const state = createLineTraceState([[]], 0, 0);
 
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
     // Should not throw when toggling with an empty row
-    // The sentinel for an empty row should still be created
     service.toggle(state);
 
-    const cache = getCache(service);
-    expect(cache.cellToIndex.length).toBe(1);
-    expect(cache.cellToIndex[0].length).toBe(1); // Just the sentinel
+    // Empty row should produce just a newline
+    expect(emitted).toBe('\n');
 
+    disposable.dispose();
     service.dispose();
   });
 

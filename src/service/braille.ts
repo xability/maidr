@@ -18,7 +18,7 @@ import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
-const DEFAULT_BRAILLE_SIZE = 32;
+export const DEFAULT_BRAILLE_SIZE = 32;
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
@@ -27,16 +27,14 @@ const DEFAULT_BRAILLE_SIZE = 32;
  * @returns Normalized display size
  */
 function normalizeDisplaySize(size: number | undefined): number {
-  if (!Number.isFinite(size) || size === undefined) {
+  if (size === undefined || !Number.isFinite(size)) {
     return DEFAULT_BRAILLE_SIZE;
   }
 
   return Math.max(1, Math.floor(size));
 }
 
-enum BrailleSettings {
-  DISPLAY_SIZE = 'general.brailleDisplaySize',
-}
+const BRAILLE_DISPLAY_SIZE_SETTING = 'general.brailleDisplaySize';
 
 /**
  * Represents a cell position in a 2D grid.
@@ -748,7 +746,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.enabled = false;
     this.displaySize = normalizeDisplaySize(
-      settings.get<number>(BrailleSettings.DISPLAY_SIZE),
+      settings.get<number>(BRAILLE_DISPLAY_SIZE_SETTING),
     );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
@@ -773,12 +771,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onChange = this.onChangeEmitter.event;
 
     this.disposables.push(settings.onChange((event) => {
-      if (!event.affectsSetting(BrailleSettings.DISPLAY_SIZE)) {
+      if (!event.affectsSetting(BRAILLE_DISPLAY_SIZE_SETTING)) {
         return;
       }
 
       this.displaySize = normalizeDisplaySize(
-        event.get<number>(BrailleSettings.DISPLAY_SIZE),
+        event.get<number>(BRAILLE_DISPLAY_SIZE_SETTING),
       );
       this.cache = null;
       this.cacheId = Constant.EMPTY;
