@@ -1,3 +1,10 @@
+## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* fetch braille output length from settings ([#590](https://github.com/xability/maidr/issues/590)) ([b64fb4e](https://github.com/xability/maidr/commit/b64fb4ecd8f7724c18987d4586f3b478cf3e5401))
+
 # [3.59.0](https://github.com/xability/maidr/compare/v3.58.3...v3.59.0) (2026-04-01)
 
 
