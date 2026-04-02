@@ -39,7 +39,7 @@ function createMockBrailleService(enabled: boolean): BrailleService {
     get isEnabled() {
       return enabled;
     },
-    update: jest.fn(),
+    refreshDisplay: jest.fn(),
   } as unknown as BrailleService;
 }
 
