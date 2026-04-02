@@ -202,13 +202,21 @@ export class MoveToTraceContextCommand implements Command {
 
   /**
    * Executes the move operation to enter the subplot trace context.
-   * If braille was previously enabled, notifies the active trace's observers
-   * so the braille service receives the new trace's data, then restores
-   * braille display focus.
+   * If braille was previously enabled, directly updates the braille service
+   * with the new trace's data, then restores braille display focus.
+   *
+   * Note: we update the braille service directly rather than calling
+   * notifyStateUpdate() on the trace, because notifying all observers
+   * would also trigger AudioService (playing a tone on entry) and other
+   * services. Only the braille display needs to be refreshed here.
    */
   public execute(): void {
     this.context.enterSubplot();
     if (this.brailleService.isEnabled) {
+      const state = this.context.state;
+      if (state.type === 'trace') {
+        this.brailleService.update(state);
+      }
       this.displayService.toggleFocus(Scope.BRAILLE);
     }
   }

@@ -198,6 +198,11 @@ export class DisplayService implements Disposable {
    * @param {Focus} targetScope - The scope the focus stack should reflect
    *   after the modal is dismissed. The stack is reset to this value so it
    *   stays in sync with the hotkeys scope set by the caller.
+   *
+   * **Important:** The caller must ensure the hotkeys scope is set to
+   * `targetScope` (e.g. via `context.exitSubplot()`) before or immediately
+   * after this call. This method only updates the focus stack and DOM focus;
+   * it does not change the hotkeys scope.
    */
   public dismissModalScope(targetScope: Focus): void {
     this.plot.focus();
