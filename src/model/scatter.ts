@@ -511,7 +511,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         moved = this.moveGridDown();
         break;
     }
-    // Grid movement methods already call notifyStateUpdate() or notifyRotorBounds()
+    // Grid movement methods already call notifyStateUpdate() or notifyOutOfBounds()
     return moved;
   }
 
