@@ -740,6 +740,17 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   /**
+   * Refreshes the braille display with the given trace state. Unlike the
+   * observer-driven {@link update} path, this is called explicitly when
+   * entering a new subplot with braille enabled, to avoid triggering
+   * other observers (e.g. AudioService).
+   * @param state - The trace state to display
+   */
+  public refreshDisplay(state: TraceState): void {
+    this.update(state);
+  }
+
+  /**
    * Updates the braille display based on plot state changes.
    * @param state - Updated subplot or trace state
    */
