@@ -330,7 +330,7 @@ export class RotorNavigationService {
 
   /**
    * Handles grid navigation in the specified direction.
-   * @returns Error message if move failed or grid not supported, null otherwise
+   * @returns Error message if grid not supported, null otherwise (boundary handled by notifyOutOfBounds)
    */
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
@@ -338,26 +338,22 @@ export class RotorNavigationService {
       return this.getMessage('grid', direction);
     }
 
-    let moved = false;
+    // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text
     switch (direction) {
       case 'up':
-        moved = activeTrace.moveGridUp();
+        activeTrace.moveGridUp();
         break;
       case 'down':
-        moved = activeTrace.moveGridDown();
+        activeTrace.moveGridDown();
         break;
       case 'left':
-        moved = activeTrace.moveGridLeft();
+        activeTrace.moveGridLeft();
         break;
       case 'right':
-        moved = activeTrace.moveGridRight();
+        activeTrace.moveGridRight();
         break;
     }
 
-    if (!moved) {
-      const dirLabel = direction === 'up' ? 'above' : direction === 'down' ? 'below' : direction;
-      return this.getMessage('grid', dirLabel);
-    }
     return null;
   }
 }

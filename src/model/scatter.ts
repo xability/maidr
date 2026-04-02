@@ -1,7 +1,7 @@
 import type { AxisConfig, MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -214,28 +214,33 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get braille(): BrailleState {
+    // Grid mode: return 2D grid of point counts for braille display
     if (this.isInGridMode && this.gridCells) {
-      const cell = this.gridCells[this.gridRow][this.gridCol];
+      const gridValues: number[][] = [];
+      let maxCount = 0;
+      for (let r = 0; r < this.numGridRows; r++) {
+        gridValues[r] = [];
+        for (let c = 0; c < this.numGridCols; c++) {
+          const count = this.gridCells[r][c].points.length;
+          gridValues[r][c] = count;
+          if (count > maxCount) {
+            maxCount = count;
+          }
+        }
+      }
       return {
         empty: false,
         id: this.id,
-        values: cell.yValues.length > 0 ? [cell.yValues] : [[]],
+        values: gridValues,
         min: 0,
-        max: 0,
+        max: maxCount,
         row: this.gridRow,
         col: this.gridCol,
       };
     }
 
-    return {
-      empty: false,
-      id: this.id,
-      values: this.values,
-      min: 0,
-      max: 0,
-      row: this.row,
-      col: this.col,
-    };
+    // Normal row/col mode: braille not supported (return empty state)
+    return this.outOfBoundsState as BrailleState;
   }
 
   protected get audio(): AudioState {
@@ -363,6 +368,29 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   /**
+   * Returns out-of-bounds state with correct position for grid mode panning.
+   * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
+   */
+  protected get outOfBoundsState(): TraceState {
+    // Use grid position when in grid mode for correct panning
+    if (this.isInGridMode && this.gridCells) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          y: this.gridRow,
+          x: this.gridCol,
+          rows: this.numGridRows,
+          cols: this.numGridCols,
+        },
+      };
+    }
+    // Fall back to parent implementation for non-grid mode
+    return super.outOfBoundsState;
+  }
+
+  /**
    * Initializes scatter plot navigation at the origin in column mode.
    */
   protected handleInitialEntry(): void {
@@ -412,17 +440,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   public moveOnce(direction: MovableDirection): boolean {
-    // If moveOnce is called, we're not in grid mode (rotor routes grid arrows elsewhere).
-    // Clear the flag to stay in sync in case of unexpected code paths.
-    if (this.isInGridMode) {
-      console.warn('[ScatterTrace] moveOnce() called while in grid mode — exiting grid mode. Rotor index may be out of sync.');
-      this.setGridMode(false);
-    }
-
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
       return true;
+    }
+
+    // Handle grid mode navigation (used by autoplay and direct calls)
+    if (this.isInGridMode && this.gridCells) {
+      return this.moveOnceInGridMode(direction);
     }
 
     if (!this.isMovable(direction)) {
@@ -462,6 +488,31 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
 
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Handles movement in grid mode, mapping directions to grid cell navigation.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false if at boundary
+   */
+  private moveOnceInGridMode(direction: MovableDirection): boolean {
+    let moved = false;
+    switch (direction) {
+      case 'FORWARD':
+        moved = this.moveGridRight();
+        break;
+      case 'BACKWARD':
+        moved = this.moveGridLeft();
+        break;
+      case 'UPWARD':
+        moved = this.moveGridUp();
+        break;
+      case 'DOWNWARD':
+        moved = this.moveGridDown();
+        break;
+    }
+    // Grid movement methods already call notifyStateUpdate() or notifyRotorBounds()
+    return moved;
   }
 
   public moveToExtreme(direction: MovableDirection): boolean {
@@ -542,6 +593,22 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       return false;
     }
 
+    // Check grid mode boundaries
+    if (this.isInGridMode && this.gridCells) {
+      switch (target) {
+        case 'FORWARD':
+          return this.gridCol < this.numGridCols - 1;
+        case 'BACKWARD':
+          return this.gridCol > 0;
+        case 'UPWARD':
+          return this.gridRow < this.numGridRows - 1;
+        case 'DOWNWARD':
+          return this.gridRow > 0;
+        default:
+          return false;
+      }
+    }
+
     if (this.mode === NavMode.COL) {
       switch (target) {
         case 'FORWARD':
@@ -599,7 +666,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.gridCells)
       return false;
     if (this.gridRow >= this.numGridRows - 1) {
-      this.notifyRotorBounds();
+      this.notifyOutOfBounds();
       return false;
     }
     this.gridRow++;
@@ -611,7 +678,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.gridCells)
       return false;
     if (this.gridRow <= 0) {
-      this.notifyRotorBounds();
+      this.notifyOutOfBounds();
       return false;
     }
     this.gridRow--;
@@ -623,7 +690,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.gridCells)
       return false;
     if (this.gridCol <= 0) {
-      this.notifyRotorBounds();
+      this.notifyOutOfBounds();
       return false;
     }
     this.gridCol--;
@@ -635,7 +702,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.gridCells)
       return false;
     if (this.gridCol >= this.numGridCols - 1) {
-      this.notifyRotorBounds();
+      this.notifyOutOfBounds();
       return false;
     }
     this.gridCol++;

@@ -712,6 +712,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.HISTOGRAM, new BarBrailleEncoder()],
       [TraceType.LINE, new LineBrailleEncoder()],
       [TraceType.NORMALIZED, new BarBrailleEncoder()],
+      [TraceType.SCATTER, new HeatmapBrailleEncoder()],
       [TraceType.SMOOTH, new LineBrailleEncoder()],
       [TraceType.STACKED, new BarBrailleEncoder()],
       [TraceType.VIOLIN_KDE, new LineBrailleEncoder()],
