@@ -3,6 +3,7 @@ import type { BrailleService } from '@service/braille';
 import type { AppStore } from '@state/store';
 import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
+import { DEFAULT_BRAILLE_SIZE } from '@service/braille';
 import { AbstractViewModel } from './viewModel';
 
 /**
@@ -11,11 +12,13 @@ import { AbstractViewModel } from './viewModel';
 export interface BrailleState {
   value: string;
   index: number;
+  displaySize: number;
 }
 
 const initialState: BrailleState = {
   value: '',
   index: -1,
+  displaySize: DEFAULT_BRAILLE_SIZE,
 };
 
 const brailleSlice = createSlice({
