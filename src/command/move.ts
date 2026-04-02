@@ -209,12 +209,6 @@ export class MoveToTraceContextCommand implements Command {
   public execute(): void {
     this.context.enterSubplot();
     if (this.brailleService.isEnabled) {
-      // enterSubplot() does not call notifyStateUpdate() — it only resets
-      // row/col via resetToInitialEntry() and sets the hotkeys scope. This
-      // explicit notification is needed so observers (especially the braille
-      // service) receive the new trace's data. Without it, the braille
-      // textarea would show stale content from the previous subplot.
-      this.context.active.notifyStateUpdate();
       this.displayService.toggleFocus(Scope.BRAILLE);
     }
   }
@@ -270,7 +264,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
    * Dismisses braille focus and exits the subplot in a screen-reader-safe sequence.
    */
   public execute(): void {
-    this.displayService.dismissModalScope(Scope.BRAILLE, Scope.SUBPLOT);
+    this.displayService.dismissModalScope(Scope.SUBPLOT);
     this.context.exitSubplot();
     this.displayService.notifyFocusChange(Scope.SUBPLOT);
   }

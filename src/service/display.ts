@@ -190,19 +190,17 @@ export class DisplayService implements Disposable {
   }
 
   /**
-   * Removes a modal scope (e.g. BRAILLE) from the focus stack and moves
-   * focus to the plot element. Does not fire a display change event — the
-   * caller must call {@link notifyFocusChange} after completing any
-   * follow-up scope transitions (e.g. exitSubplot) to avoid emitting a
-   * stale intermediate scope.
-   * @param {Focus} focus - The modal scope to remove from the focus stack
+   * Resets the focus stack to the given scope and moves focus to the plot
+   * element. Does not fire a display change event — the caller must call
+   * {@link notifyFocusChange} after completing any follow-up scope
+   * transitions (e.g. exitSubplot) to avoid emitting a stale intermediate
+   * scope.
    * @param {Focus} targetScope - The scope the focus stack should reflect
    *   after the modal is dismissed. The stack is reset to this value so it
    *   stays in sync with the hotkeys scope set by the caller.
    */
-  public dismissModalScope(focus: Focus, targetScope: Focus): void {
+  public dismissModalScope(targetScope: Focus): void {
     this.plot.focus();
-    this.focusStack.removeLast(focus);
     this.focusStack.clear();
     this.focusStack.push(targetScope);
   }

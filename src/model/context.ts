@@ -221,6 +221,7 @@ export class Context implements Disposable {
       const trace = activeFigure.activeSubplot.activeTrace;
       trace.resetToInitialEntry();
       this.plotContext.push(trace);
+      trace.notifyStateUpdate();
       this.toggleScope(Scope.TRACE);
     }
   }
