@@ -49,6 +49,7 @@ export class DisplayService implements Disposable {
   private isReturningFromModeToggle: boolean = false;
   private textChangeDisposer: Disposable | null = null;
   private hasClearedOnFirstNav: boolean = false;
+  private pendingFocusChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Creates a new DisplayService instance.
@@ -83,6 +84,11 @@ export class DisplayService implements Disposable {
    */
   public dispose(): void {
     this.addInstruction();
+
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+      this.pendingFocusChangeTimer = null;
+    }
 
     this.textChangeDisposer?.dispose();
     this.textChangeDisposer = null;
@@ -190,10 +196,15 @@ export class DisplayService implements Disposable {
    * follow-up scope transitions (e.g. exitSubplot) to avoid emitting a
    * stale intermediate scope.
    * @param {Focus} focus - The modal scope to remove from the focus stack
+   * @param {Focus} targetScope - The scope the focus stack should reflect
+   *   after the modal is dismissed. The stack is reset to this value so it
+   *   stays in sync with the hotkeys scope set by the caller.
    */
-  public dismissModalScope(focus: Focus): void {
+  public dismissModalScope(focus: Focus, targetScope: Focus): void {
     this.plot.focus();
     this.focusStack.removeLast(focus);
+    this.focusStack.clear();
+    this.focusStack.push(targetScope);
   }
 
   /**
@@ -202,10 +213,17 @@ export class DisplayService implements Disposable {
    * process the preceding focus change before React unmounts the modal
    * element (e.g. the braille textarea). Without this, NVDA/JAWS exit
    * focus mode when the focused element disappears from the DOM.
+   *
+   * Cancels any previously pending notification to avoid stale events
+   * from rapid repeated calls.
    * @param {Focus} scope - The scope to emit as the new display focus
    */
   public notifyFocusChange(scope: Focus): void {
-    setTimeout(() => {
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+    }
+    this.pendingFocusChangeTimer = setTimeout(() => {
+      this.pendingFocusChangeTimer = null;
       this.onChangeEmitter.fire({ value: scope });
     }, 0);
   }

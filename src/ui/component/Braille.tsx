@@ -50,18 +50,18 @@ const Braille: React.FC = () => {
   }, [value, index]);
 
   return (
-    <div
-      id={id}
-      // role="application" ensures screen readers (NVDA/JAWS) pass all keys,
-      // including Escape, through to the web app instead of intercepting them
-      // for browse/virtual-cursor mode. This matches the plot element's role.
-      role="application"
-    >
+    <div id={id}>
       <textarea
         id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}
         defaultValue={value}
         autoCapitalize="off"
+        // role="application" ensures screen readers (NVDA/JAWS) pass all
+        // keys, including Escape, through to the web app instead of
+        // intercepting them for browse/virtual-cursor mode. Placed on the
+        // textarea (not the wrapper div) to avoid suppressing browse-mode
+        // navigation for any future sibling content.
+        role="application"
         rows={5}
         cols={50}
       />
