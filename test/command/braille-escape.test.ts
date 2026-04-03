@@ -8,7 +8,7 @@ import { Scope } from '@type/event';
 /**
  * Creates a mock Context with enterSubplot and exitSubplot stubs.
  */
-function createMockContext(overrides: Partial<Context> = {}): Context {
+function createMockContext(overrides: Record<string, unknown> = {}): Context {
   return {
     enterSubplot: jest.fn(),
     exitSubplot: jest.fn(),
@@ -22,7 +22,7 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
  * Creates a mock DisplayService with dismissModalScope, notifyFocusChange,
  * and toggleFocus stubs.
  */
-function createMockDisplayService(overrides: Partial<DisplayService> = {}): DisplayService {
+function createMockDisplayService(overrides: Record<string, unknown> = {}): DisplayService {
   return {
     dismissModalScope: jest.fn(),
     notifyFocusChange: jest.fn(),
@@ -47,17 +47,17 @@ describe('ExitBrailleAndSubplotCommand', () => {
   test('executes the three-step sequence in correct order', () => {
     const callOrder: string[] = [];
     const context = createMockContext({
-      exitSubplot: jest.fn(() => {
+      exitSubplot: jest.fn<() => void>().mockImplementation(() => {
         callOrder.push('exitSubplot');
-      }) as any,
+      }),
     });
     const displayService = createMockDisplayService({
-      dismissModalScope: jest.fn(() => {
+      dismissModalScope: jest.fn<() => void>().mockImplementation(() => {
         callOrder.push('dismissModalScope');
-      }) as any,
-      notifyFocusChange: jest.fn(() => {
+      }),
+      notifyFocusChange: jest.fn<() => void>().mockImplementation(() => {
         callOrder.push('notifyFocusChange');
-      }) as any,
+      }),
     });
 
     const command = new ExitBrailleAndSubplotCommand(context, displayService);
@@ -137,11 +137,8 @@ describe('MoveToTraceContextCommand', () => {
 
   test('does not call refreshDisplay when state type is not trace', () => {
     const context = createMockContext({
-      state: {
-        type: 'subplot',
-        empty: false,
-      },
-    } as any);
+      state: { type: 'subplot', empty: false },
+    });
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
