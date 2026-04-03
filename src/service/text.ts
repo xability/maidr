@@ -338,6 +338,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     const verbose = new Array<string>();
 
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      verbose.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
     // Use axis identity from TextState, fallback to default mapping
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
@@ -437,6 +442,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     const terse = new Array<string>();
 
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      terse.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
     // Use axis identity from state (supports orientation-aware formatting)
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
@@ -516,12 +526,17 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   /**
    * Formats grid cell text in verbose mode.
-   * Output: "{xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: (x1, y1), ..."
+   * Output: "Cell [row,col], {xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: (x1, y1), ..."
    */
   private formatVerboseGridText(state: TextState): string {
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
     const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // X range
     parts.push(
@@ -559,12 +574,17 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   /**
    * Formats grid cell text in terse mode.
-   * Output: "{xMin} through {xMax}, {yMin} through {yMax}, points: (x1, y1), ..."
+   * Output: "Cell [row,col], {xMin} through {xMax}, {yMin} through {yMax}, points: (x1, y1), ..."
    */
   private formatTerseGridText(state: TextState): string {
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
     const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // X range
     parts.push(

@@ -55,26 +55,45 @@ export class RotorNavigationService {
 
   /**
    * Advances to the next rotor navigation mode.
-   * @returns The name of the new rotor mode
+   * @returns The name of the new rotor mode, or grid info if entering grid mode
    */
   public moveToNextRotorUnit(): string {
     const modes = this.getAvailableModes();
     this.rotorIndex = (this.rotorIndex + 1) % modes.length;
 
     this.setMode();
-    return this.getMode();
+    return this.formatModeDisplay();
   }
 
   /**
    * Moves to the previous rotor navigation mode.
-   * @returns The name of the new rotor mode
+   * @returns The name of the new rotor mode, or grid info if entering grid mode
    */
   public moveToPrevRotorUnit(): string {
     const modes = this.getAvailableModes();
     this.rotorIndex = (this.rotorIndex - 1 + modes.length) % modes.length;
 
     this.setMode();
-    return this.getMode();
+    return this.formatModeDisplay();
+  }
+
+  /**
+   * Formats the mode display string.
+   * For grid mode, returns "GRID NAVIGATION: 5×4 GRID".
+   * For other modes, returns the mode name.
+   */
+  private formatModeDisplay(): string {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
+      const activeTrace = this.context.active;
+      if (isGridNavigable(activeTrace)) {
+        const dims = activeTrace.getGridDimensions();
+        if (dims) {
+          return `GRID NAVIGATION: ${dims.rows}×${dims.cols} GRID`;
+        }
+      }
+    }
+    return mode;
   }
 
   /**
