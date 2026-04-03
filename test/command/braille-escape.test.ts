@@ -134,4 +134,23 @@ describe('MoveToTraceContextCommand', () => {
 
     expect(displayService.toggleFocus).not.toHaveBeenCalled();
   });
+
+  test('does not call refreshDisplay when state type is not trace', () => {
+    const context = createMockContext({
+      state: {
+        type: 'subplot',
+        empty: false,
+      },
+    } as any);
+    const brailleService = createMockBrailleService(true);
+    const displayService = createMockDisplayService();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    command.execute();
+
+    expect(brailleService.refreshDisplay).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 });

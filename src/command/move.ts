@@ -182,6 +182,13 @@ export class MoveToRightExtremeCommand implements Command {
 
 /**
  * Command to move into the trace context from the current subplot.
+ *
+ * Architectural note: this command holds references to BrailleService and
+ * DisplayService (not just Context) as a deliberate exception to the usual
+ * pattern where commands only interact with the model layer. This is needed
+ * because the model's notifyStateUpdate() cannot be used here without
+ * triggering unwanted side effects (e.g. audio on entry). Do not copy this
+ * pattern without similar justification.
  */
 export class MoveToTraceContextCommand implements Command {
   private readonly context: Context;
