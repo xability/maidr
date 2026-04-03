@@ -55,26 +55,45 @@ export class RotorNavigationService {
 
   /**
    * Advances to the next rotor navigation mode.
-   * @returns The name of the new rotor mode
+   * @returns The name of the new rotor mode, or grid info if entering grid mode
    */
   public moveToNextRotorUnit(): string {
     const modes = this.getAvailableModes();
     this.rotorIndex = (this.rotorIndex + 1) % modes.length;
 
     this.setMode();
-    return this.getMode();
+    return this.formatModeDisplay();
   }
 
   /**
    * Moves to the previous rotor navigation mode.
-   * @returns The name of the new rotor mode
+   * @returns The name of the new rotor mode, or grid info if entering grid mode
    */
   public moveToPrevRotorUnit(): string {
     const modes = this.getAvailableModes();
     this.rotorIndex = (this.rotorIndex - 1 + modes.length) % modes.length;
 
     this.setMode();
-    return this.getMode();
+    return this.formatModeDisplay();
+  }
+
+  /**
+   * Formats the mode display string.
+   * For grid mode, returns "GRID NAVIGATION: 5×4 GRID".
+   * For other modes, returns the mode name.
+   */
+  private formatModeDisplay(): string {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
+      const activeTrace = this.context.active;
+      if (isGridNavigable(activeTrace)) {
+        const dims = activeTrace.getGridDimensions();
+        if (dims) {
+          return `GRID NAVIGATION: ${dims.rows}×${dims.cols} GRID`;
+        }
+      }
+    }
+    return mode;
   }
 
   /**
@@ -330,7 +349,7 @@ export class RotorNavigationService {
 
   /**
    * Handles grid navigation in the specified direction.
-   * @returns Error message if move failed or grid not supported, null otherwise
+   * @returns Error message if grid not supported, null otherwise (boundary handled by notifyOutOfBounds)
    */
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
@@ -338,26 +357,22 @@ export class RotorNavigationService {
       return this.getMessage('grid', direction);
     }
 
-    let moved = false;
+    // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text
     switch (direction) {
       case 'up':
-        moved = activeTrace.moveGridUp();
+        activeTrace.moveGridUp();
         break;
       case 'down':
-        moved = activeTrace.moveGridDown();
+        activeTrace.moveGridDown();
         break;
       case 'left':
-        moved = activeTrace.moveGridLeft();
+        activeTrace.moveGridLeft();
         break;
       case 'right':
-        moved = activeTrace.moveGridRight();
+        activeTrace.moveGridRight();
         break;
     }
 
-    if (!moved) {
-      const dirLabel = direction === 'up' ? 'above' : direction === 'down' ? 'below' : direction;
-      return this.getMessage('grid', dirLabel);
-    }
     return null;
   }
 }

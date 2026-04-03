@@ -45,6 +45,12 @@ import {
   GoToExtremaSelectCommand,
 } from './goToExtremaNavigation';
 import {
+  EnterGridCellCommand,
+  ExitGridCellCommand,
+  GridCellMoveLeftCommand,
+  GridCellMoveRightCommand,
+} from './gridCell';
+import {
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -288,6 +294,17 @@ export class CommandFactory {
           this.context,
           this.rotorNavigationViewModel,
         );
+
+      // Grid cell navigation
+      case 'ENTER_GRID_CELL':
+        return new EnterGridCellCommand(this.context);
+      case 'EXIT_GRID_CELL':
+        return new ExitGridCellCommand(this.context);
+      case 'GRID_CELL_MOVE_LEFT':
+        return new GridCellMoveLeftCommand(this.context);
+      case 'GRID_CELL_MOVE_RIGHT':
+        return new GridCellMoveRightCommand(this.context);
+
       default:
         throw new Error(`Invalid command name: ${command}`);
     }
