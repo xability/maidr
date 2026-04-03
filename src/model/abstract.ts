@@ -28,6 +28,12 @@ export interface Dimension {
   cols: number;
 }
 
+export interface NearestPoint {
+  element: SVGElement;
+  row: number;
+  col: number;
+}
+
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
   protected readonly observers: Observer<State>[];
   protected isWarning: boolean;
@@ -660,7 +666,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null;
+  ): NearestPoint | null;
 
   /**
    * Moves to the nearest point at the specified coordinates (used for hover functionality).
@@ -697,7 +703,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       element,
       row: _row,
       col: _col,
-    }: { element: SVGElement; row: number; col: number },
+    }: NearestPoint,
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();

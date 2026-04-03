@@ -6,7 +6,7 @@ import React, { useEffect, useId, useRef } from 'react';
 const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
-  const { value, index } = useViewModelState('braille');
+  const { value, index, displaySize } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -56,6 +56,9 @@ const Braille: React.FC = () => {
         ref={brailleRef}
         defaultValue={value}
         autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        wrap="off"
         // role="application" ensures screen readers (NVDA/JAWS) pass all
         // keys, including Escape, through to the web app instead of
         // intercepting them for browse/virtual-cursor mode. Placed on the
@@ -63,7 +66,7 @@ const Braille: React.FC = () => {
         // navigation for any future sibling content.
         role="application"
         rows={5}
-        cols={50}
+        cols={displaySize}
       />
     </div>
   );
