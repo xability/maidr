@@ -221,10 +221,10 @@ export class MoveToTraceContextCommand implements Command {
     this.context.enterSubplot();
     if (this.brailleService.isEnabled) {
       const state = this.context.state;
+      // After enterSubplot(), context.state should always be a trace.
+      // The guard is defensive; if it fails, braille simply shows stale data.
       if (state.type === 'trace') {
         this.brailleService.refreshDisplay(state);
-      } else {
-        console.warn('[MoveToTraceContextCommand] Expected trace state after enterSubplot, got:', state.type);
       }
       this.displayService.toggleFocus(Scope.BRAILLE);
     }

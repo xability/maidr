@@ -141,13 +141,12 @@ describe('MoveToTraceContextCommand', () => {
     });
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const command = new MoveToTraceContextCommand(context, brailleService, displayService);
     command.execute();
 
     expect(brailleService.refreshDisplay).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalled();
-    warnSpy.mockRestore();
+    // toggleFocus should still be called so braille UI renders
+    expect(displayService.toggleFocus).toHaveBeenCalledWith(Scope.BRAILLE);
   });
 });
