@@ -1,3 +1,10 @@
+## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* escape key works in braille mode for subplot exit ([#593](https://github.com/xability/maidr/issues/593)) ([e30144a](https://github.com/xability/maidr/commit/e30144a19ce020d9d6b0071b3fbfcb6b2554e344))
+
 ## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
 
 
