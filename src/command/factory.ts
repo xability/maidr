@@ -1,6 +1,8 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
+import type { BrailleService } from '@service/braille';
+import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { RotorNavigationService } from '@service/rotor';
@@ -45,6 +47,7 @@ import {
   GoToExtremaSelectCommand,
 } from './goToExtremaNavigation';
 import {
+  ExitBrailleAndSubplotCommand,
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -91,6 +94,8 @@ export class CommandFactory {
 
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
+  private readonly brailleService: BrailleService;
+  private readonly displayService: DisplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly rotorService: RotorNavigationService;
@@ -115,6 +120,8 @@ export class CommandFactory {
 
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
+    this.brailleService = commandContext.brailleService;
+    this.displayService = commandContext.displayService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
     this.rotorService = commandContext.rotorNavigationService;
@@ -176,9 +183,11 @@ export class CommandFactory {
         return new MoveToRightExtremeCommand(this.context);
 
       case 'MOVE_TO_TRACE_CONTEXT':
-        return new MoveToTraceContextCommand(this.context);
+        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
         return new MoveToSubplotContextCommand(this.context);
+      case 'EXIT_BRAILLE_AND_SUBPLOT':
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService);
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context);
       case 'MOVE_TO_PREV_TRACE':

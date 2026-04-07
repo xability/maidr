@@ -805,6 +805,25 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   /**
+   * Returns whether braille mode is currently enabled.
+   */
+  public get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /**
+   * Refreshes the braille display with the given trace state. Called
+   * explicitly when entering a new subplot with braille enabled, because
+   * the model's {@link notifyStateUpdate} is not invoked on entry (doing
+   * so would fan out to all observers, including AudioService, causing
+   * an unwanted tone).
+   * @param state - The trace state to display
+   */
+  public refreshDisplay(state: TraceState): void {
+    this.update(state);
+  }
+
+  /**
    * Updates the braille display based on plot state changes.
    * @param state - Updated subplot or trace state
    */
