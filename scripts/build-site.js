@@ -49,6 +49,7 @@ function markdownToHtml(md) {
 const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -129,6 +130,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{CONTENT\}\}/g, () => content)
     .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
     .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -169,6 +171,20 @@ if (fs.existsSync(reactMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
+// Build plotly.html from docs/plotly.md
+console.log('Building plotly.html from docs/plotly.md...');
+const plotlyMdPath = path.join(ROOT, 'docs', 'plotly.md');
+if (fs.existsSync(plotlyMdPath)) {
+  const plotlyMd = fs.readFileSync(plotlyMdPath, 'utf-8');
+  const plotlyHtml = `
+<div class="content">
+  ${marked.parse(plotlyMd)}
+</div>
+`;
+  const plotlyPage = generatePage({ title: 'Plotly', content: plotlyHtml, activePage: 'plotly', slug: 'plotly.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'plotly.html'), plotlyPage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -207,6 +223,20 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
     <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>
   </ul>
+
+  <h3>Plotly.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('plotly-bar.html', 'Plotly Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-scatter.html', 'Plotly Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-line.html', 'Plotly Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-box.html', 'Plotly Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-heatmap.html', 'Plotly Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-histogram.html', 'Plotly Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-grouped-bar.html', 'Plotly Grouped Bar'); return false;">Grouped Bar</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-stacked-bar.html', 'Plotly Stacked Bar'); return false;">Stacked Bar</a></li>
+  </ul>
+  <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <div id="content" hidden="true">Select an example above.</div>
 </div>
@@ -316,7 +346,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'plotly.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -370,6 +400,7 @@ console.log('Generating sitemap.xml...');
 const sitemapUrls = [
   { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
   { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
