@@ -797,8 +797,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.gridCells || !this.isInGridMode)
       return false;
     const cell = this.gridCells[this.gridRow][this.gridCol];
-    if (cell.points.length === 0)
+    if (cell.points.length === 0) {
+      this.notifyOutOfBounds();
       return false;
+    }
 
     // Build cellXPoints by grouping cell points by X (sorted by X, then Y)
     const pointsWithSvg = cell.points.map((p, i) => ({ point: p, svg: cell.svgElements[i] }));

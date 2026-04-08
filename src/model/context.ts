@@ -238,14 +238,17 @@ export class Context implements Disposable {
   /**
    * Enters grid cell mode to navigate points within the current cell.
    * Only works when the active trace supports grid navigation and is in grid mode.
+   * @returns true if successfully entered cell mode, false if no points in cell
    */
-  public enterGridCell(): void {
+  public enterGridCell(): boolean {
     const activeTrace = this.active;
     if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
       if (activeTrace.enterGridCell()) {
         this.toggleScope(Scope.GRID_CELL);
+        return true;
       }
     }
+    return false;
   }
 
   /**

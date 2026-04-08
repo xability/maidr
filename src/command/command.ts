@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
 import type { TextService } from '@service/text';
@@ -50,6 +51,8 @@ export interface CommandContext {
   settingsService: SettingsService;
   /** Text service for mode-aware text formatting. */
   textService: TextService;
+  /** Notification service for user feedback messages. */
+  notificationService: NotificationService;
 
   /** Braille view model for braille display. */
   brailleViewModel: BrailleViewModel;

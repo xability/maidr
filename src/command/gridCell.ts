@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { NotificationService } from '@service/notification';
 import type { Command } from './command';
 
 /**
@@ -6,13 +7,18 @@ import type { Command } from './command';
  */
 export class EnterGridCellCommand implements Command {
   private readonly context: Context;
+  private readonly notification: NotificationService;
 
-  public constructor(context: Context) {
+  public constructor(context: Context, notification: NotificationService) {
     this.context = context;
+    this.notification = notification;
   }
 
   public execute(): void {
-    this.context.enterGridCell();
+    const success = this.context.enterGridCell();
+    if (!success) {
+      this.notification.notify('No points in this cell');
+    }
   }
 }
 

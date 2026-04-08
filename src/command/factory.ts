@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
@@ -99,6 +100,7 @@ export class CommandFactory {
   private readonly autoplayService: AutoplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
+  private readonly notificationService: NotificationService;
   private readonly rotorService: RotorNavigationService;
   private readonly textService: TextService;
 
@@ -123,6 +125,7 @@ export class CommandFactory {
     this.autoplayService = commandContext.autoplayService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
+    this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
     this.textService = commandContext.textService;
 
@@ -297,7 +300,7 @@ export class CommandFactory {
 
       // Grid cell navigation
       case 'ENTER_GRID_CELL':
-        return new EnterGridCellCommand(this.context);
+        return new EnterGridCellCommand(this.context, this.notificationService);
       case 'EXIT_GRID_CELL':
         return new ExitGridCellCommand(this.context);
       case 'GRID_CELL_MOVE_LEFT':
