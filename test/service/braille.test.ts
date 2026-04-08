@@ -29,7 +29,12 @@ interface SettingsMockController {
  * @param col - Active braille column
  * @returns Non-empty trace state for line braille updates
  */
-function createLineTraceState(values: number[][], row: number, col: number): TraceState {
+function createLineTraceState(
+  values: number[][],
+  row: number,
+  col: number,
+  plotType: string = 'line',
+): TraceState {
   const braille: LineBrailleState = {
     id: `line-braille-${values[0]?.length ?? 0}-${row}-${col}`,
     empty: false,
@@ -45,7 +50,7 @@ function createLineTraceState(values: number[][], row: number, col: number): Tra
     type: 'trace',
     layerId: 'test-layer',
     traceType: TraceType.LINE,
-    plotType: 'line',
+    plotType,
     title: 'Line test trace',
     xAxis: 'x',
     yAxis: 'y',
@@ -462,6 +467,7 @@ describe('BrailleService display-size encoding', () => {
       [[1, 2, 3, 4, 5], [10, 20, 30]],
       1,
       2,
+      'multiline',
     );
 
     let emitted = '';
@@ -473,9 +479,11 @@ describe('BrailleService display-size encoding', () => {
 
     service.toggle(state);
 
-    // Two rows of data should produce two row-groups in the output
-    const rows = emitted.split('\n').filter(r => r.length > 0);
-    expect(rows.length).toBeGreaterThanOrEqual(2);
+    // Multiline output must remain a single paragraph (no newline delimiters).
+    expect(emitted.includes('\n')).toBe(false);
+
+    // With hardcoded 20 cells per row, two rows of lengths 5 and 3 occupy 40 cells.
+    expect(emitted.length).toBe(40);
 
     // Navigate to row 1, col 2
     service.moveToIndex(lastIndex);
@@ -557,6 +565,64 @@ describe('BrailleService display-size encoding', () => {
 
     expect(displaySizes).toContain(32);
     expect(displaySizes).toContain(20);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('multiline output ignores display size changes and stays 20-cell padded', () => {
+    const { service, triggerDisplaySizeChange, setContextState }
+      = createBrailleServiceWithSettingsTrigger(32);
+    const state = createLineTraceState(
+      [[1, 2, 3], [4, 5]],
+      1,
+      1,
+      'multiline',
+    );
+    setContextState(state);
+
+    const values: string[] = [];
+    const disposable = service.onChange((event) => {
+      values.push(event.value);
+    });
+
+    service.toggle(state);
+    const beforeChange = values[values.length - 1];
+    triggerDisplaySizeChange(5);
+    const afterChange = values[values.length - 1];
+
+    expect(beforeChange).toEqual(afterChange);
+    expect(beforeChange.includes('\n')).toBe(false);
+    expect(beforeChange.length).toBe(40);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('multiline cursor index aligns with visible cells across rows', () => {
+    const { service, contextMoveToIndex } = createBrailleService(32);
+    const state = createLineTraceState(
+      [[1, 2, 3], [4, 5, 6]],
+      1,
+      0,
+      'multiline',
+    );
+
+    let emittedIndex = -1;
+    let emittedValue = '';
+    const disposable = service.onChange((event) => {
+      emittedIndex = event.index;
+      emittedValue = event.value;
+    });
+
+    service.toggle(state);
+
+    // First row is padded to 20 cells, so second row starts at index 20.
+    expect(emittedValue.length).toBe(40);
+    expect(emittedIndex).toBe(20);
+
+    service.moveToIndex(emittedIndex);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(1, 0);
 
     disposable.dispose();
     service.dispose();

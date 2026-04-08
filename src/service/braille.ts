@@ -19,6 +19,7 @@ import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
 export const DEFAULT_BRAILLE_SIZE = 32;
+const MULTILINE_BRAILLE_CELLS_PER_LINE = 20;
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
@@ -111,6 +112,62 @@ function encodeWithWrapping(
       values.push(Constant.NEW_LINE);
     }
     cellToIndex[row].push(sentinelIdx);
+  }
+
+  return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+}
+
+/**
+ * Encodes a 2D grid into a single-paragraph string by padding each data row with
+ * spaces to the next fixed display-width boundary, avoiding newline delimiters.
+ *
+ * This layout is used for multiline line plots so screen readers that stop at
+ * newline characters can still expose all rows on a braille display.
+ *
+ * @param rowCount - Number of rows in the data
+ * @param colCount - Function returning the number of columns for a given row
+ * @param getChar - Function returning the braille character for a given (row, col)
+ * @param displaySize - Fixed number of cells per line used for padding
+ * @returns Encoded braille with cell mappings
+ */
+function encodeWithDisplayPadding(
+  rowCount: number,
+  colCount: (row: number) => number,
+  getChar: (row: number, col: number) => string,
+  displaySize: number,
+): EncodedBraille {
+  const values = new Array<string>();
+  const cellToIndex = new Array<Array<number>>();
+  const indexToCell = new Array<Cell>();
+
+  for (let row = 0; row < rowCount; row++) {
+    cellToIndex.push(new Array<number>());
+    const cols = colCount(row);
+
+    for (let col = 0; col < cols; col++) {
+      values.push(getChar(row, col));
+      cellToIndex[row].push(indexToCell.length);
+      indexToCell.push({ row, col });
+    }
+
+    // Keep mapping strictly aligned to visible characters to avoid cursor drift.
+    // The row-end sentinel points to the last visible data cell when available.
+    const sentinelIdx = cols > 0
+      ? cellToIndex[row][cols - 1]
+      : Math.max(0, indexToCell.length - 1);
+    cellToIndex[row].push(sentinelIdx);
+
+    const remainder = cols % displaySize;
+    if (remainder === 0) {
+      continue;
+    }
+
+    const padding = displaySize - remainder;
+    const mappedCol = Math.max(0, cols - 1);
+    for (let i = 0; i < padding; i++) {
+      values.push(Constant.SPACE);
+      indexToCell.push({ row, col: mappedCol });
+    }
   }
 
   return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
@@ -706,6 +763,30 @@ class LineBrailleEncoder extends AbstractTimeSeriesEncoder<LineBrailleState> {
     const mediumHigh = medium + range;
     const high = state.max[row];
     return { low, medium, mediumHigh, high };
+  }
+
+  /**
+   * Encodes line data using multiline-compatible fixed-width padding when
+   * multiple groups are present, otherwise falls back to default wrapping.
+   * @param state - Line chart braille state
+   * @param size - Configured braille display width
+   * @returns Encoded braille with cell mappings
+   */
+  public override encode(
+    state: LineBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const isMultiline = state.values.length > 1;
+    if (!isMultiline) {
+      return super.encode(state, size);
+    }
+
+    return encodeWithDisplayPadding(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => this.encodeCell(state, row, col),
+      MULTILINE_BRAILLE_CELLS_PER_LINE,
+    );
   }
 }
 
