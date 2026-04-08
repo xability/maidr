@@ -522,7 +522,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Braille Display Size"
+              label="Braille Display Cells Per Line"
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -538,7 +538,34 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'Braille Display Size',
+                          'aria-label': 'Braille Display Cells Per Line',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Braille Display Lines"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplayLines}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Lines',
                         },
                       },
                     }}

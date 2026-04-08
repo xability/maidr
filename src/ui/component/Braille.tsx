@@ -10,11 +10,18 @@ const Braille: React.FC = () => {
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
-  // Handle Selection Change
+  // Keep a ref to the latest value so the selectionchange handler (registered
+  // once) always sees the current braille string length, not the stale closure.
+  const valueRef = useRef<string>(value);
+  valueRef.current = value;
+
+  // Handle Selection Change — fired when the user moves the cursor inside the
+  // braille textarea (e.g. physical routing keys on a braille display).
   const handleSelectionChange = (event: Event): void => {
     const textArea = event.target as HTMLTextAreaElement;
     const newIndex = textArea.selectionStart;
-    if (newIndex >= value.length) {
+    // Reject positions that fall on padding/newline characters beyond the data.
+    if (newIndex >= valueRef.current.length) {
       textArea.setSelectionRange(lastIndexRef.current, lastIndexRef.current);
       return;
     }
@@ -36,17 +43,24 @@ const Braille: React.FC = () => {
       textArea.removeEventListener(DomEventType.SELECTION_CHANGE, handleSelectionChange);
     };
   }, []);
+
   useEffect(() => {
     const textArea = brailleRef.current;
     if (!textArea) {
       return;
     }
 
+    // Update the ref FIRST so that if selectionchange fires synchronously
+    // during the DOM assignments below, the handler sees the correct index
+    // and does not snap the cursor back to the previous position.
+    lastIndexRef.current = index;
     textArea.value = value;
+    // Focus before setting the selection; some browsers reset the cursor to
+    // position 0 when focus() is called on a previously-unfocused textarea,
+    // which would undo the selectionStart assignment if done first.
+    textArea.focus();
     textArea.selectionStart = index;
     textArea.selectionEnd = index;
-    textArea.focus();
-    lastIndexRef.current = index;
   }, [value, index]);
 
   return (
