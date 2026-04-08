@@ -332,31 +332,57 @@ function setupClickToFocus(plotlyDiv: HTMLElement | null): void {
 // MutationObserver disposal tracking
 // ---------------------------------------------------------------------------
 
-const OBSERVER_KEY = '__maidr_observers__';
+/**
+ * WeakMap to track MutationObservers attached to DOM elements.
+ * Using WeakMap ensures observers are automatically cleaned up when
+ * elements are garbage collected, and avoids the issue of storing
+ * JS properties that can't be queried via CSS selectors.
+ */
+const observerRegistry = new WeakMap<Element, MutationObserver[]>();
+
+/**
+ * Tracks all elements that have observers registered, so we can
+ * iterate them during disposal. WeakSet would lose references.
+ */
+const trackedElements = new Set<Element>();
 
 /**
  * Stores a MutationObserver reference on a DOM element so it can be
  * disconnected later (e.g. when the Controller disposes).
  */
 function storeMutationObserver(el: Element, observer: MutationObserver): void {
-  const stored = (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY] ?? [];
+  const stored = observerRegistry.get(el) ?? [];
   stored.push(observer);
-  (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY] = stored;
+  observerRegistry.set(el, stored);
+  trackedElements.add(el);
 }
 
 /**
- * Disconnects all MAIDR MutationObservers stored on a DOM element.
- * Call this during disposal to prevent memory leaks.
+ * Disconnects all MAIDR MutationObservers associated with a DOM element
+ * and its descendants. Call this during disposal to prevent memory leaks.
  */
 export function disconnectPlotlyObservers(root: Element): void {
-  const elements = root.querySelectorAll(`[${OBSERVER_KEY}]`);
-  for (const el of [root, ...elements]) {
-    const stored = (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY];
-    if (stored) {
-      for (const observer of stored) {
-        observer.disconnect();
+  // Disconnect observers on root
+  const rootObservers = observerRegistry.get(root);
+  if (rootObservers) {
+    for (const observer of rootObservers) {
+      observer.disconnect();
+    }
+    observerRegistry.delete(root);
+    trackedElements.delete(root);
+  }
+
+  // Disconnect observers on any tracked descendants
+  for (const el of trackedElements) {
+    if (root.contains(el)) {
+      const observers = observerRegistry.get(el);
+      if (observers) {
+        for (const observer of observers) {
+          observer.disconnect();
+        }
+        observerRegistry.delete(el);
       }
-      delete (el as unknown as Record<string, MutationObserver[]>)[OBSERVER_KEY];
+      trackedElements.delete(el);
     }
   }
 }

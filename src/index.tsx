@@ -108,15 +108,13 @@ function autoInitPlotlyCharts(): void {
   // By DOMContentLoaded, class + SVG + data are all present.
   const plotlyDivs = document.querySelectorAll<HTMLElement>('.js-plotly-plot');
 
-  if (plotlyDivs.length > 0) {
-    for (const gd of plotlyDivs) {
-      initPlotlyChart(gd);
-    }
-    return;
+  // Initialize any charts that already exist
+  for (const gd of plotlyDivs) {
+    initPlotlyChart(gd);
   }
 
-  // For charts created after DOMContentLoaded (e.g. SPA, dynamic loading),
-  // watch the DOM for .js-plotly-plot to appear.
+  // ALWAYS watch for dynamically-created charts (e.g. SPA, Jupyter notebooks),
+  // even if some charts already exist at load time.
   observeForPlotlyDivs();
 }
 
@@ -149,7 +147,9 @@ function initPlotlyChart(gd: HTMLElement): void {
  * DOMContentLoaded (e.g. in SPAs or dynamically-loaded notebooks).
  * Uses plotly_afterplot event as a secondary signal to ensure the
  * SVG is fully rendered before initialising.
- * Disconnects automatically after 30 seconds.
+ *
+ * The observer runs indefinitely to support long-lived applications
+ * like Jupyter notebooks where charts may be created at any time.
  */
 function observeForPlotlyDivs(): void {
   const observer = new MutationObserver(() => {
@@ -179,9 +179,6 @@ function observeForPlotlyDivs(): void {
     attributes: true,
     attributeFilter: ['class'],
   });
-
-  // Safety: stop watching after 30 seconds.
-  setTimeout(() => observer.disconnect(), 30_000);
 }
 
 /**
