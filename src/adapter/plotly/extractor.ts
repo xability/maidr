@@ -128,6 +128,76 @@ function getAxis(layout: PlotlyFullLayout, axisId: string): PlotlyAxis | undefin
 }
 
 // ---------------------------------------------------------------------------
+// Grid config extraction for scatter plot navigation
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracts grid configuration (min, max, tickStep) from Plotly's computed axis.
+ * Returns null if the axis doesn't have valid numeric range and tick info.
+ *
+ * @param layout - The Plotly fullLayout object with computed axis values
+ * @param axisId - The axis identifier ('x', 'y', 'x2', 'y2', etc.)
+ * @returns Grid config object or null if not available
+ */
+function extractAxisGridConfig(
+  layout: PlotlyFullLayout,
+  axisId: string,
+): { min: number; max: number; tickStep: number } | null {
+  const axis = getAxis(layout, axisId);
+  if (!axis)
+    return null;
+
+  // Extract range (min, max)
+  const range = axis.range;
+  if (!range || range.length < 2)
+    return null;
+
+  const min = Number(range[0]);
+  const max = Number(range[1]);
+  if (Number.isNaN(min) || Number.isNaN(max))
+    return null;
+
+  // Extract tick step from dtick
+  // dtick can be a number or special string (e.g., "M3" for months, "D1" for days)
+  let tickStep: number | null = null;
+
+  if (typeof axis.dtick === 'number') {
+    tickStep = axis.dtick;
+  } else if (typeof axis.dtick === 'string') {
+    // Try parsing numeric string
+    const parsed = Number.parseFloat(axis.dtick);
+    if (!Number.isNaN(parsed)) {
+      tickStep = parsed;
+    }
+    // Skip non-numeric dtick (date/log special formats)
+  }
+
+  // Fallback: if tickmode is 'array' and tickvals exist, compute step from values
+  if (tickStep === null && axis.tickmode === 'array' && axis.tickvals && axis.tickvals.length >= 2) {
+    const sortedTicks = [...axis.tickvals].sort((a, b) => a - b);
+    // Use the most common step between adjacent ticks
+    const steps: number[] = [];
+    for (let i = 1; i < sortedTicks.length; i++) {
+      steps.push(sortedTicks[i] - sortedTicks[i - 1]);
+    }
+    if (steps.length > 0) {
+      // Use median step to be robust against irregular spacing
+      steps.sort((a, b) => a - b);
+      tickStep = steps[Math.floor(steps.length / 2)];
+    }
+  }
+
+  if (tickStep === null || tickStep <= 0)
+    return null;
+
+  // Ensure min < max (Plotly can have reversed axes)
+  const actualMin = Math.min(min, max);
+  const actualMax = Math.max(min, max);
+
+  return { min: actualMin, max: actualMax, tickStep };
+}
+
+// ---------------------------------------------------------------------------
 // Trace type mapping
 // ---------------------------------------------------------------------------
 
@@ -350,7 +420,7 @@ function extractLayer(
 
   switch (maidrType) {
     case TraceType.SCATTER:
-      return extractScatterLayer(trace, id, title, selectors, axes);
+      return extractScatterLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.BAR:
       return extractBarLayer(trace, id, title, selectors, axes);
@@ -379,6 +449,7 @@ function extractScatterLayer(
   title: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
+  gd: PlotlyGraphDiv,
 ): MaidrLayer | null {
   const x = trace.x;
   const y = trace.y;
@@ -398,12 +469,39 @@ function extractScatterLayer(
   if (data.length === 0)
     return null;
 
+  // Extract grid config from Plotly's computed axis values for grid navigation
+  const layout = gd._fullLayout;
+  let enhancedAxes = axes;
+
+  if (layout) {
+    const xAxisId = trace.xaxis ?? 'x';
+    const yAxisId = trace.yaxis ?? 'y';
+
+    const xGridConfig = extractAxisGridConfig(layout, xAxisId);
+    const yGridConfig = extractAxisGridConfig(layout, yAxisId);
+
+    // Only enhance axes if we have grid config for both axes
+    if (xGridConfig && yGridConfig) {
+      const xLabel = typeof axes?.x === 'string' ? axes.x : undefined;
+      const yLabel = typeof axes?.y === 'string' ? axes.y : undefined;
+
+      enhancedAxes = {
+        x: xLabel
+          ? { label: xLabel, ...xGridConfig }
+          : xGridConfig,
+        y: yLabel
+          ? { label: yLabel, ...yGridConfig }
+          : yGridConfig,
+      };
+    }
+  }
+
   return {
     id,
     type: TraceType.SCATTER,
     title,
     selectors,
-    axes,
+    axes: enhancedAxes,
     data,
   };
 }
@@ -707,9 +805,17 @@ function extractHeatmapLayer(
 
 /**
  * Extracts the colorbar title from a plotly trace, if present.
+ * Filters out Plotly's editable placeholder titles (e.g., "Click to enter Colorscale title").
  */
 function extractColorbarTitle(trace: PlotlyTrace): string | undefined {
-  return extractTextOrObject(trace.colorbar?.title);
+  const title = extractTextOrObject(trace.colorbar?.title);
+
+  // Filter out Plotly's editable placeholder titles
+  if (title && title.toLowerCase().includes('click to enter')) {
+    return undefined;
+  }
+
+  return title;
 }
 
 // ---------------------------------------------------------------------------

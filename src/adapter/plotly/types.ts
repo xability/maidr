@@ -58,7 +58,10 @@ export interface PlotlyFullLayout extends PlotlyLayout {
 export interface PlotlyAxis {
   title?: { text?: string } | string;
   range?: [number, number];
-  dtick?: number;
+  dtick?: number | string;
+  tick0?: number | string;
+  tickmode?: 'auto' | 'linear' | 'array';
+  tickvals?: number[];
   type?: string;
   categories?: string[];
 }
