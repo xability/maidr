@@ -5,6 +5,7 @@ import type { Event, Focus } from '@type/event';
 import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
+import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapter/plotly';
 
 /**
  * Type for traces that support ensureInitialized method.
@@ -49,6 +50,7 @@ export class DisplayService implements Disposable {
   private isReturningFromModeToggle: boolean = false;
   private textChangeDisposer: Disposable | null = null;
   private hasClearedOnFirstNav: boolean = false;
+  private pendingFocusChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Creates a new DisplayService instance.
@@ -84,10 +86,21 @@ export class DisplayService implements Disposable {
   public dispose(): void {
     this.addInstruction();
 
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+      this.pendingFocusChangeTimer = null;
+    }
+
     this.textChangeDisposer?.dispose();
     this.textChangeDisposer = null;
 
     this.onChangeEmitter.dispose();
+
+    // Disconnect Plotly-specific MutationObservers to prevent memory leaks.
+    // Only affects Plotly charts; no-op for matplotlib or other chart types.
+    if (isPlotlyPlot(this.plot)) {
+      disconnectPlotlyObservers(this.plot);
+    }
   }
 
   /**
@@ -181,6 +194,48 @@ export class DisplayService implements Disposable {
 
     this.context.toggleScope(newScope);
     this.updateFocus(newScope);
+  }
+
+  /**
+   * Resets the focus stack to the given scope and moves focus to the plot
+   * element. Does not fire a display change event — the caller must call
+   * {@link notifyFocusChange} after completing any follow-up scope
+   * transitions (e.g. exitSubplot) to avoid emitting a stale intermediate
+   * scope.
+   * @param {Focus} targetScope - The scope the focus stack should reflect
+   *   after the modal is dismissed. The stack is reset to this value so it
+   *   stays in sync with the hotkeys scope set by the caller.
+   *
+   * **Important:** The caller must ensure the hotkeys scope is set to
+   * `targetScope` (e.g. via `context.exitSubplot()`) before or immediately
+   * after this call. This method only updates the focus stack and DOM focus;
+   * it does not change the hotkeys scope.
+   */
+  public dismissModalScope(targetScope: Focus): void {
+    this.plot.focus();
+    this.focusStack.clear();
+    this.focusStack.push(targetScope);
+  }
+
+  /**
+   * Fires a deferred display change event with the given scope. The
+   * deferral (setTimeout 0) gives screen readers one event-loop cycle to
+   * process the preceding focus change before React unmounts the modal
+   * element (e.g. the braille textarea). Without this, NVDA/JAWS exit
+   * focus mode when the focused element disappears from the DOM.
+   *
+   * Cancels any previously pending notification to avoid stale events
+   * from rapid repeated calls.
+   * @param {Focus} scope - The scope to emit as the new display focus
+   */
+  public notifyFocusChange(scope: Focus): void {
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+    }
+    this.pendingFocusChangeTimer = setTimeout(() => {
+      this.pendingFocusChangeTimer = null;
+      this.onChangeEmitter.fire({ value: scope });
+    }, 0);
   }
 
   /**

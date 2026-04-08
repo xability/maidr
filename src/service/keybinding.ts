@@ -16,6 +16,7 @@ import hotkeys from 'hotkeys-js';
  */
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
+  EXIT_BRAILLE_AND_SUBPLOT: `esc`,
 
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,

@@ -54,13 +54,14 @@ The sections are encoded as follows:
 - ⠒ represents the left or right whiskers
 - ⠿ represents the second or third quartiles
 - ⠸⠇ represents the 50% midpoint (median)
-- blank spaces represent empty spaces
+- blank spaces represent empty spaces. Blank spaces represent empty spaces. At the beginning of a line, blank space acts as a positional offset to ensure multiple box plots align correctly to the same numerical scale.
 
 We also impose some overarching rules:
 
 1. Each section must be represented with at least one braille character, assuming they have some positive length.
 2. Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
 3. A set character always represents zero length sections, such as outliers and the median. ⠂ in the case of outliers, ⠸⠇ in the case of the median.
+4. Spatial Alignment: When comparing multiple box plots, the leading blank space represents the distance from the global minimum to the start of the specific dataset. This allows users to perceive relative differences in value by comparing the "indentation" of each plot.
 
 This tactile encoding enables users to discern the various components of the boxplot, allowing them to comprehend the data distribution, detect outliers, and identify central tendencies and dispersion within the dataset.
 
