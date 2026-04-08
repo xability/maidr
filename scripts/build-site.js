@@ -49,6 +49,7 @@ function markdownToHtml(md) {
 const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
   'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
@@ -130,6 +131,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{CONTENT\}\}/g, () => content)
     .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
     .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{RECHARTS_ACTIVE\}\}/g, () => activePage === 'recharts' ? 'active' : '')
     .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
@@ -169,6 +171,20 @@ if (fs.existsSync(reactMdPath)) {
 `;
   const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
+}
+
+// Build recharts.html from docs/recharts.md
+console.log('Building recharts.html from docs/recharts.md...');
+const rechartsMdPath = path.join(ROOT, 'docs', 'recharts.md');
+if (fs.existsSync(rechartsMdPath)) {
+  const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
+  const rechartsHtml = `
+<div class="content">
+  ${marked.parse(rechartsMd)}
+</div>
+`;
+  const rechartsPage = generatePage({ title: 'Recharts', content: rechartsHtml, activePage: 'recharts', slug: 'recharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'recharts.html'), rechartsPage);
 }
 
 // Build plotly.html from docs/plotly.md
@@ -238,6 +254,12 @@ const examplesContent = `
   </ul>
   <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
+  <h3>Recharts</h3>
+  <ul>
+    <li><a href="#" onclick="loadRecharts(); return false;">Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)</a></li>
+  </ul>
+  <p>See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
   <div id="content" hidden="true">Select an example above.</div>
 </div>
 
@@ -257,6 +279,31 @@ const examplesContent = `
     iframe.tabIndex = 0;
     iframe.title = 'React Examples';
     iframe.setAttribute('aria-label', 'React example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadRecharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Recharts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/recharts/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Recharts Examples';
+    iframe.setAttribute('aria-label', 'Recharts example demonstration');
 
     var contentDiv = document.getElementById('content');
     contentDiv.innerHTML = '';
@@ -329,6 +376,19 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
+// Copy built Recharts example (single-file HTML) to _site/examples/recharts/
+console.log('Copying built Recharts example...');
+const rechartsBuilt = path.join(ROOT, 'examples', 'recharts', 'dist', 'index.html');
+const rechartsSiteDest = path.join(SITE_DIR, 'examples', 'recharts');
+if (fs.existsSync(rechartsBuilt)) {
+  if (!fs.existsSync(rechartsSiteDest)) {
+    fs.mkdirSync(rechartsSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(rechartsBuilt, path.join(rechartsSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Recharts example not found. Run "npm run build:recharts-example" first.');
+}
+
 const today = new Date().toISOString().split('T')[0];
 
 /** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
@@ -346,7 +406,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'plotly.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -400,6 +460,7 @@ console.log('Generating sitemap.xml...');
 const sitemapUrls = [
   { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
   { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
   { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
