@@ -8,6 +8,33 @@ import { Emitter, Scope } from '@type/event';
 
 const SETTINGS_KEY = 'maidr-settings';
 
+/**
+ * Deep-merges `override` into `defaults`, filling any keys that are present
+ * in `defaults` but absent from `override`. This ensures that newly added
+ * settings are available even when the user has an older saved settings object
+ * in localStorage that predates the new keys.
+ */
+function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
+  const result = { ...defaults };
+  for (const key of Object.keys(override) as (keyof T)[]) {
+    const overrideVal = override[key];
+    const defaultVal = defaults[key];
+    if (
+      overrideVal !== null
+      && overrideVal !== undefined
+      && typeof overrideVal === 'object'
+      && !Array.isArray(overrideVal)
+      && typeof defaultVal === 'object'
+      && defaultVal !== null
+    ) {
+      result[key] = deepMerge(defaultVal as object, overrideVal as Partial<object>) as T[keyof T];
+    } else if (overrideVal !== undefined) {
+      result[key] = overrideVal as T[keyof T];
+    }
+  }
+  return result;
+}
+
 function getValue<T>(settings: any, key: string): T | undefined {
   return key.split('.').reduce((acc, part) => {
     return acc && acc[part];
@@ -67,6 +94,7 @@ export class SettingsService implements Disposable {
         highContrastLightColor: '#ffffff',
         highContrastDarkColor: '#000000',
         brailleDisplaySize: 32,
+        brailleDisplayLines: 1,
         minFrequency: 200,
         maxFrequency: 1000,
         autoplayDuration: 4000,
@@ -101,7 +129,9 @@ export class SettingsService implements Disposable {
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
-    this.currentSettings = saved ?? this.defaultSettings;
+    // Deep-merge so that newly added default settings are available even when
+    // the user has an older saved object in localStorage that lacks the new keys.
+    this.currentSettings = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
   }
 
   public dispose(): void {

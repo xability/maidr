@@ -549,6 +549,34 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
+              label="Braille Display Lines"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplayLines}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Lines',
+                          'min': 1,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
               label="Min Frequency (Hz)"
               input={(
                 <FormControl fullWidth>
