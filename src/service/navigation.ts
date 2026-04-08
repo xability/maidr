@@ -43,14 +43,20 @@ export class NavigationService implements Disposable {
       return newTrace;
     }
 
-    // Allow trace-specific switch handling (e.g., preserve Y)
-    let handled = false;
-    if (typeof newTrace.onSwitchFrom === 'function') {
-      handled = newTrace.onSwitchFrom(currentTrace);
+    // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
+    let positioned = false;
+    if (
+      typeof currentTrace.getCurrentYValue === 'function'
+      && typeof newTrace.moveToXAndYValue === 'function'
+    ) {
+      const currentYValue = currentTrace.getCurrentYValue();
+      if (currentYValue !== null && currentXValue !== null) {
+        positioned = newTrace.moveToXAndYValue(currentXValue, currentYValue);
+      }
     }
 
-    // Default: preserve X value when changing layers (only if not handled)
-    if (!handled) {
+    // Default: preserve X value when changing layers
+    if (!positioned) {
       newTrace.moveToXValue(currentXValue);
     }
 

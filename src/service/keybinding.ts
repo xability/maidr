@@ -16,6 +16,7 @@ import hotkeys from 'hotkeys-js';
  */
 const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: `l`,
+  EXIT_BRAILLE_AND_SUBPLOT: `esc`,
 
   // Autoplay
   AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
@@ -55,7 +56,8 @@ const BRAILLE_KEYMAP = {
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
@@ -77,9 +79,9 @@ const FIGURE_LABEL_KEYMAP = {
   DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
 
   // Description
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_SUBTITLE: `s`,
-  DESCRIBE_CAPTION: `c`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_SUBTITLE: `s`,
+  ANNOUNCE_CAPTION: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -100,8 +102,9 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: `l`,
 
   // Description
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // Navigation
   MOVE_UP: `up`,
@@ -131,12 +134,12 @@ const TRACE_LABEL_KEYMAP = {
   DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
 
   // Description
-  DESCRIBE_X: `x`,
-  DESCRIBE_Y: `y`,
-  DESCRIBE_FILL: `f`,
-  DESCRIBE_TITLE: `t`,
-  DESCRIBE_SUBTITLE: `s`,
-  DESCRIBE_CAPTION: `c`,
+  ANNOUNCE_X: `x`,
+  ANNOUNCE_Y: `y`,
+  ANNOUNCE_FILL: `f`,
+  ANNOUNCE_TITLE: `t`,
+  ANNOUNCE_SUBTITLE: `s`,
+  ANNOUNCE_CAPTION: `c`,
 
   // Misc
   TOGGLE_HELP: `${Platform.ctrl}+/`,
@@ -212,7 +215,8 @@ const TRACE_KEYMAP = {
   TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
 
   // Description
-  DESCRIBE_POINT: `space`,
+  ANNOUNCE_POINT: `space`,
+  ANNOUNCE_POSITION: `p`,
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: `g`,
@@ -220,6 +224,9 @@ const TRACE_KEYMAP = {
   // rotor functionality
   ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
   ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+
+  // Grid cell navigation (enter grid cell when in GRID_MODE)
+  ENTER_GRID_CELL: `${Platform.enter}`,
 } as const;
 
 /**
@@ -246,6 +253,16 @@ const COMMAND_PALETTE_KEYMAP = {
 } as const;
 
 /**
+ * Keymap configuration for grid cell point navigation.
+ */
+const GRID_CELL_KEYMAP = {
+  // Navigation within grid cell points
+  GRID_CELL_MOVE_LEFT: 'left',
+  GRID_CELL_MOVE_RIGHT: 'right',
+  EXIT_GRID_CELL: 'esc',
+} as const;
+
+/**
  * Maps each application scope to its corresponding keymap configuration.
  */
 export const SCOPED_KEYMAP = {
@@ -254,6 +271,7 @@ export const SCOPED_KEYMAP = {
   [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
+  [Scope.GRID_CELL]: GRID_CELL_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,

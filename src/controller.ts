@@ -102,6 +102,7 @@ export class Controller implements Disposable {
       this.context,
       this.notificationService,
       this.displayService,
+      this.settingsService,
     );
     this.goToExtremaService = new GoToExtremaService(
       this.context,
@@ -134,12 +135,14 @@ export class Controller implements Disposable {
       this.textService,
       this.notificationService,
       this.autoplayService,
+      this.audioService,
     );
     this.brailleViewModel = new BrailleViewModel(store, this.brailleService);
     this.goToExtremaViewModel = new GoToExtremaViewModel(
       store,
       this.goToExtremaService,
       this.context,
+      this.formatterService,
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
@@ -174,9 +177,11 @@ export class Controller implements Disposable {
 
       audioService: this.audioService,
       autoplayService: this.autoplayService,
+      brailleService: this.brailleService,
       displayService: this.displayService,
       highContrastService: this.highContrastService,
       highlightService: this.highlightService,
+      notificationService: this.notificationService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
       textService: this.textService,
@@ -197,9 +202,11 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        brailleService: this.brailleService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
         textService: this.textService,
@@ -224,9 +231,11 @@ export class Controller implements Disposable {
 
         audioService: this.audioService,
         autoplayService: this.autoplayService,
+        brailleService: this.brailleService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
         textService: this.textService,

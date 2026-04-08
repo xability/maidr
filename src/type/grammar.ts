@@ -104,6 +104,40 @@ export interface FormatConfig {
 }
 
 /**
+ * Configuration options for violin plot display.
+ * Controls which summary statistics are shown in the violin box overlay.
+ * Sent from the Python backend alongside violin_kde and violin_box layers.
+ */
+export interface ViolinOptions {
+  /** Show median line marker. Default: true */
+  showMedian?: boolean;
+  /** Show mean value marker. Default: false */
+  showMean?: boolean;
+  /** Show extrema (min/max) markers. Default: true */
+  showExtrema?: boolean;
+}
+
+/**
+ * Data point for violin KDE (kernel density estimation) curves.
+ * Library-agnostic — no SVG coordinates embedded in data.
+ * The density field falls back to width if absent.
+ */
+export interface ViolinKdePoint {
+  /** Categorical label for the violin (e.g., "setosa") */
+  x: string | number;
+  /** Position along the density axis */
+  y: number;
+  /** KDE density value at this point. Falls back to `width` if absent. */
+  density?: number;
+  /** Half-width of the violin at this Y level (used as density fallback) */
+  width?: number;
+  /** SVG viewport x-coordinate for highlight positioning (provided by backend) */
+  svg_x?: number;
+  /** SVG viewport y-coordinate for highlight positioning (provided by backend) */
+  svg_y?: number;
+}
+
+/**
  * Root MAIDR data structure containing figure metadata and subplot grid.
  * This is the type for the `data` prop passed to the `<Maidr>` React component.
  *
@@ -182,6 +216,8 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  /** Mean value for violin plots when mean display is enabled. */
+  mean?: number;
 }
 
 /**
@@ -194,6 +230,12 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  /** CSS selector for mean marker element in violin plots. */
+  mean?: string;
+  /** Optional direct CSS selector for Q1 element (bypasses iq edge derivation). */
+  q1?: string;
+  /** Optional direct CSS selector for Q3 element (bypasses iq edge derivation). */
+  q3?: string;
 }
 
 /**
@@ -264,6 +306,33 @@ export interface SmoothPoint {
 }
 
 /**
+ * Extended axis configuration that includes an optional label and grid navigation properties.
+ * Used when an axis needs both a label and grid config (min, max, tickStep).
+ *
+ * @example
+ * // axes.x as an object with grid config
+ * axes: { x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 } }
+ */
+export interface AxisConfig {
+  label?: string;
+  min?: number;
+  max?: number;
+  tickStep?: number;
+}
+
+/**
+ * Alternate grid configuration shape where grid properties are grouped by property name.
+ * Supports `axes.min.x`, `axes.max.x`, `axes.tickStep.x` etc.
+ *
+ * @example
+ * axes: { x: "Sepal Length", min: { x: 4.3, y: 2 }, max: { x: 7.9, y: 4.4 }, tickStep: { x: 0.7, y: 0.5 } }
+ */
+export interface AxisGridProperty {
+  x?: number;
+  y?: number;
+}
+
+/**
  * Chart orientation for bar and box plots.
  */
 export enum Orientation {
@@ -317,26 +386,40 @@ export interface MaidrLayer {
     iqrDirection?: 'forward' | 'reverse';
   };
   /**
-   * Axis configuration including labels and optional formatting.
+   * Axis configuration including labels, optional formatting, and grid navigation properties.
+   *
+   * Supports two shapes for grid config (both can coexist):
+   *
+   * **Format A** – per-axis objects (`axes.x.min`):
+   * ```json
+   * { "axes": { "x": { "label": "Sepal Length", "min": 4.3, "max": 7.9, "tickStep": 0.7 } } }
+   * ```
+   *
+   * **Format B** – grouped by property (`axes.min.x`):
+   * ```json
+   * { "axes": { "x": "Sepal Length", "min": { "x": 4.3, "y": 2 }, "tickStep": { "x": 0.7, "y": 0.5 } } }
+   * ```
    *
    * @example
-   * // Basic axis labels
+   * // Basic axis labels (no grid)
    * axes: { x: "Date", y: "Price" }
    *
    * @example
    * // With formatting
-   * axes: {
-   *   x: "Date",
-   *   y: "Price",
-   *   format: {
-   *     y: { type: "currency", decimals: 2 }
-   *   }
-   * }
+   * axes: { x: "Date", y: "Price", format: { y: { type: "currency", decimals: 2 } } }
    */
   axes?: {
-    x?: string;
-    y?: string;
+    /** Axis label (string) or axis config object with label + grid properties. */
+    x?: string | AxisConfig;
+    /** Axis label (string) or axis config object with label + grid properties. */
+    y?: string | AxisConfig;
     fill?: string;
+    /** Grouped grid property: `min: { x: 4.3, y: 2 }` */
+    min?: AxisGridProperty;
+    /** Grouped grid property: `max: { x: 7.9, y: 4.4 }` */
+    max?: AxisGridProperty;
+    /** Grouped grid property: `tickStep: { x: 0.7, y: 0.5 }` */
+    tickStep?: AxisGridProperty;
     /**
      * Optional formatting configuration for axis values.
      * When provided, values displayed in text descriptions will be formatted.
@@ -349,6 +432,11 @@ export interface MaidrLayer {
      */
     format?: FormatConfig;
   };
+  /**
+   * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
+   * Controls which summary statistics are shown in the violin box overlay.
+   */
+  violinOptions?: ViolinOptions;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -358,7 +446,8 @@ export interface MaidrLayer {
     | LinePoint[][]
     | ScatterPoint[]
     | SegmentedPoint[][]
-    | SmoothPoint[][];
+    | SmoothPoint[][]
+    | ViolinKdePoint[][];
 }
 
 /**
@@ -385,4 +474,6 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  VIOLIN_BOX = 'violin_box',
+  VIOLIN_KDE = 'violin_kde',
 }

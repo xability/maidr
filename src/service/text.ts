@@ -245,17 +245,9 @@ export class TextService implements Observer<PlotState>, Disposable {
           : this.formatSingleValue(state.text.main.value as number | string, mainAxisType);
         parts.push(`${state.text.main.label} is ${mainValue}`);
       }
-      // Exclude cross value for violin box plots during layer switch
-      // Violin plots are uniquely identified by having exactly 2 layers: BOX + SMOOTH (KDE)
-      // Detection heuristic: box plot (traceType === 'box') with exactly 2 layers (size === 2)
-      //
-      // Note: This is a structural detection heuristic. While it works well in practice because:
-      // - Regular box plots typically have only 1 layer
-      // - Regular smooth plots (regression lines) typically have only 1 layer
-      // - Violin plots are the only plot type that combines BOX + SMOOTH in the same subplot
-      // Edge case: If a subplot intentionally combines an independent box plot and regression line,
-      // this would incorrectly exclude the cross value. This is rare in practice.
-      const isViolinBoxPlot = state.traceType === 'box' && state.size === 2;
+      // Exclude cross value for violin box plots during layer switch.
+      // With explicit violin_box trace type, no heuristic is needed.
+      const isViolinBoxPlot = state.traceType === 'violin_box';
       if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
         const crossValue = Array.isArray(state.text.cross.value)
           ? this.formatArrayValue(state.text.cross.value as (number | string)[], crossAxisType).join(', ')
@@ -339,7 +331,17 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Verbose formatted text with complete coordinate information
    */
   private formatVerboseTraceText(state: TextState): string {
+    // Grid cell format: "{xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatVerboseGridText(state);
+    }
+
     const verbose = new Array<string>();
+
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      verbose.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // Use axis identity from TextState, fallback to default mapping
     const mainAxisType = state.mainAxis ?? 'x';
@@ -433,7 +435,17 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Terse formatted text with compact coordinate representation
    */
   private formatTerseTraceText(state: TextState): string {
+    // Grid cell format: "{xMin} through {xMax}, {yMin} through {yMax}, points: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatTerseGridText(state);
+    }
+
     const terse = new Array<string>();
+
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      terse.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // Use axis identity from state (supports orientation-aware formatting)
     const mainAxisType = state.mainAxis ?? 'x';
@@ -510,6 +522,97 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     return terse.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in verbose mode.
+   * Output: "Cell [row,col], {xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: (x1, y1), ..."
+   */
+  private formatVerboseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
+    // X range
+    parts.push(
+      state.main.label,
+      Constant.IS,
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      state.cross.label,
+      Constant.IS,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      const verb = points.length === 1 ? ' is' : 's are';
+      parts.push(Constant.COMMA_SPACE, `point${verb}: `, pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in terse mode.
+   * Output: "Cell [row,col], {xMin} through {xMax}, {yMin} through {yMax}, points: (x1, y1), ..."
+   */
+  private formatTerseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
+    // X range
+    parts.push(
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      parts.push(Constant.COMMA_SPACE, 'points: ', pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
   }
 
   /**

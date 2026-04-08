@@ -54,13 +54,14 @@ The sections are encoded as follows:
 - ⠒ represents the left or right whiskers
 - ⠿ represents the second or third quartiles
 - ⠸⠇ represents the 50% midpoint (median)
-- blank spaces represent empty spaces
+- blank spaces represent empty spaces. Blank spaces represent empty spaces. At the beginning of a line, blank space acts as a positional offset to ensure multiple box plots align correctly to the same numerical scale.
 
 We also impose some overarching rules:
 
 1. Each section must be represented with at least one braille character, assuming they have some positive length.
 2. Differences or equalities in whiskers and quartiles must be upheld. That is, if the min and max whisker are of equal length, they must have the same number of braille characters, or if they're different, the number of characters must be different.
 3. A set character always represents zero length sections, such as outliers and the median. ⠂ in the case of outliers, ⠸⠇ in the case of the median.
+4. Spatial Alignment: When comparing multiple box plots, the leading blank space represents the distance from the global minimum to the start of the specific dataset. This allows users to perceive relative differences in value by comparing the "indentation" of each plot.
 
 This tactile encoding enables users to discern the various components of the boxplot, allowing them to comprehend the data distribution, detect outliers, and identify central tendencies and dispersion within the dataset.
 
@@ -89,8 +90,8 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ## Scatter plot
 
-In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2).
-The method is similar to that used for bar plots,
+In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
+The representation of the line layer is similar to that used for bar plots,
 wherein data values are represented as Braille characters based on their relative magnitude within the plot.
 Low values are denoted by dots along the bottom, while high values are indicated by dots along the top.
 With four height levels of Braille, the encoding is as follows:
@@ -109,6 +110,25 @@ In the braille representation of segmented bar plots, braille depends on where y
 - Regular level: Braille appears similar to a bar plot, with braille values corresponding to the size of the level's value for this point.
 - Summary level: Same as regular level, but values now reflect the combined size of all levels' values for this point.
 - Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
+
+## Violin Plot
+
+Violin plots have two layers, each with their own braille representation:
+
+### Violin KDE (Density Curve)
+
+The braille representation for the KDE layer uses the same encoding as bar plots, based on the density value at each point along the curve. Low density values use bottom dots, high density values use top dots:
+
+- ⣀ represents values from 0% to 25%
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+
+The braille string represents the density profile of the current violin from bottom to top of the curve.
+
+### Violin Box (Summary Statistics)
+
+The braille representation for the box layer is identical to the standard box plot encoding described above. It uses the same characters and proportional allocation algorithm to represent whiskers, quartiles, median, and outliers.
 
 ## Line plot
 

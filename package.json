@@ -1,6 +1,6 @@
 {
   "name": "maidr",
-  "version": "3.51.0",
+  "version": "3.60.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/xability/maidr"
@@ -46,6 +46,7 @@
     "e2e:ui": "npx playwright test --ui",
     "e2e:debug": "npx playwright test --debug",
     "e2e:install": "npx playwright install --with-deps",
+    "build:react-example": "vite build --config examples/react-app/vite.config.ts",
     "dev:recharts": "vite --config examples/recharts/vite.config.ts"
   },
   "peerDependencies": {
@@ -96,6 +97,7 @@
     "@types/react-dom": "^19.1.3",
     "@types/webpack": "^5.28.5",
     "@vitejs/plugin-react": "^5.1.1",
+    "baseline-browser-mapping": "^2.10.8",
     "esbuild": "^0.25.4",
     "eslint": "^9.25.1",
     "eslint-plugin-format": "^1.0.1",
