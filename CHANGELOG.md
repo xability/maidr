@@ -1,3 +1,10 @@
+## [3.60.1](https://github.com/xability/maidr/compare/v3.60.0...v3.60.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* improve scatter plot grid navigation ([#595](https://github.com/xability/maidr/issues/595)) ([615219c](https://github.com/xability/maidr/commit/615219cb148364060b9a607f23f25ac0ea5484a8))
+
 # [3.60.0](https://github.com/xability/maidr/compare/v3.59.2...v3.60.0) (2026-04-08)
 
 
