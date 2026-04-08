@@ -1,3 +1,10 @@
+# [3.61.0](https://github.com/xability/maidr/compare/v3.60.1...v3.61.0) (2026-04-08)
+
+
+### Features
+
+* add Recharts adapter for accessible chart integration ([#555](https://github.com/xability/maidr/issues/555)) ([2d4e4e4](https://github.com/xability/maidr/commit/2d4e4e4286dc0cc1b10ba68b155f01d0408bd789)), closes [#542](https://github.com/xability/maidr/issues/542)
+
 ## [3.60.1](https://github.com/xability/maidr/compare/v3.60.0...v3.60.1) (2026-04-08)
 
 
