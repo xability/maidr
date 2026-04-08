@@ -6,7 +6,7 @@ import React, { useEffect, useId, useRef } from 'react';
 const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
-  const { value, index, displaySize } = useViewModelState('braille');
+  const { value, index, displaySize, displayLines } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -65,7 +65,7 @@ const Braille: React.FC = () => {
         // textarea (not the wrapper div) to avoid suppressing browse-mode
         // navigation for any future sibling content.
         role="application"
-        rows={5}
+        rows={displayLines}
         cols={displaySize}
       />
     </div>
