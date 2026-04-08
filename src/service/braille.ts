@@ -13,11 +13,28 @@ import type {
 } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
+import type { SettingsService } from './settings';
 import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
-const DEFAULT_BRAILLE_SIZE = 32;
+export const DEFAULT_BRAILLE_SIZE = 32;
+
+/**
+ * Normalizes configured braille display size to a safe positive integer.
+ * Falls back to default when the value is missing or invalid.
+ * @param size - Raw display size value from settings or caller
+ * @returns Normalized display size
+ */
+function normalizeDisplaySize(size: number | undefined): number {
+  if (size === undefined || !Number.isFinite(size)) {
+    return DEFAULT_BRAILLE_SIZE;
+  }
+
+  return Math.max(1, Math.floor(size));
+}
+
+const BRAILLE_DISPLAY_SIZE_SETTING = 'general.brailleDisplaySize';
 
 /**
  * Represents a cell position in a 2D grid.
@@ -33,6 +50,7 @@ interface Cell {
 interface BrailleChangedEvent {
   value: string;
   index: number;
+  displaySize: number;
 }
 
 /**
@@ -42,6 +60,60 @@ interface EncodedBraille {
   value: string;
   cellToIndex: number[][];
   indexToCell: Cell[];
+}
+
+/**
+ * Encodes a 2D grid of characters into a braille string with display-size wrapping
+ * and bidirectional index mapping. This is the shared wrapping logic used by all
+ * encoders that operate on row/col grids.
+ *
+ * @param rowCount - Number of rows in the data
+ * @param colCount - Function returning the number of columns for a given row
+ * @param getChar - Function returning the braille character for a given (row, col)
+ * @param displaySize - Maximum columns per display line before wrapping
+ * @returns Encoded braille with cell mappings
+ */
+function encodeWithWrapping(
+  rowCount: number,
+  colCount: (row: number) => number,
+  getChar: (row: number, col: number) => string,
+  displaySize: number,
+): EncodedBraille {
+  const values = new Array<string>();
+  const cellToIndex = new Array<Array<number>>();
+  const indexToCell = new Array<Cell>();
+
+  for (let row = 0; row < rowCount; row++) {
+    cellToIndex.push(new Array<number>());
+    const cols = colCount(row);
+
+    for (let col = 0; col < cols; col++) {
+      values.push(getChar(row, col));
+
+      cellToIndex[row].push(indexToCell.length);
+      indexToCell.push({ row, col });
+
+      // Insert a mid-row display-line wrap. The newline's indexToCell entry
+      // maps back to the last data cell so that clicking the newline position
+      // navigates to the preceding data point rather than an invalid location.
+      if ((col + 1) % displaySize === 0) {
+        values.push(Constant.NEW_LINE);
+        indexToCell.push({ row, col });
+      }
+    }
+
+    // End-of-row sentinel: append a newline (unless a mid-row wrap already
+    // emitted one at the exact end) and record a sentinel entry so that
+    // cellToIndex[row] has one more element than data columns.
+    const sentinelIdx = indexToCell.length;
+    indexToCell.push({ row, col: cols });
+    if (cols === 0 || cols % displaySize !== 0) {
+      values.push(Constant.NEW_LINE);
+    }
+    cellToIndex[row].push(sentinelIdx);
+  }
+
+  return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
 }
 
 /**
@@ -67,42 +139,34 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
    * @param state - Bar chart braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: BarBrailleState): EncodedBraille {
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
+  public encode(
+    state: BarBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => {
+        const range = (state.max[row] - state.min[row]) / 4;
+        const low = state.min[row] + range;
+        const medium = low + range;
+        const high = medium + range;
+        const value = state.values[row][col];
 
-      const range = (state.max[row] - state.min[row]) / 4;
-      const low = state.min[row] + range;
-      const medium = low + range;
-      const high = medium + range;
-
-      for (let col = 0; col < state.values[row].length; col++) {
-        if (state.values[row][col] === 0) {
-          values.push(' ');
-        } else if (state.values[row][col] <= low) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= medium) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= high) {
-          values.push('⠒');
-        } else {
-          values.push('⠉');
-        }
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-      }
-
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+        if (value === 0)
+          return ' ';
+        if (value <= low)
+          return '⠤';
+        if (value <= medium)
+          return '⠤';
+        if (value <= high)
+          return '⠒';
+        return '⠉';
+      },
+      displaySize,
+    );
   }
 }
 
@@ -345,39 +409,31 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
    * @param state - Heatmap braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: HeatmapBrailleState): EncodedBraille {
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
-
+  public encode(
+    state: HeatmapBrailleState,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
     const range = (state.max - state.min) / 3;
     const low = state.min + range;
     const medium = low + range;
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => {
+        const value = state.values[row][col];
 
-      for (let col = 0; col < state.values[row].length; col++) {
-        if (state.values[row][col] === 0) {
-          values.push(' ');
-        } else if (state.values[row][col] <= low) {
-          values.push('⠤');
-        } else if (state.values[row][col] <= medium) {
-          values.push('⠒');
-        } else {
-          values.push('⠉');
-        }
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-      }
-
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+        if (value === 0)
+          return ' ';
+        if (value <= low)
+          return '⠤';
+        if (value <= medium)
+          return '⠒';
+        return '⠉';
+      },
+      displaySize,
+    );
   }
 }
 
@@ -387,43 +443,44 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
 abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
 implements BrailleEncoder<T> {
   /**
+   * Encodes a single data point to a braille character.
+   * @param state - Time series state
+   * @param row - Row index
+   * @param col - Column index
+   * @returns Encoded braille character for the given point
+   */
+  protected encodeCell(state: T, row: number, col: number): string {
+    const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
+    const currentValue = state.values[row][col];
+    const prevValue = col > 0 ? state.values[row][col - 1] : null;
+
+    return this.getBrailleChar(
+      currentValue,
+      prevValue,
+      low,
+      medium,
+      high,
+      mediumHigh,
+    );
+  }
+
+  /**
    * Encodes time series state into braille representation with trend indicators.
    * @param state - Time series braille state
    * @returns Encoded braille with cell mappings
    */
-  public encode(state: T): EncodedBraille {
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
+  public encode(
+    state: T,
+    size: number = DEFAULT_BRAILLE_SIZE,
+  ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
-      const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
-
-      for (let col = 0; col < state.values[row].length; col++) {
-        const currentValue = state.values[row][col];
-        const prevValue = col > 0 ? state.values[row][col - 1] : null;
-
-        const brailleChar = this.getBrailleChar(
-          currentValue,
-          prevValue,
-          low,
-          medium,
-          high,
-          mediumHigh,
-        );
-        values.push(brailleChar);
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-      }
-
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
-    }
-
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+    return encodeWithWrapping(
+      state.values.length,
+      row => state.values[row].length,
+      (row, col) => this.encodeCell(state, row, col),
+      displaySize,
+    );
   }
 
   /**
@@ -593,49 +650,34 @@ class CandlestickBrailleEncoder extends AbstractTimeSeriesEncoder<CandlestickBra
   }
 
   /**
-   * Encodes candlestick state into braille with bear/bull indicators.
+   * Encodes a single candlestick point using 6-dot braille and optional bear indicator.
    * @param state - Candlestick braille state
-   * @returns Encoded braille with cell mappings
+   * @param row - Row index
+   * @param col - Column index
+   * @returns Encoded braille character for the given point
    */
-  public encode(state: CandlestickBrailleState): EncodedBraille {
-    const values = new Array<string>();
-    const cellToIndex = new Array<Array<number>>();
-    const indexToCell = new Array<Cell>();
+  protected override encodeCell(
+    state: CandlestickBrailleState,
+    row: number,
+    col: number,
+  ): string {
+    const { low, medium, high } = this.getThresholds(row, state);
+    const currentValue = state.values[row][col];
+    const prevValue = col > 0 ? state.values[row][col - 1] : null;
 
-    for (let row = 0; row < state.values.length; row++) {
-      cellToIndex.push(new Array<number>());
-      const { low, medium, high } = this.getThresholds(row, state);
+    let brailleChar = this.getBraille6Char(
+      currentValue,
+      prevValue,
+      low,
+      medium,
+      high,
+    );
 
-      for (let col = 0; col < state.values[row].length; col++) {
-        const currentValue = state.values[row][col];
-        const prevValue = col > 0 ? state.values[row][col - 1] : null;
-
-        // get the standard 6 dot braille character
-        let brailleChar = this.getBraille6Char(
-          currentValue,
-          prevValue,
-          low,
-          medium,
-          high,
-        );
-
-        // add Bear indicator
-        if (state.custom?.[col] === 'Bear') {
-          brailleChar = this.addDot8(brailleChar);
-        }
-
-        values.push(brailleChar);
-
-        cellToIndex[row].push(indexToCell.length);
-        indexToCell.push({ row, col });
-      }
-
-      values.push(Constant.NEW_LINE);
-      cellToIndex[row].push(indexToCell.length);
-      indexToCell.push({ row, col: state.values[row].length });
+    if (state.custom?.[col] === 'Bear') {
+      brailleChar = this.addDot8(brailleChar);
     }
 
-    return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };
+    return brailleChar;
   }
 }
 
@@ -677,8 +719,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly display: DisplayService;
 
   private enabled: boolean;
+  private displaySize: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
+  private readonly disposables: Disposable[];
 
   private readonly encoders: Map<TraceType, BrailleEncoder<any>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
@@ -694,14 +738,19 @@ implements Observer<SubplotState | TraceState>, Disposable {
     context: Context,
     notification: NotificationService,
     display: DisplayService,
+    settings: SettingsService,
   ) {
     this.context = context;
     this.notification = notification;
     this.display = display;
 
     this.enabled = false;
+    this.displaySize = normalizeDisplaySize(
+      settings.get<number>(BRAILLE_DISPLAY_SIZE_SETTING),
+    );
     this.cacheId = Constant.EMPTY;
     this.cache = null;
+    this.disposables = [];
 
     this.encoders = new Map<TraceType, BrailleEncoder<any>>([
       [TraceType.BAR, new BarBrailleEncoder()],
@@ -720,6 +769,27 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+
+    this.disposables.push(settings.onChange((event) => {
+      if (!event.affectsSetting(BRAILLE_DISPLAY_SIZE_SETTING)) {
+        return;
+      }
+
+      this.displaySize = normalizeDisplaySize(
+        event.get<number>(BRAILLE_DISPLAY_SIZE_SETTING),
+      );
+      this.cache = null;
+      this.cacheId = Constant.EMPTY;
+
+      if (!this.enabled) {
+        return;
+      }
+
+      const state = this.context.state;
+      if (state != null && (state.type === 'trace' || state.type === 'subplot')) {
+        this.update(state);
+      }
+    }));
   }
 
   /**
@@ -727,9 +797,30 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.disposables.forEach(disposable => disposable.dispose());
+    this.disposables.length = 0;
 
     this.cache = null;
     this.encoders.clear();
+  }
+
+  /**
+   * Returns whether braille mode is currently enabled.
+   */
+  public get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /**
+   * Refreshes the braille display with the given trace state. Called
+   * explicitly when entering a new subplot with braille enabled, because
+   * the model's {@link notifyStateUpdate} is not invoked on entry (doing
+   * so would fan out to all observers, including AudioService, causing
+   * an unwanted tone).
+   * @param state - The trace state to display
+   */
+  public refreshDisplay(state: TraceState): void {
+    this.update(state);
   }
 
   /**
@@ -753,13 +844,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const braille = trace.braille;
     if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
-      this.cache = encoder.encode(braille as any, DEFAULT_BRAILLE_SIZE);
+      this.cache = encoder.encode(braille as any, this.displaySize);
       this.cacheId = braille.id;
     }
 
     this.onChangeEmitter.fire({
-      value: this.cache.value.trim(),
+      value: this.cache.value,
       index: this.cache.cellToIndex[braille.row][braille.col],
+      displaySize: this.displaySize,
     });
   }
 

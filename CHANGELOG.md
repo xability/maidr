@@ -1,3 +1,31 @@
+## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* escape key works in braille mode for subplot exit ([#593](https://github.com/xability/maidr/issues/593)) ([e30144a](https://github.com/xability/maidr/commit/e30144a19ce020d9d6b0071b3fbfcb6b2554e344))
+
+## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* fetch braille output length from settings ([#590](https://github.com/xability/maidr/issues/590)) ([b64fb4e](https://github.com/xability/maidr/commit/b64fb4ecd8f7724c18987d4586f3b478cf3e5401))
+
+# [3.59.0](https://github.com/xability/maidr/compare/v3.58.3...v3.59.0) (2026-04-01)
+
+
+### Features
+
+* support grid based movement for scatterplots ([#570](https://github.com/xability/maidr/issues/570)) ([951166e](https://github.com/xability/maidr/commit/951166ede1ff4338df47015359b8cdae9c51df94))
+
+## [3.58.3](https://github.com/xability/maidr/compare/v3.58.2...v3.58.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* clarify scatterplot without line layer ([#589](https://github.com/xability/maidr/issues/589)) ([a70daf8](https://github.com/xability/maidr/commit/a70daf8818bdf4359403f0c5c3caa48881f36cf6))
+
 ## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
 
 
