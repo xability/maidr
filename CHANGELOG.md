@@ -1,3 +1,10 @@
+# [3.60.0](https://github.com/xability/maidr/compare/v3.59.2...v3.60.0) (2026-04-08)
+
+
+### Features
+
+* plotly js adapter ([#591](https://github.com/xability/maidr/issues/591)) ([a3a49e3](https://github.com/xability/maidr/commit/a3a49e31b98d44ad53fd3ec3bea16b6fa93735bb))
+
 ## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
 
 
