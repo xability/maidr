@@ -213,14 +213,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected mapToSvgElements(selector?: string): SVGElement[][] {
+  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     // Count total expected data points (excluding summary row added later).

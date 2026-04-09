@@ -183,6 +183,9 @@ playwright-report/
 # Site
 _site/
 
+# Built example outputs
+examples/recharts/dist/
+
 # Test React app (local verification only)
 test-react-app/
 

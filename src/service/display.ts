@@ -5,6 +5,7 @@ import type { Event, Focus } from '@type/event';
 import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
+import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapter/plotly';
 
 /**
  * Type for traces that support ensureInitialized method.
@@ -94,6 +95,12 @@ export class DisplayService implements Disposable {
     this.textChangeDisposer = null;
 
     this.onChangeEmitter.dispose();
+
+    // Disconnect Plotly-specific MutationObservers to prevent memory leaks.
+    // Only affects Plotly charts; no-op for matplotlib or other chart types.
+    if (isPlotlyPlot(this.plot)) {
+      disconnectPlotlyObservers(this.plot);
+    }
   }
 
   /**

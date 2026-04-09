@@ -281,6 +281,10 @@ export interface TextState {
    * Points in the current grid cell, listed as coordinate pairs.
    */
   gridPoints?: { x: number; y: number }[];
+  /**
+   * Current grid cell position (1-indexed for display).
+   */
+  gridPosition?: { row: number; col: number };
 }
 
 /**

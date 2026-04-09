@@ -12,6 +12,14 @@ export interface GridNavigable {
   moveGridDown: () => boolean;
   moveGridLeft: () => boolean;
   moveGridRight: () => boolean;
+  getGridDimensions: () => { rows: number; cols: number } | null;
+  getGridPosition: () => { row: number; col: number } | null;
+  // Grid cell point navigation
+  isInCellMode: () => boolean;
+  enterGridCell: () => boolean;
+  exitGridCell: () => void;
+  moveCellPointLeft: () => boolean;
+  moveCellPointRight: () => boolean;
 }
 
 /**

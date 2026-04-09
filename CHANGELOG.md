@@ -1,3 +1,31 @@
+# [3.61.0](https://github.com/xability/maidr/compare/v3.60.1...v3.61.0) (2026-04-08)
+
+
+### Features
+
+* add Recharts adapter for accessible chart integration ([#555](https://github.com/xability/maidr/issues/555)) ([2d4e4e4](https://github.com/xability/maidr/commit/2d4e4e4286dc0cc1b10ba68b155f01d0408bd789)), closes [#542](https://github.com/xability/maidr/issues/542)
+
+## [3.60.1](https://github.com/xability/maidr/compare/v3.60.0...v3.60.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* improve scatter plot grid navigation ([#595](https://github.com/xability/maidr/issues/595)) ([615219c](https://github.com/xability/maidr/commit/615219cb148364060b9a607f23f25ac0ea5484a8))
+
+# [3.60.0](https://github.com/xability/maidr/compare/v3.59.2...v3.60.0) (2026-04-08)
+
+
+### Features
+
+* plotly js adapter ([#591](https://github.com/xability/maidr/issues/591)) ([a3a49e3](https://github.com/xability/maidr/commit/a3a49e31b98d44ad53fd3ec3bea16b6fa93735bb))
+
+## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* escape key works in braille mode for subplot exit ([#593](https://github.com/xability/maidr/issues/593)) ([e30144a](https://github.com/xability/maidr/commit/e30144a19ce020d9d6b0071b3fbfcb6b2554e344))
+
 ## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
 
 
