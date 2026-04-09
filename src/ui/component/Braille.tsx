@@ -50,7 +50,11 @@ const Braille: React.FC = () => {
   }, [value, index]);
 
   return (
-    <div id={id}>
+    // role="application" on the wrapper ensures screen readers (NVDA/JAWS)
+    // pass all keys, including Escape, through to the web app. Placed on
+    // the div (not the textarea) so the textarea is announced normally
+    // without an extra "application" / "app" label.
+    <div id={id} role="application">
       <textarea
         id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}
@@ -59,12 +63,6 @@ const Braille: React.FC = () => {
         autoCorrect="off"
         spellCheck={false}
         wrap="off"
-        // role="application" ensures screen readers (NVDA/JAWS) pass all
-        // keys, including Escape, through to the web app instead of
-        // intercepting them for browse/virtual-cursor mode. Placed on the
-        // textarea (not the wrapper div) to avoid suppressing browse-mode
-        // navigation for any future sibling content.
-        role="application"
         rows={5}
         cols={displaySize}
       />
