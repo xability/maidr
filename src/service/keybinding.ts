@@ -2,7 +2,7 @@ import type { CommandContext } from '@command/command';
 import type { DisplayService } from '@service/display';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
-import type { Keys } from '@type/event';
+import type { KeybindingEntry, Keys } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { CommandFactory } from '@command/factory';
@@ -12,56 +12,67 @@ import { Platform } from '@util/platform';
 import hotkeys from 'hotkeys-js';
 
 /**
+ * Helper to create a keybinding entry with required fields.
+ */
+function key(hotkey: string, description: string, options?: Partial<KeybindingEntry>): KeybindingEntry {
+  return {
+    hotkey,
+    description,
+    ...options,
+  };
+}
+
+/**
  * Keymap configuration for braille mode interactions.
  */
 const BRAILLE_KEYMAP = {
-  ACTIVATE_TRACE_LABEL_SCOPE: `l`,
-  EXIT_BRAILLE_AND_SUBPLOT: `esc`,
+  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels'),
+  EXIT_BRAILLE_AND_SUBPLOT: key(`esc`, 'Exit Braille Mode', { showInHelp: false }),
 
   // Autoplay
-  AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
-  AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
-  AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
-  AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
+  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpGroup: 'autoplay', helpKey: `${Platform.ctrl} + shift + arrow keys` }),
+  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpGroup: 'autoplay', showInHelp: false }),
 
-  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
-  SPEED_UP_AUTOPLAY: `.`,
-  SPEED_DOWN_AUTOPLAY: `,`,
-  RESET_AUTOPLAY_SPEED: `/`,
+  STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
+  SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
+  SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
+  RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 
   // Navigation
-  MOVE_UP: `up`,
-  MOVE_DOWN: `down`,
-  MOVE_RIGHT: `right`,
-  MOVE_LEFT: `left`,
+  MOVE_UP: key(`up`, 'Navigate Data Points', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
+  MOVE_DOWN: key(`down`, 'Navigate Down', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_RIGHT: key(`right`, 'Navigate Right', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_LEFT: key(`left`, 'Navigate Left', { helpGroup: 'navigate', showInHelp: false }),
 
-  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Point', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys` }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpGroup: 'extreme', showInHelp: false }),
 
-  MOVE_TO_NEXT_TRACE: `pageup`,
-  MOVE_TO_PREV_TRACE: `pagedown`,
+  MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
+  MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
 
   // Modes
-  TOGGLE_BRAILLE: `b`,
-  TOGGLE_TEXT: `t`,
-  TOGGLE_AUDIO: `s`,
-  TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
+  TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
 
   // Misc
-  TOGGLE_HELP: `${Platform.ctrl}+/`,
-  TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 
   // Description
-  ANNOUNCE_POINT: `space`,
-  ANNOUNCE_POSITION: `p`,
+  ANNOUNCE_POINT: key(`space`, 'Replay Current Point'),
+  ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
   // rotor functionality
-  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
-  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+  ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
+  ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
 } as const;
 
 /**
@@ -69,22 +80,22 @@ const BRAILLE_KEYMAP = {
  */
 const CHAT_KEYMAP = {
   // Misc
-  TOGGLE_CHAT: `esc`,
+  TOGGLE_CHAT: key(`esc`, 'Close Chat', { showInHelp: false }),
 } as const;
 
 /**
  * Keymap configuration for figure label scope interactions.
  */
 const FIGURE_LABEL_KEYMAP = {
-  DEACTIVATE_FIGURE_LABEL_SCOPE: `escape`,
+  DEACTIVATE_FIGURE_LABEL_SCOPE: key(`escape`, 'Exit Label Mode', { showInHelp: false }),
 
   // Description
-  ANNOUNCE_TITLE: `t`,
-  ANNOUNCE_SUBTITLE: `s`,
-  ANNOUNCE_CAPTION: `c`,
+  ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
+  ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
+  ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
 
   // Misc
-  TOGGLE_HELP: `${Platform.ctrl}+/`,
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
 } as const;
 
 /**
@@ -92,57 +103,57 @@ const FIGURE_LABEL_KEYMAP = {
  */
 const HELP_KEYMAP = {
   // Misc
-  TOGGLE_HELP: `esc`,
+  TOGGLE_HELP: key(`esc`, 'Close Help', { showInHelp: false }),
 } as const;
 
 /**
  * Keymap configuration for subplot scope interactions.
  */
 const SUBPLOT_KEYMAP = {
-  ACTIVATE_FIGURE_LABEL_SCOPE: `l`,
+  ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels'),
 
   // Description
-  ANNOUNCE_TITLE: `t`,
-  ANNOUNCE_POINT: `space`,
-  ANNOUNCE_POSITION: `p`,
+  ANNOUNCE_TITLE: key(`t`, 'Announce Title'),
+  ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
+  ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
   // Navigation
-  MOVE_UP: `up`,
-  MOVE_DOWN: `down`,
-  MOVE_RIGHT: `right`,
-  MOVE_LEFT: `left`,
+  MOVE_UP: key(`up`, 'Move Around Subplot', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
+  MOVE_DOWN: key(`down`, 'Move Down', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_RIGHT: key(`right`, 'Move Right', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_LEFT: key(`left`, 'Move Left', { helpGroup: 'navigate', showInHelp: false }),
 
-  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Subplot', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys`, showInHelp: false }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right', { helpGroup: 'extreme', showInHelp: false }),
 
-  MOVE_TO_TRACE_CONTEXT: `${Platform.enter}`,
+  MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
 
   // Misc
-  TOGGLE_HELP: `${Platform.ctrl}+/`,
-  TOGGLE_CHAT: `shift+/`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 } as const;
 
 /**
  * Keymap configuration for trace label scope interactions.
  */
 const TRACE_LABEL_KEYMAP = {
-  DEACTIVATE_TRACE_LABEL_SCOPE: `escape`,
+  DEACTIVATE_TRACE_LABEL_SCOPE: key(`escape`, 'Exit Label Mode', { showInHelp: false }),
 
   // Description
-  ANNOUNCE_X: `x`,
-  ANNOUNCE_Y: `y`,
-  ANNOUNCE_FILL: `f`,
-  ANNOUNCE_TITLE: `t`,
-  ANNOUNCE_SUBTITLE: `s`,
-  ANNOUNCE_CAPTION: `c`,
+  ANNOUNCE_X: key(`x`, 'Announce X Label'),
+  ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
+  ANNOUNCE_FILL: key(`f`, 'Announce Fill (Z) Label'),
+  ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
+  ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
+  ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
 
   // Misc
-  TOGGLE_HELP: `${Platform.ctrl}+/`,
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
 } as const;
 
 /**
@@ -150,15 +161,15 @@ const TRACE_LABEL_KEYMAP = {
  */
 const REVIEW_KEYMAP = {
   // Modes
-  TOGGLE_BRAILLE: `b`,
-  TOGGLE_REVIEW: `r`,
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Exit Review Mode'),
 
   // Allowed actions
-  ALLOW_DEFAULT: `up, down, left, right,
+  ALLOW_DEFAULT: key(`up, down, left, right,
     ${Platform.ctrl}+up, ${Platform.ctrl}+down,
     ${Platform.ctrl}+left, ${Platform.ctrl}+right,
     pageup, pagedown, home, end,
-    tab, ${Platform.ctrl}+a, ${Platform.ctrl}+c`,
+    tab, ${Platform.ctrl}+a, ${Platform.ctrl}+c`, 'Standard Text Selection', { showInHelp: false }),
 } as const;
 
 /**
@@ -166,90 +177,90 @@ const REVIEW_KEYMAP = {
  */
 const SETTINGS_KEYMAP = {
   // Misc
-  TOGGLE_SETTINGS: `esc`,
+  TOGGLE_SETTINGS: key(`esc`, 'Close Settings', { showInHelp: false }),
 } as const;
 
 /**
  * Keymap configuration for trace scope interactions and navigation.
  */
 const TRACE_KEYMAP = {
-  ACTIVATE_TRACE_LABEL_SCOPE: `l`,
+  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels'),
 
   // Autoplay
-  AUTOPLAY_UPWARD: `${Platform.ctrl}+shift+up`,
-  AUTOPLAY_DOWNWARD: `${Platform.ctrl}+shift+down`,
-  AUTOPLAY_FORWARD: `${Platform.ctrl}+shift+right`,
-  AUTOPLAY_BACKWARD: `${Platform.ctrl}+shift+left`,
+  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Outward', { helpGroup: 'autoplay', helpKey: `${Platform.ctrl} + shift + arrow keys` }),
+  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpGroup: 'autoplay', showInHelp: false }),
 
-  STOP_AUTOPLAY: `${Platform.ctrl}, up, down, left, right`,
-  SPEED_UP_AUTOPLAY: `.`,
-  SPEED_DOWN_AUTOPLAY: `,`,
-  RESET_AUTOPLAY_SPEED: `/`,
+  STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
+  SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
+  SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
+  RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 
   // Navigation
-  MOVE_UP: `up`,
-  MOVE_DOWN: `down`,
-  MOVE_RIGHT: `right`,
-  MOVE_LEFT: `left`,
+  MOVE_UP: key(`up`, 'Navigate Data Points', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
+  MOVE_DOWN: key(`down`, 'Navigate Down', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_RIGHT: key(`right`, 'Navigate Right', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_LEFT: key(`left`, 'Navigate Left', { helpGroup: 'navigate', showInHelp: false }),
 
-  MOVE_TO_TOP_EXTREME: `${Platform.ctrl}+up`,
-  MOVE_TO_BOTTOM_EXTREME: `${Platform.ctrl}+down`,
-  MOVE_TO_LEFT_EXTREME: `${Platform.ctrl}+left`,
-  MOVE_TO_RIGHT_EXTREME: `${Platform.ctrl}+right`,
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Point', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys` }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpGroup: 'extreme', showInHelp: false }),
 
-  MOVE_TO_SUBPLOT_CONTEXT: `esc`,
-  MOVE_TO_NEXT_TRACE: `pageup`,
-  MOVE_TO_PREV_TRACE: `pagedown`,
+  MOVE_TO_SUBPLOT_CONTEXT: key(`esc`, 'Return to Subplot', { showInHelp: false }),
+  MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
+  MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
 
   // Modes
-  TOGGLE_BRAILLE: `b`,
-  TOGGLE_TEXT: `t`,
-  TOGGLE_AUDIO: `s`,
-  TOGGLE_REVIEW: `r`,
-  TOGGLE_HIGH_CONTRAST: `c`,
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
+  TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
 
   // Misc
-  TOGGLE_HELP: `${Platform.ctrl}+/`,
-  TOGGLE_CHAT: `shift+/`,
-  TOGGLE_COMMAND_PALETTE: `${Platform.ctrl}+shift+p`,
-  TOGGLE_SETTINGS: `${Platform.ctrl}+,`,
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
+  TOGGLE_COMMAND_PALETTE: key(`${Platform.ctrl}+shift+p`, 'Open Command Palette', { helpKey: `${Platform.ctrl} + shift + p` }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 
   // Description
-  ANNOUNCE_POINT: `space`,
-  ANNOUNCE_POSITION: `p`,
+  ANNOUNCE_POINT: key(`space`, 'Replay Current Point'),
+  ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
   // Go To functionality
-  GO_TO_EXTREMA_TOGGLE: `g`,
+  GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
 
   // rotor functionality
-  ROTOR_NEXT_NAV: `${Platform.alt}+shift+up`,
-  ROTOR_PREV_NAV: `${Platform.alt}+shift+down`,
+  ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
+  ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
 
   // Grid cell navigation (enter grid cell when in GRID_MODE)
-  ENTER_GRID_CELL: `${Platform.enter}`,
+  ENTER_GRID_CELL: key(`${Platform.enter}`, 'Enter Grid Cell', { showInHelp: false }),
 } as const;
 
 /**
  * Keymap configuration for extrema navigation modal interactions.
  */
 const GO_TO_EXTREMA_KEYMAP = {
-  // Navigation within the modal
-  GO_TO_EXTREMA_MOVE_UP: 'up',
-  GO_TO_EXTREMA_MOVE_DOWN: 'down',
-  GO_TO_EXTREMA_SELECT: 'enter',
-  GO_TO_EXTREMA_CLOSE: 'esc',
-  GO_TO_EXTREMA_TOGGLE: 'g',
+  // Navigation within the modal (standard UI, not shown in help)
+  GO_TO_EXTREMA_MOVE_UP: key('up', 'Navigate Up', { showInHelp: false }),
+  GO_TO_EXTREMA_MOVE_DOWN: key('down', 'Navigate Down', { showInHelp: false }),
+  GO_TO_EXTREMA_SELECT: key('enter', 'Select', { showInHelp: false }),
+  GO_TO_EXTREMA_CLOSE: key('esc', 'Close', { showInHelp: false }),
+  GO_TO_EXTREMA_TOGGLE: key('g', 'Close', { showInHelp: false }),
 } as const;
 
 /**
  * Keymap configuration for command palette modal interactions.
  */
 const COMMAND_PALETTE_KEYMAP = {
-  // Navigation within the modal
-  COMMAND_PALETTE_MOVE_UP: 'up',
-  COMMAND_PALETTE_MOVE_DOWN: 'down',
-  COMMAND_PALETTE_SELECT: 'enter',
-  COMMAND_PALETTE_CLOSE: 'esc',
+  // Navigation within the modal (standard UI, not shown in help)
+  COMMAND_PALETTE_MOVE_UP: key('up', 'Navigate Up', { showInHelp: false }),
+  COMMAND_PALETTE_MOVE_DOWN: key('down', 'Navigate Down', { showInHelp: false }),
+  COMMAND_PALETTE_SELECT: key('enter', 'Select', { showInHelp: false }),
+  COMMAND_PALETTE_CLOSE: key('esc', 'Close', { showInHelp: false }),
 } as const;
 
 /**
@@ -257,9 +268,9 @@ const COMMAND_PALETTE_KEYMAP = {
  */
 const GRID_CELL_KEYMAP = {
   // Navigation within grid cell points
-  GRID_CELL_MOVE_LEFT: 'left',
-  GRID_CELL_MOVE_RIGHT: 'right',
-  EXIT_GRID_CELL: 'esc',
+  GRID_CELL_MOVE_LEFT: key('left', 'Navigate Left in Cell', { showInHelp: false }),
+  GRID_CELL_MOVE_RIGHT: key('right', 'Navigate Right in Cell', { showInHelp: false }),
+  EXIT_GRID_CELL: key('esc', 'Exit Grid Cell', { showInHelp: false }),
 } as const;
 
 /**
@@ -325,10 +336,12 @@ export class KeybindingService {
       Scope,
       Keymap[Scope],
     ][]) {
-      for (const [commandName, key] of Object.entries(keymap as Record<string, string>) as [
+      for (const [commandName, entry] of Object.entries(keymap as Record<string, KeybindingEntry>) as [
         Keys,
-        string,
+        KeybindingEntry,
       ][]) {
+        const hotkey = entry.hotkey;
+
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
@@ -340,7 +353,7 @@ export class KeybindingService {
           });
         }
 
-        hotkeys(key, { scope }, (event: KeyboardEvent): void => {
+        hotkeys(hotkey, { scope }, (event: KeyboardEvent): void => {
           if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);

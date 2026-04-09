@@ -252,6 +252,10 @@ export class Controller implements Disposable {
       },
       this.context.scope,
     );
+
+    // Inject CommandExecutor into CommandPaletteViewModel (deferred due to circular dependency)
+    this.commandPaletteViewModel.setCommandExecutor(this.commandExecutor);
+
     this.registerViewModels();
     this.registerObservers();
     this.keybinding.register(this.context.scope);

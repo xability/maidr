@@ -2,6 +2,22 @@ import type { Keymap } from '@service/keybinding';
 import type { Disposable } from './disposable';
 
 /**
+ * Configuration for a single keyboard binding entry.
+ */
+export interface KeybindingEntry {
+  /** The hotkey string (e.g., 's', 'ctrl+up', 'shift+/') */
+  hotkey: string;
+  /** Human-readable description for the help menu */
+  description: string;
+  /** Override the key display in help menu (e.g., 'arrow keys' instead of 'up') */
+  helpKey?: string;
+  /** Group identifier for consolidating related shortcuts in help menu */
+  helpGroup?: string;
+  /** Whether to show this entry in the help menu (default: true) */
+  showInHelp?: boolean;
+}
+
+/**
  * Standard DOM event types used throughout the application.
  */
 export enum DomEventType {

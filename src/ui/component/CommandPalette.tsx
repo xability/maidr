@@ -80,9 +80,12 @@ const CommandPalette: React.FC = () => {
   }, [commandPaletteViewModel]);
 
   const handleCommandSelect = useCallback((commandKey: Keys) => {
-    // Execute the command first, then close
-    executeCommand(commandKey);
+    // Close the palette first (returns to TRACE scope), then execute the command
     handleClose();
+    // Small delay to ensure scope has changed before executing
+    setTimeout(() => {
+      executeCommand(commandKey);
+    }, 0);
   }, [executeCommand, handleClose]);
 
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
