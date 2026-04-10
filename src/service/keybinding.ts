@@ -26,14 +26,14 @@ function key(hotkey: string, description: string, options?: Partial<KeybindingEn
  * Keymap configuration for braille mode interactions.
  */
 const BRAILLE_KEYMAP = {
-  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels'),
+  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
   EXIT_BRAILLE_AND_SUBPLOT: key(`esc`, 'Exit Braille Mode', { showInHelp: false }),
 
   // Autoplay
-  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpGroup: 'autoplay', helpKey: `${Platform.ctrl} + shift + arrow keys` }),
-  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpGroup: 'autoplay', showInHelp: false }),
-  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpGroup: 'autoplay', showInHelp: false }),
-  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpKey: `${Platform.ctrl} + shift + up` }),
+  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpKey: `${Platform.ctrl} + shift + down` }),
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpKey: `${Platform.ctrl} + shift + left` }),
 
   STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
   SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
@@ -41,15 +41,15 @@ const BRAILLE_KEYMAP = {
   RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 
   // Navigation
-  MOVE_UP: key(`up`, 'Navigate Data Points', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
-  MOVE_DOWN: key(`down`, 'Navigate Down', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_RIGHT: key(`right`, 'Navigate Right', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_LEFT: key(`left`, 'Navigate Left', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_UP: key(`up`, 'Navigate Up'),
+  MOVE_DOWN: key(`down`, 'Navigate Down'),
+  MOVE_RIGHT: key(`right`, 'Navigate Right'),
+  MOVE_LEFT: key(`left`, 'Navigate Left'),
 
-  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Point', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys` }),
-  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Top Extreme', { helpKey: `${Platform.ctrl} + up` }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpKey: `${Platform.ctrl} + down` }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
   MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
@@ -110,7 +110,7 @@ const HELP_KEYMAP = {
  * Keymap configuration for subplot scope interactions.
  */
 const SUBPLOT_KEYMAP = {
-  ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels'),
+  ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
   ANNOUNCE_TITLE: key(`t`, 'Announce Title'),
@@ -118,15 +118,15 @@ const SUBPLOT_KEYMAP = {
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
   // Navigation
-  MOVE_UP: key(`up`, 'Move Around Subplot', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
-  MOVE_DOWN: key(`down`, 'Move Down', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_RIGHT: key(`right`, 'Move Right', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_LEFT: key(`left`, 'Move Left', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_UP: key(`up`, 'Move Up'),
+  MOVE_DOWN: key(`down`, 'Move Down'),
+  MOVE_RIGHT: key(`right`, 'Move Right'),
+  MOVE_LEFT: key(`left`, 'Move Left'),
 
-  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Subplot', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys`, showInHelp: false }),
-  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Top Extreme', { helpKey: `${Platform.ctrl} + up` }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpKey: `${Platform.ctrl} + down` }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
   MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
@@ -184,13 +184,13 @@ const SETTINGS_KEYMAP = {
  * Keymap configuration for trace scope interactions and navigation.
  */
 const TRACE_KEYMAP = {
-  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels'),
+  ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Autoplay
-  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Outward', { helpGroup: 'autoplay', helpKey: `${Platform.ctrl} + shift + arrow keys` }),
-  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpGroup: 'autoplay', showInHelp: false }),
-  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpGroup: 'autoplay', showInHelp: false }),
-  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpGroup: 'autoplay', showInHelp: false }),
+  AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpKey: `${Platform.ctrl} + shift + up` }),
+  AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpKey: `${Platform.ctrl} + shift + down` }),
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpKey: `${Platform.ctrl} + shift + left` }),
 
   STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
   SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
@@ -198,15 +198,15 @@ const TRACE_KEYMAP = {
   RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 
   // Navigation
-  MOVE_UP: key(`up`, 'Navigate Data Points', { helpGroup: 'navigate', helpKey: 'arrow keys' }),
-  MOVE_DOWN: key(`down`, 'Navigate Down', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_RIGHT: key(`right`, 'Navigate Right', { helpGroup: 'navigate', showInHelp: false }),
-  MOVE_LEFT: key(`left`, 'Navigate Left', { helpGroup: 'navigate', showInHelp: false }),
+  MOVE_UP: key(`up`, 'Navigate Up'),
+  MOVE_DOWN: key(`down`, 'Navigate Down'),
+  MOVE_RIGHT: key(`right`, 'Navigate Right'),
+  MOVE_LEFT: key(`left`, 'Navigate Left'),
 
-  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Extreme Point', { helpGroup: 'extreme', helpKey: `${Platform.ctrl} + arrow keys` }),
-  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpGroup: 'extreme', showInHelp: false }),
-  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpGroup: 'extreme', showInHelp: false }),
+  MOVE_TO_TOP_EXTREME: key(`${Platform.ctrl}+up`, 'Go to Top Extreme', { helpKey: `${Platform.ctrl} + up` }),
+  MOVE_TO_BOTTOM_EXTREME: key(`${Platform.ctrl}+down`, 'Go to Bottom Extreme', { helpKey: `${Platform.ctrl} + down` }),
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
   MOVE_TO_SUBPLOT_CONTEXT: key(`esc`, 'Return to Subplot', { showInHelp: false }),
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
