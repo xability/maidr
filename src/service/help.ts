@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { KeybindingEntry } from '@type/event';
 import type { HelpMenuItem } from '@type/help';
-import { SCOPED_KEYMAP } from '@service/keybinding';
+import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
 
 /**
@@ -97,14 +97,14 @@ function generateNestedScopeHelp(
  * @returns Array of help menu items
  */
 function generateCompleteHelpMenu(scope: Scope): HelpMenuItem[] {
-  const keymap = SCOPED_KEYMAP[scope] as unknown as Record<string, KeybindingEntry>;
+  const keymap = getKeymapForScope(scope);
   const items = generateHelpMenuFromKeymap(keymap);
 
   // Add nested scope entries (only commands unique to nested scope)
   const nestedConfigs = NESTED_SCOPE_CONFIG[scope];
   if (nestedConfigs) {
     for (const config of nestedConfigs) {
-      const nestedKeymap = SCOPED_KEYMAP[config.scope] as unknown as Record<string, KeybindingEntry>;
+      const nestedKeymap = getKeymapForScope(config.scope);
       const nestedItems = generateNestedScopeHelp(nestedKeymap, config.entryKey, keymap);
       items.push(...nestedItems);
     }

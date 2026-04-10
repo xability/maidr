@@ -249,7 +249,7 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_MOVE_DOWN: key('down', 'Navigate Down', { showInHelp: false }),
   GO_TO_EXTREMA_SELECT: key('enter', 'Select', { showInHelp: false }),
   GO_TO_EXTREMA_CLOSE: key('esc', 'Close', { showInHelp: false }),
-  GO_TO_EXTREMA_TOGGLE: key('g', 'Close', { showInHelp: false }),
+  GO_TO_EXTREMA_TOGGLE: key('g', 'Go To Extrema', { showInHelp: false }),
 } as const;
 
 /**
@@ -292,11 +292,25 @@ export const SCOPED_KEYMAP = {
 } as const;
 
 /**
+ * Type representing a scope's keymap (command key to keybinding entry mapping).
+ */
+export type ScopeKeymap = Record<string, KeybindingEntry>;
+
+/**
  * Type representing the complete keymap structure for all scopes.
  */
 export type Keymap = {
   [K in Scope]: (typeof SCOPED_KEYMAP)[K];
 };
+
+/**
+ * Gets the keymap for a specific scope with proper typing.
+ * @param scope - The scope to get the keymap for.
+ * @returns The keymap for the scope.
+ */
+export function getKeymapForScope(scope: Scope): ScopeKeymap {
+  return SCOPED_KEYMAP[scope] as ScopeKeymap;
+}
 
 /**
  * Service for registering and managing keyboard bindings across application scopes.
