@@ -15,7 +15,64 @@ import {
   Typography,
 } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useId } from 'react';
+import React, { useId, useState } from 'react';
+
+const DEFAULT_ROW_LIMIT = 100;
+
+interface DataTableProps {
+  headers: string[];
+  rows: (string | number)[][];
+}
+
+const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
+  const [showAll, setShowAll] = useState(false);
+  const isTruncated = rows.length > DEFAULT_ROW_LIMIT;
+  const displayedRows = showAll ? rows : rows.slice(0, DEFAULT_ROW_LIMIT);
+
+  return (
+    <>
+      <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
+        Data
+        {' '}
+        ({rows.length}
+        {' '}
+        {rows.length === 1 ? 'row' : 'rows'})
+      </Typography>
+      <TableContainer sx={{ maxHeight: 300 }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              {headers.map((header, i) => (
+                <TableCell key={i} sx={{ fontWeight: 'bold' }}>
+                  {formatCell(header)}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {displayedRows.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <TableCell key={cellIndex}>{formatCell(cell)}</TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {isTruncated && (
+        <Button
+          size="small"
+          onClick={() => setShowAll(!showAll)}
+          aria-expanded={showAll}
+          sx={{ mt: 1 }}
+        >
+          {showAll ? 'Show less' : `Show all ${rows.length} rows`}
+        </Button>
+      )}
+    </>
+  );
+};
 
 /**
  * Checks whether a value is presentable in the UI.
@@ -136,33 +193,7 @@ const Description: React.FC = () => {
 
         {/* Data table */}
         {data.dataTable.rows.length > 0 && (
-          <>
-            <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
-              Data
-            </Typography>
-            <TableContainer sx={{ maxHeight: 300 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    {data.dataTable.headers.map((header, i) => (
-                      <TableCell key={i} sx={{ fontWeight: 'bold' }}>
-                        {formatCell(header)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.dataTable.rows.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <TableCell key={cellIndex}>{formatCell(cell)}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
+          <DataTable headers={data.dataTable.headers} rows={data.dataTable.rows} />
         )}
       </DialogContent>
 
