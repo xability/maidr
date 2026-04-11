@@ -17,6 +17,28 @@ import {
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId } from 'react';
 
+/**
+ * Checks whether a value is presentable in the UI.
+ * Filters out null, undefined, NaN, empty strings, and known placeholder defaults.
+ */
+const isDisplayable = (value: unknown): boolean => {
+  if (value == null) return false;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed !== '' && trimmed !== 'undefined' && trimmed !== 'unavailable';
+  }
+  return true;
+};
+
+/**
+ * Formats a cell value for display. Non-displayable values become an empty string.
+ */
+const formatCell = (value: unknown): string => {
+  if (!isDisplayable(value)) return '';
+  return String(value);
+};
+
 const Description: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('description');
@@ -31,7 +53,7 @@ const Description: React.FC = () => {
   }
 
   const axisEntries = Object.entries(data.axes).filter(
-    ([, value]) => value != null && value !== '' && value !== 'undefined',
+    ([, value]) => isDisplayable(value),
   );
 
   return (
@@ -54,12 +76,12 @@ const Description: React.FC = () => {
 
       <DialogContent>
         {/* Chart type and title */}
-        {data.chartType && (
+        {isDisplayable(data.chartType) && (
           <Typography variant="body2">
             Chart Type: {data.chartType}
           </Typography>
         )}
-        {data.title && (
+        {isDisplayable(data.title) && (
           <Typography variant="body2" sx={{ mb: 2 }}>
             Title: {data.title}
           </Typography>
@@ -89,7 +111,7 @@ const Description: React.FC = () => {
               Summary
             </Typography>
             {data.stats
-              .filter(stat => stat.value != null && stat.value !== '' && stat.value !== 'undefined')
+              .filter(stat => isDisplayable(stat.value))
               .map((stat, index) => (
                 <Typography key={index} variant="body2">
                   {stat.label}: {stat.value}
@@ -111,7 +133,7 @@ const Description: React.FC = () => {
                   <TableRow>
                     {data.dataTable.headers.map((header, i) => (
                       <TableCell key={i} sx={{ fontWeight: 'bold' }}>
-                        {header}
+                        {formatCell(header)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -120,7 +142,7 @@ const Description: React.FC = () => {
                   {data.dataTable.rows.map((row, rowIndex) => (
                     <TableRow key={rowIndex}>
                       {row.map((cell, cellIndex) => (
-                        <TableCell key={cellIndex}>{cell}</TableCell>
+                        <TableCell key={cellIndex}>{formatCell(cell)}</TableCell>
                       ))}
                     </TableRow>
                   ))}
