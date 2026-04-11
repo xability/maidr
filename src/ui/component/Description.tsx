@@ -35,9 +35,11 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
       <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
         Data
         {' '}
-        ({rows.length}
+        (
+        {rows.length}
         {' '}
-        {rows.length === 1 ? 'row' : 'rows'})
+        {rows.length === 1 ? 'row' : 'rows'}
+        )
       </Typography>
       <TableContainer sx={{ maxHeight: 300 }}>
         <Table size="small" stickyHeader aria-label={isDisplayable(title) ? `Chart data for ${title}` : 'Chart data'}>
