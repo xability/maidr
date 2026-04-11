@@ -33,9 +33,9 @@ export class DescriptionService {
       const layerTitle = description.title;
       const figureTitle = this.context.figureTitle;
       const hasLayerTitle = layerTitle && layerTitle !== 'unavailable';
-      const hasFigureTitle = figureTitle && figureTitle !== 'MAIDR Plot';
-      description.title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
-      return description;
+      const hasFigureTitle = figureTitle && figureTitle !== 'MAIDR Plot' && figureTitle !== 'unavailable';
+      const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
+      return { ...description, title };
     }
     return null;
   }

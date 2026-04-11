@@ -21,23 +21,26 @@ import React, { useId } from 'react';
  * Checks whether a value is presentable in the UI.
  * Filters out null, undefined, NaN, empty strings, and known placeholder defaults.
  */
-const isDisplayable = (value: unknown): boolean => {
-  if (value == null) return false;
-  if (typeof value === 'number') return Number.isFinite(value);
+function isDisplayable(value: unknown): boolean {
+  if (value == null)
+    return false;
+  if (typeof value === 'number')
+    return Number.isFinite(value);
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed !== '' && trimmed !== 'undefined' && trimmed !== 'unavailable';
   }
   return true;
-};
+}
 
 /**
  * Formats a cell value for display. Non-displayable values become an empty string.
  */
-const formatCell = (value: unknown): string => {
-  if (!isDisplayable(value)) return '';
+function formatCell(value: unknown): string {
+  if (!isDisplayable(value))
+    return '';
   return String(value);
-};
+}
 
 const Description: React.FC = () => {
   const id = useId();
@@ -65,10 +68,12 @@ const Description: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      aria-modal="true"
+      aria-labelledby={`${id}-title`}
     >
       <Grid container component={DialogTitle}>
         <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold">
+          <Typography id={`${id}-title`} variant="h6" fontWeight="bold">
             Chart Description
           </Typography>
         </Grid>
@@ -78,12 +83,16 @@ const Description: React.FC = () => {
         {/* Chart type and title */}
         {isDisplayable(data.chartType) && (
           <Typography variant="body2">
-            Chart Type: {data.chartType}
+            Chart Type:
+            {' '}
+            {data.chartType}
           </Typography>
         )}
         {isDisplayable(data.title) && (
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Title: {data.title}
+            Title:
+            {' '}
+            {data.title}
           </Typography>
         )}
 
@@ -97,7 +106,9 @@ const Description: React.FC = () => {
             </Typography>
             {axisEntries.map(([key, value]) => (
               <Typography key={key} variant="body2">
-                {key.toUpperCase()}: {value}
+                {key.toUpperCase()}
+                :
+                {value}
               </Typography>
             ))}
             <Divider sx={{ my: 1 }} />
@@ -114,7 +125,9 @@ const Description: React.FC = () => {
               .filter(stat => isDisplayable(stat.value))
               .map((stat, index) => (
                 <Typography key={index} variant="body2">
-                  {stat.label}: {stat.value}
+                  {stat.label}
+                  :
+                  {stat.value}
                 </Typography>
               ))}
             <Divider sx={{ my: 1 }} />
