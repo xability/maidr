@@ -22,9 +22,10 @@ const DEFAULT_ROW_LIMIT = 100;
 interface DataTableProps {
   headers: string[];
   rows: (string | number)[][];
+  title?: string;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
+const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
   const [showAll, setShowAll] = useState(false);
   const isTruncated = rows.length > DEFAULT_ROW_LIMIT;
   const displayedRows = showAll ? rows : rows.slice(0, DEFAULT_ROW_LIMIT);
@@ -39,7 +40,7 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
         {rows.length === 1 ? 'row' : 'rows'})
       </Typography>
       <TableContainer sx={{ maxHeight: 300 }}>
-        <Table size="small" stickyHeader>
+        <Table size="small" stickyHeader aria-label={isDisplayable(title) ? `Chart data for ${title}` : 'Chart data'}>
           <TableHead>
             <TableRow>
               {headers.map((header, i) => (
@@ -193,7 +194,7 @@ const Description: React.FC = () => {
 
         {/* Data table */}
         {data.dataTable.rows.length > 0 && (
-          <DataTable headers={data.dataTable.headers} rows={data.dataTable.rows} />
+          <DataTable headers={data.dataTable.headers} rows={data.dataTable.rows} title={data.title} />
         )}
       </DialogContent>
 
