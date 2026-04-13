@@ -151,7 +151,10 @@
     nav ul {
       list-style: none;
       display: flex;
+      align-items: center;
       gap: 2rem;
+      margin: 0;
+      padding: 0;
     }
 
     nav a {
@@ -165,6 +168,106 @@
 
     nav a:hover,
     nav a.active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Dropdown menu styles */
+    .nav-dropdown {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-dropdown-trigger {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: white;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: inherit;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.2s;
+      line-height: inherit;
+      vertical-align: middle;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+
+    .nav-dropdown-trigger::-moz-focus-inner {
+      border: 0;
+    }
+
+    .nav-dropdown-trigger:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-dropdown-trigger:focus {
+      outline: none;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .nav-dropdown-trigger:focus-visible {
+      background: rgba(255, 255, 255, 0.2);
+      outline: 2px solid white;
+      outline-offset: 2px;
+    }
+
+    .nav-dropdown-trigger svg {
+      width: 12px;
+      height: 12px;
+      transition: transform 0.2s;
+    }
+
+    .nav-dropdown-trigger[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .nav-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #222;
+      border-radius: 6px;
+      min-width: 180px;
+      padding: 0.5rem 0;
+      margin-top: 0.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      display: none;
+      z-index: 1001;
+    }
+
+    .nav-dropdown-menu[data-open="true"] {
+      display: block;
+    }
+
+    .nav-dropdown-menu a {
+      display: block;
+      padding: 0.75rem 1rem;
+      color: white;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .nav-dropdown-menu a:hover,
+    .nav-dropdown-menu a:focus {
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    .nav-dropdown-menu a:focus-visible {
+      outline: 2px solid white;
+      outline-offset: -2px;
+    }
+
+    .nav-dropdown-menu a.active {
       background: rgba(255, 255, 255, 0.2);
     }
 
@@ -313,10 +416,32 @@
       <ul>
         <li><a href="{{BASE_PATH}}index.html" class="{{HOME_ACTIVE}}">Home</a></li>
         <li><a href="{{BASE_PATH}}react.html" class="{{REACT_ACTIVE}}">React</a></li>
-        <li><a href="{{BASE_PATH}}recharts.html" class="{{RECHARTS_ACTIVE}}">Recharts</a></li>
-        <li><a href="{{BASE_PATH}}plotly.html" class="{{PLOTLY_ACTIVE}}">Plotly</a></li>
+        <li class="nav-dropdown">
+          <button
+            class="nav-dropdown-trigger"
+            aria-expanded="false"
+            aria-haspopup="true"
+            aria-controls="adapters-menu"
+            id="adapters-trigger"
+          >
+            Adapters
+            <svg aria-hidden="true" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div
+            class="nav-dropdown-menu"
+            id="adapters-menu"
+            role="menu"
+            aria-labelledby="adapters-trigger"
+          >
+            <a href="{{BASE_PATH}}recharts.html" class="{{RECHARTS_ACTIVE}}" role="menuitem">Recharts</a>
+            <a href="{{BASE_PATH}}plotly.html" class="{{PLOTLY_ACTIVE}}" role="menuitem">Plotly</a>
+            <a href="{{BASE_PATH}}google-charts.html" class="{{GOOGLE_CHARTS_ACTIVE}}" role="menuitem">Google Charts</a>
+          </div>
+        </li>
         <li><a href="{{BASE_PATH}}examples.html" class="{{EXAMPLES_ACTIVE}}">Examples</a></li>
-        <li><a href="{{BASE_PATH}}api/index.html" class="{{API_ACTIVE}}">API Documentation</a></li>
+        <li><a href="{{BASE_PATH}}api/index.html" class="{{API_ACTIVE}}">API</a></li>
         <li><a href="https://github.com/xability/maidr" target="_blank">GitHub</a></li>
       </ul>
     </div>
@@ -385,6 +510,115 @@
         });
       }
     });
+
+    // Accessible dropdown menu
+    (function() {
+      var trigger = document.getElementById('adapters-trigger');
+      var menu = document.getElementById('adapters-menu');
+      if (!trigger || !menu) return;
+
+      var menuItems = menu.querySelectorAll('a[role="menuitem"]');
+      var isOpen = false;
+
+      function openMenu() {
+        isOpen = true;
+        trigger.setAttribute('aria-expanded', 'true');
+        menu.setAttribute('data-open', 'true');
+      }
+
+      function closeMenu(returnFocus) {
+        isOpen = false;
+        trigger.setAttribute('aria-expanded', 'false');
+        menu.setAttribute('data-open', 'false');
+        if (returnFocus) trigger.focus();
+      }
+
+      function focusMenuItem(index) {
+        if (index < 0) index = menuItems.length - 1;
+        if (index >= menuItems.length) index = 0;
+        menuItems[index].focus();
+      }
+
+      // Toggle on click
+      trigger.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (isOpen) {
+          closeMenu(true);
+        } else {
+          openMenu();
+          menuItems[0].focus();
+        }
+      });
+
+      // Keyboard navigation on trigger
+      trigger.addEventListener('keydown', function(e) {
+        switch (e.key) {
+          case 'Enter':
+          case ' ':
+          case 'ArrowDown':
+            e.preventDefault();
+            openMenu();
+            menuItems[0].focus();
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            openMenu();
+            menuItems[menuItems.length - 1].focus();
+            break;
+          case 'Escape':
+            if (isOpen) {
+              e.preventDefault();
+              closeMenu(true);
+            }
+            break;
+        }
+      });
+
+      // Keyboard navigation within menu
+      menu.addEventListener('keydown', function(e) {
+        var currentIndex = Array.from(menuItems).indexOf(document.activeElement);
+
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            focusMenuItem(currentIndex + 1);
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            focusMenuItem(currentIndex - 1);
+            break;
+          case 'Home':
+            e.preventDefault();
+            focusMenuItem(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            focusMenuItem(menuItems.length - 1);
+            break;
+          case 'Escape':
+            e.preventDefault();
+            closeMenu(true);
+            break;
+          case 'Tab':
+            closeMenu(false);
+            break;
+        }
+      });
+
+      // Close on click outside
+      document.addEventListener('click', function(e) {
+        if (isOpen && !trigger.contains(e.target) && !menu.contains(e.target)) {
+          closeMenu(false);
+        }
+      });
+
+      // Close on focus outside
+      document.addEventListener('focusin', function(e) {
+        if (isOpen && !trigger.contains(e.target) && !menu.contains(e.target)) {
+          closeMenu(false);
+        }
+      });
+    })();
   </script>
 </body>
 

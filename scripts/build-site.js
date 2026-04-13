@@ -51,6 +51,7 @@ const PAGE_DESCRIPTIONS = {
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
   'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
   'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
+  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -133,6 +134,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
     .replace(/\{\{RECHARTS_ACTIVE\}\}/g, () => activePage === 'recharts' ? 'active' : '')
     .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
+    .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -201,6 +203,20 @@ if (fs.existsSync(plotlyMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'plotly.html'), plotlyPage);
 }
 
+// Build google-charts.html from docs/google-charts.md
+console.log('Building google-charts.html from docs/google-charts.md...');
+const googleChartsMdPath = path.join(ROOT, 'docs', 'google-charts.md');
+if (fs.existsSync(googleChartsMdPath)) {
+  const googleChartsMd = fs.readFileSync(googleChartsMdPath, 'utf-8');
+  const googleChartsHtml = `
+<div class="content">
+  ${marked.parse(googleChartsMd)}
+</div>
+`;
+  const googleChartsPage = generatePage({ title: 'Google Charts', content: googleChartsHtml, activePage: 'google-charts', slug: 'google-charts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'google-charts.html'), googleChartsPage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -260,6 +276,12 @@ const examplesContent = `
   </ul>
   <p>See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
 
+  <h3>Google Charts</h3>
+  <ul>
+    <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
+  </ul>
+  <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
   <div id="content" hidden="true">Select an example above.</div>
 </div>
 
@@ -304,6 +326,31 @@ const examplesContent = `
     iframe.tabIndex = 0;
     iframe.title = 'Recharts Examples';
     iframe.setAttribute('aria-label', 'Recharts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadGoogleCharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Google Charts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/google-charts.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Google Charts Examples';
+    iframe.setAttribute('aria-label', 'Google Charts example demonstration');
 
     var contentDiv = document.getElementById('content');
     contentDiv.innerHTML = '';
@@ -406,7 +453,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -462,6 +509,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
   { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
   { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
+  { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -469,7 +517,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({
