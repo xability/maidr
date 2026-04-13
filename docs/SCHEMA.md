@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar',
+- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'violin_kde', 'violin_box',
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
 - `axes`: axes info for your plot. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
@@ -287,6 +287,54 @@ The data property is defined as a list of objects where each object is a record 
       ]
     }
 
+   // violin_box: summary statistics overlay for violin plots
+   // data is an array of BoxPoint objects, one per violin
+   maidr = {
+      "type": "violin_box",
+      "data": [
+              {
+                "fill": "Ideal",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 878,
+                "q2": 1810,
+                "q3": 4678,
+                "max": 18806,
+                "upperOutliers": [18806],
+                "mean": 3458
+              },
+              {
+                "fill": "Premium",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 1046,
+                "q2": 3185,
+                "q3": 6296,
+                "max": 18823,
+                "upperOutliers": []
+              }
+            ]
+   }
+
+   // violin_kde: KDE density curve for violin plots
+   // data is a 2D array: data[violinIndex][curvePosition] = ViolinKdePoint
+   // points come in left/right pairs at each Y level (do NOT deduplicate)
+   maidr = {
+      "type": "violin_kde",
+      "data": [
+              [
+                { "x": "Ideal", "y": -501.7, "svg_x": 100.41, "svg_y": 281.84, "width": 0.044 },
+                { "x": "Ideal", "y": -501.7, "svg_x": 103.84, "svg_y": 281.84, "width": 0.044 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 98.25,  "svg_y": 279.41, "width": 0.100 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 105.99, "svg_y": 279.41, "width": 0.100 }
+              ],
+              [
+                { "x": "Premium", "y": -400.0, "svg_x": 200.0, "svg_y": 270.0, "width": 0.035 },
+                { "x": "Premium", "y": -400.0, "svg_x": 205.0, "svg_y": 270.0, "width": 0.035 }
+              ]
+            ]
+   }
+
 ```
 
 ## Multilayer Plots
@@ -342,6 +390,77 @@ maidr = {
                 },
               ]
             ],
+          }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+### Violin Plot (Multilayer)
+
+Violin plots use two layers in the same subplot: `violin_box` for summary statistics and `violin_kde` for the KDE density curve. Put `violin_box` first so it is the default view. Users switch between layers with `PageUp`/`PageDown`.
+
+For the full data contract and field reference, see [VIOLIN_PLOT_SPEC.md](./VIOLIN_PLOT_SPEC.md).
+
+```javascript
+maidr = {
+  "id": "violin_plot",
+  "subplots": [
+    [
+      {
+        "layers": [
+          {
+            "id": "box-layer",
+            "type": "violin_box",
+            "title": "Diamond Price Distribution by Cut Quality",
+            "axes": {
+              "x": "Cut Quality",
+              "y": "Price (USD)"
+            },
+            "selectors": [
+              {
+                "lowerOutliers": [],
+                "min": "#box1 .whisker-min",
+                "iq": "#box1 .iqr-rect",
+                "q2": "#box1 .median-line",
+                "max": "#box1 .whisker-max",
+                "upperOutliers": []
+              }
+            ],
+            "data": [
+              {
+                "fill": "Ideal",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 878,
+                "q2": 1810,
+                "q3": 4678,
+                "max": 18806,
+                "upperOutliers": []
+              }
+            ]
+          },
+          {
+            "id": "kde-layer",
+            "type": "violin_kde",
+            "title": "Diamond Price Distribution by Cut Quality",
+            "axes": {
+              "x": "Cut Quality",
+              "y": "Price (USD)"
+            },
+            "selectors": [
+              "#violin-group-1 path"
+            ],
+            "data": [
+              [
+                { "x": "Ideal", "y": -501.7, "svg_x": 100.4, "svg_y": 281.8, "width": 0.044 },
+                { "x": "Ideal", "y": -501.7, "svg_x": 103.8, "svg_y": 281.8, "width": 0.044 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 98.3,  "svg_y": 279.4, "width": 0.100 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 106.0, "svg_y": 279.4, "width": 0.100 }
+              ]
+            ]
           }
         ]
       }

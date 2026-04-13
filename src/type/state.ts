@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, Orientation, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 /**
@@ -90,6 +90,10 @@ export type TraceState
        * Only present for multiline plots where plotType === 'multiline'.
        */
       groupCount?: number;
+      /**
+       * Plot orientation, if applicable (e.g. bar, box, violin).
+       */
+      orientation?: Orientation;
     };
 
 /**
@@ -269,6 +273,18 @@ export interface TextState {
    * Used to apply correct formatter regardless of orientation.
    */
   crossAxis?: AxisType;
+  /**
+   * Range for the cross axis, used in grid navigation to show both axis ranges.
+   */
+  crossRange?: { min: number; max: number };
+  /**
+   * Points in the current grid cell, listed as coordinate pairs.
+   */
+  gridPoints?: { x: number; y: number }[];
+  /**
+   * Current grid cell position (1-indexed for display).
+   */
+  gridPosition?: { row: number; col: number };
 }
 
 /**

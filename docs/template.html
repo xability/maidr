@@ -4,7 +4,104 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{{DESCRIPTION}}" />
+  <link rel="canonical" href="{{CANONICAL_URL}}" />
+  <meta property="og:title" content="{{TITLE}} - MAIDR" />
+  <meta property="og:description" content="{{DESCRIPTION}}" />
+  <meta property="og:type" content="{{OG_TYPE}}" />
+  <meta property="og:url" content="{{CANONICAL_URL}}" />
+  <meta property="og:image" content="https://maidr.ai/media/logo.jpg" />
+  <meta property="og:image:width" content="1642" />
+  <meta property="og:image:height" content="887" />
+  <meta property="og:image:alt" content="MAIDR - Multimodal Access and Interactive Data Representation logo" />
+  <meta property="og:site_name" content="MAIDR" />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{TITLE}} - MAIDR" />
+  <meta name="twitter:description" content="{{DESCRIPTION}}" />
+  <meta name="twitter:image" content="https://maidr.ai/media/logo.jpg" />
+  <meta name="twitter:image:alt" content="MAIDR - Multimodal Access and Interactive Data Representation logo" />
   <title>{{TITLE}} - MAIDR</title>
+  <link rel="icon" type="image/svg+xml" href="{{BASE_PATH}}media/logo.svg" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://maidr.ai/#organization",
+        "name": "(x)Ability Design Lab",
+        "url": "https://xability.github.io/",
+        "sameAs": [
+          "https://github.com/xability",
+          "https://www.npmjs.com/package/maidr"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://maidr.ai/#website",
+        "url": "https://maidr.ai/",
+        "name": "MAIDR",
+        "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
+        "publisher": { "@id": "https://maidr.ai/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://maidr.ai/#software",
+        "name": "MAIDR",
+        "alternateName": "Multimodal Access and Interactive Data Representation",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
+        "url": "https://maidr.ai",
+        "softwareVersion": "{{SOFTWARE_VERSION}}",
+        "downloadUrl": "https://www.npmjs.com/package/maidr",
+        "codeRepository": "https://github.com/xability/maidr",
+        "programmingLanguage": ["TypeScript", "JavaScript"],
+        "license": "https://opensource.org/license/gpl-3-0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@id": "https://maidr.ai/#organization" },
+        "featureList": [
+          "Audio sonification of chart data",
+          "Text descriptions for screen readers",
+          "Braille output for tactile displays",
+          "AI-powered chart descriptions",
+          "Keyboard navigation for all chart types",
+          "React component library"
+        ],
+        "sameAs": [
+          "https://github.com/xability/maidr",
+          "https://www.npmjs.com/package/maidr"
+        ]
+      }
+    ]
+  }
+  </script>
+  {{PAGE_SCHEMA}}
+  <!-- CookieConsent v3 — to regenerate SRI hashes after a version bump:
+       curl -s <CDN_URL> | openssl dgst -sha384 -binary | openssl base64 -A -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.css" integrity="sha384-9KcNFt4axT+TNOVPHpwGHOm4Kv0UcMjdVya1kl+EPBQG+Vmqtz28cnx0f5PZYcnF" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/gh/orestbida/cookieconsent@3.1.0/dist/cookieconsent.umd.js" integrity="sha384-xOY5eqzqHsjfa8YYAomICWjVJ3g9q1C1tWgRF09ut5PzRJjLFSpKH7gCsIN3hKcA" crossorigin="anonymous"></script>
+  <script type="text/plain" data-category="analytics">
+    (function(){
+      var s=document.createElement('script');
+      s.async=true;
+      s.src='https://www.googletagmanager.com/gtag/js?id=G-179RKE1KL4';
+      document.head.appendChild(s);
+      window.dataLayer=window.dataLayer||[];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag=gtag;
+      gtag('js',new Date());
+      gtag('config','G-179RKE1KL4');
+    })();
+  </script>
+  <script type="text/plain" data-category="analytics">
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "vwqzpug8us");
+  </script>
   <style>
     * {
       margin: 0;
@@ -216,6 +313,8 @@
       <ul>
         <li><a href="{{BASE_PATH}}index.html" class="{{HOME_ACTIVE}}">Home</a></li>
         <li><a href="{{BASE_PATH}}react.html" class="{{REACT_ACTIVE}}">React</a></li>
+        <li><a href="{{BASE_PATH}}recharts.html" class="{{RECHARTS_ACTIVE}}">Recharts</a></li>
+        <li><a href="{{BASE_PATH}}plotly.html" class="{{PLOTLY_ACTIVE}}">Plotly</a></li>
         <li><a href="{{BASE_PATH}}examples.html" class="{{EXAMPLES_ACTIVE}}">Examples</a></li>
         <li><a href="{{BASE_PATH}}api/index.html" class="{{API_ACTIVE}}">API Documentation</a></li>
         <li><a href="https://github.com/xability/maidr" target="_blank">GitHub</a></li>
@@ -231,6 +330,62 @@
     <p>MAIDR - Multimodal Access and Interactive Data Representation</p>
     <p><a href="https://github.com/xability/maidr">GitHub</a> | Licensed under GPL-3.0</p>
   </footer>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      if (typeof CookieConsent !== 'undefined') {
+        CookieConsent.run({
+          guiOptions: {
+            consentModal: {
+              layout: 'box inline',
+              position: 'bottom right',
+            },
+          },
+          categories: {
+            necessary: {
+              enabled: true,
+              readOnly: true,
+            },
+            analytics: {},
+          },
+          language: {
+            default: 'en',
+            translations: {
+              en: {
+                consentModal: {
+                  title: 'We use cookies',
+                  description:
+                    'This site uses cookies to help us understand how it is used. You can choose to accept or decline analytics cookies.',
+                  acceptAllBtn: 'Accept all',
+                  acceptNecessaryBtn: 'Accept necessary only',
+                  showPreferencesBtn: 'Manage preferences',
+                },
+                preferencesModal: {
+                  title: 'Cookie preferences',
+                  acceptAllBtn: 'Accept all',
+                  acceptNecessaryBtn: 'Accept necessary only',
+                  savePreferencesBtn: 'Save preferences',
+                  sections: [
+                    {
+                      title: 'Necessary cookies',
+                      description:
+                        'These cookies are essential for the site to function properly.',
+                      linkedCategory: 'necessary',
+                    },
+                    {
+                      title: 'Analytics cookies',
+                      description:
+                        'These cookies help us understand how visitors interact with the site via Google Analytics and Microsoft Clarity.',
+                      linkedCategory: 'analytics',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        });
+      }
+    });
+  </script>
 </body>
 
 </html>

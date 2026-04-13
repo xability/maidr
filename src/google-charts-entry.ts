@@ -1,17 +1,16 @@
 /**
- * Google Charts integration for MAIDR.
+ * Public Google Charts adapter API for MAIDR.
  *
- * Provides an adapter that converts a rendered Google Charts chart into the
- * MAIDR JSON schema, enabling accessible non-visual access to Google Charts
- * visualizations through audio sonification, text descriptions, braille
- * output, and keyboard navigation.
+ * Provides a `createMaidrFromGoogleChart` function for converting Google Charts
+ * visualizations into MAIDR's accessible format with audio sonification,
+ * text descriptions, braille output, and keyboard navigation.
  *
  * @remarks
  * Google Charts loads asynchronously via `google.charts.load()`. The adapter
  * must be called **after** the chart has finished rendering — typically inside
  * a `google.visualization.events.addListener(chart, 'ready', …)` callback.
  *
- * @example
+ * @example Basic usage
  * ```html
  * <script src="https://www.gstatic.com/charts/loader.js"></script>
  * <script src="maidr.js"></script>
@@ -41,13 +40,26 @@
  * </script>
  * ```
  *
+ * @example Stacked bar chart
+ * ```js
+ * const maidrData = createMaidrFromGoogleChart(chart, data, container, {
+ *   chartType: 'StackedColumnChart',
+ *   title: 'Revenue by Product Category',
+ * });
+ * ```
+ *
  * @packageDocumentation
  */
-
 export {
   createMaidrFromGoogleChart,
   type GoogleChartAdapterOptions,
-} from './adapter';
+} from './adapters/google-charts/converters';
+
+export {
+  buildDataSelector,
+  ensureContainerId,
+  nextId,
+} from './adapters/google-charts/selectors';
 
 export type {
   GoogleChart,
@@ -55,4 +67,8 @@ export type {
   GoogleDataTable,
   GoogleEvents,
   GoogleSelectionItem,
-} from './types';
+} from './adapters/google-charts/types';
+
+// Re-export core types that consumers may need alongside the adapter
+export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from './type/grammar';
+export { Orientation, TraceType } from './type/grammar';

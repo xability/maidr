@@ -12,9 +12,10 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'src/integrations/google-charts/index.ts'),
-      formats: ['es'],
-      fileName: () => 'google-charts.mjs',
+      entry: path.resolve(__dirname, 'src/google-charts-entry.ts'),
+      name: 'maidrGoogleCharts',
+      formats: ['es', 'umd'],
+      fileName: format => format === 'es' ? 'google-charts.mjs' : 'google-charts.js',
     },
     sourcemap: true,
     outDir: 'dist',
@@ -33,6 +34,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@adapters': path.resolve(__dirname, 'src/adapters'),
       '@type': path.resolve(__dirname, 'src/type'),
     },
   },

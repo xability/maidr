@@ -30,11 +30,65 @@ export interface GoogleSelectionItem {
 }
 
 /**
+ * Bounding box returned by `getChartLayoutInterface().getBoundingBox()`.
+ */
+export interface GoogleBoundingBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Chart layout interface for accessing element positions.
+ *
+ * @see https://developers.google.com/chart/interactive/docs/gallery/columnchart#methods
+ */
+export interface GoogleChartLayoutInterface {
+  /**
+   * Returns the bounding box of a chart element.
+   *
+   * For bar/column charts, use IDs like:
+   *   - `'bar#seriesIndex#dataIndex'` — e.g., `'bar#0#2'` for series 0, bar 2
+   *   - `'chartarea'` — the entire chart area
+   *   - `'hAxis'`, `'vAxis'` — axis elements
+   *
+   * @param id - The element ID string
+   * @returns Bounding box with left, top, width, height, or null if not found
+   */
+  getBoundingBox: (id: string) => GoogleBoundingBox | null;
+
+  /**
+   * Returns the pixel x-coordinate of a data value relative to the chart container's left edge.
+   *
+   * @param dataValue - The data value on the horizontal axis
+   * @param axisIndex - Optional axis index for charts with multiple axes (default: 0)
+   * @returns The pixel x-coordinate
+   */
+  getXLocation: (dataValue: number, axisIndex?: number) => number;
+
+  /**
+   * Returns the pixel y-coordinate of a data value relative to the chart container's top edge.
+   *
+   * @param dataValue - The data value on the vertical axis
+   * @param axisIndex - Optional axis index for charts with multiple axes (default: 0)
+   * @returns The pixel y-coordinate
+   */
+  getYLocation: (dataValue: number, axisIndex?: number) => number;
+}
+
+/**
  * Common interface shared by all Google visualization chart types.
  */
 export interface GoogleChart {
   getSelection: () => GoogleSelectionItem[];
   setSelection: (selection: GoogleSelectionItem[]) => void;
+  /**
+   * Returns the chart layout interface for accessing element positions.
+   *
+   * @see https://developers.google.com/chart/interactive/docs/gallery/columnchart#methods
+   */
+  getChartLayoutInterface: () => GoogleChartLayoutInterface;
 }
 
 /**
@@ -55,11 +109,10 @@ export interface GoogleEvents {
 export type GoogleChartType
   = | 'AreaChart'
     | 'BarChart'
+    | 'CandlestickChart'
     | 'ColumnChart'
     | 'LineChart'
     | 'ScatterChart'
-    | 'Histogram'
-    | 'CandlestickChart'
     | 'ComboChart'
     | 'StackedColumnChart'
     | 'StackedBarChart'

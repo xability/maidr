@@ -62,10 +62,16 @@ const commandPaletteSlice = createSlice({
 const { show, hide, updateSelectedIndex, updateSearch } = commandPaletteSlice.actions;
 
 /**
+ * Callback type for executing commands.
+ */
+export type ExecuteCommandCallback = (commandKey: Keys) => void;
+
+/**
  * View model for managing command palette state and navigation.
  */
 export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteState> {
   private readonly commandPaletteService: CommandPaletteService;
+  private executeCommandCallback: ExecuteCommandCallback | null = null;
 
   /**
    * Creates a new CommandPaletteViewModel instance.
@@ -75,6 +81,15 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   public constructor(store: AppStore, commandPaletteService: CommandPaletteService) {
     super(store);
     this.commandPaletteService = commandPaletteService;
+  }
+
+  /**
+   * Sets the command execution callback.
+   * Called after CommandExecutor is created due to circular dependency.
+   * @param {ExecuteCommandCallback} callback - The callback to execute commands.
+   */
+  public setExecuteCommandCallback(callback: ExecuteCommandCallback): void {
+    this.executeCommandCallback = callback;
   }
 
   /**
@@ -114,9 +129,9 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     const scopeKeymap = SCOPED_KEYMAP.TRACE; // Default to TRACE scope
     const commands = Object.entries(scopeKeymap)
       .filter(([commandKey]) => !commandKey.startsWith('ALLOW_'))
-      .map(([commandKey, key]) => ({
-        key,
-        description: this.toTitleCase(commandKey.replace(/_/g, ' ').toLowerCase()),
+      .map(([commandKey, entry]) => ({
+        key: entry.helpKey ?? entry.hotkey,
+        description: entry.description,
         commandKey: commandKey as Keys,
       }));
 
@@ -133,6 +148,41 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   public hide(): void {
     this.store.dispatch(hide());
     this.commandPaletteService.returnToTraceScope();
+  }
+
+  /**
+   * Executes a command and closes the palette.
+   * This is the single entry point for command execution from the palette.
+   * @param {Keys} commandKey - The command key to execute.
+   */
+  public executeAndClose(commandKey: Keys): void {
+    if (!this.executeCommandCallback) {
+      throw new Error('Command execution callback not set. Call setExecuteCommandCallback first.');
+    }
+
+    const callback = this.executeCommandCallback;
+
+    // Hide the palette first (returns to TRACE scope)
+    this.hide();
+
+    // Small delay to ensure scope has changed before executing
+    setTimeout(() => {
+      callback(commandKey);
+    }, 0);
+  }
+
+  /**
+   * Selects and executes the currently highlighted command.
+   */
+  public selectCurrent(): void {
+    const currentState = this.state;
+
+    if (currentState.commands.length > 0 && currentState.selectedIndex >= 0) {
+      const command = currentState.commands[currentState.selectedIndex];
+      if (command) {
+        this.executeAndClose(command.commandKey);
+      }
+    }
   }
 
   /**
@@ -178,54 +228,11 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   }
 
   /**
-   * Selects the currently highlighted command without executing it.
-   */
-  public selectCurrent(): void {
-    const currentState = this.state;
-
-    if (currentState.commands.length > 0 && currentState.selectedIndex !== undefined) {
-      // Don't automatically execute the command, just return it
-      // The actual execution should be handled by the component
-      // this.handleCommandSelect(command);
-    }
-  }
-
-  /**
    * Updates the search filter text for the command palette.
    * @param {string} search - The search text to filter commands.
    */
   public updateSearch(search: string): void {
     this.store.dispatch(updateSearch(search));
-  }
-
-  /**
-   * Executes the specified command and hides the command palette.
-   * @param {Keys} _commandKey - The command key to execute.
-   */
-  public executeCommand(_commandKey: Keys): void {
-    // Execute the command via CommandExecutor
-    // This will be called by the CommandPalette component
-    this.hide();
-  }
-
-  /**
-   * Handles command selection and hides the palette.
-   * @param {CommandItem} _command - The selected command item.
-   */
-  private handleCommandSelect(_command: CommandItem): void {
-    // Execute the selected command
-    // This will be handled by the CommandPalette component
-    this.hide();
-  }
-
-  /**
-   * Converts a string to title case format.
-   * @param {string} str - The string to convert.
-   * @returns {string} The title-cased string.
-   */
-  private toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, txt =>
-      txt.charAt(0).toUpperCase() + txt.slice(1));
   }
 }
 

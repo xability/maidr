@@ -7,18 +7,15 @@
     <!-- 1. Load Google Charts -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
-    <!-- 2. Load MAIDR (standalone script-tag build) -->
+    <!--
+      2. Load MAIDR (standalone script-tag build).
+         This includes the Google Charts adapter as window.maidrGoogleCharts.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
     <script type="text/javascript" src="../dist/maidr.js"></script>
 
-    <!--
-      3. Load MAIDR Google Charts adapter.
-         In a bundled project you would instead:
-           import { createMaidrFromGoogleChart } from 'maidr/google-charts';
-    -->
-    <script type="module">
-      // When using the ESM bundle directly (no bundler), import from the dist file.
-      import { createMaidrFromGoogleChart } from '../dist/google-charts.mjs';
-
+    <script>
+      // Wait for Google Charts to load
       google.charts.load('current', { packages: ['corechart'] });
       google.charts.setOnLoadCallback(drawCharts);
 
@@ -26,18 +23,17 @@
         drawBarChart();
         drawLineChart();
         drawScatterChart();
-        drawHistogramChart();
-        drawCandlestickChart();
         drawStackedBarChart();
         drawDodgedBarChart();
         drawNormalizedBarChart();
-        drawHeatmapChart();
+        drawCandlestickChart();
       }
 
       // Helper: wire up a Google Charts chart with MAIDR.
       function bindMaidr(chart, data, container, options) {
         google.visualization.events.addListener(chart, 'ready', function () {
-          var maidr = createMaidrFromGoogleChart(chart, data, container, options);
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
           container.setAttribute('maidr', JSON.stringify(maidr));
         });
       }
@@ -132,72 +128,6 @@
       }
 
       // ---------------------------------------------------------------
-      // Histogram
-      // ---------------------------------------------------------------
-      function drawHistogramChart() {
-        var data = google.visualization.arrayToDataTable([
-          ['Dinosaur', 'Length'],
-          ['Acrocanthosaurus', 12.2],
-          ['Albertosaurus', 9.1],
-          ['Allosaurus', 8.5],
-          ['Apatosaurus', 22.9],
-          ['Deinonychus', 3.4],
-          ['Diplodocus', 27.1],
-          ['Giganotosaurus', 13.2],
-          ['Spinosaurus', 15.2],
-          ['Tyrannosaurus', 12.3],
-          ['Velociraptor', 1.8],
-        ]);
-
-        var container = document.getElementById('histogram-chart');
-        var chart = new google.visualization.Histogram(container);
-
-        bindMaidr(chart, data, container, {
-          chartType: 'Histogram',
-          title: 'Lengths of Dinosaurs (meters)',
-        });
-
-        chart.draw(data, {
-          title: 'Lengths of Dinosaurs (meters)',
-          legend: { position: 'none' },
-          width: 600,
-          height: 400,
-        });
-      }
-
-      // ---------------------------------------------------------------
-      // Candlestick Chart
-      // ---------------------------------------------------------------
-      function drawCandlestickChart() {
-        var data = google.visualization.arrayToDataTable(
-          [
-            ['Day', 'Low', 'Open', 'Close', 'High'],
-            ['Mon', 20, 28, 38, 45],
-            ['Tue', 31, 38, 55, 66],
-            ['Wed', 50, 55, 77, 80],
-            ['Thu', 77, 77, 66, 50],
-            ['Fri', 68, 76, 22, 15],
-          ],
-          true,
-        );
-
-        var container = document.getElementById('candlestick-chart');
-        var chart = new google.visualization.CandlestickChart(container);
-
-        bindMaidr(chart, data, container, {
-          chartType: 'CandlestickChart',
-          title: 'Stock Prices',
-        });
-
-        chart.draw(data, {
-          title: 'Stock Prices',
-          legend: 'none',
-          width: 600,
-          height: 400,
-        });
-      }
-
-      // ---------------------------------------------------------------
       // Stacked Column Chart
       // ---------------------------------------------------------------
       function drawStackedBarChart() {
@@ -282,35 +212,38 @@
       }
 
       // ---------------------------------------------------------------
-      // Heatmap (using a table-based DataTable)
+      // Candlestick Chart
       // ---------------------------------------------------------------
-      function drawHeatmapChart() {
-        // Google Charts doesn't have a native heatmap chart, so we use
-        // a table-style DataTable to represent the 2D matrix.
-        // In practice, users might use a Bubble chart or a third-party
-        // Google Charts heatmap library.
-        var data = google.visualization.arrayToDataTable([
-          ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-          ['Morning', 2, 5, 3, 7, 4],
-          ['Afternoon', 8, 1, 4, 6, 3],
-          ['Evening', 3, 9, 2, 5, 7],
+      function drawCandlestickChart() {
+        // Google Charts candlestick format: [Date/Number, Low, Open, Close, High]
+        // Note: First column must be date or number, not string!
+        var data = new google.visualization.DataTable();
+        data.addColumn('date', 'Date');
+        data.addColumn('number', 'Low');
+        data.addColumn('number', 'Open');
+        data.addColumn('number', 'Close');
+        data.addColumn('number', 'High');
+        data.addRows([
+          [new Date(2024, 0, 1), 20, 28, 38, 45],   // Bull (close > open)
+          [new Date(2024, 0, 2), 31, 38, 30, 45],   // Bear (close < open)
+          [new Date(2024, 0, 3), 25, 31, 42, 48],   // Bull (close > open)
+          [new Date(2024, 0, 4), 35, 40, 40, 52],   // Neutral (close = open)
+          [new Date(2024, 0, 5), 28, 35, 45, 55],   // Bull (close > open)
         ]);
 
-        var container = document.getElementById('heatmap-chart');
-
-        // For the heatmap, we create a Table visualization to show the
-        // data, then bind MAIDR for accessible navigation.
-        var chart = new google.visualization.Table(container);
+        var container = document.getElementById('candlestick-chart');
+        var chart = new google.visualization.CandlestickChart(container);
 
         bindMaidr(chart, data, container, {
-          chartType: 'Heatmap',
-          title: 'Activity Intensity by Time of Day',
+          chartType: 'CandlestickChart',
+          title: 'Stock Price by Day',
         });
 
         chart.draw(data, {
-          title: 'Activity Intensity by Time of Day',
+          title: 'Stock Price by Day',
+          legend: 'none',
           width: 600,
-          height: 200,
+          height: 400,
         });
       }
     </script>
@@ -344,12 +277,6 @@
     <h2>Scatter Chart</h2>
     <div id="scatter-chart" class="chart-container"></div>
 
-    <h2>Histogram</h2>
-    <div id="histogram-chart" class="chart-container"></div>
-
-    <h2>Candlestick Chart</h2>
-    <div id="candlestick-chart" class="chart-container"></div>
-
     <h2>Stacked Column Chart</h2>
     <div id="stacked-chart" class="chart-container"></div>
 
@@ -359,7 +286,7 @@
     <h2>Normalized (100% Stacked) Column Chart</h2>
     <div id="normalized-chart" class="chart-container"></div>
 
-    <h2>Heatmap</h2>
-    <div id="heatmap-chart" class="chart-container"></div>
+    <h2>Candlestick Chart</h2>
+    <div id="candlestick-chart" class="chart-container"></div>
   </body>
 </html>

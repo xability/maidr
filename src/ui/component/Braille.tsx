@@ -6,7 +6,7 @@ import React, { useEffect, useId, useRef } from 'react';
 const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
-  const { value, index } = useViewModelState('braille');
+  const { value, index, displaySize } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -50,14 +50,24 @@ const Braille: React.FC = () => {
   }, [value, index]);
 
   return (
-    <div id={id}>
+    // role="application" on the wrapper ensures screen readers (NVDA/JAWS)
+    // pass all keys, including Escape, through to the web app. Placed on
+    // the div (not the textarea) so the textarea retains its native
+    // "textbox" role — putting it on the textarea itself caused NVDA to
+    // announce "edit braille app" and broke arrow-key cursor movement.
+    // Browse-mode suppression for sibling content is not a concern here
+    // because the textarea is the sole interactive child.
+    <div id={id} role="application" aria-label="Braille display">
       <textarea
         id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}
         defaultValue={value}
         autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        wrap="off"
         rows={5}
-        cols={50}
+        cols={displaySize}
       />
     </div>
   );
