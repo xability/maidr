@@ -1,3 +1,15 @@
+# [3.62.0](https://github.com/xability/maidr/compare/v3.61.0...v3.62.0) (2026-04-13)
+
+
+### Bug Fixes
+
+* braille cursor issue and extra braille text at beginning in nvda eliminated ([#596](https://github.com/xability/maidr/issues/596)) ([5e0d998](https://github.com/xability/maidr/commit/5e0d9982e11bc55d436aee7de6bb2c6fca1febd1))
+
+
+### Features
+
+* enable automatic keybinding capture in help menu ([#597](https://github.com/xability/maidr/issues/597)) ([d207bc0](https://github.com/xability/maidr/commit/d207bc0de20b753498268c290e6ce8d9132bd8e0))
+
 # [3.61.0](https://github.com/xability/maidr/compare/v3.60.1...v3.61.0) (2026-04-08)
 
 
