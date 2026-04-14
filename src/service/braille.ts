@@ -273,6 +273,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     const step = multiline ? -1 : 1;
 
     for (let row = start; row !== end; row += step) {
+      const rowStartIdx = values.length;
       const box = state.values[row];
       const boxValData = [
         { type: this.GLOBAL_MIN, value: state.min },
@@ -450,10 +451,24 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         }
       }
 
-      if (!multiline) {
+      if (multiline) {
+        // The box encoder already produces exactly `size` characters per row,
+        // which equals displaySize, so no space-padding is needed — the row
+        // naturally ends on a display-line boundary.  However, if the encoded
+        // char count is not a multiple of displaySize (defensive), pad it.
+        const rowCharCount = values.length - rowStartIdx;
+        const paddedLength = rowCharCount === 0
+          ? size
+          : Math.ceil(rowCharCount / size) * size;
+        const lastCol = Math.max(0, col);
+        for (let p = rowCharCount; p < paddedLength; p++) {
+          values.push(Constant.SPACE);
+          indexToCell.push({ row, col: lastCol });
+        }
+      } else {
         values.push(Constant.NEW_LINE);
+        indexToCell.push({ row, col });
       }
-      indexToCell.push({ row, col });
     }
 
     return { value: values.join(Constant.EMPTY), cellToIndex, indexToCell };

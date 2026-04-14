@@ -13,6 +13,8 @@ const SETTINGS_KEY = 'maidr-settings';
  * in `defaults` but absent from `override`. This ensures that newly added
  * settings are available even when the user has an older saved settings object
  * in localStorage that predates the new keys.
+ *
+ * null override values are treated as absent and fall back to defaults.
  */
 function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
   const result = { ...defaults };

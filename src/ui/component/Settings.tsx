@@ -567,6 +567,8 @@ const Settings: React.FC = () => {
                         inputProps: {
                           'aria-label': 'Braille Display Lines',
                           'min': 1,
+                          'max': 20,
+                          'step': 1,
                         },
                       },
                     }}

@@ -4,6 +4,7 @@ import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type {
   BarBrailleState,
+  BoxBrailleState,
   HeatmapBrailleState,
   LineBrailleState,
   TraceState,
@@ -177,6 +178,74 @@ function createHeatmapTraceState(values: number[][], row: number, col: number): 
 }
 
 /**
+ * Creates a box plot trace state with configurable braille cursor position.
+ * @param boxes - Array of box point data (one per row)
+ * @param globalMin - Global minimum across all boxes
+ * @param globalMax - Global maximum across all boxes
+ * @param row - Active braille row
+ * @param col - Active braille column (section index: 0=lowerOutlier..6=upperOutlier)
+ * @returns Non-empty trace state for box braille updates
+ */
+function createBoxTraceState(
+  boxes: Array<{ lowerOutliers: number[]; min: number; q1: number; q2: number; q3: number; max: number; upperOutliers: number[] }>,
+  globalMin: number,
+  globalMax: number,
+  row: number,
+  col: number,
+): TraceState {
+  const braille: BoxBrailleState = {
+    id: `box-braille-${boxes.length}-${row}-${col}`,
+    empty: false,
+    row,
+    col,
+    values: boxes.map(b => ({
+      fill: '#000',
+      lowerOutliers: b.lowerOutliers,
+      min: b.min,
+      q1: b.q1,
+      q2: b.q2,
+      q3: b.q3,
+      max: b.max,
+      upperOutliers: b.upperOutliers,
+    })),
+    min: globalMin,
+    max: globalMax,
+  };
+
+  return {
+    empty: false,
+    type: 'trace',
+    layerId: 'test-layer',
+    traceType: TraceType.BOX,
+    plotType: 'box',
+    title: 'Box test trace',
+    xAxis: 'x',
+    yAxis: 'y',
+    fill: 'none',
+    hasMultiPoints: false,
+    audio: {
+      freq: { min: 200, max: 1000, raw: 300 },
+      panning: { y: 0, x: 0, rows: 1, cols: 1 },
+    },
+    braille,
+    text: {
+      main: { label: 'x', value: 0 },
+      cross: { label: 'y', value: 0 },
+    },
+    autoplay: {
+      UPWARD: 0,
+      DOWNWARD: 0,
+      FORWARD: 0,
+      BACKWARD: 0,
+    },
+    highlight: {
+      empty: false,
+      elements: [] as unknown as SVGElement[],
+    },
+  };
+}
+
+/**
  * Creates a settings mock and exposes a helper to emit display-size change events.
  * @param displaySize - Initial display width used by the encoder
  * @returns Settings service mock and change trigger
@@ -187,7 +256,8 @@ function createSettingsMockController(displaySize: number): SettingsMockControll
 
   const settings = {
     get: <T>(settingPath: string): T => {
-      if (settingPath === 'general.brailleDisplayLines') return 1 as T;
+      if (settingPath === 'general.brailleDisplayLines')
+        return 1 as T;
       return currentDisplaySize as T;
     },
     onChange: (listener: (event: SettingsChangeEventMock) => void) => {
@@ -224,7 +294,8 @@ function createSettingsMockController(displaySize: number): SettingsMockControll
 function createStaticSettingsMock(displaySize: number): SettingsService {
   return {
     get: <T>(settingPath: string): T => {
-      if (settingPath === 'general.brailleDisplayLines') return 1 as T;
+      if (settingPath === 'general.brailleDisplayLines')
+        return 1 as T;
       return displaySize as T;
     },
     onChange: () => ({
@@ -615,7 +686,9 @@ describe('BrailleService display-size encoding', () => {
     const contextMoveToIndex = jest.fn<(row: number, col: number) => void>();
     const context = {
       moveToIndex: contextMoveToIndex,
-      get state(): undefined { return undefined; },
+      get state(): undefined {
+        return undefined;
+      },
     } as unknown as Context;
     const notification = {
       notify: jest.fn<(message: string) => void>(),
@@ -624,17 +697,15 @@ describe('BrailleService display-size encoding', () => {
       toggleFocus: jest.fn(),
     } as unknown as DisplayService;
 
-    let onChangeLinesListener: ((event: SettingsChangeEventMock) => void) | null = null;
     const settings = {
       get: <T>(path: string): T => {
-        if (path === 'general.brailleDisplaySize') return 10 as T;
-        if (path === 'general.brailleDisplayLines') return 2 as T;
+        if (path === 'general.brailleDisplaySize')
+          return 10 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
         return undefined as T;
       },
-      onChange: (listener: (event: SettingsChangeEventMock) => void) => {
-        onChangeLinesListener = listener;
-        return { dispose: () => {} };
-      },
+      onChange: () => ({ dispose: () => {} }),
     } as unknown as SettingsService;
 
     const service = new BrailleService(context, notification, display, settings);
@@ -666,15 +737,19 @@ describe('BrailleService display-size encoding', () => {
     const contextMoveToIndex = jest.fn<(row: number, col: number) => void>();
     const context = {
       moveToIndex: contextMoveToIndex,
-      get state(): undefined { return undefined; },
+      get state(): undefined {
+        return undefined;
+      },
     } as unknown as Context;
     const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
     const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
 
     const settings = {
       get: <T>(path: string): T => {
-        if (path === 'general.brailleDisplaySize') return 10 as T;
-        if (path === 'general.brailleDisplayLines') return 2 as T;
+        if (path === 'general.brailleDisplaySize')
+          return 10 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
         return undefined as T;
       },
       onChange: () => ({ dispose: () => {} }),
@@ -711,15 +786,19 @@ describe('BrailleService display-size encoding', () => {
   test('multiline mode: emits displayLines in onChange event', () => {
     const context = {
       moveToIndex: jest.fn(),
-      get state(): undefined { return undefined; },
+      get state(): undefined {
+        return undefined;
+      },
     } as unknown as Context;
     const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
     const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
 
     const settings = {
       get: <T>(path: string): T => {
-        if (path === 'general.brailleDisplaySize') return 32 as T;
-        if (path === 'general.brailleDisplayLines') return 3 as T;
+        if (path === 'general.brailleDisplaySize')
+          return 32 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 3 as T;
         return undefined as T;
       },
       onChange: () => ({ dispose: () => {} }),
@@ -736,6 +815,59 @@ describe('BrailleService display-size encoding', () => {
 
     service.toggle(state);
     expect(emittedDisplayLines).toBe(3);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('multiline mode: box encoder space-pads rows to displaySize boundary', () => {
+    const contextMoveToIndex = jest.fn<(row: number, col: number) => void>();
+    const context = {
+      moveToIndex: contextMoveToIndex,
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 32 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    const box = {
+      lowerOutliers: [] as number[],
+      min: 10,
+      q1: 25,
+      q2: 50,
+      q3: 75,
+      max: 90,
+      upperOutliers: [] as number[],
+    };
+    const state = createBoxTraceState([box, box], 0, 100, 0, 3);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // Multiline: no newlines
+    expect(emitted.includes('\n')).toBe(false);
+    // Each row should be a multiple of displaySize (32)
+    expect(emitted.length % 32).toBe(0);
+    // Two rows → total length should be 64
+    expect(emitted.length).toBe(64);
 
     disposable.dispose();
     service.dispose();

@@ -66,7 +66,7 @@ const Braille: React.FC = () => {
         autoCorrect="off"
         spellCheck={false}
         wrap="off"
-        rows={displayLines}
+        rows={Math.max(displayLines, 5)}
         cols={displaySize}
       />
     </div>
