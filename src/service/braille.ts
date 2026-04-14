@@ -101,8 +101,19 @@ function encodeWithWrapping(
   const cellToIndex = new Array<Array<number>>();
   const indexToCell = new Array<Cell>();
 
-  for (let row = 0; row < rowCount; row++) {
+  for (let i = 0; i < rowCount; i++) {
     cellToIndex.push(new Array<number>());
+  }
+
+  // When multiline, encode from the last row to the first so that
+  // row 0 (the initially focused / lowest element) appears at the
+  // bottom of the physical braille display and UP (row++) moves the
+  // cursor upward.
+  const start = multiline ? rowCount - 1 : 0;
+  const end = multiline ? -1 : rowCount;
+  const step = multiline ? -1 : 1;
+
+  for (let row = start; row !== end; row += step) {
     const cols = colCount(row);
 
     for (let col = 0; col < cols; col++) {
@@ -238,7 +249,30 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     const indexToCell = new Array<Cell>();
     const cellToIndex = new Array<Array<number>>();
 
-    for (let row = 0; row < state.values.length; row++) {
+    const sections = [
+      this.LOWER_OUTLIER,
+      this.MIN,
+      this.Q1,
+      this.Q2,
+      this.Q3,
+      this.MAX,
+      this.UPPER_OUTLIER,
+    ];
+
+    const rowCount = state.values.length;
+    for (let i = 0; i < rowCount; i++) {
+      cellToIndex.push(
+        Array.from({ length: sections.length }).fill(-1) as number[],
+      );
+    }
+
+    // When multiline, encode from the last row to the first so UP
+    // moves the cursor upward on the physical braille display.
+    const start = multiline ? rowCount - 1 : 0;
+    const end = multiline ? -1 : rowCount;
+    const step = multiline ? -1 : 1;
+
+    for (let row = start; row !== end; row += step) {
       const box = state.values[row];
       const boxValData = [
         { type: this.GLOBAL_MIN, value: state.min },
@@ -363,18 +397,6 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       let col = -1;
-      const sections = [
-        this.LOWER_OUTLIER,
-        this.MIN,
-        this.Q1,
-        this.Q2,
-        this.Q3,
-        this.MAX,
-        this.UPPER_OUTLIER,
-      ];
-      cellToIndex.push(
-        Array.from({ length: sections.length }).fill(-1) as number[],
-      );
       for (const section of lenData) {
         if (
           section.type !== this.BLANK

@@ -692,16 +692,17 @@ describe('BrailleService display-size encoding', () => {
 
     service.toggle(state);
 
-    // row1, col2: should be at index 10+2=12 (row0 padded to 10, then col2 of row1)
-    expect(cursorIndex).toBe(12);
+    // row1, col2: row 1 is encoded first (rows reversed so UP moves cursor upward),
+    // so cursor is at index 2
+    expect(cursorIndex).toBe(2);
 
-    // clicking at index 12 should navigate to (1, 2)
-    service.moveToIndex(12);
+    // clicking at index 2 should navigate to (1, 2)
+    service.moveToIndex(2);
     expect(contextMoveToIndex).toHaveBeenCalledWith(1, 2);
 
-    // clicking in padding of row0 (e.g. index 7) should navigate to (0, 4) - last col of row0
+    // clicking in padding of row1 (e.g. index 7) should navigate to (1, 2) - last data col of row1
     service.moveToIndex(7);
-    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 4);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(1, 2);
 
     disposable.dispose();
     service.dispose();
