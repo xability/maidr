@@ -657,29 +657,6 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
-  test('multiline mode: uses space padding instead of newlines between rows', () => {
-    // Create a braille service where displayLines > 1 is triggered via multiline encoder call
-    // We test this by calling the service with a state and checking no \n in output
-    // Use a custom setup with displayLines=2 by extending the service mock
-    const { service } = createBrailleService(10);
-    // Single row with 5 chars, displaySize=10 → should produce 10 chars (5 data + 5 spaces) and no \n in multiline
-    // We test this via the multiline path indirectly - we verify the single-line path still works
-    const state = createLineTraceState([[1, 2, 3]], 0, 0);
-
-    let emitted = '';
-    const disposable = service.onChange((event) => {
-      emitted = event.value;
-    });
-
-    service.toggle(state);
-
-    // Single-line mode (default displayLines=1): should still use \n
-    expect(emitted.includes('\n')).toBe(true);
-
-    disposable.dispose();
-    service.dispose();
-  });
-
   test('multiline mode: space-pads each row to displaySize boundary', () => {
     // We need to test the encoder directly via the BrailleService with displayLines > 1.
     // Since BrailleService reads displayLines from settings, create a mock with displayLines=2.

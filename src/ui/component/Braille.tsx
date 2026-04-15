@@ -66,6 +66,10 @@ const Braille: React.FC = () => {
         autoCorrect="off"
         spellCheck={false}
         wrap="off"
+        // Keep a 5-row minimum visible height so the textarea is comfortable to
+        // read on a regular screen even when displayLines=1 (the default for
+        // users without a physical multi-line braille display).  Users with a
+        // larger physical display still see all their lines.
         rows={Math.max(displayLines, 5)}
         cols={displaySize}
       />

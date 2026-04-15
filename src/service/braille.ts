@@ -20,6 +20,7 @@ import { Constant } from '@util/constant';
 
 export const DEFAULT_BRAILLE_SIZE = 32;
 export const DEFAULT_BRAILLE_LINES = 1;
+export const MAX_BRAILLE_LINES = 20;
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
@@ -48,7 +49,7 @@ function normalizeDisplayLines(lines: number | undefined): number {
   if (lines === undefined || !Number.isFinite(lines)) {
     return DEFAULT_BRAILLE_LINES;
   }
-  return Math.max(1, Math.floor(lines));
+  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(lines)));
 }
 
 /**
@@ -166,6 +167,16 @@ interface TimeSeries {
 
 /**
  * Interface for encoding plot states into braille representations.
+ *
+ * The `multiline` flag controls two related behaviors that implementors must
+ * keep in sync:
+ *   1. Row separation — uses space-padding to the next `displaySize` boundary
+ *      instead of inserting a newline character, so that each data row occupies
+ *      a full physical braille display line.
+ *   2. Row encoding order — encodes data rows from last to first so that
+ *      row 0 (the initially focused / lowest data row) appears at the bottom
+ *      of the physical braille display.  This makes UP-arrow navigation
+ *      (which increments `row`) move the cursor upward on the display.
  */
 interface BrailleEncoder<BrailleState> {
   encode: (state: BrailleState, size?: number, multiline?: boolean) => EncodedBraille;
@@ -245,6 +256,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     size: number = DEFAULT_BRAILLE_SIZE,
     multiline: boolean = false,
   ): EncodedBraille {
+    const displaySize = normalizeDisplaySize(size);
     const values = new Array<string>();
     const indexToCell = new Array<Cell>();
     const cellToIndex = new Array<Array<number>>();
@@ -367,7 +379,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
         }
       }
 
-      const available = Math.max(0, size - preAllocated);
+      const available = Math.max(0, displaySize - preAllocated);
       const totalLength = lenData.reduce(
         (sum, l) => sum + (l.type !== this.Q2 && l.length > 0 ? l.length : 0),
         0,
@@ -382,7 +394,7 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       const totalChars = lenData.reduce((sum, l) => sum + l.numChars, 0);
-      let diff = size - totalChars;
+      let diff = displaySize - totalChars;
       let adjustIndex = 0;
       while (diff !== 0) {
         const section = lenData[adjustIndex % lenData.length];
@@ -452,14 +464,14 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       if (multiline) {
-        // The box encoder already produces exactly `size` characters per row,
-        // which equals displaySize, so no space-padding is needed — the row
-        // naturally ends on a display-line boundary.  However, if the encoded
-        // char count is not a multiple of displaySize (defensive), pad it.
+        // The box encoder already produces exactly `displaySize` characters
+        // per row, so the row naturally ends on a display-line boundary.
+        // The defensive padding below covers any future code path that might
+        // emit a different number of characters.
         const rowCharCount = values.length - rowStartIdx;
         const paddedLength = rowCharCount === 0
-          ? size
-          : Math.ceil(rowCharCount / size) * size;
+          ? displaySize
+          : Math.ceil(rowCharCount / displaySize) * displaySize;
         const lastCol = Math.max(0, col);
         for (let p = rowCharCount; p < paddedLength; p++) {
           values.push(Constant.SPACE);
@@ -943,7 +955,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const braille = trace.braille;
     if (this.cache === null || this.cacheId !== braille.id) {
       const encoder = this.encoders.get(trace.traceType)!;
-      this.cache = encoder.encode(braille as any, this.displaySize, this.displayLines > 1);
+      // multiline=true switches the encoder to physical-display mode:
+      // space-padded rows (no newlines) and reversed row order so UP moves up.
+      const useMultilinePadding = this.displayLines > 1;
+      this.cache = encoder.encode(braille as any, this.displaySize, useMultilinePadding);
       this.cacheId = braille.id;
     }
 
