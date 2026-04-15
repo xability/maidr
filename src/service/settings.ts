@@ -15,6 +15,10 @@ const SETTINGS_KEY = 'maidr-settings';
  * in localStorage that predates the new keys.
  *
  * null override values are treated as absent and fall back to defaults.
+ *
+ * Arrays are replaced wholesale rather than recursed into. If any future
+ * setting is array-typed, a saved older value will overwrite the default
+ * array instead of being merged element-by-element.
  */
 export function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
   const result = { ...defaults };

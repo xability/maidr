@@ -557,11 +557,19 @@ const Settings: React.FC = () => {
                     type="number"
                     size="small"
                     value={generalSettings.brailleDisplayLines}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'brailleDisplayLines',
-                        Number(e.target.value),
-                      )}
+                    onChange={(e) => {
+                      // Guard against NaN (e.g. when the user clears the field).
+                      // The stored value stays valid even if blur never fires.
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        return;
+                      }
+                      const parsed = Number(raw);
+                      if (Number.isNaN(parsed)) {
+                        return;
+                      }
+                      handleGeneralChange('brailleDisplayLines', parsed);
+                    }}
                     onBlur={e =>
                       handleGeneralChange(
                         'brailleDisplayLines',

@@ -849,4 +849,84 @@ describe('BrailleService display-size encoding', () => {
     disposable.dispose();
     service.dispose();
   });
+
+  test('multiline mode: settings change for brailleDisplayLines re-encodes and flips mode', () => {
+    // Start in single-line mode (displayLines=1), switch to multiline (displayLines=2),
+    // and verify the cache is invalidated and the output re-encodes without newlines.
+    let currentDisplayLines = 1;
+    let onChangeListener:
+      | ((event: SettingsChangeEventMock) => void)
+      | null = null;
+
+    const state = createLineTraceState([[1, 2, 3, 4, 5], [10, 20, 30]], 0, 0);
+
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): TraceState {
+        return state;
+      },
+    } as unknown as Context;
+    const notification = {
+      notify: jest.fn<(message: string) => void>(),
+    } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 10 as T;
+        if (path === 'general.brailleDisplayLines')
+          return currentDisplayLines as T;
+        return undefined as T;
+      },
+      onChange: (listener: (event: SettingsChangeEventMock) => void) => {
+        onChangeListener = listener;
+        return {
+          dispose: () => {
+            onChangeListener = null;
+          },
+        };
+      },
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    const emissions: Array<{ value: string; displayLines: number }> = [];
+    const disposable = service.onChange((event) => {
+      emissions.push({ value: event.value, displayLines: event.displayLines });
+    });
+
+    service.toggle(state);
+
+    // Before the setting change: single-line mode → newlines present, displayLines=1.
+    expect(emissions.length).toBeGreaterThan(0);
+    const before = emissions[emissions.length - 1];
+    expect(before.value.includes('\n')).toBe(true);
+    expect(before.displayLines).toBe(1);
+
+    // Flip the setting and fire the change event.
+    currentDisplayLines = 2;
+    expect(onChangeListener).not.toBeNull();
+    onChangeListener!({
+      affectsSetting: (path: string): boolean =>
+        path === 'general.brailleDisplayLines',
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplayLines')
+          return currentDisplayLines as T;
+        return 10 as T;
+      },
+    });
+
+    // After the setting change: the service must re-encode and re-emit in
+    // multiline mode (no newlines) with the new displayLines value.
+    const after = emissions[emissions.length - 1];
+    expect(after).not.toBe(before);
+    expect(after.value.includes('\n')).toBe(false);
+    expect(after.displayLines).toBe(2);
+    // Each row padded to displaySize=10 → 2 rows → total length 20.
+    expect(after.value.length).toBe(20);
+
+    disposable.dispose();
+    service.dispose();
+  });
 });
