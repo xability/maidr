@@ -562,6 +562,11 @@ const Settings: React.FC = () => {
                         'brailleDisplayLines',
                         Number(e.target.value),
                       )}
+                    onBlur={e =>
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        Math.min(20, Math.max(1, Math.floor(Number(e.target.value)) || 1)),
+                      )}
                     helperText="Number of rows on a physical braille display (1-20). Set above 1 to enable multi-line output."
                     slotProps={{
                       input: {

@@ -16,7 +16,7 @@ const SETTINGS_KEY = 'maidr-settings';
  *
  * null override values are treated as absent and fall back to defaults.
  */
-function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
+export function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
   const result = { ...defaults };
   for (const key of Object.keys(override) as (keyof T)[]) {
     const overrideVal = override[key];
@@ -30,7 +30,7 @@ function deepMerge<T extends object>(defaults: T, override: Partial<T>): T {
       && defaultVal !== null
     ) {
       result[key] = deepMerge(defaultVal as object, overrideVal as Partial<object>) as T[keyof T];
-    } else if (overrideVal !== undefined) {
+    } else if (overrideVal !== undefined && overrideVal !== null) {
       result[key] = overrideVal as T[keyof T];
     }
   }

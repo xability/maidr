@@ -957,8 +957,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
       const encoder = this.encoders.get(trace.traceType)!;
       // multiline=true switches the encoder to physical-display mode:
       // space-padded rows (no newlines) and reversed row order so UP moves up.
-      const useMultilinePadding = this.displayLines > 1;
-      this.cache = encoder.encode(braille as any, this.displaySize, useMultilinePadding);
+      const isMultilineMode = this.displayLines > 1;
+      this.cache = encoder.encode(braille as any, this.displaySize, isMultilineMode);
       this.cacheId = braille.id;
     }
 
