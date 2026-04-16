@@ -205,9 +205,18 @@ function buildBarLayer(
   const data: BarPoint[] = [];
   const rows = dt.getNumberOfRows();
 
+  // Find first non-role data column (defensive: don't assume column 1 is data)
+  let dataCol = 1;
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      dataCol = c;
+      break;
+    }
+  }
+
   for (let r = 0; r < rows; r++) {
     const label = formatCellValue(dt, r, 0);
-    const value = numericValue(dt, r, 1);
+    const value = numericValue(dt, r, dataCol);
     data.push({ x: label, y: value });
   }
 
@@ -221,7 +230,7 @@ function buildBarLayer(
     ...(selector ? { selectors: selector } : {}),
     axes: {
       x: dt.getColumnLabel(0) || undefined,
-      y: dt.getColumnLabel(1) || undefined,
+      y: dt.getColumnLabel(dataCol) || undefined,
     },
     data,
   };
@@ -528,6 +537,10 @@ function markBarElements(
 
   // Get all rects in the SVG
   const allRects = svg.querySelectorAll('rect');
+
+  // Clear any existing marks from previous initializations
+  allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
+
   let markedCount = 0;
 
   // For each series and data point, find the corresponding rect
@@ -586,6 +599,10 @@ function markSegmentedBarElements(
 
   // Get all rects in the SVG
   const allRects = svg.querySelectorAll('rect');
+
+  // Clear any existing marks from previous initializations
+  allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
+
   let markedCount = 0;
 
   // Mark elements in ROW-MAJOR order (series-first, then categories within each series)
@@ -925,6 +942,19 @@ function markCandlestickElements(
     const bx = Number.parseFloat(b.getAttribute('x') || '0');
     return ax - bx;
   });
+
+  // Warn if element counts don't match expected row count (aids debugging)
+  if (bodies.length !== rowCount) {
+    console.warn(
+      `[MAIDR] Candlestick body count mismatch: expected ${rowCount}, found ${bodies.length}. `
+      + 'This may indicate pixel threshold issues with custom chart sizes or high-DPI displays.',
+    );
+  }
+  if (wicks.length !== rowCount) {
+    console.warn(
+      `[MAIDR] Candlestick wick count mismatch: expected ${rowCount}, found ${wicks.length}.`,
+    );
+  }
 
   // Mark bodies with index
   const bodiesToMark = Math.min(bodies.length, rowCount);

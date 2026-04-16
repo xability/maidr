@@ -81,15 +81,14 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 
 | Chart Type | Google Charts Class | Adapter `chartType` |
 |------------|--------------------|--------------------|
-| Bar/Column | `ColumnChart` | `'ColumnChart'` |
-| Horizontal Bar | `BarChart` | `'BarChart'` |
+| Column | `ColumnChart` | `'ColumnChart'` |
 | Line | `LineChart` | `'LineChart'` |
 | Scatter | `ScatterChart` | `'ScatterChart'` |
 | Candlestick | `CandlestickChart` | `'CandlestickChart'` |
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
-| Stacked Bar | `BarChart` + `isStacked: true` | `'StackedBarChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
-| Dodged/Grouped Bar | `BarChart` (multi-series) | `'DodgedBarChart'` |
+
+**Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
 
 ## Code Examples
 

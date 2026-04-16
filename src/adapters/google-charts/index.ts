@@ -48,8 +48,6 @@ export {
   type GoogleChartAdapterOptions,
 } from './converters';
 
-export { buildDataSelector, ensureContainerId, nextId } from './selectors';
-
 export type {
   GoogleChart,
   GoogleChartType,
