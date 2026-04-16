@@ -107,17 +107,12 @@ export interface GoogleEvents {
  * Supported Google Charts chart type strings that the adapter can convert.
  */
 export type GoogleChartType
-  = | 'AreaChart'
-    | 'BarChart'
+  = | 'BarChart'
     | 'CandlestickChart'
     | 'ColumnChart'
+    | 'DodgedBarChart'
+    | 'DodgedColumnChart'
     | 'LineChart'
     | 'ScatterChart'
-    | 'ComboChart'
-    | 'StackedColumnChart'
     | 'StackedBarChart'
-    | 'NormalizedColumnChart'
-    | 'NormalizedBarChart'
-    | 'DodgedColumnChart'
-    | 'DodgedBarChart'
-    | 'Heatmap';
+    | 'StackedColumnChart';

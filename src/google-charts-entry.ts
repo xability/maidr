@@ -50,6 +50,8 @@
  *
  * @packageDocumentation
  */
+import { createMaidrFromGoogleChart } from './adapters/google-charts/converters';
+
 export {
   createMaidrFromGoogleChart,
   type GoogleChartAdapterOptions,
@@ -60,6 +62,19 @@ export {
   ensureContainerId,
   nextId,
 } from './adapters/google-charts/selectors';
+
+// Expose Google Charts adapter globally for script-tag usage (UMD build)
+declare global {
+  interface Window {
+    maidrGoogleCharts?: {
+      createMaidrFromGoogleChart: typeof createMaidrFromGoogleChart;
+    };
+  }
+}
+
+window.maidrGoogleCharts = {
+  createMaidrFromGoogleChart,
+};
 
 export type {
   GoogleChart,

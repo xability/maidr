@@ -4,7 +4,7 @@ MAIDR provides an adapter for Google Charts that converts your charts into acces
 
 ## Quick Start
 
-Add `maidr.js` after your Google Charts loader. Use the adapter in the chart's `ready` event:
+Add `maidr.js` and `google-charts.js` after your Google Charts loader. Use the adapter in the chart's `ready` event:
 
 ```html
 <!doctype html>
@@ -14,8 +14,9 @@ Add `maidr.js` after your Google Charts loader. Use the adapter in the chart's `
     <title>My Google Chart</title>
     <!-- 1. Load Google Charts -->
     <script src="https://www.gstatic.com/charts/loader.js"></script>
-    <!-- 2. Load MAIDR -->
+    <!-- 2. Load MAIDR core and Google Charts adapter -->
     <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/google-charts.js"></script>
   </head>
   <body>
     <div id="chart" style="width: 700px; height: 500px"></div>

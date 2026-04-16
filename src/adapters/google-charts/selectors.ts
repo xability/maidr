@@ -25,21 +25,19 @@
  * from other charts on the same page.
  */
 
-// ---------------------------------------------------------------------------
-// Monotonic counter for generating collision-free IDs when multiple charts
-// are created synchronously (Date.now() alone would collide).
-// ---------------------------------------------------------------------------
-
-let idCounter = 0;
-
 /**
- * Generates a unique ID with the given prefix.
+ * Generates a unique ID with the given prefix using crypto.randomUUID().
+ *
+ * Uses the browser's cryptographically-secure random UUID generator to ensure
+ * truly unique IDs without module-level mutable state.
  *
  * @param prefix - The prefix for the generated ID
- * @returns A unique string ID
+ * @returns A unique string ID (e.g., "maidr-gc-a1b2c3d4-...")
  */
 export function nextId(prefix: string): string {
-  return `${prefix}-${++idCounter}`;
+  // Use first 8 chars of UUID for shorter, readable IDs
+  const uuid = crypto.randomUUID().slice(0, 8);
+  return `${prefix}-${uuid}`;
 }
 
 /**

@@ -8,10 +8,13 @@
  * - TypeDoc generates API docs separately
  */
 
-const { execSync } = require('node:child_process');
-const fs = require('node:fs');
-const path = require('node:path');
-const { marked } = require('marked');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { marked } from 'marked';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');

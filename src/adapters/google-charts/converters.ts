@@ -11,7 +11,7 @@
  *   LinePoint[][]       = [[{ x, y, fill? }, ...], ...]
  *   ScatterPoint[]      = [{ x, y }, ...]
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
- *   HeatmapData         = { x: string[], y: string[], points: number[][] }
+ *   CandlestickPoint[]  = [{ value, open, high, low, close, ... }, ...]
  */
 
 import type {
@@ -19,7 +19,6 @@ import type {
   CandlestickPoint,
   CandlestickSelector,
   CandlestickTrend,
-  HeatmapData,
   LinePoint,
   Maidr,
   MaidrLayer,
@@ -36,6 +35,21 @@ import { buildDataSelector, ensureContainerId, nextId } from './selectors';
  * Google Charts positions may have floating-point imprecision.
  */
 const POSITION_TOLERANCE = 2;
+
+/**
+ * Candlestick element width thresholds (in pixels).
+ *
+ * Google Charts renders candlesticks as SVG rect elements with varying widths:
+ * - Grid lines: width ≤ 1px (horizontal or vertical axis lines)
+ * - Wicks: width ≤ 3px (thin rects representing high-low range)
+ * - Bodies: width > 10px (wider rects representing open-close range)
+ *
+ * These thresholds are based on default Google Charts rendering. They may need
+ * adjustment for custom chart sizes or high-DPI displays.
+ */
+const CANDLESTICK_GRID_MAX_WIDTH = 1;
+const CANDLESTICK_WICK_MAX_WIDTH = 3;
+const CANDLESTICK_BODY_MIN_WIDTH = 10;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -138,40 +152,24 @@ function buildLayer(
     case 'BarChart':
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
-    case 'AreaChart':
       return buildLineLayer(chart, dt, container);
     case 'ScatterChart':
       return buildScatterLayer(chart, dt, container);
-    case 'ComboChart':
-      console.warn(
-        '[maidr/google-charts] ComboChart is mapped as a bar chart. '
-        + 'Non-bar series (lines, areas, etc.) are not represented. '
-        + 'For full fidelity, convert each series type individually.',
-      );
-      return buildBarOrSegmentedLayer(chart, dt, container, Orientation.VERTICAL);
     case 'StackedColumnChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.STACKED);
     case 'StackedBarChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.STACKED);
-    case 'NormalizedColumnChart':
-      return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.NORMALIZED);
-    case 'NormalizedBarChart':
-      return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.NORMALIZED);
     case 'DodgedColumnChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.DODGED);
     case 'DodgedBarChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.DODGED);
-    case 'Heatmap':
-      return buildHeatmapLayer(dt, container);
     case 'CandlestickChart':
       return buildCandlestickLayer(chart, dt, container);
     default:
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
-        + 'Supported types: AreaChart, BarChart, CandlestickChart, ColumnChart, '
-        + 'ComboChart, DodgedBarChart, DodgedColumnChart, Heatmap, LineChart, '
-        + 'NormalizedBarChart, NormalizedColumnChart, ScatterChart, '
-        + 'StackedBarChart, StackedColumnChart.',
+        + 'Supported types: BarChart, CandlestickChart, ColumnChart, DodgedBarChart, '
+        + 'DodgedColumnChart, LineChart, ScatterChart, StackedBarChart, StackedColumnChart.',
       );
   }
 }
@@ -238,7 +236,7 @@ function buildSegmentedLayer(
   dt: GoogleDataTable,
   container: HTMLElement,
   orientation: Orientation,
-  traceType: TraceType.STACKED | TraceType.DODGED | TraceType.NORMALIZED,
+  traceType: TraceType.STACKED | TraceType.DODGED,
 ): MaidrLayer {
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
@@ -284,7 +282,7 @@ function buildSegmentedLayer(
     domMapping: { order: 'row' },
     axes: {
       x: dt.getColumnLabel(0) || undefined,
-      y: dt.getColumnLabel(1) || undefined,
+      y: 'Level',
     },
     data,
   };
@@ -369,69 +367,6 @@ function buildScatterLayer(
 }
 
 // ---------------------------------------------------------------------------
-// Heatmap
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a heatmap layer from a DataTable.
- *
- * The expected DataTable layout is:
- * - Column 0: row labels (string)
- * - Columns 1…N: numeric values, where each column label becomes an x-axis label.
- *
- * Example DataTable for a 3×4 heatmap:
- * ```
- *  ['',     'Mon', 'Tue', 'Wed', 'Thu']
- *  ['AM',    2,     5,     3,     7  ]
- *  ['PM',    8,     1,     4,     6  ]
- *  ['Night', 3,     9,     2,     5  ]
- * ```
- */
-function buildHeatmapLayer(
-  dt: GoogleDataTable,
-  container: HTMLElement,
-): MaidrLayer {
-  const cols = dt.getNumberOfColumns();
-  const rows = dt.getNumberOfRows();
-
-  const xLabels: string[] = [];
-  for (let c = 1; c < cols; c++) {
-    if (isRoleColumn(dt, c))
-      continue;
-    xLabels.push(dt.getColumnLabel(c) || `Col ${c}`);
-  }
-
-  const yLabels: string[] = [];
-  const points: number[][] = [];
-
-  for (let r = 0; r < rows; r++) {
-    yLabels.push(formatCellValue(dt, r, 0));
-    const row: number[] = [];
-    for (let c = 1; c < cols; c++) {
-      if (isRoleColumn(dt, c))
-        continue;
-      row.push(numericValue(dt, r, c));
-    }
-    points.push(row);
-  }
-
-  const data: HeatmapData = { x: xLabels, y: yLabels, points };
-
-  const selector = buildDataSelector(container, 'rect');
-
-  return {
-    id: nextId('layer'),
-    type: TraceType.HEATMAP,
-    ...(selector ? { selectors: selector } : {}),
-    axes: {
-      x: dt.getColumnLabel(0) || undefined,
-      y: 'Value',
-    },
-    data,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Candlestick
 // ---------------------------------------------------------------------------
 
@@ -478,7 +413,7 @@ function buildCandlestickLayer(
       high,
       low,
       close,
-      volume: 0, // Google Charts doesn't provide volume data
+      volume: undefined, // Google Charts doesn't provide volume data
       trend,
       volatility: high - low,
     });
@@ -950,8 +885,7 @@ function markCandlestickElements(
     return undefined;
   }
 
-  // Separate bodies from wicks based on width
-  // Grid lines have width=1, wicks have width=2, bodies have width >> 2
+  // Separate bodies from wicks based on width thresholds
   const bodies: SVGRectElement[] = [];
   const wicks: SVGRectElement[] = [];
 
@@ -959,17 +893,19 @@ function markCandlestickElements(
     const width = Number.parseFloat(rect.getAttribute('width') || '0');
     const height = Number.parseFloat(rect.getAttribute('height') || '0');
 
-    // Skip grid lines (width=1 or height=1)
-    if (width <= 1 || height <= 1) {
+    // Skip grid lines (very thin horizontal or vertical lines)
+    if (width <= CANDLESTICK_GRID_MAX_WIDTH || height <= CANDLESTICK_GRID_MAX_WIDTH) {
       continue;
     }
 
-    // Wicks are narrow (width=2), bodies are wider (width > 10)
-    if (width <= 3) {
+    // Classify by width: wicks are narrow, bodies are wider
+    if (width <= CANDLESTICK_WICK_MAX_WIDTH) {
       wicks.push(rect as SVGRectElement);
-    } else if (width > 10) {
+    } else if (width > CANDLESTICK_BODY_MIN_WIDTH) {
       bodies.push(rect as SVGRectElement);
     }
+    // Note: Elements with widths between WICK_MAX and BODY_MIN are skipped
+    // (typically chart decorations, not data elements)
   }
 
   // We expect equal numbers of bodies and wicks

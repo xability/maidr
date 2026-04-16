@@ -922,7 +922,7 @@ function extractCandlestickLayer(
       high: h,
       low: l,
       close: c,
-      volume: 0, // Plotly candlestick does not include volume data.
+      volume: undefined, // Plotly candlestick does not include volume data.
       trend,
       volatility: h - l,
     });

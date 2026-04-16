@@ -2,7 +2,6 @@ import type { JSX } from 'react';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createMaidrFromGoogleChart } from './adapters/google-charts/converters';
 import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { Maidr as MaidrComponent } from './maidr-component';
 import { DomEventType } from './type/event';
@@ -11,16 +10,38 @@ import { Constant } from './util/constant';
 declare global {
   interface Window {
     maidr?: Maidr;
-    maidrGoogleCharts?: {
-      createMaidrFromGoogleChart: typeof createMaidrFromGoogleChart;
-    };
+    /**
+     * Disconnects all MAIDR MutationObservers to free memory.
+     * Call this when cleaning up in SPAs or before page unload.
+     */
+    disconnectMaidrObservers?: () => void;
   }
 }
 
-// Expose Google Charts adapter globally for script-tag usage
-window.maidrGoogleCharts = {
-  createMaidrFromGoogleChart,
-};
+/** Stores active MutationObservers for cleanup. */
+let maidrAttributeObserver: MutationObserver | null = null;
+let plotlyDivObserver: MutationObserver | null = null;
+
+/**
+ * Disconnects all MAIDR MutationObservers to prevent memory leaks.
+ * Exposed as `window.disconnectMaidrObservers()` for SPA cleanup.
+ */
+function disconnectMaidrObservers(): void {
+  if (maidrAttributeObserver) {
+    maidrAttributeObserver.disconnect();
+    maidrAttributeObserver = null;
+  }
+  if (plotlyDivObserver) {
+    plotlyDivObserver.disconnect();
+    plotlyDivObserver = null;
+  }
+}
+
+// Expose cleanup function globally
+window.disconnectMaidrObservers = disconnectMaidrObservers;
+
+// Clean up observers on page unload to prevent memory leaks
+window.addEventListener('beforeunload', disconnectMaidrObservers);
 
 if (document.readyState === 'loading') {
   // Support for regular HTML loading.
@@ -164,7 +185,11 @@ function initPlotlyChart(gd: HTMLElement): void {
  * like Jupyter notebooks where charts may be created at any time.
  */
 function observeForPlotlyDivs(): void {
-  const observer = new MutationObserver(() => {
+  // Avoid creating duplicate observers
+  if (plotlyDivObserver)
+    return;
+
+  plotlyDivObserver = new MutationObserver(() => {
     const divs = document.querySelectorAll<HTMLElement>(
       '.js-plotly-plot:not([data-maidr-auto])',
     );
@@ -185,7 +210,7 @@ function observeForPlotlyDivs(): void {
     }
   });
 
-  observer.observe(document.body, {
+  plotlyDivObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });
@@ -196,25 +221,32 @@ function observeForPlotlyDivs(): void {
  * This supports libraries like Google Charts that render asynchronously and
  * set the maidr attribute in a callback (e.g., the 'ready' event).
  *
- * Uses a data attribute to prevent double-initialization.
+ * Stores the attribute value to allow re-initialization when chart data changes.
  */
 function observeForMaidrAttributes(): void {
-  const observer = new MutationObserver((mutations) => {
+  // Avoid creating duplicate observers
+  if (maidrAttributeObserver)
+    return;
+
+  maidrAttributeObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       // Check for attribute changes on existing elements
       if (mutation.type === 'attributes' && mutation.attributeName === Constant.MAIDR) {
         const target = mutation.target as HTMLElement;
+        const maidrAttr = target.getAttribute(Constant.MAIDR);
 
-        // Skip if already initialized
-        if (target.hasAttribute('data-maidr-init')) {
+        if (!maidrAttr)
+          continue;
+
+        // Skip if attribute value hasn't changed (allows re-init on data change)
+        const previousValue = target.getAttribute('data-maidr-value');
+        if (previousValue === maidrAttr) {
           continue;
         }
 
-        const maidrAttr = target.getAttribute(Constant.MAIDR);
-        if (maidrAttr) {
-          target.setAttribute('data-maidr-init', '1');
-          parseAndInit(target, maidrAttr, 'maidr');
-        }
+        // Store the current value and initialize
+        target.setAttribute('data-maidr-value', maidrAttr);
+        parseAndInit(target, maidrAttr, 'maidr');
       }
 
       // Check for newly added elements with [maidr] attribute
@@ -227,23 +259,25 @@ function observeForMaidrAttributes(): void {
           const element = node as HTMLElement;
 
           // Check the element itself
-          if (element.hasAttribute(Constant.MAIDR) && !element.hasAttribute('data-maidr-init')) {
-            const maidrAttr = element.getAttribute(Constant.MAIDR);
-            if (maidrAttr) {
-              element.setAttribute('data-maidr-init', '1');
+          const maidrAttr = element.getAttribute(Constant.MAIDR);
+          if (maidrAttr) {
+            const previousValue = element.getAttribute('data-maidr-value');
+            if (previousValue !== maidrAttr) {
+              element.setAttribute('data-maidr-value', maidrAttr);
               parseAndInit(element, maidrAttr, 'maidr');
             }
           }
 
           // Check descendants
-          const descendants = element.querySelectorAll<HTMLElement>(
-            `[${Constant.MAIDR}]:not([data-maidr-init])`,
-          );
+          const descendants = element.querySelectorAll<HTMLElement>(`[${Constant.MAIDR}]`);
           for (const desc of descendants) {
-            const maidrAttr = desc.getAttribute(Constant.MAIDR);
-            if (maidrAttr) {
-              desc.setAttribute('data-maidr-init', '1');
-              parseAndInit(desc, maidrAttr, 'maidr');
+            const descAttr = desc.getAttribute(Constant.MAIDR);
+            if (descAttr) {
+              const prevValue = desc.getAttribute('data-maidr-value');
+              if (prevValue !== descAttr) {
+                desc.setAttribute('data-maidr-value', descAttr);
+                parseAndInit(desc, descAttr, 'maidr');
+              }
             }
           }
         }
@@ -251,7 +285,7 @@ function observeForMaidrAttributes(): void {
     }
   });
 
-  observer.observe(document.body, {
+  maidrAttributeObserver.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
