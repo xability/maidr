@@ -1,3 +1,10 @@
+# [3.63.0](https://github.com/xability/maidr/compare/v3.62.0...v3.63.0) (2026-04-16)
+
+
+### Features
+
+* add Google Charts integration adapter ([#541](https://github.com/xability/maidr/issues/541)) ([#552](https://github.com/xability/maidr/issues/552)) ([d7357f8](https://github.com/xability/maidr/commit/d7357f8c56e137ec89927572a583114c3b0ba7e8))
+
 # [3.62.0](https://github.com/xability/maidr/compare/v3.61.0...v3.62.0) (2026-04-13)
 
 
