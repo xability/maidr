@@ -247,7 +247,8 @@ export interface CandlestickPoint {
   high: number;
   low: number;
   close: number;
-  volume: number;
+  /** Optional volume data. May be undefined when source (e.g., Google Charts) doesn't provide it. */
+  volume?: number;
   trend: CandlestickTrend;
   volatility: number;
 }

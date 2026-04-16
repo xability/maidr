@@ -207,9 +207,15 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       return this.outOfBoundsState as HighlightState;
     }
 
+    // Defensive check: ensure row and col exist in highlightValues
+    const rowElements = this.highlightValues[this.row];
+    if (!rowElements || !rowElements[this.col]) {
+      return this.outOfBoundsState as HighlightState;
+    }
+
     return {
       empty: false,
-      elements: this.highlightValues[this.row][this.col],
+      elements: rowElements[this.col],
     };
   }
 
@@ -246,30 +252,63 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         svgElements.push(row);
       }
     } else if (domElements[0] instanceof SVGRectElement) {
+      // Safety check: ensure barValues is valid
+      if (!this.barValues || this.barValues.length === 0) {
+        return null;
+      }
+
       for (let r = 0; r < this.barValues.length; r++) {
         svgElements.push(new Array<SVGElement>());
       }
 
+      const isRowMajor = this.layer.domMapping?.order === 'row';
       const isForward = this.layer.domMapping?.groupDirection === 'forward';
-      for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-        if (isForward) {
-          for (let r = 0; r < this.barValues.length; r++) {
+
+      if (isRowMajor) {
+        // Row-major DOM order: DOM elements are [series0-all-cats, series1-all-cats, ...]
+        // This matches Google Charts rendering order.
+        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
+          if (!this.barValues[r]) {
+            continue;
+          }
+          for (let c = 0; c < this.barValues[r].length; c++) {
             if (skipZeros && this.barValues[r][c] === 0) {
               svgElements[r].push(Svg.createEmptyElement());
             } else if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
+              // Fill with empty element instead of returning empty array
+              svgElements[r].push(Svg.createEmptyElement());
             } else {
               svgElements[r].push(domElements[domIndex++]);
             }
           }
-        } else {
-          for (let r = this.barValues.length - 1; r >= 0; r--) {
-            if (skipZeros && this.barValues[r][c] === 0) {
-              svgElements[r].push(Svg.createEmptyElement());
-            } else if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
-            } else {
-              svgElements[r].push(domElements[domIndex++]);
+        }
+      } else {
+        // Column-major DOM order (default): DOM elements are [cat0-all-series, cat1-all-series, ...]
+        if (!this.barValues[0]) {
+          return null;
+        }
+        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
+          if (isForward) {
+            for (let r = 0; r < this.barValues.length; r++) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                // Fill with empty element instead of returning empty array
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          } else {
+            for (let r = this.barValues.length - 1; r >= 0; r--) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                // Fill with empty element instead of returning empty array
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
             }
           }
         }

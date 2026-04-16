@@ -5,7 +5,7 @@ import type { Event, Focus } from '@type/event';
 import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapter/plotly';
+import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapters/plotly';
 
 /**
  * Type for traces that support ensureInitialized method.

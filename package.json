@@ -1,5 +1,6 @@
 {
   "name": "maidr",
+  "type": "module",
   "version": "3.62.0",
   "repository": {
     "type": "git",
@@ -14,6 +15,11 @@
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
     },
+    "./google-charts": {
+      "types": "./dist/google-charts.d.mts",
+      "import": "./dist/google-charts.mjs",
+      "default": "./dist/google-charts.mjs"
+    },
     "./recharts": {
       "types": "./dist/recharts.d.mts",
       "import": "./dist/recharts.mjs",
@@ -25,10 +31,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build && vite build --config vite.react.config.ts && vite build --config vite.recharts.config.ts",
-    "build:script": "vite build",
-    "build:react": "vite build --config vite.react.config.ts",
-    "build:recharts": "vite build --config vite.recharts.config.ts",
+    "build": "node scripts/build.js",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",

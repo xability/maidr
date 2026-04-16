@@ -1046,6 +1046,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       let x = Number.parseFloat(element.getAttribute('x') || '');
       let y = Number.parseFloat(element.getAttribute('y') || '');
 
+      // SVG circles use cx/cy instead of x/y (Google Charts uses circles)
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const cx = element.getAttribute('cx');
+        const cy = element.getAttribute('cy');
+        if (cx && cy) {
+          x = Number.parseFloat(cx);
+          y = Number.parseFloat(cy);
+        }
+      }
+
       // Plotly uses transform="translate(x, y)" instead of x/y attributes
       if (Number.isNaN(x) || Number.isNaN(y)) {
         const transform = element.getAttribute('transform');
