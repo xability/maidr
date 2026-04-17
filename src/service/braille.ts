@@ -1,3 +1,33 @@
+/**
+ * Braille service: encodes plot state into a braille character string plus a
+ * bidirectional cursor/index map.
+ *
+ * Physical braille display constraint
+ * -----------------------------------
+ * A physical braille display is cursor-tracking hardware that reads ONE flat
+ * stream of characters from its host textarea. Newline characters (`\n`) do
+ * NOT advance to the next physical display line — the hardware either ignores
+ * them or treats the whole buffer as a single paragraph, so anything placed
+ * after a `\n` is effectively hidden on the display. The only way to push
+ * content onto the next physical line is to pad the preceding line with
+ * ASCII spaces up to the hardware's cells-per-line width (`displaySize`).
+ *
+ * Consequently this service has two distinct output modes:
+ *
+ *   1. Single-line mode (`displayLines === 1`): the encoded string uses
+ *      `\n` as a visual wrap, which is fine for the on-screen textarea that
+ *      sighted users or refreshable-line-only displays see — there is no
+ *      multi-line physical display to break.
+ *
+ *   2. Multiline mode (`displayLines > 1`): no `\n` anywhere. Rows are
+ *      separated by space-padding each row to a `displaySize` boundary so
+ *      every data row occupies exactly one physical braille display line.
+ *      Horizontal windowing (below) is also spaces-only for the same reason.
+ *
+ * Companion textarea detail: the Braille UI component sets `wrap="off"` so
+ * the browser does not introduce visual wraps that would desync the firmware's
+ * index-based cursor tracking from our `cellToIndex` / `indexToCell` maps.
+ */
 import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
@@ -84,11 +114,37 @@ interface EncodedBraille {
  * and bidirectional index mapping. This is the shared wrapping logic used by all
  * encoders that operate on row/col grids.
  *
+ * Two output modes are supported (see the file header for the physical braille
+ * display constraint that drives this split):
+ *
+ *  - Single-line mode (`multiline=false`): rows are separated by `\n`. Safe
+ *    only for the on-screen textarea; a multi-line physical braille display
+ *    would hide everything after the first `\n` because the hardware reads a
+ *    single flat stream.
+ *
+ *  - Multiline mode (`multiline=true`): absolutely NO `\n` is emitted. Rows
+ *    are separated by padding each row with ASCII spaces up to a `displaySize`
+ *    boundary, which is the only way to advance a physical braille display
+ *    to the next line.
+ *
+ * Horizontal windowing (multiline mode only): when any row exceeds
+ * `displaySize`, each row is rendered as exactly `displaySize` characters
+ * drawn from `[colOffset, colOffset + displaySize)`. Short rows under a wide
+ * window are space-padded — again, no `\n` — so every data row still maps to
+ * exactly one physical display line. This lets hardware cursor-tracking page
+ * horizontally the same way it already pages vertically. Out-of-window
+ * columns map to `-1` in `cellToIndex`; the service layer advances
+ * `colOffset` before re-encoding so the cursor always lands in the active
+ * window.
+ *
  * @param rowCount - Number of rows in the data
  * @param colCount - Function returning the number of columns for a given row
  * @param getChar - Function returning the braille character for a given (row, col)
  * @param displaySize - Maximum columns per display line before wrapping
- * @param multiline - When true, uses space padding instead of newlines for physical braille displays
+ * @param multiline - When true, emits only spaces (never `\n`) between rows so
+ *   physical braille displays advance to the next line; `\n` does not render
+ *   on physical hardware.
+ * @param colOffset - Horizontal windowing offset; used only when windowing is active
  * @returns Encoded braille with cell mappings
  */
 function encodeWithWrapping(
@@ -97,6 +153,7 @@ function encodeWithWrapping(
   getChar: (row: number, col: number) => string,
   displaySize: number,
   multiline: boolean = false,
+  colOffset: number = 0,
 ): EncodedBraille {
   const values = new Array<string>();
   const cellToIndex = new Array<Array<number>>();
@@ -104,6 +161,21 @@ function encodeWithWrapping(
 
   for (let i = 0; i < rowCount; i++) {
     cellToIndex.push(new Array<number>());
+  }
+
+  // Horizontal windowing activates only for multi-row plots in multiline mode
+  // where at least one row overflows a single display line. Single-trace and
+  // narrow-row cases keep the existing per-row padding behavior. (Windowing is
+  // never allowed to insert `\n`; output is always space-only — see file
+  // header for why.)
+  let windowed = false;
+  if (multiline && rowCount > 1) {
+    for (let r = 0; r < rowCount; r++) {
+      if (colCount(r) > displaySize) {
+        windowed = true;
+        break;
+      }
+    }
   }
 
   // When multiline, encode from the last row to the first so that
@@ -116,6 +188,34 @@ function encodeWithWrapping(
 
   for (let row = start; row !== end; row += step) {
     const cols = colCount(row);
+
+    if (windowed) {
+      // Pre-fill with -1 so any out-of-window col lookup signals that the
+      // service must re-encode with a new colOffset before the cursor is
+      // valid again.
+      for (let c = 0; c < cols; c++) {
+        cellToIndex[row].push(-1);
+      }
+      const lastDataCol = Math.max(0, cols - 1);
+      const windowEnd = colOffset + displaySize;
+      for (let col = colOffset; col < windowEnd; col++) {
+        if (col >= 0 && col < cols) {
+          cellToIndex[row][col] = indexToCell.length;
+          values.push(getChar(row, col));
+          indexToCell.push({ row, col });
+        } else {
+          // Beyond this row's data (short row under a wide window): pad with
+          // a SPACE — not `\n` — because `\n` does not render on a physical
+          // braille display. Spaces push the next row onto the next physical
+          // display line and keep relative column alignment across rows.
+          // Clicks in padding map to the last data cell of the row.
+          values.push(Constant.SPACE);
+          indexToCell.push({ row, col: lastDataCol });
+        }
+      }
+      cellToIndex[row].push(indexToCell.length - 1);
+      continue;
+    }
 
     for (let col = 0; col < cols; col++) {
       values.push(getChar(row, col));
@@ -130,8 +230,10 @@ function encodeWithWrapping(
     }
 
     if (multiline) {
-      // Space-pad the row to the next multiple of displaySize so the next
-      // data row starts on the next physical braille display line.
+      // Space-pad the row to the next multiple of displaySize so the NEXT
+      // data row begins on the next physical braille display line. A `\n`
+      // here would be hidden on the hardware (the display renders only one
+      // "paragraph"), so spaces are the only working separator.
       const paddedLength = cols === 0
         ? displaySize
         : Math.ceil(cols / displaySize) * displaySize;
@@ -143,9 +245,10 @@ function encodeWithWrapping(
       }
       cellToIndex[row].push(sentinelIdx);
     } else {
-      // End-of-row sentinel: append a newline (unless a mid-row wrap already
-      // emitted one at the exact end) and record a sentinel entry so that
-      // cellToIndex[row] has one more element than data columns.
+      // Single-line mode: a `\n` is safe and useful here because this output
+      // feeds the on-screen textarea (or a one-line braille display that
+      // only ever shows one row at a time). Multi-line physical braille
+      // displays are never in this branch — they always set multiline=true.
       const sentinelIdx = indexToCell.length;
       indexToCell.push({ row, col: cols });
       if (cols === 0 || cols % displaySize !== 0) {
@@ -171,15 +274,26 @@ interface TimeSeries {
  * The `multiline` flag controls two related behaviors that implementors must
  * keep in sync:
  *   1. Row separation — uses space-padding to the next `displaySize` boundary
- *      instead of inserting a newline character, so that each data row occupies
- *      a full physical braille display line.
+ *      and NEVER emits `\n`. Physical multi-line braille displays read a flat
+ *      character stream; a `\n` would be swallowed and hide every subsequent
+ *      row, so spaces are the only way to push content to the next display
+ *      line.
  *   2. Row encoding order — encodes data rows from last to first so that
  *      row 0 (the initially focused / lowest data row) appears at the bottom
- *      of the physical braille display.  This makes UP-arrow navigation
+ *      of the physical braille display. This makes UP-arrow navigation
  *      (which increments `row`) move the cursor upward on the display.
+ *
+ * `colOffset` enables horizontal page-windowing for plots wider than the
+ * display; it is meaningful only when `multiline=true` and the state has
+ * multiple rows with at least one row wider than `size` cells.
  */
 interface BrailleEncoder<BrailleState> {
-  encode: (state: BrailleState, size?: number, multiline?: boolean) => EncodedBraille;
+  encode: (
+    state: BrailleState,
+    size?: number,
+    multiline?: boolean,
+    colOffset?: number,
+  ) => EncodedBraille;
 }
 
 /**
@@ -197,6 +311,7 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
     state: BarBrailleState,
     size: number = DEFAULT_BRAILLE_SIZE,
     multiline: boolean = false,
+    colOffset: number = 0,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
 
@@ -222,6 +337,7 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
       },
       displaySize,
       multiline,
+      colOffset,
     );
   }
 }
@@ -255,7 +371,10 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     state: BoxBrailleState,
     size: number = DEFAULT_BRAILLE_SIZE,
     multiline: boolean = false,
+    _colOffset: number = 0,
   ): EncodedBraille {
+    // colOffset is intentionally ignored: each box always spans exactly
+    // displaySize chars, so there is never anything to window horizontally.
     const displaySize = normalizeDisplaySize(size);
     const values = new Array<string>();
     const indexToCell = new Array<Cell>();
@@ -466,8 +585,10 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       if (multiline) {
         // The box encoder already produces exactly `displaySize` characters
         // per row, so the row naturally ends on a display-line boundary.
-        // The defensive padding below covers any future code path that might
-        // emit a different number of characters.
+        // Defensive SPACE padding below covers any future code path that
+        // might emit a different number of characters — `\n` would be
+        // hidden on a physical braille display, so spaces are the only
+        // way to advance to the next display line.
         const rowCharCount = values.length - rowStartIdx;
         const paddedLength = rowCharCount === 0
           ? displaySize
@@ -478,6 +599,9 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
           indexToCell.push({ row, col: lastCol });
         }
       } else {
+        // Single-line mode: `\n` is safe here because the output feeds the
+        // on-screen textarea (or a one-line refreshable display), not a
+        // multi-line physical display.
         values.push(Constant.NEW_LINE);
         indexToCell.push({ row, col });
       }
@@ -502,6 +626,7 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
     state: HeatmapBrailleState,
     size: number = DEFAULT_BRAILLE_SIZE,
     multiline: boolean = false,
+    colOffset: number = 0,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
     const range = (state.max - state.min) / 3;
@@ -524,6 +649,7 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
       },
       displaySize,
       multiline,
+      colOffset,
     );
   }
 }
@@ -566,6 +692,7 @@ implements BrailleEncoder<T> {
     state: T,
     size: number = DEFAULT_BRAILLE_SIZE,
     multiline: boolean = false,
+    colOffset: number = 0,
   ): EncodedBraille {
     const displaySize = normalizeDisplaySize(size);
 
@@ -575,6 +702,7 @@ implements BrailleEncoder<T> {
       (row, col) => this.encodeCell(state, row, col),
       displaySize,
       multiline,
+      colOffset,
     );
   }
 
@@ -816,6 +944,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private enabled: boolean;
   private displaySize: number;
   private displayLines: number;
+  private colOffset: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
   private readonly disposables: Disposable[];
@@ -847,6 +976,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.displayLines = normalizeDisplayLines(
       settings.get<number>(BRAILLE_DISPLAY_LINES_SETTING),
     );
+    this.colOffset = 0;
     this.cacheId = Constant.EMPTY;
     this.cache = null;
     this.disposables = [];
@@ -891,6 +1021,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
       this.cache = null;
       this.cacheId = Constant.EMPTY;
+      this.colOffset = 0;
 
       if (!this.enabled) {
         return;
@@ -953,13 +1084,36 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     const braille = trace.braille;
-    if (this.cache === null || this.cacheId !== braille.id) {
+    // multiline=true switches the encoder to physical-display mode:
+    //   - row separation uses ONLY ASCII spaces (no `\n`), because `\n` does
+    //     not render on a multi-line physical braille display — anything
+    //     after a `\n` is hidden. Spaces padded to `displaySize` are the
+    //     only way to push content onto the next physical display line.
+    //   - row order is reversed so row 0 (initially focused) appears at the
+    //     bottom of the display and UP-arrow moves the cursor upward.
+    const isMultilineMode = this.displayLines > 1;
+
+    // For plots whose rows can overflow a single display line, compute the
+    // page-aligned horizontal window that contains the cursor. When no
+    // windowing is needed (box plots, narrow rows, single-row data), this
+    // still resolves to zero without affecting the cached output — the
+    // encoder simply ignores it.
+    const willWindow = isMultilineMode && this.willWindowHorizontally(braille);
+    const targetOffset = willWindow
+      ? Math.max(0, Math.floor(braille.col / this.displaySize) * this.displaySize)
+      : 0;
+    const cacheKey = willWindow ? `${braille.id}|${targetOffset}` : braille.id;
+
+    if (this.cache === null || this.cacheId !== cacheKey) {
       const encoder = this.encoders.get(trace.traceType)!;
-      // multiline=true switches the encoder to physical-display mode:
-      // space-padded rows (no newlines) and reversed row order so UP moves up.
-      const isMultilineMode = this.displayLines > 1;
-      this.cache = encoder.encode(braille as any, this.displaySize, isMultilineMode);
-      this.cacheId = braille.id;
+      this.colOffset = targetOffset;
+      this.cache = encoder.encode(
+        braille as any,
+        this.displaySize,
+        isMultilineMode,
+        this.colOffset,
+      );
+      this.cacheId = cacheKey;
     }
 
     this.onChangeEmitter.fire({
@@ -968,6 +1122,31 @@ implements Observer<SubplotState | TraceState>, Disposable {
       displaySize: this.displaySize,
       displayLines: this.displayLines,
     });
+  }
+
+  /**
+   * Returns true when the active braille state is wide enough to require
+   * horizontal page-windowing in multiline mode. Box-plot style braille
+   * states are flat arrays of objects and are excluded — each box already
+   * spans exactly one display line.
+   * @param braille - Current braille state from the active trace
+   * @returns Whether horizontal windowing will apply for this state
+   */
+  private willWindowHorizontally(braille: any): boolean {
+    const values = braille?.values;
+    if (!Array.isArray(values) || values.length <= 1) {
+      return false;
+    }
+    // Box-plot states store BoxPoint objects (not arrays) per row.
+    if (!Array.isArray(values[0])) {
+      return false;
+    }
+    for (const row of values) {
+      if (Array.isArray(row) && row.length > this.displaySize) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

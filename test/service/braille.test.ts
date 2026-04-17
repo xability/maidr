@@ -850,6 +850,286 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
+  test('horizontal windowing: multi-row plot with cols > displaySize produces displaySize chars per row', () => {
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 3 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // 3 rows of 5 cols, displaySize=3. maxCols (5) > displaySize (3) → windowing activates.
+    const state = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50], [100, 200, 300, 400, 500]],
+      0,
+      0,
+    );
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // Each of the 3 rows is sliced to exactly displaySize=3 → total = 9 chars.
+    expect(emitted.length).toBe(9);
+    // No newlines in multiline mode.
+    expect(emitted.includes('\n')).toBe(false);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: cursor past displaySize triggers page-aligned re-encode', () => {
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 3 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // Enable at cursor (row=0, col=0) → window [0, 3).
+    const firstState = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]],
+      0,
+      0,
+    );
+
+    const emissions: Array<{ value: string; index: number }> = [];
+    const disposable = service.onChange((event) => {
+      emissions.push({ value: event.value, index: event.index });
+    });
+
+    service.toggle(firstState);
+    // Window [0, 3): rows reversed (row 1 first, row 0 last), each 3 chars → total 6.
+    expect(emissions[0].value.length).toBe(6);
+
+    // Cursor jumps to col 3 → must page to window [3, 6). Same braille.id because
+    // the service re-reads the state via update(), so we emit a state whose id and
+    // values match but cursor moves.  Use a different id to force a fresh encode.
+    const secondState = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]],
+      0,
+      3,
+    );
+    service.update(secondState);
+
+    // Window should shift to [3, 6).  Row 0 has 5 cols → in-window cols 3, 4 are
+    // data, col 5 is padding (space).
+    const after = emissions[emissions.length - 1];
+    expect(after.value.length).toBe(6);
+    // Cursor index in the output: row 0 is encoded last (reversed), so its window
+    // occupies positions [3..5]. col=3 is the first in-window col → index 3.
+    expect(after.index).toBe(3);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: single-row plot keeps existing overflow behavior (no windowing)', () => {
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 4 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // Single row of 10 cols, displaySize=4 → current behavior: pad to ceil(10/4)*4 = 12.
+    const state = createLineTraceState(
+      [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]],
+      0,
+      0,
+    );
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // Windowing does NOT apply for single-row: length = 12 (10 data + 2 pad).
+    expect(emitted.length).toBe(12);
+    expect(emitted.includes('\n')).toBe(false);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: multi-row where all rows fit keeps per-row padding (no windowing)', () => {
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 10 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 3 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // 3 rows of 5 cols, displaySize=10. All rows fit → no windowing; each row
+    // padded to 10 chars = 30 total.
+    const state = createHeatmapTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50], [100, 200, 300, 400, 500]],
+      0,
+      0,
+    );
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    expect(emitted.length).toBe(30);
+    expect(emitted.includes('\n')).toBe(false);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: click on padding inside window maps to last data col', () => {
+    const contextMoveToIndex = jest.fn<(row: number, col: number) => void>();
+    const context = {
+      moveToIndex: contextMoveToIndex,
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 4 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 2 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // Row 0: 5 cols. Row 1: 2 cols. displaySize=4 → windowing activates.
+    // Window [0, 4): row 1 has cols 0,1 then 2 padding chars. Row 0 fills all 4.
+    // Rows reversed in multiline → output: row1 chunk (4 chars) + row0 chunk (4 chars) = 8.
+    const state = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20]],
+      0,
+      0,
+    );
+
+    const disposable = service.onChange(() => {});
+    service.toggle(state);
+
+    // Row 1 is encoded first (reversed). Its cols 0,1 are indices 0,1.
+    // Indices 2,3 are padding → should map to row=1, col=1 (last data col).
+    service.moveToIndex(3);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(1, 1);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: single-line mode never windows', () => {
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): undefined {
+        return undefined;
+      },
+    } as unknown as Context;
+    const notification = { notify: jest.fn<(message: string) => void>() } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 3 as T;
+        if (path === 'general.brailleDisplayLines')
+          return 1 as T;
+        return undefined as T;
+      },
+      onChange: () => ({ dispose: () => {} }),
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    // 2 rows of 5 cols, displaySize=3. In single-line mode, newline wrapping applies.
+    const state = createLineTraceState(
+      [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]],
+      0,
+      0,
+    );
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // Single-line mode preserves newline wrapping behavior.
+    expect(emitted.includes('\n')).toBe(true);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
   test('multiline mode: settings change for brailleDisplayLines re-encodes and flips mode', () => {
     // Start in single-line mode (displayLines=1), switch to multiline (displayLines=2),
     // and verify the cache is invalidated and the output re-encodes without newlines.
