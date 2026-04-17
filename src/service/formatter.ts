@@ -12,7 +12,7 @@ export type { AxisType };
 interface LayerFormatters {
   x: FormatFunction;
   y: FormatFunction;
-  fill: FormatFunction;
+  z: FormatFunction;
 }
 
 /**
@@ -72,7 +72,7 @@ export class FormatterService implements Disposable {
           const layerFormatters: LayerFormatters = {
             x: this.resolveAxisFormat(formatConfig?.x),
             y: this.resolveAxisFormat(formatConfig?.y),
-            fill: this.resolveAxisFormat(formatConfig?.fill),
+            z: this.resolveAxisFormat(formatConfig?.z),
           };
 
           this.formatters.set(layerId, layerFormatters);
@@ -94,7 +94,7 @@ export class FormatterService implements Disposable {
    * Gets the format function for a specific layer and axis.
    *
    * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns The format function, or defaultFormat if not found
    */
   public getFormatter(layerId: string, axis: AxisType): FormatFunction {
@@ -109,7 +109,7 @@ export class FormatterService implements Disposable {
    * Checks if a layer has a custom formatter for the specified axis.
    *
    * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns True if a custom formatter is configured
    */
   public hasCustomFormatter(layerId: string, axis: AxisType): boolean {
@@ -129,7 +129,7 @@ export class FormatterService implements Disposable {
    *
    * @param value - The value or array of values to format
    * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string or array of formatted strings
    *
    * @example
@@ -154,7 +154,7 @@ export class FormatterService implements Disposable {
    *
    * @param value - The single value to format
    * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string
    */
   public formatSingleValue(
@@ -172,7 +172,7 @@ export class FormatterService implements Disposable {
    *
    * @param values - The array of values to format
    * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Array of formatted strings
    */
   public formatArrayValue(

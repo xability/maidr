@@ -147,7 +147,7 @@ const TRACE_LABEL_KEYMAP = {
   // Description
   ANNOUNCE_X: key(`x`, 'Announce X Label'),
   ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
-  ANNOUNCE_FILL: key(`f`, 'Announce Fill (Z) Label'),
+  ANNOUNCE_Z: key(`z`, 'Announce Z Label'),
   ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
   ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),

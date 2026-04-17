@@ -227,6 +227,10 @@ export class MoveToTraceContextCommand implements Command {
         this.brailleService.refreshDisplay(state);
       }
       this.displayService.toggleFocus(Scope.BRAILLE);
+    } else {
+      // Sync focusStack to TRACE so label commands (l x, l y, etc.)
+      // restore to the correct scope after exiting label mode.
+      this.displayService.syncFocusStack(Scope.TRACE);
     }
   }
 }

@@ -100,7 +100,7 @@ export interface AxisFormat {
 export interface FormatConfig {
   x?: AxisFormat;
   y?: AxisFormat;
-  fill?: AxisFormat;
+  z?: AxisFormat;
 }
 
 /**
@@ -208,7 +208,7 @@ export interface BarPoint {
  * Data point for boxplots containing quartiles, min/max, and outliers.
  */
 export interface BoxPoint {
-  fill: string;
+  z: string;
   lowerOutliers: number[];
   min: number;
   q1: number;
@@ -278,7 +278,7 @@ export interface HistogramPoint extends BarPoint {
 export interface LinePoint {
   x: number | string;
   y: number;
-  fill?: string;
+  z?: string;
 }
 
 /**
@@ -293,7 +293,7 @@ export interface ScatterPoint {
  * Data point for segmented/grouped bar charts with fill color identifier.
  */
 export interface SegmentedPoint extends BarPoint {
-  fill: string;
+  z: string;
 }
 
 /**
@@ -414,7 +414,8 @@ export interface MaidrLayer {
     x?: string | AxisConfig;
     /** Axis label (string) or axis config object with label + grid properties. */
     y?: string | AxisConfig;
-    fill?: string;
+    /** Z-axis label (string) or axis config object. Used for grouping/fill in multi-series plots. */
+    z?: string | AxisConfig;
     /** Grouped grid property: `min: { x: 4.3, y: 2 }` */
     min?: AxisGridProperty;
     /** Grouped grid property: `max: { x: 7.9, y: 4.4 }` */

@@ -409,12 +409,12 @@ export class ViolinKdeTrace extends AbstractTrace {
       crossAxis: isHorizontal ? 'x' : 'y',
     };
 
-    // Volume (width) in fill field if available
+    // Volume (width) in z field if available
     const roundedWidth = currentPoint.width !== undefined && currentPoint.width > 0
       ? roundTo4(currentPoint.width)
       : undefined;
     if (roundedWidth !== undefined) {
-      textState.fill = { label: 'volume', value: String(roundedWidth) };
+      textState.z = { label: 'volume', value: String(roundedWidth) };
     }
 
     return textState;

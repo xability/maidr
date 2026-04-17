@@ -177,41 +177,41 @@ export class LineTrace extends AbstractTrace {
 
     // Check for intersections at current point
     const intersections = this.findIntersections();
-    let fillData:
-      | { fill: { label: string; value: string } }
+    let zData:
+      | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
         const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
       });
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill
-          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
-        if (lineTypes.includes(prevFill)) {
-          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        const prevZ
+          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevZ)) {
+          lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
       }
 
-      fillData = {
-        fill: {
+      zData = {
+        z: {
           label: TYPE,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
-      // Single line or no intersection - use normal fill data
-      fillData = point.fill ? { fill: { label: TYPE, value: point.fill } } : {};
+      // Single line or no intersection - use normal z data
+      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
     }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
-      ...fillData,
+      ...zData,
     };
   }
 
@@ -918,10 +918,10 @@ export class LineTrace extends AbstractTrace {
    */
   private getIntersectionLabel(intersectingLines: number[]): string {
     return intersectingLines.map((lineIndex) => {
-      // Access first point to get the line's fill/name
-      // Falls back to "Line N" if fill is not defined
+      // Access first point to get the line's z/name
+      // Falls back to "Line N" if z is not defined
       const firstPoint = this.points[lineIndex][0];
-      return firstPoint?.fill || `Line ${lineIndex + 1}`;
+      return firstPoint?.z || `Line ${lineIndex + 1}`;
     }).join(', ');
   }
 

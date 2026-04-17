@@ -267,7 +267,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     const crossValue = this.boxValues[this.row][this.col];
 
     return {
-      main: { label: mainLabel, value: point.fill },
+      main: { label: mainLabel, value: point.z },
       cross: { label: crossLabel, value: crossValue },
       section,
       mainAxis: isHorizontal ? 'y' : 'x',

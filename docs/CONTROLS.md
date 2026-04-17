@@ -33,6 +33,19 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
 
+## Label Mode (Announce Axis Labels)
+
+Press **L** to enter label mode, then press one of the following keys to announce specific information:
+
+| Function                    | Key Sequence | Description                                       |
+| --------------------------- | ------------ | ------------------------------------------------- |
+| Announce X-axis label       | L, then X    | Speaks the X-axis label                           |
+| Announce Y-axis label       | L, then Y    | Speaks the Y-axis label                           |
+| Announce Z-axis (Level)     | L, then Z    | Speaks the Z-axis/Level/Group value (e.g., trend, group name) |
+| Announce plot title         | L, then T    | Speaks the plot or subplot title                  |
+| Announce subtitle           | L, then S    | Speaks the figure subtitle                        |
+| Announce caption            | L, then C    | Speaks the figure caption                         |
+
 ## Violin Plot Controls
 
 Violin plots have two layers (box and KDE) that share the same subplot. Navigation differs by layer:

@@ -580,7 +580,7 @@ function extractMultiLineLayer(
       series.push({
         x: x[i] as number | string,
         y: Number(y[i]),
-        fill: seriesName,
+        z: seriesName,
       });
     }
 
@@ -731,7 +731,7 @@ function extractSingleBoxData(
     }
 
     return {
-      fill,
+      z: fill,
       lowerOutliers,
       min: cd.min ?? cd.lf ?? 0,
       q1: cd.q1 ?? 0,
@@ -745,7 +745,7 @@ function extractSingleBoxData(
 
   if (trace.q1 && trace.median && trace.q3) {
     return {
-      fill,
+      z: fill,
       lowerOutliers: [],
       min: trace.lowerfence?.[0] ?? trace.q1[0],
       q1: trace.q1[0],
@@ -972,15 +972,15 @@ function extractSegmentedBarLayer(
       continue;
 
     const horizontal = trace.orientation === 'h';
-    const fill = trace.name ?? `Series ${data.length + 1}`;
+    const z = trace.name ?? `Series ${data.length + 1}`;
     const len = Math.min(x.length, y.length);
     const series: SegmentedPoint[] = [];
 
     for (let i = 0; i < len; i++) {
       if (horizontal) {
-        series.push({ x: y[i], y: x[i], fill });
+        series.push({ x: y[i], y: x[i], z });
       } else {
-        series.push({ x: x[i], y: y[i], fill });
+        series.push({ x: x[i], y: y[i], z });
       }
     }
 

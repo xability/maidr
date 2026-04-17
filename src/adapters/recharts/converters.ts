@@ -144,7 +144,7 @@ function buildSegmentedBarLayer(
     return data.map(item => ({
       x: item[xKey] as string | number,
       y: toNumber(item[yKey]),
-      fill: fillKeys?.[i] ?? yKey,
+      z: fillKeys?.[i] ?? yKey,
     }));
   });
 
@@ -158,7 +158,7 @@ function buildSegmentedBarLayer(
     axes: {
       x: xLabel,
       y: yLabel,
-      fill: 'Series',
+      z: 'Series',
     },
     data: segmentedData,
   };
@@ -223,7 +223,7 @@ function buildMultiSeriesLineLayer(
     data.map(item => ({
       x: toLineX(item[xKey]),
       y: toNumber(item[yKey]),
-      fill: yKey,
+      z: yKey,
     })),
   );
 

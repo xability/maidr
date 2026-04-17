@@ -95,12 +95,12 @@ describe('convertRechartsToMaidr', () => {
       expect(data).toHaveLength(2);
       // First series (Product A): all categories
       expect(data[0]).toHaveLength(2);
-      expect(data[0][0]).toEqual({ x: 'Jan', y: 10, fill: 'Product A' });
-      expect(data[0][1]).toEqual({ x: 'Feb', y: 15, fill: 'Product A' });
+      expect(data[0][0]).toEqual({ x: 'Jan', y: 10, z: 'Product A' });
+      expect(data[0][1]).toEqual({ x: 'Feb', y: 15, z: 'Product A' });
       // Second series (Product B): all categories
       expect(data[1]).toHaveLength(2);
-      expect(data[1][0]).toEqual({ x: 'Jan', y: 20, fill: 'Product B' });
-      expect(data[1][1]).toEqual({ x: 'Feb', y: 25, fill: 'Product B' });
+      expect(data[1][0]).toEqual({ x: 'Jan', y: 20, z: 'Product B' });
+      expect(data[1][1]).toEqual({ x: 'Feb', y: 25, z: 'Product B' });
     });
 
     it('uses yKey names as fill labels when fillKeys omitted', () => {
@@ -115,8 +115,8 @@ describe('convertRechartsToMaidr', () => {
       const result = convertRechartsToMaidr(config);
       const data = result.subplots[0][0].layers[0].data as SegmentedPoint[][];
 
-      expect(data[0][0].fill).toBe('s1');
-      expect(data[1][0].fill).toBe('s2');
+      expect(data[0][0].z).toBe('s1');
+      expect(data[1][0].z).toBe('s2');
     });
 
     it('falls back to BAR type when stacked_bar has single yKey', () => {
@@ -300,8 +300,8 @@ describe('convertRechartsToMaidr', () => {
 
       const data = layer.data as LinePoint[][];
       expect(data).toHaveLength(2);
-      expect(data[0][0]).toEqual({ x: 1, y: 10, fill: 's1' });
-      expect(data[1][0]).toEqual({ x: 1, y: 20, fill: 's2' });
+      expect(data[0][0]).toEqual({ x: 1, y: 10, z: 's1' });
+      expect(data[1][0]).toEqual({ x: 1, y: 20, z: 's2' });
     });
 
     it('preserves string x-axis values in multi-series line charts', () => {

@@ -681,7 +681,7 @@ export class Candlestick extends AbstractTrace {
         value: crossValue,
       },
       section: this.currentSegmentType ?? 'open',
-      fill: { label: TREND, value: point.trend },
+      z: { label: TREND, value: point.trend },
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };

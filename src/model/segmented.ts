@@ -7,7 +7,6 @@ import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
 const SUM = 'Sum';
-const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
@@ -27,12 +26,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         ? {
             x: this.points[0][i].x,
             y: sum,
-            fill: SUM,
+            z: SUM,
           }
         : {
             x: sum,
             y: this.points[0][i].y,
-            fill: SUM,
+            z: SUM,
           };
       summaryPoints.push(point);
     }
@@ -146,9 +145,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         return 'Total';
       }
 
-      // For dodged/stacked plots, use the fill value as group identifier
-      if (firstPoint.fill) {
-        return `${this.getFillAxisLabel()}: '${firstPoint.fill}'`;
+      // For dodged/stacked plots, use the z value as group identifier
+      if (firstPoint.z) {
+        return `${this.getZAxisLabel()}: '${firstPoint.z}'`;
       }
     }
 
@@ -173,12 +172,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get the label for the fill axis (e.g., "Drive", "Survival Status")
-   * @returns The fill axis label
+   * Get the label for the z axis (e.g., "Drive", "Survival Status")
+   * @returns The z axis label
    */
-  private getFillAxisLabel(): string {
-    // Try to get from the layer axes, fallback to generic label
-    return 'Category';
+  private getZAxisLabel(): string {
+    // Use the z-axis label from the layer configuration
+    return this.z;
   }
 
   /**
@@ -195,9 +194,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   protected get text(): TextState {
     return {
       ...super.text,
-      fill: {
-        label: LEVEL,
-        value: this.points[this.row][this.col].fill ?? UNDEFINED,
+      z: {
+        label: this.z,
+        value: this.points[this.row][this.col].z ?? UNDEFINED,
       },
     };
   }
