@@ -1,3 +1,10 @@
+## [3.63.1](https://github.com/xability/maidr/compare/v3.63.0...v3.63.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* change fill to z and fix minor regressions ([#602](https://github.com/xability/maidr/issues/602)) ([fa4b4ec](https://github.com/xability/maidr/commit/fa4b4ec520a2d6d5e141f674569bb333acf24e1b))
+
 # [3.63.0](https://github.com/xability/maidr/compare/v3.62.0...v3.63.0) (2026-04-16)
 
 
