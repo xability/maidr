@@ -49,7 +49,7 @@ function createLineTraceState(values: number[][], row: number, col: number): Tra
     title: 'Line test trace',
     xAxis: 'x',
     yAxis: 'y',
-    fill: 'none',
+    z: 'none',
     hasMultiPoints: false,
     audio: {
       freq: { min: 200, max: 1000, raw: 300 },
@@ -100,7 +100,7 @@ function createBarTraceState(values: number[][], row: number, col: number): Trac
     title: 'Bar test trace',
     xAxis: 'x',
     yAxis: 'y',
-    fill: 'none',
+    z: 'none',
     hasMultiPoints: false,
     audio: {
       freq: { min: 200, max: 1000, raw: 300 },
@@ -152,7 +152,7 @@ function createHeatmapTraceState(values: number[][], row: number, col: number): 
     title: 'Heatmap test trace',
     xAxis: 'x',
     yAxis: 'y',
-    fill: 'none',
+    z: 'none',
     hasMultiPoints: false,
     audio: {
       freq: { min: 200, max: 1000, raw: 300 },

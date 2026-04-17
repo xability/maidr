@@ -21,7 +21,7 @@ const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'unavailable';
+const DEFAULT_Z_AXIS = 'Level';
 
 export interface Dimension {
   rows: number;
@@ -286,7 +286,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
-  protected readonly fill: string;
+  protected readonly z: string;
 
   protected readonly navigationService: NavigationService;
 
@@ -302,9 +302,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     const axisX = layer.axes?.x;
     const axisY = layer.axes?.y;
+    const axisZ = layer.axes?.z;
     this.xAxis = (typeof axisX === 'object' ? axisX.label : axisX) ?? DEFAULT_X_AXIS;
     this.yAxis = (typeof axisY === 'object' ? axisY.label : axisY) ?? DEFAULT_Y_AXIS;
-    this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+    this.z = (typeof axisZ === 'object' ? axisZ.label : axisZ) ?? DEFAULT_Z_AXIS;
   }
 
   /**
@@ -352,7 +353,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
-      fill: this.fill,
+      z: this.z,
       hasMultiPoints: this.hasMultiPoints,
       audio: this.audio,
       braille: this.braille,

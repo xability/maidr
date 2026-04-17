@@ -153,6 +153,46 @@ export class DisplayService implements Disposable {
   }
 
   /**
+   * Enters label scope (TRACE_LABEL or FIGURE_LABEL) while preserving
+   * the current scope on the stack. This allows proper restoration
+   * when exiting label scope.
+   *
+   * Note: Label scopes are not pushed to focusStack (which only holds Focus types).
+   * The previous scope is preserved in focusStack and used when exiting.
+   * @param {Scope} labelScope - The label scope to enter (TRACE_LABEL or FIGURE_LABEL)
+   */
+  public enterLabelScope(labelScope: Scope): void {
+    // Don't modify focusStack - label scopes aren't Focus types
+    // Just switch the hotkeys scope; focusStack retains the previous scope
+    this.context.toggleScope(labelScope);
+  }
+
+  /**
+   * Exits label scope and returns to the previous scope that was
+   * active before entering label mode.
+   *
+   * Uses the focusStack to determine the correct scope to return to,
+   * which preserves the scope that was active before entering label mode
+   * (e.g., TRACE, BRAILLE, etc.).
+   */
+  public exitLabelScope(): void {
+    // Get the previous scope from focusStack (or default to TRACE if empty)
+    const previousScope = this.focusStack.peek() ?? Scope.TRACE;
+    this.context.toggleScope(previousScope);
+  }
+
+  /**
+   * Syncs the focusStack to match the current scope without triggering
+   * a full focus change event. Use this when the scope has changed via
+   * Context (e.g., entering a subplot) but focusStack needs to stay in sync.
+   * @param {Focus} scope - The scope to set as the current focus
+   */
+  public syncFocusStack(scope: Focus): void {
+    this.focusStack.clear();
+    this.focusStack.push(scope);
+  }
+
+  /**
    * Toggles focus between different scopes and manages the focus stack.
    * @param {Focus} focus - The focus scope to toggle to
    */

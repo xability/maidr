@@ -270,7 +270,7 @@ function buildSegmentedLayer(
     for (let r = 0; r < rows; r++) {
       const label = formatCellValue(dt, r, 0);
       const value = numericValue(dt, r, c);
-      series.push({ x: label, y: value, fill: fillLabel });
+      series.push({ x: label, y: value, z: fillLabel });
     }
     data.push(series);
     seriesCount++;
@@ -320,8 +320,8 @@ function buildLineLayer(
     for (let r = 0; r < rows; r++) {
       const x = formatCellValue(dt, r, 0);
       const y = numericValue(dt, r, c);
-      const fill = dt.getColumnLabel(c) || `Series ${c}`;
-      series.push({ x, y, fill });
+      const z = dt.getColumnLabel(c) || `Series ${c}`;
+      series.push({ x, y, z });
     }
     data.push(series);
     seriesCount++;

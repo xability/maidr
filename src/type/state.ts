@@ -72,7 +72,7 @@ export type TraceState
       title: string;
       xAxis: string;
       yAxis: string;
-      fill: string;
+      z: string;
       hasMultiPoints: boolean;
       audio: AudioState;
       braille: BrailleState;
@@ -250,7 +250,7 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 /**
  * Axis type identifier for formatting.
  */
-export type AxisType = 'x' | 'y' | 'fill';
+export type AxisType = 'x' | 'y' | 'z';
 
 /**
  * Text description state containing labels and values for screen reader output.
@@ -258,7 +258,7 @@ export type AxisType = 'x' | 'y' | 'fill';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  fill?: { label: string; value: number | string };
+  z?: { label: string; value: number | string };
   range?: { min: number; max: number };
   section?: string;
   /**
