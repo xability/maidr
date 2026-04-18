@@ -31,6 +31,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { MAX_BRAILLE_LINES } from '@service/braille';
 import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
@@ -573,15 +574,15 @@ const Settings: React.FC = () => {
                     onBlur={e =>
                       handleGeneralChange(
                         'brailleDisplayLines',
-                        Math.min(20, Math.max(1, Math.floor(Number(e.target.value)) || 1)),
+                        Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(Number(e.target.value)) || 1)),
                       )}
-                    helperText="Number of rows on a physical braille display (1-20). Set above 1 to enable multi-line output."
+                    helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
                     slotProps={{
                       input: {
                         inputProps: {
                           'aria-label': 'Braille Display Lines',
                           'min': 1,
-                          'max': 20,
+                          'max': MAX_BRAILLE_LINES,
                           'step': 1,
                         },
                       },

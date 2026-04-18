@@ -49,7 +49,7 @@ export type SubplotState
 /**
  * Empty trace state used as a placeholder when no data is available.
  */
-interface TraceEmptyState {
+export interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;

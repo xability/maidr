@@ -35,10 +35,12 @@ import type { Observer } from '@type/observable';
 import type {
   BarBrailleState,
   BoxBrailleState,
+  BrailleState,
   CandlestickBrailleState,
   HeatmapBrailleState,
   LineBrailleState,
   SubplotState,
+  TraceEmptyState,
   TraceState,
 } from '@type/state';
 import type { DisplayService } from './display';
@@ -88,6 +90,39 @@ function normalizeDisplayLines(lines: number | undefined): number {
 interface Cell {
   row: number;
   col: number;
+}
+
+/**
+ * Non-empty braille state: every concrete variant that an encoder can read.
+ * Used to type the heterogeneous encoder map without resorting to `any`.
+ */
+type NonEmptyBrailleState = Exclude<BrailleState, TraceEmptyState>;
+
+/**
+ * Grid-shaped braille states: those whose `values` is a 2D `number[][]`
+ * (bar, heatmap, line, candlestick). Excludes box plot, whose `values` is a
+ * flat `BoxPoint[]`. Used by {@link isGridBrailleState} to narrow for
+ * horizontal-windowing checks that iterate rows.
+ */
+type GridBrailleState
+  = | BarBrailleState
+    | CandlestickBrailleState
+    | HeatmapBrailleState
+    | LineBrailleState;
+
+/**
+ * Typed guard: narrows a {@link BrailleState} to the grid-shaped variants
+ * that expose `number[][]` rows. Box states are filtered out because their
+ * per-row element is a single `BoxPoint`, not a row array.
+ * @param state - Any braille state to inspect
+ * @returns Whether the state has a 2D numeric value grid
+ */
+function isGridBrailleState(state: BrailleState): state is GridBrailleState {
+  if (state.empty) {
+    return false;
+  }
+  const values = (state as { values: unknown }).values;
+  return Array.isArray(values) && values.length > 0 && Array.isArray(values[0]);
 }
 
 /**
@@ -186,6 +221,27 @@ function encodeWithWrapping(
   const end = multiline ? -1 : rowCount;
   const step = multiline ? -1 : 1;
 
+  // Per-row sentinel semantics differ across the three output modes and are
+  // documented here once because all three paths append to
+  // `cellToIndex[row]`:
+  //
+  //   - Single-line (multiline=false): sentinel is a synthetic virtual cell
+  //     at `{row, col: cols}` (one past the last data column). It exists
+  //     only in `indexToCell`, never in the emitted string.
+  //   - Multiline windowed: sentinel points to the LAST cell in the window
+  //     (`indexToCell.length - 1`), which is always a real data or padding
+  //     cell resolving to `{row, col: lastDataCol}`.
+  //   - Multiline non-windowed: sentinel is captured BEFORE padding
+  //     (`indexToCell.length` at that moment). If the row requires padding,
+  //     it points to the FIRST padding cell and resolves to
+  //     `{row, col: lastCol}`. If the row exactly fills `displaySize`
+  //     (no padding added), the sentinel points past the end of
+  //     `indexToCell` — `moveToIndex` guards against that via its bounds
+  //     check, so it is harmless, but callers must treat the sentinel as
+  //     advisory only, never as a valid index.
+  //
+  // The sentinel is never emitted to the onChange event; it is used only to
+  // allow internal lookups like `cellToIndex[row][cols]`.
   for (let row = start; row !== end; row += step) {
     const cols = colCount(row);
 
@@ -949,7 +1005,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private cache: EncodedBraille | null;
   private readonly disposables: Disposable[];
 
-  private readonly encoders: Map<TraceType, BrailleEncoder<any>>;
+  private readonly encoders: Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
 
@@ -981,20 +1037,30 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.cache = null;
     this.disposables = [];
 
-    this.encoders = new Map<TraceType, BrailleEncoder<any>>([
-      [TraceType.BAR, new BarBrailleEncoder()],
-      [TraceType.BOX, new BoxBrailleEncoder()],
-      [TraceType.CANDLESTICK, new CandlestickBrailleEncoder()],
-      [TraceType.DODGED, new BarBrailleEncoder()],
-      [TraceType.HEATMAP, new HeatmapBrailleEncoder()],
-      [TraceType.HISTOGRAM, new BarBrailleEncoder()],
-      [TraceType.LINE, new LineBrailleEncoder()],
-      [TraceType.NORMALIZED, new BarBrailleEncoder()],
-      [TraceType.SCATTER, new HeatmapBrailleEncoder()],
-      [TraceType.SMOOTH, new LineBrailleEncoder()],
-      [TraceType.STACKED, new BarBrailleEncoder()],
-      [TraceType.VIOLIN_KDE, new LineBrailleEncoder()],
-      [TraceType.VIOLIN_BOX, new BoxBrailleEncoder()],
+    // Encoders are heterogeneous: each one accepts only its own concrete
+    // braille-state variant. Dispatch is by TraceType, so the map's value type
+    // is widened to `BrailleEncoder<NonEmptyBrailleState>` via an `unknown`
+    // cast at insertion only — the dispatch guarantees the state passed to
+    // `encode()` matches the encoder's expected variant.
+    const asGeneric = <T extends NonEmptyBrailleState>(
+      encoder: BrailleEncoder<T>,
+    ): BrailleEncoder<NonEmptyBrailleState> =>
+      encoder as unknown as BrailleEncoder<NonEmptyBrailleState>;
+
+    this.encoders = new Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>([
+      [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
+      [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
+      [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],
+      [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
+      [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
+      [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
+      [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
+      [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],
+      [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
+      [TraceType.SMOOTH, asGeneric(new LineBrailleEncoder())],
+      [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],
+      [TraceType.VIOLIN_KDE, asGeneric(new LineBrailleEncoder())],
+      [TraceType.VIOLIN_BOX, asGeneric(new BoxBrailleEncoder())],
     ]);
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
@@ -1108,7 +1174,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       const encoder = this.encoders.get(trace.traceType)!;
       this.colOffset = targetOffset;
       this.cache = encoder.encode(
-        braille as any,
+        braille,
         this.displaySize,
         isMultilineMode,
         this.colOffset,
@@ -1132,17 +1198,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
    * @param braille - Current braille state from the active trace
    * @returns Whether horizontal windowing will apply for this state
    */
-  private willWindowHorizontally(braille: any): boolean {
-    const values = braille?.values;
-    if (!Array.isArray(values) || values.length <= 1) {
+  private willWindowHorizontally(braille: NonEmptyBrailleState): boolean {
+    if (!isGridBrailleState(braille) || braille.values.length <= 1) {
       return false;
     }
-    // Box-plot states store BoxPoint objects (not arrays) per row.
-    if (!Array.isArray(values[0])) {
-      return false;
-    }
-    for (const row of values) {
-      if (Array.isArray(row) && row.length > this.displaySize) {
+    for (const row of braille.values) {
+      if (row.length > this.displaySize) {
         return true;
       }
     }
