@@ -46,6 +46,7 @@ export interface GeneralSettings {
   highContrastLightColor: string;
   highContrastDarkColor: string;
   brailleDisplaySize: number;
+  brailleDisplayLines: number;
   minFrequency: number;
   maxFrequency: number;
   autoplayDuration: number;
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: Settings = {
     highContrastLightColor: '#ffffff',
     highContrastDarkColor: '#000000',
     brailleDisplaySize: 32,
+    brailleDisplayLines: 1,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,

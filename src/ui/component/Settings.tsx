@@ -31,6 +31,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { MAX_BRAILLE_LINES } from '@service/braille';
 import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
@@ -539,6 +540,50 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Braille Display Size',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Braille Display Lines"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplayLines}
+                    onChange={(e) => {
+                      // Guard against NaN (e.g. when the user clears the field).
+                      // The stored value stays valid even if blur never fires.
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        return;
+                      }
+                      const parsed = Number(raw);
+                      if (Number.isNaN(parsed)) {
+                        return;
+                      }
+                      handleGeneralChange('brailleDisplayLines', parsed);
+                    }}
+                    onBlur={e =>
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(Number(e.target.value)) || 1)),
+                      )}
+                    helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Lines',
+                          'min': 1,
+                          'max': MAX_BRAILLE_LINES,
+                          'step': 1,
                         },
                       },
                     }}

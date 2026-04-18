@@ -6,7 +6,7 @@ import React, { useEffect, useId, useRef } from 'react';
 const Braille: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('braille');
-  const { value, index, displaySize } = useViewModelState('braille');
+  const { value, index, displaySize, displayLines } = useViewModelState('braille');
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
@@ -65,8 +65,21 @@ const Braille: React.FC = () => {
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
+        // `wrap="off"` is load-bearing: the browser must not insert any visual
+        // line breaks. A physical braille display reads the textarea as one
+        // flat character stream indexed by cursor position, which is also how
+        // BrailleService's `cellToIndex`/`indexToCell` maps are built. Any
+        // browser-inserted wrap would desync those indices from the hardware
+        // cursor. Row separation on physical hardware is achieved by
+        // space-padding inside the encoded string (see braille.ts) — `\n` is
+        // not used in multiline mode because it does not render on a physical
+        // braille display.
         wrap="off"
-        rows={5}
+        // Keep a 5-row minimum visible height so the textarea is comfortable to
+        // read on a regular screen even when displayLines=1 (the default for
+        // users without a physical multi-line braille display).  Users with a
+        // larger physical display still see all their lines.
+        rows={Math.max(displayLines, 5)}
         cols={displaySize}
       />
     </div>
