@@ -1,4 +1,5 @@
 import type { Llm, LlmVersion } from './llm';
+import { DEFAULT_BRAILLE_LINES } from '@service/braille';
 
 /**
  * ARIA live region politeness level for screen reader announcements.
@@ -71,7 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
     highContrastLightColor: '#ffffff',
     highContrastDarkColor: '#000000',
     brailleDisplaySize: 32,
-    brailleDisplayLines: 1,
+    brailleDisplayLines: DEFAULT_BRAILLE_LINES,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,

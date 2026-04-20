@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { deepMerge } from '@service/settings';
+import { deepMerge } from '@util/deepMerge';
 
 describe('deepMerge', () => {
   test('fills missing keys from defaults', () => {
@@ -42,5 +42,23 @@ describe('deepMerge', () => {
     const override = { outer: { a: 2 } };
     deepMerge(defaults, override);
     expect(defaults).toEqual({ outer: { a: 1 } });
+  });
+
+  test('array-typed override replaces the default array (not merged element-wise)', () => {
+    // Pins the documented behavior: arrays are not recursed into. A saved
+    // older value will overwrite the default array rather than merging.
+    const defaults = { tags: ['a', 'b', 'c'], count: 3 };
+    const override = { tags: ['x'] };
+    const result = deepMerge(defaults, override);
+    expect(result).toEqual({ tags: ['x'], count: 3 });
+  });
+
+  test('array-typed override with shorter array does not retain default tail', () => {
+    // Belt-and-suspenders: confirm no element-wise merge leaks through.
+    const defaults = { items: [1, 2, 3, 4, 5] };
+    const override = { items: [9] };
+    const result = deepMerge(defaults, override);
+    expect(result.items).toEqual([9]);
+    expect(result.items.length).toBe(1);
   });
 });

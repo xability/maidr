@@ -77,7 +77,7 @@ const BRAILLE_DISPLAY_LINES_SETTING = 'general.brailleDisplayLines';
  * @param lines - Raw display lines value from settings or caller
  * @returns Normalized display lines
  */
-function normalizeDisplayLines(lines: number | undefined): number {
+export function normalizeDisplayLines(lines: number | undefined): number {
   if (lines === undefined || !Number.isFinite(lines)) {
     return DEFAULT_BRAILLE_LINES;
   }

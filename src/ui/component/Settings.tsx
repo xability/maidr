@@ -559,8 +559,10 @@ const Settings: React.FC = () => {
                     size="small"
                     value={generalSettings.brailleDisplayLines}
                     onChange={(e) => {
-                      // Guard against NaN (e.g. when the user clears the field).
-                      // The stored value stays valid even if blur never fires.
+                      // Guard against NaN / empty (e.g. when the user clears
+                      // the field). The stored value stays valid even if blur
+                      // never fires. Clamp/floor on every keystroke so a user
+                      // who types `0` and tabs away is not silently reset.
                       const raw = e.target.value;
                       if (raw === '') {
                         return;
@@ -569,7 +571,10 @@ const Settings: React.FC = () => {
                       if (Number.isNaN(parsed)) {
                         return;
                       }
-                      handleGeneralChange('brailleDisplayLines', parsed);
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(parsed) || 1)),
+                      );
                     }}
                     onBlur={e =>
                       handleGeneralChange(

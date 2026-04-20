@@ -10,7 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BrailleService } from '@service/braille';
+import { BrailleService, normalizeDisplayLines } from '@service/braille';
 import { TraceType } from '@type/grammar';
 
 interface SettingsChangeEventMock {
@@ -1155,6 +1155,36 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
+  test('multiline mode: single-row trace reverses to a no-op', () => {
+    // Single-row data should be unaffected by row reversal. Output width and
+    // the cursor index should match what single-line mode would produce for
+    // the same data (within the shared displaySize/padding rules).
+    const { service, contextMoveToIndex } = createMultilineBrailleService(10, 3);
+
+    // Single row of 4 values; displaySize=10 pads to 10 characters.
+    const state = createLineTraceState([[1, 2, 3, 4]], 0, 2);
+
+    let emitted = '';
+    let emittedIndex = -1;
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+      emittedIndex = event.index;
+    });
+
+    service.toggle(state);
+
+    expect(emitted.includes('\n')).toBe(false);
+    expect(emitted.length).toBe(10); // 4 data + 6 padding, single row.
+    expect(emittedIndex).toBe(2); // Cursor at col 2 → index 2 in row 0.
+
+    // Navigation within the single row: clicking padding maps to last data col.
+    service.moveToIndex(5);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
   test('horizontal windowing: colOffset resets to 0 when brailleDisplayLines changes', () => {
     // Before the settings change, place the cursor in a non-zero window.
     // After changing the setting (with the cursor moved back to col=0 in
@@ -1232,5 +1262,43 @@ describe('BrailleService display-size encoding', () => {
 
     disposable.dispose();
     service.dispose();
+  });
+});
+
+describe('normalizeDisplayLines boundaries', () => {
+  test('undefined falls back to default 1', () => {
+    expect(normalizeDisplayLines(undefined)).toBe(1);
+  });
+
+  test('NaN falls back to default 1', () => {
+    expect(normalizeDisplayLines(Number.NaN)).toBe(1);
+  });
+
+  test('Infinity falls back to default 1', () => {
+    expect(normalizeDisplayLines(Number.POSITIVE_INFINITY)).toBe(1);
+  });
+
+  test('0 clamps up to min 1', () => {
+    expect(normalizeDisplayLines(0)).toBe(1);
+  });
+
+  test('-1 clamps up to min 1', () => {
+    expect(normalizeDisplayLines(-1)).toBe(1);
+  });
+
+  test('0.9 floors to 0 then clamps up to 1', () => {
+    expect(normalizeDisplayLines(0.9)).toBe(1);
+  });
+
+  test('1 passes through', () => {
+    expect(normalizeDisplayLines(1)).toBe(1);
+  });
+
+  test('20 (max) passes through', () => {
+    expect(normalizeDisplayLines(20)).toBe(20);
+  });
+
+  test('21 clamps down to max 20', () => {
+    expect(normalizeDisplayLines(21)).toBe(20);
   });
 });
