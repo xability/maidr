@@ -334,6 +334,13 @@ function createBrailleService(displaySize: number): {
 
 /**
  * Builds a BrailleService with configurable display size and display lines.
+ *
+ * Prefer this over {@link createBrailleService} whenever a test needs to
+ * exercise multiline mode (`displayLines > 1`), horizontal windowing, or
+ * any behavior that depends on the `brailleDisplayLines` setting.
+ * {@link createBrailleService} hard-codes `displayLines = 1`, so it is only
+ * suitable for single-line tests.
+ *
  * Consolidates the context/notification/display/settings mock boilerplate
  * that multiline and windowing tests otherwise reconstruct inline.
  * @param displaySize - Braille display size (cells per line)
@@ -1085,6 +1092,143 @@ describe('BrailleService display-size encoding', () => {
     expect(after.displayLines).toBe(2);
     // Each row padded to displaySize=10 → 2 rows → total length 20.
     expect(after.value.length).toBe(20);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: cache hit within the same window never emits a stale -1 index', () => {
+    // Out-of-window columns are marked with -1 in cellToIndex; the service
+    // guarantees the cursor is in-window by recomputing targetOffset before
+    // any emit and including it in the cache key. This test pins that
+    // invariant by moving the cursor across every in-window column while the
+    // cache is warm — if the service ever leaked an out-of-window -1, the
+    // assertion below would catch it.
+    const { service } = createMultilineBrailleService(3, 2);
+
+    // 2 rows × 6 cols, displaySize=3 → windows [0,3) and [3,6).
+    const values = [[1, 2, 3, 4, 5, 6], [10, 20, 30, 40, 50, 60]];
+
+    const indices: number[] = [];
+    const disposable = service.onChange(event => indices.push(event.index));
+
+    // Enable at (0, 0): fresh encode with window [0,3).
+    service.toggle(createLineTraceState(values, 0, 0));
+    // Same-window moves (0,1) and (0,2): must be cache hits, never -1.
+    service.update(createLineTraceState(values, 0, 1));
+    service.update(createLineTraceState(values, 0, 2));
+
+    expect(indices.length).toBeGreaterThanOrEqual(3);
+    for (const index of indices) {
+      expect(index).toBeGreaterThanOrEqual(0);
+    }
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('multiline mode: bar chart renders with space-padded rows (no newlines)', () => {
+    // The bar encoder shares encodeWithWrapping with line/heatmap, but no
+    // existing test exercises the BarBrailleEncoder path end-to-end in
+    // multiline mode. This pins that the shared wrapping behavior holds.
+    const { service } = createMultilineBrailleService(10, 2);
+
+    // 2 rows of 5 items each, displaySize=10, displayLines=2.
+    const state = createBarTraceState([[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]], 0, 0);
+
+    let emitted = '';
+    let emittedDisplayLines = -1;
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+      emittedDisplayLines = event.displayLines;
+    });
+
+    service.toggle(state);
+
+    // Multiline: no newlines, each row padded to displaySize boundary.
+    expect(emitted.includes('\n')).toBe(false);
+    // 2 rows × 10 chars = 20 total (each row: 5 data + 5 padding).
+    expect(emitted.length).toBe(20);
+    expect(emittedDisplayLines).toBe(2);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('horizontal windowing: colOffset resets to 0 when brailleDisplayLines changes', () => {
+    // Before the settings change, place the cursor in a non-zero window.
+    // After changing the setting (with the cursor moved back to col=0 in
+    // context state), the next encode should use window [0, displaySize),
+    // proving the service did not reuse the prior non-zero offset.
+    let currentDisplayLines = 2;
+    let onChangeListener: ((event: SettingsChangeEventMock) => void) | null = null;
+
+    const wideValues = [
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [10, 20, 30, 40, 50, 60, 70, 80, 90],
+    ];
+    // Start with cursor at col=5: window [3,6) with displaySize=3.
+    let currentState = createLineTraceState(wideValues, 0, 5);
+
+    const context = {
+      moveToIndex: jest.fn<(row: number, col: number) => void>(),
+      get state(): TraceState {
+        return currentState;
+      },
+    } as unknown as Context;
+    const notification = {
+      notify: jest.fn<(message: string) => void>(),
+    } as unknown as NotificationService;
+    const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
+
+    const settings = {
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplaySize')
+          return 3 as T;
+        if (path === 'general.brailleDisplayLines')
+          return currentDisplayLines as T;
+        return undefined as T;
+      },
+      onChange: (listener: (event: SettingsChangeEventMock) => void) => {
+        onChangeListener = listener;
+        return {
+          dispose: () => {
+            onChangeListener = null;
+          },
+        };
+      },
+    } as unknown as SettingsService;
+
+    const service = new BrailleService(context, notification, display, settings);
+
+    const indices: number[] = [];
+    const disposable = service.onChange(event => indices.push(event.index));
+
+    service.toggle(currentState);
+    // Window [3,6); rows reversed so row 0 occupies indices [3..5]; col 5 → index 5.
+    expect(indices[indices.length - 1]).toBe(5);
+
+    // Move cursor back to col=0 in context state so the post-change re-encode
+    // reads the reset-relevant cursor.
+    currentState = createLineTraceState(wideValues, 0, 0);
+
+    // Flip displayLines; service should invalidate cache, reset colOffset to 0,
+    // then re-encode from the current context state.
+    currentDisplayLines = 3;
+    expect(onChangeListener).not.toBeNull();
+    onChangeListener!({
+      affectsSetting: (path: string): boolean =>
+        path === 'general.brailleDisplayLines',
+      get: <T>(path: string): T => {
+        if (path === 'general.brailleDisplayLines')
+          return currentDisplayLines as T;
+        return 3 as T;
+      },
+    });
+
+    // If colOffset reset correctly, window is [0,3); row 0 occupies [3..5];
+    // col 0 → index 3. If offset leaked, index would not be 3.
+    expect(indices[indices.length - 1]).toBe(3);
 
     disposable.dispose();
     service.dispose();

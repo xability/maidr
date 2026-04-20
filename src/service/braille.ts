@@ -112,8 +112,15 @@ type GridBrailleState
 
 /**
  * Typed guard: narrows a {@link BrailleState} to the grid-shaped variants
- * that expose `number[][]` rows. Box states are filtered out because their
- * per-row element is a single `BoxPoint`, not a row array.
+ * that expose `number[][]` rows.
+ *
+ * Box states are filtered out because `BoxBrailleState.values` is a flat
+ * `BoxPoint[]` (one object per row) rather than a `number[][]` grid — so
+ * `Array.isArray(values[0])` is true for grid states and false for box
+ * states. This distinction matters for horizontal-windowing checks that
+ * need to iterate per-row column counts; box plots always fill exactly
+ * `displaySize` cells per row and never window, so excluding them here
+ * short-circuits the windowing path cleanly.
  * @param state - Any braille state to inspect
  * @returns Whether the state has a 2D numeric value grid
  */
@@ -342,12 +349,17 @@ interface TimeSeries {
  * `colOffset` enables horizontal page-windowing for plots wider than the
  * display; it is meaningful only when `multiline=true` and the state has
  * multiple rows with at least one row wider than `size` cells.
+ *
+ * Note: `BoxBrailleEncoder` intentionally ignores `colOffset` — each box
+ * always fills exactly `size` cells, so there is never anything to window
+ * horizontally. All other encoders honor it.
  */
 interface BrailleEncoder<BrailleState> {
   encode: (
     state: BrailleState,
     size?: number,
     multiline?: boolean,
+    /** Horizontal page offset for wide rows. Ignored by BoxBrailleEncoder. */
     colOffset?: number,
   ) => EncodedBraille;
 }
