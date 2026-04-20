@@ -31,10 +31,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { MAX_BRAILLE_LINES } from '@service/braille';
 import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
+import { MAX_BRAILLE_LINES } from '@type/settings';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;

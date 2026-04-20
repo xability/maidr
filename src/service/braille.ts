@@ -48,11 +48,8 @@ import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
+import { DEFAULT_BRAILLE_LINES, DEFAULT_BRAILLE_SIZE, MAX_BRAILLE_LINES } from '@type/settings';
 import { Constant } from '@util/constant';
-
-export const DEFAULT_BRAILLE_SIZE = 32;
-export const DEFAULT_BRAILLE_LINES = 1;
-export const MAX_BRAILLE_LINES = 20;
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
