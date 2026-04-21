@@ -179,6 +179,12 @@ export interface AudioState {
    * Range is 0.0 to 1.0, where 0.0 = quietest and 1.0 = loudest.
    */
   volumeScale?: number;
+  /**
+   * Normalized reverb amount (0-1) for a third-dimension sonification cue.
+   * Scalar for a single tone; array (index-aligned with `freq.raw`) for group playback.
+   * Currently set by 3D scatter plots using z-axis values.
+   */
+  reverb?: number | number[];
 }
 
 /**
@@ -258,7 +264,7 @@ export type AxisType = 'x' | 'y' | 'z';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  z?: { label: string; value: number | string };
+  z?: { label: string; value: number | number[] | string };
   range?: { min: number; max: number };
   section?: string;
   /**

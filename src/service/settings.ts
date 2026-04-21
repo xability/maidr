@@ -14,6 +14,30 @@ function getValue<T>(settings: any, key: string): T | undefined {
   }, settings);
 }
 
+/**
+ * Deep-merges saved settings over defaults so newly-added default keys are
+ * populated on users whose stored Settings predate the addition.
+ */
+function mergeDefaults<T>(defaults: T, saved: Partial<T> | null | undefined): T {
+  if (saved === null || saved === undefined) {
+    return defaults;
+  }
+  if (typeof defaults !== 'object' || defaults === null || Array.isArray(defaults)) {
+    return saved as T ?? defaults;
+  }
+  const result = { ...defaults } as Record<string, unknown>;
+  for (const key of Object.keys(defaults as Record<string, unknown>)) {
+    const savedValue = (saved as Record<string, unknown>)[key];
+    if (savedValue !== undefined) {
+      result[key] = mergeDefaults(
+        (defaults as Record<string, unknown>)[key],
+        savedValue as Partial<unknown>,
+      );
+    }
+  }
+  return result as T;
+}
+
 function getSettingValue<T>(settings: any, key: string): T {
   const value = getValue(settings, key);
   if (value === undefined) {
@@ -61,6 +85,7 @@ export class SettingsService implements Disposable {
     this.defaultSettings = {
       general: {
         volume: 50,
+        reverbIntensity: 100,
         highlightColor: '#03c809',
         highContrastMode: false,
         highContrastLevels: 2,
@@ -101,7 +126,7 @@ export class SettingsService implements Disposable {
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
-    this.currentSettings = saved ?? this.defaultSettings;
+    this.currentSettings = mergeDefaults(this.defaultSettings, saved);
   }
 
   public dispose(): void {

@@ -395,6 +395,33 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
+              label="Reverb Intensity"
+              input={(
+                <FormControl fullWidth>
+                  <Slider
+                    value={generalSettings.reverbIntensity}
+                    onChange={(_, value) =>
+                      handleGeneralChange('reverbIntensity', Number(value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                    valueLabelDisplay="auto"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0,
+                        'aria-valuemax': 100,
+                        'aria-label': 'Reverb Intensity',
+                        'aria-labelledby': 'reverb-intensity-label',
+                      },
+                    }}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
               label="Outline Color"
               input={(
                 <FormControl fullWidth>

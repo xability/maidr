@@ -40,6 +40,7 @@ export interface LlmSettings {
  */
 export interface GeneralSettings {
   volume: number;
+  reverbIntensity: number;
   highlightColor: string;
   highContrastMode: boolean;
   highContrastLevels: number;
@@ -64,6 +65,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   general: {
     volume: 50,
+    reverbIntensity: 100,
     highlightColor: '#03c809',
     highContrastMode: false,
     highContrastLevels: 2,

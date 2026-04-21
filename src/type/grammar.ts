@@ -282,11 +282,12 @@ export interface LinePoint {
 }
 
 /**
- * Data point for scatter plots with x and y coordinates.
+ * Data point for scatter plots with x and y coordinates, plus optional z for 3D.
  */
 export interface ScatterPoint {
   x: number;
   y: number;
+  z?: number;
 }
 
 /**

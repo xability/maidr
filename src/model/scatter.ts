@@ -11,27 +11,34 @@ import { MovablePlane } from './movable';
 
 /**
  * Represents scatter points grouped by X coordinate.
+ * `y` and `z` are index-aligned: for the ith point sharing this x, `y[i]` is its y
+ * and `z[i]` is its z (or NaN when z is absent).
  */
 interface ScatterXPoint {
   x: number;
   y: number[];
+  z: number[];
 }
 
 /**
  * Represents scatter points grouped by Y coordinate.
+ * `x` and `z` are index-aligned.
  */
 interface ScatterYPoint {
   x: number[];
   y: number;
+  z: number[];
 }
 
 /**
  * Represents a single cell in the grid navigation overlay.
+ * `zValues` is index-aligned with `points`/`yValues`/`xValues`/`svgElements`.
  */
 interface GridCell {
   points: ScatterPoint[];
   yValues: number[];
   xValues: number[];
+  zValues: number[];
   svgElements: SVGElement[];
   xRange: { min: number; max: number };
   yRange: { min: number; max: number };
@@ -64,6 +71,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   private readonly minY: number;
   private readonly maxY: number;
 
+  private readonly hasZ: boolean;
+  private readonly minZ: number;
+  private readonly maxZ: number;
+
   // Grid navigation state
   private readonly gridCells: GridCell[][] | null;
   private readonly numGridRows: number;
@@ -88,15 +99,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
 
     const data = layer.data as ScatterPoint[];
 
+    this.hasZ = data.some(p => typeof p.z === 'number');
+
     const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
     this.xPoints = new Array<ScatterXPoint>();
     let currentX: ScatterXPoint | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
-        currentX = { x: point.x, y: [] };
+        currentX = { x: point.x, y: [], z: [] };
         this.xPoints.push(currentX);
       }
       currentX.y.push(point.y);
+      currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
     const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
@@ -104,10 +118,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     let currentY: ScatterYPoint | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
-        currentY = { y: point.y, x: [] };
+        currentY = { y: point.y, x: [], z: [] };
         this.yPoints.push(currentY);
       }
       currentY.x.push(point.x);
+      currentY.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
     this.xValues = this.xPoints.map(p => p.x);
@@ -117,6 +132,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     this.maxX = MathUtil.safeMax(this.xValues);
     this.minY = MathUtil.safeMin(this.yValues);
     this.maxY = MathUtil.safeMax(this.yValues);
+
+    if (this.hasZ) {
+      const zValues = data.map(p => p.z).filter((v): v is number => typeof v === 'number');
+      this.minZ = MathUtil.safeMin(zValues);
+      this.maxZ = MathUtil.safeMax(zValues);
+    } else {
+      this.minZ = 0;
+      this.maxZ = 0;
+    }
 
     // Select SVG elements once, then share for COL/ROW grouping and grid cell mapping
     const selector = layer.selectors as string;
@@ -253,6 +277,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     return this.outOfBoundsState as BrailleState;
   }
 
+  /**
+   * Normalizes z values to reverb amounts (0-1). Per-point:
+   * each NaN becomes 0 (no reverb), each finite value is scaled by (z-minZ)/(maxZ-minZ).
+   * Returns undefined when this trace has no z data, so the field is omitted from AudioState.
+   */
+  private reverbFor(zValues: number[]): number[] | undefined {
+    if (!this.hasZ) {
+      return undefined;
+    }
+    const range = this.maxZ - this.minZ;
+    if (range <= 0) {
+      return zValues.map(() => 0);
+    }
+    return zValues.map(z =>
+      Number.isFinite(z) ? Math.max(0, Math.min(1, (z - this.minZ) / range)) : 0,
+    );
+  }
+
   protected get audio(): AudioState {
     if (this.isInGridMode && this.gridCells) {
       // Grid cell point navigation mode - play Y values at current X
@@ -270,6 +312,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
             rows: 1,
             cols: this.cellXPoints.length,
           },
+          reverb: this.reverbFor(currentPoint.z),
         };
       }
 
@@ -287,6 +330,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: this.numGridRows,
           cols: this.numGridCols,
         },
+        reverb: this.reverbFor(cell.zValues),
       };
     }
 
@@ -304,6 +348,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: current.y.length,
           cols: this.xPoints.length,
         },
+        reverb: this.reverbFor(current.z),
       };
     } else {
       const current = this.yPoints[this.row];
@@ -319,8 +364,25 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: this.yPoints.length,
           cols: current.x.length,
         },
+        reverb: this.reverbFor(current.z),
       };
     }
+  }
+
+  /**
+   * Builds the z field for TextState from a group's z values (NaN-filtered).
+   * Returns a scalar for singletons, an array for groups, and undefined when absent.
+   */
+  private textZ(zValues: number[]): TextState['z'] {
+    if (!this.hasZ) {
+      return undefined;
+    }
+    const finite = zValues.filter(v => Number.isFinite(v));
+    if (finite.length === 0) {
+      return undefined;
+    }
+    const value = finite.length === 1 ? finite[0] : finite;
+    return { label: this.z, value };
   }
 
   protected get text(): TextState {
@@ -333,11 +395,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         return {
           main: { label: this.xAxis, value: currentPoint.x },
           cross: { label: this.yAxis, value: currentPoint.y },
+          z: this.textZ(currentPoint.z),
           gridPosition: { row: this.gridRow + 1, col: this.gridCol + 1 },
         };
       }
 
-      // Grid cell navigation mode (cell overview)
+      // Grid cell navigation mode (cell overview) - z omitted to keep summary compact
       return {
         main: { label: this.xAxis, value: '' },
         cross: { label: this.yAxis, value: '' },
@@ -353,12 +416,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       return {
         main: { label: this.xAxis, value: current.x },
         cross: { label: this.yAxis, value: current.y },
+        z: this.textZ(current.z),
       };
     } else {
       const current = this.yPoints[this.row];
       return {
         main: { label: this.yAxis, value: current.y },
         cross: { label: this.xAxis, value: current.x },
+        z: this.textZ(current.z),
       };
     }
   }
@@ -817,10 +882,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           this.cellXPoints.push(currentX);
           this.cellSvgGroups.push(currentSvgGroup);
         }
-        currentX = { x: point.x, y: [] };
+        currentX = { x: point.x, y: [], z: [] };
         currentSvgGroup = [];
       }
       currentX.y.push(point.y);
+      currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
       if (svg)
         currentSvgGroup.push(svg);
     }
@@ -999,6 +1065,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           points: [],
           yValues: [],
           xValues: [],
+          zValues: [],
           svgElements: [],
           xRange: xSteps[c],
           yRange: ySteps[r],
@@ -1017,6 +1084,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         grid[rowIdx][colIdx].points.push(point);
         grid[rowIdx][colIdx].yValues.push(point.y);
         grid[rowIdx][colIdx].xValues.push(point.x);
+        grid[rowIdx][colIdx].zValues.push(typeof point.z === 'number' ? point.z : Number.NaN);
         if (hasElements) {
           grid[rowIdx][colIdx].svgElements.push(svgClones[i]);
         }
