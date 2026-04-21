@@ -143,7 +143,13 @@ export interface AudioState {
   };
   panning: {
     y: number;
-    x: number;
+    /**
+     * Horizontal pan index in [0, cols-1] (interpolated to [-1, +1] at playback).
+     * May be a number[] index-aligned with freq.raw when each tone has its own
+     * x-position (e.g. scatter ROW mode — tones sweep across the stereo field
+     * at each point's actual x-value).
+     */
+    x: number | number[];
     rows: number;
     cols: number;
   };

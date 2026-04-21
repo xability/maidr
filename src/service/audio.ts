@@ -261,7 +261,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (audio.isContinuous) {
       this.playSmooth(
         audio.freq,
-        audio.panning,
+        this.resolvePanning(audio.panning),
         paletteEntry,
         audio.volumeMultiplier,
         audio.volumeScale,
@@ -269,7 +269,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else if (Array.isArray(audio.freq.raw)) {
       const values = audio.freq.raw as number[];
       if (values.length === 0) {
-        this.playZeroTone(audio.panning);
+        this.playZeroTone(this.resolvePanning(audio.panning));
         return;
       }
 
@@ -289,12 +289,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
               max: audio.freq.max,
               raw: values[idx],
             },
-            {
-              x: audio.panning.x,
-              y: audio.panning.y,
-              rows: audio.panning.rows,
-              cols: audio.panning.cols,
-            },
+            this.resolvePanning(audio.panning, idx),
             paletteEntry,
             reverbForTone,
           );
@@ -307,13 +302,31 @@ export class AudioService implements Observer<PlotState>, Disposable {
       playNext();
     } else {
       const value = audio.freq.raw as number;
+      const panning = this.resolvePanning(audio.panning);
       if (value === 0) {
-        this.playZeroTone(audio.panning);
+        this.playZeroTone(panning);
       } else {
         const reverbScalar = typeof audio.reverb === 'number' ? audio.reverb : undefined;
-        this.playTone(audio.freq, audio.panning, paletteEntry, reverbScalar);
+        this.playTone(audio.freq, panning, paletteEntry, reverbScalar);
       }
     }
+  }
+
+  /**
+   * Collapses AudioState.panning (whose x may be scalar or per-tone array) into
+   * the local scalar-x Panning used by playback helpers. When x is an array and
+   * idx is provided, selects that entry; otherwise falls back to the first entry.
+   */
+  private resolvePanning(panning: AudioState['panning'], idx?: number): Panning {
+    const x = Array.isArray(panning.x)
+      ? (panning.x[idx ?? 0] ?? 0)
+      : panning.x;
+    return {
+      x,
+      y: panning.y,
+      rows: panning.rows,
+      cols: panning.cols,
+    };
   }
 
   private playTone(

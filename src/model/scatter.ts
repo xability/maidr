@@ -352,6 +352,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       };
     } else {
       const current = this.yPoints[this.row];
+      // Pan each tone by its actual x-value, mapped onto the full x-axis range
+      // so the stereo position reflects where the point sits in the data, not
+      // its index in the sequence. cols stays ≥ 2 so interpolate never degenerates.
+      const cols = Math.max(2, current.x.length);
+      const xSpread = this.maxX - this.minX;
+      const panX: number[] = xSpread > 0
+        ? current.x.map(xv => ((xv - this.minX) / xSpread) * (cols - 1))
+        : current.x.map(() => (cols - 1) / 2);
       return {
         freq: {
           raw: current.x,
@@ -360,9 +368,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         },
         panning: {
           y: this.row,
-          x: this.col,
+          x: panX,
           rows: this.yPoints.length,
-          cols: current.x.length,
+          cols,
         },
         reverb: this.reverbFor(current.z),
       };
