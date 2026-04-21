@@ -39,6 +39,10 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
+function clampBrailleLines(value: number): number {
+  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
+}
+
 function getValidVersion(
   modelKey: Llm,
   currentVersion: string | undefined,
@@ -571,15 +575,12 @@ const Settings: React.FC = () => {
                       if (Number.isNaN(parsed)) {
                         return;
                       }
-                      handleGeneralChange(
-                        'brailleDisplayLines',
-                        Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(parsed) || 1)),
-                      );
+                      handleGeneralChange('brailleDisplayLines', clampBrailleLines(parsed));
                     }}
                     onBlur={e =>
                       handleGeneralChange(
                         'brailleDisplayLines',
-                        Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(Number(e.target.value)) || 1)),
+                        clampBrailleLines(Number(e.target.value)),
                       )}
                     helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
                     slotProps={{

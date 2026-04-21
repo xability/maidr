@@ -931,6 +931,45 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
+  test('multiline mode: row that exactly fills displaySize has valid out-of-bounds sentinel', () => {
+    // When a row's length is exactly divisible by displaySize, no padding is
+    // appended and the sentinel stored in cellToIndex[row][cols] points past
+    // the end of indexToCell. moveToIndex's bounds check makes that harmless.
+    // This test locks that invariant: emission is correct (no padding, no
+    // newlines), real cells navigate correctly, and the sentinel index is
+    // silently ignored rather than crashing or dispatching a bogus move.
+    const { service, contextMoveToIndex } = createMultilineBrailleService(4, 2);
+
+    // 2 rows × 4 cols, displaySize=4 → each row exactly fills; paddedLength=cols.
+    const state = createLineTraceState([[1, 2, 3, 4], [5, 6, 7, 8]], 0, 3);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // No padding, no newlines: 2 × 4 = 8 chars total.
+    expect(emitted.length).toBe(8);
+    expect(emitted.includes('\n')).toBe(false);
+
+    // Rows encoded in reverse (UP = upward): row1 at indices 0..3, row0 at 4..7.
+    service.moveToIndex(0);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(1, 0);
+    service.moveToIndex(7);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(0, 3);
+
+    const callsBeforeSentinel = contextMoveToIndex.mock.calls.length;
+    // Sentinel index == indexToCell.length (== emitted.length here). The bounds
+    // check should make this a no-op — no additional dispatch.
+    service.moveToIndex(emitted.length);
+    expect(contextMoveToIndex.mock.calls.length).toBe(callsBeforeSentinel);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
   test('horizontal windowing: click on padding inside window maps to last data col', () => {
     const { service, contextMoveToIndex } = createMultilineBrailleService(4, 2);
 
