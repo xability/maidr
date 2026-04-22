@@ -16,11 +16,15 @@
             "type": "heat",
             "title": "Heatmap: Model Scores by Task",
             "axes": {
-              "x": "Task",
-              "y": "Model",
-              "z": "Score",
-              "format": {
-                "z": { "function": "return `${Number(value).toFixed(1)}%`" }
+              "x": {
+                "label": "Task"
+              },
+              "y": {
+                "label": "Model"
+              },
+              "z": {
+                "label": "Score",
+                "format": { "function": "return `${Number(value).toFixed(1)}%`" }
               }
             },
             "data": {

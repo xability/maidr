@@ -15,8 +15,8 @@ function createLineLayer(data: MaidrLayer['data']): MaidrLayer {
     type: TraceType.LINE,
     title: 'Intersection test layer',
     axes: {
-      x: 'X',
-      y: 'Y',
+      x: { label: 'X' },
+      y: { label: 'Y' },
     },
     data,
   };

@@ -1,5 +1,5 @@
 import type { Disposable } from '@type/disposable';
-import type { FormatConfig, FormatFunction, Maidr } from '@type/grammar';
+import type { AxisFormat, FormatFunction, Maidr } from '@type/grammar';
 import type { AxisType } from '@type/state';
 import type { FormattableValue } from '@util/format';
 import { defaultFormat, FormatUtil } from '@util/format';
@@ -65,14 +65,14 @@ export class FormatterService implements Disposable {
       for (const subplot of subplotRow) {
         for (const layer of subplot.layers) {
           const layerId = layer.id;
-          // Format config is now nested inside axes
-          const formatConfig = layer.axes?.format;
+          // Format is now inline on each axis: axes.x.format, axes.y.format, axes.z.format
+          const axes = layer.axes;
 
           // Resolve format functions with fallback to defaults
           const layerFormatters: LayerFormatters = {
-            x: this.resolveAxisFormat(formatConfig?.x),
-            y: this.resolveAxisFormat(formatConfig?.y),
-            z: this.resolveAxisFormat(formatConfig?.z),
+            x: this.resolveAxisFormat(axes?.x?.format),
+            y: this.resolveAxisFormat(axes?.y?.format),
+            z: this.resolveAxisFormat(axes?.z?.format),
           };
 
           this.formatters.set(layerId, layerFormatters);
@@ -85,7 +85,7 @@ export class FormatterService implements Disposable {
    * Resolves an axis format configuration to a format function.
    * Wraps the resolved function with edge case handling.
    */
-  private resolveAxisFormat(axisFormat?: FormatConfig[keyof FormatConfig]): FormatFunction {
+  private resolveAxisFormat(axisFormat?: AxisFormat): FormatFunction {
     const baseFormat = FormatUtil.resolveFormat(axisFormat);
     return FormatUtil.wrapFormat(baseFormat);
   }

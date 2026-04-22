@@ -13,14 +13,16 @@ export const barData: MaidrData = {
             type: TraceType.BAR,
             selectors: 'path[clip-path="url(#p0f12ed050e)"]',
             axes: {
-              x: 'Day',
-              y: 'Count',
-              format: {
-                x: {
+              x: {
+                label: 'Day',
+                format: {
                   function:
                     "const days = {Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thur: 'Thursday', Fri: 'Friday', Sat: 'Saturday'}; return days[value] || value",
                 },
-                y: { type: 'fixed', decimals: 1 },
+              },
+              y: {
+                label: 'Count',
+                format: { type: 'fixed', decimals: 1 },
               },
             },
             data: [

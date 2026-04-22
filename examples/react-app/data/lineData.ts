@@ -13,8 +13,8 @@ export const lineData: MaidrData = {
             title:
               'Line: Total Passengers per Year\nFrom the Flights Dataset',
             axes: {
-              x: 'Year',
-              y: 'Total Passengers (Thousands)',
+              x: { label: 'Year' },
+              y: { label: 'Total Passengers (Thousands)' },
             },
             data: [
               [

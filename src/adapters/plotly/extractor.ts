@@ -414,9 +414,9 @@ function extractLayer(
 
   const axes: MaidrLayer['axes'] = {};
   if (xLabel)
-    axes.x = xLabel;
+    axes.x = { label: xLabel };
   if (yLabel)
-    axes.y = yLabel;
+    axes.y = { label: yLabel };
 
   switch (maidrType) {
     case TraceType.SCATTER:
@@ -482,8 +482,8 @@ function extractScatterLayer(
 
     // Only enhance axes if we have grid config for both axes
     if (xGridConfig && yGridConfig) {
-      const xLabel = typeof axes?.x === 'string' ? axes.x : undefined;
-      const yLabel = typeof axes?.y === 'string' ? axes.y : undefined;
+      const xLabel = axes?.x?.label;
+      const yLabel = axes?.y?.label;
 
       enhancedAxes = {
         x: xLabel
@@ -593,9 +593,9 @@ function extractMultiLineLayer(
 
   const axes: MaidrLayer['axes'] = {};
   if (xLabel)
-    axes.x = xLabel;
+    axes.x = { label: xLabel };
   if (yLabel)
-    axes.y = yLabel;
+    axes.y = { label: yLabel };
 
   // All line traces in the same subplot share the same unscoped selector
   // (e.g. `.subplot.xy .trace.scatter .point`), so any trace index works here.
@@ -688,9 +688,9 @@ function extractMultiBoxLayer(
 
   const axes: MaidrLayer['axes'] = {};
   if (xLabel)
-    axes.x = xLabel;
+    axes.x = { label: xLabel };
   if (yLabel)
-    axes.y = yLabel;
+    axes.y = { label: yLabel };
 
   return {
     id: String(boxTraces[0].globalIdx),
@@ -789,9 +789,9 @@ function extractHeatmapLayer(
     points: trace.z,
   };
 
-  // Set the fill axis label for z-values from the colorbar title, or default.
+  // Set the z axis label for z-values from the colorbar title, or default.
   const fillLabel = extractColorbarTitle(trace) ?? 'Value';
-  const heatmapAxes = { ...axes, fill: fillLabel };
+  const heatmapAxes: MaidrLayer['axes'] = { ...axes, z: { label: fillLabel } };
 
   return {
     id,
@@ -994,14 +994,14 @@ function extractSegmentedBarLayer(
   const axes: MaidrLayer['axes'] = {};
   if (isHorizontal) {
     if (yLabel)
-      axes.x = yLabel;
+      axes.x = { label: yLabel };
     if (xLabel)
-      axes.y = xLabel;
+      axes.y = { label: xLabel };
   } else {
     if (xLabel)
-      axes.x = xLabel;
+      axes.x = { label: xLabel };
     if (yLabel)
-      axes.y = yLabel;
+      axes.y = { label: yLabel };
   }
 
   const selectors = generatePlotlySelectors(type, barTraces[0].globalIdx, gd);

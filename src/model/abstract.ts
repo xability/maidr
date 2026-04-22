@@ -300,12 +300,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    const axisX = layer.axes?.x;
-    const axisY = layer.axes?.y;
-    const axisZ = layer.axes?.z;
-    this.xAxis = (typeof axisX === 'object' ? axisX.label : axisX) ?? DEFAULT_X_AXIS;
-    this.yAxis = (typeof axisY === 'object' ? axisY.label : axisY) ?? DEFAULT_Y_AXIS;
-    this.z = (typeof axisZ === 'object' ? axisZ.label : axisZ) ?? DEFAULT_Z_AXIS;
+    this.xAxis = layer.axes?.x?.label ?? DEFAULT_X_AXIS;
+    this.yAxis = layer.axes?.y?.label ?? DEFAULT_Y_AXIS;
+    this.z = layer.axes?.z?.label ?? DEFAULT_Z_AXIS;
   }
 
   /**
