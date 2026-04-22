@@ -1163,4 +1163,65 @@ export class LineTrace extends AbstractTrace {
     this.moveOnce('DOWNWARD');
     return true;
   }
+
+  /**
+   * Intersection navigation mode is available only when the plot has
+   * multiple lines (i.e. crossings between sampled series are possible).
+   */
+  public override supportsIntersectionMode(): boolean {
+    return this.points.length > 1;
+  }
+
+  /**
+   * Collect point-type intersections for the current line, sorted by
+   * pointIndex (column), with duplicate pointIndexes removed so that
+   * navigation advances one data point at a time.
+   */
+  private getPointIntersectionIndices(): number[] {
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    const seen = new Set<number>();
+    const indices: number[] = [];
+    for (const intersection of intersections) {
+      if (intersection.intersectionKind !== 'point') {
+        continue;
+      }
+      if (seen.has(intersection.pointIndex)) {
+        continue;
+      }
+      seen.add(intersection.pointIndex);
+      indices.push(intersection.pointIndex);
+    }
+    indices.sort((a, b) => a - b);
+    return indices;
+  }
+
+  public override moveToNextIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    const target = indices.find(index => index > this.col);
+    if (target === undefined) {
+      this.notifyRotorBounds();
+      return false;
+    }
+    this.col = target;
+    this.finalizeExtremaNavigation();
+    return true;
+  }
+
+  public override moveToPrevIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    let target: number | undefined;
+    for (let i = indices.length - 1; i >= 0; i--) {
+      if (indices[i] < this.col) {
+        target = indices[i];
+        break;
+      }
+    }
+    if (target === undefined) {
+      this.notifyRotorBounds();
+      return false;
+    }
+    this.col = target;
+    this.finalizeExtremaNavigation();
+    return true;
+  }
 }

@@ -145,6 +145,9 @@ export class RotorNavigationService {
     if (this.isGridMode()) {
       return this.moveGrid('up');
     }
+    if (this.isIntersectionMode()) {
+      return this.getIntersectionMessage('above');
+    }
 
     const activeTrace = this.context.active;
     try {
@@ -171,6 +174,9 @@ export class RotorNavigationService {
   public moveDown(): string | null {
     if (this.isGridMode()) {
       return this.moveGrid('down');
+    }
+    if (this.isIntersectionMode()) {
+      return this.getIntersectionMessage('below');
     }
 
     const activeTrace = this.context.active;
@@ -199,6 +205,9 @@ export class RotorNavigationService {
     if (this.isGridMode()) {
       return this.moveGrid('left');
     }
+    if (this.isIntersectionMode()) {
+      return this.moveIntersection('left');
+    }
 
     const activeTrace = this.context.active;
     try {
@@ -225,6 +234,9 @@ export class RotorNavigationService {
   public moveRight(): string | null {
     if (this.isGridMode()) {
       return this.moveGrid('right');
+    }
+    if (this.isIntersectionMode()) {
+      return this.moveIntersection('right');
     }
 
     const activeTrace = this.context.active;
@@ -300,6 +312,7 @@ export class RotorNavigationService {
    * - Always includes the trace's data mode name (DATA_MODE or ROW_COL_MODE)
    * - Includes LOWER/HIGHER value modes if trace supports compare
    * - Includes GRID_MODE if trace supports grid navigation
+   * - Includes INTERSECTION_MODE if trace exposes point intersections (multiline lines)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
@@ -315,6 +328,10 @@ export class RotorNavigationService {
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
         modes.push(Constant.GRID_MODE);
+      }
+
+      if (activeTrace.supportsIntersectionMode()) {
+        modes.push(Constant.INTERSECTION_MODE);
       }
     } else {
       modes.push(Constant.DATA_MODE);
@@ -335,6 +352,52 @@ export class RotorNavigationService {
    */
   private isGridMode(): boolean {
     return this.getMode() === Constant.GRID_MODE;
+  }
+
+  /**
+   * Checks if the current rotor mode is INTERSECTION_MODE.
+   */
+  private isIntersectionMode(): boolean {
+    return this.getMode() === Constant.INTERSECTION_MODE;
+  }
+
+  /**
+   * Builds a user-facing message for directions that are not applicable in
+   * intersection mode (up/down).
+   */
+  private getIntersectionMessage(direction: 'above' | 'below'): string {
+    if (this.text.isOff()) {
+      return '';
+    }
+    if (this.text.isTerse()) {
+      return `No intersection ${direction}`;
+    }
+    return `No intersection found ${direction} the current point.`;
+  }
+
+  /**
+   * Handles intersection navigation in the specified direction.
+   * Delegates to the active trace's intersection movement methods.
+   * @returns Error message if trace does not support it, null otherwise
+   *          (boundary handled by notifyRotorBounds within the trace)
+   */
+  private moveIntersection(direction: 'left' | 'right'): string | null {
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace) || !activeTrace.supportsIntersectionMode()) {
+      return this.getMessage('intersection', direction);
+    }
+
+    try {
+      if (direction === 'right') {
+        activeTrace.moveToNextIntersection();
+      } else {
+        activeTrace.moveToPrevIntersection();
+      }
+    } catch {
+      return this.getMessage('intersection', direction);
+    }
+
+    return null;
   }
 
   /**

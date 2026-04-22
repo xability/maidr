@@ -277,6 +277,33 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public dataModeName(): string {
     return Constant.DATA_MODE;
   }
+
+  /**
+   * Returns true if this trace supports intersection navigation mode.
+   * Override to true for trace types that expose point intersections between lines
+   * (currently only multiline line traces).
+   */
+  public supportsIntersectionMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the next point intersection (right arrow in intersection rotor mode).
+   * Default throws so callers can fall back; subclasses that advertise
+   * {@link supportsIntersectionMode} must override.
+   */
+  public moveToNextIntersection(): boolean {
+    throw new Error('Intersection navigation is not defined for this trace');
+  }
+
+  /**
+   * Move to the previous point intersection (left arrow in intersection rotor mode).
+   * Default throws so callers can fall back; subclasses that advertise
+   * {@link supportsIntersectionMode} must override.
+   */
+  public moveToPrevIntersection(): boolean {
+    throw new Error('Intersection navigation is not defined for this trace');
+  }
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
