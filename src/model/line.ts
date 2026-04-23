@@ -1199,7 +1199,6 @@ export class LineTrace extends AbstractTrace {
     const indices = this.getPointIntersectionIndices();
     const target = indices.find(index => index > this.col);
     if (target === undefined) {
-      this.notifyRotorBounds();
       return false;
     }
     this.col = target;
@@ -1211,7 +1210,6 @@ export class LineTrace extends AbstractTrace {
     const indices = this.getPointIntersectionIndices();
     const target = indices.findLast(index => index < this.col);
     if (target === undefined) {
-      this.notifyRotorBounds();
       return false;
     }
     this.col = target;

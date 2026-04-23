@@ -363,9 +363,10 @@ export class RotorNavigationService {
 
   /**
    * Handles intersection navigation in the specified direction.
-   * Delegates to the active trace's intersection movement methods.
-   * @returns Error message if trace does not support it, null otherwise
-   *          (boundary handled by notifyRotorBounds within the trace)
+   * Delegates to the active trace's intersection movement methods and surfaces
+   * a user-facing bound message through the rotor area when no further point
+   * intersection exists in that direction.
+   * @returns Error message if at bounds or trace is unsupported, null otherwise
    */
   private moveIntersection(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
@@ -374,10 +375,11 @@ export class RotorNavigationService {
     }
 
     try {
-      if (direction === 'right') {
-        activeTrace.moveToNextIntersection();
-      } else {
-        activeTrace.moveToPrevIntersection();
+      const moved = direction === 'right'
+        ? activeTrace.moveToNextIntersection()
+        : activeTrace.moveToPrevIntersection();
+      if (!moved) {
+        return this.getMessage('intersection', direction);
       }
     } catch {
       return this.getMessage('intersection', direction);
