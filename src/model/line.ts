@@ -1209,13 +1209,7 @@ export class LineTrace extends AbstractTrace {
 
   public override moveToPrevIntersection(): boolean {
     const indices = this.getPointIntersectionIndices();
-    let target: number | undefined;
-    for (let i = indices.length - 1; i >= 0; i--) {
-      if (indices[i] < this.col) {
-        target = indices[i];
-        break;
-      }
-    }
+    const target = indices.findLast(index => index < this.col);
     if (target === undefined) {
       this.notifyRotorBounds();
       return false;

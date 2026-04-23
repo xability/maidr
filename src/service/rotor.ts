@@ -146,7 +146,7 @@ export class RotorNavigationService {
       return this.moveGrid('up');
     }
     if (this.isIntersectionMode()) {
-      return this.getIntersectionMessage('above');
+      return this.getMessage('intersection', 'above');
     }
 
     const activeTrace = this.context.active;
@@ -176,7 +176,7 @@ export class RotorNavigationService {
       return this.moveGrid('down');
     }
     if (this.isIntersectionMode()) {
-      return this.getIntersectionMessage('below');
+      return this.getMessage('intersection', 'below');
     }
 
     const activeTrace = this.context.active;
@@ -362,20 +362,6 @@ export class RotorNavigationService {
   }
 
   /**
-   * Builds a user-facing message for directions that are not applicable in
-   * intersection mode (up/down).
-   */
-  private getIntersectionMessage(direction: 'above' | 'below'): string {
-    if (this.text.isOff()) {
-      return '';
-    }
-    if (this.text.isTerse()) {
-      return `No intersection ${direction}`;
-    }
-    return `No intersection found ${direction} the current point.`;
-  }
-
-  /**
    * Handles intersection navigation in the specified direction.
    * Delegates to the active trace's intersection movement methods.
    * @returns Error message if trace does not support it, null otherwise
@@ -383,7 +369,7 @@ export class RotorNavigationService {
    */
   private moveIntersection(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
-    if (!(activeTrace instanceof AbstractTrace) || !activeTrace.supportsIntersectionMode()) {
+    if (!(activeTrace instanceof AbstractTrace)) {
       return this.getMessage('intersection', direction);
     }
 

@@ -72,3 +72,99 @@ describe('LineTrace intersection classification', () => {
     expect(intersections[0].label).toContain('Slope intersection');
   });
 });
+
+describe('LineTrace intersection rotor navigation', () => {
+  test('reports intersection mode supported only for multiline traces', () => {
+    const multiline = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+      ],
+    ]));
+    const single = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+    ]));
+
+    expect(multiline.supportsIntersectionMode()).toBe(true);
+    expect(single.supportsIntersectionMode()).toBe(false);
+  });
+
+  /**
+   * Build a two-line trace with two point intersections (cols 1 and 4 on the
+   * active line) and one slope intersection (near col 2) between them. Used to
+   * verify that intersection navigation skips slope crossings.
+   * @returns A LineTrace ready for intersection navigation assertions.
+   */
+  function createMixedIntersectionTrace(): LineTrace {
+    return new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 5 },
+        { x: 3, y: 0 },
+        { x: 4, y: 5 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+        { x: 3, y: 5 },
+        { x: 4, y: 5 },
+      ],
+    ]));
+  }
+
+  test('moveToNextIntersection advances to the next point intersection, skipping slope crossings', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(4);
+  });
+
+  test('moveToNextIntersection returns false at the last intersection', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 4;
+
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(4);
+  });
+
+  test('moveToPrevIntersection retreats to the previous point intersection', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 4;
+
+    expect(trace.moveToPrevIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    expect(trace.moveToPrevIntersection()).toBe(false);
+    expect(trace.col).toBe(1);
+  });
+
+  test('returns false when no point intersections exist on the current line', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 2, y: 0 },
+      ],
+    ]));
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.moveToPrevIntersection()).toBe(false);
+  });
+});

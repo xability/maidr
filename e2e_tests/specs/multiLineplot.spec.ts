@@ -490,4 +490,32 @@ test.describe('Multi Lineplot', () => {
       }
     });
   });
+
+  test.describe('Intersection Rotor Navigation', () => {
+    test('should cycle into INTERSECTING POINT NAVIGATION rotor mode and accept arrow keys without error', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Rotor cycle for a multiline line trace:
+      //   0: DATA POINT NAVIGATION  (default, rotor disabled)
+      //   1: LOWER VALUE NAVIGATION
+      //   2: HIGHER VALUE NAVIGATION
+      //   3: INTERSECTING POINT NAVIGATION
+      // Alt+Shift+Up moves to the next unit.
+      for (let i = 0; i < 3; i++) {
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('Shift');
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.up('Shift');
+        await page.keyboard.up('Alt');
+      }
+
+      const rotorArea = page.locator('#maidr-rotor-area');
+      await expect(rotorArea).toHaveText('INTERSECTING POINT NAVIGATION', { timeout: 2000 });
+
+      // Arrow keys in intersection mode must not throw even when the example
+      // data has no point intersections — boundary feedback is expected.
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowLeft');
+    });
+  });
 });
