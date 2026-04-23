@@ -30,8 +30,8 @@ describe('convertRechartsToMaidr', () => {
 
       const layer = result.subplots[0][0].layers[0];
       expect(layer.type).toBe(TraceType.BAR);
-      expect(layer.axes?.x).toBe('Category');
-      expect(layer.axes?.y).toBe('Value');
+      expect(layer.axes?.x).toEqual({ label: 'Category' });
+      expect(layer.axes?.y).toEqual({ label: 'Value' });
       expect(layer.selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
 
       const data = layer.data as BarPoint[];

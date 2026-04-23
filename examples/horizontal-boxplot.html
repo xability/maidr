@@ -15,10 +15,12 @@
 			  "type": "box",
 			  "title": "Horizontal Box Plot Example",
 			  "axes": {
-				"x": "Values",
-				"y": "Group",
-				"format": {
-				  "x": { "function": "return Number(value).toFixed(1)" }
+				"x": {
+				  "label": "Values",
+				  "format": { "function": "return Number(value).toFixed(1)" }
+				},
+				"y": {
+				  "label": "Group"
 				}
 			  },
 			  "data": [

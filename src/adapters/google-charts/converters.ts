@@ -229,8 +229,8 @@ function buildBarLayer(
     orientation,
     ...(selector ? { selectors: selector } : {}),
     axes: {
-      x: dt.getColumnLabel(0) || undefined,
-      y: dt.getColumnLabel(dataCol) || undefined,
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(dataCol) || undefined },
     },
     data,
   };
@@ -290,8 +290,8 @@ function buildSegmentedLayer(
     // 'row' tells MAIDR that DOM elements are in row-major order (series-first)
     domMapping: { order: 'row' },
     axes: {
-      x: dt.getColumnLabel(0) || undefined,
-      y: 'Level',
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: 'Level' },
     },
     data,
   };
@@ -335,8 +335,8 @@ function buildLineLayer(
     type: TraceType.LINE,
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: {
-      x: dt.getColumnLabel(0) || undefined,
-      y: dt.getColumnLabel(1) || undefined,
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(1) || undefined },
     },
     data,
   };
@@ -368,8 +368,8 @@ function buildScatterLayer(
     type: TraceType.SCATTER,
     ...(selector ? { selectors: selector } : {}),
     axes: {
-      x: dt.getColumnLabel(0) || undefined,
-      y: dt.getColumnLabel(1) || undefined,
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(1) || undefined },
     },
     data,
   };
@@ -436,8 +436,8 @@ function buildCandlestickLayer(
     type: TraceType.CANDLESTICK,
     ...(selectors ? { selectors } : {}),
     axes: {
-      x: dt.getColumnLabel(0) || 'Date',
-      y: 'Price',
+      x: { label: dt.getColumnLabel(0) || 'Date' },
+      y: { label: 'Price' },
     },
     data,
   };

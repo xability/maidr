@@ -16,12 +16,14 @@
             "type": "candlestick",
             "title": "Candlestick: Stock Price with Volume",
             "axes": {
-              "x": "Date",
-              "y": "Price ($)",
-              "format": {
-                  "x": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})" },
-                  "y": { "type": "currency", "decimals": 3 }
-                }
+              "x": {
+                "label": "Date",
+                "format": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})" }
+              },
+              "y": {
+                "label": "Price ($)",
+                "format": { "type": "currency", "decimals": 3 }
+              }
             },
             "data": [
               {
@@ -196,12 +198,14 @@
             "type": "bar",
             "title": "Bar: Volume Bar Plot",
             "axes": {
-              "x": "Date",
-              "y": "Volume",
-              "format": {
-                  "x": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short',day: 'numeric'})" },
-                  "y": { "type": "number", "decimals": 0 }
-                }
+              "x": {
+                "label": "Date",
+                "format": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short',day: 'numeric'})" }
+              },
+              "y": {
+                "label": "Volume",
+                "format": { "type": "number", "decimals": 0 }
+              }
             },
             "data": [
               {
@@ -292,12 +296,14 @@
             "type": "line",
             "title": "Line: Moving Average Plot",
             "axes": {
-              "x": "Date",
-              "y": "Price ($)",
-                "format": {
-                  "x": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short',day: 'numeric'})" },
-                  "y": { "type": "fixed", "decimals": 2 }
-                }
+              "x": {
+                "label": "Date",
+                "format": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short',day: 'numeric'})" }
+              },
+              "y": {
+                "label": "Price ($)",
+                "format": { "type": "fixed", "decimals": 2 }
+              }
             },
             "data": [
               [

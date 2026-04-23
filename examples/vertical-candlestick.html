@@ -16,11 +16,13 @@
             "type": "candlestick",
             "title": "Candlestick: Stock Price AAPL",
             "axes": {
-              "x": "Date",
-              "y": "Price ($)",
-              "format": {
-                "y": { "type": "currency", "decimals": 0 },
-                "x": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})" }
+              "x": {
+                "label": "Date",
+                "format": { "function": "return new Date(value).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})" }
+              },
+              "y": {
+                "label": "Price ($)",
+                "format": { "type": "currency", "decimals": 0 }
               }
             },
             "data": [

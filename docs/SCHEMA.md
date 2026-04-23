@@ -23,8 +23,8 @@ var maidr = {
           type: "bar",
           title: "Sample Bar plot",
           axes: {
-            x: "Category",
-            y: "Value"
+            x: { label: "Category" },
+            y: { label: "Value" }
           },
           data: [
             {
@@ -68,8 +68,8 @@ Or multiple plots:
                 "type": "line",
                 "title": "Line Plot: Random Data",
                 "axes": {
-                  "x": "X-axis",
-                  "y": "Values"
+                  "x": { "label": "X-axis" },
+                  "y": { "label": "Values" }
                 },
                 "data": [
                   []
@@ -87,8 +87,8 @@ Or multiple plots:
                 "type": "bar",
                 "title": "Bar Plot: Random Values",
                 "axes": {
-                  "x": "Categories",
-                  "y": "Values"
+                  "x": { "label": "Categories" },
+                  "y": { "label": "Values" }
                 },
                 "data": []
                 }
@@ -104,8 +104,8 @@ Or multiple plots:
                 "type": "bar",
                 "title": "Bar Plot 2: Random Values",
                 "axes": {
-                  "x": "Categories",
-                  "y": "Values"
+                  "x": { "label": "Categories" },
+                  "y": { "label": "Values" }
                 },
                 "data": []
               }
@@ -124,7 +124,7 @@ Use the following to define the object properties:
 - `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'violin_kde', 'violin_box',
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
-- `axes`: axes info for your plot. `maidr.axes.x.label` and `maidr.axes.y.label` will provide axes labels, and `maidr.axes.x.level` or `maidr.axes.y.level` (x or y, not both) will provide level or tick mark labels.
+- `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
 - `data`: the main data for your plot. See below.
 
 ## Data Formats by Plot Type
@@ -354,8 +354,8 @@ maidr = {
             "type": "bar",
             "title": "",
             "axes": {
-              "x": "X values",
-              "y": "Bar values"
+              "x": { "label": "X values" },
+              "y": { "label": "Bar values" }
             },
             "data": [
               {
@@ -373,8 +373,8 @@ maidr = {
             "type": "line",
             "title": "Multilayer Plot Example",
             "axes": {
-              "x": "X values",
-              "y": "Line values"
+              "x": { "label": "X values" },
+              "y": { "label": "Line values" }
             },
             "data": [
               [
@@ -416,8 +416,8 @@ maidr = {
             "type": "violin_box",
             "title": "Diamond Price Distribution by Cut Quality",
             "axes": {
-              "x": "Cut Quality",
-              "y": "Price (USD)"
+              "x": { "label": "Cut Quality" },
+              "y": { "label": "Price (USD)" }
             },
             "selectors": [
               {
@@ -447,8 +447,8 @@ maidr = {
             "type": "violin_kde",
             "title": "Diamond Price Distribution by Cut Quality",
             "axes": {
-              "x": "Cut Quality",
-              "y": "Price (USD)"
+              "x": { "label": "Cut Quality" },
+              "y": { "label": "Price (USD)" }
             },
             "selectors": [
               "#violin-group-1 path"
