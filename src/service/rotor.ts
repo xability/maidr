@@ -382,7 +382,32 @@ export class RotorNavigationService {
     const moved = direction === 'right'
       ? activeTrace.moveToNextIntersection()
       : activeTrace.moveToPrevIntersection();
-    return moved ? null : this.getMessage('intersection', direction);
+    return moved ? null : this.getIntersectionBoundMessage(direction);
+  }
+
+  /**
+   * Picks the terse or verbose string based on the current text mode, or an
+   * empty string when text mode is off. Shared by mode-specific message
+   * helpers to avoid duplicating the off/terse/verbose branching.
+   */
+  private buildMessage(terse: string, verbose: string): string {
+    if (this.text.isOff()) {
+      return '';
+    }
+    return this.text.isTerse() ? terse : verbose;
+  }
+
+  /**
+   * User-facing message when Left/Right hits a boundary in intersection mode.
+   * Uses the word "intersection" rather than the generic getMessage() output
+   * which reads as "intersection value" — awkward since an intersection is a
+   * coordinate, not a value.
+   */
+  private getIntersectionBoundMessage(direction: 'left' | 'right'): string {
+    return this.buildMessage(
+      `No intersection to the ${direction}`,
+      `No intersection found to the ${direction} of the current point.`,
+    );
   }
 
   /**
@@ -392,13 +417,10 @@ export class RotorNavigationService {
    * bound message (which would imply a vertical bound exists).
    */
   private getIntersectionVerticalUnavailableMessage(): string {
-    if (this.text.isOff()) {
-      return '';
-    }
-    if (this.text.isTerse()) {
-      return 'Up/down unavailable in intersection mode';
-    }
-    return 'Up and down navigation is not available in intersection point mode.';
+    return this.buildMessage(
+      'Up/down unavailable in intersection mode',
+      'Up and down navigation is not available in intersection point mode.',
+    );
   }
 
   /**

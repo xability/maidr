@@ -492,7 +492,7 @@ test.describe('Multi Lineplot', () => {
   });
 
   test.describe('Intersection Rotor Navigation', () => {
-    test('should cycle into INTERSECTING POINT NAVIGATION rotor mode and accept arrow keys without error', async ({ page }) => {
+    test('should cycle into INTERSECTING POINT NAVIGATION and announce bound messages on arrow keys', async ({ page }) => {
       await setupMultiLineplotPage(page);
 
       // Rotor cycle for a multiline line trace:
@@ -512,10 +512,19 @@ test.describe('Multi Lineplot', () => {
       const rotorArea = page.locator('#maidr-rotor-area');
       await expect(rotorArea).toHaveText('INTERSECTING POINT NAVIGATION', { timeout: 2000 });
 
-      // Arrow keys in intersection mode must not throw even when the example
-      // data has no point intersections — boundary feedback is expected.
+      // The example data has no point intersections, so arrow keys must route
+      // through intersection mode and land on the boundary message — proving
+      // the key was handled by the rotor service (not a no-op / crash).
       await page.keyboard.press('ArrowRight');
+      await expect(rotorArea).toContainText(/No intersection.*right/i, { timeout: 2000 });
+
       await page.keyboard.press('ArrowLeft');
+      await expect(rotorArea).toContainText(/No intersection.*left/i, { timeout: 2000 });
+
+      // Up/Down in intersection mode should announce the vertical-unavailable
+      // message, not a directional bound.
+      await page.keyboard.press('ArrowUp');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
     });
   });
 });
