@@ -199,7 +199,7 @@ function createBoxTraceState(
     row,
     col,
     values: boxes.map(b => ({
-      fill: '#000',
+      z: '#000',
       lowerOutliers: b.lowerOutliers,
       min: b.min,
       q1: b.q1,
@@ -221,7 +221,7 @@ function createBoxTraceState(
     title: 'Box test trace',
     xAxis: 'x',
     yAxis: 'y',
-    fill: 'none',
+    z: 'none',
     hasMultiPoints: false,
     audio: {
       freq: { min: 200, max: 1000, raw: 300 },
