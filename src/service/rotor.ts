@@ -296,23 +296,26 @@ export class RotorNavigationService {
   }
 
   public getMessage(navType: string, direction: string): string {
-    if (this.text.isOff()) {
-      return '';
-    }
-    if (this.text.isTerse()) {
-      const preposition = direction === 'above' || direction === 'below' ? '' : 'on the ';
-      return `No ${navType} value found ${preposition}${direction}`;
-    }
-    const position = direction === 'above' || direction === 'below' ? `${direction} ` : `to the ${direction} of `;
-    return `No ${navType} value found ${position}the current value.`;
+    const isVertical = direction === 'above' || direction === 'below';
+    const preposition = isVertical ? '' : 'on the ';
+    const position = isVertical ? `${direction} ` : `to the ${direction} of `;
+    return this.buildMessage(
+      `No ${navType} value found ${preposition}${direction}`,
+      `No ${navType} value found ${position}the current value.`,
+    );
   }
 
   /**
    * Builds the list of available rotor modes based on active trace capabilities.
-   * - Always includes the trace's data mode name (DATA_MODE or ROW_COL_MODE)
-   * - Includes LOWER/HIGHER value modes if trace supports compare
-   * - Includes GRID_MODE if trace supports grid navigation
-   * - Includes INTERSECTION_MODE if trace exposes point intersections (multiline lines)
+   * Modes are appended in a fixed order so that cycling with Alt+Shift+Up/Down
+   * is predictable; future modes should be inserted with that ordering in mind.
+   *
+   * Order (when all capabilities are supported):
+   *   1. Data mode (DATA_MODE or ROW_COL_MODE — the trace's data mode name)
+   *   2. LOWER_VALUE_MODE   (if supportsCompareMode)
+   *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
+   *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
+   *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
