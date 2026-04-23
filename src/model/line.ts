@@ -1068,7 +1068,7 @@ export class LineTrace extends AbstractTrace {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -1176,6 +1176,10 @@ export class LineTrace extends AbstractTrace {
    * Collect point-type intersections for the current line, sorted by
    * pointIndex (column), with duplicate pointIndexes removed so that
    * navigation advances one data point at a time.
+   *
+   * Performance note: the underlying {@link findAllIntersectionsForCurrentLine}
+   * caches results per active row, so repeated calls while the cursor stays on
+   * the same line are O(n) over the cached intersection list (typically small).
    */
   private getPointIntersectionIndices(): number[] {
     const intersections = this.findAllIntersectionsForCurrentLine();
@@ -1202,7 +1206,7 @@ export class LineTrace extends AbstractTrace {
       return false;
     }
     this.col = target;
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
     return true;
   }
 
@@ -1213,7 +1217,7 @@ export class LineTrace extends AbstractTrace {
       return false;
     }
     this.col = target;
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
     return true;
   }
 }

@@ -146,7 +146,7 @@ export class RotorNavigationService {
       return this.moveGrid('up');
     }
     if (this.isIntersectionMode()) {
-      return this.getMessage('intersection', 'above');
+      return this.getIntersectionVerticalUnavailableMessage();
     }
 
     const activeTrace = this.context.active;
@@ -176,7 +176,7 @@ export class RotorNavigationService {
       return this.moveGrid('down');
     }
     if (this.isIntersectionMode()) {
-      return this.getMessage('intersection', 'below');
+      return this.getIntersectionVerticalUnavailableMessage();
     }
 
     const activeTrace = this.context.active;
@@ -366,26 +366,39 @@ export class RotorNavigationService {
    * Delegates to the active trace's intersection movement methods and surfaces
    * a user-facing bound message through the rotor area when no further point
    * intersection exists in that direction.
-   * @returns Error message if at bounds or trace is unsupported, null otherwise
+   *
+   * The {@link supportsIntersectionMode} contract guarantees that the active
+   * plot is an {@link AbstractTrace} whenever this method is reached, and the
+   * base-class navigation methods are safe no-ops for any trace that does not
+   * override them, so no explicit try/catch is required.
+   *
+   * @returns Error message if at bounds, null otherwise
    */
   private moveIntersection(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!(activeTrace instanceof AbstractTrace)) {
-      return this.getMessage('intersection', direction);
+      return null;
     }
+    const moved = direction === 'right'
+      ? activeTrace.moveToNextIntersection()
+      : activeTrace.moveToPrevIntersection();
+    return moved ? null : this.getMessage('intersection', direction);
+  }
 
-    try {
-      const moved = direction === 'right'
-        ? activeTrace.moveToNextIntersection()
-        : activeTrace.moveToPrevIntersection();
-      if (!moved) {
-        return this.getMessage('intersection', direction);
-      }
-    } catch {
-      return this.getMessage('intersection', direction);
+  /**
+   * User-facing message when Up/Down is pressed in intersection mode.
+   * Intersection navigation is horizontal-only, so vertical directions are
+   * explicitly announced as unavailable rather than reusing the directional
+   * bound message (which would imply a vertical bound exists).
+   */
+  private getIntersectionVerticalUnavailableMessage(): string {
+    if (this.text.isOff()) {
+      return '';
     }
-
-    return null;
+    if (this.text.isTerse()) {
+      return 'Up/down unavailable in intersection mode';
+    }
+    return 'Up and down navigation is not available in intersection point mode.';
   }
 
   /**

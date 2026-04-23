@@ -128,7 +128,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     }
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**

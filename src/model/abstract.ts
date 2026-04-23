@@ -289,20 +289,20 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 
   /**
    * Move to the next point intersection (right arrow in intersection rotor mode).
-   * Default throws so callers can fall back; subclasses that advertise
-   * {@link supportsIntersectionMode} must override.
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
    */
   public moveToNextIntersection(): boolean {
-    throw new Error('Intersection navigation is not defined for this trace');
+    return false;
   }
 
   /**
    * Move to the previous point intersection (left arrow in intersection rotor mode).
-   * Default throws so callers can fall back; subclasses that advertise
-   * {@link supportsIntersectionMode} must override.
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
    */
   public moveToPrevIntersection(): boolean {
-    throw new Error('Intersection navigation is not defined for this trace');
+    return false;
   }
 }
 
@@ -541,7 +541,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Common post-navigation cleanup that should be called by subclasses
    * after they update their internal state
    */
-  protected finalizeExtremaNavigation(): void {
+  protected finalizeNavigation(): void {
     // Ensure we're not in initial entry state after navigation
     if (this.isInitialEntry) {
       this.isInitialEntry = false;

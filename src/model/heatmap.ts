@@ -591,7 +591,7 @@ export class Heatmap extends AbstractTrace {
       this.col = target.categoryIndex;
 
       // Use common finalization method
-      this.finalizeExtremaNavigation();
+      this.finalizeNavigation();
     }
   }
 }
