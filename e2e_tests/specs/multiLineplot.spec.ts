@@ -492,25 +492,35 @@ test.describe('Multi Lineplot', () => {
   });
 
   test.describe('Intersection Rotor Navigation', () => {
-    test('should cycle into INTERSECTING POINT NAVIGATION and announce bound messages on arrow keys', async ({ page }) => {
-      await setupMultiLineplotPage(page);
-
-      // Rotor cycle for a multiline line trace:
-      //   0: DATA POINT NAVIGATION  (default, rotor disabled)
-      //   1: LOWER VALUE NAVIGATION
-      //   2: HIGHER VALUE NAVIGATION
-      //   3: INTERSECTING POINT NAVIGATION
-      // Alt+Shift+Up moves to the next unit.
-      for (let i = 0; i < 3; i++) {
+    /**
+     * Cycle the rotor (Alt+Shift+Up) until the rotor area announces the target
+     * mode. Avoids relying on a fixed press count, which would silently break
+     * if the rotor cycle order changes or a new mode is inserted earlier.
+     * @param page - The Playwright page
+     * @param targetMode - Expected text the rotor area should display
+     * @param maxCycles - Safety cap to prevent infinite loops
+     */
+    async function cycleRotorTo(page: Page, targetMode: string, maxCycles = 10): Promise<void> {
+      const rotorArea = page.locator('#maidr-rotor-area');
+      for (let i = 0; i < maxCycles; i++) {
         await page.keyboard.down('Alt');
         await page.keyboard.down('Shift');
         await page.keyboard.press('ArrowUp');
         await page.keyboard.up('Shift');
         await page.keyboard.up('Alt');
+        const current = (await rotorArea.textContent())?.trim() ?? '';
+        if (current === targetMode) {
+          return;
+        }
       }
+      throw new Error(`Rotor did not reach "${targetMode}" within ${maxCycles} cycles`);
+    }
 
+    test('should cycle into INTERSECTING POINT NAVIGATION and announce bound messages on arrow keys', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
       const rotorArea = page.locator('#maidr-rotor-area');
-      await expect(rotorArea).toHaveText('INTERSECTING POINT NAVIGATION', { timeout: 2000 });
 
       // The example data has no point intersections, so arrow keys must route
       // through intersection mode and land on the boundary message — proving
@@ -536,23 +546,17 @@ test.describe('Multi Lineplot', () => {
       await page.waitForSelector('svg', { timeout: 10000 });
       await page.keyboard.press('Tab');
 
-      // Cycle into INTERSECTING POINT NAVIGATION.
-      for (let i = 0; i < 3; i++) {
-        await page.keyboard.down('Alt');
-        await page.keyboard.down('Shift');
-        await page.keyboard.press('ArrowUp');
-        await page.keyboard.up('Shift');
-        await page.keyboard.up('Alt');
-      }
-      const rotorArea = page.locator('#maidr-rotor-area');
-      await expect(rotorArea).toHaveText('INTERSECTING POINT NAVIGATION', { timeout: 2000 });
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
 
       // ArrowRight should actually move to the (3, 4) point intersection and
-      // the text-output area should announce it.
+      // the text-output area should announce both coordinates. A regex that
+      // binds the digits to their axis labels avoids false positives from
+      // incidental "3"s and "4"s in other parts of the description.
       const textContainer = page.locator('#maidr-text-container');
+      const rotorArea = page.locator('#maidr-rotor-area');
       await page.keyboard.press('ArrowRight');
-      await expect(textContainer).toContainText('3', { timeout: 2000 });
-      await expect(textContainer).toContainText('4', { timeout: 2000 });
+      await expect(textContainer).toContainText(/x\D*3/i, { timeout: 2000 });
+      await expect(textContainer).toContainText(/y\D*4/i, { timeout: 2000 });
 
       // Rotor area should not be announcing a bound message — movement succeeded.
       await expect(rotorArea).not.toContainText(/No intersection/i);

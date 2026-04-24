@@ -385,6 +385,11 @@ export class RotorNavigationService {
   private moveIntersection(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!(activeTrace instanceof AbstractTrace)) {
+      // Defensive: INTERSECTION_MODE is only added to getAvailableModes() for
+      // AbstractTrace subclasses that opt in via supportsIntersectionMode(),
+      // so reaching this branch means the active plot changed between the
+      // mode list build and the key press. Warn so it's not silently ignored.
+      console.warn('[RotorNavigation] Active plot is not an AbstractTrace; intersection move ignored');
       return null;
     }
     const moved = direction === 'right'

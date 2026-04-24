@@ -1192,19 +1192,12 @@ export class LineTrace extends AbstractTrace {
   private getPointIntersectionIndices(): number[] {
     const intersections = this.findAllIntersectionsForCurrentLine();
     const seen = new Set<number>();
-    const indices: number[] = [];
     for (const intersection of intersections) {
-      if (intersection.intersectionKind !== 'point') {
-        continue;
+      if (intersection.intersectionKind === 'point') {
+        seen.add(intersection.pointIndex);
       }
-      if (seen.has(intersection.pointIndex)) {
-        continue;
-      }
-      seen.add(intersection.pointIndex);
-      indices.push(intersection.pointIndex);
     }
-    indices.sort((a, b) => a - b);
-    return indices;
+    return [...seen].sort((a, b) => a - b);
   }
 
   public override moveToNextIntersection(): boolean {
@@ -1220,7 +1213,9 @@ export class LineTrace extends AbstractTrace {
 
   public override moveToPrevIntersection(): boolean {
     const indices = this.getPointIntersectionIndices();
-    const target = indices.findLast(index => index < this.col);
+    // Avoid Array.prototype.findLast (ES2023) for broader runtime safety —
+    // reverse-then-find works on any ES2015+ target without transpilation.
+    const target = [...indices].reverse().find(index => index < this.col);
     if (target === undefined) {
       return false;
     }
