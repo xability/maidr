@@ -159,6 +159,39 @@ describe('LineTrace intersection rotor navigation', () => {
     expect(trace.col).toBe(0);
   });
 
+  test('deduplicates a multi-way point intersection shared across 3 lines', () => {
+    // All three lines share (x=1, y=1). findAllIntersectionsForCurrentLine
+    // returns one entry per crossing pair (line0↔1 and line0↔2), both with
+    // the same pointIndex on line 0. Navigation must treat them as a single
+    // intersection — the Set-based dedup in getPointIntersectionIndices is
+    // what makes that work.
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 3 },
+        { x: 1, y: 1 },
+        { x: 2, y: 3 },
+      ],
+    ]));
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    // Only one intersection exists, so the next advance must hit the bound.
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(1);
+  });
+
   test('returns false when no point intersections exist on the current line', () => {
     const trace = new LineTrace(createLineLayer([
       [

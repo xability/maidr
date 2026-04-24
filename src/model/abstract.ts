@@ -529,10 +529,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   /**
    * Returns true if this trace supports intersection navigation mode.
-   * Override to true for trace types that expose point intersections between lines
-   * (currently only multiline line traces). Intersection navigation is a
-   * trace-level capability — it has no meaning at the figure or subplot level,
-   * which is why it lives on AbstractTrace rather than AbstractPlot.
+   * Opt-in per trace type: override to return true (possibly conditionally,
+   * e.g. based on data shape) for trace types that expose point intersections
+   * between series. Intersection navigation is a trace-level capability — it
+   * has no meaning at the figure or subplot level, which is why it lives on
+   * AbstractTrace rather than AbstractPlot.
    */
   public supportsIntersectionMode(): boolean {
     return false;

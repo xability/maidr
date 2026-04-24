@@ -1213,9 +1213,16 @@ export class LineTrace extends AbstractTrace {
 
   public override moveToPrevIntersection(): boolean {
     const indices = this.getPointIntersectionIndices();
-    // Avoid Array.prototype.findLast (ES2023) for broader runtime safety —
-    // reverse-then-find works on any ES2015+ target without transpilation.
-    const target = [...indices].reverse().find(index => index < this.col);
+    // Walk the sorted indices backwards to find the largest value < col.
+    // A reverse loop avoids both Array.prototype.findLast (ES2023) and the
+    // array allocation that [...indices].reverse() would introduce.
+    let target: number | undefined;
+    for (let i = indices.length - 1; i >= 0; i--) {
+      if (indices[i] < this.col) {
+        target = indices[i];
+        break;
+      }
+    }
     if (target === undefined) {
       return false;
     }

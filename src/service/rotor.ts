@@ -388,7 +388,11 @@ export class RotorNavigationService {
    * base-class navigation methods are safe no-ops for any trace that does not
    * override them, so no explicit try/catch is required.
    *
-   * @returns Error message if at bounds, null otherwise
+   * Return convention matches sibling methods (moveUp/moveDown/moveLeft/
+   * moveRight / moveGrid): `null` signals a successful move (nothing to
+   * announce in the rotor area); a non-null string is the user-facing
+   * message for a failed / bounded / unavailable attempt.
+   * @returns Error message if at bounds or unavailable, null on success
    */
   private moveIntersection(direction: 'left' | 'right'): string | null {
     const activeTrace = this.context.active;

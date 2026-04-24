@@ -542,6 +542,10 @@ test.describe('Multi Lineplot', () => {
       // lines in multiline_plot_intersection.html share the sampled point
       // (x="3", y=4), so ArrowRight in intersection mode from col 0 lands
       // there rather than hitting a boundary.
+      //
+      // Path note: the Playwright baseURL (e2e_tests/config/test-config.ts)
+      // is `file://<projectRoot>/`, so a bare relative path resolves against
+      // the repo root — same way BasePage.navigateTo resolves its argument.
       await page.goto('examples/multiline_plot_intersection.html', { waitUntil: 'load' });
       await page.waitForSelector('svg', { timeout: 10000 });
       await page.keyboard.press('Tab');
