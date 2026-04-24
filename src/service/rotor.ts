@@ -142,10 +142,14 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveUp(): string | null {
-    if (this.isGridMode()) {
+    // Resolve the current rotor mode once — isGridMode() and isIntersectionMode()
+    // both call getMode() -> getAvailableModes() under the hood, so caching
+    // the string here avoids walking the capability list twice per keystroke.
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('up');
     }
-    if (this.isIntersectionMode()) {
+    if (mode === Constant.INTERSECTION_MODE) {
       // Intentional: do not call notifyStateUpdate() here. Vertical navigation
       // is unavailable in intersection mode, so the model is not moved and no
       // audio/text update is emitted — only the rotor-area message is returned.
@@ -175,10 +179,11 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveDown(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('down');
     }
-    if (this.isIntersectionMode()) {
+    if (mode === Constant.INTERSECTION_MODE) {
       // Intentional: see moveUp() — vertical navigation is unavailable in
       // intersection mode; the model is not moved and no observer is notified.
       return this.getIntersectionVerticalUnavailableMessage();
@@ -207,10 +212,11 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveLeft(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('left');
     }
-    if (this.isIntersectionMode()) {
+    if (mode === Constant.INTERSECTION_MODE) {
       return this.moveIntersection('left');
     }
 
@@ -237,10 +243,11 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveRight(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('right');
     }
-    if (this.isIntersectionMode()) {
+    if (mode === Constant.INTERSECTION_MODE) {
       return this.moveIntersection('right');
     }
 
