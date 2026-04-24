@@ -560,6 +560,14 @@ test.describe('Multi Lineplot', () => {
 
       // Rotor area should not be announcing a bound message — movement succeeded.
       await expect(rotorArea).not.toContainText(/No intersection/i);
+
+      // Vertical navigation must still announce the "unavailable" message even
+      // when the fixture contains real intersections — confirms Up/Down don't
+      // accidentally traverse between lines in intersection mode.
+      await page.keyboard.press('ArrowUp');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
+      await page.keyboard.press('ArrowDown');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
     });
   });
 });

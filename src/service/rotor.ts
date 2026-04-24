@@ -277,6 +277,14 @@ export class RotorNavigationService {
 
   /**
    * Gets the current rotor mode name.
+   *
+   * Known limitation: rotorIndex is not reset when the active plot/trace
+   * changes. If the user cycles to a capability-gated mode (GRID_MODE or
+   * INTERSECTION_MODE) and focus then moves to a trace that does not
+   * advertise that capability, the modulo below silently wraps the index
+   * onto a different mode without announcing the switch. Resetting the
+   * rotor on context change is a broader UX decision tracked separately
+   * from this file.
    * @returns The display name of the current rotor mode
    */
   public getMode(): string {
@@ -388,9 +396,14 @@ export class RotorNavigationService {
       // Defensive: INTERSECTION_MODE is only added to getAvailableModes() for
       // AbstractTrace subclasses that opt in via supportsIntersectionMode(),
       // so reaching this branch means the active plot changed between the
-      // mode list build and the key press. Warn so it's not silently ignored.
+      // mode list build and the key press. Return an unavailable message
+      // (not null — null means "move succeeded" to callers) so the user is
+      // told their key press had no effect, and warn for debugging.
       console.warn('[RotorNavigation] Active plot is not an AbstractTrace; intersection move ignored');
-      return null;
+      return this.buildMessage(
+        'Intersection mode unavailable',
+        'Intersection navigation is not available in the current context.',
+      );
     }
     const moved = direction === 'right'
       ? activeTrace.moveToNextIntersection()

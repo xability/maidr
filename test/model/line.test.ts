@@ -151,6 +151,14 @@ describe('LineTrace intersection rotor navigation', () => {
     expect(trace.col).toBe(1);
   });
 
+  test('moveToPrevIntersection returns false when positioned before all intersections', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 0;
+
+    expect(trace.moveToPrevIntersection()).toBe(false);
+    expect(trace.col).toBe(0);
+  });
+
   test('returns false when no point intersections exist on the current line', () => {
     const trace = new LineTrace(createLineLayer([
       [
