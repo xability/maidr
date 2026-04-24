@@ -1166,7 +1166,9 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Intersection navigation mode is available only when the plot has
-   * multiple lines (i.e. crossings between sampled series are possible).
+   * multiple lines. `points` is a 2-D array whose outer dimension is the line
+   * index, so `length > 1` means at least two lines exist — a prerequisite for
+   * any crossing between sampled series to be possible.
    */
   public override supportsIntersectionMode(): boolean {
     return this.points.length > 1;
@@ -1176,6 +1178,12 @@ export class LineTrace extends AbstractTrace {
    * Collect point-type intersections for the current line, sorted by
    * pointIndex (column), with duplicate pointIndexes removed so that
    * navigation advances one data point at a time.
+   *
+   * Sort rationale: {@link findAllIntersectionsForCurrentLine} sorts its
+   * results by continuous x-coordinate, which can differ from `pointIndex`
+   * order when an intersection falls between sampled points (the "nearest
+   * point" mapping is non-monotonic in those cases). Rotor navigation moves
+   * by column, so we sort explicitly by pointIndex here.
    *
    * Performance note: the underlying {@link findAllIntersectionsForCurrentLine}
    * caches results per active row, so repeated calls while the cursor stays on

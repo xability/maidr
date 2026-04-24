@@ -526,5 +526,36 @@ test.describe('Multi Lineplot', () => {
       await page.keyboard.press('ArrowUp');
       await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
     });
+
+    test('should navigate to a real point intersection with ArrowRight', async ({ page }) => {
+      // Use a fixture that contains actual point intersections — all three
+      // lines in multiline_plot_intersection.html share the sampled point
+      // (x="3", y=4), so ArrowRight in intersection mode from col 0 lands
+      // there rather than hitting a boundary.
+      await page.goto('examples/multiline_plot_intersection.html', { waitUntil: 'load' });
+      await page.waitForSelector('svg', { timeout: 10000 });
+      await page.keyboard.press('Tab');
+
+      // Cycle into INTERSECTING POINT NAVIGATION.
+      for (let i = 0; i < 3; i++) {
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('Shift');
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.up('Shift');
+        await page.keyboard.up('Alt');
+      }
+      const rotorArea = page.locator('#maidr-rotor-area');
+      await expect(rotorArea).toHaveText('INTERSECTING POINT NAVIGATION', { timeout: 2000 });
+
+      // ArrowRight should actually move to the (3, 4) point intersection and
+      // the text-output area should announce it.
+      const textContainer = page.locator('#maidr-text-container');
+      await page.keyboard.press('ArrowRight');
+      await expect(textContainer).toContainText('3', { timeout: 2000 });
+      await expect(textContainer).toContainText('4', { timeout: 2000 });
+
+      // Rotor area should not be announcing a bound message — movement succeeded.
+      await expect(rotorArea).not.toContainText(/No intersection/i);
+    });
   });
 });

@@ -146,6 +146,9 @@ export class RotorNavigationService {
       return this.moveGrid('up');
     }
     if (this.isIntersectionMode()) {
+      // Intentional: do not call notifyStateUpdate() here. Vertical navigation
+      // is unavailable in intersection mode, so the model is not moved and no
+      // audio/text update is emitted — only the rotor-area message is returned.
       return this.getIntersectionVerticalUnavailableMessage();
     }
 
@@ -176,6 +179,8 @@ export class RotorNavigationService {
       return this.moveGrid('down');
     }
     if (this.isIntersectionMode()) {
+      // Intentional: see moveUp() — vertical navigation is unavailable in
+      // intersection mode; the model is not moved and no observer is notified.
       return this.getIntersectionVerticalUnavailableMessage();
     }
 
