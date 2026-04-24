@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, Orientation, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 /**
@@ -49,7 +49,7 @@ export type SubplotState
 /**
  * Empty trace state used as a placeholder when no data is available.
  */
-interface TraceEmptyState {
+export interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
@@ -72,7 +72,7 @@ export type TraceState
       title: string;
       xAxis: string;
       yAxis: string;
-      fill: string;
+      z: string;
       hasMultiPoints: boolean;
       audio: AudioState;
       braille: BrailleState;
@@ -90,6 +90,10 @@ export type TraceState
        * Only present for multiline plots where plotType === 'multiline'.
        */
       groupCount?: number;
+      /**
+       * Plot orientation, if applicable (e.g. bar, box, violin).
+       */
+      orientation?: Orientation;
     };
 
 /**
@@ -246,7 +250,7 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 /**
  * Axis type identifier for formatting.
  */
-export type AxisType = 'x' | 'y' | 'fill';
+export type AxisType = 'x' | 'y' | 'z';
 
 /**
  * Text description state containing labels and values for screen reader output.
@@ -254,7 +258,7 @@ export type AxisType = 'x' | 'y' | 'fill';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  fill?: { label: string; value: number | string };
+  z?: { label: string; value: number | string };
   range?: { min: number; max: number };
   section?: string;
   /**
@@ -269,6 +273,18 @@ export interface TextState {
    * Used to apply correct formatter regardless of orientation.
    */
   crossAxis?: AxisType;
+  /**
+   * Range for the cross axis, used in grid navigation to show both axis ranges.
+   */
+  crossRange?: { min: number; max: number };
+  /**
+   * Points in the current grid cell, listed as coordinate pairs.
+   */
+  gridPoints?: { x: number; y: number }[];
+  /**
+   * Current grid cell position (1-indexed for display).
+   */
+  gridPosition?: { row: number; col: number };
 }
 
 /**

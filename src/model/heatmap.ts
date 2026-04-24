@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, TextState } from '@type/state';
@@ -12,7 +13,7 @@ export class Heatmap extends AbstractTrace {
     return this.heatmapValues;
   }
 
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
   private readonly heatmapValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
@@ -91,8 +92,8 @@ export class Heatmap extends AbstractTrace {
     return {
       main: { label: this.xAxis, value: this.x[this.col] },
       cross: { label: this.yAxis, value: this.y[this.row] },
-      fill: {
-        label: this.fill,
+      z: {
+        label: this.z,
         value: this.heatmapValues[this.row][this.col],
       },
     };
@@ -112,7 +113,17 @@ export class Heatmap extends AbstractTrace {
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
-    const domElements = Svg.selectAllElements(selector);
+    const domElements = Svg.selectAllElements(selector, false);
+
+    // Plotly renders heatmaps as a single <image> element (canvas PNG).
+    // Create transparent overlay rects so the highlight service can work.
+    if (
+      domElements.length === 1
+      && domElements[0] instanceof SVGImageElement
+    ) {
+      return this.createOverlayRects(domElements[0], numRows, numCols);
+    }
+
     if (domElements.length === 0 || domElements.length !== numRows * numCols) {
       return null;
     }
@@ -150,6 +161,54 @@ export class Heatmap extends AbstractTrace {
           svgElements.push(row);
         }
       }
+    }
+
+    return svgElements;
+  }
+
+  /**
+   * Create transparent overlay <rect> elements on top of a Plotly heatmap
+   * <image> element so the highlight service can target individual cells.
+   */
+  private createOverlayRects(
+    imageEl: SVGImageElement,
+    numRows: number,
+    numCols: number,
+  ): SVGElement[][] | null {
+    const imgX = Number.parseFloat(imageEl.getAttribute('x') ?? '0');
+    const imgY = Number.parseFloat(imageEl.getAttribute('y') ?? '0');
+    const imgW = Number.parseFloat(imageEl.getAttribute('width') ?? '0');
+    const imgH = Number.parseFloat(imageEl.getAttribute('height') ?? '0');
+
+    if (imgW === 0 || imgH === 0) {
+      return null;
+    }
+
+    const cellW = imgW / numCols;
+    const cellH = imgH / numRows;
+    const parent = imageEl.parentElement;
+    if (!parent) {
+      return null;
+    }
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svgElements = new Array<Array<SVGElement>>();
+
+    for (let r = 0; r < numRows; r++) {
+      const row = new Array<SVGElement>();
+      for (let c = 0; c < numCols; c++) {
+        const rect = document.createElementNS(svgNS, 'rect') as SVGRectElement;
+        rect.setAttribute('x', String(imgX + c * cellW));
+        rect.setAttribute('y', String(imgY + r * cellH));
+        rect.setAttribute('width', String(cellW));
+        rect.setAttribute('height', String(cellH));
+        rect.setAttribute('fill', 'transparent');
+        rect.setAttribute('stroke', 'none');
+        rect.setAttribute('pointer-events', 'none');
+        parent.appendChild(rect);
+        row.push(rect);
+      }
+      svgElements.push(row);
     }
 
     return svgElements;
@@ -328,5 +387,211 @@ export class Heatmap extends AbstractTrace {
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
     };
+  }
+
+  /**
+   * Gets extrema targets for the heatmap trace
+   * @returns Array of extrema targets for navigation
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const targets: ExtremaTarget[] = [];
+    const currentRow = this.row;
+    const currentCol = this.col;
+
+    // 1. Global Maximum
+    const globalMax = this.findGlobalExtrema('max');
+    if (globalMax) {
+      targets.push({
+        label: `Global Maximum: ${globalMax.value} at ${this.x[globalMax.col]}, ${this.y[globalMax.row]}`,
+        value: globalMax.value,
+        pointIndex: globalMax.row * this.heatmapValues[0].length + globalMax.col,
+        segment: 'global',
+        type: 'max',
+        navigationType: 'group',
+        groupIndex: globalMax.row,
+        categoryIndex: globalMax.col,
+        xValue: this.x[globalMax.col],
+      });
+    }
+
+    // 2. Global Minimum
+    const globalMin = this.findGlobalExtrema('min');
+    if (globalMin) {
+      targets.push({
+        label: `Global Minimum: ${globalMin.value} at ${this.x[globalMin.col]}, ${this.y[globalMin.row]}`,
+        value: globalMin.value,
+        pointIndex: globalMin.row * this.heatmapValues[0].length + globalMin.col,
+        segment: 'global',
+        type: 'min',
+        navigationType: 'group',
+        groupIndex: globalMin.row,
+        categoryIndex: globalMin.col,
+        xValue: this.x[globalMin.col],
+      });
+    }
+
+    // 3. Maximum on current row
+    const rowMax = this.findRowExtrema(currentRow, 'max');
+    if (rowMax) {
+      targets.push({
+        label: `Row Maximum: ${rowMax.value} at ${this.x[rowMax.col]}, ${this.y[currentRow]}`,
+        value: rowMax.value,
+        pointIndex: currentRow * this.heatmapValues[0].length + rowMax.col,
+        segment: `row-${currentRow}`,
+        type: 'max',
+        navigationType: 'group',
+        groupIndex: currentRow,
+        categoryIndex: rowMax.col,
+        xValue: this.x[rowMax.col],
+      });
+    }
+
+    // 4. Minimum on current row
+    const rowMin = this.findRowExtrema(currentRow, 'min');
+    if (rowMin) {
+      targets.push({
+        label: `Row Minimum: ${rowMin.value} at ${this.x[rowMin.col]}, ${this.y[currentRow]}`,
+        value: rowMin.value,
+        pointIndex: currentRow * this.heatmapValues[0].length + rowMin.col,
+        segment: `row-${currentRow}`,
+        type: 'min',
+        navigationType: 'group',
+        groupIndex: currentRow,
+        categoryIndex: rowMin.col,
+        xValue: this.x[rowMin.col],
+      });
+    }
+
+    // 5. Maximum on current column
+    const colMax = this.findColExtrema(currentCol, 'max');
+    if (colMax) {
+      targets.push({
+        label: `Column Maximum: ${colMax.value} at ${this.x[currentCol]}, ${this.y[colMax.row]}`,
+        value: colMax.value,
+        pointIndex: colMax.row * this.heatmapValues[0].length + currentCol,
+        segment: `col-${currentCol}`,
+        type: 'max',
+        navigationType: 'group',
+        groupIndex: colMax.row,
+        categoryIndex: currentCol,
+        xValue: this.x[currentCol],
+      });
+    }
+
+    // 6. Minimum on current column
+    const colMin = this.findColExtrema(currentCol, 'min');
+    if (colMin) {
+      targets.push({
+        label: `Column Minimum: ${colMin.value} at ${this.x[currentCol]}, ${this.y[colMin.row]}`,
+        value: colMin.value,
+        pointIndex: colMin.row * this.heatmapValues[0].length + currentCol,
+        segment: `col-${currentCol}`,
+        type: 'min',
+        navigationType: 'group',
+        groupIndex: colMin.row,
+        categoryIndex: currentCol,
+        xValue: this.x[currentCol],
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Finds the global maximum or minimum in the heatmap
+   * @param type - Whether to find 'max' or 'min'
+   * @returns Object with row, col, and value of the extrema
+   */
+  private findGlobalExtrema(type: 'max' | 'min'): { row: number; col: number; value: number } | null {
+    if (this.heatmapValues.length === 0) {
+      return null;
+    }
+
+    let extremaRow = 0;
+    let extremaCol = 0;
+    let extremaValue = this.heatmapValues[0][0];
+
+    for (let r = 0; r < this.heatmapValues.length; r++) {
+      for (let c = 0; c < this.heatmapValues[r].length; c++) {
+        const value = this.heatmapValues[r][c];
+        if (type === 'max' ? value > extremaValue : value < extremaValue) {
+          extremaValue = value;
+          extremaRow = r;
+          extremaCol = c;
+        }
+      }
+    }
+
+    return { row: extremaRow, col: extremaCol, value: extremaValue };
+  }
+
+  /**
+   * Finds the maximum or minimum in a specific row
+   * @param rowIndex - The row index to search
+   * @param type - Whether to find 'max' or 'min'
+   * @returns Object with col and value of the extrema
+   */
+  private findRowExtrema(rowIndex: number, type: 'max' | 'min'): { col: number; value: number } | null {
+    if (rowIndex < 0 || rowIndex >= this.heatmapValues.length) {
+      return null;
+    }
+
+    const row = this.heatmapValues[rowIndex];
+    if (row.length === 0) {
+      return null;
+    }
+
+    let extremaCol = 0;
+    let extremaValue = row[0];
+
+    for (let c = 1; c < row.length; c++) {
+      const value = row[c];
+      if (type === 'max' ? value > extremaValue : value < extremaValue) {
+        extremaValue = value;
+        extremaCol = c;
+      }
+    }
+
+    return { col: extremaCol, value: extremaValue };
+  }
+
+  /**
+   * Finds the maximum or minimum in a specific column
+   * @param colIndex - The column index to search
+   * @param type - Whether to find 'max' or 'min'
+   * @returns Object with row and value of the extrema
+   */
+  private findColExtrema(colIndex: number, type: 'max' | 'min'): { row: number; value: number } | null {
+    if (this.heatmapValues.length === 0 || colIndex < 0 || colIndex >= this.heatmapValues[0].length) {
+      return null;
+    }
+
+    let extremaRow = 0;
+    let extremaValue = this.heatmapValues[0][colIndex];
+
+    for (let r = 1; r < this.heatmapValues.length; r++) {
+      const value = this.heatmapValues[r][colIndex];
+      if (type === 'max' ? value > extremaValue : value < extremaValue) {
+        extremaValue = value;
+        extremaRow = r;
+      }
+    }
+
+    return { row: extremaRow, value: extremaValue };
+  }
+
+  /**
+   * Navigates to a specific extrema target in the heatmap
+   * @param target - The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      // Navigate to the specified row and column
+      this.row = target.groupIndex;
+      this.col = target.categoryIndex;
+
+      // Use common finalization method
+      this.finalizeExtremaNavigation();
+    }
   }
 }

@@ -95,12 +95,37 @@ export interface AxisFormat {
 }
 
 /**
- * Configuration for formatting values across all axes in a layer.
+ * Configuration options for violin plot display.
+ * Controls which summary statistics are shown in the violin box overlay.
+ * Sent from the Python backend alongside violin_kde and violin_box layers.
  */
-export interface FormatConfig {
-  x?: AxisFormat;
-  y?: AxisFormat;
-  fill?: AxisFormat;
+export interface ViolinOptions {
+  /** Show median line marker. Default: true */
+  showMedian?: boolean;
+  /** Show mean value marker. Default: false */
+  showMean?: boolean;
+  /** Show extrema (min/max) markers. Default: true */
+  showExtrema?: boolean;
+}
+
+/**
+ * Data point for violin KDE (kernel density estimation) curves.
+ * Library-agnostic — no SVG coordinates embedded in data.
+ * The density field falls back to width if absent.
+ */
+export interface ViolinKdePoint {
+  /** Categorical label for the violin (e.g., "setosa") */
+  x: string | number;
+  /** Position along the density axis */
+  y: number;
+  /** KDE density value at this point. Falls back to `width` if absent. */
+  density?: number;
+  /** Half-width of the violin at this Y level (used as density fallback) */
+  width?: number;
+  /** SVG viewport x-coordinate for highlight positioning (provided by backend) */
+  svg_x?: number;
+  /** SVG viewport y-coordinate for highlight positioning (provided by backend) */
+  svg_y?: number;
 }
 
 /**
@@ -174,7 +199,7 @@ export interface BarPoint {
  * Data point for boxplots containing quartiles, min/max, and outliers.
  */
 export interface BoxPoint {
-  fill: string;
+  z: string;
   lowerOutliers: number[];
   min: number;
   q1: number;
@@ -182,6 +207,8 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  /** Mean value for violin plots when mean display is enabled. */
+  mean?: number;
 }
 
 /**
@@ -194,6 +221,12 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  /** CSS selector for mean marker element in violin plots. */
+  mean?: string;
+  /** Optional direct CSS selector for Q1 element (bypasses iq edge derivation). */
+  q1?: string;
+  /** Optional direct CSS selector for Q3 element (bypasses iq edge derivation). */
+  q3?: string;
 }
 
 /**
@@ -205,7 +238,8 @@ export interface CandlestickPoint {
   high: number;
   low: number;
   close: number;
-  volume: number;
+  /** Optional volume data. May be undefined when source (e.g., Google Charts) doesn't provide it. */
+  volume?: number;
   trend: CandlestickTrend;
   volatility: number;
 }
@@ -235,7 +269,7 @@ export interface HistogramPoint extends BarPoint {
 export interface LinePoint {
   x: number | string;
   y: number;
-  fill?: string;
+  z?: string;
 }
 
 /**
@@ -250,7 +284,7 @@ export interface ScatterPoint {
  * Data point for segmented/grouped bar charts with fill color identifier.
  */
 export interface SegmentedPoint extends BarPoint {
-  fill: string;
+  z: string;
 }
 
 /**
@@ -261,6 +295,48 @@ export interface SmoothPoint {
   y: number;
   svg_x: number;
   svg_y: number;
+}
+
+/**
+ * Canonical axis configuration. Every axis (x, y, z) must be specified as an
+ * object of this shape. The `label` is optional and falls back to built-in
+ * defaults ('X', 'Y', 'Level') when omitted.
+ *
+ * Grid navigation properties (`min`, `max`, `tickStep`) are currently consumed
+ * by scatter-plot traces only; they are silently ignored by other trace types.
+ *
+ * Formatting configuration lives inline as `format` on each axis, allowing
+ * different formatters per axis without a separate top-level block.
+ *
+ * @example
+ * // Simple label
+ * axes: { x: { label: "Date" }, y: { label: "Price" } }
+ *
+ * @example
+ * // With grid navigation (scatter)
+ * axes: {
+ *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+ *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
+ * }
+ *
+ * @example
+ * // With formatting
+ * axes: {
+ *   x: { label: "Date" },
+ *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+ * }
+ */
+export interface AxisConfig {
+  /** Axis label displayed in text descriptions. Defaults applied when absent. */
+  label?: string;
+  /** Minimum value for grid navigation (scatter only). */
+  min?: number;
+  /** Maximum value for grid navigation (scatter only). */
+  max?: number;
+  /** Step size for grid navigation (scatter only). */
+  tickStep?: number;
+  /** Optional per-axis value formatting applied in text descriptions. */
+  format?: AxisFormat;
 }
 
 /**
@@ -317,38 +393,38 @@ export interface MaidrLayer {
     iqrDirection?: 'forward' | 'reverse';
   };
   /**
-   * Axis configuration including labels and optional formatting.
+   * Axis configuration. Every axis (x, y, z) is specified as an {@link AxisConfig}
+   * object with an optional `label`, optional grid navigation properties
+   * (`min`, `max`, `tickStep`), and optional per-axis `format`.
    *
    * @example
-   * // Basic axis labels
-   * axes: { x: "Date", y: "Price" }
+   * // Basic labels
+   * axes: { x: { label: "Date" }, y: { label: "Price" } }
    *
    * @example
-   * // With formatting
+   * // With per-axis formatting
    * axes: {
-   *   x: "Date",
-   *   y: "Price",
-   *   format: {
-   *     y: { type: "currency", decimals: 2 }
-   *   }
+   *   x: { label: "Date" },
+   *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+   * }
+   *
+   * @example
+   * // With grid navigation (scatter)
+   * axes: {
+   *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+   *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
    * }
    */
   axes?: {
-    x?: string;
-    y?: string;
-    fill?: string;
-    /**
-     * Optional formatting configuration for axis values.
-     * When provided, values displayed in text descriptions will be formatted.
-     *
-     * @example
-     * format: {
-     *   x: { function: "return new Date(value).toLocaleDateString()" },
-     *   y: { type: "currency", decimals: 2 }
-     * }
-     */
-    format?: FormatConfig;
+    x?: AxisConfig;
+    y?: AxisConfig;
+    z?: AxisConfig;
   };
+  /**
+   * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
+   * Controls which summary statistics are shown in the violin box overlay.
+   */
+  violinOptions?: ViolinOptions;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -358,7 +434,8 @@ export interface MaidrLayer {
     | LinePoint[][]
     | ScatterPoint[]
     | SegmentedPoint[][]
-    | SmoothPoint[][];
+    | SmoothPoint[][]
+    | ViolinKdePoint[][];
 }
 
 /**
@@ -385,4 +462,6 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  VIOLIN_BOX = 'violin_box',
+  VIOLIN_KDE = 'violin_kde',
 }

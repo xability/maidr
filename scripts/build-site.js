@@ -8,13 +8,18 @@
  * - TypeDoc generates API docs separately
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { marked } = require('marked');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { marked } from 'marked';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -41,18 +46,101 @@ function markdownToHtml(md) {
   return marked.parse(content);
 }
 
+// Per-page SEO descriptions.
+// Keys are either activePage slugs ('home', 'react', 'examples') or page titles
+// ('Data Schema', etc.) for doc pages where activePage is '' and lookup falls back to title.
+const PAGE_DESCRIPTIONS = {
+  'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
+  'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
+  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
+  'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
+  'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
+  'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+  'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
+};
+
 /**
- * Generate a page from template
+ * Build a BreadcrumbList JSON-LD block for the given page.
  */
-function generatePage(title, content, activePage, basePath = '') {
+function buildBreadcrumbSchema(title, canonicalUrl) {
+  const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
+  if (canonicalUrl !== 'https://maidr.ai/') {
+    crumbs.push({ name: title, url: canonicalUrl });
+  }
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'name': c.name,
+      'item': c.url,
+    })),
+  }, null, 2);
+}
+
+/**
+ * Build a TechArticle JSON-LD block for documentation pages.
+ */
+function buildTechArticleSchema(title, description, canonicalUrl, dateModified) {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    'headline': title,
+    'description': description,
+    'url': canonicalUrl,
+    'datePublished': '2024-01-15', // project launch date; per-page dates not tracked
+    'dateModified': dateModified,
+    'publisher': { '@id': 'https://maidr.ai/#organization' },
+    'isPartOf': { '@id': 'https://maidr.ai/#website' },
+    'about': { '@id': 'https://maidr.ai/#software' },
+  }, null, 2);
+}
+
+/**
+ * Generate a page from template.
+ * @param {object} opts
+ * @param {string} opts.title
+ * @param {string} opts.content       - inner HTML
+ * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
+ * @param {string} [opts.basePath]
+ * @param {string} [opts.slug]         - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.ogType]
+ * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
+ */
+function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
+  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title];
+  if (!description) {
+    console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
+  }
+  const finalDescription = description || PAGE_DESCRIPTIONS.home;
+  const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
+
+  // Generate breadcrumb schema (skip for home page — single-item lists are unusual)
+  const breadcrumbTag = canonicalUrl !== 'https://maidr.ai/'
+    ? `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`
+    : '';
+  const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
+
   const page = template
-    .replace('{{TITLE}}', title)
-    .replace('{{CONTENT}}', content)
-    .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
-    .replace('{{REACT_ACTIVE}}', activePage === 'react' ? 'active' : '')
-    .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
-    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '')
-    .replace(/\{\{BASE_PATH\}\}/g, basePath);
+    .replace(/\{\{TITLE\}\}/g, () => title)
+    .replace(/\{\{DESCRIPTION\}\}/g, () => finalDescription)
+    .replace(/\{\{CANONICAL_URL\}\}/g, () => canonicalUrl)
+    .replace(/\{\{SOFTWARE_VERSION\}\}/g, () => PKG.version)
+    .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
+    .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
+    .replace(/\{\{CONTENT\}\}/g, () => content)
+    .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
+    .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{RECHARTS_ACTIVE\}\}/g, () => activePage === 'recharts' ? 'active' : '')
+    .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
+    .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
+    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
+    .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
+    .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
 
   return page;
 }
@@ -73,7 +161,7 @@ const readmeHtml = `
   ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage('Home', readmeHtml, 'home');
+const indexPage = generatePage({ title: 'Home', content: readmeHtml, activePage: 'home', slug: '' });
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
 // Build react.html from docs/react.md
@@ -86,16 +174,228 @@ if (fs.existsSync(reactMdPath)) {
   ${marked.parse(reactMd)}
 </div>
 `;
-  const reactPage = generatePage('React', reactHtml, 'react');
+  const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
 }
 
-// Build examples.html
+// Build recharts.html from docs/recharts.md
+console.log('Building recharts.html from docs/recharts.md...');
+const rechartsMdPath = path.join(ROOT, 'docs', 'recharts.md');
+if (fs.existsSync(rechartsMdPath)) {
+  const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
+  const rechartsHtml = `
+<div class="content">
+  ${marked.parse(rechartsMd)}
+</div>
+`;
+  const rechartsPage = generatePage({ title: 'Recharts', content: rechartsHtml, activePage: 'recharts', slug: 'recharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'recharts.html'), rechartsPage);
+}
+
+// Build plotly.html from docs/plotly.md
+console.log('Building plotly.html from docs/plotly.md...');
+const plotlyMdPath = path.join(ROOT, 'docs', 'plotly.md');
+if (fs.existsSync(plotlyMdPath)) {
+  const plotlyMd = fs.readFileSync(plotlyMdPath, 'utf-8');
+  const plotlyHtml = `
+<div class="content">
+  ${marked.parse(plotlyMd)}
+</div>
+`;
+  const plotlyPage = generatePage({ title: 'Plotly', content: plotlyHtml, activePage: 'plotly', slug: 'plotly.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'plotly.html'), plotlyPage);
+}
+
+// Build google-charts.html from docs/google-charts.md
+console.log('Building google-charts.html from docs/google-charts.md...');
+const googleChartsMdPath = path.join(ROOT, 'docs', 'google-charts.md');
+if (fs.existsSync(googleChartsMdPath)) {
+  const googleChartsMd = fs.readFileSync(googleChartsMdPath, 'utf-8');
+  const googleChartsHtml = `
+<div class="content">
+  ${marked.parse(googleChartsMd)}
+</div>
+`;
+  const googleChartsPage = generatePage({ title: 'Google Charts', content: googleChartsHtml, activePage: 'google-charts', slug: 'google-charts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'google-charts.html'), googleChartsPage);
+}
+
+// Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
-<iframe src="examples/example-gallery.html" class="examples-frame" title="MAIDR Examples"></iframe>
+<style>
+  .examples-gallery { padding: 20px; }
+  .examples-gallery ul a { display: block; margin: 8px 0; font-size: 18px; cursor: pointer; }
+  .examples-gallery #content { margin-top: 40px; padding: 20px; border: 1px solid #ccc; }
+</style>
+<div class="examples-gallery">
+  <h1>MAIDR Examples</h1>
+  <h2>Click on one of the examples below to see a demonstration</h2>
+
+  <h3>React</h3>
+  <ul>
+    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth)</a></li>
+  </ul>
+  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
+
+  <h3>HTML / Vanilla JS</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot'); return false;">Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer'); return false;">Candlestick multilayer</a></li>
+    <li><a href="#" onclick="loadHTML('dodged_barplot.html', 'Dodged Barplot'); return false;">Dodged Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('facet_barplot.html', 'Faceted Bar plots'); return false;">Faceted Bar plots</a></li>
+    <li><a href="#" onclick="loadHTML('heatmap.html', 'Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('histogram.html', 'Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('horizontal-boxplot.html', 'Horizontal box plot'); return false;">Horizontal box plot</a></li>
+    <li><a href="#" onclick="loadHTML('lineplot.html', 'Single Line plot'); return false;">Single Line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multiline_plot.html', 'Multi line plot'); return false;">Multi line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multilayer_plot.html', 'Multi layered plot'); return false;">Multi layered plot</a></li>
+    <li><a href="#" onclick="loadHTML('multipanel.html', 'Multi panel plot'); return false;">Multi panel plot</a></li>
+    <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot'); return false;">Scatter plot</a></li>
+    <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot'); return false;">Smooth plot</a></li>
+    <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot'); return false;">Stacked Bar plot</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot'); return false;">Vertical box plot</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
+    <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>
+  </ul>
+
+  <h3>Plotly.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('plotly-bar.html', 'Plotly Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-scatter.html', 'Plotly Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-line.html', 'Plotly Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-box.html', 'Plotly Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-heatmap.html', 'Plotly Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-histogram.html', 'Plotly Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-grouped-bar.html', 'Plotly Grouped Bar'); return false;">Grouped Bar</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-stacked-bar.html', 'Plotly Stacked Bar'); return false;">Stacked Bar</a></li>
+  </ul>
+  <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Recharts</h3>
+  <ul>
+    <li><a href="#" onclick="loadRecharts(); return false;">Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)</a></li>
+  </ul>
+  <p>See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
+  <h3>Google Charts</h3>
+  <ul>
+    <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
+  </ul>
+  <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <div id="content" hidden="true">Select an example above.</div>
+</div>
+
+<script>
+  function loadReact() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'React Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/react/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'React Examples';
+    iframe.setAttribute('aria-label', 'React example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadRecharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Recharts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/recharts/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Recharts Examples';
+    iframe.setAttribute('aria-label', 'Recharts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadGoogleCharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Google Charts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/google-charts.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Google Charts Examples';
+    iframe.setAttribute('aria-label', 'Google Charts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadHTML(filename, headingText) {
+    try {
+      var heading = document.createElement('h2');
+      heading.id = 'example-heading';
+      heading.textContent = headingText;
+      heading.tabIndex = -1;
+      heading.style.marginTop = '0';
+
+      var iframe = document.createElement('iframe');
+      iframe.src = 'examples/' + filename;
+      iframe.style.width = '100%';
+      iframe.style.height = '800px';
+      iframe.style.border = 'none';
+      iframe.tabIndex = 0;
+      iframe.title = headingText + ' example';
+      iframe.setAttribute('aria-label', headingText + ' example demonstration');
+
+      var contentDiv = document.getElementById('content');
+      contentDiv.innerHTML = '';
+      contentDiv.appendChild(heading);
+      contentDiv.appendChild(iframe);
+      contentDiv.hidden = false;
+
+      setTimeout(function() { heading.focus(); }, 100);
+    } catch (err) {
+      console.error(err);
+      document.getElementById('content').innerText = 'Failed to load: ' + err.message;
+    }
+  }
+</script>
 `;
-const examplesPage = generatePage('Examples', examplesContent, 'examples');
+const examplesPage = generatePage({ title: 'Examples', content: examplesContent, activePage: 'examples', slug: 'examples.html' });
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
 
 // Copy media folder
@@ -114,6 +414,10 @@ if (fs.existsSync(distSource)) {
   fs.cpSync(distSource, distDest, { recursive: true });
 }
 
+// Build React example
+console.log('Building React example...');
+execSync('npm run build:react-example', { stdio: 'inherit', cwd: ROOT });
+
 // Copy examples folder
 console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');
@@ -122,13 +426,37 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
+// Copy built Recharts example (single-file HTML) to _site/examples/recharts/
+console.log('Copying built Recharts example...');
+const rechartsBuilt = path.join(ROOT, 'examples', 'recharts', 'dist', 'index.html');
+const rechartsSiteDest = path.join(SITE_DIR, 'examples', 'recharts');
+if (fs.existsSync(rechartsBuilt)) {
+  if (!fs.existsSync(rechartsSiteDest)) {
+    fs.mkdirSync(rechartsSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(rechartsBuilt, path.join(rechartsSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Recharts example not found. Run "npm run build:recharts-example" first.');
+}
+
+const today = new Date().toISOString().split('T')[0];
+
+/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
+function fileMod(filePath) {
+  try {
+    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
+  } catch {
+    return today;
+  }
+}
+
 // Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
 const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -147,9 +475,23 @@ if (fs.existsSync(docsSource)) {
         SCHEMA: 'Data Schema',
         BRAILLE: 'Braille Generation',
         CONTROLS: 'Keyboard Controls',
+        VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
       };
       const title = titleMap[baseName] ?? baseName;
-      const docPage = generatePage(title, htmlContent, '', '../');
+      const docSlug = `docs/${baseName}.html`;
+      const docCanonical = `https://maidr.ai/${docSlug}`;
+      const fileMtime = fileMod(src);
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
+      const docPage = generatePage({
+        title,
+        content: htmlContent,
+        activePage: '',
+        basePath: '../',
+        slug: docSlug,
+        ogType: 'article',
+        pageSchema: techArticleTag,
+      });
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
@@ -160,6 +502,45 @@ if (fs.existsSync(docsSource)) {
     }
   }
 }
+
+// Generate sitemap.xml — built dynamically from the docs/ folder so new pages
+// are included automatically without maintaining a hardcoded list.
+console.log('Generating sitemap.xml...');
+
+const sitemapUrls = [
+  { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
+  { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
+  { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
+  { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+];
+
+// Add all doc .md files that were built into _site/docs/
+if (fs.existsSync(docsSource)) {
+  for (const f of fs.readdirSync(docsSource)) {
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || !f.endsWith('.md'))
+      continue;
+    const base = path.basename(f, '.md');
+    sitemapUrls.push({
+      loc: `https://maidr.ai/docs/${base}.html`,
+      priority: '0.6',
+      lastmod: fileMod(path.join(docsSource, f)),
+    });
+  }
+}
+
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapUrls.map(u => `  <url>
+    <loc>${u.loc}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''}
+    <changefreq>monthly</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+fs.writeFileSync(path.join(SITE_DIR, 'sitemap.xml'), sitemap);
 
 console.log('Site built successfully!');
 console.log('Run "npx typedoc" to generate API documentation in _site/api/');

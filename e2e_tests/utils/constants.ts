@@ -35,6 +35,7 @@ export abstract class TestConstants {
   static readonly BOXPLOT_HORIZONTAL_ID = 'boxplot_horizontal';
   static readonly MULTI_LINEPLOT_ID = 'line';
   static readonly MULTI_LAYER_PLOT_ID = 'multi-layer';
+  static readonly VIOLIN_PLOT_ID = 'violin';
 
   /**
    * MAIDR plot identifiers
@@ -102,6 +103,7 @@ export abstract class TestConstants {
   static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: multiline with 3 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: smooth plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes
@@ -185,6 +187,12 @@ export abstract class TestConstants {
   static readonly MULTI_LAYER_SECOND_LAYER = 'Layer 2 of 2: single line plot';
   static readonly MULTI_LAYER_FIRST_LAYER = 'Layer 1 of 2: bar plot';
   static readonly MULTI_LAYER_NO_ADDITIONAL_LAYERS = 'No additional layer';
+
+  /**
+   * Violin plot layer identifiers
+   */
+  static readonly VIOLIN_PLOT_KDE_LAYER = 'Layer 1 of 2: smooth plot';
+  static readonly VIOLIN_PLOT_BOX_LAYER = 'Layer 2 of 2: box plot';
 
   /**
    * Time constants (in milliseconds)
