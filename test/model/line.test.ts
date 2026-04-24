@@ -192,6 +192,41 @@ describe('LineTrace intersection rotor navigation', () => {
     expect(trace.col).toBe(1);
   });
 
+  test('scopes intersections to the active row (row > 0)', () => {
+    // Line 0 has no shared points with line 1 (0,0 vs 0,1 etc.)
+    // Line 1 shares (1, 5) with line 2. Active row = 1 should expose that
+    // intersection; changing row must change which intersections are visible.
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 5 },
+        { x: 2, y: 9 },
+      ],
+      [
+        { x: 0, y: 9 },
+        { x: 1, y: 5 },
+        { x: 2, y: 1 },
+      ],
+    ]));
+    trace.row = 1;
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    // Sanity: from row 0 the same cursor position finds no point intersection
+    // because line 0 does not share any sampled point with lines 1 or 2.
+    trace.row = 0;
+    trace.col = 0;
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(0);
+  });
+
   test('returns false when no point intersections exist on the current line', () => {
     const trace = new LineTrace(createLineLayer([
       [

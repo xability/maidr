@@ -142,9 +142,9 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveUp(): string | null {
-    // Resolve the current rotor mode once — isGridMode() and isIntersectionMode()
-    // both call getMode() -> getAvailableModes() under the hood, so caching
-    // the string here avoids walking the capability list twice per keystroke.
+    // Resolve the current rotor mode once. getMode() walks the capability
+    // list via getAvailableModes(), so caching it here avoids doing that
+    // twice per keystroke when dispatching to GRID_MODE / INTERSECTION_MODE.
     const mode = this.getMode();
     if (mode === Constant.GRID_MODE) {
       return this.moveGrid('up');
@@ -368,20 +368,6 @@ export class RotorNavigationService {
    */
   private isDataMode(mode: string): boolean {
     return mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE;
-  }
-
-  /**
-   * Checks if the current rotor mode is GRID_MODE.
-   */
-  private isGridMode(): boolean {
-    return this.getMode() === Constant.GRID_MODE;
-  }
-
-  /**
-   * Checks if the current rotor mode is INTERSECTION_MODE.
-   */
-  private isIntersectionMode(): boolean {
-    return this.getMode() === Constant.INTERSECTION_MODE;
   }
 
   /**
