@@ -59,6 +59,33 @@
       svg.append('g').call(d3.axisLeft(y));
       svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Student Grades by Subject');
 
+      // X-axis title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text('Subject');
+
+      // Y-axis title
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -40)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text('Count');
+
+      // Legend (grade A, B, C swatches)
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width + 10}, 0)`);
+      grades.forEach((g, i) => {
+        const row = legend.append('g').attr('transform', `translate(0, ${i * 20})`);
+        row.append('rect').attr('width', 14).attr('height', 14).attr('fill', colors[g]);
+        row.append('text').attr('x', 20).attr('y', 11).style('font-size', '12px').text(g);
+      });
+      legend.append('text').attr('x', 0).attr('y', -6).style('font-size', '12px').style('font-weight', 'bold').text('Grade');
+
       // === MAIDR Integration ===
       const svgElement = document.getElementById('d3-dodged-chart');
       const result = maidrD3.bindD3Segmented(svgElement, {
@@ -70,7 +97,8 @@
         y: 'y',
         fill: 'fill',
       });
-      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
     </script>
   </body>
 </html>

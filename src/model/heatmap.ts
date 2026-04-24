@@ -143,10 +143,17 @@ export class Heatmap extends AbstractTrace {
       // If layer.domMapping?.order === 'row', use row-major mapping for rects.
       // Otherwise, preserve current default: column-major mapping.
       if (this.layer.domMapping?.order === 'row') {
+        // Rects are laid out top-to-bottom row-major in the DOM (as produced
+        // by a standard D3 heatmap join). The model has already reversed
+        // `heatmapValues` so row 0 = bottom of the visual grid (Cartesian
+        // convention, matches navigation where UP increments row). Flip the
+        // DOM row index so the highlight tracks that same reversal, mirroring
+        // what the SVGPath branch above does.
         for (let r = 0; r < numRows; r++) {
+          const rowIndex = numRows - 1 - r;
           const row = new Array<SVGElement>();
           for (let c = 0; c < numCols; c++) {
-            const flatIndex = r * numCols + c;
+            const flatIndex = rowIndex * numCols + c;
             row.push(domElements[flatIndex]);
           }
           svgElements.push(row);

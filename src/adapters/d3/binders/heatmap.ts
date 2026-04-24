@@ -5,10 +5,11 @@
  * the MAIDR JSON schema for accessible heatmap interaction.
  */
 
-import type { HeatmapData, Maidr, MaidrLayer } from '../type/grammar';
-import type { D3BinderResult, D3HeatmapConfig } from './types';
-import { TraceType } from '../type/grammar';
-import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector } from './util';
+import type { HeatmapData, Maidr, MaidrLayer } from '../../../type/grammar';
+import type { D3BinderResult, D3HeatmapConfig } from '../types';
+import { TraceType } from '../../../type/grammar';
+import { scopeSelector } from '../selectors';
+import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
 
 /**
  * Binds a D3.js heatmap to MAIDR, generating the accessible data representation.
@@ -16,6 +17,23 @@ import { buildAxes, generateId, queryD3Elements, resolveAccessor, scopeSelector 
  * Extracts cell data from D3-bound SVG elements (`<rect>`) organized in a grid
  * and produces a complete {@link Maidr} data structure. The cells are grouped
  * by their x and y category values to form the 2D points grid.
+ *
+ * @remarks
+ * **Timing — call after D3 has rendered.** This function reads each matched
+ * element's D3-bound `__data__`: the x/y category pair and cell value bound
+ * to each heatmap cell. Calling it before `.data().join()` has run (or
+ * before the SVG is mounted) throws "No elements found for selector …" or
+ * "Property '…' not found on datum".
+ *
+ * Typical call sites:
+ * - **Vanilla JS:** right after your `selectAll(...).data(...).join(...)` chain.
+ * - **React:** inside `useEffect`, never during render. Prefer
+ *   {@link MaidrD3} / {@link useD3Adapter} from `maidr/react`, which
+ *   handle the post-render timing for you.
+ * - **Async data:** inside the `.then(...)` of your fetch, after drawing.
+ *
+ * @see {@link MaidrD3}
+ * @see {@link useD3Adapter}
  *
  * @param svg - The SVG element containing the D3 heatmap.
  * @param config - Configuration specifying the selector and data accessors.
@@ -43,26 +61,43 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     axes,
     format,
     selector,
-    x: xAccessor = 'x',
-    y: yAccessor = 'y',
-    value: valueAccessor = 'value',
+    autoApply,
   } = config;
 
   const elements = queryD3Elements(svg, selector);
   if (elements.length === 0) {
-    throw new Error(
-      `No elements found for selector "${selector}". `
-      + `Ensure the D3 chart has been rendered and the selector matches the cell elements.`,
-    );
+    throw buildNoElementsError(svg, selector, 'heatmap cell');
   }
+
+  // Infer accessors from the first datum's keys when the user did not specify.
+  const firstDatum = elements[0].datum;
+  const configRecord = config as unknown as Record<string, unknown>;
+  const xAccessor = inferAccessor<string>(
+    configRecord,
+    'x',
+    'x',
+    ['xLabel', 'xVar', 'category', 'col', 'column'],
+    firstDatum,
+  );
+  const yAccessor = inferAccessor<string>(
+    configRecord,
+    'y',
+    'y',
+    ['yLabel', 'yVar', 'group', 'row'],
+    firstDatum,
+  );
+  const valueAccessor = inferAccessor<number>(
+    configRecord,
+    'value',
+    'value',
+    ['count', 'amount', 'v', 'z', 'correlation'],
+    firstDatum,
+  );
 
   // Extract raw cell data
   const cells: { x: string; y: string; value: number }[] = elements.map(({ datum, index }) => {
     if (!datum) {
-      throw new Error(
-        `No D3 data bound to element at index ${index}. `
-        + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
-      );
+      throw buildNoDatumError(selector, index);
     }
     return {
       x: String(resolveAccessor<string>(datum, xAccessor, index)),
@@ -131,6 +166,12 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     selectors: scopeSelector(svg, selector),
     axes: buildAxes(axes, format),
     data,
+    // D3 heatmaps typically join rects in row-major order (outer loop over
+    // rows, inner over columns), which matches how we build `points` here.
+    // The HeatmapTrace model otherwise defaults to column-major DOM mapping
+    // (matplotlib path-element convention), which would transpose the
+    // highlight grid relative to the data. Emit the hint explicitly.
+    domMapping: { order: 'row' },
   };
 
   const maidr: Maidr = {
@@ -141,5 +182,6 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     subplots: [[{ layers: [layer] }]],
   };
 
+  applyMaidrData(svg, maidr, autoApply);
   return { maidr, layer };
 }

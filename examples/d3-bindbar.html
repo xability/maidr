@@ -100,9 +100,9 @@
         x: 'day',
         y: 'count',
       });
-
-      // Apply MAIDR data to the SVG element
-      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+      // The binder auto-applies `maidr-data` to the SVG. Pass `autoApply: false`
+      // in the config above if you want to handle the attribute yourself.
+      void result;
     </script>
   </body>
 </html>

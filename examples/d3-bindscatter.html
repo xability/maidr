@@ -101,12 +101,15 @@
       const result = maidrD3.bindD3Scatter(svgElement, {
         selector: 'circle.dot',
         title: 'Height vs Weight',
-        axes: { x: 'Height (cm)', y: 'Weight (kg)' },
+        axes: {
+          x: { label: 'Height (cm)', min: 155, max: 195, tickStep: 5 },
+          y: { label: 'Weight (kg)', min: 50, max: 95, tickStep: 5 },
+        },
         x: 'height',
         y: 'weight',
       });
-
-      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
     </script>
   </body>
 </html>

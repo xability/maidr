@@ -33,13 +33,13 @@
  * ```html
  * <script src="maidr/dist/d3.js"></script>
  * <script>
- *   // After D3 renders the chart:
- *   const result = maidrD3.bindD3Bar(svgElement, {
+ *   // After D3 renders the chart: the binder writes the `maidr-data`
+ *   // attribute for you by default (pass `autoApply: false` to opt out).
+ *   maidrD3.bindD3Bar(svgElement, {
  *     selector: 'rect.bar',
  *     title: 'My Chart',
  *     axes: { x: 'Category', y: 'Value' },
  *   });
- *   svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
  * </script>
  * ```
  *
@@ -81,19 +81,19 @@
  */
 
 // Re-export commonly needed MAIDR types for convenience
-export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from '../type/grammar';
-export { Orientation, TraceType } from '../type/grammar';
+export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from '../../type/grammar';
+export { Orientation, TraceType } from '../../type/grammar';
 
 // Binder functions
-export { bindD3Bar } from './bindBar';
-export { bindD3Box } from './bindBox';
-export { bindD3Candlestick } from './bindCandlestick';
-export { bindD3Heatmap } from './bindHeatmap';
-export { bindD3Histogram } from './bindHistogram';
-export { bindD3Line } from './bindLine';
-export { bindD3Scatter } from './bindScatter';
-export { bindD3Segmented } from './bindSegmented';
-export { bindD3Smooth } from './bindSmooth';
+export { bindD3Bar } from './binders/bar';
+export { bindD3Box } from './binders/box';
+export { bindD3Candlestick } from './binders/candlestick';
+export { bindD3Heatmap } from './binders/heatmap';
+export { bindD3Histogram } from './binders/histogram';
+export { bindD3Line } from './binders/line';
+export { bindD3Scatter } from './binders/scatter';
+export { bindD3Segmented } from './binders/segmented';
+export { bindD3Smooth } from './binders/smooth';
 
 // Types
 export type {

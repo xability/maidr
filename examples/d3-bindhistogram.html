@@ -101,8 +101,8 @@
         yMin: () => 0,
         yMax: (d) => d.length,
       });
-
-      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
     </script>
   </body>
 </html>

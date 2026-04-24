@@ -5,10 +5,11 @@
  * the MAIDR JSON schema for accessible candlestick chart interaction.
  */
 
-import type { CandlestickPoint, CandlestickTrend, Maidr, MaidrLayer } from '../type/grammar';
-import type { D3BinderResult, D3CandlestickConfig } from './types';
-import { TraceType } from '../type/grammar';
-import { buildAxes, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional, scopeSelector } from './util';
+import type { CandlestickPoint, CandlestickTrend, Maidr, MaidrLayer } from '../../../type/grammar';
+import type { D3BinderResult, D3CandlestickConfig } from '../types';
+import { TraceType } from '../../../type/grammar';
+import { scopeSelector } from '../selectors';
+import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js candlestick chart to MAIDR.
@@ -16,6 +17,23 @@ import { buildAxes, generateId, queryD3Elements, resolveAccessor, resolveAccesso
  * Candlestick charts show OHLC (Open, High, Low, Close) data for financial
  * time series. This binder extracts data from D3-bound SVG elements
  * representing candlestick bodies (typically `<rect>`) and optional wicks.
+ *
+ * @remarks
+ * **Timing — call after D3 has rendered.** This function reads each matched
+ * element's D3-bound `__data__`: the OHLC + volume bound to each candlestick
+ * body. Calling it before `.data().join()` has run (or before the SVG is
+ * mounted) throws "No elements found for selector …" or "Property '…' not
+ * found on datum".
+ *
+ * Typical call sites:
+ * - **Vanilla JS:** right after your `selectAll(...).data(...).join(...)` chain.
+ * - **React:** inside `useEffect`, never during render. Prefer
+ *   {@link MaidrD3} / {@link useD3Adapter} from `maidr/react`, which
+ *   handle the post-render timing for you.
+ * - **Async data:** inside the `.then(...)` of your fetch, after drawing.
+ *
+ * @see {@link MaidrD3}
+ * @see {@link useD3Adapter}
  *
  * @param svg - The SVG element containing the D3 candlestick chart.
  * @param config - Configuration specifying the selector and data accessors.
@@ -52,22 +70,17 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
     close: closeAccessor = 'close',
     volume: volumeAccessor = 'volume',
     trend: trendAccessor,
+    autoApply,
   } = config;
 
   const elements = queryD3Elements(svg, selector);
   if (elements.length === 0) {
-    throw new Error(
-      `No elements found for selector "${selector}". `
-      + `Ensure the D3 chart has been rendered and the selector matches the candlestick elements.`,
-    );
+    throw buildNoElementsError(svg, selector, 'candlestick');
   }
 
   const data: CandlestickPoint[] = elements.map(({ datum, index }) => {
     if (!datum) {
-      throw new Error(
-        `No D3 data bound to element at index ${index}. `
-        + `Ensure D3's .data() join has been applied to the "${selector}" elements.`,
-      );
+      throw buildNoDatumError(selector, index);
     }
 
     const openVal = resolveAccessor<number>(datum, openAccessor, index);
@@ -119,5 +132,6 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
     subplots: [[{ layers: [layer] }]],
   };
 
+  applyMaidrData(svg, maidr, autoApply);
   return { maidr, layer };
 }

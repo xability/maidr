@@ -6,10 +6,11 @@
  */
 
 import type {
+  AxisConfig,
+  AxisFormat,
   BarPoint,
   BoxPoint,
   CandlestickPoint,
-  FormatConfig,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -20,7 +21,14 @@ import type {
   SegmentedPoint,
   SmoothPoint,
   TraceType,
-} from '../type/grammar';
+} from '../../type/grammar';
+
+/**
+ * A single axis spec for D3 binder input. Accepts either a plain string
+ * (shorthand for `{ label: value }`) or a full {@link AxisConfig} object
+ * for advanced cases (per-axis `format`, grid navigation for scatter).
+ */
+export type D3AxisInput = string | AxisConfig;
 
 /**
  * Common configuration shared across all D3 chart binders.
@@ -34,14 +42,39 @@ export interface D3BinderConfig {
   subtitle?: string;
   /** Chart caption. */
   caption?: string;
-  /** Axis labels. */
+  /**
+   * Axis configuration. Each axis may be provided as either a plain string
+   * (shorthand for `{ label: value }`) or a full {@link AxisConfig} object
+   * (for per-axis `format`, or grid navigation on scatter).
+   *
+   * For heatmaps and segmented bar charts, use `fill` for the color/category
+   * axis; the binder maps it to the canonical `z` axis in the MAIDR schema.
+   */
   axes?: {
-    x?: string;
-    y?: string;
-    fill?: string;
+    x?: D3AxisInput;
+    y?: D3AxisInput;
+    /** Fill/color axis for heatmaps and segmented bars. Maps to `z` internally. */
+    fill?: D3AxisInput;
   };
-  /** Optional formatting configuration for axis values. */
-  format?: FormatConfig;
+  /**
+   * Optional formatting configuration applied to axes that do not specify
+   * their own `format`. Per-axis `format` on `AxisConfig` takes precedence.
+   */
+  format?: AxisFormat;
+  /**
+   * When `true` (the default), the binder writes the generated MAIDR schema
+   * to the SVG as a `maidr-data` attribute so vanilla-JS users don't need
+   * to call `svg.setAttribute(...)` themselves. The returned result is
+   * unchanged either way.
+   *
+   * Set to `false` if you are driving MAIDR yourself — e.g. passing the
+   * returned schema to `<Maidr data={...}>` or persisting it elsewhere.
+   * The React adapter ({@link useD3Adapter}, {@link MaidrD3}) forces this
+   * to `false` internally so it can stay in control of the schema.
+   *
+   * @default true
+   */
+  autoApply?: boolean;
 }
 
 /**
@@ -242,6 +275,24 @@ export interface D3SegmentedConfig extends D3BinderConfig {
   y?: DataAccessor<number | string>;
   /** Accessor for the fill/group identifier. @default 'fill' */
   fill?: DataAccessor<string>;
+  /**
+   * Hint for how the rendered `<rect>` elements are ordered in the DOM.
+   *
+   * - `'subject-major'` — rects are interleaved by category then series,
+   *   e.g. `[Cat0-A, Cat0-B, Cat0-C, Cat1-A, ...]`. This is the result of a
+   *   single flat `selectAll(...).data(flatArr).join(...)` call and matches
+   *   the typical D3 dodged-bar pattern.
+   * - `'series-major'` — all of series 0 first, then all of series 1, etc.,
+   *   e.g. `[A-Cat0..CatN, B-Cat0..CatN, ...]`. This is produced by looping
+   *   `regions.forEach(r => selectAll(...).data(byRegion[r]).join(...))` and
+   *   matches the typical D3 stacked-bar pattern, as well as `d3.stack()`
+   *   with `groupSelector`.
+   *
+   * When omitted, the binder auto-detects from the rendered fills and falls
+   * back to `type`-based defaults (`stacked_bar` / `normalized_bar` →
+   * `series-major`, `dodged_bar` → `subject-major`).
+   */
+  domOrder?: 'subject-major' | 'series-major';
 }
 
 /**

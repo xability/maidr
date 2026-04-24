@@ -66,6 +66,19 @@
         .attr('y1', d => y(d.q3)).attr('y2', d => y(d.max))
         .attr('stroke', '#333');
 
+      // Outliers — one <circle> per outlier value, appended as direct children
+      // of the box group so MAIDR's D3 binder can classify them by cy position.
+      groups.each(function (d) {
+        const g = d3.select(this);
+        [...d.lowerOutliers, ...d.upperOutliers].forEach((v) => {
+          g.append('circle')
+            .attr('cx', x.bandwidth() / 2)
+            .attr('cy', y(v))
+            .attr('r', 3)
+            .attr('fill', '#333');
+        });
+      });
+
       svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
       svg.append('g').call(d3.axisLeft(y));
       svg.append('text').attr('x', width / 2).attr('y', -10).attr('text-anchor', 'middle').text('Distribution by Group');
@@ -77,7 +90,8 @@
         title: 'Distribution by Group',
         axes: { x: 'Group', y: 'Value' },
       });
-      svgElement.setAttribute('maidr-data', JSON.stringify(result.maidr));
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
     </script>
   </body>
 </html>
