@@ -1068,7 +1068,7 @@ export class LineTrace extends AbstractTrace {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -1161,6 +1161,73 @@ export class LineTrace extends AbstractTrace {
 
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
+    return true;
+  }
+
+  /**
+   * Intersection navigation mode is available only when the plot has
+   * multiple lines. `points` is a 2-D array whose outer dimension is the line
+   * index, so `length > 1` means at least two lines exist — a prerequisite for
+   * any crossing between sampled series to be possible.
+   */
+  public override supportsIntersectionMode(): boolean {
+    return this.points.length > 1;
+  }
+
+  /**
+   * Collect point-type intersections for the current line, sorted by
+   * pointIndex (column), with duplicate pointIndexes removed so that
+   * navigation advances one data point at a time.
+   *
+   * Sort rationale: {@link findAllIntersectionsForCurrentLine} sorts its
+   * results by continuous x-coordinate, which can differ from `pointIndex`
+   * order when an intersection falls between sampled points (the "nearest
+   * point" mapping is non-monotonic in those cases). Rotor navigation moves
+   * by column, so we sort explicitly by pointIndex here.
+   *
+   * Performance note: the underlying {@link findAllIntersectionsForCurrentLine}
+   * caches results per active row, so repeated calls while the cursor stays on
+   * the same line are O(n) over the cached intersection list (typically small).
+   */
+  private getPointIntersectionIndices(): number[] {
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    const seen = new Set<number>();
+    for (const intersection of intersections) {
+      if (intersection.intersectionKind === 'point') {
+        seen.add(intersection.pointIndex);
+      }
+    }
+    return [...seen].sort((a, b) => a - b);
+  }
+
+  public override moveToNextIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    const target = indices.find(index => index > this.col);
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
+    return true;
+  }
+
+  public override moveToPrevIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    // Walk the sorted indices backwards to find the largest value < col.
+    // A reverse loop avoids both Array.prototype.findLast (ES2023) and the
+    // array allocation that [...indices].reverse() would introduce.
+    let target: number | undefined;
+    for (let i = indices.length - 1; i >= 0; i--) {
+      if (indices[i] < this.col) {
+        target = indices[i];
+        break;
+      }
+    }
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
     return true;
   }
 }

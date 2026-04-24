@@ -858,7 +858,7 @@ export class Candlestick extends AbstractTrace {
     this.currentSegmentType = target.segment as CandlestickNavSegmentType;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**

@@ -490,4 +490,88 @@ test.describe('Multi Lineplot', () => {
       }
     });
   });
+
+  test.describe('Intersection Rotor Navigation', () => {
+    /**
+     * Cycle the rotor (Alt+Shift+Up) until the rotor area announces the target
+     * mode. Avoids relying on a fixed press count, which would silently break
+     * if the rotor cycle order changes or a new mode is inserted earlier.
+     * @param page - The Playwright page
+     * @param targetMode - Expected text the rotor area should display
+     * @param maxCycles - Safety cap to prevent infinite loops
+     */
+    async function cycleRotorTo(page: Page, targetMode: string, maxCycles = 10): Promise<void> {
+      const rotorArea = page.locator('#maidr-rotor-area');
+      for (let i = 0; i < maxCycles; i++) {
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('Shift');
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.up('Shift');
+        await page.keyboard.up('Alt');
+        const current = (await rotorArea.textContent())?.trim() ?? '';
+        if (current === targetMode) {
+          return;
+        }
+      }
+      throw new Error(`Rotor did not reach "${targetMode}" within ${maxCycles} cycles`);
+    }
+
+    test('should cycle into INTERSECTING POINT NAVIGATION and announce bound messages on arrow keys', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
+      const rotorArea = page.locator('#maidr-rotor-area');
+
+      // The example data has no point intersections, so arrow keys must route
+      // through intersection mode and land on the boundary message — proving
+      // the key was handled by the rotor service (not a no-op / crash).
+      await page.keyboard.press('ArrowRight');
+      await expect(rotorArea).toContainText(/No intersection.*right/i, { timeout: 2000 });
+
+      await page.keyboard.press('ArrowLeft');
+      await expect(rotorArea).toContainText(/No intersection.*left/i, { timeout: 2000 });
+
+      // Up/Down in intersection mode should announce the vertical-unavailable
+      // message, not a directional bound.
+      await page.keyboard.press('ArrowUp');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
+    });
+
+    test('should navigate to a real point intersection with ArrowRight', async ({ page }) => {
+      // Use a fixture that contains actual point intersections — all three
+      // lines in multiline_plot_intersection.html share the sampled point
+      // (x="3", y=4), so ArrowRight in intersection mode from col 0 lands
+      // there rather than hitting a boundary.
+      //
+      // Path note: the Playwright baseURL (e2e_tests/config/test-config.ts)
+      // is `file://<projectRoot>/`, so a bare relative path resolves against
+      // the repo root — same way BasePage.navigateTo resolves its argument.
+      await page.goto('examples/multiline_plot_intersection.html', { waitUntil: 'load' });
+      await page.waitForSelector('svg', { timeout: 10000 });
+      await page.keyboard.press('Tab');
+
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
+
+      // ArrowRight should actually move to the (3, 4) point intersection and
+      // the text-output area should announce both coordinates. A regex that
+      // binds the digits to their axis labels avoids false positives from
+      // incidental "3"s and "4"s in other parts of the description.
+      const textContainer = page.locator('#maidr-text-container');
+      const rotorArea = page.locator('#maidr-rotor-area');
+      await page.keyboard.press('ArrowRight');
+      await expect(textContainer).toContainText(/x\D*3/i, { timeout: 2000 });
+      await expect(textContainer).toContainText(/y\D*4/i, { timeout: 2000 });
+
+      // Rotor area should not be announcing a bound message — movement succeeded.
+      await expect(rotorArea).not.toContainText(/No intersection/i);
+
+      // Vertical navigation must still announce the "unavailable" message even
+      // when the fixture contains real intersections — confirms Up/Down don't
+      // accidentally traverse between lines in intersection mode.
+      await page.keyboard.press('ArrowUp');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
+      await page.keyboard.press('ArrowDown');
+      await expect(rotorArea).toContainText(/intersection mode/i, { timeout: 2000 });
+    });
+  });
 });

@@ -142,8 +142,18 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveUp(): string | null {
-    if (this.isGridMode()) {
+    // Resolve the current rotor mode once. getMode() walks the capability
+    // list via getAvailableModes(), so caching it here avoids doing that
+    // twice per keystroke when dispatching to GRID_MODE / INTERSECTION_MODE.
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('up');
+    }
+    if (mode === Constant.INTERSECTION_MODE) {
+      // Intentional: do not call notifyStateUpdate() here. Vertical navigation
+      // is unavailable in intersection mode, so the model is not moved and no
+      // audio/text update is emitted — only the rotor-area message is returned.
+      return this.getIntersectionVerticalUnavailableMessage();
     }
 
     const activeTrace = this.context.active;
@@ -169,8 +179,14 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveDown(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('down');
+    }
+    if (mode === Constant.INTERSECTION_MODE) {
+      // Intentional: see moveUp() — vertical navigation is unavailable in
+      // intersection mode; the model is not moved and no observer is notified.
+      return this.getIntersectionVerticalUnavailableMessage();
     }
 
     const activeTrace = this.context.active;
@@ -196,8 +212,12 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveLeft(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('left');
+    }
+    if (mode === Constant.INTERSECTION_MODE) {
+      return this.moveIntersection('left');
     }
 
     const activeTrace = this.context.active;
@@ -223,8 +243,12 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveRight(): string | null {
-    if (this.isGridMode()) {
+    const mode = this.getMode();
+    if (mode === Constant.GRID_MODE) {
       return this.moveGrid('right');
+    }
+    if (mode === Constant.INTERSECTION_MODE) {
+      return this.moveIntersection('right');
     }
 
     const activeTrace = this.context.active;
@@ -260,6 +284,14 @@ export class RotorNavigationService {
 
   /**
    * Gets the current rotor mode name.
+   *
+   * Known limitation: rotorIndex is not reset when the active plot/trace
+   * changes. If the user cycles to a capability-gated mode (GRID_MODE or
+   * INTERSECTION_MODE) and focus then moves to a trace that does not
+   * advertise that capability, the modulo below silently wraps the index
+   * onto a different mode without announcing the switch. Resetting the
+   * rotor on context change is a broader UX decision tracked separately
+   * from this file.
    * @returns The display name of the current rotor mode
    */
   public getMode(): string {
@@ -284,22 +316,26 @@ export class RotorNavigationService {
   }
 
   public getMessage(navType: string, direction: string): string {
-    if (this.text.isOff()) {
-      return '';
-    }
-    if (this.text.isTerse()) {
-      const preposition = direction === 'above' || direction === 'below' ? '' : 'on the ';
-      return `No ${navType} value found ${preposition}${direction}`;
-    }
-    const position = direction === 'above' || direction === 'below' ? `${direction} ` : `to the ${direction} of `;
-    return `No ${navType} value found ${position}the current value.`;
+    const isVertical = direction === 'above' || direction === 'below';
+    const preposition = isVertical ? '' : 'on the ';
+    const position = isVertical ? `${direction} ` : `to the ${direction} of `;
+    return this.buildMessage(
+      `No ${navType} value found ${preposition}${direction}`,
+      `No ${navType} value found ${position}the current value.`,
+    );
   }
 
   /**
    * Builds the list of available rotor modes based on active trace capabilities.
-   * - Always includes the trace's data mode name (DATA_MODE or ROW_COL_MODE)
-   * - Includes LOWER/HIGHER value modes if trace supports compare
-   * - Includes GRID_MODE if trace supports grid navigation
+   * Modes are appended in a fixed order so that cycling with Alt+Shift+Up/Down
+   * is predictable; future modes should be inserted with that ordering in mind.
+   *
+   * Order (when all capabilities are supported):
+   *   1. Data mode (DATA_MODE or ROW_COL_MODE — the trace's data mode name)
+   *   2. LOWER_VALUE_MODE   (if supportsCompareMode)
+   *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
+   *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
+   *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
@@ -316,6 +352,10 @@ export class RotorNavigationService {
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
         modes.push(Constant.GRID_MODE);
       }
+
+      if (activeTrace.supportsIntersectionMode()) {
+        modes.push(Constant.INTERSECTION_MODE);
+      }
     } else {
       modes.push(Constant.DATA_MODE);
     }
@@ -331,10 +371,78 @@ export class RotorNavigationService {
   }
 
   /**
-   * Checks if the current rotor mode is GRID_MODE.
+   * Handles intersection navigation in the specified direction.
+   * Delegates to the active trace's intersection movement methods and surfaces
+   * a user-facing bound message through the rotor area when no further point
+   * intersection exists in that direction.
+   *
+   * The {@link supportsIntersectionMode} contract guarantees that the active
+   * plot is an {@link AbstractTrace} whenever this method is reached, and the
+   * base-class navigation methods are safe no-ops for any trace that does not
+   * override them, so no explicit try/catch is required.
+   *
+   * Return convention matches sibling methods (moveUp/moveDown/moveLeft/
+   * moveRight / moveGrid): `null` signals a successful move (nothing to
+   * announce in the rotor area); a non-null string is the user-facing
+   * message for a failed / bounded / unavailable attempt.
+   * @returns Error message if at bounds or unavailable, null on success
    */
-  private isGridMode(): boolean {
-    return this.getMode() === Constant.GRID_MODE;
+  private moveIntersection(direction: 'left' | 'right'): string | null {
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      // Defensive: INTERSECTION_MODE is only added to getAvailableModes() for
+      // AbstractTrace subclasses that opt in via supportsIntersectionMode(),
+      // so reaching this branch means the active plot changed between the
+      // mode list build and the key press. Return an unavailable message
+      // (not null — null means "move succeeded" to callers) so the user is
+      // told their key press had no effect.
+      return this.buildMessage(
+        'Intersection mode unavailable',
+        'Intersection navigation is not available in the current context.',
+      );
+    }
+    const moved = direction === 'right'
+      ? activeTrace.moveToNextIntersection()
+      : activeTrace.moveToPrevIntersection();
+    return moved ? null : this.getIntersectionBoundMessage(direction);
+  }
+
+  /**
+   * Picks the terse or verbose string based on the current text mode, or an
+   * empty string when text mode is off. Shared by mode-specific message
+   * helpers to avoid duplicating the off/terse/verbose branching.
+   */
+  private buildMessage(terse: string, verbose: string): string {
+    if (this.text.isOff()) {
+      return '';
+    }
+    return this.text.isTerse() ? terse : verbose;
+  }
+
+  /**
+   * User-facing message when Left/Right hits a boundary in intersection mode.
+   * Uses the word "intersection" rather than the generic getMessage() output
+   * which reads as "intersection value" — awkward since an intersection is a
+   * coordinate, not a value.
+   */
+  private getIntersectionBoundMessage(direction: 'left' | 'right'): string {
+    return this.buildMessage(
+      `No intersection to the ${direction}`,
+      `No intersection found to the ${direction} of the current point.`,
+    );
+  }
+
+  /**
+   * User-facing message when Up/Down is pressed in intersection mode.
+   * Intersection navigation is horizontal-only, so vertical directions are
+   * explicitly announced as unavailable rather than reusing the directional
+   * bound message (which would imply a vertical bound exists).
+   */
+  private getIntersectionVerticalUnavailableMessage(): string {
+    return this.buildMessage(
+      'Up/down unavailable in intersection mode',
+      'Up and down navigation is not available in intersection point mode.',
+    );
   }
 
   /**
