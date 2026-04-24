@@ -395,8 +395,7 @@ export class RotorNavigationService {
       // so reaching this branch means the active plot changed between the
       // mode list build and the key press. Return an unavailable message
       // (not null — null means "move succeeded" to callers) so the user is
-      // told their key press had no effect, and warn for debugging.
-      console.warn('[RotorNavigation] Active plot is not an AbstractTrace; intersection move ignored');
+      // told their key press had no effect.
       return this.buildMessage(
         'Intersection mode unavailable',
         'Intersection navigation is not available in the current context.',
