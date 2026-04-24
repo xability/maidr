@@ -183,4 +183,33 @@ describe('RotorNavigationService intersection dispatch', () => {
 
     expect(service.moveRight()).toBe('');
   });
+
+  test('INTERSECTION_MODE is absent from the rotor cycle for a single-line trace', () => {
+    // supportsIntersectionMode() returns false when there is only one line,
+    // so getAvailableModes() must exclude INTERSECTION_MODE. Cycle the rotor
+    // enough times to hit every available mode at least once and assert it
+    // never appears. This closes the loop on the
+    // supportsIntersectionMode -> getAvailableModes wiring.
+    const singleLine = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+    ]));
+    const service = new RotorNavigationService(
+      createMockContext(singleLine),
+      createMockTextService(),
+    );
+
+    const seen = new Set<string>();
+    seen.add(service.getMode());
+    // Cycle more than the plausible mode count to guarantee full coverage.
+    for (let i = 0; i < 10; i++) {
+      service.moveToNextRotorUnit();
+      seen.add(service.getMode());
+    }
+
+    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
+  });
 });
