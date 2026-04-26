@@ -95,15 +95,6 @@ export interface AxisFormat {
 }
 
 /**
- * Configuration for formatting values across all axes in a layer.
- */
-export interface FormatConfig {
-  x?: AxisFormat;
-  y?: AxisFormat;
-  z?: AxisFormat;
-}
-
-/**
  * Configuration options for violin plot display.
  * Controls which summary statistics are shown in the violin box overlay.
  * Sent from the Python backend alongside violin_kde and violin_box layers.
@@ -308,30 +299,45 @@ export interface SmoothPoint {
 }
 
 /**
- * Extended axis configuration that includes an optional label and grid navigation properties.
- * Used when an axis needs both a label and grid config (min, max, tickStep).
+ * Canonical axis configuration. Every axis (x, y, z) must be specified as an
+ * object of this shape. The `label` is optional and falls back to built-in
+ * defaults ('X', 'Y', 'Level') when omitted.
+ *
+ * Grid navigation properties (`min`, `max`, `tickStep`) are currently consumed
+ * by scatter-plot traces only; they are silently ignored by other trace types.
+ *
+ * Formatting configuration lives inline as `format` on each axis, allowing
+ * different formatters per axis without a separate top-level block.
  *
  * @example
- * // axes.x as an object with grid config
- * axes: { x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 } }
+ * // Simple label
+ * axes: { x: { label: "Date" }, y: { label: "Price" } }
+ *
+ * @example
+ * // With grid navigation (scatter)
+ * axes: {
+ *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+ *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
+ * }
+ *
+ * @example
+ * // With formatting
+ * axes: {
+ *   x: { label: "Date" },
+ *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+ * }
  */
 export interface AxisConfig {
+  /** Axis label displayed in text descriptions. Defaults applied when absent. */
   label?: string;
+  /** Minimum value for grid navigation (scatter only). */
   min?: number;
+  /** Maximum value for grid navigation (scatter only). */
   max?: number;
+  /** Step size for grid navigation (scatter only). */
   tickStep?: number;
-}
-
-/**
- * Alternate grid configuration shape where grid properties are grouped by property name.
- * Supports `axes.min.x`, `axes.max.x`, `axes.tickStep.x` etc.
- *
- * @example
- * axes: { x: "Sepal Length", min: { x: 4.3, y: 2 }, max: { x: 7.9, y: 4.4 }, tickStep: { x: 0.7, y: 0.5 } }
- */
-export interface AxisGridProperty {
-  x?: number;
-  y?: number;
+  /** Optional per-axis value formatting applied in text descriptions. */
+  format?: AxisFormat;
 }
 
 /**
@@ -388,52 +394,32 @@ export interface MaidrLayer {
     iqrDirection?: 'forward' | 'reverse';
   };
   /**
-   * Axis configuration including labels, optional formatting, and grid navigation properties.
-   *
-   * Supports two shapes for grid config (both can coexist):
-   *
-   * **Format A** – per-axis objects (`axes.x.min`):
-   * ```json
-   * { "axes": { "x": { "label": "Sepal Length", "min": 4.3, "max": 7.9, "tickStep": 0.7 } } }
-   * ```
-   *
-   * **Format B** – grouped by property (`axes.min.x`):
-   * ```json
-   * { "axes": { "x": "Sepal Length", "min": { "x": 4.3, "y": 2 }, "tickStep": { "x": 0.7, "y": 0.5 } } }
-   * ```
+   * Axis configuration. Every axis (x, y, z) is specified as an {@link AxisConfig}
+   * object with an optional `label`, optional grid navigation properties
+   * (`min`, `max`, `tickStep`), and optional per-axis `format`.
    *
    * @example
-   * // Basic axis labels (no grid)
-   * axes: { x: "Date", y: "Price" }
+   * // Basic labels
+   * axes: { x: { label: "Date" }, y: { label: "Price" } }
    *
    * @example
-   * // With formatting
-   * axes: { x: "Date", y: "Price", format: { y: { type: "currency", decimals: 2 } } }
+   * // With per-axis formatting
+   * axes: {
+   *   x: { label: "Date" },
+   *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+   * }
+   *
+   * @example
+   * // With grid navigation (scatter)
+   * axes: {
+   *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+   *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
+   * }
    */
   axes?: {
-    /** Axis label (string) or axis config object with label + grid properties. */
-    x?: string | AxisConfig;
-    /** Axis label (string) or axis config object with label + grid properties. */
-    y?: string | AxisConfig;
-    /** Z-axis label (string) or axis config object. Used for grouping/fill in multi-series plots. */
-    z?: string | AxisConfig;
-    /** Grouped grid property: `min: { x: 4.3, y: 2 }` */
-    min?: AxisGridProperty;
-    /** Grouped grid property: `max: { x: 7.9, y: 4.4 }` */
-    max?: AxisGridProperty;
-    /** Grouped grid property: `tickStep: { x: 0.7, y: 0.5 }` */
-    tickStep?: AxisGridProperty;
-    /**
-     * Optional formatting configuration for axis values.
-     * When provided, values displayed in text descriptions will be formatted.
-     *
-     * @example
-     * format: {
-     *   x: { function: "return new Date(value).toLocaleDateString()" },
-     *   y: { type: "currency", decimals: 2 }
-     * }
-     */
-    format?: FormatConfig;
+    x?: AxisConfig;
+    y?: AxisConfig;
+    z?: AxisConfig;
   };
   /**
    * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).

@@ -1,6 +1,25 @@
 import type { Llm, LlmVersion } from './llm';
 
 /**
+ * Default number of characters rendered per braille row when no user setting
+ * is configured. 32 matches the most common physical braille display width.
+ */
+export const DEFAULT_BRAILLE_SIZE = 32;
+
+/**
+ * Default number of physical braille rows. 1 means single-line mode, where
+ * the braille output is a flat string without row reversal or space-padding.
+ */
+export const DEFAULT_BRAILLE_LINES = 1;
+
+/**
+ * Upper bound on the configured number of braille rows. Acts as a sanity cap
+ * so that pathological settings cannot produce extremely large braille
+ * strings at render time.
+ */
+export const MAX_BRAILLE_LINES = 20;
+
+/**
  * ARIA live region politeness level for screen reader announcements.
  */
 export type AriaMode = 'assertive' | 'polite';
@@ -47,6 +66,7 @@ export interface GeneralSettings {
   highContrastLightColor: string;
   highContrastDarkColor: string;
   brailleDisplaySize: number;
+  brailleDisplayLines: number;
   minFrequency: number;
   maxFrequency: number;
   autoplayDuration: number;
@@ -71,7 +91,8 @@ export const DEFAULT_SETTINGS: Settings = {
     highContrastLevels: 2,
     highContrastLightColor: '#ffffff',
     highContrastDarkColor: '#000000',
-    brailleDisplaySize: 32,
+    brailleDisplaySize: DEFAULT_BRAILLE_SIZE,
+    brailleDisplayLines: DEFAULT_BRAILLE_LINES,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,

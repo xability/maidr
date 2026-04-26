@@ -111,8 +111,8 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
       axes: {
-        x: xLabel,
-        y: yLabel,
+        x: { label: xLabel },
+        y: { label: yLabel },
       },
       data: layerData,
     } as MaidrLayer;
@@ -156,9 +156,9 @@ function buildSegmentedBarLayer(
     selectors: selector,
     orientation: orientation ?? Orientation.VERTICAL,
     axes: {
-      x: xLabel,
-      y: yLabel,
-      z: 'Series',
+      x: { label: xLabel },
+      y: { label: yLabel },
+      z: { label: 'Series' },
     },
     data: segmentedData,
   };
@@ -197,8 +197,8 @@ function buildHistogramLayer(
     selectors: selector,
     orientation: orientation ?? Orientation.VERTICAL,
     axes: {
-      x: xLabel,
-      y: yLabel,
+      x: { label: xLabel },
+      y: { label: yLabel },
     },
     data: histData,
   };
@@ -238,8 +238,8 @@ function buildMultiSeriesLineLayer(
     type: toTraceType(chartType),
     selectors,
     axes: {
-      x: xLabel,
-      y: yLabel,
+      x: { label: xLabel },
+      y: { label: yLabel },
     },
     data: lineData,
   };
@@ -284,8 +284,8 @@ function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
       axes: {
-        x: xLabel,
-        y: yLabel,
+        x: { label: xLabel },
+        y: { label: yLabel },
       },
       data: layerData,
     } as MaidrLayer;

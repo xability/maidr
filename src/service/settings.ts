@@ -5,6 +5,8 @@ import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { Emitter, Scope } from '@type/event';
+import { DEFAULT_SETTINGS } from '@type/settings';
+import { deepMerge } from '@util/deepMerge';
 
 const SETTINGS_KEY = 'maidr-settings';
 
@@ -126,7 +128,11 @@ export class SettingsService implements Disposable {
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
-    this.currentSettings = mergeDefaults(this.defaultSettings, saved);
+    this.defaultSettings = structuredClone(DEFAULT_SETTINGS);
+
+    // Deep-merge so that newly added default settings are available even when
+    // the user has an older saved object in localStorage that lacks the new keys.
+    this.currentSettings = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
   }
 
   public dispose(): void {

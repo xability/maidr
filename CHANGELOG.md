@@ -1,3 +1,17 @@
+## [3.64.1](https://github.com/xability/maidr/compare/v3.64.0...v3.64.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* refactor axes configuration ([#603](https://github.com/xability/maidr/issues/603)) ([e294a86](https://github.com/xability/maidr/commit/e294a86f540744885677c8d5b67949c61ee6c92a))
+
+# [3.64.0](https://github.com/xability/maidr/compare/v3.63.1...v3.64.0) (2026-04-22)
+
+
+### Features
+
+* support simultaneous representation of multiple traces in multiline braille displays ([#599](https://github.com/xability/maidr/issues/599)) ([b0e6281](https://github.com/xability/maidr/commit/b0e6281c5caed16173baecddf7ff5cd94d69a6ac))
+
 ## [3.63.1](https://github.com/xability/maidr/compare/v3.63.0...v3.63.1) (2026-04-17)
 
 

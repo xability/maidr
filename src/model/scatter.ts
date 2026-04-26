@@ -1,4 +1,4 @@
-import type { AxisConfig, MaidrLayer, ScatterPoint } from '@type/grammar';
+import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
@@ -150,7 +150,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
 
-    // Build grid if config is provided (supports both axes.x.min and axes.min.x formats)
+    // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
     this.isInGridMode = false;
     this.gridRow = 0;
     this.gridCol = 0;
@@ -978,11 +978,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   // ── Grid construction helpers ─────────────────────────────────────────
 
   /**
-   * Resolves grid configuration from the layer's axes, supporting two formats:
-   * - Format A (per-axis): `axes.x = { min, max, tickStep }` and `axes.y = { min, max, tickStep }`
-   * - Format B (grouped):  `axes.min = { x, y }`, `axes.max = { x, y }`, `axes.tickStep = { x, y }`
-   * Both formats can coexist; per-axis values take precedence.
-   * Returns null if no grid config is found.
+   * Resolves grid configuration from the layer's axes.
+   *
+   * Grid properties are read directly from each axis:
+   * `axes.x = { min, max, tickStep }` and `axes.y = { min, max, tickStep }`.
+   *
+   * Returns null if any of the six required values is missing.
    */
   private resolveGridConfig(
     layer: MaidrLayer,
@@ -991,16 +992,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!axes)
       return null;
 
-    const axisX = typeof axes.x === 'object' ? axes.x as AxisConfig : null;
-    const axisY = typeof axes.y === 'object' ? axes.y as AxisConfig : null;
-
-    // Per-axis (Format A) takes precedence, then grouped (Format B)
-    const xMin = axisX?.min ?? axes.min?.x;
-    const xMax = axisX?.max ?? axes.max?.x;
-    const xTickStep = axisX?.tickStep ?? axes.tickStep?.x;
-    const yMin = axisY?.min ?? axes.min?.y;
-    const yMax = axisY?.max ?? axes.max?.y;
-    const yTickStep = axisY?.tickStep ?? axes.tickStep?.y;
+    const xMin = axes.x?.min;
+    const xMax = axes.x?.max;
+    const xTickStep = axes.x?.tickStep;
+    const yMin = axes.y?.min;
+    const yMax = axes.y?.max;
+    const yTickStep = axes.y?.tickStep;
 
     // All six values must be present for a valid grid config
     if (xMin == null || xMax == null || xTickStep == null || yMin == null || yMax == null || yTickStep == null) {
