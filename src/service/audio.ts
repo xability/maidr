@@ -52,6 +52,8 @@ enum AudioMode {
 enum AudioSettings {
   VOLUME = 'general.volume',
   REVERB_INTENSITY = 'general.reverbIntensity',
+  REVERB_DURATION = 'general.reverbDuration',
+  Z_SCALE_VOLUME = 'general.zScaleVolume',
   MIN_FREQUENCY = 'general.minFrequency',
   MAX_FREQUENCY = 'general.maxFrequency',
 }
@@ -62,11 +64,11 @@ const MAX_WET_GAIN = 2.5;
 // Amount the dry gain is reduced by at full reverb + full intensity (1.0 → 1.0 - DRY_TAPER).
 const DRY_TAPER = 0.7;
 // Synthetic impulse response parameters (reference: ellvix/reverb-testing).
-const REVERB_IR_DURATION = 2;
 const REVERB_IR_DECAY = 2;
-// Duration (seconds) we let the reverb tail ring after the tone ends, then fade
-// to 0 to prevent the click that occurs when the wet signal is disconnected abruptly.
-const REVERB_TAIL_DURATION = 1.5;
+// When zScaleVolume is enabled, per-tone volume scales linearly between these
+// fractions of the user's configured volume as z goes from min (0) to max (1).
+const Z_VOLUME_MIN_SCALE = 0.5;
+const Z_VOLUME_MAX_SCALE = 1.25;
 
 /**
  * Service responsible for audio sonification of plot data.
@@ -91,6 +93,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private volume: number;
   private reverbIntensity: number;
+  private reverbDuration: number;
+  private zScaleVolume: boolean;
   private minFrequency: number;
   private maxFrequency: number;
   private readonly audioContext: AudioContext;
@@ -117,6 +121,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
     this.reverbIntensity = this.normalizeReverbIntensity(settings.get<number>(AudioSettings.REVERB_INTENSITY));
+    this.reverbDuration = this.normalizeReverbDuration(settings.get<number>(AudioSettings.REVERB_DURATION));
+    this.zScaleVolume = settings.get<boolean>(AudioSettings.Z_SCALE_VOLUME);
     this.minFrequency = settings.get<number>(AudioSettings.MIN_FREQUENCY);
     this.maxFrequency = settings.get<number>(AudioSettings.MAX_FREQUENCY);
     settings.onChange((event) => {
@@ -125,6 +131,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
       if (event.affectsSetting(AudioSettings.REVERB_INTENSITY)) {
         this.reverbIntensity = this.normalizeReverbIntensity(event.get<number>(AudioSettings.REVERB_INTENSITY));
+      }
+      if (event.affectsSetting(AudioSettings.REVERB_DURATION)) {
+        this.reverbDuration = this.normalizeReverbDuration(event.get<number>(AudioSettings.REVERB_DURATION));
+        // Force the IR to be rebuilt at the new length on the next play.
+        this.reverbIR = null;
+      }
+      if (event.affectsSetting(AudioSettings.Z_SCALE_VOLUME)) {
+        this.zScaleVolume = event.get<boolean>(AudioSettings.Z_SCALE_VOLUME);
       }
       if (event.affectsSetting(AudioSettings.MIN_FREQUENCY)) {
         this.minFrequency = event.get<number>(AudioSettings.MIN_FREQUENCY);
@@ -425,10 +439,19 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
     }
 
+    // Optional per-tone volume scaling driven by the same z-amount that drives
+    // reverb. When enabled, scale linearly between Z_VOLUME_MIN_SCALE and
+    // Z_VOLUME_MAX_SCALE as reverb (z) goes from 0 → 1. Gated on `reverb !==
+    // undefined` so traces without z data are never rescaled.
+    const zVolumeScalar = this.zScaleVolume && reverb !== undefined
+      ? Z_VOLUME_MIN_SCALE
+      + (Z_VOLUME_MAX_SCALE - Z_VOLUME_MIN_SCALE) * Math.max(0, Math.min(1, reverb))
+      : 1;
+
     // Create gain nodes with ADSR envelope for each oscillator
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
-      let oscillatorVolume = this.volume;
+      let oscillatorVolume = this.volume * zVolumeScalar;
 
       if (i === 0) {
         // Primary oscillator uses fundamental amplitude
@@ -469,27 +492,34 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     // Optional reverb path: stereoPanner splits into parallel dry and wet signals,
     // both feeding the compressor. When reverb is inactive, connect directly.
-    const effectiveReverb = this.effectiveReverb(reverb);
+    //
+    // Loudness comes from the global Reverb Intensity setting; per-tone z-amount
+    // (`reverb` ∈ [0, 1]) drives the *length* of the tail by truncating the wet
+    // gain back to silence at `startTime + duration + tailLen`. z=0 → no tail
+    // (skip the reverb path entirely); z=1 → full configured Reverb Duration.
+    const zAmount = reverb !== undefined
+      ? Math.max(0, Math.min(1, reverb))
+      : 0;
+    const reverbActive = zAmount > 0 && this.reverbIntensity > 0;
+    const tailLen = reverbActive ? this.reverbDuration * zAmount : 0;
     let convolver: ConvolverNode | null = null;
     let wetGain: GainNode | null = null;
     let dryGain: GainNode | null = null;
-    if (effectiveReverb > 0) {
+    if (reverbActive) {
       convolver = this.audioContext.createConvolver();
       convolver.buffer = this.getReverbIR();
 
-      const wetAmount = effectiveReverb * MAX_WET_GAIN;
+      const wetAmount = this.reverbIntensity * MAX_WET_GAIN;
       wetGain = this.audioContext.createGain();
-      // Hold full wet amount through the tone, then ramp to 0 over the tail
-      // so the reverb trails off smoothly instead of clicking on disconnect.
       wetGain.gain.setValueAtTime(wetAmount, startTime);
       wetGain.gain.setValueAtTime(wetAmount, startTime + duration);
       wetGain.gain.linearRampToValueAtTime(
         1e-4,
-        startTime + duration + REVERB_TAIL_DURATION,
+        startTime + duration + tailLen,
       );
 
       dryGain = this.audioContext.createGain();
-      dryGain.gain.value = Math.max(0, 1 - DRY_TAPER * effectiveReverb);
+      dryGain.gain.value = Math.max(0, 1 - DRY_TAPER * this.reverbIntensity);
 
       stereoPanner.connect(dryGain);
       dryGain.connect(this.compressor);
@@ -519,8 +549,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     // When reverb is active, wait for the tail fade to complete before disconnecting
     // the wet path; otherwise use the original 2× duration window for the dry tone.
-    const lifetimeMs = effectiveReverb > 0
-      ? (duration + REVERB_TAIL_DURATION) * 1e3 + 50
+    const lifetimeMs = reverbActive
+      ? (duration + tailLen) * 1e3 + 50
       : duration * 1e3 * 2;
     const audioId = setTimeout(() => cleanUp(audioId), lifetimeMs);
     this.activeAudioIds.set(audioId, oscillators);
@@ -889,6 +919,18 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * Clamps the reverb-duration setting to a sensible range. Floors at 0.05s so
+   * the IR buffer always has at least a couple of samples; caps at 10s to keep
+   * the convolver and tail-fade timeout bounded.
+   */
+  private normalizeReverbDuration(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 2;
+    }
+    return Math.max(0.05, Math.min(10, value));
+  }
+
+  /**
    * Lazily builds a stereo impulse response (random noise × exponential decay).
    * Reference: https://github.com/ellvix/reverb-testing/blob/master/main.js
    */
@@ -897,7 +939,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return this.reverbIR;
     }
     const rate = this.audioContext.sampleRate;
-    const length = Math.max(1, Math.floor(rate * REVERB_IR_DURATION));
+    const length = Math.max(1, Math.floor(rate * this.reverbDuration));
     const impulse = this.audioContext.createBuffer(2, length, rate);
     for (let ch = 0; ch < 2; ch++) {
       const channel = impulse.getChannelData(ch);
@@ -907,16 +949,5 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
     this.reverbIR = impulse;
     return impulse;
-  }
-
-  /**
-   * Returns the effective reverb amount after applying the user's intensity setting,
-   * or 0 when reverb should be bypassed entirely.
-   */
-  private effectiveReverb(reverb: number | undefined): number {
-    if (reverb === undefined || reverb <= 0 || this.reverbIntensity <= 0) {
-      return 0;
-    }
-    return Math.max(0, Math.min(1, reverb)) * this.reverbIntensity;
   }
 }

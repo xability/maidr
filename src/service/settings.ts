@@ -16,30 +16,6 @@ function getValue<T>(settings: any, key: string): T | undefined {
   }, settings);
 }
 
-/**
- * Deep-merges saved settings over defaults so newly-added default keys are
- * populated on users whose stored Settings predate the addition.
- */
-function mergeDefaults<T>(defaults: T, saved: Partial<T> | null | undefined): T {
-  if (saved === null || saved === undefined) {
-    return defaults;
-  }
-  if (typeof defaults !== 'object' || defaults === null || Array.isArray(defaults)) {
-    return saved as T ?? defaults;
-  }
-  const result = { ...defaults } as Record<string, unknown>;
-  for (const key of Object.keys(defaults as Record<string, unknown>)) {
-    const savedValue = (saved as Record<string, unknown>)[key];
-    if (savedValue !== undefined) {
-      result[key] = mergeDefaults(
-        (defaults as Record<string, unknown>)[key],
-        savedValue as Partial<unknown>,
-      );
-    }
-  }
-  return result as T;
-}
-
 function getSettingValue<T>(settings: any, key: string): T {
   const value = getValue(settings, key);
   if (value === undefined) {
@@ -84,47 +60,6 @@ export class SettingsService implements Disposable {
     this.display = display;
     this.observers = [];
 
-    this.defaultSettings = {
-      general: {
-        volume: 50,
-        reverbIntensity: 100,
-        highlightColor: '#03c809',
-        highContrastMode: false,
-        highContrastLevels: 2,
-        highContrastLightColor: '#ffffff',
-        highContrastDarkColor: '#000000',
-        brailleDisplaySize: 32,
-        minFrequency: 200,
-        maxFrequency: 1000,
-        autoplayDuration: 4000,
-        ariaMode: 'assertive',
-        hoverMode: 'pointermove',
-      },
-      llm: {
-        expertiseLevel: 'basic',
-        customInstruction: '',
-        models: {
-          OPENAI: {
-            enabled: false,
-            apiKey: '',
-            name: 'OpenAI',
-            version: 'gpt-4o',
-          },
-          ANTHROPIC_CLAUDE: {
-            enabled: false,
-            apiKey: '',
-            name: 'Anthropic Claude',
-            version: 'claude-3-7-sonnet-latest',
-          },
-          GOOGLE_GEMINI: {
-            enabled: false,
-            apiKey: '',
-            name: 'Google Gemini',
-            version: 'gemini-2.0-flash',
-          },
-        },
-      },
-    };
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);

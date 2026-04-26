@@ -60,6 +60,16 @@ export interface LlmSettings {
 export interface GeneralSettings {
   volume: number;
   reverbIntensity: number;
+  /**
+   * Synthetic-IR length in seconds. Drives both the reverb tail length and the
+   * fade-out window. Larger = longer ring-out.
+   */
+  reverbDuration: number;
+  /**
+   * When true, per-tone volume scales with the reverb (z) amount: 50% of the
+   * configured volume at z=min, 125% at z=max. Off by default.
+   */
+  zScaleVolume: boolean;
   highlightColor: string;
   highContrastMode: boolean;
   highContrastLevels: number;
@@ -86,6 +96,8 @@ export const DEFAULT_SETTINGS: Settings = {
   general: {
     volume: 50,
     reverbIntensity: 100,
+    reverbDuration: 2,
+    zScaleVolume: false,
     highlightColor: '#03c809',
     highContrastMode: false,
     highContrastLevels: 2,

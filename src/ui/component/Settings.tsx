@@ -427,6 +427,59 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
+              label="Reverb Duration (s)"
+              input={(
+                <FormControl fullWidth>
+                  <Slider
+                    value={generalSettings.reverbDuration}
+                    onChange={(_, value) =>
+                      handleGeneralChange('reverbDuration', Number(value))}
+                    min={0.1}
+                    max={5}
+                    step={0.1}
+                    valueLabelDisplay="auto"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0.1,
+                        'aria-valuemax': 5,
+                        'aria-label': 'Reverb Duration in seconds',
+                        'aria-labelledby': 'reverb-duration-label',
+                      },
+                    }}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Scale Volume with Z"
+              input={(
+                <FormControl>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={generalSettings.zScaleVolume}
+                        onChange={e =>
+                          handleGeneralChange('zScaleVolume', e.target.checked)}
+                        size="small"
+                      />
+                    )}
+                    label={generalSettings.zScaleVolume ? 'On' : 'Off'}
+                    slotProps={{
+                      typography: {
+                        variant: 'body2',
+                      },
+                    }}
+                    aria-label="Scale Volume with Z"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
               label="Outline Color"
               input={(
                 <FormControl fullWidth>
