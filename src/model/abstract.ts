@@ -16,16 +16,23 @@ import type {
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
+import { Constant } from '@util/constant';
 
 const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'unavailable';
+const DEFAULT_Z_AXIS = 'Level';
 
 export interface Dimension {
   rows: number;
   cols: number;
+}
+
+export interface NearestPoint {
+  element: SVGElement;
+  row: number;
+  col: number;
 }
 
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
@@ -254,6 +261,23 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   public moveToPoint(_x: number, _y: number): void {
     // implement basic stuff, assuming something like highlightValues that holds the points and boxes
   }
+
+  /**
+   * Returns true if this trace supports compare (lower/higher value) navigation.
+   * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
+   * currently have).
+   */
+  public supportsCompareMode(): boolean {
+    return true;
+  }
+
+  /**
+   * Returns the display name for the default data navigation mode.
+   * Override to provide a trace-specific name (e.g., "ROW AND COLUMN NAVIGATION" for scatter).
+   */
+  public dataModeName(): string {
+    return Constant.DATA_MODE;
+  }
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
@@ -263,7 +287,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
-  protected readonly fill: string;
+  protected readonly z: string;
 
   protected readonly navigationService: NavigationService;
 
@@ -277,9 +301,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
-    this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
-    this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+    this.xAxis = layer.axes?.x?.label ?? DEFAULT_X_AXIS;
+    this.yAxis = layer.axes?.y?.label ?? DEFAULT_Y_AXIS;
+    this.z = layer.axes?.z?.label ?? DEFAULT_Z_AXIS;
   }
 
   /**
@@ -327,7 +351,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
-      fill: this.fill,
+      z: this.z,
       hasMultiPoints: this.hasMultiPoints,
       audio: this.audio,
       braille: this.braille,
@@ -643,7 +667,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null;
+  ): NearestPoint | null;
 
   /**
    * Moves to the nearest point at the specified coordinates (used for hover functionality).
@@ -680,7 +704,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       element,
       row: _row,
       col: _col,
-    }: { element: SVGElement; row: number; col: number },
+    }: NearestPoint,
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();

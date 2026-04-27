@@ -11,8 +11,19 @@ import { AbstractTrace } from './abstract';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
-const SVG_PATH_LINE_POINT_REGEX
-  = /[ML]\s*(-?\d+(?:\.\d+)?)[\s,]+(-?\d+(?:\.\d+)?)/g;
+/**
+ * Regex for extracting data point coordinates from SVG path `d` attribute.
+ *
+ * Matches M/L commands (direct endpoints) with comma or whitespace separators,
+ * and C (cubic bezier) commands — extracting the endpoint (last coordinate pair).
+ *
+ * M/L: `M65,231.42` or `L 100 200` → captures (65, 231.42) or (100, 200)
+ * C:   `C81,215,97,199,113,182`    → captures endpoint (113, 182)
+ */
+const SVG_PATH_ML_REGEX
+  = /[ML]\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_C_REGEX
+  = /C\s*(?:-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+){2}(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
 
 /**
  * Represents a line trace plot with support for single and multi-line navigation
@@ -46,6 +57,7 @@ export class LineTrace extends AbstractTrace {
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }>> = new Map();
 
   public constructor(layer: MaidrLayer) {
@@ -209,41 +221,41 @@ export class LineTrace extends AbstractTrace {
 
     // Check for intersections at current point
     const intersections = this.findIntersections();
-    let fillData:
-      | { fill: { label: string; value: string } }
+    let zData:
+      | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
         const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
       });
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill
-          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
-        if (lineTypes.includes(prevFill)) {
-          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        const prevZ
+          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevZ)) {
+          lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
       }
 
-      fillData = {
-        fill: {
+      zData = {
+        z: {
           label: TYPE,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
-      // Single line or no intersection - use normal fill data
-      fillData = point.fill ? { fill: { label: TYPE, value: point.fill } } : {};
+      // Single line or no intersection - use normal z data
+      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
     }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
-      ...fillData,
+      ...zData,
     };
   }
 
@@ -474,8 +486,52 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
 
+    // Try element-based approach first (e.g. Recharts individual dot circles).
+    // If the selector matches multiple DOM elements whose count equals the
+    // expected data points, use them directly — no path parsing needed.
+    const elementBased = this.mapViaDomElements(selectors);
+    if (elementBased) {
+      return elementBased;
+    }
+
+    // Fall back to path-based approach: parse coordinates from a single
+    // <path> or <polyline> element per series and create synthetic circles.
+    return this.mapViaPathParsing(selectors);
+  }
+
+  /**
+   * Element-based SVG mapping: select all matching elements per selector
+   * and use them directly for highlighting (like BarTrace does).
+   * Works when the charting library renders individual dot/circle elements.
+   */
+  private mapViaDomElements(selectors: string[]): SVGElement[][] | null {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
+
+    for (let r = 0; r < selectors.length; r++) {
+      const elements = Svg.selectAllElements(selectors[r]);
+      if (elements.length === 0 || elements.length !== this.lineValues[r].length) {
+        svgElements.push([]);
+        continue;
+      }
+      allFailed = false;
+      svgElements.push(elements);
+    }
+
+    return allFailed ? null : svgElements;
+  }
+
+  /**
+   * Path-based SVG mapping: find a single <path> or <polyline> per selector,
+   * parse data point coordinates from its attributes, and create synthetic
+   * circle elements for highlighting.
+   *
+   * Supports M/L commands (linear paths) and C commands (cubic bezier curves).
+   */
+  private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
+
     for (let r = 0; r < selectors.length; r++) {
       const lineElement = Svg.selectElement(selectors[r], false);
       if (!lineElement) {
@@ -486,16 +542,7 @@ export class LineTrace extends AbstractTrace {
       const coordinates: LinePoint[] = [];
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
-        let match: RegExpExecArray | null
-          = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        while (match !== null) {
-          coordinates.push({
-            x: Number.parseFloat(match[1]),
-            y: Number.parseFloat(match[2]),
-          });
-          match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        }
+        this.extractPathCoordinates(pathD, coordinates);
       } else if (lineElement instanceof SVGPolylineElement) {
         const pointsAttr
           = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
@@ -580,6 +627,44 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     return svgElements;
+  }
+
+  /**
+   * Extracts data point coordinates from an SVG path `d` attribute.
+   * Handles M/L (move/line) and C (cubic bezier) commands.
+   * For C commands, the endpoint (3rd coordinate pair) is extracted.
+   */
+  private extractPathCoordinates(pathD: string, coordinates: LinePoint[]): void {
+    // Extract M/L endpoints
+    SVG_PATH_ML_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null = SVG_PATH_ML_REGEX.exec(pathD);
+    const indexed: { index: number; x: number; y: number }[] = [];
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_ML_REGEX.exec(pathD);
+    }
+
+    // Extract C cubic bezier endpoints (3rd pair of each C command)
+    SVG_PATH_C_REGEX.lastIndex = 0;
+    match = SVG_PATH_C_REGEX.exec(pathD);
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_C_REGEX.exec(pathD);
+    }
+
+    // Sort by position in path string to preserve point order
+    indexed.sort((a, b) => a.index - b.index);
+    for (const point of indexed) {
+      coordinates.push({ x: point.x, y: point.y });
+    }
   }
 
   public get state(): TraceState {
@@ -737,6 +822,7 @@ export class LineTrace extends AbstractTrace {
     x: number;
     y: number;
     intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
   }> {
     const currentGroup = this.row;
 
@@ -851,6 +937,13 @@ export class LineTrace extends AbstractTrace {
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+        // Classify once during target generation so UI can announce the right type.
+        intersectionKind: this.classifyIntersectionKind(
+          currentGroup,
+          Array.from(entry.intersectingLines),
+          entry.x,
+          entry.y,
+        ),
       }))
       .sort((a, b) => a.x - b.x);
 
@@ -869,11 +962,57 @@ export class LineTrace extends AbstractTrace {
    */
   private getIntersectionLabel(intersectingLines: number[]): string {
     return intersectingLines.map((lineIndex) => {
-      // Access first point to get the line's fill/name
-      // Falls back to "Line N" if fill is not defined
+      // Access first point to get the line's z/name
+      // Falls back to "Line N" if z is not defined
       const firstPoint = this.points[lineIndex][0];
-      return firstPoint?.fill || `Line ${lineIndex + 1}`;
+      return firstPoint?.z || `Line ${lineIndex + 1}`;
     }).join(', ');
+  }
+
+  /**
+   * Check whether a line contains a sampled point at the given coordinate.
+   * @param lineIndex The line index to inspect
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @returns True if the coordinate exists in the line's sampled points
+   */
+  private hasPointAtCoordinate(lineIndex: number, x: number, y: number): boolean {
+    if (lineIndex < 0 || lineIndex >= this.points.length) {
+      return false;
+    }
+
+    return this.points[lineIndex].some(point =>
+      Math.abs(Number(point.x) - x) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(Number(point.y) - y) < LineTrace.INTERSECTION_EPSILON,
+    );
+  }
+
+  /**
+   * Classify an intersection as either point-based (sampled in SVG data) or
+   * slope-based (created by segment crossing between sampled points).
+   * @param currentLine The current active line index
+   * @param intersectingLines Other lines participating in this intersection
+   * @param x Intersection x coordinate
+   * @param y Intersection y coordinate
+   * @returns Intersection kind
+   */
+  private classifyIntersectionKind(
+    currentLine: number,
+    intersectingLines: number[],
+    x: number,
+    y: number,
+  ): 'point' | 'slope' {
+    // Point intersection requires both lines to contain the sampled coordinate.
+    const currentHasPoint = this.hasPointAtCoordinate(currentLine, x, y);
+    if (!currentHasPoint) {
+      return 'slope';
+    }
+
+    const otherHasPoint = intersectingLines.some(lineIndex =>
+      this.hasPointAtCoordinate(lineIndex, x, y),
+    );
+
+    return otherHasPoint ? 'point' : 'slope';
   }
 
   /**
@@ -941,13 +1080,17 @@ export class LineTrace extends AbstractTrace {
       const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
       // Format the intersection coordinates for display
       const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+      const intersectionLabel = intersection.intersectionKind === 'point'
+        ? 'Point intersection'
+        : 'Slope intersection';
 
       targets.push({
-        label: `Intersection at ${coordsDisplay}`,
+        label: `${intersectionLabel} at ${coordsDisplay}`,
         value: intersection.y,
         pointIndex: intersection.pointIndex,
         segment: 'intersection',
         type: 'intersection',
+        intersectionKind: intersection.intersectionKind,
         navigationType: 'point',
         intersectingLines: intersection.intersectingLines,
         display: {

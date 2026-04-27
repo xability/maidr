@@ -16,10 +16,12 @@
             "type": "box",
             "title": "Horizontal Box: Values across Groups",
             "axes": {
-              "x": "Values",
-              "y": "Group",
-              "format": {
-                "x": { "type": "fixed", "decimals": 1 }
+              "x": {
+                "label": "Values",
+                "format": { "type": "fixed", "decimals": 1 }
+              },
+              "y": {
+                "label": "Group"
               }
             },
             "data": [
@@ -37,7 +39,7 @@
                   200,
                   210
                 ],
-                "fill": "Group 3"
+                "z": "Group 3"
               },
               {
                 "lowerOutliers": [
@@ -54,7 +56,7 @@
                   180,
                   190
                 ],
-                "fill": "Group 2"
+                "z": "Group 2"
               },
               {
                 "lowerOutliers": [
@@ -70,7 +72,7 @@
                   150,
                   160
                 ],
-                "fill": "Group 1"
+                "z": "Group 1"
               }
             ],
             "selectors": [

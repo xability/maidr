@@ -1,9 +1,11 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
+import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
 import type { TextService } from '@service/text';
@@ -40,6 +42,8 @@ export interface CommandContext {
   audioService: AudioService;
   /** Autoplay service for automated navigation. */
   autoplayService: AutoplayService;
+  /** Braille service for managing braille display. */
+  brailleService: BrailleService;
   /** Display service for managing display state. */
   displayService: DisplayService;
   /** High contrast service for accessibility. */
@@ -51,6 +55,8 @@ export interface CommandContext {
   settingsService: SettingsService;
   /** Text service for mode-aware text formatting. */
   textService: TextService;
+  /** Notification service for user feedback messages. */
+  notificationService: NotificationService;
 
   /** Braille view model for braille display. */
   brailleViewModel: BrailleViewModel;

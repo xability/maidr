@@ -12,8 +12,8 @@ export const smoothData: MaidrData = {
             "type": TraceType.SMOOTH,
             "title": "KDE: Plot of Random Data",
             "axes": {
-              "x": "Value",
-              "y": "Density"
+              "x": { "label": "Value" },
+              "y": { "label": "Density" }
             },
             "data": [
               [

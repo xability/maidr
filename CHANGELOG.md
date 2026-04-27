@@ -1,3 +1,99 @@
+## [3.64.1](https://github.com/xability/maidr/compare/v3.64.0...v3.64.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* refactor axes configuration ([#603](https://github.com/xability/maidr/issues/603)) ([e294a86](https://github.com/xability/maidr/commit/e294a86f540744885677c8d5b67949c61ee6c92a))
+
+# [3.64.0](https://github.com/xability/maidr/compare/v3.63.1...v3.64.0) (2026-04-22)
+
+
+### Features
+
+* support simultaneous representation of multiple traces in multiline braille displays ([#599](https://github.com/xability/maidr/issues/599)) ([b0e6281](https://github.com/xability/maidr/commit/b0e6281c5caed16173baecddf7ff5cd94d69a6ac))
+
+## [3.63.1](https://github.com/xability/maidr/compare/v3.63.0...v3.63.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* change fill to z and fix minor regressions ([#602](https://github.com/xability/maidr/issues/602)) ([fa4b4ec](https://github.com/xability/maidr/commit/fa4b4ec520a2d6d5e141f674569bb333acf24e1b))
+
+# [3.63.0](https://github.com/xability/maidr/compare/v3.62.0...v3.63.0) (2026-04-16)
+
+
+### Features
+
+* add Google Charts integration adapter ([#541](https://github.com/xability/maidr/issues/541)) ([#552](https://github.com/xability/maidr/issues/552)) ([d7357f8](https://github.com/xability/maidr/commit/d7357f8c56e137ec89927572a583114c3b0ba7e8))
+
+# [3.62.0](https://github.com/xability/maidr/compare/v3.61.0...v3.62.0) (2026-04-13)
+
+
+### Bug Fixes
+
+* braille cursor issue and extra braille text at beginning in nvda eliminated ([#596](https://github.com/xability/maidr/issues/596)) ([5e0d998](https://github.com/xability/maidr/commit/5e0d9982e11bc55d436aee7de6bb2c6fca1febd1))
+
+
+### Features
+
+* enable automatic keybinding capture in help menu ([#597](https://github.com/xability/maidr/issues/597)) ([d207bc0](https://github.com/xability/maidr/commit/d207bc0de20b753498268c290e6ce8d9132bd8e0))
+
+# [3.61.0](https://github.com/xability/maidr/compare/v3.60.1...v3.61.0) (2026-04-08)
+
+
+### Features
+
+* add Recharts adapter for accessible chart integration ([#555](https://github.com/xability/maidr/issues/555)) ([2d4e4e4](https://github.com/xability/maidr/commit/2d4e4e4286dc0cc1b10ba68b155f01d0408bd789)), closes [#542](https://github.com/xability/maidr/issues/542)
+
+## [3.60.1](https://github.com/xability/maidr/compare/v3.60.0...v3.60.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* improve scatter plot grid navigation ([#595](https://github.com/xability/maidr/issues/595)) ([615219c](https://github.com/xability/maidr/commit/615219cb148364060b9a607f23f25ac0ea5484a8))
+
+# [3.60.0](https://github.com/xability/maidr/compare/v3.59.2...v3.60.0) (2026-04-08)
+
+
+### Features
+
+* plotly js adapter ([#591](https://github.com/xability/maidr/issues/591)) ([a3a49e3](https://github.com/xability/maidr/commit/a3a49e31b98d44ad53fd3ec3bea16b6fa93735bb))
+
+## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* escape key works in braille mode for subplot exit ([#593](https://github.com/xability/maidr/issues/593)) ([e30144a](https://github.com/xability/maidr/commit/e30144a19ce020d9d6b0071b3fbfcb6b2554e344))
+
+## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* fetch braille output length from settings ([#590](https://github.com/xability/maidr/issues/590)) ([b64fb4e](https://github.com/xability/maidr/commit/b64fb4ecd8f7724c18987d4586f3b478cf3e5401))
+
+# [3.59.0](https://github.com/xability/maidr/compare/v3.58.3...v3.59.0) (2026-04-01)
+
+
+### Features
+
+* support grid based movement for scatterplots ([#570](https://github.com/xability/maidr/issues/570)) ([951166e](https://github.com/xability/maidr/commit/951166ede1ff4338df47015359b8cdae9c51df94))
+
+## [3.58.3](https://github.com/xability/maidr/compare/v3.58.2...v3.58.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* clarify scatterplot without line layer ([#589](https://github.com/xability/maidr/issues/589)) ([a70daf8](https://github.com/xability/maidr/commit/a70daf8818bdf4359403f0c5c3caa48881f36cf6))
+
+## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* clarify point or slope intersection in multiline plot ([#582](https://github.com/xability/maidr/issues/582)) ([d1931ae](https://github.com/xability/maidr/commit/d1931ae82b5f88e61981e6b6943d7ca1d18f6b18))
+
 ## [3.58.1](https://github.com/xability/maidr/compare/v3.58.0...v3.58.1) (2026-03-13)
 
 

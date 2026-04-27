@@ -5,6 +5,7 @@ import type { Figure, Subplot, Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { Orientation } from '@type/grammar';
+import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
@@ -231,6 +232,53 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Subplot.
       this.active.notifyStateUpdate();
       this.toggleScope(Scope.SUBPLOT);
+    }
+  }
+
+  /**
+   * Enters grid cell mode to navigate points within the current cell.
+   * Only works when the active trace supports grid navigation and is in grid mode.
+   * @returns true if successfully entered cell mode, false if no points in cell
+   */
+  public enterGridCell(): boolean {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
+      if (activeTrace.enterGridCell()) {
+        this.toggleScope(Scope.GRID_CELL);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Exits grid cell mode and returns to grid navigation.
+   */
+  public exitGridCell(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.exitGridCell();
+      this.toggleScope(Scope.TRACE);
+    }
+  }
+
+  /**
+   * Moves to the previous point within the current grid cell.
+   */
+  public moveCellPointLeft(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.moveCellPointLeft();
+    }
+  }
+
+  /**
+   * Moves to the next point within the current grid cell.
+   */
+  public moveCellPointRight(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.moveCellPointRight();
     }
   }
 

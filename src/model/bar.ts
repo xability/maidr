@@ -251,16 +251,33 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues
-    if (!this.highlightValues) {
+    if (!this.highlightValues || this.highlightValues.length === 0) {
       return null;
     }
 
     // loop through all highlightValues, and check bounding boxes against x, y
     for (let row = 0; row < this.highlightValues.length; row++) {
-      for (let col = 0; col < this.highlightValues[row].length; col++) {
-        const element = this.highlightValues[row][col];
+      const rowElements = this.highlightValues[row];
+      // Skip undefined or empty rows
+      if (!rowElements || rowElements.length === 0) {
+        continue;
+      }
+      for (let col = 0; col < rowElements.length; col++) {
+        const element = rowElements[col];
+        // Skip undefined elements
+        if (!element) {
+          continue;
+        }
         const targetElement = Array.isArray(element) ? element[0] : element;
+        // Skip if targetElement is invalid or an empty placeholder
+        if (!targetElement || !targetElement.getBoundingClientRect) {
+          continue;
+        }
         const bbox = targetElement.getBoundingClientRect();
+        // Skip elements with no size (empty placeholders)
+        if (bbox.width === 0 && bbox.height === 0) {
+          continue;
+        }
         if (
           x >= bbox.x
           && x <= bbox.x + bbox.width

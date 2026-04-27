@@ -82,7 +82,7 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Falls back to String() conversion if no formatter is configured.
    *
    * @param value - The value to format
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string representation of the value
    */
   private formatSingleValue(value: number | string, axis: AxisType): string {
@@ -97,7 +97,7 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Falls back to String() conversion for each element if no formatter is configured.
    *
    * @param values - The array of values to format
-   * @param axis - The axis type ('x', 'y', or 'fill')
+   * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Array of formatted strings
    */
   private formatArrayValue(values: (number | string)[], axis: AxisType): string[] {
@@ -211,9 +211,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       parts.push(`${text.cross.label} is ${crossValue}`);
     }
 
-    // Add fill/type information (for line plots this includes group/type like "MAV=3")
-    if (text.fill && text.fill.value !== undefined) {
-      parts.push(`${text.fill.label} is ${text.fill.value}`);
+    // Add z/type information (for line plots this includes group/type like "MAV=3")
+    if (text.z && text.z.value !== undefined) {
+      parts.push(`${text.z.label} is ${text.z.value}`);
     }
 
     return parts.length > 0 ? parts.join(', ') : null;
@@ -254,8 +254,8 @@ export class TextService implements Observer<PlotState>, Disposable {
           : this.formatSingleValue(state.text.cross.value as number | string, crossAxisType);
         parts.push(`${state.text.cross.label} is ${crossValue}`);
       }
-      if (state.text.fill && state.text.fill.value !== undefined) {
-        parts.push(`${state.text.fill.label} is ${state.text.fill.value}`);
+      if (state.text.z && state.text.z.value !== undefined) {
+        parts.push(`${state.text.z.label} is ${state.text.z.value}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -319,10 +319,10 @@ export class TextService implements Observer<PlotState>, Disposable {
   /**
    * Determines if the current state represents a box plot.
    * @param state - The text state to check
-   * @returns True if state has sections but no fill (indicating a box plot)
+   * @returns True if state has sections but no z (indicating a box plot)
    */
   private isBoxPlotWithSection(state: TextState): boolean {
-    return state.section !== undefined && state.fill === undefined;
+    return state.section !== undefined && state.z === undefined;
   }
 
   /**
@@ -331,7 +331,17 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Verbose formatted text with complete coordinate information
    */
   private formatVerboseTraceText(state: TextState): string {
+    // Grid cell format: "{xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatVerboseGridText(state);
+    }
+
     const verbose = new Array<string>();
+
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      verbose.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // Use axis identity from TextState, fallback to default mapping
     const mainAxisType = state.mainAxis ?? 'x';
@@ -399,20 +409,20 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for heatmap and scatter plot.
-    if (state.fill !== undefined) {
+    if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
-      let fillValue: string;
-      if (state.fill.value === 'Bull' || state.fill.value === 'Bear') {
-        fillValue = state.fill.value.toLowerCase();
+      let zValue: string;
+      if (state.z.value === 'Bull' || state.z.value === 'Bear') {
+        zValue = state.z.value.toLowerCase();
       } else {
-        fillValue = this.formatSingleValue(state.fill.value as number | string, 'fill');
+        zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
 
       verbose.push(
         Constant.COMMA_SPACE,
-        state.fill.label,
+        state.z.label,
         Constant.IS,
-        fillValue,
+        zValue,
       );
     }
 
@@ -425,7 +435,17 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Terse formatted text with compact coordinate representation
    */
   private formatTerseTraceText(state: TextState): string {
+    // Grid cell format: "{xMin} through {xMax}, {yMin} through {yMax}, points: ..."
+    if (state.gridPoints !== undefined && state.range && state.crossRange) {
+      return this.formatTerseGridText(state);
+    }
+
     const terse = new Array<string>();
+
+    // Grid cell point navigation: add "Cell [row,col]" prefix
+    if (state.gridPosition && state.gridPoints === undefined) {
+      terse.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
 
     // Use axis identity from state (supports orientation-aware formatting)
     const mainAxisType = state.mainAxis ?? 'x';
@@ -458,7 +478,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Format for cross axis values.
     // For candlestick plots, we show section (type) first, then cross.value (price)
     // For box plots, we also show section (type) first, then cross.value
-    if (state.section !== undefined && state.fill !== undefined) {
+    if (state.section !== undefined && state.z !== undefined) {
       // For candlestick: show section (type) first, then cross.value (price)
       terse.push(state.section!, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
@@ -466,7 +486,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       } else {
         terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
       }
-    } else if (state.section !== undefined && state.fill === undefined) {
+    } else if (state.section !== undefined && state.z === undefined) {
       // For box plots: show section (type) first, then cross.value
       terse.push(state.section!, Constant.SPACE);
       if (!Array.isArray(state.cross.value)) {
@@ -484,24 +504,115 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for heatmap and segmented plots.
-    if (state.fill !== undefined) {
+    if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
-      let fillValue: string;
-      if (state.fill.value === 'Bull' || state.fill.value === 'Bear') {
-        fillValue = state.fill.value.toLowerCase();
+      let zValue: string;
+      if (state.z.value === 'Bull' || state.z.value === 'Bear') {
+        zValue = state.z.value.toLowerCase();
       } else {
-        fillValue = this.formatSingleValue(state.fill.value as number | string, 'fill');
+        zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
 
       // For candlestick plots, add comma before trend value to show "open 100, bear"
       if (state.section !== undefined) {
-        terse.push(Constant.COMMA_SPACE, fillValue);
+        terse.push(Constant.COMMA_SPACE, zValue);
       } else {
-        terse.push(Constant.COMMA_SPACE, fillValue);
+        terse.push(Constant.COMMA_SPACE, zValue);
       }
     }
 
     return terse.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in verbose mode.
+   * Output: "Cell [row,col], {xLabel} is {xMin} through {xMax}, {yLabel} is {yMin} through {yMax}, points are: (x1, y1), ..."
+   */
+  private formatVerboseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
+    // X range
+    parts.push(
+      state.main.label,
+      Constant.IS,
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      state.cross.label,
+      Constant.IS,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      const verb = points.length === 1 ? ' is' : 's are';
+      parts.push(Constant.COMMA_SPACE, `point${verb}: `, pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
+  }
+
+  /**
+   * Formats grid cell text in terse mode.
+   * Output: "Cell [row,col], {xMin} through {xMax}, {yMin} through {yMax}, points: (x1, y1), ..."
+   */
+  private formatTerseGridText(state: TextState): string {
+    const mainAxisType = state.mainAxis ?? 'x';
+    const crossAxisType = state.crossAxis ?? 'y';
+    const parts: string[] = [];
+
+    // Cell position
+    if (state.gridPosition) {
+      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+    }
+
+    // X range
+    parts.push(
+      this.formatSingleValue(state.range!.min, mainAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.range!.max, mainAxisType),
+    );
+
+    // Y range
+    parts.push(
+      Constant.COMMA_SPACE,
+      this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      Constant.THROUGH,
+      this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    );
+
+    // Points
+    const points = state.gridPoints!;
+    if (points.length === 0) {
+      parts.push(Constant.COMMA_SPACE, 'no points');
+    } else {
+      const pointStrs = points.map(
+        p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
+      );
+      parts.push(Constant.COMMA_SPACE, 'points: ', pointStrs.join(Constant.COMMA_SPACE));
+    }
+
+    return parts.join(Constant.EMPTY);
   }
 
   /**

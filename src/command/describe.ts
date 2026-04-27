@@ -1,12 +1,12 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
+import type { DisplayService } from '@service/display';
 import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
-import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -17,6 +17,7 @@ abstract class AnnounceCommand implements Command {
   protected readonly textViewModel: TextViewModel;
   protected readonly audioService: AudioService;
   protected readonly textService: TextService;
+  protected readonly displayService: DisplayService;
 
   /**
    * Creates an instance of AnnounceCommand.
@@ -24,12 +25,20 @@ abstract class AnnounceCommand implements Command {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  protected constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
+  protected constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
     this.context = context;
     this.textViewModel = textViewModel;
     this.audioService = audioService;
     this.textService = textService;
+    this.displayService = displayService;
   }
 
   /**
@@ -39,15 +48,13 @@ abstract class AnnounceCommand implements Command {
   public abstract execute(event?: Event): void;
 
   /**
-   * Restores the scope to the correct parent after a label describe command.
-   * Returns to SUBPLOT when at figure level (came from FIGURE_LABEL),
-   * TRACE otherwise (came from TRACE_LABEL).
+   * Restores the scope to the previous scope before entering label mode.
+   * Uses DisplayService to properly manage the focus stack and restore
+   * the correct scope (TRACE, BRAILLE, etc.) regardless of which scope
+   * was active before entering label mode.
    */
   protected restoreScope(): void {
-    const returnScope = this.context.state.type === 'figure'
-      ? Scope.SUBPLOT
-      : Scope.TRACE;
-    this.context.toggleScope(returnScope);
+    this.displayService.exitLabelScope();
   }
 }
 
@@ -61,9 +68,16 @@ export class AnnounceXCommand extends AnnounceCommand {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -97,9 +111,16 @@ export class AnnounceYCommand extends AnnounceCommand {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -124,34 +145,52 @@ export class AnnounceYCommand extends AnnounceCommand {
 }
 
 /**
- * Command to describe the fill property.
+ * Command to describe the z (level) property.
+ * Works with candlestick (trend), heatmap (z value), segmented bars (level),
+ * and multi-series line charts (group).
  */
-export class AnnounceFillCommand extends AnnounceCommand {
+export class AnnounceZCommand extends AnnounceCommand {
   /**
-   * Creates an instance of AnnounceFillCommand.
+   * Creates an instance of AnnounceZCommand.
    * @param {Context} context - The application context.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
-   * Executes the command to display the fill information.
+   * Executes the command to display the z (level) information.
+   * Checks for valid z-axis data which is in state.text.z with label and value properties.
+   * Supports: candlestick (trend), heatmap (z), segmented bars (level), multi-line (group).
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace' && !state.empty && state.fill !== 'unavailable') {
-      const text = this.textService.isTerse()
-        ? state.fill
-        : `Fill is ${state.fill}`;
-      this.textViewModel.update(text);
+
+    // Check if we have valid z-axis data
+    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line)
+    const zData = state.type === 'trace' && !state.empty ? state.text.z : undefined;
+    const hasValidZ = zData !== undefined
+      && zData.value !== undefined
+      && zData.value !== null
+      && zData.value !== 'undefined';
+
+    if (hasValidZ) {
+      const zLabel = zData!.label;
+      this.textViewModel.update(`${zLabel}`);
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Fill is not available';
+        : 'Z-axis is not available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -169,9 +208,16 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -260,9 +306,16 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -298,9 +351,16 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
-  public constructor(context: Context, textViewModel: TextViewModel, audioService: AudioService, textService: TextService) {
-    super(context, textViewModel, audioService, textService);
+  public constructor(
+    context: Context,
+    textViewModel: TextViewModel,
+    audioService: AudioService,
+    textService: TextService,
+    displayService: DisplayService,
+  ) {
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -342,6 +402,7 @@ export class AnnouncePointCommand extends AnnounceCommand {
    * @param {BrailleViewModel} brailleViewModel - The braille view model.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {TextService} textService - The text service for mode-aware formatting.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
   public constructor(
     context: Context,
@@ -350,8 +411,9 @@ export class AnnouncePointCommand extends AnnounceCommand {
     brailleViewModel: BrailleViewModel,
     textViewModel: TextViewModel,
     textService: TextService,
+    displayService: DisplayService,
   ) {
-    super(context, textViewModel, audioService, textService);
+    super(context, textViewModel, audioService, textService, displayService);
     this.audio = audioService;
     this.highlight = highlightService;
     this.brailleViewModel = brailleViewModel;
@@ -389,14 +451,16 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * @param {TextService} textService - The text service for mode checking.
    * @param {TextViewModel} textViewModel - The text view model.
    * @param {AudioService} audioService - The audio service.
+   * @param {DisplayService} displayService - The display service for scope management.
    */
   public constructor(
     context: Context,
     textService: TextService,
     textViewModel: TextViewModel,
     audioService: AudioService,
+    displayService: DisplayService,
   ) {
-    super(context, textViewModel, audioService, textService);
+    super(context, textViewModel, audioService, textService, displayService);
   }
 
   /**
@@ -414,6 +478,12 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     // Warn if text mode is off instead of announcing position
     if (this.textViewModel.warnIfTextOff()) {
+      return;
+    }
+
+    // Grid mode: announce axis ranges without points
+    if (state.text.gridPoints !== undefined && state.text.range && state.text.crossRange) {
+      this.announceGridPosition(state);
       return;
     }
 
@@ -443,12 +513,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         this.announceSmoothPosition(x, cols);
       }
     } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+      // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
       this.announceMultiLinePosition(x, cols, y, rows);
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
     } else if (this.is2DPlot(rows, cols)) {
+      // Default position announcement
       this.announce2DPosition(x, y, rows, cols);
     } else {
       this.announce1DPosition(x, cols);
@@ -491,6 +563,28 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else {
       this.textViewModel.update(
         `Position is column ${colPos} of ${cols}, row ${rowPos} of ${rows}`,
+      );
+    }
+  }
+
+  /**
+   * Announces position for grid navigation mode.
+   * Shows axis ranges without the points list.
+   */
+  private announceGridPosition(state: NonEmptyTraceState): void {
+    const { text } = state;
+    const xRange = text.range!;
+    const yRange = text.crossRange!;
+
+    if (this.textService.isTerse()) {
+      this.textViewModel.update(
+        `${xRange.min} through ${xRange.max}, ${yRange.min} through ${yRange.max}`,
+      );
+    } else {
+      const xLabel = text.main.label || 'x';
+      const yLabel = text.cross.label || 'y';
+      this.textViewModel.update(
+        `${xLabel} is ${xRange.min} through ${xRange.max}, ${yLabel} is ${yRange.min} through ${yRange.max}`,
       );
     }
   }
@@ -544,7 +638,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * Shows column position and level information.
    */
   private announceSegmentedBarPosition(state: NonEmptyTraceState, x: number, cols: number): void {
-    const level = state.text.fill?.value ?? '';
+    const level = state.text.z?.value ?? '';
     const position = x + 1;
     const total = cols;
 

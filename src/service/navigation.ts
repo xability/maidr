@@ -486,7 +486,7 @@ function isBarPoint(point: any): point is { x: string | number; y: string | numb
  * @param point - The point to check
  * @returns True if the point is a valid line point
  */
-function isLinePoint(point: any): point is { x: number; y: number; fill?: string } {
+function isLinePoint(point: any): point is { x: number; y: number; z?: string } {
   return point && typeof point === 'object' && typeof point.x === 'number' && typeof point.y === 'number';
 }
 
@@ -500,11 +500,11 @@ function isHistogramPoint(point: any): point is { x: number; y: number; xMin: nu
 }
 
 /**
- * Type guard to check if a point is a segmented chart point with x, y, and optional fill.
+ * Type guard to check if a point is a segmented chart point with x, y, and optional z.
  * @param point - The point to check
  * @returns True if the point is a valid segmented point
  */
-function isSegmentedPoint(point: any): point is { x: string | number; y: number; fill?: string } {
+function isSegmentedPoint(point: any): point is { x: string | number; y: number; z?: string } {
   return point && typeof point === 'object' && 'x' in point && 'y' in point;
 }
 
