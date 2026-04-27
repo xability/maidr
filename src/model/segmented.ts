@@ -201,9 +201,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // Exclude the summary row (last row) for stats and data
     const dataPoints = this.points.slice(0, -1);
 
-    const fillCategories = [
+    const zCategories = [
       ...new Set(
-        dataPoints.map(row => row[0]?.fill).filter(Boolean),
+        dataPoints.map(row => row[0]?.z).filter(Boolean),
       ),
     ] as string[];
 
@@ -212,25 +212,25 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       { label: 'Min value', value: MathUtil.safeMin(this.min) },
       { label: 'Max value', value: MathUtil.safeMax(this.max) },
       { label: 'Number of groups', value: dataPoints.length },
-      { label: 'Fill categories', value: fillCategories.join(', ') },
+      { label: `${this.z} categories`, value: zCategories.join(', ') },
     ];
 
     const headers = isVertical
-      ? [this.xAxis, this.yAxis, LEVEL]
-      : [this.yAxis, this.xAxis, LEVEL];
+      ? [this.xAxis, this.yAxis, this.z]
+      : [this.yAxis, this.xAxis, this.z];
 
     const rows: (string | number)[][] = dataPoints.flatMap(group =>
       group.map((p) => {
         const main = isVertical ? p.x : p.y;
         const cross = isVertical ? p.y : p.x;
-        return [main, cross, p.fill ?? UNDEFINED];
+        return [main, cross, p.z ?? UNDEFINED];
       }),
     );
 
     return {
       chartType: this.layer.type,
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: { x: this.xAxis, y: this.yAxis, z: this.z },
       stats,
       dataTable: { headers, rows },
     };

@@ -71,7 +71,7 @@ const BRAILLE_KEYMAP = {
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
   // Chart description
-  TOGGLE_DESCRIPTION: `d`,
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
@@ -236,7 +236,7 @@ const TRACE_KEYMAP = {
   GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
 
   // Chart description
-  TOGGLE_DESCRIPTION: `d`,
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
@@ -262,7 +262,7 @@ const GO_TO_EXTREMA_KEYMAP = {
  * Keymap configuration for chart description modal interactions.
  */
 const DESCRIPTION_KEYMAP = {
-  TOGGLE_DESCRIPTION: `esc`,
+  TOGGLE_DESCRIPTION: key(`esc`, 'Close Chart Description', { showInHelp: false }),
 } as const;
 
 /**

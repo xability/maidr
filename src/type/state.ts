@@ -315,7 +315,7 @@ export interface DescriptionState {
   axes: {
     x?: string;
     y?: string;
-    fill?: string;
+    z?: string;
   };
   /** Chart-specific summary statistics */
   stats: DescriptionStat[];
