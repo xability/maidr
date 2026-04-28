@@ -71,7 +71,15 @@ export class LineTrace extends AbstractTrace {
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    // `layer.selectors` is `string | string[] | ...` per the schema. When a
+    // single-line binder (e.g. the D3 smooth/line binders) emits a bare
+    // string, wrap it in an array so the per-line length check inside
+    // `mapToSvgElements` (`selectors.length !== this.lineValues.length`)
+    // compares array length to line count, not character count.
+    const normalizedSelectors: string[] | undefined = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : (layer.selectors as string[] | undefined);
+    this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
   }

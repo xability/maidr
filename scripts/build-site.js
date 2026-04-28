@@ -55,6 +55,7 @@ const PAGE_DESCRIPTIONS = {
   'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
   'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
   'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
+  'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -138,6 +139,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{RECHARTS_ACTIVE\}\}/g, () => activePage === 'recharts' ? 'active' : '')
     .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
     .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
+    .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -220,6 +222,20 @@ if (fs.existsSync(googleChartsMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'google-charts.html'), googleChartsPage);
 }
 
+// Build d3.html from docs/d3.md
+console.log('Building d3.html from docs/d3.md...');
+const d3MdPath = path.join(ROOT, 'docs', 'd3.md');
+if (fs.existsSync(d3MdPath)) {
+  const d3Md = fs.readFileSync(d3MdPath, 'utf-8');
+  const d3Html = `
+<div class="content">
+  ${marked.parse(d3Md)}
+</div>
+`;
+  const d3Page = generatePage({ title: 'D3.js', content: d3Html, activePage: 'd3', slug: 'd3.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'd3.html'), d3Page);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -232,11 +248,11 @@ const examplesContent = `
   <h1>MAIDR Examples</h1>
   <h2>Click on one of the examples below to see a demonstration</h2>
 
-  <h3>React</h3>
+  <h3 id="react-examples">React</h3>
   <ul>
-    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth)</a></li>
+    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth, D3 Bar, D3 Scatter)</a></li>
   </ul>
-  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types.</p>
+  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types. The D3 examples show how to use <a href="d3.html">the D3 adapter</a> with the <code>&lt;MaidrD3&gt;</code> wrapper.</p>
 
   <h3>HTML / Vanilla JS</h3>
   <ul>
@@ -284,6 +300,21 @@ const examplesContent = `
     <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
   </ul>
   <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>D3.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('d3-bindbar.html', 'D3 Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindline.html', 'D3 Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindscatter.html', 'D3 Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindbox.html', 'D3 Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindheatmap.html', 'D3 Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindhistogram.html', 'D3 Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindcandlestick.html', 'D3 Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindstacked.html', 'D3 Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('d3-binddodged.html', 'D3 Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindsmooth.html', 'D3 Smooth Curve'); return false;">Smooth Curve</a></li>
+  </ul>
+  <p>See the <a href="d3.html">D3.js Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
 
   <div id="content" hidden="true">Select an example above.</div>
 </div>
@@ -456,7 +487,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -513,6 +544,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
   { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
   { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
+  { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -520,7 +552,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({
