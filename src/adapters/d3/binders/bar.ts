@@ -77,16 +77,15 @@ export function bindD3Bar(svg: Element, config: D3BarConfig): D3BinderResult {
 
   // Infer accessors from the first datum's keys when the user did not specify.
   const firstDatum = elements[0].datum;
-  const configRecord = config as unknown as Record<string, unknown>;
   const xAccessor = inferAccessor<string | number>(
-    configRecord,
+    config,
     'x',
     'x',
     ['category', 'label', 'name', 'key', 'date'],
     firstDatum,
   );
   const yAccessor = inferAccessor<number | string>(
-    configRecord,
+    config,
     'y',
     'y',
     ['value', 'count', 'amount', 'total'],
@@ -94,7 +93,7 @@ export function bindD3Bar(svg: Element, config: D3BarConfig): D3BinderResult {
   );
 
   const data: BarPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
     return {

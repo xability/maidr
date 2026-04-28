@@ -8,7 +8,7 @@
 import type { LinePoint, Maidr, MaidrLayer } from '../../../type/grammar';
 import type { D3BinderResult, D3LineConfig, DataAccessor } from '../types';
 import { TraceType } from '../../../type/grammar';
-import { cssEscape, scopeSelector } from '../selectors';
+import { cssEscape, ensureContainerId, scopeSelector } from '../selectors';
 import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
@@ -84,23 +84,22 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     const pathDatum = lineElements[0].datum;
     sampleDatum = Array.isArray(pathDatum) ? pathDatum[0] : pathDatum;
   }
-  const configRecord = config as unknown as Record<string, unknown>;
   const xAccessor = inferAccessor<number | string>(
-    configRecord,
+    config,
     'x',
     'x',
     ['category', 'label', 'name', 'date', 'time'],
     sampleDatum,
   );
   const yAccessor = inferAccessor<number>(
-    configRecord,
+    config,
     'y',
     'y',
     ['value', 'count', 'amount', 'total'],
     sampleDatum,
   );
   const fillAccessor = inferAccessor<string>(
-    configRecord,
+    config,
     'fill',
     'fill',
     ['group', 'series', 'category', 'z', 'color'],
@@ -146,7 +145,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
       const lineOrder: string[] = [];
 
       for (const { datum, index } of allPoints) {
-        if (!datum) {
+        if (datum === undefined || datum === null) {
           throw buildNoDatumError(pointSelector, index);
         }
         const point: LinePoint = {
@@ -174,7 +173,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     // Extract data from the path element's bound data directly
     // D3 line charts typically bind an array of points to each path
     for (const { datum } of lineElements) {
-      if (!datum) {
+      if (datum === undefined || datum === null) {
         throw new Error(
           `No D3 data bound to line path element. `
           + `Ensure D3's .data() join has been applied to the "${selector}" elements, `
@@ -214,11 +213,9 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 
   // Ensure the SVG has a stable id so we can emit absolutely-scoped selectors
   // (the model resolves selectors via global `document.querySelector`, so they
-  // MUST be unique page-wide). Defensive: user-supplied SVGs may lack an id.
-  if (svg instanceof Element && !svg.id) {
-    svg.id = generateId();
-  }
-  const svgId = svg instanceof Element ? svg.id : '';
+  // MUST be unique page-wide). `ensureContainerId` auto-assigns an id when
+  // the user-supplied SVG lacks one, mirroring `scopeSelector`'s behaviour.
+  const svgId = ensureContainerId(svg);
 
   // LineTrace's `mapToSvgElements` requires one selector per line (it uses
   // `Svg.selectElement(selectors[r])` to grab a single <path> per series for
@@ -280,7 +277,7 @@ function extractPointsFromElements(
 ): LinePoint[] {
   const lineData: LinePoint[] = [];
   for (const { datum, index } of points) {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(pointSelector, index);
     }
     const point: LinePoint = {

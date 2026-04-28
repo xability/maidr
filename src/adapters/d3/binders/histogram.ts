@@ -86,7 +86,7 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
   const userSetXMax = (config as unknown as Record<string, unknown>).xMax !== undefined;
 
   const data: HistogramPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
 

@@ -8,6 +8,8 @@
  * that MAIDR can use for visual highlighting.
  */
 
+import { generateId } from './util';
+
 /**
  * Escapes a string for use in CSS selectors.
  * Uses the native `CSS.escape` when available (browsers), and falls
@@ -22,78 +24,39 @@ export function cssEscape(value: string): string {
 }
 
 /**
- * Generates a unique CSS selector for an element within its container.
- * This creates a selector that MAIDR can use to highlight individual elements.
+ * Ensures a container element has an `id` attribute, generating one when
+ * missing. Returns the (possibly newly assigned) id.
  *
- * Strategy:
- * 1. Use existing `id` attribute if present.
- * 2. Use combination of tag name, classes, and `nth-child` for uniqueness.
+ * MAIDR resolves layer selectors via `document.querySelector`, which is
+ * page-global — a bare selector like `"rect.bar"` would collide with any
+ * other chart on the page. By stamping the container with a stable id and
+ * prefixing all emitted selectors with `#<id>`, we guarantee page-wide
+ * uniqueness without requiring users to set the id themselves.
  *
- * @param element - The SVG element to generate a selector for.
- * @param container - The root container element.
- * @returns A CSS selector string targeting the element.
+ * Idempotent: re-calling on a container that already has an id is a no-op.
+ *
+ * @param container - The root SVG container (or any element).
+ * @returns The container's id (existing or newly generated).
  */
-export function generateSelector(
-  element: Element,
-  container: Element,
-): string {
-  if (element.id) {
-    return `#${cssEscape(element.id)}`;
+export function ensureContainerId(container: Element): string {
+  if (!container.id) {
+    container.id = generateId();
   }
-
-  // Edge case: element IS the container
-  if (element === container) {
-    return element.tagName.toLowerCase();
-  }
-
-  // Build a selector based on the element's parent chain relative to container
-  const parts: string[] = [];
-  let current: Element | null = element;
-
-  while (current && current !== container) {
-    let part = current.tagName.toLowerCase();
-
-    if (current.id) {
-      parts.unshift(`#${cssEscape(current.id)} > ${part}`);
-      break;
-    }
-
-    // Add classes if present
-    const classes = Array.from(current.classList)
-      .map(c => `.${cssEscape(c)}`)
-      .join('');
-    if (classes) {
-      part += classes;
-    }
-
-    // Add nth-child for disambiguation (more reliable than nth-of-type
-    // in deeply nested SVG structures)
-    const parent = current.parentElement;
-    if (parent) {
-      const childIndex = Array.from(parent.children).indexOf(current) + 1;
-      part += `:nth-child(${childIndex})`;
-    }
-
-    parts.unshift(part);
-    current = current.parentElement;
-  }
-
-  return parts.join(' > ');
+  return container.id;
 }
 
 /**
- * Scopes a user-provided selector to a container.
- * When the container has an `id`, the returned selector is prefixed
- * with `#containerId` so it can be used globally (e.g. via `document.querySelectorAll`)
- * without matching unrelated elements elsewhere on the page.
+ * Scopes a user-provided selector to a container, prefixing the result with
+ * the container's id so it resolves uniquely under page-global lookups
+ * (`document.querySelectorAll`). When the container lacks an id, one is
+ * auto-assigned via {@link ensureContainerId} so every binder emits an
+ * absolutely-scoped selector without per-binder boilerplate.
  *
  * @param container - The root SVG container.
  * @param selector - The user-provided CSS selector.
- * @returns The selector string, scoped if the container has an ID.
+ * @returns The id-scoped selector string, e.g. `#<svgId> <selector>`.
  */
 export function scopeSelector(container: Element, selector: string): string {
-  if (container.id) {
-    return `#${cssEscape(container.id)} ${selector}`;
-  }
-  return selector;
+  const id = ensureContainerId(container);
+  return `#${cssEscape(id)} ${selector}`;
 }

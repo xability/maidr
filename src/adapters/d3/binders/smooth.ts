@@ -102,7 +102,7 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
 
   // Extract points - group into a single series (2D array with one row)
   const points: SmoothPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
     return {

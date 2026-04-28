@@ -8,7 +8,7 @@
 import type { BoxPoint, BoxSelector, Maidr, MaidrLayer } from '../../../type/grammar';
 import type { D3BinderResult, D3BoxConfig } from '../types';
 import { Orientation, TraceType } from '../../../type/grammar';
-import { cssEscape } from '../selectors';
+import { cssEscape, ensureContainerId } from '../selectors';
 import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
@@ -88,14 +88,14 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     let effectiveDatum = datum;
 
     // If no data on the group, try to find it on child elements
-    if (!effectiveDatum) {
+    if (effectiveDatum === undefined || effectiveDatum === null) {
       const firstChild = element.querySelector('rect, line, path');
       if (firstChild) {
         effectiveDatum = getD3Datum(firstChild);
       }
     }
 
-    if (!effectiveDatum) {
+    if (effectiveDatum === undefined || effectiveDatum === null) {
       throw buildNoDatumError(selector, index);
     }
 
@@ -119,11 +119,9 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
 
   // Ensure the SVG has a stable id so selectors can be absolutely scoped
   // (consumers resolve selectors via global `document.querySelector`, so they
-  // must be unique page-wide). Defensive: user-supplied SVGs may lack an id.
-  if (svg instanceof Element && !svg.id) {
-    svg.id = generateId();
-  }
-  const svgId = svg instanceof Element ? svg.id : '';
+  // must be unique page-wide). `ensureContainerId` auto-assigns an id when
+  // the user-supplied SVG lacks one, mirroring `scopeSelector`'s behaviour.
+  const svgId = ensureContainerId(svg);
 
   // BoxTrace.mapToSvgElements (src/model/box.ts) requires one BoxSelector
   // object per box (it bails when `selectors.length !== points.length`). A

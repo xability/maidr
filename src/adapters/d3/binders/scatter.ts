@@ -68,16 +68,15 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
 
   // Infer accessors from the first datum's keys when the user did not specify.
   const firstDatum = elements[0].datum;
-  const configRecord = config as unknown as Record<string, unknown>;
   const xAccessor = inferAccessor<number>(
-    configRecord,
+    config,
     'x',
     'x',
     ['xVal', 'xValue', 'x_val', 'xCoord'],
     firstDatum,
   );
   const yAccessor = inferAccessor<number>(
-    configRecord,
+    config,
     'y',
     'y',
     ['yVal', 'yValue', 'y_val', 'yCoord', 'value'],
@@ -85,7 +84,7 @@ export function bindD3Scatter(svg: Element, config: D3ScatterConfig): D3BinderRe
   );
 
   const data: ScatterPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
     return {

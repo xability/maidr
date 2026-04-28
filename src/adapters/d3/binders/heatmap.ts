@@ -71,23 +71,22 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
 
   // Infer accessors from the first datum's keys when the user did not specify.
   const firstDatum = elements[0].datum;
-  const configRecord = config as unknown as Record<string, unknown>;
   const xAccessor = inferAccessor<string>(
-    configRecord,
+    config,
     'x',
     'x',
     ['xLabel', 'xVar', 'category', 'col', 'column'],
     firstDatum,
   );
   const yAccessor = inferAccessor<string>(
-    configRecord,
+    config,
     'y',
     'y',
     ['yLabel', 'yVar', 'group', 'row'],
     firstDatum,
   );
   const valueAccessor = inferAccessor<number>(
-    configRecord,
+    config,
     'value',
     'value',
     ['count', 'amount', 'v', 'z', 'correlation'],
@@ -96,7 +95,7 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
 
   // Extract raw cell data
   const cells: { x: string; y: string; value: number }[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
     return {

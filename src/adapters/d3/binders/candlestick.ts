@@ -79,7 +79,7 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
   }
 
   const data: CandlestickPoint[] = elements.map(({ datum, index }) => {
-    if (!datum) {
+    if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
 

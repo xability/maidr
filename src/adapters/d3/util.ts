@@ -3,7 +3,7 @@
  * Handles extracting data from D3.js-bound DOM elements,
  * generating identifiers, and normalizing axis configuration.
  *
- * Selector-specific helpers (cssEscape, generateSelector, scopeSelector)
+ * Selector-specific helpers (cssEscape, ensureContainerId, scopeSelector)
  * live in ./selectors.ts.
  */
 
@@ -32,13 +32,40 @@ export function getD3Datum(element: Element): unknown {
 
 /**
  * Resolves a {@link DataAccessor} to extract a value from a datum.
- * Throws if a string accessor references a property not present on the datum.
  *
- * @param datum - The data object bound to a D3 element.
+ * Two accessor shapes are supported:
+ *
+ * 1. **Function accessor** — invoked with `(datum, index)` and the return
+ *    value is used verbatim. The function may return any value, including
+ *    falsy values (`0`, `''`, `false`, `null`); these are preserved and
+ *    returned unchanged. Function accessors are NOT validated — if they
+ *    throw, the error propagates to the binder.
+ *
+ * 2. **String accessor** — treated as a property key on `datum`. Presence is
+ *    checked with the `in` operator (NOT a truthiness/`!= null` check), so
+ *    properties whose value is `0`, `''`, `false`, or `null` are still
+ *    considered "found" and returned as-is. Only an actually-missing
+ *    property triggers the helpful "Available properties: …" error.
+ *
+ * The returned value is asserted to be of type `T` without runtime
+ * verification — callers that expect a specific shape (e.g. number) should
+ * either pass a typed function accessor or validate the result themselves.
+ *
+ * Use {@link resolveAccessorOptional} when an absent property should resolve
+ * to `undefined` instead of throwing (e.g. optional `fill`, outlier arrays).
+ *
+ * @param datum    - The data object bound to a D3 element. Must be an
+ *                   object when `accessor` is a string; passing `null` or
+ *                   `undefined` will produce a non-actionable runtime error
+ *                   from the property lookup. Validate beforehand with the
+ *                   `=== undefined || === null` guard used by the binders.
  * @param accessor - Property key or function to extract the value.
- * @param index - The index of the element in its selection.
- * @returns The extracted value.
- * @throws Error if the string accessor references a missing property.
+ * @param index    - The index of the element in its selection. Forwarded to
+ *                   function accessors and surfaced in the missing-property
+ *                   error to help locate the offending datum.
+ * @returns The extracted value of type `T`.
+ * @throws Error if the string accessor references a property not present on
+ *         the datum (using `in`-operator semantics, NOT truthiness).
  */
 export function resolveAccessor<T>(
   datum: unknown,
@@ -48,7 +75,8 @@ export function resolveAccessor<T>(
   if (typeof accessor === 'function') {
     return accessor(datum, index);
   }
-  // String accessor: use as property key
+  // String accessor: use as property key. The `in` operator preserves
+  // falsy values (0, '', false, null) — only missing keys throw.
   const record = datum as Record<string, unknown>;
   if (!(accessor in record)) {
     throw new Error(
@@ -73,6 +101,11 @@ export function resolveAccessor<T>(
  * When the user DID provide an accessor (string or function), it is
  * returned verbatim — explicit user intent always wins.
  *
+ * The `config` parameter is typed as `object` so each binder's typed
+ * config (e.g. `D3BarConfig`) can be passed directly without the
+ * `as unknown as Record<string, unknown>` double-cast at the call site.
+ * The narrowing to a string-keyed record is performed once, internally.
+ *
  * @param config       - The user's config object, looked up by `configKey`.
  * @param configKey    - The property name on `config` to check.
  * @param defaultKey   - Canonical key used when user is silent.
@@ -82,13 +115,14 @@ export function resolveAccessor<T>(
  * @returns A {@link DataAccessor} ready to pass to {@link resolveAccessor}.
  */
 export function inferAccessor<T>(
-  config: Record<string, unknown>,
+  config: object,
   configKey: string,
   defaultKey: string,
   alternatives: string[],
   firstDatum: unknown,
 ): DataAccessor<T> {
-  const userProvided = config[configKey];
+  const configRecord = config as Record<string, unknown>;
+  const userProvided = configRecord[configKey];
   if (userProvided !== undefined) {
     return userProvided as DataAccessor<T>;
   }
@@ -107,9 +141,22 @@ export function inferAccessor<T>(
 }
 
 /**
- * Attempts to resolve a {@link DataAccessor}, returning `undefined`
- * instead of throwing when the property is not found.
- * Useful for optional fields like `fill` or outlier arrays.
+ * Resolves a {@link DataAccessor} like {@link resolveAccessor}, but returns
+ * `undefined` instead of throwing when a string accessor references a
+ * property that is NOT present on the datum (`in`-operator semantics).
+ *
+ * Like {@link resolveAccessor}, falsy property values (`0`, `''`, `false`,
+ * `null`) are preserved — only an actually-missing key resolves to
+ * `undefined`. This matters because `null` and `0` are valid data values
+ * (e.g. an explicitly-null `fill`), distinct from "the property is absent".
+ *
+ * Function accessors are invoked unconditionally and their return value is
+ * passed through verbatim, including any `undefined` they return.
+ *
+ * Use this for optional fields such as `fill`, outlier arrays, or any datum
+ * shape variation where the binder should keep working when the property is
+ * absent. For required fields, prefer {@link resolveAccessor} so the missing
+ * property surfaces as an actionable "Available properties: …" error.
  */
 export function resolveAccessorOptional<T>(
   datum: unknown,

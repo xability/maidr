@@ -79,7 +79,6 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     autoApply,
   } = config;
 
-  const configRecord = config as unknown as Record<string, unknown>;
   const groupOrder: string[] = [];
   const data: SegmentedPoint[][] = [];
 
@@ -106,21 +105,21 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     const firstGroupSegments = queryD3Elements(groupElements[0].element, selector);
     const sampleDatum = firstGroupSegments[0]?.datum;
     const xAccessor = inferAccessor<string | number>(
-      configRecord,
+      config,
       'x',
       'x',
       ['category', 'label', 'name', 'key', 'date'],
       sampleDatum,
     );
     const yAccessor = inferAccessor<number | string>(
-      configRecord,
+      config,
       'y',
       'y',
       ['value', 'count', 'amount', 'total'],
       sampleDatum,
     );
     const fillAccessor = inferAccessor<string>(
-      configRecord,
+      config,
       'fill',
       'fill',
       ['group', 'series', 'category', 'z', 'color'],
@@ -136,7 +135,7 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
       const groupKey = (groupDatum as Record<string, unknown> | null)?.key as string | undefined;
 
       const groupPoints: SegmentedPoint[] = segments.map(({ datum, index }) => {
-        if (!datum) {
+        if (datum === undefined || datum === null) {
           throw buildNoDatumError(selector, index);
         }
         const fillValue = groupKey ?? resolveAccessor<string>(datum, fillAccessor, index);
@@ -205,21 +204,21 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     // Infer accessors from the first segment's datum.
     const sampleDatum = elements[0].datum;
     const xAccessor = inferAccessor<string | number>(
-      configRecord,
+      config,
       'x',
       'x',
       ['category', 'label', 'name', 'key', 'date'],
       sampleDatum,
     );
     const yAccessor = inferAccessor<number | string>(
-      configRecord,
+      config,
       'y',
       'y',
       ['value', 'count', 'amount', 'total'],
       sampleDatum,
     );
     const fillAccessor = inferAccessor<string>(
-      configRecord,
+      config,
       'fill',
       'fill',
       ['group', 'series', 'category', 'z', 'color'],
@@ -228,7 +227,7 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
 
     const groups = new Map<string, SegmentedPoint[]>();
     for (const { datum, index } of elements) {
-      if (!datum) {
+      if (datum === undefined || datum === null) {
         throw buildNoDatumError(selector, index);
       }
       const point: SegmentedPoint = {
