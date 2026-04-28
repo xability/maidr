@@ -92,7 +92,7 @@ export class LineTrace extends AbstractTrace {
 
     if (isMultiline) {
       const lineNames = this.points
-        .map((line, i) => line[0]?.fill || `Line ${i + 1}`)
+        .map((line, i) => line[0]?.z || `Line ${i + 1}`)
         .join(', ');
       stats.push({ label: 'Line names', value: lineNames });
     }
@@ -103,7 +103,7 @@ export class LineTrace extends AbstractTrace {
     if (isMultiline) {
       headers = [this.xAxis, this.yAxis, 'Line'];
       rows = this.points.flatMap((line, i) => {
-        const lineName = line[0]?.fill || `Line ${i + 1}`;
+        const lineName = line[0]?.z || `Line ${i + 1}`;
         return line.map(p => [p.x, p.y, lineName]);
       });
     } else {
@@ -114,7 +114,7 @@ export class LineTrace extends AbstractTrace {
     return {
       chartType: 'line',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

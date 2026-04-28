@@ -120,7 +120,7 @@ export class Heatmap extends AbstractTrace {
     return {
       chartType: 'heat',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis, z: this.z },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

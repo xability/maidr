@@ -230,7 +230,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     return {
       chartType: this.layer.type,
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis, z: this.z },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

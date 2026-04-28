@@ -174,13 +174,13 @@ export class ViolinBoxTrace extends AbstractTrace {
         }
         return value ?? '';
       });
-      return [point.fill, ...sectionValues];
+      return [point.z, ...sectionValues];
     });
 
     return {
       chartType: 'violin_box',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

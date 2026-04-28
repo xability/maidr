@@ -138,7 +138,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return {
       chartType: this.layer.type,
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

@@ -45,7 +45,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     return {
       chartType: 'hist',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

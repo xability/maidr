@@ -127,7 +127,7 @@ export class BoxTrace extends AbstractTrace {
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
-    const groupNames = this.points.map(p => p.fill).join(', ');
+    const groupNames = this.points.map(p => p.z).join(', ');
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
@@ -138,7 +138,7 @@ export class BoxTrace extends AbstractTrace {
 
     const headers = ['Group', 'Min', 'Q1', 'Q2', 'Q3', 'Max'];
     const rows: (string | number)[][] = this.points.map(p => [
-      p.fill,
+      p.z,
       p.min,
       p.q1,
       p.q2,
@@ -149,7 +149,7 @@ export class BoxTrace extends AbstractTrace {
     return {
       chartType: 'box',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

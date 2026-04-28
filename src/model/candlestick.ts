@@ -436,7 +436,7 @@ export class Candlestick extends AbstractTrace {
     return {
       chartType: 'candlestick',
       title: this.title,
-      axes: { x: this.xAxis, y: this.yAxis },
+      axes: this.getDescriptionAxes(),
       stats,
       dataTable: { headers, rows },
     };

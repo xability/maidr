@@ -483,6 +483,20 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   public abstract get description(): DescriptionState;
 
+  /**
+   * Builds the axes object for the description state, including z only when
+   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * instead of constructing the axes object inline so charts without a real
+   * z dimension don't surface the placeholder default.
+   */
+  protected getDescriptionAxes(): DescriptionState['axes'] {
+    return {
+      x: this.xAxis,
+      y: this.yAxis,
+      ...(this.layer.axes?.z?.label && { z: this.z }),
+    };
+  }
+
   protected abstract get dimension(): Dimension;
 
   protected abstract get highlightValues():
