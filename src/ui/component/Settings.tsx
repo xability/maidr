@@ -3,8 +3,8 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
   BrailleDisplayKind,
-  BrailleDisplayPreset,
   GeneralSettings,
+  GeneralSettingsValue,
   HoverMode,
   LlmModelSettings,
   LlmSettings,
@@ -37,27 +37,18 @@ import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
+  clampBrailleLines,
+  clampBrailleSize,
   MAX_BRAILLE_LINES,
+  MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
+  selectBrailleDisplayKind,
+  selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
-
-function clampBrailleLines(value: number): number {
-  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
-}
-
-function findPreset(
-  presets: readonly BrailleDisplayPreset[],
-  presetId: string | null,
-): BrailleDisplayPreset | undefined {
-  if (!presetId) {
-    return undefined;
-  }
-  return presets.find(p => p.id === presetId);
-}
 
 function getValidVersion(
   modelKey: Llm,
@@ -292,9 +283,8 @@ const Settings: React.FC = () => {
 
   const handleGeneralChange = (
     key: keyof GeneralSettings,
-    value: string | number | AriaMode | boolean | HoverMode | BrailleDisplayKind | null,
+    value: GeneralSettingsValue,
   ): void => {
-    // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
@@ -302,53 +292,21 @@ const Settings: React.FC = () => {
   };
 
   const handleBrailleKindChange = (kind: BrailleDisplayKind): void => {
-    if (kind === 'single') {
-      const preset = findPreset(SINGLE_LINE_BRAILLE_PRESETS, generalSettings.brailleDisplayPresetId)
-        ?? SINGLE_LINE_BRAILLE_PRESETS[0];
-      setGeneralSettings(prev => ({
-        ...prev,
-        brailleDisplayKind: 'single',
-        brailleDisplayPresetId: preset.id,
-        brailleDisplaySize: preset.cells,
-        brailleDisplayLines: preset.lines,
-      }));
-    } else if (kind === 'multi') {
-      const preset = findPreset(MULTI_LINE_BRAILLE_PRESETS, generalSettings.brailleDisplayPresetId)
-        ?? MULTI_LINE_BRAILLE_PRESETS[0];
-      setGeneralSettings(prev => ({
-        ...prev,
-        brailleDisplayKind: 'multi',
-        brailleDisplayPresetId: preset.id,
-        brailleDisplaySize: preset.cells,
-        brailleDisplayLines: preset.lines,
-      }));
-    } else {
-      setGeneralSettings(prev => ({
-        ...prev,
-        brailleDisplayKind: 'manual',
-        brailleDisplayPresetId: null,
-      }));
-    }
+    setGeneralSettings((prev) => {
+      const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
+      return { ...prev, ...slice };
+    });
   };
 
   const handleBraillePresetChange = (
     kind: 'single' | 'multi',
     presetId: string,
   ): void => {
-    const presets = kind === 'single'
-      ? SINGLE_LINE_BRAILLE_PRESETS
-      : MULTI_LINE_BRAILLE_PRESETS;
-    const preset = findPreset(presets, presetId);
-    if (!preset) {
+    const slice = selectBraillePreset(kind, presetId);
+    if (!slice) {
       return;
     }
-    setGeneralSettings(prev => ({
-      ...prev,
-      brailleDisplayKind: kind,
-      brailleDisplayPresetId: preset.id,
-      brailleDisplaySize: preset.cells,
-      brailleDisplayLines: preset.lines,
-    }));
+    setGeneralSettings(prev => ({ ...prev, ...slice }));
   };
 
   const handleLlmChange = (
@@ -388,14 +346,14 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
-  const handleClose = (): void => {
+  const handleClose = useCallback((): void => {
     viewModel.toggle();
-  };
+  }, [viewModel]);
 
-  const handleSave = (): void => {
+  const handleSave = useCallback((): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
     chatViewModel.refreshInitialMessage();
-  };
+  }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -434,7 +392,7 @@ const Settings: React.FC = () => {
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isCustomInstructionValid, generalSettings, llmSettings]);
+  }, [isCustomInstructionValid, handleSave, handleClose]);
 
   return (
     <Dialog
@@ -729,15 +687,33 @@ const Settings: React.FC = () => {
                         type="number"
                         size="small"
                         value={generalSettings.brailleDisplaySize}
-                        onChange={e =>
+                        onChange={(e) => {
+                          // Mirror the lines input: ignore empty and NaN
+                          // mid-edit, clamp/floor everything else so the
+                          // stored value never falls outside [1, MAX].
+                          const raw = e.target.value;
+                          if (raw === '') {
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          if (Number.isNaN(parsed)) {
+                            return;
+                          }
+                          handleGeneralChange('brailleDisplaySize', clampBrailleSize(parsed));
+                        }}
+                        onBlur={e =>
                           handleGeneralChange(
                             'brailleDisplaySize',
-                            Number(e.target.value),
+                            clampBrailleSize(Number(e.target.value)),
                           )}
+                        helperText={`Cells per row on a physical braille display (1-${MAX_BRAILLE_SIZE}).`}
                         slotProps={{
                           input: {
                             inputProps: {
                               'aria-label': 'Braille Display Size',
+                              'min': 1,
+                              'max': MAX_BRAILLE_SIZE,
+                              'step': 1,
                             },
                           },
                         }}

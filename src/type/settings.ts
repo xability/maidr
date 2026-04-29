@@ -20,6 +20,36 @@ export const DEFAULT_BRAILLE_LINES = 1;
 export const MAX_BRAILLE_LINES = 20;
 
 /**
+ * Upper bound on the configured number of cells per braille row. The largest
+ * commercial single-line displays we recognize hold 80 cells; 160 leaves
+ * generous headroom for unrecognized hardware while still rejecting
+ * obviously bogus values typed into the manual input.
+ */
+export const MAX_BRAILLE_SIZE = 160;
+
+/**
+ * Clamps an arbitrary numeric value to a valid braille display line count.
+ * Empty / NaN / negative inputs collapse to 1 so the stored value never
+ * leaves the supported range, even mid-keystroke.
+ * @param value - Raw numeric value from the input field.
+ * @returns Clamped integer between 1 and MAX_BRAILLE_LINES.
+ */
+export function clampBrailleLines(value: number): number {
+  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
+}
+
+/**
+ * Clamps an arbitrary numeric value to a valid braille display cell count.
+ * Mirrors {@link clampBrailleLines} so the manual size input gets the same
+ * defensive treatment as the lines input.
+ * @param value - Raw numeric value from the input field.
+ * @returns Clamped integer between 1 and MAX_BRAILLE_SIZE.
+ */
+export function clampBrailleSize(value: number): number {
+  return Math.min(MAX_BRAILLE_SIZE, Math.max(1, Math.floor(value) || 1));
+}
+
+/**
  * Configuration mode for the braille display. Determines whether the user
  * picks from a list of known displays or enters cells/lines manually.
  */
@@ -81,6 +111,103 @@ export const MULTI_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
 ] as const;
 
 /**
+ * Partial settings slice produced by a braille preset / kind selection. The
+ * UI merges this into the local form state so the relevant fields update
+ * atomically.
+ */
+export interface BraillePresetSelection {
+  brailleDisplayKind: BrailleDisplayKind;
+  brailleDisplayPresetId: string | null;
+  brailleDisplaySize?: number;
+  brailleDisplayLines?: number;
+}
+
+/**
+ * Looks up a preset by id, returning undefined when the id is null or no
+ * matching preset exists. Exported so component handlers and tests share a
+ * single resolution path.
+ * @param presets - Preset list to search.
+ * @param presetId - Preset id to find, or null.
+ * @returns The matching preset, or undefined.
+ */
+export function findBraillePreset(
+  presets: readonly BrailleDisplayPreset[],
+  presetId: string | null,
+): BrailleDisplayPreset | undefined {
+  if (!presetId) {
+    return undefined;
+  }
+  return presets.find(p => p.id === presetId);
+}
+
+/**
+ * Computes the settings slice for switching the braille display kind. When
+ * switching to single/multi we keep the user's previously selected preset
+ * if it still belongs to that kind, otherwise we fall back to the first
+ * preset in the list. Switching to manual leaves cells/lines untouched so
+ * the user can edit them directly.
+ * @param kind - Target braille display kind.
+ * @param currentPresetId - Currently selected preset id, if any.
+ * @returns Settings slice to merge into form state.
+ */
+export function selectBrailleDisplayKind(
+  kind: BrailleDisplayKind,
+  currentPresetId: string | null,
+): BraillePresetSelection {
+  if (kind === 'single') {
+    const preset = findBraillePreset(SINGLE_LINE_BRAILLE_PRESETS, currentPresetId)
+      ?? SINGLE_LINE_BRAILLE_PRESETS[0];
+    return {
+      brailleDisplayKind: 'single',
+      brailleDisplayPresetId: preset.id,
+      brailleDisplaySize: preset.cells,
+      brailleDisplayLines: preset.lines,
+    };
+  }
+  if (kind === 'multi') {
+    const preset = findBraillePreset(MULTI_LINE_BRAILLE_PRESETS, currentPresetId)
+      ?? MULTI_LINE_BRAILLE_PRESETS[0];
+    return {
+      brailleDisplayKind: 'multi',
+      brailleDisplayPresetId: preset.id,
+      brailleDisplaySize: preset.cells,
+      brailleDisplayLines: preset.lines,
+    };
+  }
+  return {
+    brailleDisplayKind: 'manual',
+    brailleDisplayPresetId: null,
+  };
+}
+
+/**
+ * Computes the settings slice for selecting a specific preset within a
+ * single- or multi-line list. Returns null when the preset id is unknown
+ * for the given kind, allowing callers to skip the update.
+ * @param kind - Preset kind, single or multi.
+ * @param presetId - Id of the preset chosen by the user.
+ * @returns Settings slice to merge, or null when the id is invalid.
+ */
+export function selectBraillePreset(
+  kind: 'single' | 'multi',
+  presetId: string,
+): BraillePresetSelection | null {
+  const presets = kind === 'single'
+    ? SINGLE_LINE_BRAILLE_PRESETS
+    : MULTI_LINE_BRAILLE_PRESETS;
+  const preset = findBraillePreset(presets, presetId);
+  if (!preset) {
+    return null;
+  }
+  return {
+    brailleDisplayKind: kind,
+    brailleDisplayPresetId: preset.id,
+    brailleDisplaySize: preset.cells,
+    brailleDisplayLines: preset.lines,
+  };
+}
+
+/**
  * ARIA live region politeness level for screen reader announcements.
  */
 export type AriaMode = 'assertive' | 'polite';
@@ -114,6 +241,20 @@ export interface LlmSettings {
   customInstruction: string;
   models: Record<Llm, LlmModelSettings>;
 }
+
+/**
+ * Union of every primitive value type accepted by a `GeneralSettings` field.
+ * Used by setter helpers that update arbitrary keys on `GeneralSettings` so
+ * the value parameter does not have to repeat the full union inline.
+ */
+export type GeneralSettingsValue
+  = | string
+    | number
+    | boolean
+    | null
+    | AriaMode
+    | HoverMode
+    | BrailleDisplayKind;
 
 /**
  * General application settings for audio, visual, and accessibility features.
