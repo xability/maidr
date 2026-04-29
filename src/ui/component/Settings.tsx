@@ -3,8 +3,8 @@ import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
   BrailleDisplayKind,
+  BrailleDisplayPreset,
   GeneralSettings,
-  GeneralSettingsValue,
   HoverMode,
   LlmModelSettings,
   LlmSettings,
@@ -77,6 +77,50 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
     </Grid>
     <Grid size={{ xs: 12, sm: 6, md: 8 }}>{input}</Grid>
   </Grid>
+);
+
+interface BraillePresetSelectProps {
+  rowLabel: string;
+  ariaLabel: string;
+  presets: readonly BrailleDisplayPreset[];
+  selectedPresetId: string | null;
+  formatPreset: (preset: BrailleDisplayPreset) => string;
+  onChange: (presetId: string) => void;
+}
+
+const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
+  rowLabel,
+  ariaLabel,
+  presets,
+  selectedPresetId,
+  formatPreset,
+  onChange,
+}) => (
+  <SettingRow
+    label={rowLabel}
+    input={(
+      <FormControl fullWidth>
+        <Select
+          value={selectedPresetId ?? ''}
+          onChange={e => onChange(e.target.value)}
+          fullWidth
+          size="small"
+          displayEmpty
+          slotProps={{ input: { 'aria-label': ariaLabel } }}
+          MenuProps={{ disablePortal: true }}
+        >
+          <MenuItem value="" disabled>
+            Select a display
+          </MenuItem>
+          {presets.map(preset => (
+            <MenuItem key={preset.id} value={preset.id}>
+              {formatPreset(preset)}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )}
+  />
 );
 
 interface LlmModelSettingRowProps {
@@ -281,9 +325,9 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (
-    key: keyof GeneralSettings,
-    value: GeneralSettingsValue,
+  const handleGeneralChange = <K extends keyof GeneralSettings>(
+    key: K,
+    value: GeneralSettings[K],
   ): void => {
     setGeneralSettings(prev => ({
       ...prev,
@@ -373,8 +417,16 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent): void => {
+  // Dialog-scoped handler instead of a document listener: Alt+S / Alt+C
+  // need to fire even when focus is inside one of the dialog's text inputs
+  // (e.g. the manual cells/lines field). Routing through the global
+  // `KeybindingService` would not work for this case because its
+  // `hotkeys.filter` blocks all bindings while a non-MAIDR `<input>` has
+  // focus. Binding to the Dialog's own onKeyDown keeps the listener
+  // component-scoped (no global capture-phase listener) while still
+  // catching keydowns that bubble up from the dialog's inputs.
+  const handleDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
       if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
         return;
       }
@@ -389,10 +441,9 @@ const Settings: React.FC = () => {
         e.preventDefault();
         handleClose();
       }
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isCustomInstructionValid, handleSave, handleClose]);
+    },
+    [isCustomInstructionValid, handleSave, handleClose],
+  );
 
   return (
     <Dialog
@@ -405,6 +456,7 @@ const Settings: React.FC = () => {
       disablePortal
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
+      onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
       <DialogContent className="settings-dialog-content">
@@ -605,73 +657,25 @@ const Settings: React.FC = () => {
           </Grid>
           {generalSettings.brailleDisplayKind === 'single' && (
             <Grid size={12}>
-              <SettingRow
-                label="Single-Line Display"
-                input={(
-                  <FormControl fullWidth>
-                    <Select
-                      value={generalSettings.brailleDisplayPresetId ?? ''}
-                      onChange={e =>
-                        handleBraillePresetChange('single', e.target.value)}
-                      fullWidth
-                      size="small"
-                      displayEmpty
-                      slotProps={{
-                        input: {
-                          'aria-label': 'Single-Line Braille Display',
-                        },
-                      }}
-                      MenuProps={{
-                        disablePortal: true,
-                      }}
-                    >
-                      <MenuItem value="" disabled>
-                        Select a display
-                      </MenuItem>
-                      {SINGLE_LINE_BRAILLE_PRESETS.map(preset => (
-                        <MenuItem key={preset.id} value={preset.id}>
-                          {`${preset.label} — ${preset.manufacturer} (${preset.cells} cells)`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
+              <BraillePresetSelect
+                rowLabel="Single-Line Display"
+                ariaLabel="Single-Line Braille Display"
+                presets={SINGLE_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={p => `${p.label} — ${p.manufacturer} (${p.cells} cells)`}
+                onChange={presetId => handleBraillePresetChange('single', presetId)}
               />
             </Grid>
           )}
           {generalSettings.brailleDisplayKind === 'multi' && (
             <Grid size={12}>
-              <SettingRow
-                label="Multi-Line Display"
-                input={(
-                  <FormControl fullWidth>
-                    <Select
-                      value={generalSettings.brailleDisplayPresetId ?? ''}
-                      onChange={e =>
-                        handleBraillePresetChange('multi', e.target.value)}
-                      fullWidth
-                      size="small"
-                      displayEmpty
-                      slotProps={{
-                        input: {
-                          'aria-label': 'Multi-Line Braille Display',
-                        },
-                      }}
-                      MenuProps={{
-                        disablePortal: true,
-                      }}
-                    >
-                      <MenuItem value="" disabled>
-                        Select a display
-                      </MenuItem>
-                      {MULTI_LINE_BRAILLE_PRESETS.map(preset => (
-                        <MenuItem key={preset.id} value={preset.id}>
-                          {`${preset.label} — ${preset.manufacturer} (${preset.lines} lines × ${preset.cells} cells)`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
+              <BraillePresetSelect
+                rowLabel="Multi-Line Display"
+                ariaLabel="Multi-Line Braille Display"
+                presets={MULTI_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={p => `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`}
+                onChange={presetId => handleBraillePresetChange('multi', presetId)}
               />
             </Grid>
           )}
@@ -1074,7 +1078,7 @@ const Settings: React.FC = () => {
               color="inherit"
               onClick={handleClose}
               aria-label="Close Settings with no changes"
-              aria-keyshortcuts="Alt+C"
+              aria-keyshortcuts="Alt+c"
             >
               Close
             </Button>
@@ -1091,7 +1095,7 @@ const Settings: React.FC = () => {
                   : ''
               }
               aria-label="Save & Close Settings"
-              aria-keyshortcuts="Alt+S"
+              aria-keyshortcuts="Alt+s"
             >
               Save & Close
             </Button>

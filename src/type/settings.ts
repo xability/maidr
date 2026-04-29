@@ -144,8 +144,14 @@ export function findBraillePreset(
  * Computes the settings slice for switching the braille display kind. When
  * switching to single/multi we keep the user's previously selected preset
  * if it still belongs to that kind, otherwise we fall back to the first
- * preset in the list. Switching to manual leaves cells/lines untouched so
- * the user can edit them directly.
+ * preset in the list.
+ *
+ * Switching to manual intentionally omits `brailleDisplaySize` and
+ * `brailleDisplayLines` from the returned slice, so when the caller spreads
+ * the slice over previous state (`{ ...prev, ...slice }`) the existing
+ * cells/lines numbers are preserved as the starting point for the user's
+ * manual edits, rather than being reset to defaults or to the previous
+ * preset's values.
  * @param kind - Target braille display kind.
  * @param currentPresetId - Currently selected preset id, if any.
  * @returns Settings slice to merge into form state.
@@ -241,20 +247,6 @@ export interface LlmSettings {
   customInstruction: string;
   models: Record<Llm, LlmModelSettings>;
 }
-
-/**
- * Union of every primitive value type accepted by a `GeneralSettings` field.
- * Used by setter helpers that update arbitrary keys on `GeneralSettings` so
- * the value parameter does not have to repeat the full union inline.
- */
-export type GeneralSettingsValue
-  = | string
-    | number
-    | boolean
-    | null
-    | AriaMode
-    | HoverMode
-    | BrailleDisplayKind;
 
 /**
  * General application settings for audio, visual, and accessibility features.
