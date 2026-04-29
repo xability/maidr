@@ -20,6 +20,51 @@ export const DEFAULT_BRAILLE_LINES = 1;
 export const MAX_BRAILLE_LINES = 20;
 
 /**
+ * Configuration mode for the braille display. Determines whether the user
+ * picks from a list of known displays or enters cells/lines manually.
+ */
+export type BrailleDisplayKind = 'single' | 'multi' | 'manual';
+
+/**
+ * Default braille display kind when no user setting is stored. 'manual'
+ * preserves whatever cell/line numbers a previous version saved, so existing
+ * users see the same effective configuration after upgrading.
+ */
+export const DEFAULT_BRAILLE_DISPLAY_KIND: BrailleDisplayKind = 'manual';
+
+/**
+ * A named, hard-coded braille display preset. The id is stable so that a
+ * stored selection survives label edits in the future.
+ */
+export interface BrailleDisplayPreset {
+  id: string;
+  label: string;
+  cells: number;
+  lines: number;
+}
+
+/**
+ * Single-line braille display presets (lines = 1).
+ */
+export const SINGLE_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
+  { id: 'brailliant-bi-40x', label: 'Brailliant BI 40X', cells: 40, lines: 1 },
+  { id: 'focus-40-blue', label: 'Focus 40 Blue', cells: 40, lines: 1 },
+  { id: 'mantis-q40', label: 'Mantis Q40', cells: 40, lines: 1 },
+  { id: 'orbit-reader-40', label: 'Orbit Reader 40', cells: 40, lines: 1 },
+  { id: 'qbraille-xl', label: 'QBraille XL', cells: 40, lines: 1 },
+  { id: 'brailliant-bi-20x', label: 'Brailliant BI 20X', cells: 20, lines: 1 },
+  { id: 'focus-14', label: 'Focus 14', cells: 14, lines: 1 },
+] as const;
+
+/**
+ * Multi-line braille display presets (lines > 1).
+ */
+export const MULTI_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
+  { id: 'orbit-slate-520', label: 'Orbit Slate 520', cells: 20, lines: 5 },
+  { id: 'orbit-slate-340', label: 'Orbit Slate 340', cells: 40, lines: 3 },
+] as const;
+
+/**
  * ARIA live region politeness level for screen reader announcements.
  */
 export type AriaMode = 'assertive' | 'polite';
@@ -66,6 +111,8 @@ export interface GeneralSettings {
   highContrastDarkColor: string;
   brailleDisplaySize: number;
   brailleDisplayLines: number;
+  brailleDisplayKind: BrailleDisplayKind;
+  brailleDisplayPresetId: string | null;
   minFrequency: number;
   maxFrequency: number;
   autoplayDuration: number;
@@ -91,6 +138,8 @@ export const DEFAULT_SETTINGS: Settings = {
     highContrastDarkColor: '#000000',
     brailleDisplaySize: DEFAULT_BRAILLE_SIZE,
     brailleDisplayLines: DEFAULT_BRAILLE_LINES,
+    brailleDisplayKind: DEFAULT_BRAILLE_DISPLAY_KIND,
+    brailleDisplayPresetId: null,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,
