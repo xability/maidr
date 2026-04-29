@@ -189,6 +189,10 @@ export class LineTrace extends AbstractTrace {
       | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
+    // Resolve z label: honor user-provided spec label, otherwise fall back
+    // to LineTrace-specific default ("Group") rather than the generic "Level".
+    const zLabel = this.layer.axes?.z?.label ?? TYPE;
+
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
@@ -207,13 +211,13 @@ export class LineTrace extends AbstractTrace {
 
       zData = {
         z: {
-          label: TYPE,
+          label: zLabel,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
       // Single line or no intersection - use normal z data
-      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
+      zData = point.z ? { z: { label: zLabel, value: point.z } } : {};
     }
 
     return {
