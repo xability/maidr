@@ -672,12 +672,7 @@ const Settings: React.FC = () => {
                       </MenuItem>
                       {SINGLE_LINE_BRAILLE_PRESETS.map(preset => (
                         <MenuItem key={preset.id} value={preset.id}>
-                          {preset.label}
-                          {' '}
-                          (
-                          {preset.cells}
-                          {' '}
-                          cells)
+                          {`${preset.label} — ${preset.manufacturer} (${preset.cells} cells)`}
                         </MenuItem>
                       ))}
                     </Select>
@@ -713,16 +708,7 @@ const Settings: React.FC = () => {
                       </MenuItem>
                       {MULTI_LINE_BRAILLE_PRESETS.map(preset => (
                         <MenuItem key={preset.id} value={preset.id}>
-                          {preset.label}
-                          {' '}
-                          (
-                          {preset.lines}
-                          {' '}
-                          lines,
-                          {' '}
-                          {preset.cells}
-                          {' '}
-                          cells each)
+                          {`${preset.label} — ${preset.manufacturer} (${preset.lines} lines × ${preset.cells} cells)`}
                         </MenuItem>
                       ))}
                     </Select>
@@ -1112,6 +1098,7 @@ const Settings: React.FC = () => {
               color="inherit"
               onClick={handleClose}
               aria-label="Close Settings with no changes"
+              aria-keyshortcuts="Alt+C"
             >
               Close
             </Button>
@@ -1128,6 +1115,7 @@ const Settings: React.FC = () => {
                   : ''
               }
               aria-label="Save & Close Settings"
+              aria-keyshortcuts="Alt+S"
             >
               Save & Close
             </Button>
