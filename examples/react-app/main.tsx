@@ -4,6 +4,8 @@ import { Maidr } from 'maidr/react';
 import { barData, barSvgInnerHTML } from './data/barData';
 import { lineData, lineSvgInnerHTML } from './data/lineData';
 import { smoothData, smoothSvgInnerHTML } from './data/smoothData';
+import { D3BarExample } from './D3BarExample';
+import { D3ScatterExample } from './D3ScatterExample';
 
 function BarChart() {
   return (
@@ -64,6 +66,10 @@ function App() {
       <LineChart />
       <h2>Smooth Chart</h2>
       <SmoothChart />
+      <h2>D3.js Bar Chart</h2>
+      <D3BarExample />
+      <h2>D3.js Scatter Plot</h2>
+      <D3ScatterExample />
     </div>
   );
 }

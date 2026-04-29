@@ -71,7 +71,15 @@ export class LineTrace extends AbstractTrace {
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    // `layer.selectors` is `string | string[] | ...` per the schema. When a
+    // single-line binder (e.g. the D3 smooth/line binders) emits a bare
+    // string, wrap it in an array so the per-line length check inside
+    // `mapToSvgElements` (`selectors.length !== this.lineValues.length`)
+    // compares array length to line count, not character count.
+    const normalizedSelectors: string[] | undefined = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : (layer.selectors as string[] | undefined);
+    this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -181,6 +189,10 @@ export class LineTrace extends AbstractTrace {
       | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
+    // Resolve z label: honor user-provided spec label, otherwise fall back
+    // to LineTrace-specific default ("Group") rather than the generic "Level".
+    const zLabel = this.layer.axes?.z?.label ?? TYPE;
+
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
@@ -199,13 +211,13 @@ export class LineTrace extends AbstractTrace {
 
       zData = {
         z: {
-          label: TYPE,
+          label: zLabel,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
       // Single line or no intersection - use normal z data
-      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
+      zData = point.z ? { z: { label: zLabel, value: point.z } } : {};
     }
 
     return {
