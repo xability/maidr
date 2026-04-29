@@ -1111,10 +1111,9 @@ const Settings: React.FC = () => {
               variant="outlined"
               color="inherit"
               onClick={handleClose}
-              aria-label="Cancel Settings (Alt+C)"
-              title="Alt+C"
+              aria-label="Close Settings with no changes"
             >
-              Cancel (Alt+C)
+              Close
             </Button>
           </Grid>
           <Grid size="auto">
@@ -1126,11 +1125,11 @@ const Settings: React.FC = () => {
               title={
                 !isCustomInstructionValid
                   ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
-                  : 'Alt+S'
+                  : ''
               }
-              aria-label="Save & Close Settings (Alt+S)"
+              aria-label="Save & Close Settings"
             >
-              Save & Close (Alt+S)
+              Save & Close
             </Button>
           </Grid>
         </Grid>
