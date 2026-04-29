@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -17,7 +18,7 @@ function createLineLayer(data: MaidrLayer['data']): MaidrLayer {
     id: 'rotor-test-line-layer',
     type: TraceType.LINE,
     title: 'Rotor test layer',
-    axes: { x: 'X', y: 'Y' },
+    axes: { x: { label: 'X' }, y: { label: 'Y' } },
     data,
   };
 }
@@ -71,6 +72,17 @@ function createMockTextService(options: { off?: boolean; terse?: boolean } = {})
 }
 
 /**
+ * Minimal NotificationService stub. Returns a jest mock for notify so tests
+ * can verify it was called (the alert-region re-mount path depends on it).
+ * @returns A NotificationService-shaped object whose notify is a jest mock
+ */
+function createMockNotificationService(): NotificationService {
+  return {
+    notify: jest.fn(),
+  } as unknown as NotificationService;
+}
+
+/**
  * Advance the rotor until getMode() returns the target mode name.
  * @param service The rotor service to cycle
  * @param target Expected mode name
@@ -93,6 +105,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService(),
+      createMockNotificationService(),
     );
 
     cycleTo(service, Constant.INTERSECTION_MODE);
@@ -107,6 +120,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService(),
+      createMockNotificationService(),
     );
 
     cycleTo(service, Constant.INTERSECTION_MODE);
@@ -121,6 +135,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService(),
+      createMockNotificationService(),
     );
     cycleTo(service, Constant.INTERSECTION_MODE);
 
@@ -137,6 +152,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService(),
+      createMockNotificationService(),
     );
     cycleTo(service, Constant.INTERSECTION_MODE);
 
@@ -151,6 +167,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService(),
+      createMockNotificationService(),
     );
     cycleTo(service, Constant.INTERSECTION_MODE);
 
@@ -166,6 +183,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService({ terse: true }),
+      createMockNotificationService(),
     );
     cycleTo(service, Constant.INTERSECTION_MODE);
 
@@ -178,10 +196,50 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(trace),
       createMockTextService({ off: true }),
+      createMockNotificationService(),
     );
     cycleTo(service, Constant.INTERSECTION_MODE);
 
     expect(service.moveRight()).toBe('');
+  });
+
+  test('intersection bound and vertical-unavailable paths route through notification.notify (SR re-announce)', () => {
+    // Regression: aria-live regions only re-announce when their content
+    // changes. The text alert region in Text.tsx is keyed by a revision
+    // counter that increments every time TextViewModel receives a notify
+    // event, so identical messages still re-mount and re-announce. The
+    // rotor area is plain aria-live with no key, so messages dispatched
+    // only there announce once and stay silent on repeat presses. The
+    // intersection paths must therefore push the message through
+    // notification.notify too — this test asserts that wiring exists.
+    const trace = createTraceWithIntersections();
+    trace.col = 3; // at the last point intersection
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.INTERSECTION_MODE);
+
+    // Right at boundary -> bound message goes through notify.
+    service.moveRight();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/No intersection.*right/i),
+    );
+
+    // Up in intersection mode -> vertical-unavailable goes through notify.
+    service.moveUp();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/intersection.*mode/i),
+    );
+
+    // Repeated identical hits must each call notify, so the alert region
+    // remounts each time and the SR re-announces.
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveUp();
+    service.moveUp();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
   });
 
   test('INTERSECTION_MODE is absent from the rotor cycle for a single-line trace', () => {
@@ -200,6 +258,7 @@ describe('RotorNavigationService intersection dispatch', () => {
     const service = new RotorNavigationService(
       createMockContext(singleLine),
       createMockTextService(),
+      createMockNotificationService(),
     );
 
     const seen = new Set<string>();

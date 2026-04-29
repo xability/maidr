@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { isGridNavigable } from '@type/navigation';
@@ -41,16 +42,24 @@ import { Constant } from '@util/constant';
 export class RotorNavigationService {
   private readonly context: Context;
   private readonly text: TextService;
+  private readonly notification: NotificationService;
   private rotorIndex: number;
 
   /**
    * Creates a new RotorNavigationService instance.
    * @param context - The context providing access to the active trace
+   * @param text - Provides terse/verbose/off mode for message formatting
+   * @param notification - Used to push intersection-mode messages through the
+   *   text alert region. The alert region re-mounts on every dispatch (keyed
+   *   by a revision counter), which is what causes screen readers to
+   *   re-announce on repeat key presses. Without this, identical messages
+   *   dispatched only to the rotor area do not re-announce.
    */
-  public constructor(context: Context, text: TextService) {
+  public constructor(context: Context, text: TextService, notification: NotificationService) {
     this.context = context;
     this.rotorIndex = 0;
     this.text = text;
+    this.notification = notification;
   }
 
   /**
@@ -150,10 +159,13 @@ export class RotorNavigationService {
       return this.moveGrid('up');
     }
     if (mode === Constant.INTERSECTION_MODE) {
-      // Intentional: do not call notifyStateUpdate() here. Vertical navigation
-      // is unavailable in intersection mode, so the model is not moved and no
-      // audio/text update is emitted — only the rotor-area message is returned.
-      return this.getIntersectionVerticalUnavailableMessage();
+      // The model is intentionally NOT moved here — vertical navigation is
+      // unavailable in intersection mode. We still must push the message
+      // through notification.notify so the text alert region re-mounts and
+      // screen readers re-announce on repeat key presses; returning the
+      // message only to the rotor area would announce once and stay silent
+      // for subsequent identical hits.
+      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
     }
 
     const activeTrace = this.context.active;
@@ -184,9 +196,9 @@ export class RotorNavigationService {
       return this.moveGrid('down');
     }
     if (mode === Constant.INTERSECTION_MODE) {
-      // Intentional: see moveUp() — vertical navigation is unavailable in
-      // intersection mode; the model is not moved and no observer is notified.
-      return this.getIntersectionVerticalUnavailableMessage();
+      // See moveUp() — model not moved; route through notification so the
+      // alert region re-mounts and the SR re-announces on repeat presses.
+      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
     }
 
     const activeTrace = this.context.active;
@@ -396,15 +408,33 @@ export class RotorNavigationService {
       // mode list build and the key press. Return an unavailable message
       // (not null — null means "move succeeded" to callers) so the user is
       // told their key press had no effect.
-      return this.buildMessage(
+      return this.announceIntersectionMessage(this.buildMessage(
         'Intersection mode unavailable',
         'Intersection navigation is not available in the current context.',
-      );
+      ));
     }
     const moved = direction === 'right'
       ? activeTrace.moveToNextIntersection()
       : activeTrace.moveToPrevIntersection();
-    return moved ? null : this.getIntersectionBoundMessage(direction);
+    if (moved) {
+      return null;
+    }
+    return this.announceIntersectionMessage(this.getIntersectionBoundMessage(direction));
+  }
+
+  /**
+   * Push an intersection-mode message through the notification service so the
+   * text alert region re-mounts (it is keyed by a revision counter), forcing
+   * screen readers to re-announce on every keystroke. Without this, repeated
+   * identical messages dispatched only to the rotor area announce once and
+   * then stay silent. Returns the message unchanged so callers can chain.
+   * Empty strings (text-off mode) are passed through; NotificationService
+   * already no-ops on empty input.
+   * @param message The text to announce; returned unchanged.
+   */
+  private announceIntersectionMessage(message: string): string {
+    this.notification.notify(message);
+    return message;
   }
 
   /**
