@@ -1,6 +1,5 @@
 import type { Keys } from '@type/event';
 import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
-import { useCommandExecutor } from '@state/hook/useCommandExecutor';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -13,7 +12,6 @@ interface CommandItem {
 const CommandPalette: React.FC = () => {
   const commandPaletteViewModel = useViewModel('commandPalette');
   const state = useViewModelState('commandPalette');
-  const { executeCommand } = useCommandExecutor();
   const [announcement] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -80,10 +78,9 @@ const CommandPalette: React.FC = () => {
   }, [commandPaletteViewModel]);
 
   const handleCommandSelect = useCallback((commandKey: Keys) => {
-    // Execute the command first, then close
-    executeCommand(commandKey);
-    handleClose();
-  }, [executeCommand, handleClose]);
+    // Delegate to ViewModel which handles close + execute
+    commandPaletteViewModel.executeAndClose(commandKey);
+  }, [commandPaletteViewModel]);
 
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     commandPaletteViewModel.updateSearch(event.target.value);

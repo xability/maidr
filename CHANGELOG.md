@@ -1,3 +1,188 @@
+# [3.65.0](https://github.com/xability/maidr/compare/v3.64.1...v3.65.0) (2026-04-28)
+
+
+### Features
+
+* add D3.js charting library support via maidr/d3 binder ([#551](https://github.com/xability/maidr/issues/551)) ([03f1dc6](https://github.com/xability/maidr/commit/03f1dc693b590ac9df6da19f868a677f19b5cffe)), closes [#537](https://github.com/xability/maidr/issues/537)
+
+## [3.64.1](https://github.com/xability/maidr/compare/v3.64.0...v3.64.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* refactor axes configuration ([#603](https://github.com/xability/maidr/issues/603)) ([e294a86](https://github.com/xability/maidr/commit/e294a86f540744885677c8d5b67949c61ee6c92a))
+
+# [3.64.0](https://github.com/xability/maidr/compare/v3.63.1...v3.64.0) (2026-04-22)
+
+
+### Features
+
+* support simultaneous representation of multiple traces in multiline braille displays ([#599](https://github.com/xability/maidr/issues/599)) ([b0e6281](https://github.com/xability/maidr/commit/b0e6281c5caed16173baecddf7ff5cd94d69a6ac))
+
+## [3.63.1](https://github.com/xability/maidr/compare/v3.63.0...v3.63.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* change fill to z and fix minor regressions ([#602](https://github.com/xability/maidr/issues/602)) ([fa4b4ec](https://github.com/xability/maidr/commit/fa4b4ec520a2d6d5e141f674569bb333acf24e1b))
+
+# [3.63.0](https://github.com/xability/maidr/compare/v3.62.0...v3.63.0) (2026-04-16)
+
+
+### Features
+
+* add Google Charts integration adapter ([#541](https://github.com/xability/maidr/issues/541)) ([#552](https://github.com/xability/maidr/issues/552)) ([d7357f8](https://github.com/xability/maidr/commit/d7357f8c56e137ec89927572a583114c3b0ba7e8))
+
+# [3.62.0](https://github.com/xability/maidr/compare/v3.61.0...v3.62.0) (2026-04-13)
+
+
+### Bug Fixes
+
+* braille cursor issue and extra braille text at beginning in nvda eliminated ([#596](https://github.com/xability/maidr/issues/596)) ([5e0d998](https://github.com/xability/maidr/commit/5e0d9982e11bc55d436aee7de6bb2c6fca1febd1))
+
+
+### Features
+
+* enable automatic keybinding capture in help menu ([#597](https://github.com/xability/maidr/issues/597)) ([d207bc0](https://github.com/xability/maidr/commit/d207bc0de20b753498268c290e6ce8d9132bd8e0))
+
+# [3.61.0](https://github.com/xability/maidr/compare/v3.60.1...v3.61.0) (2026-04-08)
+
+
+### Features
+
+* add Recharts adapter for accessible chart integration ([#555](https://github.com/xability/maidr/issues/555)) ([2d4e4e4](https://github.com/xability/maidr/commit/2d4e4e4286dc0cc1b10ba68b155f01d0408bd789)), closes [#542](https://github.com/xability/maidr/issues/542)
+
+## [3.60.1](https://github.com/xability/maidr/compare/v3.60.0...v3.60.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* improve scatter plot grid navigation ([#595](https://github.com/xability/maidr/issues/595)) ([615219c](https://github.com/xability/maidr/commit/615219cb148364060b9a607f23f25ac0ea5484a8))
+
+# [3.60.0](https://github.com/xability/maidr/compare/v3.59.2...v3.60.0) (2026-04-08)
+
+
+### Features
+
+* plotly js adapter ([#591](https://github.com/xability/maidr/issues/591)) ([a3a49e3](https://github.com/xability/maidr/commit/a3a49e31b98d44ad53fd3ec3bea16b6fa93735bb))
+
+## [3.59.2](https://github.com/xability/maidr/compare/v3.59.1...v3.59.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* escape key works in braille mode for subplot exit ([#593](https://github.com/xability/maidr/issues/593)) ([e30144a](https://github.com/xability/maidr/commit/e30144a19ce020d9d6b0071b3fbfcb6b2554e344))
+
+## [3.59.1](https://github.com/xability/maidr/compare/v3.59.0...v3.59.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* fetch braille output length from settings ([#590](https://github.com/xability/maidr/issues/590)) ([b64fb4e](https://github.com/xability/maidr/commit/b64fb4ecd8f7724c18987d4586f3b478cf3e5401))
+
+# [3.59.0](https://github.com/xability/maidr/compare/v3.58.3...v3.59.0) (2026-04-01)
+
+
+### Features
+
+* support grid based movement for scatterplots ([#570](https://github.com/xability/maidr/issues/570)) ([951166e](https://github.com/xability/maidr/commit/951166ede1ff4338df47015359b8cdae9c51df94))
+
+## [3.58.3](https://github.com/xability/maidr/compare/v3.58.2...v3.58.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* clarify scatterplot without line layer ([#589](https://github.com/xability/maidr/issues/589)) ([a70daf8](https://github.com/xability/maidr/commit/a70daf8818bdf4359403f0c5c3caa48881f36cf6))
+
+## [3.58.2](https://github.com/xability/maidr/compare/v3.58.1...v3.58.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* clarify point or slope intersection in multiline plot ([#582](https://github.com/xability/maidr/issues/582)) ([d1931ae](https://github.com/xability/maidr/commit/d1931ae82b5f88e61981e6b6943d7ca1d18f6b18))
+
+## [3.58.1](https://github.com/xability/maidr/compare/v3.58.0...v3.58.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* unify instruction text announcement ([#583](https://github.com/xability/maidr/issues/583)) ([76859e7](https://github.com/xability/maidr/commit/76859e748fe429ae5eb908c608c452c13b13bf18))
+
+# [3.58.0](https://github.com/xability/maidr/compare/v3.57.0...v3.58.0) (2026-03-13)
+
+
+### Features
+
+* support plotly plots ([#577](https://github.com/xability/maidr/issues/577)) ([acd6f89](https://github.com/xability/maidr/commit/acd6f89bee204b03d5842a52e93651708e187aaa))
+
+# [3.57.0](https://github.com/xability/maidr/compare/v3.56.0...v3.57.0) (2026-03-12)
+
+
+### Features
+
+* notify users of current position with p key ([7e0172a](https://github.com/xability/maidr/commit/7e0172a554d4f83d2d38ef7fcedb4cc2107e700d))
+
+# [3.56.0](https://github.com/xability/maidr/compare/v3.55.2...v3.56.0) (2026-03-10)
+
+
+### Features
+
+* go to extrema in heatmap ([#569](https://github.com/xability/maidr/issues/569)) ([7946bdc](https://github.com/xability/maidr/commit/7946bdc5e63218388a13c42afa85f44914ac1ca4))
+
+## [3.55.2](https://github.com/xability/maidr/compare/v3.55.1...v3.55.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* support svg polygon element highlighting ([#568](https://github.com/xability/maidr/issues/568)) ([0098c1f](https://github.com/xability/maidr/commit/0098c1f9103f32020883afa6815c1282b94fabbd))
+
+## [3.55.1](https://github.com/xability/maidr/compare/v3.55.0...v3.55.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* address violin plot horizonatal orientation bug ([#567](https://github.com/xability/maidr/issues/567)) ([f9efcdc](https://github.com/xability/maidr/commit/f9efcdcd89b8d3a25df076e4133510251ccbfb12))
+
+# [3.55.0](https://github.com/xability/maidr/compare/v3.54.0...v3.55.0) (2026-03-05)
+
+
+### Features
+
+* go to intersection ([#563](https://github.com/xability/maidr/issues/563)) ([fc19a99](https://github.com/xability/maidr/commit/fc19a994c51e891c46bf083f22c2bd6ec8446af6))
+
+# [3.54.0](https://github.com/xability/maidr/compare/v3.53.0...v3.54.0) (2026-03-04)
+
+
+### Features
+
+* support matplotlib violin plot ([#510](https://github.com/xability/maidr/issues/510)) ([30b16c3](https://github.com/xability/maidr/commit/30b16c32e50acfb420651974fcbaa3de7b3507c6))
+
+# [3.53.0](https://github.com/xability/maidr/compare/v3.52.0...v3.53.0) (2026-02-26)
+
+
+### Bug Fixes
+
+* address empty space SR announcement in react comps (JAWS & NVDA) ([#564](https://github.com/xability/maidr/issues/564)) ([d180d2e](https://github.com/xability/maidr/commit/d180d2edaa9e1a51c4e58dd8537ce47100b3af5e))
+
+
+### Features
+
+* address JAWS/NVDA not recognizing image assets ([#565](https://github.com/xability/maidr/issues/565)) ([c41495d](https://github.com/xability/maidr/commit/c41495dc19750f20c1b6d42c315d5b6272fafbee))
+
+# [3.52.0](https://github.com/xability/maidr/compare/v3.51.1...v3.52.0) (2026-02-25)
+
+
+### Features
+
+* restore screen reader graphics navigation for interactive charts ([#561](https://github.com/xability/maidr/issues/561)) ([9e3a1e5](https://github.com/xability/maidr/commit/9e3a1e5f9cc094b9efd778a68d169bd475c86467))
+
+## [3.51.1](https://github.com/xability/maidr/compare/v3.51.0...v3.51.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* address scatter plot navigation ([#562](https://github.com/xability/maidr/issues/562)) ([3b12fa8](https://github.com/xability/maidr/commit/3b12fa822cc0c821a14b06e325b117ec67dfea88))
+
 # [3.51.0](https://github.com/xability/maidr/compare/v3.50.1...v3.51.0) (2026-02-23)
 
 

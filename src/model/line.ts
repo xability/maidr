@@ -11,8 +11,19 @@ import { AbstractTrace } from './abstract';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
-const SVG_PATH_LINE_POINT_REGEX
-  = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+/**
+ * Regex for extracting data point coordinates from SVG path `d` attribute.
+ *
+ * Matches M/L commands (direct endpoints) with comma or whitespace separators,
+ * and C (cubic bezier) commands — extracting the endpoint (last coordinate pair).
+ *
+ * M/L: `M65,231.42` or `L 100 200` → captures (65, 231.42) or (100, 200)
+ * C:   `C81,215,97,199,113,182`    → captures endpoint (113, 182)
+ */
+const SVG_PATH_ML_REGEX
+  = /[ML]\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_C_REGEX
+  = /C\s*(?:-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+){2}(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
 
 /**
  * Represents a line trace plot with support for single and multi-line navigation
@@ -39,6 +50,16 @@ export class LineTrace extends AbstractTrace {
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
 
+  // Cache for intersection results, keyed by row index
+  // Invalidated when active row changes
+  private intersectionCache: Map<number, Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
+  }>> = new Map();
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -50,7 +71,15 @@ export class LineTrace extends AbstractTrace {
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    // `layer.selectors` is `string | string[] | ...` per the schema. When a
+    // single-line binder (e.g. the D3 smooth/line binders) emits a bare
+    // string, wrap it in an array so the per-line length check inside
+    // `mapToSvgElements` (`selectors.length !== this.lineValues.length`)
+    // compares array length to line count, not character count.
+    const normalizedSelectors: string[] | undefined = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : (layer.selectors as string[] | undefined);
+    this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -156,41 +185,41 @@ export class LineTrace extends AbstractTrace {
 
     // Check for intersections at current point
     const intersections = this.findIntersections();
-    let fillData:
-      | { fill: { label: string; value: string } }
+    let zData:
+      | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
         const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
       });
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill
-          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
-        if (lineTypes.includes(prevFill)) {
-          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        const prevZ
+          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevZ)) {
+          lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
       }
 
-      fillData = {
-        fill: {
+      zData = {
+        z: {
           label: TYPE,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
-      // Single line or no intersection - use normal fill data
-      fillData = point.fill ? { fill: { label: TYPE, value: point.fill } } : {};
+      // Single line or no intersection - use normal z data
+      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
     }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
-      ...fillData,
+      ...zData,
     };
   }
 
@@ -421,8 +450,52 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
 
+    // Try element-based approach first (e.g. Recharts individual dot circles).
+    // If the selector matches multiple DOM elements whose count equals the
+    // expected data points, use them directly — no path parsing needed.
+    const elementBased = this.mapViaDomElements(selectors);
+    if (elementBased) {
+      return elementBased;
+    }
+
+    // Fall back to path-based approach: parse coordinates from a single
+    // <path> or <polyline> element per series and create synthetic circles.
+    return this.mapViaPathParsing(selectors);
+  }
+
+  /**
+   * Element-based SVG mapping: select all matching elements per selector
+   * and use them directly for highlighting (like BarTrace does).
+   * Works when the charting library renders individual dot/circle elements.
+   */
+  private mapViaDomElements(selectors: string[]): SVGElement[][] | null {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
+
+    for (let r = 0; r < selectors.length; r++) {
+      const elements = Svg.selectAllElements(selectors[r]);
+      if (elements.length === 0 || elements.length !== this.lineValues[r].length) {
+        svgElements.push([]);
+        continue;
+      }
+      allFailed = false;
+      svgElements.push(elements);
+    }
+
+    return allFailed ? null : svgElements;
+  }
+
+  /**
+   * Path-based SVG mapping: find a single <path> or <polyline> per selector,
+   * parse data point coordinates from its attributes, and create synthetic
+   * circle elements for highlighting.
+   *
+   * Supports M/L commands (linear paths) and C commands (cubic bezier curves).
+   */
+  private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
+
     for (let r = 0; r < selectors.length; r++) {
       const lineElement = Svg.selectElement(selectors[r], false);
       if (!lineElement) {
@@ -433,16 +506,7 @@ export class LineTrace extends AbstractTrace {
       const coordinates: LinePoint[] = [];
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
-        let match: RegExpExecArray | null
-          = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        while (match !== null) {
-          coordinates.push({
-            x: Number.parseFloat(match[1]),
-            y: Number.parseFloat(match[2]),
-          });
-          match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        }
+        this.extractPathCoordinates(pathD, coordinates);
       } else if (lineElement instanceof SVGPolylineElement) {
         const pointsAttr
           = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
@@ -455,20 +519,57 @@ export class LineTrace extends AbstractTrace {
           });
         }
       }
-      if (coordinates.length !== this.lineValues[r].length) {
-        if (coordinates.length < this.lineValues[r].length) {
-          while (coordinates.length < this.lineValues[r].length) {
+      // Handle coordinate count mismatch.
+      // SVG renderers (e.g. Plotly) may simplify paths by removing collinear
+      // points.  When fewer coordinates than data points are found, interpolate
+      // the missing positions along the simplified path segments so every data
+      // point gets a highlight circle at the correct visual position.
+      const expected = this.lineValues[r].length;
+      if (coordinates.length !== expected) {
+        if (coordinates.length >= 2 && coordinates.length < expected) {
+          const pathXMin = Number(coordinates[0].x);
+          const pathXMax = Number(coordinates[coordinates.length - 1].x);
+          const dataPoints = this.points[r];
+          const dataXMin = Number(dataPoints[0].x);
+          const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
+          const dataXRange = dataXMax - dataXMin;
+
+          const full: LinePoint[] = [];
+          for (let i = 0; i < expected; i++) {
+            const dataX = Number(dataPoints[i].x);
+            const svgX = dataXRange > 0
+              ? pathXMin + ((dataX - dataXMin) / dataXRange) * (pathXMax - pathXMin)
+              : pathXMin;
+
+            // Find y by interpolating along the simplified path segments
+            let svgY = Number(coordinates[0].y);
+            for (let j = 0; j < coordinates.length - 1; j++) {
+              const cjx = Number(coordinates[j].x);
+              const cj1x = Number(coordinates[j + 1].x);
+              if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
+                const segLen = cj1x - cjx;
+                const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
+                svgY = Number(coordinates[j].y) + t * (Number(coordinates[j + 1].y) - Number(coordinates[j].y));
+                break;
+              }
+            }
+            full.push({ x: svgX, y: svgY });
+          }
+          coordinates.length = 0;
+          coordinates.push(...full);
+        } else if (coordinates.length < expected) {
+          while (coordinates.length < expected) {
             coordinates.push({ x: Number.NaN, y: Number.NaN });
           }
-        } else if (coordinates.length > this.lineValues[r].length) {
-          coordinates.length = this.lineValues[r].length;
+        } else {
+          coordinates.length = expected;
         }
       }
 
       const linePointElements: SVGElement[] = [];
       let lineFailed = false;
       for (const coordinate of coordinates) {
-        if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
+        if (Number.isNaN(Number(coordinate.x)) || Number.isNaN(coordinate.y)) {
           lineFailed = true;
           break;
         }
@@ -490,6 +591,44 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     return svgElements;
+  }
+
+  /**
+   * Extracts data point coordinates from an SVG path `d` attribute.
+   * Handles M/L (move/line) and C (cubic bezier) commands.
+   * For C commands, the endpoint (3rd coordinate pair) is extracted.
+   */
+  private extractPathCoordinates(pathD: string, coordinates: LinePoint[]): void {
+    // Extract M/L endpoints
+    SVG_PATH_ML_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null = SVG_PATH_ML_REGEX.exec(pathD);
+    const indexed: { index: number; x: number; y: number }[] = [];
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_ML_REGEX.exec(pathD);
+    }
+
+    // Extract C cubic bezier endpoints (3rd pair of each C command)
+    SVG_PATH_C_REGEX.lastIndex = 0;
+    match = SVG_PATH_C_REGEX.exec(pathD);
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_C_REGEX.exec(pathD);
+    }
+
+    // Sort by position in path string to preserve point order
+    indexed.sort((a, b) => a.index - b.index);
+    for (const point of indexed) {
+      coordinates.push({ x: point.x, y: point.y });
+    }
   }
 
   public get state(): TraceState {
@@ -582,8 +721,267 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * Check if two line segments intersect and return the intersection point
+   * Uses parametric line intersection formula
+   * @param p1 Start point of first segment
+   * @param p1.x X coordinate of start point of first segment
+   * @param p1.y Y coordinate of start point of first segment
+   * @param p2 End point of first segment
+   * @param p2.x X coordinate of end point of first segment
+   * @param p2.y Y coordinate of end point of first segment
+   * @param p3 Start point of second segment
+   * @param p3.x X coordinate of start point of second segment
+   * @param p3.y Y coordinate of start point of second segment
+   * @param p4 End point of second segment
+   * @param p4.x X coordinate of end point of second segment
+   * @param p4.y Y coordinate of end point of second segment
+   * @returns Intersection point {x, y} if segments intersect, null otherwise
+   */
+  private getSegmentIntersection(
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    p4: { x: number; y: number },
+  ): { x: number; y: number } | null {
+    const x1 = p1.x;
+    const y1 = p1.y;
+    const x2 = p2.x;
+    const y2 = p2.y;
+    const x3 = p3.x;
+    const y3 = p3.y;
+    const x4 = p4.x;
+    const y4 = p4.y;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+    // Lines are parallel (no intersection or infinite intersections)
+    if (Math.abs(denom) < 1e-10) {
+      return null;
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    // Check if intersection is within both segments (t and u must be in [0, 1])
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const intersectX = x1 + t * (x2 - x1);
+      const intersectY = y1 + t * (y2 - y1);
+      return { x: intersectX, y: intersectY };
+    }
+
+    return null;
+  }
+
+  /** Tolerance for comparing intersection coordinates (for deduplication) */
+  private static readonly INTERSECTION_EPSILON = 1e-6;
+
+  /**
+   * Find all points where the current line intersects with other lines
+   * Uses line segment intersection algorithm to find crossings between data points
+   * Results are cached per row and invalidated when the active row changes
+   * @returns Array of intersection info containing nearest point index and intersecting line indices
+   */
+  private findAllIntersectionsForCurrentLine(): Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
+  }> {
+    const currentGroup = this.row;
+
+    // Return cached results if available
+    if (this.intersectionCache.has(currentGroup)) {
+      return this.intersectionCache.get(currentGroup)!;
+    }
+
+    if (currentGroup < 0 || currentGroup >= this.points.length) {
+      return [];
+    }
+
+    // Only check for intersections if there are multiple lines
+    if (this.points.length <= 1) {
+      return [];
+    }
+
+    const currentLinePoints = this.points[currentGroup];
+    if (currentLinePoints.length < 2) {
+      return [];
+    }
+
+    // Collect all raw intersections first
+    const rawIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      otherLine: number;
+    }> = [];
+
+    // For each segment on the current line
+    for (let segIndex = 0; segIndex < currentLinePoints.length - 1; segIndex++) {
+      const p1 = currentLinePoints[segIndex];
+      const p2 = currentLinePoints[segIndex + 1];
+
+      // Convert to numeric for calculation
+      const seg1Start = { x: Number(p1.x), y: Number(p1.y) };
+      const seg1End = { x: Number(p2.x), y: Number(p2.y) };
+
+      // Check against all segments from other lines
+      for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
+        if (otherLine === currentGroup) {
+          continue;
+        }
+
+        const otherLinePoints = this.points[otherLine];
+        if (otherLinePoints.length < 2) {
+          continue;
+        }
+
+        for (let otherSegIndex = 0; otherSegIndex < otherLinePoints.length - 1; otherSegIndex++) {
+          const p3 = otherLinePoints[otherSegIndex];
+          const p4 = otherLinePoints[otherSegIndex + 1];
+
+          const seg2Start = { x: Number(p3.x), y: Number(p3.y) };
+          const seg2End = { x: Number(p4.x), y: Number(p4.y) };
+
+          const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
+
+          if (intersection) {
+            // Find the nearest point on the current line to navigate to
+            // Use Euclidean distance for accuracy with nearly vertical segments
+            const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
+            const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
+            const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
+
+            rawIntersections.push({
+              pointIndex: nearestPointIndex,
+              x: intersection.x,
+              y: intersection.y,
+              otherLine,
+            });
+          }
+        }
+      }
+    }
+
+    // Group intersections using tolerance-based deduplication
+    const groupedIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      intersectingLines: Set<number>;
+    }> = [];
+
+    for (const raw of rawIntersections) {
+      // Find existing group within tolerance
+      const existingGroup = groupedIntersections.find(
+        g => Math.abs(g.x - raw.x) < LineTrace.INTERSECTION_EPSILON
+          && Math.abs(g.y - raw.y) < LineTrace.INTERSECTION_EPSILON,
+      );
+
+      if (existingGroup) {
+        existingGroup.intersectingLines.add(raw.otherLine);
+      } else {
+        const intersectingLines = new Set<number>();
+        intersectingLines.add(raw.otherLine);
+        groupedIntersections.push({
+          pointIndex: raw.pointIndex,
+          x: raw.x,
+          y: raw.y,
+          intersectingLines,
+        });
+      }
+    }
+
+    // Convert to final format and sort by x coordinate
+    // Note: intersectingLines excludes currentGroup (only other lines)
+    const result = groupedIntersections
+      .map(entry => ({
+        pointIndex: entry.pointIndex,
+        x: entry.x,
+        y: entry.y,
+        intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+        // Classify once during target generation so UI can announce the right type.
+        intersectionKind: this.classifyIntersectionKind(
+          currentGroup,
+          Array.from(entry.intersectingLines),
+          entry.x,
+          entry.y,
+        ),
+      }))
+      .sort((a, b) => a.x - b.x);
+
+    // Cache the result
+    this.intersectionCache.set(currentGroup, result);
+
+    return result;
+  }
+
+  /**
+   * Get a formatted label for intersecting lines
+   * Note: intersectingLines should only contain OTHER lines (not the current line)
+   * since the user is already on the current line.
+   * @param intersectingLines Array of line indices that intersect (excluding current line)
+   * @returns Formatted string of line names (e.g., "Line A, Line B")
+   */
+  private getIntersectionLabel(intersectingLines: number[]): string {
+    return intersectingLines.map((lineIndex) => {
+      // Access first point to get the line's z/name
+      // Falls back to "Line N" if z is not defined
+      const firstPoint = this.points[lineIndex][0];
+      return firstPoint?.z || `Line ${lineIndex + 1}`;
+    }).join(', ');
+  }
+
+  /**
+   * Check whether a line contains a sampled point at the given coordinate.
+   * @param lineIndex The line index to inspect
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @returns True if the coordinate exists in the line's sampled points
+   */
+  private hasPointAtCoordinate(lineIndex: number, x: number, y: number): boolean {
+    if (lineIndex < 0 || lineIndex >= this.points.length) {
+      return false;
+    }
+
+    return this.points[lineIndex].some(point =>
+      Math.abs(Number(point.x) - x) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(Number(point.y) - y) < LineTrace.INTERSECTION_EPSILON,
+    );
+  }
+
+  /**
+   * Classify an intersection as either point-based (sampled in SVG data) or
+   * slope-based (created by segment crossing between sampled points).
+   * @param currentLine The current active line index
+   * @param intersectingLines Other lines participating in this intersection
+   * @param x Intersection x coordinate
+   * @param y Intersection y coordinate
+   * @returns Intersection kind
+   */
+  private classifyIntersectionKind(
+    currentLine: number,
+    intersectingLines: number[],
+    x: number,
+    y: number,
+  ): 'point' | 'slope' {
+    // Point intersection requires both lines to contain the sampled coordinate.
+    const currentHasPoint = this.hasPointAtCoordinate(currentLine, x, y);
+    if (!currentHasPoint) {
+      return 'slope';
+    }
+
+    const otherHasPoint = intersectingLines.some(lineIndex =>
+      this.hasPointAtCoordinate(lineIndex, x, y),
+    );
+
+    return otherHasPoint ? 'point' : 'slope';
+  }
+
+  /**
    * Get extrema targets for the current line plot
-   * Returns min and max values within the current group
+   * Returns min, max values, and intersection points within the current group
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -622,6 +1020,7 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'max',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[maxIndex]?.x,
       });
     }
 
@@ -634,6 +1033,34 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'min',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[minIndex]?.x,
+      });
+    }
+
+    // Add intersection targets for multiline plots
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    for (const intersection of intersections) {
+      // intersectingLines only contains OTHER lines (not current line)
+      const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
+      // Format the intersection coordinates for display
+      const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+      const intersectionLabel = intersection.intersectionKind === 'point'
+        ? 'Point intersection'
+        : 'Slope intersection';
+
+      targets.push({
+        label: `${intersectionLabel} at ${coordsDisplay}`,
+        value: intersection.y,
+        pointIndex: intersection.pointIndex,
+        segment: 'intersection',
+        type: 'intersection',
+        intersectionKind: intersection.intersectionKind,
+        navigationType: 'point',
+        intersectingLines: intersection.intersectingLines,
+        display: {
+          coords: coordsDisplay,
+          otherLines: otherLineNames,
+        },
       });
     }
 

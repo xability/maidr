@@ -7,7 +7,6 @@ import { Svg } from '@util/svg';
 import { AbstractBarPlot } from './bar';
 
 const SUM = 'Sum';
-const LEVEL = 'Level';
 const UNDEFINED = 'undefined';
 
 export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
@@ -27,12 +26,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         ? {
             x: this.points[0][i].x,
             y: sum,
-            fill: SUM,
+            z: SUM,
           }
         : {
             x: sum,
             y: this.points[0][i].y,
-            fill: SUM,
+            z: SUM,
           };
       summaryPoints.push(point);
     }
@@ -75,6 +74,16 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const maxCategoryLabel = this.getCategoryLabel(maxIndex);
     const minCategoryLabel = this.getCategoryLabel(minIndex);
 
+    // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
+    const maxPoint = this.points[currentGroup]?.[maxIndex];
+    const minPoint = this.points[currentGroup]?.[minIndex];
+    const maxXValue = maxPoint
+      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
+      : undefined;
+    const minXValue = minPoint
+      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
+      : undefined;
+
     // Add max target
     targets.push({
       label: `Max ${groupLabel} at ${maxCategoryLabel}`,
@@ -85,6 +94,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       groupIndex: currentGroup,
       categoryIndex: maxIndex,
       navigationType: 'group',
+      xValue: maxXValue,
     });
 
     // Add min target
@@ -97,6 +107,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       groupIndex: currentGroup,
       categoryIndex: minIndex,
       navigationType: 'group',
+      xValue: minXValue,
     });
 
     return targets;
@@ -134,9 +145,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         return 'Total';
       }
 
-      // For dodged/stacked plots, use the fill value as group identifier
-      if (firstPoint.fill) {
-        return `${this.getFillAxisLabel()}: '${firstPoint.fill}'`;
+      // For dodged/stacked plots, use the z value as group identifier
+      if (firstPoint.z) {
+        return `${this.getZAxisLabel()}: '${firstPoint.z}'`;
       }
     }
 
@@ -161,12 +172,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get the label for the fill axis (e.g., "Drive", "Survival Status")
-   * @returns The fill axis label
+   * Get the label for the z axis (e.g., "Drive", "Survival Status")
+   * @returns The z axis label
    */
-  private getFillAxisLabel(): string {
-    // Try to get from the layer axes, fallback to generic label
-    return 'Category';
+  private getZAxisLabel(): string {
+    // Use the z-axis label from the layer configuration
+    return this.z;
   }
 
   /**
@@ -183,9 +194,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   protected get text(): TextState {
     return {
       ...super.text,
-      fill: {
-        label: LEVEL,
-        value: this.points[this.row][this.col].fill ?? UNDEFINED,
+      z: {
+        label: this.z,
+        value: this.points[this.row][this.col].z ?? UNDEFINED,
       },
     };
   }
@@ -195,32 +206,44 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       return this.outOfBoundsState as HighlightState;
     }
 
+    // Defensive check: ensure row and col exist in highlightValues
+    const rowElements = this.highlightValues[this.row];
+    if (!rowElements || !rowElements[this.col]) {
+      return this.outOfBoundsState as HighlightState;
+    }
+
     return {
       empty: false,
-      elements: this.highlightValues[this.row][this.col],
+      elements: rowElements[this.col],
     };
   }
 
-  protected mapToSvgElements(selector?: string): SVGElement[][] {
+  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
 
     const domElements = Svg.selectAllElements(selector);
     if (domElements.length === 0) {
-      return new Array<Array<SVGElement>>();
+      return null;
     }
+
+    // Count total expected data points (excluding summary row added later).
+    const totalExpected = this.barValues.reduce((sum, row) => sum + row.length, 0);
+    // Only skip zeros when DOM has fewer elements than data points
+    // (e.g. Plotly histograms omit zero-height bins). When counts match
+    // (e.g. Plotly stacked bars render zero-height segments), map 1:1.
+    const skipZeros = domElements.length < totalExpected;
 
     const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
-      // Use parent implementation for SVGPathElement
       for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
         const row = new Array<SVGElement>();
         for (let c = 0; c < this.barValues[r].length; c++) {
-          if (domIndex >= domElements.length) {
-            return new Array<Array<SVGElement>>();
-          } else if (this.barValues[r][c] === 0) {
+          if (skipZeros && this.barValues[r][c] === 0) {
             row.push(Svg.createEmptyElement());
+          } else if (domIndex >= domElements.length) {
+            return new Array<Array<SVGElement>>();
           } else {
             row.push(domElements[domIndex++]);
           }
@@ -228,30 +251,63 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         svgElements.push(row);
       }
     } else if (domElements[0] instanceof SVGRectElement) {
+      // Safety check: ensure barValues is valid
+      if (!this.barValues || this.barValues.length === 0) {
+        return null;
+      }
+
       for (let r = 0; r < this.barValues.length; r++) {
         svgElements.push(new Array<SVGElement>());
       }
 
+      const isRowMajor = this.layer.domMapping?.order === 'row';
       const isForward = this.layer.domMapping?.groupDirection === 'forward';
-      for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-        if (isForward) {
-          for (let r = 0; r < this.barValues.length; r++) {
-            if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
-            } else if (this.barValues[r][c] === 0) {
+
+      if (isRowMajor) {
+        // Row-major DOM order: DOM elements are [series0-all-cats, series1-all-cats, ...]
+        // This matches Google Charts rendering order.
+        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
+          if (!this.barValues[r]) {
+            continue;
+          }
+          for (let c = 0; c < this.barValues[r].length; c++) {
+            if (skipZeros && this.barValues[r][c] === 0) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else if (domIndex >= domElements.length) {
+              // Fill with empty element instead of returning empty array
               svgElements[r].push(Svg.createEmptyElement());
             } else {
               svgElements[r].push(domElements[domIndex++]);
             }
           }
-        } else {
-          for (let r = this.barValues.length - 1; r >= 0; r--) {
-            if (domIndex >= domElements.length) {
-              return new Array<Array<SVGElement>>();
-            } else if (this.barValues[r][c] === 0) {
-              svgElements[r].push(Svg.createEmptyElement());
-            } else {
-              svgElements[r].push(domElements[domIndex++]);
+        }
+      } else {
+        // Column-major DOM order (default): DOM elements are [cat0-all-series, cat1-all-series, ...]
+        if (!this.barValues[0]) {
+          return null;
+        }
+        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
+          if (isForward) {
+            for (let r = 0; r < this.barValues.length; r++) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                // Fill with empty element instead of returning empty array
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          } else {
+            for (let r = this.barValues.length - 1; r >= 0; r--) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                // Fill with empty element instead of returning empty array
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
             }
           }
         }

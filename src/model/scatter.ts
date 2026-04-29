@@ -1,7 +1,9 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, HighlightState, TextState } from '@type/state';
+import type { GridNavigable } from '@type/navigation';
+import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
+import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -22,12 +24,25 @@ interface ScatterYPoint {
   x: number[];
   y: number;
 }
+
+/**
+ * Represents a single cell in the grid navigation overlay.
+ */
+interface GridCell {
+  points: ScatterPoint[];
+  yValues: number[];
+  xValues: number[];
+  svgElements: SVGElement[];
+  xRange: { min: number; max: number };
+  yRange: { min: number; max: number };
+}
+
 enum NavMode {
-  COL = 'column',
+  COL = 'col',
   ROW = 'row',
 }
 
-export class ScatterTrace extends AbstractTrace {
+export class ScatterTrace extends AbstractTrace implements GridNavigable {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -48,6 +63,20 @@ export class ScatterTrace extends AbstractTrace {
   private readonly maxX: number;
   private readonly minY: number;
   private readonly maxY: number;
+
+  // Grid navigation state
+  private readonly gridCells: GridCell[][] | null;
+  private readonly numGridRows: number;
+  private readonly numGridCols: number;
+  private gridRow: number;
+  private gridCol: number;
+  private isInGridMode: boolean;
+
+  // Grid cell point navigation state
+  private isInGridCellMode: boolean;
+  private cellPointIndex: number;
+  private cellXPoints: ScatterXPoint[]; // Grouped cell points by X (like xPoints)
+  private cellSvgGroups: SVGElement[][]; // SVG elements grouped by X
 
   /**
    * Creates a new scatter trace instance and organizes data by X and Y coordinates.
@@ -89,11 +118,34 @@ export class ScatterTrace extends AbstractTrace {
     this.minY = MathUtil.safeMin(this.yValues);
     this.maxY = MathUtil.safeMax(this.yValues);
 
-    [this.highlightXValues, this.highlightYValues] = this.mapToSvgElements(
-      layer.selectors as string,
-    );
+    // Select SVG elements once, then share for COL/ROW grouping and grid cell mapping
+    const selector = layer.selectors as string;
+    const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
+
+    [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
+
+    // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
+    this.isInGridMode = false;
+    this.gridRow = 0;
+    this.gridCol = 0;
+    this.isInGridCellMode = false;
+    this.cellPointIndex = 0;
+    this.cellXPoints = [];
+    this.cellSvgGroups = [];
+    const gridConfig = this.resolveGridConfig(layer);
+    if (gridConfig) {
+      const xSteps = this.computeGridSteps(gridConfig.xMin, gridConfig.xMax, gridConfig.xTickStep);
+      const ySteps = this.computeGridSteps(gridConfig.yMin, gridConfig.yMax, gridConfig.yTickStep);
+      this.numGridCols = xSteps.length;
+      this.numGridRows = ySteps.length;
+      this.gridCells = this.buildGridCells(data, xSteps, ySteps, allSvgClones);
+    } else {
+      this.gridCells = null;
+      this.numGridRows = 0;
+      this.numGridCols = 0;
+    }
   }
 
   /**
@@ -122,7 +174,7 @@ export class ScatterTrace extends AbstractTrace {
    * @returns SVG elements for X-based or Y-based highlighting depending on mode
    */
   protected get highlightValues(): SVGElement[][] | null {
-    return this.movable.mode === 'col'
+    return this.mode === NavMode.COL
       ? this.highlightXValues
       : this.highlightYValues;
   }
@@ -172,19 +224,73 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get braille(): BrailleState {
-    return {
-      empty: false,
-      id: this.id,
-      values: this.values,
-      min: 0,
-      max: 0,
-      row: this.row,
-      col: this.col,
-    };
+    // Grid mode: return 2D grid of point counts for braille display
+    if (this.isInGridMode && this.gridCells) {
+      const gridValues: number[][] = [];
+      let maxCount = 0;
+      for (let r = 0; r < this.numGridRows; r++) {
+        gridValues[r] = [];
+        for (let c = 0; c < this.numGridCols; c++) {
+          const count = this.gridCells[r][c].points.length;
+          gridValues[r][c] = count;
+          if (count > maxCount) {
+            maxCount = count;
+          }
+        }
+      }
+      return {
+        empty: false,
+        id: this.id,
+        values: gridValues,
+        min: 0,
+        max: maxCount,
+        row: this.gridRow,
+        col: this.gridCol,
+      };
+    }
+
+    // Normal row/col mode: braille not supported (return empty state)
+    return this.outOfBoundsState as BrailleState;
   }
 
   protected get audio(): AudioState {
-    if (this.movable.mode === 'col') {
+    if (this.isInGridMode && this.gridCells) {
+      // Grid cell point navigation mode - play Y values at current X
+      if (this.isInGridCellMode && this.cellXPoints.length > 0) {
+        const currentPoint = this.cellXPoints[this.cellPointIndex];
+        return {
+          freq: {
+            raw: currentPoint.y,
+            min: this.minY,
+            max: this.maxY,
+          },
+          panning: {
+            y: 0,
+            x: this.cellPointIndex,
+            rows: 1,
+            cols: this.cellXPoints.length,
+          },
+        };
+      }
+
+      // Grid cell overview mode - play all Y values in cell
+      const cell = this.gridCells[this.gridRow][this.gridCol];
+      return {
+        freq: {
+          raw: cell.yValues,
+          min: this.minY,
+          max: this.maxY,
+        },
+        panning: {
+          y: this.gridRow,
+          x: this.gridCol,
+          rows: this.numGridRows,
+          cols: this.numGridCols,
+        },
+      };
+    }
+
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         freq: {
@@ -218,7 +324,31 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get text(): TextState {
-    if (this.movable.mode === 'col') {
+    if (this.isInGridMode && this.gridCells) {
+      const cell = this.gridCells[this.gridRow][this.gridCol];
+
+      // Grid cell point navigation mode - use COL mode format (X value + array of Y values)
+      if (this.isInGridCellMode && this.cellXPoints.length > 0) {
+        const currentPoint = this.cellXPoints[this.cellPointIndex];
+        return {
+          main: { label: this.xAxis, value: currentPoint.x },
+          cross: { label: this.yAxis, value: currentPoint.y },
+          gridPosition: { row: this.gridRow + 1, col: this.gridCol + 1 },
+        };
+      }
+
+      // Grid cell navigation mode (cell overview)
+      return {
+        main: { label: this.xAxis, value: '' },
+        cross: { label: this.yAxis, value: '' },
+        range: { min: cell.xRange.min, max: cell.xRange.max },
+        crossRange: { min: cell.yRange.min, max: cell.yRange.max },
+        gridPoints: cell.points,
+        gridPosition: { row: this.gridRow + 1, col: this.gridCol + 1 },
+      };
+    }
+
+    if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
         main: { label: this.xAxis, value: current.x },
@@ -234,6 +364,12 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
+    if (this.isInGridMode) {
+      return {
+        rows: this.numGridRows,
+        cols: this.numGridCols,
+      };
+    }
     return {
       rows: this.yPoints.length,
       cols: this.xPoints.length,
@@ -241,11 +377,36 @@ export class ScatterTrace extends AbstractTrace {
   }
 
   protected get highlight(): HighlightState {
+    if (this.isInGridMode && this.gridCells) {
+      const cell = this.gridCells[this.gridRow][this.gridCol];
+
+      // Grid cell point navigation - highlight all points at current X
+      if (this.isInGridCellMode && this.cellSvgGroups.length > 0) {
+        const elements = this.cellSvgGroups[this.cellPointIndex];
+        if (!elements || elements.length === 0) {
+          return this.outOfBoundsState as HighlightState;
+        }
+        return {
+          empty: false,
+          elements,
+        };
+      }
+
+      // Grid cell overview - highlight all points in cell
+      if (cell.svgElements.length === 0) {
+        return this.outOfBoundsState as HighlightState;
+      }
+      return {
+        empty: false,
+        elements: cell.svgElements,
+      };
+    }
+
     if (this.highlightValues === null) {
       return this.outOfBoundsState as HighlightState;
     }
 
-    const elements = this.movable.mode === 'col'
+    const elements = this.mode === NavMode.COL
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
@@ -260,6 +421,29 @@ export class ScatterTrace extends AbstractTrace {
 
   protected get hasMultiPoints(): boolean {
     return true;
+  }
+
+  /**
+   * Returns out-of-bounds state with correct position for grid mode panning.
+   * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
+   */
+  protected get outOfBoundsState(): TraceState {
+    // Use grid position when in grid mode for correct panning
+    if (this.isInGridMode && this.gridCells) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          y: this.gridRow,
+          x: this.gridCol,
+          rows: this.numGridRows,
+          cols: this.numGridCols,
+        },
+      };
+    }
+    // Fall back to parent implementation for non-grid mode
+    return super.outOfBoundsState;
   }
 
   /**
@@ -318,6 +502,11 @@ export class ScatterTrace extends AbstractTrace {
       return true;
     }
 
+    // Handle grid mode navigation (used by autoplay and direct calls)
+    if (this.isInGridMode && this.gridCells) {
+      return this.moveOnceInGridMode(direction);
+    }
+
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
       return false;
@@ -355,6 +544,31 @@ export class ScatterTrace extends AbstractTrace {
 
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Handles movement in grid mode, mapping directions to grid cell navigation.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false if at boundary
+   */
+  private moveOnceInGridMode(direction: MovableDirection): boolean {
+    let moved = false;
+    switch (direction) {
+      case 'FORWARD':
+        moved = this.moveGridRight();
+        break;
+      case 'BACKWARD':
+        moved = this.moveGridLeft();
+        break;
+      case 'UPWARD':
+        moved = this.moveGridUp();
+        break;
+      case 'DOWNWARD':
+        moved = this.moveGridDown();
+        break;
+    }
+    // Grid movement methods already call notifyStateUpdate() or notifyOutOfBounds()
+    return moved;
   }
 
   public moveToExtreme(direction: MovableDirection): boolean {
@@ -435,50 +649,390 @@ export class ScatterTrace extends AbstractTrace {
       return false;
     }
 
+    // Check grid mode boundaries
+    if (this.isInGridMode && this.gridCells) {
+      switch (target) {
+        case 'FORWARD':
+          return this.gridCol < this.numGridCols - 1;
+        case 'BACKWARD':
+          return this.gridCol > 0;
+        case 'UPWARD':
+          return this.gridRow < this.numGridRows - 1;
+        case 'DOWNWARD':
+          return this.gridRow > 0;
+        default:
+          return false;
+      }
+    }
+
     if (this.mode === NavMode.COL) {
       switch (target) {
-        case 'FORWARD': {
-          const forwardResult = this.col < this.xPoints.length - 1;
-          return forwardResult;
-        }
-        case 'BACKWARD': {
-          const backwardResult = this.col > 0;
-          return backwardResult;
-        }
+        case 'FORWARD':
+          return this.col < this.xPoints.length - 1;
+        case 'BACKWARD':
+          return this.col > 0;
         case 'UPWARD':
         case 'DOWNWARD':
           return true;
+        default:
+          return false;
       }
     } else {
       switch (target) {
-        case 'UPWARD': {
-          const upwardResult = this.row < this.yPoints.length - 1;
-          return upwardResult;
-        }
-        case 'DOWNWARD': {
-          const downwardResult = this.row > 0;
-          return downwardResult;
-        }
+        case 'UPWARD':
+          return this.row < this.yPoints.length - 1;
+        case 'DOWNWARD':
+          return this.row > 0;
         case 'FORWARD':
         case 'BACKWARD':
           return true;
+        default:
+          return false;
       }
     }
   }
 
+  // ── Grid navigation methods ───────────────────────────────────────────
+
+  public setGridMode(enabled: boolean): void {
+    if (!this.gridCells) {
+      this.isInGridMode = false;
+      return;
+    }
+    this.isInGridMode = enabled;
+    if (enabled) {
+      this.gridRow = 0;
+      this.gridCol = 0;
+    }
+  }
+
+  public override supportsCompareMode(): boolean {
+    return false;
+  }
+
+  public override dataModeName(): string {
+    return Constant.ROW_COL_MODE;
+  }
+
+  public supportsGridMode(): boolean {
+    return this.gridCells !== null;
+  }
+
+  public getGridDimensions(): { rows: number; cols: number } | null {
+    if (!this.gridCells)
+      return null;
+    return { rows: this.numGridRows, cols: this.numGridCols };
+  }
+
+  public getGridPosition(): { row: number; col: number } | null {
+    if (!this.gridCells)
+      return null;
+    // Return 1-indexed position for user display
+    return { row: this.gridRow + 1, col: this.gridCol + 1 };
+  }
+
+  public moveGridUp(): boolean {
+    if (!this.gridCells)
+      return false;
+    if (this.gridRow >= this.numGridRows - 1) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.gridRow++;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveGridDown(): boolean {
+    if (!this.gridCells)
+      return false;
+    if (this.gridRow <= 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.gridRow--;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveGridLeft(): boolean {
+    if (!this.gridCells)
+      return false;
+    if (this.gridCol <= 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.gridCol--;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  public moveGridRight(): boolean {
+    if (!this.gridCells)
+      return false;
+    if (this.gridCol >= this.numGridCols - 1) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.gridCol++;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  // ── Grid cell point navigation ──────────────────────────────────────────
+
   /**
-   * Maps scatter points to SVG elements grouped by X and Y coordinates.
-   * @param selector - CSS selector for SVG elements
-   * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if unavailable
+   * Checks if currently in grid cell mode (navigating points within a cell).
    */
-  private mapToSvgElements(
-    selector?: string,
-  ): [SVGElement[][], SVGElement[][]] | [null, null] {
-    if (!selector) {
-      return [null, null];
+  public isInCellMode(): boolean {
+    return this.isInGridCellMode;
+  }
+
+  /**
+   * Enters grid cell mode to navigate points within the current cell.
+   * Groups cell points by X coordinate (like COL mode) for navigation.
+   * @returns true if entered successfully, false if no points in cell
+   */
+  public enterGridCell(): boolean {
+    if (!this.gridCells || !this.isInGridMode)
+      return false;
+    const cell = this.gridCells[this.gridRow][this.gridCol];
+    if (cell.points.length === 0) {
+      this.notifyOutOfBounds();
+      return false;
     }
 
-    const elements = Svg.selectAllElements(selector);
+    // Build cellXPoints by grouping cell points by X (sorted by X, then Y)
+    const pointsWithSvg = cell.points.map((p, i) => ({ point: p, svg: cell.svgElements[i] }));
+    const sorted = [...pointsWithSvg].sort((a, b) => a.point.x - b.point.x || a.point.y - b.point.y);
+
+    this.cellXPoints = [];
+    this.cellSvgGroups = [];
+    let currentX: ScatterXPoint | null = null;
+    let currentSvgGroup: SVGElement[] = [];
+
+    for (const { point, svg } of sorted) {
+      if (!currentX || currentX.x !== point.x) {
+        if (currentX) {
+          this.cellXPoints.push(currentX);
+          this.cellSvgGroups.push(currentSvgGroup);
+        }
+        currentX = { x: point.x, y: [] };
+        currentSvgGroup = [];
+      }
+      currentX.y.push(point.y);
+      if (svg)
+        currentSvgGroup.push(svg);
+    }
+    if (currentX) {
+      this.cellXPoints.push(currentX);
+      this.cellSvgGroups.push(currentSvgGroup);
+    }
+
+    this.isInGridCellMode = true;
+    this.cellPointIndex = 0;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Exits grid cell mode and returns to grid navigation.
+   */
+  public exitGridCell(): void {
+    this.isInGridCellMode = false;
+    this.cellPointIndex = 0;
+    this.notifyStateUpdate();
+  }
+
+  /**
+   * Moves to the previous point within the current grid cell.
+   * @returns true if moved, false if at boundary
+   */
+  public moveCellPointLeft(): boolean {
+    if (!this.gridCells || !this.isInGridCellMode)
+      return false;
+    if (this.cellPointIndex <= 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.cellPointIndex--;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Moves to the next X-grouped point within the current grid cell.
+   * @returns true if moved, false if at boundary
+   */
+  public moveCellPointRight(): boolean {
+    if (!this.gridCells || !this.isInGridCellMode)
+      return false;
+    if (this.cellPointIndex >= this.cellXPoints.length - 1) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.cellPointIndex++;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Gets the current point index within the cell (0-indexed).
+   */
+  public getCellPointIndex(): number {
+    return this.cellPointIndex;
+  }
+
+  /**
+   * Gets the total number of X-grouped points in the current grid cell.
+   */
+  public getCellPointCount(): number {
+    if (!this.isInGridCellMode)
+      return 0;
+    return this.cellXPoints.length;
+  }
+
+  /**
+   * Gets the current X-grouped point within the grid cell.
+   */
+  public getCurrentCellPoint(): ScatterXPoint | null {
+    if (!this.isInGridCellMode || this.cellXPoints.length === 0)
+      return null;
+    return this.cellXPoints[this.cellPointIndex] ?? null;
+  }
+
+  // ── Grid construction helpers ─────────────────────────────────────────
+
+  /**
+   * Resolves grid configuration from the layer's axes.
+   *
+   * Grid properties are read directly from each axis:
+   * `axes.x = { min, max, tickStep }` and `axes.y = { min, max, tickStep }`.
+   *
+   * Returns null if any of the six required values is missing.
+   */
+  private resolveGridConfig(
+    layer: MaidrLayer,
+  ): { xMin: number; xMax: number; xTickStep: number; yMin: number; yMax: number; yTickStep: number } | null {
+    const axes = layer.axes;
+    if (!axes)
+      return null;
+
+    const xMin = axes.x?.min;
+    const xMax = axes.x?.max;
+    const xTickStep = axes.x?.tickStep;
+    const yMin = axes.y?.min;
+    const yMax = axes.y?.max;
+    const yTickStep = axes.y?.tickStep;
+
+    // All six values must be present for a valid grid config
+    if (xMin == null || xMax == null || xTickStep == null || yMin == null || yMax == null || yTickStep == null) {
+      return null;
+    }
+
+    return { xMin, xMax, xTickStep, yMin, yMax, yTickStep };
+  }
+
+  /**
+   * Computes bin boundaries for one axis.
+   * @returns Array of { min, max } ranges. Last bin extends to axisMax.
+   */
+  private computeGridSteps(
+    axisMin: number,
+    axisMax: number,
+    tick: number,
+  ): { min: number; max: number }[] {
+    const steps: { min: number; max: number }[] = [];
+    const numBins = Math.round((axisMax - axisMin) / tick);
+    for (let i = 0; i < numBins; i++) {
+      const binMin = axisMin + i * tick;
+      const binMax = i === numBins - 1 ? axisMax : axisMin + (i + 1) * tick;
+      steps.push({ min: Math.round(binMin * 1000) / 1000, max: Math.round(binMax * 1000) / 1000 });
+    }
+    return steps;
+  }
+
+  /**
+   * Finds which bin index a value belongs to.
+   * Uses half-open intervals [min, max) except the last bin which is [min, max].
+   */
+  private findGridBin(
+    value: number,
+    bins: { min: number; max: number }[],
+  ): number {
+    for (let i = 0; i < bins.length; i++) {
+      if (i === bins.length - 1) {
+        if (value >= bins[i].min && value <= bins[i].max)
+          return i;
+      } else {
+        if (value >= bins[i].min && value < bins[i].max)
+          return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Builds the 2D grid of cells and bins data points into them.
+   * Also maps SVG elements to grid cells by data point index correspondence.
+   * @param data - The original (unsorted) scatter point data array
+   * @param xSteps - X-axis bin boundaries
+   * @param ySteps - Y-axis bin boundaries
+   * @param svgClones - Pre-selected SVG element clones (index-matched to data array)
+   */
+  private buildGridCells(
+    data: ScatterPoint[],
+    xSteps: { min: number; max: number }[],
+    ySteps: { min: number; max: number }[],
+    svgClones: SVGElement[],
+  ): GridCell[][] {
+    // Initialize empty grid: gridCells[row][col]
+    // Row 0 = lowest Y range, row N = highest Y range
+    const grid: GridCell[][] = [];
+    for (let r = 0; r < ySteps.length; r++) {
+      grid[r] = [];
+      for (let c = 0; c < xSteps.length; c++) {
+        grid[r][c] = {
+          points: [],
+          yValues: [],
+          xValues: [],
+          svgElements: [],
+          xRange: xSteps[c],
+          yRange: ySteps[r],
+        };
+      }
+    }
+
+    const hasElements = svgClones.length === data.length;
+
+    // Bin each data point into the appropriate cell
+    for (let i = 0; i < data.length; i++) {
+      const point = data[i];
+      const colIdx = this.findGridBin(point.x, xSteps);
+      const rowIdx = this.findGridBin(point.y, ySteps);
+      if (rowIdx !== -1 && colIdx !== -1) {
+        grid[rowIdx][colIdx].points.push(point);
+        grid[rowIdx][colIdx].yValues.push(point.y);
+        grid[rowIdx][colIdx].xValues.push(point.x);
+        if (hasElements) {
+          grid[rowIdx][colIdx].svgElements.push(svgClones[i]);
+        }
+      }
+    }
+
+    return grid;
+  }
+
+  // ── Existing private methods ──────────────────────────────────────────
+
+  /**
+   * Groups pre-selected SVG elements by their X and Y coordinates.
+   * @param elements - Array of SVG element clones (already selected from the DOM)
+   * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if empty
+   */
+  private groupSvgElements(
+    elements: SVGElement[],
+  ): [SVGElement[][], SVGElement[][]] | [null, null] {
     if (elements.length === 0) {
       return [null, null];
     }
@@ -486,8 +1040,32 @@ export class ScatterTrace extends AbstractTrace {
     const xGroups = new Map<number, SVGElement[]>();
     const yGroups = new Map<number, SVGElement[]>();
     elements.forEach((element) => {
-      const x = Number.parseFloat(element.getAttribute('x') || '');
-      const y = Number.parseFloat(element.getAttribute('y') || '');
+      let x = Number.parseFloat(element.getAttribute('x') || '');
+      let y = Number.parseFloat(element.getAttribute('y') || '');
+
+      // SVG circles use cx/cy instead of x/y (Google Charts uses circles)
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const cx = element.getAttribute('cx');
+        const cy = element.getAttribute('cy');
+        if (cx && cy) {
+          x = Number.parseFloat(cx);
+          y = Number.parseFloat(cy);
+        }
+      }
+
+      // Plotly uses transform="translate(x, y)" instead of x/y attributes
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const transform = element.getAttribute('transform');
+        if (transform) {
+          const match = transform.match(
+            /translate\s*\(\s*([\d.eE+-]+)[\s,]+([\d.eE+-]+)/,
+          );
+          if (match) {
+            x = Number.parseFloat(match[1]);
+            y = Number.parseFloat(match[2]);
+          }
+        }
+      }
 
       if (!Number.isNaN(x)) {
         if (!xGroups.has(x))

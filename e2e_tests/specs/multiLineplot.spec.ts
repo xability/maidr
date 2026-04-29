@@ -378,4 +378,116 @@ test.describe('Multi Lineplot', () => {
       }
     });
   });
+
+  test.describe('Go To Navigation', () => {
+    test('should open Go To dialog with g key', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Verify the dialog is visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Verify the dialog title
+      const title = dialog.locator('h3');
+      await expect(title).toHaveText('Go To');
+    });
+
+    test('should show intersection targets in Go To dialog', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Get all targets in the listbox
+      const targets = dialog.locator('[role="option"]');
+      const targetCount = await targets.count();
+
+      // Should have at least min, max, and potentially intersection targets
+      expect(targetCount).toBeGreaterThanOrEqual(2);
+
+      // Check for intersection targets - they should contain "Intersection with"
+      const allTargetTexts = await targets.allTextContents();
+      const intersectionTargets = allTargetTexts.filter(text => text.includes('Intersection'));
+
+      // The multi-lineplot example has 3 lines that should have intersections
+      // At least some intersections should be found
+      expect(intersectionTargets.length).toBeGreaterThan(0);
+    });
+
+    test('should navigate to intersection point', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Find an intersection target
+      const intersectionTarget = dialog.locator('[role="option"]').filter({
+        hasText: /Intersection/,
+      }).first();
+
+      // Ensure intersection targets exist in the test data
+      const intersectionCount = await intersectionTarget.count();
+      expect(intersectionCount).toBeGreaterThan(0);
+
+      // Click the intersection target
+      await intersectionTarget.click();
+
+      // Dialog should close after selection
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test('should close Go To dialog with Escape', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Press Escape to close
+      await page.keyboard.press('Escape');
+
+      // Dialog should be closed
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test('should show only intersections involving current line', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Move to a specific line first (e.g., navigate up/down)
+      await page.keyboard.press('ArrowUp');
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Get intersection targets
+      const intersectionTargets = dialog.locator('[role="option"]').filter({
+        hasText: /Intersection/,
+      });
+
+      // All intersection targets should mention other lines (not just current)
+      const targetTexts = await intersectionTargets.allTextContents();
+      for (const text of targetTexts) {
+        // Each intersection should mention "with" followed by line names
+        expect(text).toContain('with');
+      }
+    });
+  });
 });

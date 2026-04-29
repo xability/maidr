@@ -125,13 +125,38 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       return null;
     }
 
-    const svgElements = [Svg.selectAllElements(selector)];
+    const queried = Svg.selectAllElements(selector);
+    const svgElements = [queried];
+
     if (svgElements.length !== this.points.length) {
       return null;
     }
+
     for (let row = 0; row < this.points.length; row++) {
-      if (svgElements[row].length !== this.points[row].length) {
-        return null;
+      if (svgElements[row].length === this.points[row].length) {
+        continue; // exact match — nothing to do
+      }
+
+      // SVG renderers (e.g. Plotly) may omit zero-height bars from the DOM.
+      // When fewer SVG elements than data points exist, align them by
+      // assigning each non-zero data point the next queried element and
+      // inserting an invisible placeholder for zero-value points.
+      if (svgElements[row].length < this.points[row].length) {
+        const aligned: SVGElement[] = [];
+        let svgIdx = 0;
+        for (let col = 0; col < this.points[row].length; col++) {
+          const value = this.orientation === Orientation.VERTICAL
+            ? Number(this.points[row][col].y)
+            : Number(this.points[row][col].x);
+          if (value !== 0 && svgIdx < svgElements[row].length) {
+            aligned.push(svgElements[row][svgIdx++]);
+          } else {
+            aligned.push(Svg.createEmptyElement());
+          }
+        }
+        svgElements[row] = aligned;
+      } else {
+        return null; // more SVG elements than data points — unexpected
       }
     }
 
@@ -191,16 +216,33 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues
-    if (!this.highlightValues) {
+    if (!this.highlightValues || this.highlightValues.length === 0) {
       return null;
     }
 
     // loop through all highlightValues, and check bounding boxes against x, y
     for (let row = 0; row < this.highlightValues.length; row++) {
-      for (let col = 0; col < this.highlightValues[row].length; col++) {
-        const element = this.highlightValues[row][col];
+      const rowElements = this.highlightValues[row];
+      // Skip undefined or empty rows
+      if (!rowElements || rowElements.length === 0) {
+        continue;
+      }
+      for (let col = 0; col < rowElements.length; col++) {
+        const element = rowElements[col];
+        // Skip undefined elements
+        if (!element) {
+          continue;
+        }
         const targetElement = Array.isArray(element) ? element[0] : element;
+        // Skip if targetElement is invalid or an empty placeholder
+        if (!targetElement || !targetElement.getBoundingClientRect) {
+          continue;
+        }
         const bbox = targetElement.getBoundingClientRect();
+        // Skip elements with no size (empty placeholders)
+        if (bbox.width === 0 && bbox.height === 0) {
+          continue;
+        }
         if (
           x >= bbox.x
           && x <= bbox.x + bbox.width
@@ -280,6 +322,16 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     const maxIndex = groupValues.indexOf(groupMax);
     const minIndex = groupValues.indexOf(groupMin);
 
+    // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
+    const maxPoint = this.points[currentGroup]?.[maxIndex];
+    const minPoint = this.points[currentGroup]?.[minIndex];
+    const maxXValue = maxPoint
+      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
+      : undefined;
+    const minXValue = minPoint
+      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
+      : undefined;
+
     // Add max target
     targets.push({
       label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
@@ -288,6 +340,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'max',
       navigationType: 'point',
+      xValue: maxXValue,
     });
 
     // Add min target
@@ -298,6 +351,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'min',
       navigationType: 'point',
+      xValue: minXValue,
     });
 
     return targets;

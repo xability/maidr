@@ -34,9 +34,14 @@ import {
 import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
+import { MAX_BRAILLE_LINES } from '@type/settings';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
+
+function clampBrailleLines(value: number): number {
+  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
+}
 
 function getValidVersion(
   modelKey: Llm,
@@ -539,6 +544,52 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Braille Display Size',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Braille Display Lines"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.brailleDisplayLines}
+                    onChange={(e) => {
+                      // Guard against NaN / empty (e.g. when the user clears
+                      // the field). The stored value stays valid even if blur
+                      // never fires. Clamp/floor on every keystroke so a user
+                      // who types `0` and tabs away is not silently reset.
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        return;
+                      }
+                      const parsed = Number(raw);
+                      if (Number.isNaN(parsed)) {
+                        return;
+                      }
+                      handleGeneralChange('brailleDisplayLines', clampBrailleLines(parsed));
+                    }}
+                    onBlur={e =>
+                      handleGeneralChange(
+                        'brailleDisplayLines',
+                        clampBrailleLines(Number(e.target.value)),
+                      )}
+                    helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Braille Display Lines',
+                          'min': 1,
+                          'max': MAX_BRAILLE_LINES,
+                          'step': 1,
                         },
                       },
                     }}
