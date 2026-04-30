@@ -1,15 +1,33 @@
 import { describe, expect, test } from '@jest/globals';
 import {
-  clampBrailleLines,
-  clampBrailleSize,
-  findBraillePreset,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
-  selectBrailleDisplayKind,
-  selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
+import {
+  clampBrailleLines,
+  clampBrailleSize,
+  findBraillePreset,
+  isBrailleDisplayKind,
+  selectBrailleDisplayKind,
+  selectBraillePreset,
+} from '@util/braillePreset';
+
+describe('isBrailleDisplayKind', () => {
+  test('accepts the three valid values', () => {
+    expect(isBrailleDisplayKind('single')).toBe(true);
+    expect(isBrailleDisplayKind('multi')).toBe(true);
+    expect(isBrailleDisplayKind('manual')).toBe(true);
+  });
+
+  test('rejects everything else', () => {
+    expect(isBrailleDisplayKind('')).toBe(false);
+    expect(isBrailleDisplayKind('Single')).toBe(false);
+    expect(isBrailleDisplayKind('other')).toBe(false);
+    expect(isBrailleDisplayKind('null')).toBe(false);
+  });
+});
 
 describe('clampBrailleLines', () => {
   test('clamps below the minimum to 1', () => {

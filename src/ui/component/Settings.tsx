@@ -37,21 +37,29 @@ import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
-  clampBrailleLines,
-  clampBrailleSize,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
-  selectBrailleDisplayKind,
-  selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
+import {
+  clampBrailleLines,
+  clampBrailleSize,
+  findBraillePreset,
+  isBrailleDisplayKind,
+  selectBrailleDisplayKind,
+  selectBraillePreset,
+} from '@util/braillePreset';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-function isBrailleDisplayKind(value: string): value is BrailleDisplayKind {
-  return value === 'single' || value === 'multi' || value === 'manual';
+function formatSingleLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
+}
+
+function formatMultiLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
 }
 
 function getValidVersion(
@@ -339,25 +347,55 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleBrailleKindChange = (kind: BrailleDisplayKind): void => {
+  const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
     setGeneralSettings((prev) => {
       // Manual omits size/lines from the slice on purpose so the spread
       // preserves the existing values as the starting point for edits.
       const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
       return { ...prev, ...slice };
     });
-  };
+  }, []);
 
-  const handleBraillePresetChange = (
-    kind: 'single' | 'multi',
-    presetId: string,
-  ): void => {
-    const slice = selectBraillePreset(kind, presetId);
-    if (!slice) {
+  const handleBraillePresetChange = useCallback(
+    (kind: 'single' | 'multi', presetId: string): void => {
+      const slice = selectBraillePreset(kind, presetId);
+      if (!slice) {
+        return;
+      }
+      setGeneralSettings(prev => ({ ...prev, ...slice }));
+    },
+    [],
+  );
+
+  const handleSingleLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('single', presetId),
+    [handleBraillePresetChange],
+  );
+
+  const handleMultiLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('multi', presetId),
+    [handleBraillePresetChange],
+  );
+
+  // Defensive normalization: if stored settings claim a single/multi kind
+  // but the preset id is missing or refers to a now-removed device, snap
+  // back to the first preset in that kind so the dropdown doesn't render
+  // its disabled "Select a display" placeholder out of step with the
+  // active radio button.
+  useEffect(() => {
+    const kind = generalSettings.brailleDisplayKind;
+    if (kind === 'manual') {
       return;
     }
-    setGeneralSettings(prev => ({ ...prev, ...slice }));
-  };
+    const presets = kind === 'single'
+      ? SINGLE_LINE_BRAILLE_PRESETS
+      : MULTI_LINE_BRAILLE_PRESETS;
+    if (!findBraillePreset(presets, generalSettings.brailleDisplayPresetId)) {
+      handleBrailleKindChange(kind);
+    }
+    // Run once on mount; later user-driven changes always go through
+    // handleBrailleKindChange / handleBraillePresetChange.
+  }, []);
 
   const handleLlmChange = (
     key: keyof LlmSettings,
@@ -672,8 +710,8 @@ const Settings: React.FC = () => {
                 ariaLabel="Single-Line Braille Display"
                 presets={SINGLE_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
-                formatPreset={p => `${p.label} — ${p.manufacturer} (${p.cells} cells)`}
-                onChange={presetId => handleBraillePresetChange('single', presetId)}
+                formatPreset={formatSingleLinePreset}
+                onChange={handleSingleLinePresetChange}
               />
             </Grid>
           )}
@@ -684,8 +722,8 @@ const Settings: React.FC = () => {
                 ariaLabel="Multi-Line Braille Display"
                 presets={MULTI_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
-                formatPreset={p => `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`}
-                onChange={presetId => handleBraillePresetChange('multi', presetId)}
+                formatPreset={formatMultiLinePreset}
+                onChange={handleMultiLinePresetChange}
               />
             </Grid>
           )}
