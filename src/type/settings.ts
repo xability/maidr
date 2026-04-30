@@ -19,53 +19,26 @@ export const DEFAULT_BRAILLE_LINES = 1;
  */
 export const MAX_BRAILLE_LINES = 20;
 
-/**
- * Upper bound on the configured number of cells per braille row. The largest
- * commercial single-line displays we recognize hold 80 cells; 160 leaves
- * generous headroom for unrecognized hardware while still rejecting
- * obviously bogus values typed into the manual input.
- */
+// 160 = 2x the largest known single-line display (80 cells) — generous
+// headroom for unrecognized hardware while still rejecting obviously bogus
+// manual input.
 export const MAX_BRAILLE_SIZE = 160;
 
-/**
- * Clamps an arbitrary numeric value to a valid braille display line count.
- * Empty / NaN / negative inputs collapse to 1 so the stored value never
- * leaves the supported range, even mid-keystroke.
- * @param value - Raw numeric value from the input field.
- * @returns Clamped integer between 1 and MAX_BRAILLE_LINES.
- */
 export function clampBrailleLines(value: number): number {
   return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
 }
 
-/**
- * Clamps an arbitrary numeric value to a valid braille display cell count.
- * Mirrors {@link clampBrailleLines} so the manual size input gets the same
- * defensive treatment as the lines input.
- * @param value - Raw numeric value from the input field.
- * @returns Clamped integer between 1 and MAX_BRAILLE_SIZE.
- */
 export function clampBrailleSize(value: number): number {
   return Math.min(MAX_BRAILLE_SIZE, Math.max(1, Math.floor(value) || 1));
 }
 
-/**
- * Configuration mode for the braille display. Determines whether the user
- * picks from a list of known displays or enters cells/lines manually.
- */
 export type BrailleDisplayKind = 'single' | 'multi' | 'manual';
 
-/**
- * Default braille display kind when no user setting is stored. 'manual'
- * preserves whatever cell/line numbers a previous version saved, so existing
- * users see the same effective configuration after upgrading.
- */
+// 'manual' preserves whatever cells/lines numbers an older saved settings
+// object already has, so users upgrading from before the preset selector
+// see the same effective configuration.
 export const DEFAULT_BRAILLE_DISPLAY_KIND: BrailleDisplayKind = 'manual';
 
-/**
- * A named, hard-coded braille display preset. The id is stable so that a
- * stored selection survives label edits in the future.
- */
 export interface BrailleDisplayPreset {
   id: string;
   label: string;
@@ -74,9 +47,9 @@ export interface BrailleDisplayPreset {
   lines: number;
 }
 
-/**
- * Single-line braille display presets (lines = 1).
- */
+// To add a new device, append a row here (single-line) or in
+// MULTI_LINE_BRAILLE_PRESETS below. Keep ids kebab-case and unique across
+// both lists; the unit test in test/type/settings.test.ts enforces this.
 export const SINGLE_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
   { id: 'focus-14-blue-5g', label: 'Focus 14 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 14, lines: 1 },
   { id: 'focus-40-blue-5g', label: 'Focus 40 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 40, lines: 1 },
@@ -100,9 +73,6 @@ export const SINGLE_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
   { id: 'nls-ereader', label: 'NLS eReader', manufacturer: 'HumanWare / Zoomax', cells: 20, lines: 1 },
 ] as const;
 
-/**
- * Multi-line braille display presets (lines > 1).
- */
 export const MULTI_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
   { id: 'canute-360', label: 'Canute 360', manufacturer: 'Bristol Braille Technology', cells: 40, lines: 9 },
   { id: 'monarch', label: 'Monarch', manufacturer: 'APH / HumanWare / NFB', cells: 32, lines: 10 },
@@ -110,11 +80,6 @@ export const MULTI_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
   { id: 'orbit-slate-520', label: 'Orbit Slate 520', manufacturer: 'Orbit Research', cells: 20, lines: 5 },
 ] as const;
 
-/**
- * Partial settings slice produced by a braille preset / kind selection. The
- * UI merges this into the local form state so the relevant fields update
- * atomically.
- */
 export interface BraillePresetSelection {
   brailleDisplayKind: BrailleDisplayKind;
   brailleDisplayPresetId: string | null;
@@ -122,14 +87,6 @@ export interface BraillePresetSelection {
   brailleDisplayLines?: number;
 }
 
-/**
- * Looks up a preset by id, returning undefined when the id is null or no
- * matching preset exists. Exported so component handlers and tests share a
- * single resolution path.
- * @param presets - Preset list to search.
- * @param presetId - Preset id to find, or null.
- * @returns The matching preset, or undefined.
- */
 export function findBraillePreset(
   presets: readonly BrailleDisplayPreset[],
   presetId: string | null,
@@ -140,22 +97,10 @@ export function findBraillePreset(
   return presets.find(p => p.id === presetId);
 }
 
-/**
- * Computes the settings slice for switching the braille display kind. When
- * switching to single/multi we keep the user's previously selected preset
- * if it still belongs to that kind, otherwise we fall back to the first
- * preset in the list.
- *
- * Switching to manual intentionally omits `brailleDisplaySize` and
- * `brailleDisplayLines` from the returned slice, so when the caller spreads
- * the slice over previous state (`{ ...prev, ...slice }`) the existing
- * cells/lines numbers are preserved as the starting point for the user's
- * manual edits, rather than being reset to defaults or to the previous
- * preset's values.
- * @param kind - Target braille display kind.
- * @param currentPresetId - Currently selected preset id, if any.
- * @returns Settings slice to merge into form state.
- */
+// The 'manual' branch intentionally omits brailleDisplaySize and
+// brailleDisplayLines so callers spreading the slice over previous state
+// (`{ ...prev, ...slice }`) preserve the existing cells/lines numbers as
+// the starting point for the user's manual edits.
 export function selectBrailleDisplayKind(
   kind: BrailleDisplayKind,
   currentPresetId: string | null,
@@ -186,14 +131,6 @@ export function selectBrailleDisplayKind(
   };
 }
 
-/**
- * Computes the settings slice for selecting a specific preset within a
- * single- or multi-line list. Returns null when the preset id is unknown
- * for the given kind, allowing callers to skip the update.
- * @param kind - Preset kind, single or multi.
- * @param presetId - Id of the preset chosen by the user.
- * @returns Settings slice to merge, or null when the id is invalid.
- */
 export function selectBraillePreset(
   kind: 'single' | 'multi',
   presetId: string,

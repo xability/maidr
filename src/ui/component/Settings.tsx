@@ -50,6 +50,10 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
+function isBrailleDisplayKind(value: string): value is BrailleDisplayKind {
+  return value === 'single' || value === 'multi' || value === 'manual';
+}
+
 function getValidVersion(
   modelKey: Llm,
   currentVersion: string | undefined,
@@ -337,6 +341,8 @@ const Settings: React.FC = () => {
 
   const handleBrailleKindChange = (kind: BrailleDisplayKind): void => {
     setGeneralSettings((prev) => {
+      // Manual omits size/lines from the slice on purpose so the spread
+      // preserves the existing values as the starting point for edits.
       const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
       return { ...prev, ...slice };
     });
@@ -417,7 +423,7 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
-  // Dialog-scoped handler instead of a document listener: Alt+S / Alt+C
+  // Dialog-scoped handler instead of a document listener: Alt+s / Alt+c
   // need to fire even when focus is inside one of the dialog's text inputs
   // (e.g. the manual cells/lines field). Routing through the global
   // `KeybindingService` would not work for this case because its
@@ -631,8 +637,12 @@ const Settings: React.FC = () => {
                   <RadioGroup
                     row
                     value={generalSettings.brailleDisplayKind}
-                    onChange={e =>
-                      handleBrailleKindChange(e.target.value as BrailleDisplayKind)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (isBrailleDisplayKind(v)) {
+                        handleBrailleKindChange(v);
+                      }
+                    }}
                     aria-label="Braille Display"
                   >
                     <FormControlLabel

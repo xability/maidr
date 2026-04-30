@@ -100,6 +100,21 @@ describe('selectBrailleDisplayKind', () => {
     expect(slice.brailleDisplaySize).toBeUndefined();
     expect(slice.brailleDisplayLines).toBeUndefined();
   });
+
+  test('spreading manual slice over prior state preserves cells/lines', () => {
+    const prev = {
+      brailleDisplaySize: 40,
+      brailleDisplayLines: 3,
+      brailleDisplayPresetId: 'orbit-slate-340',
+      brailleDisplayKind: 'multi' as const,
+    };
+    const slice = selectBrailleDisplayKind('manual', prev.brailleDisplayPresetId);
+    const next = { ...prev, ...slice };
+    expect(next.brailleDisplayKind).toBe('manual');
+    expect(next.brailleDisplayPresetId).toBeNull();
+    expect(next.brailleDisplaySize).toBe(40);
+    expect(next.brailleDisplayLines).toBe(3);
+  });
 });
 
 describe('selectBraillePreset', () => {
