@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';

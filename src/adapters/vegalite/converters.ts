@@ -1,14 +1,15 @@
 /**
- * Vega-Lite to MAIDR adapter.
+ * Core converters that turn a Vega-Lite specification (and optionally its
+ * compiled Vega view) into a MAIDR JSON schema.
  *
- * Extracts data and encoding information from a Vega-Lite specification
- * (and optionally its compiled Vega view) and produces a MAIDR JSON schema
- * that can be passed to the `<Maidr>` component or the script-tag entry point.
+ * The converter handles:
+ *   - Single-view specs (`mark` + `encoding`)
+ *   - Layered specs (`layer`)
+ *   - Composite specs (`hconcat`, `vconcat`, `concat`)
  *
- * @remarks
- * Vega / Vega-Lite are **peer dependencies** — this module only references
- * their public API surface through lightweight type aliases so that the MAIDR
- * bundle does not ship the libraries.
+ * Faceted (`facet`) and repeated (`repeat`) specs are not yet supported;
+ * the converter logs a warning and returns an empty MAIDR schema in
+ * those cases.
  */
 
 import type {
@@ -22,69 +23,20 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
-} from '../type/grammar';
-import { Orientation, TraceType } from '../type/grammar';
-
-// ---------------------------------------------------------------------------
-// Lightweight type aliases for Vega / Vega-Lite objects so we don't
-// import the actual libraries.
-// ---------------------------------------------------------------------------
-
-/** Minimal subset of a Vega `View` that the adapter needs. */
-export interface VegaView {
-  data: (name: string) => Record<string, unknown>[];
-  container: () => HTMLElement;
-}
-
-/** Minimal Vega-Lite top-level spec shape. */
-export interface VegaLiteSpec {
-  $schema?: string;
-  title?: string | { text?: string; subtitle?: string };
-  description?: string;
-  data?: unknown;
-  mark?: string | { type: string };
-  encoding?: VegaLiteEncoding;
-  layer?: VegaLiteSpec[];
-  hconcat?: VegaLiteSpec[];
-  vconcat?: VegaLiteSpec[];
-  concat?: VegaLiteSpec[];
-  facet?: unknown;
-  spec?: VegaLiteSpec;
-  repeat?: unknown;
-}
-
-interface VegaLiteEncoding {
-  x?: VegaLiteChannelDef;
-  y?: VegaLiteChannelDef;
-  color?: VegaLiteChannelDef;
-  fill?: VegaLiteChannelDef;
-  row?: VegaLiteChannelDef;
-  column?: VegaLiteChannelDef;
-}
-
-interface VegaLiteChannelDef {
-  field?: string;
-  type?: string;
-  aggregate?: string;
-  title?: string;
-  axis?: { title?: string } | null;
-  bin?: boolean | Record<string, unknown>;
-  stack?: boolean | string | null;
-}
+} from '@type/grammar';
+import type {
+  VegaLiteChannelDef,
+  VegaLiteEncoding,
+  VegaLiteSpec,
+  VegaLiteToMaidrOptions,
+  VegaView,
+} from './types';
+import { Orientation, TraceType } from '@type/grammar';
+import { buildLineSelectors, buildSelector } from './selectors';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-/**
- * Options accepted by {@link vegaLiteToMaidr}.
- */
-export interface VegaLiteToMaidrOptions {
-  /** Override the chart id (defaults to `"vl-chart"`). */
-  id?: string;
-  /** Override the chart title (extracted from spec by default). */
-  title?: string;
-}
 
 /**
  * Convert a Vega-Lite spec (and optionally its compiled Vega view) into a
@@ -92,7 +44,7 @@ export interface VegaLiteToMaidrOptions {
  *
  * @param spec - The Vega-Lite specification object.
  * @param view - Optional compiled Vega view for runtime data extraction.
- * @param options - Optional overrides.
+ * @param options - Optional id / title overrides.
  * @returns A complete {@link Maidr} schema ready for MAIDR consumption.
  */
 export function vegaLiteToMaidr(
@@ -105,15 +57,17 @@ export function vegaLiteToMaidr(
   const subtitle = extractSubtitle(spec);
   const caption = spec.description;
 
-  // Handle composite views (concat / facet).
+  const domOrder = options?.domOrder;
+
+  // Handle composite views (concat).
   if (spec.hconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view, domOrder);
   }
   if (spec.vconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder);
   }
 
   // Unsupported composite spec types — warn and return an empty chart.
@@ -134,14 +88,14 @@ export function vegaLiteToMaidr(
   const isLayered = spec.layer != null && spec.layer.length > 0;
   if (isLayered) {
     const layers = spec.layer!.map((layerSpec, i) =>
-      convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered),
+      convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder),
     ).filter(Boolean) as MaidrLayer[];
 
     return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
 
   // Single view.
-  const layer = convertLayerSpec(spec, 0, view, undefined, false);
+  const layer = convertLayerSpec(spec, 0, view, undefined, false, domOrder);
   if (!layer) {
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
@@ -149,7 +103,7 @@ export function vegaLiteToMaidr(
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Maidr / metadata helpers
 // ---------------------------------------------------------------------------
 
 function buildMaidr(
@@ -191,10 +145,10 @@ function getMarkType(spec: VegaLiteSpec): string | null {
  * Map a Vega-Lite mark type + encoding to a MAIDR trace type.
  *
  * Some marks produce different MAIDR types depending on encoding:
- * - `bar` with `stack` encoding → STACKED / NORMALIZED / DODGED
- * - `bar` with `bin` on x/y → HISTOGRAM
- * - `rect` with color → HEATMAP
- * - `tick` → SCATTER (individual value marks)
+ *   - `bar` with `bin` on x/y          → HISTOGRAM
+ *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
+ *   - `rect`                           → HEATMAP
+ *   - `tick`                           → SCATTER (individual value marks)
  */
 function resolveTraceType(
   mark: string,
@@ -202,14 +156,17 @@ function resolveTraceType(
 ): TraceType | null {
   switch (mark) {
     case 'bar': {
-      // Check for histogram: bar with binned encoding.
       if (encoding?.x?.bin || encoding?.y?.bin) {
         return TraceType.HISTOGRAM;
       }
-      // Check for stacked/grouped bar: bar with color or fill encoding.
       if (encoding?.color?.field || encoding?.fill?.field) {
         const stack = encoding?.y?.stack ?? encoding?.x?.stack;
-        if (stack === false || stack === null) {
+        // `xOffset` (or `yOffset`) with a field is the modern Vega-Lite way
+        // to dodge bars side-by-side. Treat its presence as a DODGED hint
+        // even when `stack` is not explicitly disabled.
+        const hasOffsetField
+          = !!encoding?.xOffset?.field || !!encoding?.yOffset?.field;
+        if (hasOffsetField || stack === false || stack === null) {
           return TraceType.DODGED;
         }
         if (stack === 'normalize') {
@@ -237,62 +194,7 @@ function resolveTraceType(
   }
 }
 
-/** Map Vega-Lite mark types to Vega CSS class names used in the SVG. */
-function markToCssClass(mark: string): string {
-  switch (mark) {
-    case 'bar':
-    case 'rect':
-      return 'mark-rect';
-    case 'line':
-      return 'mark-line';
-    case 'area':
-      return 'mark-area';
-    case 'point':
-    case 'circle':
-    case 'square':
-      return 'mark-symbol';
-    case 'tick':
-      return 'mark-tick';
-    case 'boxplot':
-      return 'mark-rect';
-    default:
-      return `mark-${mark}`;
-  }
-}
-
-/**
- * Build a CSS selector for individual mark elements rendered by Vega.
- *
- * Vega uses different class naming for single-view vs layered specs:
- * - Single view: `g.mark-rect.role-mark.marks path`
- * - Layered view: `g.mark-rect.role-mark.layer_0_marks path`
- */
-function buildSelector(mark: string, layerIndex: number, isLayered: boolean): string {
-  const cssClass = markToCssClass(mark);
-  const childElement = mark === 'tick' ? 'line' : 'path';
-  const marksClass = isLayered ? `layer_${layerIndex}_marks` : 'marks';
-  return `g.${cssClass}.role-mark.${marksClass} ${childElement}`;
-}
-
-/**
- * Build selectors for line/area charts (one per series).
- */
-function buildLineSelectors(
-  mark: string,
-  seriesCount: number,
-  layerIndex: number,
-  isLayered: boolean,
-): string[] {
-  const cssClass = markToCssClass(mark);
-  const marksClass = isLayered ? `layer_${layerIndex}_marks` : 'marks';
-  const selectors: string[] = [];
-  for (let i = 0; i < seriesCount; i++) {
-    selectors.push(`g.${cssClass}.role-mark.${marksClass} path:nth-child(${i + 1})`);
-  }
-  return selectors;
-}
-
-/** Extract axis label from encoding channel. */
+/** Extract axis label from an encoding channel. */
 function getAxisLabel(channel?: VegaLiteChannelDef): string {
   if (!channel)
     return '';
@@ -301,6 +203,11 @@ function getAxisLabel(channel?: VegaLiteChannelDef): string {
   if (channel.title)
     return channel.title;
   return channel.field ?? '';
+}
+
+/** Build an AxisConfig from an encoding channel. */
+function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
+  return { label: getAxisLabel(channel) };
 }
 
 /**
@@ -336,6 +243,39 @@ function resolveData(
         // dataset may not exist — try next
       }
     }
+
+    // Fallback: enumerate every dataset on the compiled view and return
+    // the first non-empty one whose rows look like records. This catches
+    // Vega-generated names we don't know about (e.g. `bin_maxbins_10_value`,
+    // `data_3`, internal aggregation outputs for histograms).
+    try {
+      // `view.getState({ data: true })` returns all datasets keyed by name.
+      // The exact return shape is loosely typed across Vega versions, so
+      // narrow defensively.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stateGetter = (view as any).getState as
+        | ((opts?: { data?: boolean }) => unknown)
+        | undefined;
+      if (typeof stateGetter === 'function') {
+        const state = stateGetter.call(view, { data: true }) as
+          | { data?: Record<string, unknown> }
+          | undefined;
+        const datasets = state?.data;
+        if (datasets && typeof datasets === 'object') {
+          for (const [name, rows] of Object.entries(datasets)) {
+            // Skip the names we already tried above.
+            if (datasetNames.includes(name))
+              continue;
+            if (Array.isArray(rows) && rows.length > 0
+              && typeof rows[0] === 'object' && rows[0] !== null) {
+              return rows as Record<string, unknown>[];
+            }
+          }
+        }
+      }
+    } catch {
+      // getState() shape varies across Vega versions; ignore and fall through.
+    }
   }
 
   // Inline data fallback.
@@ -350,6 +290,40 @@ function resolveData(
     + `Tried names: ${datasetNames.join(', ')}`,
   );
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// DOM-order mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a segmented MAIDR trace type to the `domMapping` hint that tells
+ * `SegmentedTrace.mapToSvgElements` how Vega-Lite laid out the bars in
+ * the SVG.
+ *
+ * Vega-Lite renders:
+ *   - **Stacked / normalised** bars in **series-major** order: every
+ *     bar of the first colour is emitted first, then every bar of the
+ *     second colour, etc. → `{ order: 'row' }` so iteration is
+ *     row-major over `data[seriesIndex][barIndex]`.
+ *   - **Dodged** bars in **subject-major** order: for each x-axis
+ *     subject, every series bar is emitted in turn (interleaved). →
+ *     `{ order: 'column', groupDirection: 'forward' }` so iteration is
+ *     column-major and walks the series top-to-bottom in our 2D data.
+ *
+ * The detection mirrors the proven pattern in
+ * `src/adapters/d3/binders/segmented.ts`. A caller can override the
+ * detection by passing `domOrder` in {@link VegaLiteToMaidrOptions}.
+ */
+function determineDomMapping(
+  traceType: TraceType,
+  override?: 'series-major' | 'subject-major',
+): { order: 'row' | 'column'; groupDirection?: 'forward' | 'reverse' } {
+  const order = override
+    ?? (traceType === TraceType.DODGED ? 'subject-major' : 'series-major');
+  return order === 'series-major'
+    ? { order: 'row' }
+    : { order: 'column', groupDirection: 'forward' };
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +342,11 @@ function extractBarData(
   const yIsQuantitative = encoding.y?.type === 'quantitative'
     || encoding.y?.aggregate != null;
 
+  // Keep data in input/data-flow order. The DOM emitted by Vega follows
+  // this order. For simple bars the renderer sorts visually (Vega
+  // alphabetises nominal axes by default); we re-sort the actual SVG
+  // children in the bind step so querySelectorAll order matches what
+  // the user sees, keeping highlight indices aligned with data indices.
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
       return {
@@ -428,18 +407,25 @@ function extractSegmentedData(
   const colorField = encoding.color?.field ?? encoding.fill?.field ?? 'group';
 
   // Group by fill value. Each group becomes a row in the 2D array.
+  // Insertion order is preserved so navigation order follows Vega's
+  // data-flow order. The MAIDR `SegmentedTrace.mapToSvgElements`
+  // iterates the SVG DOM via `layer.domMapping` set by `convertLayerSpec`
+  // — `{ order: 'row' }` for stacked/normalised (series-major DOM)
+  // or `{ order: 'column', groupDirection: 'forward' }` for dodged
+  // (subject-major DOM).
   const groups = new Map<string, SegmentedPoint[]>();
   for (const row of rows) {
     const fill = String(row[colorField] ?? '');
     const pt: SegmentedPoint = {
       x: String(row[xField] ?? ''),
       y: Number(row[yField] ?? 0),
-      fill,
+      z: fill,
     };
     if (!groups.has(fill))
       groups.set(fill, []);
     groups.get(fill)!.push(pt);
   }
+
   return [...groups.values()];
 }
 
@@ -452,13 +438,17 @@ function extractLineData(
   const colorField = encoding.color?.field ?? encoding.fill?.field;
 
   if (colorField) {
+    // Series order follows insertion order, which mirrors the order
+    // Vega draws lines in the SVG. `buildLineSelectors` produces one
+    // selector per series in the same order, keeping highlight indices
+    // aligned.
     const groups = new Map<string, LinePoint[]>();
     for (const row of rows) {
       const key = String(row[colorField] ?? '');
       const pt: LinePoint = {
         x: (row[xField] ?? 0) as number | string,
         y: Number(row[yField] ?? 0),
-        fill: key,
+        z: key,
       };
       if (!groups.has(key))
         groups.set(key, []);
@@ -545,12 +535,14 @@ function extractBoxData(
 
   const hasPrecomputed = rows.length > 0 && lowerBoxKey in rows[0];
 
+  // Boxes are emitted in the same order as the rows of the compiled
+  // dataset. We keep that order so highlight indices match the SVG
+  // group order.
   if (hasPrecomputed) {
-    // Each row is one category with pre-computed stats.
     return rows.map((row) => {
       const fill = String(row[catField] ?? '');
       return {
-        fill,
+        z: fill,
         lowerOutliers: [],
         min: Number(row[lowerWhiskerKey] ?? row[lowerBoxKey] ?? 0),
         q1: Number(row[lowerBoxKey] ?? 0),
@@ -588,7 +580,7 @@ function extractBoxData(
     const nonOutliers = values.filter(v => v >= lowerFence && v <= upperFence);
 
     result.push({
-      fill,
+      z: fill,
       lowerOutliers,
       min: nonOutliers.length > 0 ? nonOutliers[0] : (n > 0 ? values[0] : 0),
       q1,
@@ -598,6 +590,7 @@ function extractBoxData(
       upperOutliers,
     });
   }
+
   return result;
 }
 
@@ -622,6 +615,7 @@ function convertLayerSpec(
   view?: VegaView,
   parentEncoding?: VegaLiteEncoding,
   isLayered?: boolean,
+  domOrderOverride?: 'series-major' | 'subject-major',
 ): MaidrLayer | null {
   const mark = getMarkType(spec);
   if (!mark)
@@ -640,8 +634,8 @@ function convertLayerSpec(
   const rows = resolveData(spec, index, view);
 
   const axes: MaidrLayer['axes'] = {
-    x: getAxisLabel(encoding.x),
-    y: getAxisLabel(encoding.y),
+    x: getAxisConfig(encoding.x),
+    y: getAxisConfig(encoding.y),
   };
 
   const layered = isLayered ?? false;
@@ -649,6 +643,7 @@ function convertLayerSpec(
   let data: MaidrLayer['data'];
   let selectors: MaidrLayer['selectors'];
   let orientation: Orientation | undefined;
+  let domMapping: MaidrLayer['domMapping'];
 
   switch (traceType) {
     case TraceType.BAR: {
@@ -673,6 +668,16 @@ function convertLayerSpec(
     case TraceType.NORMALIZED: {
       data = extractSegmentedData(rows, encoding);
       selectors = buildSelector(mark, index, layered);
+      // Only populate `domMapping` when the caller has explicitly
+      // requested an order via `options.domOrder`. When omitted, leave
+      // it undefined so bind-time runtime detection (in
+      // `vegalite-entry.ts`) can inspect the rendered SVG and choose
+      // the right order — Vega's DOM emission depends on the input
+      // data row order, not the trace type, so a static fallback here
+      // would frequently be wrong.
+      if (domOrderOverride) {
+        domMapping = determineDomMapping(traceType, domOrderOverride);
+      }
       break;
     }
     case TraceType.LINE: {
@@ -709,12 +714,15 @@ function convertLayerSpec(
   if (orientation) {
     layer.orientation = orientation;
   }
+  if (domMapping) {
+    layer.domMapping = domMapping;
+  }
 
   return layer;
 }
 
 // ---------------------------------------------------------------------------
-// Composite views (concat / facet)
+// Composite views (concat)
 // ---------------------------------------------------------------------------
 
 function buildConcatMaidr(
@@ -725,6 +733,7 @@ function buildConcatMaidr(
   specs: VegaLiteSpec[],
   direction: 'horizontal' | 'vertical' | 'wrap',
   view?: VegaView,
+  domOrder?: 'series-major' | 'subject-major',
 ): Maidr {
   // Track a global layer counter so that each concat child resolves
   // dataset names independently (Vega names datasets sequentially
@@ -734,7 +743,7 @@ function buildConcatMaidr(
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) => {
-        const layer = convertLayerSpec(layerSpec, globalLayerIndex, view, childSpec.encoding, true);
+        const layer = convertLayerSpec(layerSpec, globalLayerIndex, view, childSpec.encoding, true, domOrder);
         // Assign a unique ID that encodes both the concat index and the
         // layer index within the child to avoid duplicates across subplots.
         if (layer)
@@ -744,7 +753,7 @@ function buildConcatMaidr(
       }).filter(Boolean) as MaidrLayer[];
       return { layers };
     }
-    const layer = convertLayerSpec(childSpec, globalLayerIndex, view, undefined, false);
+    const layer = convertLayerSpec(childSpec, globalLayerIndex, view, undefined, false, domOrder);
     if (layer)
       layer.id = `${i}_0`;
     globalLayerIndex++;
@@ -752,7 +761,7 @@ function buildConcatMaidr(
   });
 
   // vconcat produces one subplot per row (column layout).
-  // hconcat produces all subplots in a single row.
+  // hconcat / concat produce all subplots in a single row.
   let subplots: MaidrSubplot[][];
   if (direction === 'vertical') {
     subplots = subplotEntries.map(s => [s]);

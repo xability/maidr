@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Heatmap Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Heatmap</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="heatmap-chart"
+      aria-label="Heatmap loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Heatmap: `rect` mark with x + y categorical axes plus a
+      // quantitative color encoding. The MAIDR binder maps this to HEATMAP.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Weekly Activity Heatmap',
+        data: {
+          values: [
+            { day: 'Mon', hour: 'Morning', value: 5 },
+            { day: 'Mon', hour: 'Afternoon', value: 8 },
+            { day: 'Mon', hour: 'Evening', value: 3 },
+            { day: 'Tue', hour: 'Morning', value: 7 },
+            { day: 'Tue', hour: 'Afternoon', value: 6 },
+            { day: 'Tue', hour: 'Evening', value: 4 },
+            { day: 'Wed', hour: 'Morning', value: 9 },
+            { day: 'Wed', hour: 'Afternoon', value: 5 },
+            { day: 'Wed', hour: 'Evening', value: 7 },
+          ],
+        },
+        mark: 'rect',
+        encoding: {
+          x: { field: 'day', type: 'ordinal', title: 'Day' },
+          y: { field: 'hour', type: 'ordinal', title: 'Time of Day' },
+          color: {
+            field: 'value',
+            type: 'quantitative',
+            title: 'Activity Level',
+          },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#heatmap-chart', spec, { id: 'activity-heatmap' })
+        .catch((err) => console.error('[vegalite-bindheatmap]', err));
+    </script>
+  </body>
+</html>

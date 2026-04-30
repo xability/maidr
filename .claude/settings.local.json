@@ -4,7 +4,8 @@
       "Bash(npm run build:*)",
       "Bash(npm test:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "WebSearch"
     ]
   }
 }

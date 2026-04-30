@@ -108,6 +108,18 @@ const builds = [
       '@type': path.resolve(rootDir, 'src/type'),
     },
   },
+  {
+    name: 'vegalite',
+    entry: 'src/vegalite-entry.ts',
+    libName: 'maidrVegaLite',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'vegalite.mjs' : 'vegalite.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 function createViteConfig(config) {
