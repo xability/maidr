@@ -268,7 +268,7 @@ function applySegmentedDomMappings(
  * `SegmentedTrace.mapToSvgElements` reads `layer.domMapping` to slice
  * the flat DOM list back into the `data[seriesIndex][barIndex]` 2-D
  * grid. If we only re-ordered `data`, the slice would still pick the
- * *original* series' elements, so the highlight would point to the
+ * original* series' elements, so the highlight would point to the
  * wrong segment. Re-appending the DOM nodes inside each x-category in
  * the new series order keeps `domMapping` valid — Vega positions
  * marks via `transform` so DOM order changes alone don't move the
@@ -1273,7 +1273,7 @@ export type {
  *
  * **The view must have completed its first render before this is called.**
  * `vegaEmbed(...)` resolves when the view is *constructed*, not when it has
- * *rendered*, so callers using this entry point directly must
+ * rendered*, so callers using this entry point directly must
  * `await view.runAsync()` between embedding and binding:
  *
  * ```js
@@ -1433,7 +1433,7 @@ export async function embed(
   }
 
   const vegaEmbedFn
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     = (typeof window !== 'undefined' ? (window as any).vegaEmbed : undefined) as
       | ((
         el: HTMLElement | string,

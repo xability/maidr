@@ -252,7 +252,7 @@ function resolveData(
       // `view.getState({ data: true })` returns all datasets keyed by name.
       // The exact return shape is loosely typed across Vega versions, so
       // narrow defensively.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const stateGetter = (view as any).getState as
         | ((opts?: { data?: boolean }) => unknown)
         | undefined;
