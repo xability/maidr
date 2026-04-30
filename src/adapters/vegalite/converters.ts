@@ -248,6 +248,19 @@ function resolveData(
     // the first non-empty one whose rows look like records. This catches
     // Vega-generated names we don't know about (e.g. `bin_maxbins_10_value`,
     // `data_3`, internal aggregation outputs for histograms).
+    //
+    // Known limitation: this fallback returns the FIRST matching dataset
+    // without verifying that its rows expose the encoded fields. For
+    // single-source specs (the common case) the only non-empty dataset
+    // is the user's data, and the fallback is correct. For specs with
+    // multiple stages (joins, lookups, filtered branches, separate
+    // datasets per layer) this can pick an upstream/intermediate
+    // dataset and silently produce mismatched announcements. We
+    // intentionally do NOT filter by encoding field names because Vega
+    // legitimately renames fields after binning (e.g. `value` →
+    // `bin_maxbins_10_value`); a stricter check would break
+    // histograms. A field-aware redesign that recognises bin/aggregate
+    // transforms is tracked as a follow-up.
     try {
       // `view.getState({ data: true })` returns all datasets keyed by name.
       // The exact return shape is loosely typed across Vega versions, so

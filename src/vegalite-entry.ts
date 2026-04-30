@@ -112,6 +112,14 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
       continue;
     }
 
+    // Defensive: if the SVG hasn't been laid out yet (display:none,
+    // hidden tab, print stylesheet etc.) every bounding rect is zero
+    // and the sort below would be non-deterministic.
+    if (!isLaidOutForSort(elements[0])) {
+      debugLog(`bar layer "${layer.id}": skipping visual-order sort (chart not laid out)`);
+      continue;
+    }
+
     const isHorizontal = layer.orientation === Orientation.HORIZONTAL;
 
     // Pair each data point with its corresponding DOM element. They
@@ -165,6 +173,29 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
 }
 
 /**
+ * Defensive visibility guard for sort/reorder passes that depend on
+ * `getBoundingClientRect()`.
+ *
+ * When the chart container is `display: none` or `visibility: hidden`
+ * (e.g. lazy-loaded tabs, responsive breakpoints, print stylesheets),
+ * every `getBoundingClientRect()` call returns a zero rect. Sorting on
+ * those keys is non-deterministic and would silently corrupt the data
+ * ↔ DOM pairing the rest of the adapter depends on.
+ *
+ * We sample the first element only — Vega renders all marks in the
+ * same SVG, so if the first one has a non-zero box the rest do too.
+ * Returns `false` when the element appears not laid out, in which case
+ * callers should skip the sort and leave the existing order intact.
+ */
+function isLaidOutForSort(el: Element | undefined): boolean {
+  if (!el) {
+    return false;
+  }
+  const r = el.getBoundingClientRect();
+  return r.width > 0 || r.height > 0;
+}
+
+/**
  * Resolve the rendered fill colour of an SVG element. Vega applies
  * fill via either an attribute (`fill="..."`) or, in newer builds,
  * a `style="fill: ..."` declaration. We try both.
@@ -201,14 +232,40 @@ function resolveFill(el: Element): string {
  *   → `{ order: 'column', groupDirection: 'forward' }`.
  *
  * Returns `undefined` when detection is impossible (fewer than 2
- * elements, no fills) so the caller can fall back to the type-based
- * default rather than silently picking the wrong order.
+ * elements, no fills, or only one series exists) so the caller can
+ * fall back to the type-based default rather than silently picking
+ * the wrong order.
+ *
+ * Known limitations
+ * -----------------
+ * 1. **Single-series segmented layers**: when `data.length === 1` every
+ *    rendered element shares the same fill, so the heuristic cannot
+ *    distinguish series-major from subject-major. We bail out and let
+ *    the caller's type-based default stand. (For one series, STACKED /
+ *    NORMALIZED / DODGED all collapse to the same flat layout, so the
+ *    type-based default produces the correct mapping.)
+ * 2. **CSS fill normalisation**: if the host page applies a global CSS
+ *    rule overriding all SVG fills (e.g. high-contrast themes), the
+ *    fill comparison can yield a false `seriesMajor === true`. There is
+ *    no general workaround at this layer — affected pages should set
+ *    `options.domOrder` explicitly.
+ * 3. **Coincidental fill collisions**: when two adjacent series happen
+ *    to compile to the same colour, detection can flip. Vanishingly
+ *    rare with default Vega palettes; users with custom palettes who
+ *    hit it should set `options.domOrder` explicitly.
  */
 function detectSegmentedDomOrder(
   svg: SVGSVGElement,
   layer: MaidrLayer,
 ): MaidrLayer['domMapping'] | undefined {
   if (typeof layer.selectors !== 'string') {
+    return undefined;
+  }
+  // Bail out for single-series layers: every element shares the same
+  // fill, so the heuristic below would always return `{ order: 'row' }`
+  // regardless of the actual emission pattern. The type-based default
+  // is correct for the single-series case so we leave it untouched.
+  if (Array.isArray(layer.data) && layer.data.length < 2) {
     return undefined;
   }
   const elements = Array.from(svg.querySelectorAll<SVGGraphicsElement>(layer.selectors));
@@ -305,6 +362,13 @@ function reorderSegmentedSeriesByVisualBottom(
       svg.querySelectorAll<SVGGraphicsElement>(layer.selectors),
     );
     if (elements.length !== seriesCount * categoryCount) {
+      continue;
+    }
+
+    // Defensive: skip when the SVG isn't laid out (every rect would be
+    // zero, so the bottom-of-stack comparison below is meaningless).
+    if (!isLaidOutForSort(elements[0])) {
+      debugLog(`segmented layer "${layer.id}": skipping series reorder (chart not laid out)`);
       continue;
     }
 
@@ -450,6 +514,13 @@ function sortHistogramBinsByVisualOrder(
       continue;
     }
 
+    // Defensive: skip when the chart isn't laid out yet — sorting on
+    // zero rects would produce a non-deterministic permutation.
+    if (!isLaidOutForSort(elements[0])) {
+      debugLog(`histogram layer "${layer.id}": skipping visual-order sort (chart not laid out)`);
+      continue;
+    }
+
     const isHorizontal = layer.orientation === Orientation.HORIZONTAL;
 
     const pairs = data.map((point, i) => ({
@@ -573,6 +644,14 @@ function sortHeatmapCellsByVisualOrder(
       continue;
     }
 
+    // Defensive: skip when the chart isn't laid out — the row/col
+    // detection below depends on real bounding rects, and rebuilding
+    // the heatmap from zero-rect data would scramble points/labels.
+    if (!isLaidOutForSort(elements[0])) {
+      debugLog(`heatmap layer "${layer.id}": skipping visual-order sort (chart not laid out)`);
+      continue;
+    }
+
     // 1. Detect DOM emission convention from first two elements.
     //    If they share roughly the same y, DOM is row-major
     //    (incrementing xi first within a row). Otherwise we treat it
@@ -692,6 +771,12 @@ function readXAxisLabelsInVisualOrder(svg: SVGSVGElement): string[] {
     const texts = Array.from(axisGroup.querySelectorAll<SVGTextElement>('text'));
     if (texts.length < 2)
       continue;
+
+    // Defensive: if the axis text isn't laid out, every getBoundingClientRect
+    // returns zero and the variance comparison below is meaningless.
+    if (!isLaidOutForSort(texts[0])) {
+      continue;
+    }
 
     const items = texts
       .map((t) => {
@@ -972,6 +1057,16 @@ function buildBoxPlotSelectorsFromDom(
       continue;
     }
 
+    // Defensive: every step below depends on real bounding rects
+    // (sort by visual position, lower/upper whisker classification,
+    // outlier interpolation). Bail out if the chart isn't laid out
+    // yet — the existing single-string selector remains in place and
+    // BoxTrace will fall back to its standard mapping.
+    if (!isLaidOutForSort(rects[0])) {
+      debugLog(`box layer "${layer.id}": skipping selector rebuild (chart not laid out)`);
+      continue;
+    }
+
     const isVertical = layer.orientation !== Orientation.HORIZONTAL;
 
     interface ElInfo {
@@ -1118,6 +1213,20 @@ function buildBoxPlotSelectorsFromDom(
 
       // 6. Compute outlier value via linear interpolation between
       //    the min/max rule far-end pixel anchors.
+      //
+      //    Known limitation: this assumes the Y axis (or X for
+      //    horizontal boxplots) uses a LINEAR scale. For log / sqrt /
+      //    pow / time scales the announced outlier value will be
+      //    systematically biased — the fix is to read outliers from
+      //    `view.data(...)` on the compiled boxplot summary dataset
+      //    (which contains the exact quantitative values) instead of
+      //    deriving them from pixel positions. That requires
+      //    discovering the per-layer boxplot dataset name (which
+      //    varies by spec layering and Vega-Lite version) and is
+      //    tracked as a follow-up. Likewise, `Math.round` here biases
+      //    toward integer outlier values; for fractional-data specs
+      //    consumers should expect ±1-unit imprecision until the
+      //    follow-up lands.
       const minAnchor = isVertical ? g.minRule.rect.bottom : g.minRule.rect.left;
       const maxAnchor = isVertical ? g.maxRule.rect.top : g.maxRule.rect.right;
       const span = minAnchor - maxAnchor;
@@ -1472,10 +1581,13 @@ export async function embed(
   // be in the DOM yet when bindVegaLite runs querySelector('svg').
   await result.view.runAsync();
 
-  bindVegaLite(result.view, spec, {
-    id: options?.id,
-    title: options?.title,
-  });
+  // Forward every MAIDR-level option to bindVegaLite. Earlier this only
+  // passed `id` and `title`, which silently dropped `domOrder` (and any
+  // future fields added to VegaLiteToMaidrOptions) on the embed() path.
+  // We strip the embed-only `embedOptions` field here because it is
+  // consumed above and not part of the MAIDR conversion options.
+  const { embedOptions: _embedOptions, ...maidrOptions } = options ?? {};
+  bindVegaLite(result.view, spec, maidrOptions);
   return { view: result.view };
 }
 
