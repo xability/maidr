@@ -29,6 +29,11 @@
       "types": "./dist/recharts.d.mts",
       "import": "./dist/recharts.mjs",
       "default": "./dist/recharts.mjs"
+    },
+    "./vegalite": {
+      "types": "./dist/vegalite.d.mts",
+      "import": "./dist/vegalite.mjs",
+      "default": "./dist/vegalite.js"
     }
   },
   "main": "dist/maidr.js",

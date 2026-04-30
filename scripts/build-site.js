@@ -56,6 +56,7 @@ const PAGE_DESCRIPTIONS = {
   'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
   'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
+  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -140,6 +141,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
     .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
+    .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -236,6 +238,20 @@ if (fs.existsSync(d3MdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'd3.html'), d3Page);
 }
 
+// Build vegalite.html from docs/vegalite.md
+console.log('Building vegalite.html from docs/vegalite.md...');
+const vegaliteMdPath = path.join(ROOT, 'docs', 'vegalite.md');
+if (fs.existsSync(vegaliteMdPath)) {
+  const vegaliteMd = fs.readFileSync(vegaliteMdPath, 'utf-8');
+  const vegaliteHtml = `
+<div class="content">
+  ${marked.parse(vegaliteMd)}
+</div>
+`;
+  const vegalitePage = generatePage({ title: 'Vega-Lite', content: vegaliteHtml, activePage: 'vegalite', slug: 'vegalite.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'vegalite.html'), vegalitePage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -315,6 +331,20 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('d3-bindsmooth.html', 'D3 Smooth Curve'); return false;">Smooth Curve</a></li>
   </ul>
   <p>See the <a href="d3.html">D3.js Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
+  <h3>Vega-Lite</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('vegalite-bindbar.html', 'Vega-Lite Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindstacked.html', 'Vega-Lite Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-binddodged.html', 'Vega-Lite Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindnormalized.html', 'Vega-Lite Normalized Bar'); return false;">Normalized Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindhistogram.html', 'Vega-Lite Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindline.html', 'Vega-Lite Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindscatter.html', 'Vega-Lite Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindheatmap.html', 'Vega-Lite Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
+  </ul>
+  <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <div id="content" hidden="true">Select an example above.</div>
 </div>
@@ -487,7 +517,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -545,6 +575,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
   { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
   { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
+  { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -552,7 +583,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

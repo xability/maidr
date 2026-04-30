@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Normalized Bar Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Normalized Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="normalized-bar-chart"
+      aria-label="Normalized bar chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Normalized (100%) stacked bar: bar mark with x + y + color
+      // and `stack: 'normalize'` on the y encoding scales each stack to
+      // sum to 1.0. The MAIDR binder maps this to NORMALIZED.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Survival Proportion by Class',
+        data: {
+          values: [
+            { class: 'First', survived: 'No', count: 80 },
+            { class: 'First', survived: 'Yes', count: 136 },
+            { class: 'Second', survived: 'No', count: 97 },
+            { class: 'Second', survived: 'Yes', count: 87 },
+            { class: 'Third', survived: 'No', count: 372 },
+            { class: 'Third', survived: 'Yes', count: 119 },
+          ],
+        },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'class', type: 'nominal', title: 'Class' },
+          y: {
+            field: 'count',
+            type: 'quantitative',
+            title: 'Proportion',
+            stack: 'normalize',
+          },
+          color: { field: 'survived', type: 'nominal', title: 'Survived' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#normalized-bar-chart', spec, { id: 'titanic-normalized' })
+        .catch((err) => console.error('[vegalite-bindnormalized]', err));
+    </script>
+  </body>
+</html>
