@@ -152,6 +152,7 @@ export class Controller implements Disposable {
     this.rotorNavigationService = new RotorNavigationService(
       this.context,
       this.textService,
+      this.notificationService,
     );
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,

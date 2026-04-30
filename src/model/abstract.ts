@@ -511,7 +511,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Common post-navigation cleanup that should be called by subclasses
    * after they update their internal state
    */
-  protected finalizeExtremaNavigation(): void {
+  protected finalizeNavigation(): void {
     // Ensure we're not in initial entry state after navigation
     if (this.isInitialEntry) {
       this.isInitialEntry = false;
@@ -522,6 +522,36 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     // Notify observers of state change
     this.notifyStateUpdate();
+  }
+
+  /**
+   * Returns true if this trace supports intersection navigation mode.
+   * Opt-in per trace type: override to return true (possibly conditionally,
+   * e.g. based on data shape) for trace types that expose point intersections
+   * between series. Intersection navigation is a trace-level capability — it
+   * has no meaning at the figure or subplot level, which is why it lives on
+   * AbstractTrace rather than AbstractPlot.
+   */
+  public supportsIntersectionMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the next point intersection (right arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToNextIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the previous point intersection (left arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToPrevIntersection(): boolean {
+    return false;
   }
 
   /**
