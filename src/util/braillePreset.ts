@@ -4,6 +4,7 @@ import type {
   BraillePresetSelection,
 } from '@type/settings';
 import {
+  BRAILLE_DISPLAY_KINDS,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
@@ -11,7 +12,7 @@ import {
 } from '@type/settings';
 
 export function isBrailleDisplayKind(value: string): value is BrailleDisplayKind {
-  return value === 'single' || value === 'multi' || value === 'manual';
+  return (BRAILLE_DISPLAY_KINDS as readonly string[]).includes(value);
 }
 
 export function clampBrailleLines(value: number): number {

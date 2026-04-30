@@ -89,6 +89,9 @@ describe('findBraillePreset', () => {
 describe('selectBrailleDisplayKind', () => {
   test('falls back to first single-line preset when current id is null', () => {
     const slice = selectBrailleDisplayKind('single', null);
+    if (slice.brailleDisplayKind === 'manual') {
+      throw new Error('expected non-manual slice');
+    }
     expect(slice.brailleDisplayKind).toBe('single');
     expect(slice.brailleDisplayPresetId).toBe(SINGLE_LINE_BRAILLE_PRESETS[0].id);
     expect(slice.brailleDisplaySize).toBe(SINGLE_LINE_BRAILLE_PRESETS[0].cells);
@@ -97,6 +100,9 @@ describe('selectBrailleDisplayKind', () => {
 
   test('keeps current single-line preset when it still belongs to the kind', () => {
     const slice = selectBrailleDisplayKind('single', 'qbraille-xl');
+    if (slice.brailleDisplayKind === 'manual') {
+      throw new Error('expected non-manual slice');
+    }
     expect(slice.brailleDisplayPresetId).toBe('qbraille-xl');
     expect(slice.brailleDisplaySize).toBe(40);
     expect(slice.brailleDisplayLines).toBe(1);
@@ -105,6 +111,9 @@ describe('selectBrailleDisplayKind', () => {
   test('falls back to first multi-line preset when switching from single', () => {
     // current id belongs to single-line list, so multi-line lookup misses
     const slice = selectBrailleDisplayKind('multi', 'qbraille-xl');
+    if (slice.brailleDisplayKind === 'manual') {
+      throw new Error('expected non-manual slice');
+    }
     expect(slice.brailleDisplayKind).toBe('multi');
     expect(slice.brailleDisplayPresetId).toBe(MULTI_LINE_BRAILLE_PRESETS[0].id);
     expect(slice.brailleDisplaySize).toBe(MULTI_LINE_BRAILLE_PRESETS[0].cells);
@@ -115,8 +124,10 @@ describe('selectBrailleDisplayKind', () => {
     const slice = selectBrailleDisplayKind('manual', 'qbraille-xl');
     expect(slice.brailleDisplayKind).toBe('manual');
     expect(slice.brailleDisplayPresetId).toBeNull();
-    expect(slice.brailleDisplaySize).toBeUndefined();
-    expect(slice.brailleDisplayLines).toBeUndefined();
+    // Manual variant does not declare size/lines on the slice; spreading
+    // it over prior state preserves the existing values (see next test).
+    expect((slice as Record<string, unknown>).brailleDisplaySize).toBeUndefined();
+    expect((slice as Record<string, unknown>).brailleDisplayLines).toBeUndefined();
   });
 
   test('spreading manual slice over prior state preserves cells/lines', () => {
@@ -146,20 +157,24 @@ describe('selectBraillePreset', () => {
 
   test('returns single-line preset cells and lines', () => {
     const slice = selectBraillePreset('single', 'focus-14-blue-5g');
-    expect(slice).not.toBeNull();
-    expect(slice!.brailleDisplayKind).toBe('single');
-    expect(slice!.brailleDisplayPresetId).toBe('focus-14-blue-5g');
-    expect(slice!.brailleDisplaySize).toBe(14);
-    expect(slice!.brailleDisplayLines).toBe(1);
+    if (!slice || slice.brailleDisplayKind === 'manual') {
+      throw new Error('expected non-manual slice');
+    }
+    expect(slice.brailleDisplayKind).toBe('single');
+    expect(slice.brailleDisplayPresetId).toBe('focus-14-blue-5g');
+    expect(slice.brailleDisplaySize).toBe(14);
+    expect(slice.brailleDisplayLines).toBe(1);
   });
 
   test('returns multi-line preset cells and lines', () => {
     const slice = selectBraillePreset('multi', 'monarch');
-    expect(slice).not.toBeNull();
-    expect(slice!.brailleDisplayKind).toBe('multi');
-    expect(slice!.brailleDisplayPresetId).toBe('monarch');
-    expect(slice!.brailleDisplaySize).toBe(32);
-    expect(slice!.brailleDisplayLines).toBe(10);
+    if (!slice || slice.brailleDisplayKind === 'manual') {
+      throw new Error('expected non-manual slice');
+    }
+    expect(slice.brailleDisplayKind).toBe('multi');
+    expect(slice.brailleDisplayPresetId).toBe('monarch');
+    expect(slice.brailleDisplaySize).toBe(32);
+    expect(slice.brailleDisplayLines).toBe(10);
   });
 
   test('rejects a multi-line id when looking up under single', () => {

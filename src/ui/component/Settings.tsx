@@ -50,7 +50,7 @@ import {
   selectBrailleDisplayKind,
   selectBraillePreset,
 } from '@util/braillePreset';
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
@@ -92,15 +92,17 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
 );
 
 interface BraillePresetSelectProps {
+  kind: 'single' | 'multi';
   rowLabel: string;
   ariaLabel: string;
   presets: readonly BrailleDisplayPreset[];
   selectedPresetId: string | null;
   formatPreset: (preset: BrailleDisplayPreset) => string;
-  onChange: (presetId: string) => void;
+  onChange: (kind: 'single' | 'multi', presetId: string) => void;
 }
 
 const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
+  kind,
   rowLabel,
   ariaLabel,
   presets,
@@ -114,7 +116,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
       <FormControl fullWidth>
         <Select
           value={selectedPresetId ?? ''}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => onChange(kind, e.target.value)}
           fullWidth
           size="small"
           displayEmpty
@@ -367,35 +369,28 @@ const Settings: React.FC = () => {
     [],
   );
 
-  const handleSingleLinePresetChange = useCallback(
-    (presetId: string) => handleBraillePresetChange('single', presetId),
-    [handleBraillePresetChange],
-  );
-
-  const handleMultiLinePresetChange = useCallback(
-    (presetId: string) => handleBraillePresetChange('multi', presetId),
-    [handleBraillePresetChange],
-  );
-
-  // Defensive normalization: if stored settings claim a single/multi kind
-  // but the preset id is missing or refers to a now-removed device, snap
-  // back to the first preset in that kind so the dropdown doesn't render
-  // its disabled "Select a display" placeholder out of step with the
-  // active radio button.
+  // If stored settings claim a single/multi kind but the preset id is
+  // missing or points to a now-removed device, snap back to the first
+  // preset in that kind so the dropdown doesn't render its disabled
+  // "Select a display" placeholder out of step with the active radio.
+  // The ref captures the values at mount time so the effect can run only
+  // once without going stale or pulling generalSettings into the deps.
+  const initialKindRef = useRef({
+    kind: generalSettings.brailleDisplayKind,
+    presetId: generalSettings.brailleDisplayPresetId,
+  });
   useEffect(() => {
-    const kind = generalSettings.brailleDisplayKind;
+    const { kind, presetId } = initialKindRef.current;
     if (kind === 'manual') {
       return;
     }
     const presets = kind === 'single'
       ? SINGLE_LINE_BRAILLE_PRESETS
       : MULTI_LINE_BRAILLE_PRESETS;
-    if (!findBraillePreset(presets, generalSettings.brailleDisplayPresetId)) {
+    if (!findBraillePreset(presets, presetId)) {
       handleBrailleKindChange(kind);
     }
-    // Run once on mount; later user-driven changes always go through
-    // handleBrailleKindChange / handleBraillePresetChange.
-  }, []);
+  }, [handleBrailleKindChange]);
 
   const handleLlmChange = (
     key: keyof LlmSettings,
@@ -681,7 +676,6 @@ const Settings: React.FC = () => {
                         handleBrailleKindChange(v);
                       }
                     }}
-                    aria-label="Braille Display"
                   >
                     <FormControlLabel
                       value="single"
@@ -706,24 +700,26 @@ const Settings: React.FC = () => {
           {generalSettings.brailleDisplayKind === 'single' && (
             <Grid size={12}>
               <BraillePresetSelect
+                kind="single"
                 rowLabel="Single-Line Display"
                 ariaLabel="Single-Line Braille Display"
                 presets={SINGLE_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatSingleLinePreset}
-                onChange={handleSingleLinePresetChange}
+                onChange={handleBraillePresetChange}
               />
             </Grid>
           )}
           {generalSettings.brailleDisplayKind === 'multi' && (
             <Grid size={12}>
               <BraillePresetSelect
+                kind="multi"
                 rowLabel="Multi-Line Display"
                 ariaLabel="Multi-Line Braille Display"
                 presets={MULTI_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatMultiLinePreset}
-                onChange={handleMultiLinePresetChange}
+                onChange={handleBraillePresetChange}
               />
             </Grid>
           )}
@@ -740,9 +736,6 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplaySize}
                         onChange={(e) => {
-                          // Mirror the lines input: ignore empty and NaN
-                          // mid-edit, clamp/floor everything else so the
-                          // stored value never falls outside [1, MAX].
                           const raw = e.target.value;
                           if (raw === '') {
                             return;

@@ -24,7 +24,10 @@ export const MAX_BRAILLE_LINES = 20;
 // manual input.
 export const MAX_BRAILLE_SIZE = 160;
 
-export type BrailleDisplayKind = 'single' | 'multi' | 'manual';
+// Single source of truth for the kind values: drives the BrailleDisplayKind
+// union and the isBrailleDisplayKind type guard so they cannot drift apart.
+export const BRAILLE_DISPLAY_KINDS = ['single', 'multi', 'manual'] as const;
+export type BrailleDisplayKind = (typeof BRAILLE_DISPLAY_KINDS)[number];
 
 // 'manual' preserves whatever cells/lines numbers an older saved settings
 // object already has, so users upgrading from before the preset selector
@@ -39,10 +42,18 @@ export interface BrailleDisplayPreset {
   lines: number;
 }
 
+// Non-empty array type so `presets[0]` is `BrailleDisplayPreset`, not
+// `BrailleDisplayPreset | undefined`. The catalogs below satisfy this at
+// compile time; selectBrailleDisplayKind relies on it for its fallback.
+export type NonEmptyBraillePresets = readonly [
+  BrailleDisplayPreset,
+  ...BrailleDisplayPreset[],
+];
+
 // To add a new device, append a row here (single-line) or in
 // MULTI_LINE_BRAILLE_PRESETS below. Keep ids kebab-case and unique across
-// both lists; the unit test in test/type/settings.test.ts enforces this.
-export const SINGLE_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
+// both lists; the unit test in test/util/braillePreset.test.ts enforces this.
+export const SINGLE_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
   { id: 'focus-14-blue-5g', label: 'Focus 14 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 14, lines: 1 },
   { id: 'focus-40-blue-5g', label: 'Focus 40 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 40, lines: 1 },
   { id: 'focus-80-blue-5g', label: 'Focus 80 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 80, lines: 1 },
@@ -65,19 +76,28 @@ export const SINGLE_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
   { id: 'nls-ereader', label: 'NLS eReader', manufacturer: 'HumanWare / Zoomax', cells: 20, lines: 1 },
 ] as const;
 
-export const MULTI_LINE_BRAILLE_PRESETS: readonly BrailleDisplayPreset[] = [
+export const MULTI_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
   { id: 'canute-360', label: 'Canute 360', manufacturer: 'Bristol Braille Technology', cells: 40, lines: 9 },
   { id: 'monarch', label: 'Monarch', manufacturer: 'APH / HumanWare / NFB', cells: 32, lines: 10 },
   { id: 'orbit-slate-340', label: 'Orbit Slate 340', manufacturer: 'Orbit Research', cells: 40, lines: 3 },
   { id: 'orbit-slate-520', label: 'Orbit Slate 520', manufacturer: 'Orbit Research', cells: 20, lines: 5 },
 ] as const;
 
-export interface BraillePresetSelection {
-  brailleDisplayKind: BrailleDisplayKind;
-  brailleDisplayPresetId: string | null;
-  brailleDisplaySize?: number;
-  brailleDisplayLines?: number;
-}
+// Discriminated union: the manual variant has no preset id and intentionally
+// omits cells/lines so callers spreading the slice over previous state
+// (`{ ...prev, ...slice }`) preserve the user's existing values; the preset
+// variant always supplies cells/lines together with a non-null id.
+export type BraillePresetSelection
+  = | {
+    brailleDisplayKind: 'single' | 'multi';
+    brailleDisplayPresetId: string;
+    brailleDisplaySize: number;
+    brailleDisplayLines: number;
+  }
+  | {
+    brailleDisplayKind: 'manual';
+    brailleDisplayPresetId: null;
+  };
 
 /**
  * ARIA live region politeness level for screen reader announcements.
