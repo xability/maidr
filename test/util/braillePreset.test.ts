@@ -195,6 +195,22 @@ describe('preset catalog invariants', () => {
     }
   });
 
+  test('every preset has cells within [1, MAX_BRAILLE_SIZE]', () => {
+    const all = [...SINGLE_LINE_BRAILLE_PRESETS, ...MULTI_LINE_BRAILLE_PRESETS];
+    for (const preset of all) {
+      expect(preset.cells).toBeGreaterThanOrEqual(1);
+      expect(preset.cells).toBeLessThanOrEqual(MAX_BRAILLE_SIZE);
+    }
+  });
+
+  test('every preset has lines within [1, MAX_BRAILLE_LINES]', () => {
+    const all = [...SINGLE_LINE_BRAILLE_PRESETS, ...MULTI_LINE_BRAILLE_PRESETS];
+    for (const preset of all) {
+      expect(preset.lines).toBeGreaterThanOrEqual(1);
+      expect(preset.lines).toBeLessThanOrEqual(MAX_BRAILLE_LINES);
+    }
+  });
+
   test('all preset ids are unique across both lists', () => {
     const ids = [
       ...SINGLE_LINE_BRAILLE_PRESETS.map(p => p.id),

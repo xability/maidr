@@ -24,8 +24,6 @@ export const MAX_BRAILLE_LINES = 20;
 // manual input.
 export const MAX_BRAILLE_SIZE = 160;
 
-// Single source of truth for the kind values: drives the BrailleDisplayKind
-// union and the isBrailleDisplayKind type guard so they cannot drift apart.
 export const BRAILLE_DISPLAY_KINDS = ['single', 'multi', 'manual'] as const;
 export type BrailleDisplayKind = (typeof BRAILLE_DISPLAY_KINDS)[number];
 
@@ -42,9 +40,8 @@ export interface BrailleDisplayPreset {
   lines: number;
 }
 
-// Non-empty array type so `presets[0]` is `BrailleDisplayPreset`, not
-// `BrailleDisplayPreset | undefined`. The catalogs below satisfy this at
-// compile time; selectBrailleDisplayKind relies on it for its fallback.
+// Non-empty so `presets[0]` is BrailleDisplayPreset (not | undefined),
+// which lets selectBrailleDisplayKind's fallback be type-safe.
 export type NonEmptyBraillePresets = readonly [
   BrailleDisplayPreset,
   ...BrailleDisplayPreset[],

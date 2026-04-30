@@ -373,8 +373,8 @@ const Settings: React.FC = () => {
   // missing or points to a now-removed device, snap back to the first
   // preset in that kind so the dropdown doesn't render its disabled
   // "Select a display" placeholder out of step with the active radio.
-  // The ref captures the values at mount time so the effect can run only
-  // once without going stale or pulling generalSettings into the deps.
+  // The ref captures the values at mount time so the effect runs once
+  // with stable inputs and never goes stale.
   const initialKindRef = useRef({
     kind: generalSettings.brailleDisplayKind,
     presetId: generalSettings.brailleDisplayPresetId,
@@ -390,7 +390,7 @@ const Settings: React.FC = () => {
     if (!findBraillePreset(presets, presetId)) {
       handleBrailleKindChange(kind);
     }
-  }, [handleBrailleKindChange]);
+  }, []);
 
   const handleLlmChange = (
     key: keyof LlmSettings,
@@ -676,6 +676,7 @@ const Settings: React.FC = () => {
                         handleBrailleKindChange(v);
                       }
                     }}
+                    aria-label="Braille display type"
                   >
                     <FormControlLabel
                       value="single"
