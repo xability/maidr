@@ -2,9 +2,11 @@ import type {
   BrailleDisplayKind,
   BrailleDisplayPreset,
   BraillePresetSelection,
+  GeneralSettings,
 } from '@type/settings';
 import {
   BRAILLE_DISPLAY_KINDS,
+  DEFAULT_BRAILLE_DISPLAY_KIND,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
@@ -33,10 +35,7 @@ export function findBraillePreset(
   return presets.find(p => p.id === presetId);
 }
 
-// The 'manual' branch intentionally omits brailleDisplaySize and
-// brailleDisplayLines so callers spreading the slice over previous state
-// (`{ ...prev, ...slice }`) preserve the existing cells/lines numbers as
-// the starting point for the user's manual edits.
+// Manual omits size/lines so spreading the slice preserves prior values.
 export function selectBrailleDisplayKind(
   kind: BrailleDisplayKind,
   currentPresetId: string | null,
@@ -84,4 +83,26 @@ export function selectBraillePreset(
     brailleDisplaySize: preset.cells,
     brailleDisplayLines: preset.lines,
   };
+}
+
+// Repairs stale settings: an unknown / removed / undefined preset id under
+// a single/multi kind, or a missing kind from a pre-feature saved object.
+export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettings {
+  const rawKind: unknown = general.brailleDisplayKind;
+  const kind: BrailleDisplayKind = isBrailleDisplayKind(rawKind as string)
+    ? (rawKind as BrailleDisplayKind)
+    : DEFAULT_BRAILLE_DISPLAY_KIND;
+  if (kind === 'manual') {
+    return kind === general.brailleDisplayKind
+      ? general
+      : { ...general, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };
+  }
+  const presets = kind === 'single'
+    ? SINGLE_LINE_BRAILLE_PRESETS
+    : MULTI_LINE_BRAILLE_PRESETS;
+  if (findBraillePreset(presets, general.brailleDisplayPresetId)) {
+    return general;
+  }
+  const slice = selectBrailleDisplayKind(kind, general.brailleDisplayPresetId);
+  return { ...general, ...slice };
 }

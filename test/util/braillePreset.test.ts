@@ -1,5 +1,7 @@
+import type { GeneralSettings } from '@type/settings';
 import { describe, expect, test } from '@jest/globals';
 import {
+  DEFAULT_SETTINGS,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MULTI_LINE_BRAILLE_PRESETS,
@@ -10,6 +12,7 @@ import {
   clampBrailleSize,
   findBraillePreset,
   isBrailleDisplayKind,
+  normalizeBrailleDisplay,
   selectBrailleDisplayKind,
   selectBraillePreset,
 } from '@util/braillePreset';
@@ -217,5 +220,57 @@ describe('preset catalog invariants', () => {
       ...MULTI_LINE_BRAILLE_PRESETS.map(p => p.id),
     ];
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('normalizeBrailleDisplay', () => {
+  const baseGeneral = DEFAULT_SETTINGS.general;
+
+  test('returns the same object when manual kind has no preset id', () => {
+    const general: GeneralSettings = { ...baseGeneral, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };
+    expect(normalizeBrailleDisplay(general)).toBe(general);
+  });
+
+  test('returns the same object when single-kind preset id is valid', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'single',
+      brailleDisplayPresetId: 'mantis-q40',
+      brailleDisplaySize: 40,
+      brailleDisplayLines: 1,
+    };
+    expect(normalizeBrailleDisplay(general)).toBe(general);
+  });
+
+  test('snaps to first single-line preset when id is null', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'single',
+      brailleDisplayPresetId: null,
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayPresetId).toBe(SINGLE_LINE_BRAILLE_PRESETS[0].id);
+    expect(next.brailleDisplaySize).toBe(SINGLE_LINE_BRAILLE_PRESETS[0].cells);
+    expect(next.brailleDisplayLines).toBe(SINGLE_LINE_BRAILLE_PRESETS[0].lines);
+  });
+
+  test('snaps to first multi-line preset when id refers to a removed device', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'multi',
+      brailleDisplayPresetId: 'no-such-device',
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayPresetId).toBe(MULTI_LINE_BRAILLE_PRESETS[0].id);
+    expect(next.brailleDisplaySize).toBe(MULTI_LINE_BRAILLE_PRESETS[0].cells);
+    expect(next.brailleDisplayLines).toBe(MULTI_LINE_BRAILLE_PRESETS[0].lines);
+  });
+
+  test('falls back to manual when kind is missing from older saved settings', () => {
+    // Simulate a saved object that predates the kind field.
+    const general = { ...baseGeneral, brailleDisplayKind: undefined } as unknown as GeneralSettings;
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayKind).toBe('manual');
+    expect(next.brailleDisplayPresetId).toBeNull();
   });
 });

@@ -47,9 +47,8 @@ export type NonEmptyBraillePresets = readonly [
   ...BrailleDisplayPreset[],
 ];
 
-// To add a new device, append a row here (single-line) or in
-// MULTI_LINE_BRAILLE_PRESETS below. Keep ids kebab-case and unique across
-// both lists; the unit test in test/util/braillePreset.test.ts enforces this.
+// To add a new device, append a row here or in MULTI_LINE_BRAILLE_PRESETS.
+// Ids must be kebab-case and unique across both lists.
 export const SINGLE_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
   { id: 'focus-14-blue-5g', label: 'Focus 14 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 14, lines: 1 },
   { id: 'focus-40-blue-5g', label: 'Focus 40 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 40, lines: 1 },

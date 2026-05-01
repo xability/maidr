@@ -45,8 +45,8 @@ import {
 import {
   clampBrailleLines,
   clampBrailleSize,
-  findBraillePreset,
   isBrailleDisplayKind,
+  normalizeBrailleDisplay,
   selectBrailleDisplayKind,
   selectBraillePreset,
 } from '@util/braillePreset';
@@ -62,24 +62,17 @@ function formatMultiLinePreset(p: BrailleDisplayPreset): string {
   return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
 }
 
-// If stored settings claim a single/multi kind but the preset id is
-// missing or points to a now-removed device, snap to the first preset
-// in that kind. Applied at state initialization (and on viewModel
-// re-sync) so the dropdown never renders its disabled placeholder out
-// of step with the active radio, even for one paint.
-function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettings {
-  const { brailleDisplayKind: kind, brailleDisplayPresetId } = general;
-  if (kind === 'manual') {
-    return general;
+// Returns the clamped value or null when the raw input is empty / NaN —
+// callers skip the update so a partially-typed field stays editable.
+function parseManualBrailleInput(raw: string, clamp: (n: number) => number): number | null {
+  if (raw === '') {
+    return null;
   }
-  const presets = kind === 'single'
-    ? SINGLE_LINE_BRAILLE_PRESETS
-    : MULTI_LINE_BRAILLE_PRESETS;
-  if (findBraillePreset(presets, brailleDisplayPresetId)) {
-    return general;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed)) {
+    return null;
   }
-  const slice = selectBrailleDisplayKind(kind, brailleDisplayPresetId);
-  return { ...general, ...slice };
+  return clamp(parsed);
 }
 
 function getValidVersion(
@@ -112,19 +105,19 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
 );
 
 interface BraillePresetSelectProps {
-  kind: 'single' | 'multi';
   rowLabel: string;
   ariaLabel: string;
+  placeholder: string;
   presets: readonly BrailleDisplayPreset[];
   selectedPresetId: string | null;
   formatPreset: (preset: BrailleDisplayPreset) => string;
-  onPresetChange: (kind: 'single' | 'multi', presetId: string) => void;
+  onPresetChange: (presetId: string) => void;
 }
 
 const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
-  kind,
   rowLabel,
   ariaLabel,
+  placeholder,
   presets,
   selectedPresetId,
   formatPreset,
@@ -136,7 +129,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
       <FormControl fullWidth>
         <Select
           value={selectedPresetId ?? ''}
-          onChange={e => onPresetChange(kind, e.target.value)}
+          onChange={e => onPresetChange(e.target.value)}
           fullWidth
           size="small"
           displayEmpty
@@ -144,7 +137,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
           MenuProps={{ disablePortal: true }}
         >
           <MenuItem value="" disabled>
-            Select a display
+            {placeholder}
           </MenuItem>
           {presets.map(preset => (
             <MenuItem key={preset.id} value={preset.id}>
@@ -389,6 +382,16 @@ const Settings: React.FC = () => {
     [],
   );
 
+  const handleSingleLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('single', presetId),
+    [handleBraillePresetChange],
+  );
+
+  const handleMultiLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('multi', presetId),
+    [handleBraillePresetChange],
+  );
+
   const handleLlmChange = (
     key: keyof LlmSettings,
     value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
@@ -453,14 +456,9 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
-  // Dialog-scoped handler instead of a document listener: Alt+s / Alt+c
-  // need to fire even when focus is inside one of the dialog's text inputs
-  // (e.g. the manual cells/lines field). Routing through the global
-  // `KeybindingService` would not work for this case because its
-  // `hotkeys.filter` blocks all bindings while a non-MAIDR `<input>` has
-  // focus. Binding to the Dialog's own onKeyDown keeps the listener
-  // component-scoped (no global capture-phase listener) while still
-  // catching keydowns that bubble up from the dialog's inputs.
+  // Dialog-scoped: KeybindingService's hotkeys.filter blocks shortcuts while
+  // focus is in a non-MAIDR <input>, which would silently break Alt+s / Alt+c
+  // inside the manual cells/lines fields.
   const handleDialogKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
       if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
@@ -698,26 +696,26 @@ const Settings: React.FC = () => {
           {generalSettings.brailleDisplayKind === 'single' && (
             <Grid size={12}>
               <BraillePresetSelect
-                kind="single"
                 rowLabel="Single-Line Display"
                 ariaLabel="Single-Line Braille Display"
+                placeholder="Select a single-line display"
                 presets={SINGLE_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatSingleLinePreset}
-                onPresetChange={handleBraillePresetChange}
+                onPresetChange={handleSingleLinePresetChange}
               />
             </Grid>
           )}
           {generalSettings.brailleDisplayKind === 'multi' && (
             <Grid size={12}>
               <BraillePresetSelect
-                kind="multi"
                 rowLabel="Multi-Line Display"
                 ariaLabel="Multi-Line Braille Display"
+                placeholder="Select a multi-line display"
                 presets={MULTI_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatMultiLinePreset}
-                onPresetChange={handleBraillePresetChange}
+                onPresetChange={handleMultiLinePresetChange}
               />
             </Grid>
           )}
@@ -734,15 +732,10 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplaySize}
                         onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === '') {
-                            return;
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
                           }
-                          const parsed = Number(raw);
-                          if (Number.isNaN(parsed)) {
-                            return;
-                          }
-                          handleGeneralChange('brailleDisplaySize', clampBrailleSize(parsed));
                         }}
                         onBlur={e =>
                           handleGeneralChange(
@@ -776,19 +769,10 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplayLines}
                         onChange={(e) => {
-                          // Guard against NaN / empty (e.g. when the user clears
-                          // the field). The stored value stays valid even if blur
-                          // never fires. Clamp/floor on every keystroke so a user
-                          // who types `0` and tabs away is not silently reset.
-                          const raw = e.target.value;
-                          if (raw === '') {
-                            return;
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
                           }
-                          const parsed = Number(raw);
-                          if (Number.isNaN(parsed)) {
-                            return;
-                          }
-                          handleGeneralChange('brailleDisplayLines', clampBrailleLines(parsed));
                         }}
                         onBlur={e =>
                           handleGeneralChange(
