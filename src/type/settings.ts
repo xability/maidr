@@ -78,6 +78,7 @@ export const MULTI_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
   { id: 'monarch', label: 'Monarch', manufacturer: 'APH / HumanWare / NFB', cells: 32, lines: 10 },
   { id: 'orbit-slate-340', label: 'Orbit Slate 340', manufacturer: 'Orbit Research', cells: 40, lines: 3 },
   { id: 'orbit-slate-520', label: 'Orbit Slate 520', manufacturer: 'Orbit Research', cells: 20, lines: 5 },
+  { id: 'dot-pad-x', label: 'Dot Pad X', manufacturer: 'Dot Inc.', cells: 20, lines: 8 },
 ] as const;
 
 // Discriminated union: the manual variant has no preset id and intentionally
