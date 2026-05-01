@@ -13,9 +13,9 @@ import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
-const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
-const DEFAULT_SUBTITLE = 'unavailable';
-const DEFAULT_CAPTION = 'unavailable';
+export const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
+export const DEFAULT_SUBTITLE = 'unavailable';
+export const DEFAULT_CAPTION = 'unavailable';
 
 /**
  * Represents a figure containing one or more subplots

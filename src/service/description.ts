@@ -1,7 +1,8 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { DescriptionState } from '@type/state';
-import { AbstractTrace } from '@model/abstract';
+import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
+import { DEFAULT_FIGURE_TITLE } from '@model/plot';
 import { Scope } from '@type/event';
 
 /**
@@ -25,15 +26,13 @@ export class DescriptionService {
     const active = this.context.active;
     if (active instanceof AbstractTrace) {
       const description = active.description;
-      // Resolve the best available title. The trace stores layer.title
-      // (defaults to 'unavailable') and the figure stores maidr.title
-      // (defaults to 'MAIDR Plot'). Prefer the layer title if it was
+      // Resolve the best available title. Prefer the layer title if it was
       // explicitly set, then fall back to the figure title if explicit,
       // otherwise clear it.
       const layerTitle = description.title;
       const figureTitle = this.context.figureTitle;
-      const hasLayerTitle = layerTitle && layerTitle !== 'unavailable';
-      const hasFigureTitle = figureTitle && figureTitle !== 'MAIDR Plot' && figureTitle !== 'unavailable';
+      const hasLayerTitle = layerTitle && layerTitle !== DEFAULT_SUBPLOT_TITLE;
+      const hasFigureTitle = figureTitle && figureTitle !== DEFAULT_FIGURE_TITLE && figureTitle !== DEFAULT_SUBPLOT_TITLE;
       const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
       return { ...description, title };
     }
