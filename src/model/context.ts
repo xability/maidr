@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { PlotState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
@@ -123,6 +123,14 @@ export class Context implements Disposable {
       return figureState.title;
     }
     return 'unavailable';
+  }
+
+  /**
+   * Returns at-a-glance summaries for every subplot in the figure, in visual
+   * (top-left first) order. Empty for single-panel figures.
+   */
+  public getSubplotSummaries(): SubplotSummary[] {
+    return this.figure.getSubplotSummaries();
   }
 
   /**

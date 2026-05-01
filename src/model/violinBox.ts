@@ -1,7 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -147,6 +147,43 @@ export class ViolinBoxTrace extends AbstractTrace {
     return sectionAccessors.map(accessor =>
       this.points.map(point => accessor(point)),
     );
+  }
+
+  /**
+   * Gets the description state for the violin box trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of groups', value: this.points.length },
+      { label: 'Sections', value: this.sections.join(', ') },
+      { label: 'Min', value: this.min },
+      { label: 'Max', value: this.max },
+    ];
+
+    const headers = ['Group', ...this.sections];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    const rows: (string | number)[][] = this.points.map((point, pointIdx) => {
+      const sectionValues = this.sections.map((_, sectionIdx) => {
+        const value = isHorizontal
+          ? this.boxValues[pointIdx]?.[sectionIdx]
+          : this.boxValues[sectionIdx]?.[pointIdx];
+        if (Array.isArray(value)) {
+          return value.join(', ');
+        }
+        return value ?? '';
+      });
+      return [point.z, ...sectionValues];
+    });
+
+    return {
+      chartType: 'violin_box',
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   public dispose(): void {

@@ -8,6 +8,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  DescriptionState,
   HighlightState,
   TextState,
   TraceState,
@@ -17,7 +18,7 @@ import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
@@ -479,6 +480,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract get braille(): BrailleState;
 
   protected abstract get text(): TextState;
+
+  public abstract get description(): DescriptionState;
+
+  /**
+   * Builds the axes object for the description state, including z only when
+   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * instead of constructing the axes object inline so charts without a real
+   * z dimension don't surface the placeholder default.
+   */
+  protected getDescriptionAxes(): DescriptionState['axes'] {
+    return {
+      x: this.xAxis,
+      y: this.yAxis,
+      ...(this.layer.axes?.z?.label && { z: this.z }),
+    };
+  }
 
   protected abstract get dimension(): Dimension;
 

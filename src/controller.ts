@@ -9,6 +9,7 @@ import { BrailleService } from '@service/braille';
 import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
+import { DescriptionService } from '@service/description';
 import { DisplayService } from '@service/display';
 import { FormatterService } from '@service/formatter';
 import { GoToExtremaService } from '@service/goToExtrema';
@@ -25,6 +26,7 @@ import { TextService } from '@service/text';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
@@ -57,6 +59,7 @@ export class Controller implements Disposable {
   private readonly autoplayService: AutoplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
+  private readonly descriptionService: DescriptionService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
 
@@ -64,6 +67,7 @@ export class Controller implements Disposable {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly reviewViewModel: ReviewViewModel;
+  private readonly descriptionViewModel: DescriptionViewModel;
   private readonly displayViewModel: DisplayViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly chatViewModel: ChatViewModel;
@@ -123,6 +127,7 @@ export class Controller implements Disposable {
       this.context,
     );
     this.highlightService = new HighlightService(this.settingsService);
+    this.descriptionService = new DescriptionService(this.context, this.displayService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
       this.displayService,
@@ -145,6 +150,7 @@ export class Controller implements Disposable {
       this.formatterService,
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
+    this.descriptionViewModel = new DescriptionViewModel(store, this.descriptionService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
@@ -190,6 +196,7 @@ export class Controller implements Disposable {
       brailleViewModel: this.brailleViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
+      descriptionViewModel: this.descriptionViewModel,
       goToExtremaViewModel: this.goToExtremaViewModel,
       helpViewModel: this.helpViewModel,
       reviewViewModel: this.reviewViewModel,
@@ -215,6 +222,7 @@ export class Controller implements Disposable {
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
+        descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
@@ -244,6 +252,7 @@ export class Controller implements Disposable {
         brailleViewModel: this.brailleViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
+        descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
@@ -322,6 +331,7 @@ export class Controller implements Disposable {
     this.settingsViewModel.dispose();
     this.chatViewModel.dispose();
     this.helpViewModel.dispose();
+    this.descriptionViewModel.dispose();
     this.displayViewModel.dispose();
     this.goToExtremaViewModel.dispose();
     this.reviewViewModel.dispose();
@@ -366,6 +376,7 @@ export class Controller implements Disposable {
     this.viewModelRegistry.register('braille', this.brailleViewModel);
     this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
     this.viewModelRegistry.register('review', this.reviewViewModel);
+    this.viewModelRegistry.register('description', this.descriptionViewModel);
     this.viewModelRegistry.register('display', this.displayViewModel);
     this.viewModelRegistry.register('help', this.helpViewModel);
     this.viewModelRegistry.register('chat', this.chatViewModel);

@@ -5,6 +5,7 @@ import type { HighContrastService } from '@service/highContrast';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -336,6 +337,28 @@ export class ToggleScopeCommand implements Command {
     }
   }
 }
+/**
+ * Command to toggle the chart description modal on or off.
+ */
+export class ToggleDescriptionCommand implements Command {
+  private readonly descriptionViewModel: DescriptionViewModel;
+
+  /**
+   * Creates an instance of ToggleDescriptionCommand.
+   * @param {DescriptionViewModel} descriptionViewModel - The description view model.
+   */
+  public constructor(descriptionViewModel: DescriptionViewModel) {
+    this.descriptionViewModel = descriptionViewModel;
+  }
+
+  /**
+   * Toggles the chart description modal.
+   */
+  public execute(): void {
+    this.descriptionViewModel.toggle();
+  }
+}
+
 export class ToggleHighContrast implements Command {
   private readonly highContrastService: HighContrastService;
 

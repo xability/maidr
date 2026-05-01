@@ -1,7 +1,7 @@
 import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, AutoplayState, BrailleState, TextState } from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
@@ -111,6 +111,41 @@ export class ViolinKdeTrace extends AbstractTrace {
     this.highlightValues = this.mapToSvgElements(kdeSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<ViolinKdePoint>(this.points, { row: 0 });
+  }
+
+  /**
+   * Gets the description state for the violin KDE trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const violinNames = this.points.map((row, i) => {
+      const firstPoint = row[0];
+      return typeof firstPoint?.x === 'string' ? firstPoint.x : `Violin ${i + 1}`;
+    });
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of violins', value: this.points.length },
+      { label: 'Points per curve', value: this.points[0]?.length ?? 0 },
+      { label: 'Violin names', value: violinNames.join(', ') },
+    ];
+
+    const headers = ['Violin', 'Position', 'Y', 'Density'];
+    const rows: (string | number)[][] = this.points.flatMap((violin, violinIdx) =>
+      violin.map((point, col) => [
+        violinNames[violinIdx],
+        col,
+        Number(point.y),
+        this.densityValues[violinIdx][col],
+      ]),
+    );
+
+    return {
+      chartType: 'violin_kde',
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   public dispose(): void {

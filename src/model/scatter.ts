@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
-import type { AudioState, BrailleState, HighlightState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -361,6 +361,35 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         cross: { label: this.xAxis, value: current.x },
       };
     }
+  }
+
+  /**
+   * Gets the description state for the scatter trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const totalPoints = this.xPoints.reduce((sum, xp) => sum + xp.y.length, 0);
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Total points', value: totalPoints },
+      { label: 'Unique X values', value: this.xPoints.length },
+      { label: 'Unique Y values', value: this.yPoints.length },
+      { label: 'X range', value: `${this.minX} to ${this.maxX}` },
+      { label: 'Y range', value: `${this.minY} to ${this.maxY}` },
+    ];
+
+    const headers = [this.xAxis, this.yAxis];
+    const rows: (string | number)[][] = this.xPoints.flatMap(xp =>
+      xp.y.map(y => [xp.x, y]),
+    );
+
+    return {
+      chartType: 'point',
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   protected get dimension(): Dimension {

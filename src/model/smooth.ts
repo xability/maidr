@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { AudioState, TraceState } from '@type/state';
+import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import { LineTrace } from './line';
 
 /**
@@ -28,6 +28,19 @@ export class SmoothTrace extends LineTrace {
     return {
       ...baseState,
       plotType: 'smooth',
+    };
+  }
+
+  /**
+   * Gets the description state for the smooth trace.
+   * Overrides line description to set chartType to 'smooth'.
+   * @returns The description state containing chart metadata and data table
+   */
+  public override get description(): DescriptionState {
+    const base = super.description;
+    return {
+      ...base,
+      chartType: 'smooth',
     };
   }
 

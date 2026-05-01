@@ -8,7 +8,7 @@ import type {
 } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -405,6 +405,41 @@ export class Candlestick extends AbstractTrace {
         return newPointIndex >= 0 && newPointIndex < this.candles.length;
       }
     }
+  }
+
+  /**
+   * Gets the description state for the candlestick trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const bullCount = this.candles.filter(c => c.trend === 'Bull').length;
+    const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of periods', value: this.candles.length },
+      { label: 'Price range', value: `${this.min} to ${this.max}` },
+      { label: 'Bull count', value: bullCount },
+      { label: 'Bear count', value: bearCount },
+    ];
+
+    const headers = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Trend'];
+    const rows: (string | number)[][] = this.candles.map(c => [
+      c.value,
+      c.open,
+      c.high,
+      c.low,
+      c.close,
+      c.volume,
+      c.trend,
+    ]);
+
+    return {
+      chartType: 'candlestick',
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   /**

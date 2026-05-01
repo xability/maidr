@@ -70,6 +70,9 @@ const BRAILLE_KEYMAP = {
   ANNOUNCE_POINT: key(`space`, 'Replay Current Point'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
@@ -232,6 +235,9 @@ const TRACE_KEYMAP = {
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
 
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
@@ -250,6 +256,13 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_SELECT: key('enter', 'Select', { showInHelp: false }),
   GO_TO_EXTREMA_CLOSE: key('esc', 'Close', { showInHelp: false }),
   GO_TO_EXTREMA_TOGGLE: key('g', 'Go To Extrema', { showInHelp: false }),
+} as const;
+
+/**
+ * Keymap configuration for chart description modal interactions.
+ */
+const DESCRIPTION_KEYMAP = {
+  TOGGLE_DESCRIPTION: key(`esc`, 'Close Chart Description', { showInHelp: false }),
 } as const;
 
 /**
@@ -280,6 +293,7 @@ export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
+  [Scope.DESCRIPTION]: DESCRIPTION_KEYMAP,
   [Scope.FIGURE_LABEL]: FIGURE_LABEL_KEYMAP,
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.GRID_CELL]: GRID_CELL_KEYMAP,

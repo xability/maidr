@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -82,6 +82,50 @@ export class LineTrace extends AbstractTrace {
     this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
+  }
+
+  /**
+   * Gets the description state for the line trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const isMultiline = this.points.length > 1;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of lines', value: this.points.length },
+      { label: 'Points per line', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+    ];
+
+    if (isMultiline) {
+      const lineNames = this.points
+        .map((line, i) => line[0]?.z || `Line ${i + 1}`)
+        .join(', ');
+      stats.push({ label: 'Line names', value: lineNames });
+    }
+
+    let headers: string[];
+    let rows: (string | number)[][];
+
+    if (isMultiline) {
+      headers = [this.xAxis, this.yAxis, 'Line'];
+      rows = this.points.flatMap((line, i) => {
+        const lineName = line[0]?.z || `Line ${i + 1}`;
+        return line.map(p => [p.x, p.y, lineName]);
+      });
+    } else {
+      headers = [this.xAxis, this.yAxis];
+      rows = this.points[0].map(p => [p.x, p.y]);
+    }
+
+    return {
+      chartType: 'line',
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   public dispose(): void {
