@@ -4,17 +4,17 @@ import {
   DEFAULT_SETTINGS,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
-  MULTI_LINE_BRAILLE_PRESETS,
-  SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
 import {
   clampBrailleLines,
   clampBrailleSize,
   findBraillePreset,
   isBrailleDisplayKind,
+  MULTI_LINE_BRAILLE_PRESETS,
   normalizeBrailleDisplay,
   selectBrailleDisplayKind,
   selectBraillePreset,
+  SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
 
 describe('isBrailleDisplayKind', () => {

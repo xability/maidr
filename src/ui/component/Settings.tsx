@@ -39,16 +39,16 @@ import { useViewModel } from '@state/hook/useViewModel';
 import {
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
-  MULTI_LINE_BRAILLE_PRESETS,
-  SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
 import {
   clampBrailleLines,
   clampBrailleSize,
   isBrailleDisplayKind,
+  MULTI_LINE_BRAILLE_PRESETS,
   normalizeBrailleDisplay,
   selectBrailleDisplayKind,
   selectBraillePreset,
+  SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
@@ -737,11 +737,12 @@ const Settings: React.FC = () => {
                             handleGeneralChange('brailleDisplaySize', next);
                           }
                         }}
-                        onBlur={e =>
-                          handleGeneralChange(
-                            'brailleDisplaySize',
-                            clampBrailleSize(Number(e.target.value)),
-                          )}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
                         helperText={`Cells per row on a physical braille display (1-${MAX_BRAILLE_SIZE}).`}
                         slotProps={{
                           input: {
@@ -774,11 +775,12 @@ const Settings: React.FC = () => {
                             handleGeneralChange('brailleDisplayLines', next);
                           }
                         }}
-                        onBlur={e =>
-                          handleGeneralChange(
-                            'brailleDisplayLines',
-                            clampBrailleLines(Number(e.target.value)),
-                          )}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
                         helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
                         slotProps={{
                           input: {

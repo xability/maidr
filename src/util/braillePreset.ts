@@ -3,15 +3,47 @@ import type {
   BrailleDisplayPreset,
   BraillePresetSelection,
   GeneralSettings,
+  NonEmptyBraillePresets,
 } from '@type/settings';
 import {
   BRAILLE_DISPLAY_KINDS,
   DEFAULT_BRAILLE_DISPLAY_KIND,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
-  MULTI_LINE_BRAILLE_PRESETS,
-  SINGLE_LINE_BRAILLE_PRESETS,
 } from '@type/settings';
+
+// To add a new device, append a row here or in MULTI_LINE_BRAILLE_PRESETS.
+// Ids must be kebab-case and unique across both lists.
+export const SINGLE_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
+  { id: 'focus-14-blue-5g', label: 'Focus 14 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 14, lines: 1 },
+  { id: 'focus-40-blue-5g', label: 'Focus 40 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 40, lines: 1 },
+  { id: 'focus-80-blue-5g', label: 'Focus 80 Blue (5th Gen)', manufacturer: 'Freedom Scientific', cells: 80, lines: 1 },
+  { id: 'brailliant-bi-20x', label: 'Brailliant BI 20X', manufacturer: 'HumanWare', cells: 20, lines: 1 },
+  { id: 'brailliant-bi-40x', label: 'Brailliant BI 40X', manufacturer: 'HumanWare', cells: 40, lines: 1 },
+  { id: 'brailliant-b-80', label: 'Brailliant B 80', manufacturer: 'HumanWare', cells: 80, lines: 1 },
+  { id: 'brailliant-bi-32', label: 'Brailliant BI 32', manufacturer: 'HumanWare', cells: 32, lines: 1 },
+  { id: 'mantis-q40', label: 'Mantis Q40', manufacturer: 'APH / HumanWare', cells: 40, lines: 1 },
+  { id: 'chameleon-20', label: 'Chameleon 20', manufacturer: 'APH / HumanWare', cells: 20, lines: 1 },
+  { id: 'orbit-reader-20', label: 'Orbit Reader 20', manufacturer: 'Orbit Research', cells: 20, lines: 1 },
+  { id: 'orbit-reader-40', label: 'Orbit Reader 40', manufacturer: 'Orbit Research', cells: 40, lines: 1 },
+  { id: 'qbraille-xl', label: 'QBraille XL', manufacturer: 'HIMS', cells: 40, lines: 1 },
+  { id: 'varioultra-20', label: 'VarioUltra 20', manufacturer: 'VisioBraille', cells: 20, lines: 1 },
+  { id: 'varioultra-40', label: 'VarioUltra 40', manufacturer: 'VisioBraille', cells: 40, lines: 1 },
+  { id: 'active-braille', label: 'Active Braille', manufacturer: 'Help Tech', cells: 40, lines: 1 },
+  { id: 'actilino', label: 'Actilino', manufacturer: 'Help Tech', cells: 16, lines: 1 },
+  { id: 'alva-usb-640', label: 'ALVA USB 640', manufacturer: 'Optelec', cells: 40, lines: 1 },
+  { id: 'alva-bc680', label: 'ALVA BC680', manufacturer: 'Optelec', cells: 80, lines: 1 },
+  { id: 'brailleme', label: 'BrailleMe', manufacturer: 'Innovision', cells: 20, lines: 1 },
+  { id: 'nls-ereader', label: 'NLS eReader', manufacturer: 'HumanWare / Zoomax', cells: 20, lines: 1 },
+] as const;
+
+export const MULTI_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
+  { id: 'canute-360', label: 'Canute 360', manufacturer: 'Bristol Braille Technology', cells: 40, lines: 9 },
+  { id: 'monarch', label: 'Monarch', manufacturer: 'APH / HumanWare / NFB', cells: 32, lines: 10 },
+  { id: 'orbit-slate-340', label: 'Orbit Slate 340', manufacturer: 'Orbit Research', cells: 40, lines: 3 },
+  { id: 'orbit-slate-520', label: 'Orbit Slate 520', manufacturer: 'Orbit Research', cells: 20, lines: 5 },
+  { id: 'dot-pad-x', label: 'Dot Pad X', manufacturer: 'Dot Inc.', cells: 20, lines: 8 },
+] as const;
 
 export function isBrailleDisplayKind(value: string): value is BrailleDisplayKind {
   return (BRAILLE_DISPLAY_KINDS as readonly string[]).includes(value);
