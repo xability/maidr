@@ -401,7 +401,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**

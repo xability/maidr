@@ -128,7 +128,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     }
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -280,20 +280,64 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // (e.g. Plotly stacked bars render zero-height segments), map 1:1.
     const skipZeros = domElements.length < totalExpected;
 
+    const isRowMajor = this.layer.domMapping?.order === 'row';
+    const isForward = this.layer.domMapping?.groupDirection === 'forward';
+
     const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
-      for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
-        const row = new Array<SVGElement>();
-        for (let c = 0; c < this.barValues[r].length; c++) {
-          if (skipZeros && this.barValues[r][c] === 0) {
-            row.push(Svg.createEmptyElement());
-          } else if (domIndex >= domElements.length) {
-            return new Array<Array<SVGElement>>();
-          } else {
-            row.push(domElements[domIndex++]);
+      // Path-element branch (used by Vega-Lite, which renders bars as
+      // `<path>` elements). Honour `domMapping` the same way the rect
+      // branch below does, so adapters that detect runtime DOM order
+      // can correctly align segmented data with the rendered chart.
+      for (let r = 0; r < this.barValues.length; r++) {
+        svgElements.push(new Array<SVGElement>());
+      }
+
+      if (isRowMajor || !this.layer.domMapping) {
+        // Row-major DOM order (default for path marks): DOM is laid out
+        // [series0-all-cats, series1-all-cats, ...]. This was the
+        // pre-existing behaviour and is preserved as the fallback when
+        // no `domMapping` hint is supplied by an adapter.
+        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
+          for (let c = 0; c < this.barValues[r].length; c++) {
+            if (skipZeros && this.barValues[r][c] === 0) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else if (domIndex >= domElements.length) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else {
+              svgElements[r].push(domElements[domIndex++]);
+            }
           }
         }
-        svgElements.push(row);
+      } else {
+        // Column-major DOM order: DOM is laid out
+        // [cat0-all-series, cat1-all-series, ...].
+        if (!this.barValues[0]) {
+          return null;
+        }
+        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
+          if (isForward) {
+            for (let r = 0; r < this.barValues.length; r++) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          } else {
+            for (let r = this.barValues.length - 1; r >= 0; r--) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          }
+        }
       }
     } else if (domElements[0] instanceof SVGRectElement) {
       // Safety check: ensure barValues is valid
