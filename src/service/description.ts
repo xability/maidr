@@ -34,7 +34,13 @@ export class DescriptionService {
       const hasLayerTitle = layerTitle && layerTitle !== DEFAULT_SUBPLOT_TITLE;
       const hasFigureTitle = figureTitle && figureTitle !== DEFAULT_FIGURE_TITLE && figureTitle !== DEFAULT_SUBPLOT_TITLE;
       const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
-      return { ...description, title };
+
+      const subplots = this.context.getSubplotSummaries();
+      return {
+        ...description,
+        title,
+        ...(subplots.length > 0 && { subplots }),
+      };
     }
     return null;
   }

@@ -156,6 +156,30 @@ const Description: React.FC = () => {
           </Typography>
         )}
 
+        {/* Subplots (multi-panel only) */}
+        {data.subplots && data.subplots.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>
+              Subplots
+              {' '}
+              (
+              {data.subplots.length}
+              )
+            </Typography>
+            {data.subplots.map(subplot => (
+              <Typography key={subplot.index} variant="body2">
+                {subplot.index}
+                .
+                {' '}
+                {subplot.traceTypes.filter(isDisplayable).join(', ') || 'unknown'}
+                {isDisplayable(subplot.title) && ` — ${subplot.title}`}
+                {subplot.isActive && ' (current)'}
+              </Typography>
+            ))}
+          </>
+        )}
+
         <Divider sx={{ my: 1 }} />
 
         {/* Axes */}

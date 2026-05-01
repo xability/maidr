@@ -47,7 +47,7 @@ export class DescriptionViewModel extends AbstractViewModel<DescriptionMenuState
   public toggle(): void {
     // only fetch description data when opening the modal, not on close
     const isCurrentlyOpen = this.store.getState().description.data !== null;
-    if (isCurrentlyOpen) {
+    if (!isCurrentlyOpen) {
       const data = this.descriptionService.getDescription();
       this.store.dispatch(setDescription(data));
     }
