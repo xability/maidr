@@ -1,3 +1,16 @@
+# [3.66.0](https://github.com/xability/maidr/compare/v3.65.0...v3.66.0) (2026-05-02)
+
+
+### Bug Fixes
+
+* honor custom z label in multiline plots and align l z with l x / l y semantics ([#607](https://github.com/xability/maidr/issues/607)) ([7741e85](https://github.com/xability/maidr/commit/7741e85347fbffa9ebdb7a2cd913ac66204c9a08))
+
+
+### Features
+
+* add intersecting point rotor mode for multiline plots ([#604](https://github.com/xability/maidr/issues/604)) ([b4f8257](https://github.com/xability/maidr/commit/b4f8257c45ac85aa0edd71d142142aa5c6716fdb)), closes [#2](https://github.com/xability/maidr/issues/2) [#3](https://github.com/xability/maidr/issues/3) [#4](https://github.com/xability/maidr/issues/4) [#1](https://github.com/xability/maidr/issues/1) [#1](https://github.com/xability/maidr/issues/1)
+* add Vega-Lite adapter for accessible chart binding ([#540](https://github.com/xability/maidr/issues/540)) ([#556](https://github.com/xability/maidr/issues/556)) ([86ec308](https://github.com/xability/maidr/commit/86ec3085ca94b13225221326ff6769af171575ff))
+
 # [3.65.0](https://github.com/xability/maidr/compare/v3.64.1...v3.65.0) (2026-04-28)
 
 
