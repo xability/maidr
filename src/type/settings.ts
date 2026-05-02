@@ -19,6 +19,50 @@ export const DEFAULT_BRAILLE_LINES = 1;
  */
 export const MAX_BRAILLE_LINES = 20;
 
+// 160 = 2x the largest known single-line display (80 cells) — generous
+// headroom for unrecognized hardware while still rejecting obviously bogus
+// manual input.
+export const MAX_BRAILLE_SIZE = 160;
+
+export const BRAILLE_DISPLAY_KINDS = ['single', 'multi', 'manual'] as const;
+export type BrailleDisplayKind = (typeof BRAILLE_DISPLAY_KINDS)[number];
+
+// 'manual' preserves whatever cells/lines numbers an older saved settings
+// object already has, so users upgrading from before the preset selector
+// see the same effective configuration.
+export const DEFAULT_BRAILLE_DISPLAY_KIND: BrailleDisplayKind = 'manual';
+
+export interface BrailleDisplayPreset {
+  id: string;
+  label: string;
+  manufacturer: string;
+  cells: number;
+  lines: number;
+}
+
+// Non-empty so `presets[0]` is BrailleDisplayPreset (not | undefined),
+// which lets selectBrailleDisplayKind's fallback be type-safe.
+export type NonEmptyBraillePresets = readonly [
+  BrailleDisplayPreset,
+  ...BrailleDisplayPreset[],
+];
+
+// Discriminated union: the manual variant has no preset id and intentionally
+// omits cells/lines so callers spreading the slice over previous state
+// (`{ ...prev, ...slice }`) preserve the user's existing values; the preset
+// variant always supplies cells/lines together with a non-null id.
+export type BraillePresetSelection
+  = | {
+    brailleDisplayKind: 'single' | 'multi';
+    brailleDisplayPresetId: string;
+    brailleDisplaySize: number;
+    brailleDisplayLines: number;
+  }
+  | {
+    brailleDisplayKind: 'manual';
+    brailleDisplayPresetId: null;
+  };
+
 /**
  * ARIA live region politeness level for screen reader announcements.
  */
@@ -66,6 +110,8 @@ export interface GeneralSettings {
   highContrastDarkColor: string;
   brailleDisplaySize: number;
   brailleDisplayLines: number;
+  brailleDisplayKind: BrailleDisplayKind;
+  brailleDisplayPresetId: string | null;
   minFrequency: number;
   maxFrequency: number;
   autoplayDuration: number;
@@ -91,6 +137,8 @@ export const DEFAULT_SETTINGS: Settings = {
     highContrastDarkColor: '#000000',
     brailleDisplaySize: DEFAULT_BRAILLE_SIZE,
     brailleDisplayLines: DEFAULT_BRAILLE_LINES,
+    brailleDisplayKind: DEFAULT_BRAILLE_DISPLAY_KIND,
+    brailleDisplayPresetId: null,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,

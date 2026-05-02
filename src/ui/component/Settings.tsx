@@ -2,6 +2,8 @@ import type { SelectChangeEvent } from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
+  BrailleDisplayKind,
+  BrailleDisplayPreset,
   GeneralSettings,
   HoverMode,
   LlmModelSettings,
@@ -34,13 +36,43 @@ import {
 import { LlmValidationService } from '@service/llmValidation';
 import { MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
-import { MAX_BRAILLE_LINES } from '@type/settings';
+import {
+  MAX_BRAILLE_LINES,
+  MAX_BRAILLE_SIZE,
+} from '@type/settings';
+import {
+  clampBrailleLines,
+  clampBrailleSize,
+  isBrailleDisplayKind,
+  MULTI_LINE_BRAILLE_PRESETS,
+  normalizeBrailleDisplay,
+  selectBrailleDisplayKind,
+  selectBraillePreset,
+  SINGLE_LINE_BRAILLE_PRESETS,
+} from '@util/braillePreset';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-function clampBrailleLines(value: number): number {
-  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
+function formatSingleLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
+}
+
+function formatMultiLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
+}
+
+// Returns the clamped value or null when the raw input is empty / NaN —
+// callers skip the update so a partially-typed field stays editable.
+function parseManualBrailleInput(raw: string, clamp: (n: number) => number): number | null {
+  if (raw === '') {
+    return null;
+  }
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  return clamp(parsed);
 }
 
 function getValidVersion(
@@ -70,6 +102,52 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
     </Grid>
     <Grid size={{ xs: 12, sm: 6, md: 8 }}>{input}</Grid>
   </Grid>
+);
+
+interface BraillePresetSelectProps {
+  rowLabel: string;
+  ariaLabel: string;
+  placeholder: string;
+  presets: readonly BrailleDisplayPreset[];
+  selectedPresetId: string | null;
+  formatPreset: (preset: BrailleDisplayPreset) => string;
+  onPresetChange: (presetId: string) => void;
+}
+
+const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
+  rowLabel,
+  ariaLabel,
+  placeholder,
+  presets,
+  selectedPresetId,
+  formatPreset,
+  onPresetChange,
+}) => (
+  <SettingRow
+    label={rowLabel}
+    input={(
+      <FormControl fullWidth>
+        <Select
+          value={selectedPresetId ?? ''}
+          onChange={e => onPresetChange(e.target.value)}
+          fullWidth
+          size="small"
+          displayEmpty
+          slotProps={{ input: { 'aria-label': ariaLabel } }}
+          MenuProps={{ disablePortal: true }}
+        >
+          <MenuItem value="" disabled>
+            {placeholder}
+          </MenuItem>
+          {presets.map(preset => (
+            <MenuItem key={preset.id} value={preset.id}>
+              {formatPreset(preset)}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )}
+  />
 );
 
 interface LlmModelSettingRowProps {
@@ -262,7 +340,7 @@ const Settings: React.FC = () => {
   const { general, llm } = viewModel.state;
 
   const [generalSettings, setGeneralSettings]
-    = useState<GeneralSettings>(general);
+    = useState<GeneralSettings>(() => normalizeBrailleDisplay(general));
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
@@ -270,20 +348,49 @@ const Settings: React.FC = () => {
   }, [viewModel]);
 
   useEffect(() => {
-    setGeneralSettings(general);
+    setGeneralSettings(normalizeBrailleDisplay(general));
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (
-    key: keyof GeneralSettings,
-    value: string | number | AriaMode | boolean | HoverMode,
+  const handleGeneralChange = <K extends keyof GeneralSettings>(
+    key: K,
+    value: GeneralSettings[K],
   ): void => {
-    // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
+
+  const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
+    setGeneralSettings((prev) => {
+      // Manual omits size/lines from the slice on purpose so the spread
+      // preserves the existing values as the starting point for edits.
+      const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
+      return { ...prev, ...slice };
+    });
+  }, []);
+
+  const handleBraillePresetChange = useCallback(
+    (kind: 'single' | 'multi', presetId: string): void => {
+      const slice = selectBraillePreset(kind, presetId);
+      if (!slice) {
+        return;
+      }
+      setGeneralSettings(prev => ({ ...prev, ...slice }));
+    },
+    [],
+  );
+
+  const handleSingleLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('single', presetId),
+    [handleBraillePresetChange],
+  );
+
+  const handleMultiLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('multi', presetId),
+    [handleBraillePresetChange],
+  );
 
   const handleLlmChange = (
     key: keyof LlmSettings,
@@ -322,14 +429,14 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
-  const handleClose = (): void => {
+  const handleClose = useCallback((): void => {
     viewModel.toggle();
-  };
+  }, [viewModel]);
 
-  const handleSave = (): void => {
+  const handleSave = useCallback((): void => {
     viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
     chatViewModel.refreshInitialMessage();
-  };
+  }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -349,6 +456,29 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
+  // Dialog-scoped: KeybindingService's hotkeys.filter blocks shortcuts while
+  // focus is in a non-MAIDR <input>, which would silently break Alt+s / Alt+c
+  // inside the manual cells/lines fields.
+  const handleDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        if (!isCustomInstructionValid) {
+          return;
+        }
+        e.preventDefault();
+        handleSave();
+      } else if (key === 'c') {
+        e.preventDefault();
+        handleClose();
+      }
+    },
+    [isCustomInstructionValid, handleSave, handleClose],
+  );
+
   return (
     <Dialog
       id={id}
@@ -360,6 +490,7 @@ const Settings: React.FC = () => {
       disablePortal
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
+      onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
       <DialogContent className="settings-dialog-content">
@@ -527,77 +658,147 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Braille Display Size"
+              label="Braille Display"
+              alignLabel="flex-start"
               input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.brailleDisplaySize}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'brailleDisplaySize',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Braille Display Size',
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Braille Display Lines"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.brailleDisplayLines}
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.brailleDisplayKind}
                     onChange={(e) => {
-                      // Guard against NaN / empty (e.g. when the user clears
-                      // the field). The stored value stays valid even if blur
-                      // never fires. Clamp/floor on every keystroke so a user
-                      // who types `0` and tabs away is not silently reset.
-                      const raw = e.target.value;
-                      if (raw === '') {
-                        return;
+                      const v = e.target.value;
+                      if (isBrailleDisplayKind(v)) {
+                        handleBrailleKindChange(v);
                       }
-                      const parsed = Number(raw);
-                      if (Number.isNaN(parsed)) {
-                        return;
-                      }
-                      handleGeneralChange('brailleDisplayLines', clampBrailleLines(parsed));
                     }}
-                    onBlur={e =>
-                      handleGeneralChange(
-                        'brailleDisplayLines',
-                        clampBrailleLines(Number(e.target.value)),
-                      )}
-                    helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Braille Display Lines',
-                          'min': 1,
-                          'max': MAX_BRAILLE_LINES,
-                          'step': 1,
-                        },
-                      },
-                    }}
-                  />
+                    aria-label="Braille display type"
+                  >
+                    <FormControlLabel
+                      value="single"
+                      control={<Radio size="small" />}
+                      label="Single line"
+                    />
+                    <FormControlLabel
+                      value="multi"
+                      control={<Radio size="small" />}
+                      label="Multi-line"
+                    />
+                    <FormControlLabel
+                      value="manual"
+                      control={<Radio size="small" />}
+                      label="Configure manually"
+                    />
+                  </RadioGroup>
                 </FormControl>
               )}
             />
           </Grid>
+          {generalSettings.brailleDisplayKind === 'single' && (
+            <Grid size={12}>
+              <BraillePresetSelect
+                rowLabel="Single-Line Display"
+                ariaLabel="Single-Line Braille Display"
+                placeholder="Select a single-line display"
+                presets={SINGLE_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={formatSingleLinePreset}
+                onPresetChange={handleSingleLinePresetChange}
+              />
+            </Grid>
+          )}
+          {generalSettings.brailleDisplayKind === 'multi' && (
+            <Grid size={12}>
+              <BraillePresetSelect
+                rowLabel="Multi-Line Display"
+                ariaLabel="Multi-Line Braille Display"
+                placeholder="Select a multi-line display"
+                presets={MULTI_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={formatMultiLinePreset}
+                onPresetChange={handleMultiLinePresetChange}
+              />
+            </Grid>
+          )}
+          {generalSettings.brailleDisplayKind === 'manual' && (
+            <>
+              <Grid size={12}>
+                <SettingRow
+                  label="Braille Display Size"
+                  input={(
+                    <FormControl fullWidth>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        size="small"
+                        value={generalSettings.brailleDisplaySize}
+                        onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
+                        helperText={`Cells per row on a physical braille display (1-${MAX_BRAILLE_SIZE}).`}
+                        slotProps={{
+                          input: {
+                            inputProps: {
+                              'aria-label': 'Braille Display Size',
+                              'min': 1,
+                              'max': MAX_BRAILLE_SIZE,
+                              'step': 1,
+                            },
+                          },
+                        }}
+                      />
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              <Grid size={12}>
+                <SettingRow
+                  label="Braille Display Lines"
+                  input={(
+                    <FormControl fullWidth>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        size="small"
+                        value={generalSettings.brailleDisplayLines}
+                        onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
+                        helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
+                        slotProps={{
+                          input: {
+                            inputProps: {
+                              'aria-label': 'Braille Display Lines',
+                              'min': 1,
+                              'max': MAX_BRAILLE_LINES,
+                              'step': 1,
+                            },
+                          },
+                        }}
+                      />
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+            </>
+          )}
           <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
@@ -902,6 +1103,7 @@ const Settings: React.FC = () => {
               color="inherit"
               onClick={handleClose}
               aria-label="Close Settings with no changes"
+              aria-keyshortcuts="Alt+c"
             >
               Close
             </Button>
@@ -918,6 +1120,7 @@ const Settings: React.FC = () => {
                   : ''
               }
               aria-label="Save & Close Settings"
+              aria-keyshortcuts="Alt+s"
             >
               Save & Close
             </Button>

@@ -6,6 +6,7 @@ import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
+import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 
 const SETTINGS_KEY = 'maidr-settings';
@@ -66,7 +67,11 @@ export class SettingsService implements Disposable {
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
     // Deep-merge so that newly added default settings are available even when
     // the user has an older saved object in localStorage that lacks the new keys.
-    this.currentSettings = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
+    const merged = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
+    // Repair stale braille display kind / preset id before any consumer
+    // (BrailleService, UI) reads the settings, so they see a coherent state
+    // from page load — not just after the settings dialog opens.
+    this.currentSettings = { ...merged, general: normalizeBrailleDisplay(merged.general) };
   }
 
   public dispose(): void {
