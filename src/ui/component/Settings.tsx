@@ -47,6 +47,7 @@ import {
   formatSingleLinePreset,
   isBrailleDisplayKind,
   MULTI_LINE_BRAILLE_PRESETS,
+  parseManualBrailleInput,
   selectBrailleDisplayKind,
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
@@ -54,22 +55,6 @@ import {
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
-
-// Parses a manual cells / lines input. With `clamp` omitted (the
-// onChange path) only the integer floor is applied, so typing "200" is
-// not snapped to MAX mid-edit. With `clamp` supplied (the onBlur path)
-// the committed value is brought into [1, MAX]. Empty / non-finite raw
-// values return null so callers leave the partially-typed state alone.
-function parseManualBrailleInput(raw: string, clamp?: (n: number) => number): number | null {
-  if (raw === '') {
-    return null;
-  }
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-  return clamp ? clamp(parsed) : Math.floor(parsed);
-}
 
 function getValidVersion(
   modelKey: Llm,
@@ -436,7 +421,16 @@ const Settings: React.FC = () => {
   }, [viewModel]);
 
   const handleSave = useCallback((): void => {
-    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
+    // Clamp before persisting so a Save click before the field blurs
+    // can't bypass the [1, MAX] bound. The onChange path intentionally
+    // skips range clamping during typing so users can edit through
+    // intermediate out-of-range states; this is the commit point.
+    const safeGeneral: GeneralSettings = {
+      ...generalSettings,
+      brailleDisplaySize: clampBrailleSize(generalSettings.brailleDisplaySize),
+      brailleDisplayLines: clampBrailleLines(generalSettings.brailleDisplayLines),
+    };
+    viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
     chatViewModel.refreshInitialMessage();
   }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
@@ -664,7 +658,7 @@ const Settings: React.FC = () => {
               alignLabel="flex-start"
               labelId={`${id}-braille-kind-label`}
               input={(
-                <FormControl>
+                <FormControl fullWidth>
                   <RadioGroup
                     row
                     value={generalSettings.brailleDisplayKind}
@@ -721,7 +715,11 @@ const Settings: React.FC = () => {
             </Grid>
           )}
           {generalSettings.brailleDisplayKind === 'manual' && (
-            <>
+            <Grid
+              size={12}
+              role="group"
+              aria-label="Manual braille display configuration"
+            >
               <Grid size={12}>
                 <SettingRow
                   label="Braille Display Size"
@@ -798,7 +796,7 @@ const Settings: React.FC = () => {
                   )}
                 />
               </Grid>
-            </>
+            </Grid>
           )}
           <Grid size={12}>
             <SettingRow

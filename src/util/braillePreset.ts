@@ -60,6 +60,26 @@ export function clampBrailleSize(value: number): number {
   return Math.min(MAX_BRAILLE_SIZE, Math.max(1, floored));
 }
 
+// Parses a manual cells / lines text input. Empty / whitespace-only /
+// non-finite raw values return null so callers leave the partially-typed
+// state alone. Without `clamp` (the onChange path) only the integer floor
+// is applied, so typing "200" is not snapped to MAX mid-edit. With
+// `clamp` (the onBlur path or the pre-save guard) the value is brought
+// into [1, MAX].
+export function parseManualBrailleInput(
+  raw: string,
+  clamp?: (n: number) => number,
+): number | null {
+  if (raw.trim() === '') {
+    return null;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return clamp ? clamp(parsed) : Math.floor(parsed);
+}
+
 export function formatSingleLinePreset(p: BrailleDisplayPreset): string {
   return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
 }

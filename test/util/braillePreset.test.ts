@@ -12,6 +12,7 @@ import {
   isBrailleDisplayKind,
   MULTI_LINE_BRAILLE_PRESETS,
   normalizeBrailleDisplay,
+  parseManualBrailleInput,
   selectBrailleDisplayKind,
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
@@ -29,6 +30,40 @@ describe('isBrailleDisplayKind', () => {
     expect(isBrailleDisplayKind('Single')).toBe(false);
     expect(isBrailleDisplayKind('other')).toBe(false);
     expect(isBrailleDisplayKind('null')).toBe(false);
+  });
+
+  test('rejects non-string values', () => {
+    expect(isBrailleDisplayKind(null)).toBe(false);
+    expect(isBrailleDisplayKind(undefined)).toBe(false);
+    expect(isBrailleDisplayKind(42)).toBe(false);
+    expect(isBrailleDisplayKind({})).toBe(false);
+    expect(isBrailleDisplayKind([])).toBe(false);
+  });
+});
+
+describe('parseManualBrailleInput', () => {
+  test('returns null for empty / whitespace-only input', () => {
+    expect(parseManualBrailleInput('')).toBeNull();
+    expect(parseManualBrailleInput('   ')).toBeNull();
+    expect(parseManualBrailleInput('\t\n')).toBeNull();
+  });
+
+  test('returns null for non-finite numeric strings', () => {
+    expect(parseManualBrailleInput('abc')).toBeNull();
+    expect(parseManualBrailleInput('Infinity')).toBeNull();
+    expect(parseManualBrailleInput('NaN')).toBeNull();
+  });
+
+  test('floors integer input without clamping when no clamp is supplied', () => {
+    // Editing path: typing "200" must not snap to MAX mid-keystroke.
+    expect(parseManualBrailleInput('200')).toBe(200);
+    expect(parseManualBrailleInput('5.7')).toBe(5);
+  });
+
+  test('clamps to range when a clamp helper is supplied', () => {
+    expect(parseManualBrailleInput('200', clampBrailleSize)).toBe(MAX_BRAILLE_SIZE);
+    expect(parseManualBrailleInput('-5', clampBrailleSize)).toBe(1);
+    expect(parseManualBrailleInput('40', clampBrailleSize)).toBe(40);
   });
 });
 
