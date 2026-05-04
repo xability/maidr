@@ -3,7 +3,6 @@ import type {
   BrailleDisplayPreset,
   BraillePresetSelection,
   GeneralSettings,
-  NonEmptyBraillePresets,
 } from '@type/settings';
 import {
   BRAILLE_DISPLAY_KINDS,
@@ -11,6 +10,13 @@ import {
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
 } from '@type/settings';
+
+// Non-empty so `presets[0]` is BrailleDisplayPreset (not | undefined),
+// which lets selectBrailleDisplayKind's fallback be type-safe.
+export type NonEmptyBraillePresets = readonly [
+  BrailleDisplayPreset,
+  ...BrailleDisplayPreset[],
+];
 
 // To add a new device, append a row here or in MULTI_LINE_BRAILLE_PRESETS.
 // Ids must be kebab-case and unique across both lists.

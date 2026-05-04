@@ -65,6 +65,14 @@ describe('parseManualBrailleInput', () => {
     expect(parseManualBrailleInput('-5', clampBrailleSize)).toBe(1);
     expect(parseManualBrailleInput('40', clampBrailleSize)).toBe(40);
   });
+
+  test('passes 0 through editing path; clamp commits to 1', () => {
+    // The editing path intentionally returns 0 so a user can type "10"
+    // by way of "1" → "10" without the leading "0" being rewritten.
+    // The save / blur path lifts it to the [1, MAX] range.
+    expect(parseManualBrailleInput('0')).toBe(0);
+    expect(parseManualBrailleInput('0', clampBrailleSize)).toBe(1);
+  });
 });
 
 describe('clampBrailleLines', () => {

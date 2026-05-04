@@ -40,13 +40,6 @@ export interface BrailleDisplayPreset {
   lines: number;
 }
 
-// Non-empty so `presets[0]` is BrailleDisplayPreset (not | undefined),
-// which lets selectBrailleDisplayKind's fallback be type-safe.
-export type NonEmptyBraillePresets = readonly [
-  BrailleDisplayPreset,
-  ...BrailleDisplayPreset[],
-];
-
 // Discriminated union: the manual variant has no preset id and intentionally
 // omits cells/lines so callers spreading the slice over previous state
 // (`{ ...prev, ...slice }`) preserve the user's existing values; the preset

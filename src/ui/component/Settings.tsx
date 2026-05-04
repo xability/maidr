@@ -379,9 +379,9 @@ const Settings: React.FC = () => {
     [handleBraillePresetChange],
   );
 
-  const handleLlmChange = (
-    key: keyof LlmSettings,
-    value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
+  const handleLlmChange = <K extends keyof LlmSettings>(
+    key: K,
+    value: LlmSettings[K],
   ): void => {
     setLlmSettings(prev => ({
       ...prev,
