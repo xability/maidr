@@ -11,8 +11,6 @@ import {
   MAX_BRAILLE_SIZE,
 } from '@type/settings';
 
-// Non-empty so `presets[0]` is BrailleDisplayPreset (not | undefined),
-// which lets selectBrailleDisplayKind's fallback be type-safe.
 export type NonEmptyBraillePresets = readonly [
   BrailleDisplayPreset,
   ...BrailleDisplayPreset[],
@@ -162,13 +160,28 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
     : DEFAULT_BRAILLE_DISPLAY_KIND;
   if (kind === 'manual') {
     // Reference-equality fast path: no repair needed when the saved kind
-    // already matched and the preset id was already null. The kind check
-    // is meaningful when rawKind was undefined / invalid and we defaulted
-    // to manual — in that case the field still needs to be written.
-    if (general.brailleDisplayKind === kind && general.brailleDisplayPresetId === null) {
+    // already matched, the preset id was already null, AND the cells/lines
+    // numbers are within bounds. Saved configs that predate MAX_BRAILLE_SIZE
+    // / MAX_BRAILLE_LINES could carry out-of-range values; clamping here
+    // gives every consumer the same guarantee the manual onBlur and
+    // handleSave paths already enforce.
+    const clampedSize = clampBrailleSize(general.brailleDisplaySize);
+    const clampedLines = clampBrailleLines(general.brailleDisplayLines);
+    if (
+      general.brailleDisplayKind === kind
+      && general.brailleDisplayPresetId === null
+      && general.brailleDisplaySize === clampedSize
+      && general.brailleDisplayLines === clampedLines
+    ) {
       return general;
     }
-    return { ...general, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };
+    return {
+      ...general,
+      brailleDisplayKind: 'manual',
+      brailleDisplayPresetId: null,
+      brailleDisplaySize: clampedSize,
+      brailleDisplayLines: clampedLines,
+    };
   }
   const presets = kind === 'single'
     ? SINGLE_LINE_BRAILLE_PRESETS

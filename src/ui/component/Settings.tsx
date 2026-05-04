@@ -119,7 +119,9 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
             fullWidth
             size="small"
             displayEmpty
-            slotProps={{ input: { 'aria-labelledby': labelId } }}
+            slotProps={{
+              input: { 'aria-labelledby': labelId, 'aria-label': rowLabel },
+            }}
             MenuProps={{ disablePortal: true }}
           >
             <MenuItem value="" disabled>
@@ -131,6 +133,9 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
               </MenuItem>
             ))}
           </Select>
+          <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+            Don't see your display? Choose "Configure manually".
+          </Typography>
         </FormControl>
       )}
     />
@@ -457,7 +462,8 @@ const Settings: React.FC = () => {
   // inside the manual cells/lines fields.
   const handleDialogKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
-      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
+      const altOnly = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+      if (!altOnly) {
         return;
       }
       const key = e.key.toLowerCase();

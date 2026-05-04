@@ -9,6 +9,8 @@ import {
   clampBrailleLines,
   clampBrailleSize,
   findBraillePreset,
+  formatMultiLinePreset,
+  formatSingleLinePreset,
   isBrailleDisplayKind,
   MULTI_LINE_BRAILLE_PRESETS,
   normalizeBrailleDisplay,
@@ -337,5 +339,58 @@ describe('normalizeBrailleDisplay', () => {
     const next = normalizeBrailleDisplay(general);
     expect(next.brailleDisplayKind).toBe('manual');
     expect(next.brailleDisplayPresetId).toBeNull();
+  });
+
+  test('clamps out-of-range manual brailleDisplaySize on load', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'manual',
+      brailleDisplayPresetId: null,
+      brailleDisplaySize: 9999,
+      brailleDisplayLines: 2,
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayKind).toBe('manual');
+    expect(next.brailleDisplaySize).toBe(MAX_BRAILLE_SIZE);
+    expect(next.brailleDisplayLines).toBe(2);
+  });
+
+  test('clamps out-of-range manual brailleDisplayLines on load', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'manual',
+      brailleDisplayPresetId: null,
+      brailleDisplaySize: 32,
+      brailleDisplayLines: 0,
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayKind).toBe('manual');
+    expect(next.brailleDisplaySize).toBe(32);
+    expect(next.brailleDisplayLines).toBe(1);
+  });
+
+  test('preserves reference for already-clean manual settings', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'manual',
+      brailleDisplayPresetId: null,
+      brailleDisplaySize: 40,
+      brailleDisplayLines: 2,
+    };
+    expect(normalizeBrailleDisplay(general)).toBe(general);
+  });
+});
+
+describe('formatSingleLinePreset / formatMultiLinePreset', () => {
+  test('formatSingleLinePreset includes label, manufacturer, and cell count', () => {
+    const preset = SINGLE_LINE_BRAILLE_PRESETS.find(p => p.id === 'mantis-q40')!;
+    expect(formatSingleLinePreset(preset)).toBe('Mantis Q40 — APH / HumanWare (40 cells)');
+  });
+
+  test('formatMultiLinePreset includes lines and cells', () => {
+    const preset = MULTI_LINE_BRAILLE_PRESETS.find(p => p.id === 'canute-360')!;
+    expect(formatMultiLinePreset(preset)).toBe(
+      'Canute 360 — Bristol Braille Technology (9 lines × 40 cells)',
+    );
   });
 });
