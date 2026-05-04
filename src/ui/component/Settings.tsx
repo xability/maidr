@@ -127,7 +127,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
             fullWidth
             size="small"
             displayEmpty
-            slotProps={{ input: { 'aria-labelledby': labelId } }}
+            slotProps={{ input: { 'aria-labelledby': labelId, 'aria-required': true } }}
             MenuProps={{ disablePortal: true }}
           >
             <MenuItem value="" disabled>

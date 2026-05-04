@@ -153,12 +153,9 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
     ? rawKind
     : DEFAULT_BRAILLE_DISPLAY_KIND;
   if (kind === 'manual') {
-    // Reference-equality fast path: no repair needed when the saved kind
-    // already matched, the preset id was already null, AND the cells/lines
-    // numbers are within bounds. Saved configs that predate MAX_BRAILLE_SIZE
-    // / MAX_BRAILLE_LINES could carry out-of-range values; clamping here
-    // gives every consumer the same guarantee the manual onBlur and
-    // handleSave paths already enforce.
+    // Saved configs predating MAX_BRAILLE_SIZE / MAX_BRAILLE_LINES can
+    // carry out-of-range values; clamp here so every consumer gets the
+    // same guarantee the onBlur and handleSave paths enforce.
     const clampedSize = clampBrailleSize(general.brailleDisplaySize);
     const clampedLines = clampBrailleLines(general.brailleDisplayLines);
     if (
