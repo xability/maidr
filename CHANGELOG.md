@@ -1,3 +1,10 @@
+## [3.66.1](https://github.com/xability/maidr/compare/v3.66.0...v3.66.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* harden altair adapter pipeline across line, box, count, dodged plots ([#609](https://github.com/xability/maidr/issues/609)) ([14a08a4](https://github.com/xability/maidr/commit/14a08a408788a7e7ef3474079cbe392487c1c15f))
+
 # [3.66.0](https://github.com/xability/maidr/compare/v3.65.0...v3.66.0) (2026-05-02)
 
 
