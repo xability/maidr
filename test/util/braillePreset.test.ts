@@ -371,6 +371,20 @@ describe('normalizeBrailleDisplay', () => {
     expect(next.brailleDisplayLines).toBe(1);
   });
 
+  test('repairs mismatched cells/lines for a valid preset id', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'single',
+      brailleDisplayPresetId: 'mantis-q40',
+      brailleDisplaySize: 999,
+      brailleDisplayLines: 7,
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayPresetId).toBe('mantis-q40');
+    expect(next.brailleDisplaySize).toBe(40);
+    expect(next.brailleDisplayLines).toBe(1);
+  });
+
   test('preserves reference for already-clean manual settings', () => {
     const general: GeneralSettings = {
       ...baseGeneral,

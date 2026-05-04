@@ -56,6 +56,12 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
+// Letter portion of the dialog accelerator keys. Shared between the
+// keydown handler and the aria-keyshortcuts attributes so the two
+// cannot drift apart and announce a shortcut that no longer fires.
+const SAVE_SHORTCUT_KEY = 's';
+const CANCEL_SHORTCUT_KEY = 'c';
+
 function getValidVersion(
   modelKey: Llm,
   currentVersion: string | undefined,
@@ -469,13 +475,13 @@ const Settings: React.FC = () => {
         return;
       }
       const key = e.key.toLowerCase();
-      if (key === 's') {
+      if (key === SAVE_SHORTCUT_KEY) {
         if (!isCustomInstructionValid) {
           return;
         }
         e.preventDefault();
         handleSave();
-      } else if (key === 'c') {
+      } else if (key === CANCEL_SHORTCUT_KEY) {
         e.preventDefault();
         handleClose();
       }
@@ -707,7 +713,7 @@ const Settings: React.FC = () => {
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatSingleLinePreset}
                 onPresetChange={handleSingleLinePresetChange}
-                hint={`Don't see your display? Choose "Configure manually".`}
+                hint={'Don\'t see your display? Choose "Configure manually".'}
               />
             </Grid>
           )}
@@ -720,7 +726,7 @@ const Settings: React.FC = () => {
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatMultiLinePreset}
                 onPresetChange={handleMultiLinePresetChange}
-                hint={`Don't see your display? Choose "Configure manually".`}
+                hint={'Don\'t see your display? Choose "Configure manually".'}
               />
             </Grid>
           )}
@@ -1112,7 +1118,7 @@ const Settings: React.FC = () => {
               color="inherit"
               onClick={handleClose}
               aria-label="Close Settings with no changes"
-              aria-keyshortcuts="Alt+c"
+              aria-keyshortcuts={`Alt+${CANCEL_SHORTCUT_KEY}`}
             >
               Close
             </Button>
@@ -1129,7 +1135,7 @@ const Settings: React.FC = () => {
                   : ''
               }
               aria-label="Save & Close Settings"
-              aria-keyshortcuts="Alt+s"
+              aria-keyshortcuts={`Alt+${SAVE_SHORTCUT_KEY}`}
             >
               Save & Close
             </Button>

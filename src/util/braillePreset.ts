@@ -62,12 +62,8 @@ export function clampBrailleSize(value: number): number {
   return Math.min(MAX_BRAILLE_SIZE, Math.max(1, floored));
 }
 
-// Parses a manual cells / lines text input. Empty / whitespace-only /
-// non-finite raw values return null so callers leave the partially-typed
-// state alone. Without `clamp` (the onChange path) only the integer floor
-// is applied, so typing "200" is not snapped to MAX mid-edit. With
-// `clamp` (the onBlur path or the pre-save guard) the value is brought
-// into [1, MAX].
+// `clamp` omitted = onChange path (floor only, no range snap mid-edit);
+// `clamp` supplied = commit path (brings value into [1, MAX]).
 export function parseManualBrailleInput(
   raw: string,
   clamp?: (n: number) => number,
@@ -184,8 +180,22 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
   const presets = kind === 'single'
     ? SINGLE_LINE_BRAILLE_PRESETS
     : MULTI_LINE_BRAILLE_PRESETS;
-  if (findBraillePreset(presets, general.brailleDisplayPresetId)) {
-    return general;
+  const preset = findBraillePreset(presets, general.brailleDisplayPresetId);
+  if (preset) {
+    // Saved settings can drift from the catalog if localStorage is edited
+    // by hand or if a preset's cells/lines change between releases. Force
+    // cells/lines back into agreement with the preset.
+    if (
+      general.brailleDisplaySize === preset.cells
+      && general.brailleDisplayLines === preset.lines
+    ) {
+      return general;
+    }
+    return {
+      ...general,
+      brailleDisplaySize: preset.cells,
+      brailleDisplayLines: preset.lines,
+    };
   }
   const slice = selectBrailleDisplayKind(kind, general.brailleDisplayPresetId);
   return { ...general, ...slice };
