@@ -68,7 +68,6 @@ export function findBraillePreset(
   return presets.find(p => p.id === presetId);
 }
 
-// Manual omits size/lines so spreading the slice preserves prior values.
 export function selectBrailleDisplayKind(
   kind: BrailleDisplayKind,
   currentPresetId: string | null,
@@ -126,9 +125,10 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
     ? rawKind
     : DEFAULT_BRAILLE_DISPLAY_KIND;
   if (kind === 'manual') {
-    return kind === general.brailleDisplayKind
-      ? general
-      : { ...general, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };
+    if (general.brailleDisplayKind === 'manual' && general.brailleDisplayPresetId === null) {
+      return general;
+    }
+    return { ...general, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };
   }
   const presets = kind === 'single'
     ? SINGLE_LINE_BRAILLE_PRESETS

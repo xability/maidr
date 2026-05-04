@@ -109,7 +109,6 @@ const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'cen
 
 interface BraillePresetSelectProps {
   rowLabel: string;
-  ariaLabel: string;
   placeholder: string;
   presets: readonly BrailleDisplayPreset[];
   selectedPresetId: string | null;
@@ -119,39 +118,42 @@ interface BraillePresetSelectProps {
 
 const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
   rowLabel,
-  ariaLabel,
   placeholder,
   presets,
   selectedPresetId,
   formatPreset,
   onPresetChange,
-}) => (
-  <SettingRow
-    label={rowLabel}
-    input={(
-      <FormControl fullWidth>
-        <Select
-          value={selectedPresetId ?? ''}
-          onChange={e => onPresetChange(e.target.value)}
-          fullWidth
-          size="small"
-          displayEmpty
-          slotProps={{ input: { 'aria-label': ariaLabel } }}
-          MenuProps={{ disablePortal: true }}
-        >
-          <MenuItem value="" disabled>
-            {placeholder}
-          </MenuItem>
-          {presets.map(preset => (
-            <MenuItem key={preset.id} value={preset.id}>
-              {formatPreset(preset)}
+}) => {
+  const labelId = useId();
+  return (
+    <SettingRow
+      label={rowLabel}
+      labelId={labelId}
+      input={(
+        <FormControl fullWidth>
+          <Select
+            value={selectedPresetId ?? ''}
+            onChange={e => onPresetChange(e.target.value)}
+            fullWidth
+            size="small"
+            displayEmpty
+            slotProps={{ input: { 'aria-labelledby': labelId } }}
+            MenuProps={{ disablePortal: true }}
+          >
+            <MenuItem value="" disabled>
+              {placeholder}
             </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    )}
-  />
-);
+            {presets.map(preset => (
+              <MenuItem key={preset.id} value={preset.id}>
+                {formatPreset(preset)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+    />
+  );
+};
 
 interface LlmModelSettingRowProps {
   modelKey: Llm;
@@ -369,8 +371,6 @@ const Settings: React.FC = () => {
 
   const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
     setGeneralSettings((prev) => {
-      // Manual omits size/lines from the slice on purpose so the spread
-      // preserves the existing values as the starting point for edits.
       const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
       return { ...prev, ...slice };
     });
@@ -703,7 +703,6 @@ const Settings: React.FC = () => {
             <Grid size={12}>
               <BraillePresetSelect
                 rowLabel="Single-Line Display"
-                ariaLabel="Single-Line Braille Display"
                 placeholder="Select a single-line display"
                 presets={SINGLE_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
@@ -716,7 +715,6 @@ const Settings: React.FC = () => {
             <Grid size={12}>
               <BraillePresetSelect
                 rowLabel="Multi-Line Display"
-                ariaLabel="Multi-Line Braille Display"
                 placeholder="Select a multi-line display"
                 presets={MULTI_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
@@ -738,12 +736,6 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplaySize}
                         onChange={(e) => {
-                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
-                          if (next !== null) {
-                            handleGeneralChange('brailleDisplaySize', next);
-                          }
-                        }}
-                        onBlur={(e) => {
                           const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
                           if (next !== null) {
                             handleGeneralChange('brailleDisplaySize', next);
@@ -776,12 +768,6 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplayLines}
                         onChange={(e) => {
-                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
-                          if (next !== null) {
-                            handleGeneralChange('brailleDisplayLines', next);
-                          }
-                        }}
-                        onBlur={(e) => {
                           const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
                           if (next !== null) {
                             handleGeneralChange('brailleDisplayLines', next);

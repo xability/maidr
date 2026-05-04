@@ -231,6 +231,17 @@ describe('normalizeBrailleDisplay', () => {
     expect(normalizeBrailleDisplay(general)).toBe(general);
   });
 
+  test('clears stale presetId when kind is already manual', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'manual',
+      brailleDisplayPresetId: 'mantis-q40',
+    };
+    const next = normalizeBrailleDisplay(general);
+    expect(next.brailleDisplayKind).toBe('manual');
+    expect(next.brailleDisplayPresetId).toBeNull();
+  });
+
   test('returns the same object when single-kind preset id is valid', () => {
     const general: GeneralSettings = {
       ...baseGeneral,
