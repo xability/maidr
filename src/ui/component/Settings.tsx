@@ -43,6 +43,8 @@ import {
 import {
   clampBrailleLines,
   clampBrailleSize,
+  formatMultiLinePreset,
+  formatSingleLinePreset,
   isBrailleDisplayKind,
   MULTI_LINE_BRAILLE_PRESETS,
   selectBrailleDisplayKind,
@@ -52,14 +54,6 @@ import {
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
-
-function formatSingleLinePreset(p: BrailleDisplayPreset): string {
-  return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
-}
-
-function formatMultiLinePreset(p: BrailleDisplayPreset): string {
-  return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
-}
 
 // Returns the clamped value or null when the raw input is empty / NaN —
 // callers skip the update so a partially-typed field stays editable.

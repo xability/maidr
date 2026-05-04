@@ -51,11 +51,21 @@ export function isBrailleDisplayKind(value: unknown): value is BrailleDisplayKin
 }
 
 export function clampBrailleLines(value: number): number {
-  return Math.min(MAX_BRAILLE_LINES, Math.max(1, Math.floor(value) || 1));
+  const floored = Number.isNaN(value) ? 1 : Math.floor(value);
+  return Math.min(MAX_BRAILLE_LINES, Math.max(1, floored));
 }
 
 export function clampBrailleSize(value: number): number {
-  return Math.min(MAX_BRAILLE_SIZE, Math.max(1, Math.floor(value) || 1));
+  const floored = Number.isNaN(value) ? 1 : Math.floor(value);
+  return Math.min(MAX_BRAILLE_SIZE, Math.max(1, floored));
+}
+
+export function formatSingleLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
+}
+
+export function formatMultiLinePreset(p: BrailleDisplayPreset): string {
+  return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
 }
 
 export function findBraillePreset(
