@@ -115,6 +115,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
   hint,
 }) => {
   const labelId = useId();
+  const hintId = useId();
   return (
     <SettingRow
       label={rowLabel}
@@ -127,7 +128,13 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
             fullWidth
             size="small"
             displayEmpty
-            slotProps={{ input: { 'aria-labelledby': labelId, 'aria-required': true } }}
+            slotProps={{
+              input: {
+                'aria-labelledby': labelId,
+                'aria-required': true,
+                ...(hint ? { 'aria-describedby': hintId } : {}),
+              },
+            }}
             MenuProps={{ disablePortal: true }}
           >
             <MenuItem value="" disabled>
@@ -140,7 +147,11 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
             ))}
           </Select>
           {hint && (
-            <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+            <Typography
+              id={hintId}
+              variant="caption"
+              sx={{ mt: 0.5, color: 'text.secondary' }}
+            >
               {hint}
             </Typography>
           )}

@@ -158,6 +158,10 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
     // same guarantee the onBlur and handleSave paths enforce.
     const clampedSize = clampBrailleSize(general.brailleDisplaySize);
     const clampedLines = clampBrailleLines(general.brailleDisplayLines);
+    // Do not delete the `general.brailleDisplayKind === kind` check: when a
+    // pre-feature saved object has rawKind === undefined, kind defaults to
+    // 'manual' but general.brailleDisplayKind is still undefined, so this
+    // line forces the field to actually be written.
     if (
       general.brailleDisplayKind === kind
       && general.brailleDisplayPresetId === null
