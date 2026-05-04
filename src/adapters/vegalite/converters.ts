@@ -470,16 +470,22 @@ function extractBarData(
   // `aggregate: 'count'` without an explicit `field`. extractHistogramData
   // already handles this on its yVal lookup; the same fallback is needed
   // here for count-only bar plots.
+  //
+  // Lookup order: explicit field FIRST, `__count` only as fallback. If the
+  // user supplies an explicit field, that field is the source of truth even
+  // when Vega happens to also denormalise `__count` onto the row (e.g. via
+  // a joinaggregate transform). `__count` is consulted only when the named
+  // field is absent or nullish, which is exactly the count-aggregate case.
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
       return {
-        x: Number((row as Record<string, unknown>).__count ?? row[xField] ?? 0),
+        x: Number(row[xField] ?? (row as Record<string, unknown>).__count ?? 0),
         y: String(row[yField] ?? ''),
       };
     }
     return {
       x: String(row[xField] ?? ''),
-      y: Number((row as Record<string, unknown>).__count ?? row[yField] ?? 0),
+      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
     };
   });
 }
@@ -508,7 +514,9 @@ function extractHistogramData(
   return rows.map((row) => {
     const xMin = Number((binStart ? row[binStart] : undefined) ?? row[xField] ?? 0);
     const xMax = Number((binEnd ? row[binEnd] : undefined) ?? xMin + 1);
-    const yVal = Number(row.__count ?? row[yField] ?? 0);
+    // Lookup order: explicit field FIRST, `__count` only as fallback. See
+    // the matching note in `extractBarData` for why explicit fields win.
+    const yVal = Number(row[yField] ?? row.__count ?? 0);
 
     return {
       x: `${xMin}-${xMax}`,
@@ -540,12 +548,15 @@ function extractSegmentedData(
   // Vega-Lite emits a synthetic `__count` field whenever the channel uses
   // `aggregate: 'count'` without an explicit `field`. The same fallback
   // is required here as in extractBarData / extractHistogramData.
+  //
+  // Lookup order: explicit field FIRST, `__count` only as fallback. See
+  // the matching note in `extractBarData` for why explicit fields win.
   const groups = new Map<string, SegmentedPoint[]>();
   for (const row of rows) {
     const fill = String(row[colorField] ?? '');
     const pt: SegmentedPoint = {
       x: String(row[xField] ?? ''),
-      y: Number((row as Record<string, unknown>).__count ?? row[yField] ?? 0),
+      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
       z: fill,
     };
     if (!groups.has(fill))

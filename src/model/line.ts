@@ -528,7 +528,7 @@ export class LineTrace extends AbstractTrace {
     for (let r = 0; r < selectors.length; r++) {
       const lineElement = uniqueSelectors
         ? Svg.selectElement(selectors[r], false)
-        : Svg.selectNthElement(selectors[0], r, false);
+        : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
         continue;
