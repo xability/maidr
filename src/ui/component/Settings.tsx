@@ -45,7 +45,6 @@ import {
   clampBrailleSize,
   isBrailleDisplayKind,
   MULTI_LINE_BRAILLE_PRESETS,
-  normalizeBrailleDisplay,
   selectBrailleDisplayKind,
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
@@ -91,12 +90,16 @@ interface SettingRowProps {
   label: string;
   input: React.ReactNode;
   alignLabel?: 'center' | 'flex-start';
+  // When set, the visible label gets this id so the input can use
+  // aria-labelledby instead of aria-label, avoiding duplicate
+  // announcement of the same text by screen readers.
+  labelId?: string;
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center' }) => (
+const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center', labelId }) => (
   <Grid container spacing={1} alignItems={alignLabel} className="settings-grid-container" sx={{ py: 1 }}>
     <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={alignLabel === 'flex-start' ? { py: 1 } : undefined}>
-      <Typography variant="body2" fontWeight="normal">
+      <Typography id={labelId} variant="body2" fontWeight="normal">
         {label}
       </Typography>
     </Grid>
@@ -339,8 +342,10 @@ const Settings: React.FC = () => {
   const chatViewModel = useViewModel('chat');
   const { general, llm } = viewModel.state;
 
-  const [generalSettings, setGeneralSettings]
-    = useState<GeneralSettings>(() => normalizeBrailleDisplay(general));
+  // SettingsService normalizes braille display fields at construction
+  // before any consumer reads them, so the component-side state already
+  // arrives in a coherent shape and does not need to re-normalize here.
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   useEffect(() => {
@@ -348,7 +353,7 @@ const Settings: React.FC = () => {
   }, [viewModel]);
 
   useEffect(() => {
-    setGeneralSettings(normalizeBrailleDisplay(general));
+    setGeneralSettings(general);
     setLlmSettings(llm);
   }, [general, llm]);
 
@@ -660,6 +665,7 @@ const Settings: React.FC = () => {
             <SettingRow
               label="Braille Display"
               alignLabel="flex-start"
+              labelId={`${id}-braille-kind-label`}
               input={(
                 <FormControl>
                   <RadioGroup
@@ -671,7 +677,7 @@ const Settings: React.FC = () => {
                         handleBrailleKindChange(v);
                       }
                     }}
-                    aria-label="Braille display type"
+                    aria-labelledby={`${id}-braille-kind-label`}
                   >
                     <FormControlLabel
                       value="single"

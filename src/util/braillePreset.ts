@@ -45,8 +45,9 @@ export const MULTI_LINE_BRAILLE_PRESETS: NonEmptyBraillePresets = [
   { id: 'dot-pad-x', label: 'Dot Pad X', manufacturer: 'Dot Inc.', cells: 20, lines: 8 },
 ] as const;
 
-export function isBrailleDisplayKind(value: string): value is BrailleDisplayKind {
-  return (BRAILLE_DISPLAY_KINDS as readonly string[]).includes(value);
+export function isBrailleDisplayKind(value: unknown): value is BrailleDisplayKind {
+  return typeof value === 'string'
+    && (BRAILLE_DISPLAY_KINDS as readonly string[]).includes(value);
 }
 
 export function clampBrailleLines(value: number): number {
@@ -121,8 +122,8 @@ export function selectBraillePreset(
 // a single/multi kind, or a missing kind from a pre-feature saved object.
 export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettings {
   const rawKind: unknown = general.brailleDisplayKind;
-  const kind: BrailleDisplayKind = isBrailleDisplayKind(rawKind as string)
-    ? (rawKind as BrailleDisplayKind)
+  const kind: BrailleDisplayKind = isBrailleDisplayKind(rawKind)
+    ? rawKind
     : DEFAULT_BRAILLE_DISPLAY_KIND;
   if (kind === 'manual') {
     return kind === general.brailleDisplayKind

@@ -242,6 +242,17 @@ describe('normalizeBrailleDisplay', () => {
     expect(normalizeBrailleDisplay(general)).toBe(general);
   });
 
+  test('returns the same object when multi-kind preset id is valid', () => {
+    const general: GeneralSettings = {
+      ...baseGeneral,
+      brailleDisplayKind: 'multi',
+      brailleDisplayPresetId: 'canute-360',
+      brailleDisplaySize: 40,
+      brailleDisplayLines: 9,
+    };
+    expect(normalizeBrailleDisplay(general)).toBe(general);
+  });
+
   test('snaps to first single-line preset when id is null', () => {
     const general: GeneralSettings = {
       ...baseGeneral,
