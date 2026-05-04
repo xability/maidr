@@ -477,7 +477,18 @@ export class LineTrace extends AbstractTrace {
     let allFailed = true;
 
     for (let r = 0; r < selectors.length; r++) {
-      const elements = Svg.selectAllElements(selectors[r]);
+      // Pass shouldClone=false so we DON'T mutate the DOM by inserting a
+      // hidden clone after every match. Inserting a clone shifts
+      // :nth-child(N) indices for subsequent iterations: a multi-series
+      // line chart with sibling <path> elements in the same <g> ends up
+      // with iteration r=1 matching the clone of path0 (instead of path1)
+      // and r=2 matching the clone of clone of path0, etc. The downstream
+      // mapViaPathParsing then reads series 0's `d` for every series, so
+      // all highlights collapse onto series 0 even though navigation
+      // announcement (which uses lineValues, not the DOM) is correct.
+      // Highlighting always re-clones via Svg.createHighlightElement, so
+      // we don't need the pre-cloned hidden elements.
+      const elements = Svg.selectAllElements(selectors[r], false);
       if (elements.length === 0 || elements.length !== this.lineValues[r].length) {
         svgElements.push([]);
         continue;
@@ -500,8 +511,24 @@ export class LineTrace extends AbstractTrace {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
 
+    // Detect selector layout:
+    //   - Standard case (e.g. matplotlib/seaborn multi-line): each series has
+    //     a UNIQUE selector that resolves to exactly one <path> (e.g.
+    //     "g[id='maidr-<uuid-A>'] path", "g[id='maidr-<uuid-B>'] path", ...).
+    //   - Color-hue case (e.g. Vega-Lite single mark with a color encoding):
+    //     all entries in `selectors` are IDENTICAL — Vega renders N sibling
+    //     `<g class="mark-line role-mark layer_0_marks">` groups, each with
+    //     exactly one `<path>`, so a single shared selector matches all N.
+    // For the standard case, selectNthElement(selectors[r], r) would ask for
+    // the r-th match of a selector that has only 1 match, returning null for
+    // r >= 1 and crashing the highlight pipeline downstream. So branch on
+    // selector uniqueness.
+    const uniqueSelectors = new Set(selectors).size === selectors.length;
+
     for (let r = 0; r < selectors.length; r++) {
-      const lineElement = Svg.selectElement(selectors[r], false);
+      const lineElement = uniqueSelectors
+        ? Svg.selectElement(selectors[r], false)
+        : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
         continue;

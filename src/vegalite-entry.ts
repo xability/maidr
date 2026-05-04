@@ -468,6 +468,156 @@ function reorderSegmentedSeriesByVisualBottom(
 }
 
 /**
+ * For each DODGED layer, ensure that **`data[0]` is the visually
+ * left-most series** (the subgroup whose bars are drawn at the smallest
+ * x-coordinate within each x-category). Mirrors
+ * {@link reorderSegmentedSeriesByVisualBottom} but applies a horizontal
+ * (leftmost-first) sort instead of a vertical (bottom-first) sort,
+ * because DODGED bars are side-by-side rather than stacked.
+ *
+ * Why this is needed: Vega-Lite's `xOffset` encoding draws subgroups
+ * left-to-right by xOffset scale-domain order, but the dataset row
+ * order driving `extractSegmentedData`'s grouping is independent of
+ * that scale order — so without re-sorting, MAIDR's row=0 navigation
+ * lands on whichever fill value happens to appear first in the data
+ * rows, not the leftmost-rendered series.
+ *
+ * Subject-major DOM (`order: 'column'`, the default for DODGED): the
+ * first N DOM elements correspond to the first x-category, one per
+ * series, in series-emission order. We pick the leftmost of those.
+ *
+ * Series-major DOM (`order: 'row'`): each series occupies a contiguous
+ * block of size categoryCount; we sample element[s * categoryCount] to
+ * get each series' first-category bar.
+ */
+function reorderDodgedBarsByVisualPosition(
+  svg: SVGSVGElement,
+  layers: MaidrLayer[],
+): void {
+  // Wrap entire body in try/catch so a runtime exception here cannot
+  // abort the rest of the visual-order pipeline (which includes
+  // buildBoxPlotSelectorsFromDom). The catch logs an error so a real
+  // failure surfaces in the console without breaking subsequent steps.
+  try {
+    for (const layer of layers) {
+      if (layer.type !== TraceType.DODGED) {
+        continue;
+      }
+      if (typeof layer.selectors !== 'string') {
+        continue;
+      }
+      if (!Array.isArray(layer.data) || layer.data.length < 2) {
+        continue;
+      }
+
+      const data = layer.data as Array<Array<{ z?: string }>>;
+      const seriesCount = data.length;
+      const categoryCount = data[0]?.length ?? 0;
+      if (categoryCount === 0) {
+        continue;
+      }
+
+      const elements = Array.from(
+        svg.querySelectorAll<SVGGraphicsElement>(layer.selectors),
+      );
+      if (elements.length !== seriesCount * categoryCount) {
+        continue;
+      }
+
+      if (!isLaidOutForSort(elements[0])) {
+        debugLog(`dodged layer "${layer.id}": skipping leftmost reorder (chart not laid out)`);
+        continue;
+      }
+
+      // Resolve the indices of the elements that belong to the FIRST
+      // x-category. Their bounding boxes tell us which series sits at
+      // the visual left of that category.
+      const order = layer.domMapping?.order ?? 'column';
+      const firstCatDomIndices: number[] = [];
+      if (order === 'column') {
+      // subject-major: first N elements are the first category.
+        for (let s = 0; s < seriesCount; s++) {
+          firstCatDomIndices.push(s);
+        }
+      } else {
+      // series-major: each series occupies a contiguous block of size
+      // categoryCount; the first category is at the start of each block.
+        for (let s = 0; s < seriesCount; s++) {
+          firstCatDomIndices.push(s * categoryCount);
+        }
+      }
+
+      // Sort series by visual x of their first-category bar (ascending).
+      // Stable sort preserves relative order for equal-x cases.
+      const seriesByLeftX = firstCatDomIndices
+        .map((domIdx, dataDomSeries) => ({
+          dataDomSeries,
+          x: elements[domIdx].getBoundingClientRect().x,
+        }))
+        .sort((a, b) => a.x - b.x);
+
+      const newOrder = seriesByLeftX.map(s => s.dataDomSeries);
+
+      // No-op when already left-to-right.
+      const alreadyOrdered = newOrder.every((s, i) => s === i);
+      if (alreadyOrdered) {
+        debugLog(`dodged layer "${layer.id}": series already in left-to-right order`);
+        continue;
+      }
+
+      debugLog(
+        `dodged layer "${layer.id}": re-sorting ${seriesCount} series by `
+        + `visual leftmost x within first category`,
+      );
+
+      // 1. Reorder `data` so series 0 is the leftmost-most.
+      const newData = newOrder.map(s => data[s]);
+      layer.data = newData as MaidrLayer['data'];
+
+      // 2. Reorder DOM elements *within each x-category* so that the
+      //    layout assumed by `domMapping` still holds.
+      const newElements: SVGGraphicsElement[] = [];
+      if (order === 'column') {
+        for (let c = 0; c < categoryCount; c++) {
+          for (const s of newOrder) {
+            newElements.push(elements[c * seriesCount + s]);
+          }
+        }
+      } else {
+        for (const s of newOrder) {
+          for (let c = 0; c < categoryCount; c++) {
+            newElements.push(elements[s * categoryCount + c]);
+          }
+        }
+      }
+
+      // Re-append nodes in `newElements` order, grouped by parent so we
+      // don't disturb cross-group ordering.
+      const byParent = new Map<Element, SVGGraphicsElement[]>();
+      for (const el of newElements) {
+        const parent = el.parentElement;
+        if (!parent) {
+          continue;
+        }
+        const arr = byParent.get(parent);
+        if (arr) {
+          arr.push(el);
+        } else {
+          byParent.set(parent, [el]);
+        }
+      }
+      for (const [parent, group] of byParent) {
+        for (const el of group) {
+          parent.appendChild(el);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[maidr/vegalite] dodged reorder failed:', err);
+  }
+}
+
+/**
  * For HISTOGRAM layers, pair each data bin with its corresponding DOM
  * element and sort by visual x-position (or y for horizontal). This
  * mirrors {@link sortSimpleBarsByVisualOrder} but applies to histograms
@@ -1450,6 +1600,13 @@ export function bindVegaLite(
   // `applySegmentedDomMappings` because we rely on its `domMapping`
   // output to know how DOM elements are grouped per category.
   reorderSegmentedSeriesByVisualBottom(svg as SVGSVGElement, layers);
+
+  // For DODGED layers, ensure series 0 in `data` is the visually
+  // leftmost subgroup so initial focus (row=0) lands on the leftmost
+  // bar of the first x-category, matching sighted-user expectations
+  // ("first" = leftmost). Must run AFTER `applySegmentedDomMappings`
+  // for the same reason as the segmented bottom-reorder above.
+  reorderDodgedBarsByVisualPosition(svg as SVGSVGElement, layers);
 
   // For HISTOGRAM layers, pair data bins with DOM elements and sort by
   // visual position so `data[i]` lines up with the i-th left-to-right
