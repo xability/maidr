@@ -135,7 +135,11 @@ export function normalizeBrailleDisplay(general: GeneralSettings): GeneralSettin
     ? rawKind
     : DEFAULT_BRAILLE_DISPLAY_KIND;
   if (kind === 'manual') {
-    if (general.brailleDisplayKind === 'manual' && general.brailleDisplayPresetId === null) {
+    // Reference-equality fast path: no repair needed when the saved kind
+    // already matched and the preset id was already null. The kind check
+    // is meaningful when rawKind was undefined / invalid and we defaulted
+    // to manual — in that case the field still needs to be written.
+    if (general.brailleDisplayKind === kind && general.brailleDisplayPresetId === null) {
       return general;
     }
     return { ...general, brailleDisplayKind: 'manual', brailleDisplayPresetId: null };

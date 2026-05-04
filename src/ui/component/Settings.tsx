@@ -55,17 +55,20 @@ import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-// Returns the clamped value or null when the raw input is empty / NaN —
-// callers skip the update so a partially-typed field stays editable.
-function parseManualBrailleInput(raw: string, clamp: (n: number) => number): number | null {
+// Parses a manual cells / lines input. With `clamp` omitted (the
+// onChange path) only the integer floor is applied, so typing "200" is
+// not snapped to MAX mid-edit. With `clamp` supplied (the onBlur path)
+// the committed value is brought into [1, MAX]. Empty / non-finite raw
+// values return null so callers leave the partially-typed state alone.
+function parseManualBrailleInput(raw: string, clamp?: (n: number) => number): number | null {
   if (raw === '') {
     return null;
   }
   const parsed = Number(raw);
-  if (Number.isNaN(parsed)) {
+  if (!Number.isFinite(parsed)) {
     return null;
   }
-  return clamp(parsed);
+  return clamp ? clamp(parsed) : Math.floor(parsed);
 }
 
 function getValidVersion(
@@ -730,6 +733,12 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplaySize}
                         onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
+                        onBlur={(e) => {
                           const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
                           if (next !== null) {
                             handleGeneralChange('brailleDisplaySize', next);
@@ -762,6 +771,12 @@ const Settings: React.FC = () => {
                         size="small"
                         value={generalSettings.brailleDisplayLines}
                         onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
+                        onBlur={(e) => {
                           const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
                           if (next !== null) {
                             handleGeneralChange('brailleDisplayLines', next);
