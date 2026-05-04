@@ -69,9 +69,11 @@ describe('parseManualBrailleInput', () => {
   });
 
   test('passes 0 through editing path; clamp commits to 1', () => {
-    // The editing path intentionally returns 0 so a user can type "10"
-    // by way of "1" → "10" without the leading "0" being rewritten.
-    // The save / blur path lifts it to the [1, MAX] range.
+    // The editing path intentionally returns 0 (no minimum clamp) so a
+    // user typing a leading "0" — for example as the first keystroke of
+    // a longer value like "08" — sees that "0" preserved instead of
+    // jumping to 1. The save / blur path lifts the committed value
+    // back into [1, MAX].
     expect(parseManualBrailleInput('0')).toBe(0);
     expect(parseManualBrailleInput('0', clampBrailleSize)).toBe(1);
   });

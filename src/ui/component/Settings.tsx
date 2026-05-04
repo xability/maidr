@@ -96,6 +96,7 @@ interface BraillePresetSelectProps {
   selectedPresetId: string | null;
   formatPreset: (preset: BrailleDisplayPreset) => string;
   onPresetChange: (presetId: string) => void;
+  hint?: string;
 }
 
 const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
@@ -105,6 +106,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
   selectedPresetId,
   formatPreset,
   onPresetChange,
+  hint,
 }) => {
   const labelId = useId();
   return (
@@ -119,9 +121,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
             fullWidth
             size="small"
             displayEmpty
-            slotProps={{
-              input: { 'aria-labelledby': labelId, 'aria-label': rowLabel },
-            }}
+            slotProps={{ input: { 'aria-labelledby': labelId } }}
             MenuProps={{ disablePortal: true }}
           >
             <MenuItem value="" disabled>
@@ -133,9 +133,11 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
               </MenuItem>
             ))}
           </Select>
-          <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
-            Don't see your display? Choose "Configure manually".
-          </Typography>
+          {hint && (
+            <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary' }}>
+              {hint}
+            </Typography>
+          )}
         </FormControl>
       )}
     />
@@ -705,6 +707,7 @@ const Settings: React.FC = () => {
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatSingleLinePreset}
                 onPresetChange={handleSingleLinePresetChange}
+                hint={`Don't see your display? Choose "Configure manually".`}
               />
             </Grid>
           )}
@@ -717,6 +720,7 @@ const Settings: React.FC = () => {
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatMultiLinePreset}
                 onPresetChange={handleMultiLinePresetChange}
+                hint={`Don't see your display? Choose "Configure manually".`}
               />
             </Grid>
           )}
