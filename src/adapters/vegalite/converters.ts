@@ -87,9 +87,18 @@ export function vegaLiteToMaidr(
   // Handle layered specs.
   const isLayered = spec.layer != null && spec.layer.length > 0;
   if (isLayered) {
-    const layers = spec.layer!.map((layerSpec, i) =>
+    const rawLayers = spec.layer!.map((layerSpec, i) =>
       convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder),
     ).filter(Boolean) as MaidrLayer[];
+
+    // Coalesce sibling LINE layers with matching axes into a single
+    // multi-series LINE layer. This handles the common Altair case where
+    // a multi-series KDE / density plot is compiled into N separate
+    // single-line `layer:` objects (one per group) instead of one layer
+    // with a `color` encoding. Without coalescing, maidr core sees N
+    // independent LINE traces and the user can only navigate within one
+    // series at a time.
+    const layers = coalesceSiblingLineLayers(rawLayers);
 
     return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
@@ -100,6 +109,102 @@ export function vegaLiteToMaidr(
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
   return buildMaidr(id, title, subtitle, caption, [[{ layers: [layer] }]]);
+}
+
+/**
+ * Merge runs of consecutive LINE layers whose axes describe the same
+ * coordinate space (matching x and y labels) into a single multi-series
+ * LINE layer.
+ *
+ * Why: Altair compiles `transform_density` + multi-group encodings into
+ * separate `layer:` objects — one mark per group — instead of using a
+ * `color` encoding. The downstream maidr LineTrace expects a 2D
+ * `LinePoint[][]` (one inner array per series); leaving each group as
+ * its own layer makes navigation jump between traces and breaks the
+ * single-plot mental model.
+ *
+ * Layers that don't satisfy the merge predicate (different mark types,
+ * different axes, only one in the run) pass through unchanged. SCATTER +
+ * LINE pairs (linreplot) are NOT collapsed because the SCATTER mark is
+ * not LINE-typed and the predicate skips it.
+ */
+function coalesceSiblingLineLayers(layers: MaidrLayer[]): MaidrLayer[] {
+  if (layers.length < 2)
+    return layers;
+
+  const out: MaidrLayer[] = [];
+  let i = 0;
+
+  while (i < layers.length) {
+    const current = layers[i];
+
+    if (current.type !== TraceType.LINE) {
+      out.push(current);
+      i += 1;
+      continue;
+    }
+
+    // Walk forward gathering consecutive LINE layers whose axes match.
+    const run: MaidrLayer[] = [current];
+    let j = i + 1;
+    while (j < layers.length && layers[j].type === TraceType.LINE
+      && axesAreCompatible(current.axes, layers[j].axes)) {
+      run.push(layers[j]);
+      j += 1;
+    }
+
+    if (run.length === 1) {
+      out.push(current);
+    } else {
+      out.push(mergeLineLayers(run));
+    }
+    i = j;
+  }
+
+  return out;
+}
+
+function axesAreCompatible(
+  a: MaidrLayer['axes'] | undefined,
+  b: MaidrLayer['axes'] | undefined,
+): boolean {
+  if (!a || !b)
+    return false;
+  const ax = a.x?.label;
+  const ay = a.y?.label;
+  const bx = b.x?.label;
+  const by = b.y?.label;
+  return ax === bx && ay === by;
+}
+
+function mergeLineLayers(run: MaidrLayer[]): MaidrLayer {
+  // Each input layer's `data` is already `LinePoint[][]` with exactly
+  // one inner series (because per-layer single-line extraction returns
+  // `[pts]`). Flatten by concatenating those inner arrays so the merged
+  // layer ends up as `[layer0_series, layer1_series, ...]`.
+  const mergedData: LinePoint[][] = [];
+  const mergedSelectors: string[] = [];
+
+  for (const layer of run) {
+    if (Array.isArray(layer.data)) {
+      for (const series of layer.data as LinePoint[][]) {
+        mergedData.push(series);
+      }
+    }
+    if (Array.isArray(layer.selectors)) {
+      for (const sel of layer.selectors as string[]) {
+        mergedSelectors.push(sel);
+      }
+    } else if (typeof layer.selectors === 'string') {
+      mergedSelectors.push(layer.selectors);
+    }
+  }
+
+  return {
+    ...run[0],
+    selectors: mergedSelectors,
+    data: mergedData,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -360,16 +465,21 @@ function extractBarData(
   // alphabetises nominal axes by default); we re-sort the actual SVG
   // children in the bind step so querySelectorAll order matches what
   // the user sees, keeping highlight indices aligned with data indices.
+  //
+  // Vega-Lite emits a synthetic `__count` field whenever the channel uses
+  // `aggregate: 'count'` without an explicit `field`. extractHistogramData
+  // already handles this on its yVal lookup; the same fallback is needed
+  // here for count-only bar plots.
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
       return {
-        x: Number(row[xField] ?? 0),
+        x: Number((row as Record<string, unknown>).__count ?? row[xField] ?? 0),
         y: String(row[yField] ?? ''),
       };
     }
     return {
       x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? 0),
+      y: Number((row as Record<string, unknown>).__count ?? row[yField] ?? 0),
     };
   });
 }
@@ -426,12 +536,16 @@ function extractSegmentedData(
   // — `{ order: 'row' }` for stacked/normalised (series-major DOM)
   // or `{ order: 'column', groupDirection: 'forward' }` for dodged
   // (subject-major DOM).
+  //
+  // Vega-Lite emits a synthetic `__count` field whenever the channel uses
+  // `aggregate: 'count'` without an explicit `field`. The same fallback
+  // is required here as in extractBarData / extractHistogramData.
   const groups = new Map<string, SegmentedPoint[]>();
   for (const row of rows) {
     const fill = String(row[colorField] ?? '');
     const pt: SegmentedPoint = {
       x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? 0),
+      y: Number((row as Record<string, unknown>).__count ?? row[yField] ?? 0),
       z: fill,
     };
     if (!groups.has(fill))
@@ -534,7 +648,13 @@ function extractBoxData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
 ): BoxPoint[] {
-  const catField = encoding.x?.field ?? encoding.y?.field ?? 'x';
+  // Mirror the valField pattern: catField is the NON-quantitative field so
+  // horizontal boxplots (x=quant, y=nominal) group by y, not x. Without
+  // this, horizontal Iris boxplots group by 43 unique petalLength values
+  // instead of 3 species, which causes BOX BUILD count-mismatch SKIP.
+  const catField = encoding.x?.type === 'quantitative'
+    ? (encoding.y?.field ?? 'y')
+    : (encoding.x?.field ?? 'x');
   const valField = encoding.x?.type === 'quantitative'
     ? (encoding.x?.field ?? 'x')
     : (encoding.y?.field ?? 'y');
@@ -552,19 +672,69 @@ function extractBoxData(
   // dataset. We keep that order so highlight indices match the SVG
   // group order.
   if (hasPrecomputed) {
-    return rows.map((row) => {
+    // Vega-Lite's joinaggregate transform produces a denormalized dataset:
+    // each raw row carries both its original value AND the replicated box
+    // stats for its category group. Deduplicate by category, and extract
+    // outliers from raw values that fall outside the whisker bounds.
+    interface BoxAccumulator {
+      stats: { min: number; q1: number; q2: number; q3: number; max: number };
+      lowerOutliers: number[];
+      upperOutliers: number[];
+    }
+    const groups = new Map<string, BoxAccumulator>();
+
+    for (const row of rows) {
       const fill = String(row[catField] ?? '');
-      return {
+
+      // Pre-computed stats (identical for every row in this category).
+      const min = Number(row[lowerWhiskerKey] ?? row[lowerBoxKey] ?? 0);
+      const q1 = Number(row[lowerBoxKey] ?? 0);
+      const q2 = Number(row[midBoxKey] ?? 0);
+      const q3 = Number(row[upperBoxKey] ?? 0);
+      const max = Number(row[upperWhiskerKey] ?? row[upperBoxKey] ?? 0);
+
+      if (!groups.has(fill)) {
+        groups.set(fill, {
+          stats: { min, q1, q2, q3, max },
+          lowerOutliers: [],
+          upperOutliers: [],
+        });
+      }
+
+      // Outlier classification: the raw quantitative value coexists with
+      // the aggregated stats in the denormalized dataset. If the field is
+      // absent (genuinely pre-aggregated dataset with no raw rows),
+      // outliers stay empty — that is the correct behaviour because such
+      // datasets do not carry individual outlier observations.
+      const rawValue = row[valField];
+      if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+        const g = groups.get(fill)!;
+        if (rawValue < g.stats.min) {
+          g.lowerOutliers.push(rawValue);
+        } else if (rawValue > g.stats.max) {
+          g.upperOutliers.push(rawValue);
+        }
+      }
+    }
+
+    // Preserve first-seen category order. Sort outliers ascending per
+    // BoxPoint consumer contract.
+    const result: BoxPoint[] = [];
+    for (const [fill, g] of groups) {
+      g.lowerOutliers.sort((a, b) => a - b);
+      g.upperOutliers.sort((a, b) => a - b);
+      result.push({
         z: fill,
-        lowerOutliers: [],
-        min: Number(row[lowerWhiskerKey] ?? row[lowerBoxKey] ?? 0),
-        q1: Number(row[lowerBoxKey] ?? 0),
-        q2: Number(row[midBoxKey] ?? 0),
-        q3: Number(row[upperBoxKey] ?? 0),
-        max: Number(row[upperWhiskerKey] ?? row[upperBoxKey] ?? 0),
-        upperOutliers: [],
-      };
-    });
+        lowerOutliers: g.lowerOutliers,
+        min: g.stats.min,
+        q1: g.stats.q1,
+        q2: g.stats.q2,
+        q3: g.stats.q3,
+        max: g.stats.max,
+        upperOutliers: g.upperOutliers,
+      });
+    }
+    return result;
   }
 
   // Fall back to computing from raw values.
@@ -641,6 +811,7 @@ function convertLayerSpec(
   };
 
   const traceType = resolveTraceType(mark, encoding);
+
   if (!traceType)
     return null;
 
@@ -708,10 +879,27 @@ function convertLayerSpec(
       data = extractHeatmapData(rows, encoding);
       selectors = buildSelector(mark, index, layered);
       break;
-    case TraceType.BOX:
+    case TraceType.BOX: {
       data = extractBoxData(rows, encoding);
       selectors = buildSelector(mark, index, layered);
+      // Vega-Lite boxplot orientation is implicit from encoding type:
+      // x=quantitative + y=nominal/ordinal => HORIZONTAL.
+      // Mirrors the BAR detection at lines 748-754. maidr core needs the
+      // `orientation` field on the layer to (a) interpret axes labels
+      // correctly (category axis vs value axis) and (b) switch arrow-key
+      // navigation to within-quartile (up/down for horz, left/right for
+      // vert). Without this, horizontal boxplots default to vertical-mode
+      // navigation (species-to-species) and the screen reader confuses
+      // the x and y labels.
+      const xIsQuant = encoding.x?.type === 'quantitative'
+        || encoding.x?.aggregate != null;
+      const yIsQuant = encoding.y?.type === 'quantitative'
+        || encoding.y?.aggregate != null;
+      if (xIsQuant && !yIsQuant) {
+        orientation = Orientation.HORIZONTAL;
+      }
       break;
+    }
     default:
       return null;
   }

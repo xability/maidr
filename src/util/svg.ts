@@ -108,6 +108,35 @@ export abstract class Svg {
   }
 
   /**
+   * Select the Nth element matching a query, in document order.
+   *
+   * Useful when a single CSS selector matches multiple sibling elements
+   * (e.g. multi-series Vega-Lite line charts where each series renders as
+   * a separate `<g class="mark-line role-mark layer_0_marks">` group, all
+   * with the same class). CSS `:nth-child(N)` cannot address the Nth
+   * matching group when classes differ; this helper does it via JS.
+   *
+   * Always returns the live DOM element (no cloning side-effects).
+   *
+   * @template T - The type of SVG element to select
+   * @param query - CSS selector string
+   * @param n - Zero-based index into the query results
+   * @param shouldClone - Reserved for API parity with selectElement; always
+   *   treated as false because the indexed-selection use case is for
+   *   resolving live DOM elements that the caller will pass downstream.
+   * @returns The Nth matching element, or null if no Nth match exists
+   */
+  public static selectNthElement<T extends SVGElement>(
+    query: string,
+    n: number,
+    shouldClone: boolean = false,
+  ): T | null {
+    void shouldClone;
+    const all = document.querySelectorAll<T>(query);
+    return all[n] ?? null;
+  }
+
+  /**
    * Creates an empty, hidden, transparent SVG element of the specified type.
    * @param type - The SVG element type to create (default: 'rect')
    * @returns The newly created SVG element
