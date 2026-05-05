@@ -120,7 +120,7 @@ export class LineTrace extends AbstractTrace {
     }
 
     return {
-      chartType: 'line',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

@@ -384,7 +384,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     );
 
     return {
-      chartType: 'point',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

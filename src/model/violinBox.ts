@@ -178,7 +178,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     });
 
     return {
-      chartType: 'violin_box',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

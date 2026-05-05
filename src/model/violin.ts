@@ -140,7 +140,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     );
 
     return {
-      chartType: 'violin_kde',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

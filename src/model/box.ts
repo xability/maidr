@@ -147,7 +147,7 @@ export class BoxTrace extends AbstractTrace {
     ]);
 
     return {
-      chartType: 'box',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

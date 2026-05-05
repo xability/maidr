@@ -429,12 +429,12 @@ export class Candlestick extends AbstractTrace {
       c.high,
       c.low,
       c.close,
-      c.volume,
+      c.volume ?? '',
       c.trend,
     ]);
 
     return {
-      chartType: 'candlestick',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,

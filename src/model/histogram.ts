@@ -43,7 +43,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     });
 
     return {
-      chartType: 'hist',
+      chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
