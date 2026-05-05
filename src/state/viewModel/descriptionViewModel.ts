@@ -50,6 +50,8 @@ export class DescriptionViewModel extends AbstractViewModel<DescriptionMenuState
     if (!isCurrentlyOpen) {
       const data = this.descriptionService.getDescription();
       this.store.dispatch(setDescription(data));
+    } else {
+      this.store.dispatch(setDescription(null));
     }
     this.descriptionService.toggle();
   }
