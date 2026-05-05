@@ -51,24 +51,22 @@ enum AudioMode {
 
 enum AudioSettings {
   VOLUME = 'general.volume',
-  REVERB_INTENSITY = 'general.reverbIntensity',
-  REVERB_DURATION = 'general.reverbDuration',
-  Z_SCALE_VOLUME = 'general.zScaleVolume',
+  ECHO_COUNT = 'general.echoCount',
+  ECHO_VOLUME = 'general.echoVolume',
+  ECHO_DURATION = 'general.echoDuration',
   MIN_FREQUENCY = 'general.minFrequency',
   MAX_FREQUENCY = 'general.maxFrequency',
 }
 
-// Maximum wet-gain at full reverb + full intensity. Boosted because the convolved
-// tail spreads energy over time and sounds quieter than the direct signal.
-const MAX_WET_GAIN = 2.5;
-// Amount the dry gain is reduced by at full reverb + full intensity (1.0 → 1.0 - DRY_TAPER).
-const DRY_TAPER = 0.7;
 // Synthetic impulse response parameters (reference: ellvix/reverb-testing).
 const REVERB_IR_DECAY = 2;
-// When zScaleVolume is enabled, per-tone volume scales linearly between these
-// fractions of the user's configured volume as z goes from min (0) to max (1).
-const Z_VOLUME_MIN_SCALE = 0.5;
-const Z_VOLUME_MAX_SCALE = 1.25;
+const REVERB_IR_DURATION = 1.5;
+// Per-echo reverb ramp. The original tone gets none; each subsequent echo's
+// wet-gain and tail length scale with its position out of `maxEchoCount`,
+// reaching these caps at the conceptual final echo position. Kept subtle on
+// purpose — the echoes themselves carry the 3D cue, the reverb is colour.
+const MAX_ECHO_REVERB_WET = 1.6;
+const MAX_ECHO_REVERB_TAIL = 0.3;
 
 /**
  * Service responsible for audio sonification of plot data.
@@ -90,11 +88,18 @@ export class AudioService implements Observer<PlotState>, Disposable {
   private isCombinedAudio: boolean;
   private mode: AudioMode;
   private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
+  // Pending setTimeouts for queued echoes. Tracked separately from
+  // activeAudioIds so navigation can cancel queued echoes without disturbing
+  // already-sounding tones.
+  private readonly pendingEchoTimeouts: Set<AudioId>;
 
   private volume: number;
-  private reverbIntensity: number;
-  private reverbDuration: number;
-  private zScaleVolume: boolean;
+  private maxEchoCount: number;
+  // Multiplier (0-1) applied to the main tone's volume for the Nth echo.
+  // Each echo position lerps from 1.0 (original tone) to this value at i = maxEchoCount.
+  private echoVolume: number;
+  // Delay between successive echoes, in seconds.
+  private echoDuration: number;
   private minFrequency: number;
   private maxFrequency: number;
   private readonly audioContext: AudioContext;
@@ -118,27 +123,26 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.mode = AudioMode.SEPARATE;
     this.updateMode(state);
     this.activeAudioIds = new Map();
+    this.pendingEchoTimeouts = new Set();
 
     this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
-    this.reverbIntensity = this.normalizeReverbIntensity(settings.get<number>(AudioSettings.REVERB_INTENSITY));
-    this.reverbDuration = this.normalizeReverbDuration(settings.get<number>(AudioSettings.REVERB_DURATION));
-    this.zScaleVolume = settings.get<boolean>(AudioSettings.Z_SCALE_VOLUME);
+    this.maxEchoCount = this.normalizeEchoCount(settings.get<number>(AudioSettings.ECHO_COUNT));
+    this.echoVolume = this.normalizeEchoVolume(settings.get<number>(AudioSettings.ECHO_VOLUME));
+    this.echoDuration = this.normalizeEchoDuration(settings.get<number>(AudioSettings.ECHO_DURATION));
     this.minFrequency = settings.get<number>(AudioSettings.MIN_FREQUENCY);
     this.maxFrequency = settings.get<number>(AudioSettings.MAX_FREQUENCY);
     settings.onChange((event) => {
       if (event.affectsSetting(AudioSettings.VOLUME)) {
         this.volume = this.normalizeVolume(event.get<number>(AudioSettings.VOLUME));
       }
-      if (event.affectsSetting(AudioSettings.REVERB_INTENSITY)) {
-        this.reverbIntensity = this.normalizeReverbIntensity(event.get<number>(AudioSettings.REVERB_INTENSITY));
+      if (event.affectsSetting(AudioSettings.ECHO_COUNT)) {
+        this.maxEchoCount = this.normalizeEchoCount(event.get<number>(AudioSettings.ECHO_COUNT));
       }
-      if (event.affectsSetting(AudioSettings.REVERB_DURATION)) {
-        this.reverbDuration = this.normalizeReverbDuration(event.get<number>(AudioSettings.REVERB_DURATION));
-        // Force the IR to be rebuilt at the new length on the next play.
-        this.reverbIR = null;
+      if (event.affectsSetting(AudioSettings.ECHO_VOLUME)) {
+        this.echoVolume = this.normalizeEchoVolume(event.get<number>(AudioSettings.ECHO_VOLUME));
       }
-      if (event.affectsSetting(AudioSettings.Z_SCALE_VOLUME)) {
-        this.zScaleVolume = event.get<boolean>(AudioSettings.Z_SCALE_VOLUME);
+      if (event.affectsSetting(AudioSettings.ECHO_DURATION)) {
+        this.echoDuration = this.normalizeEchoDuration(event.get<number>(AudioSettings.ECHO_DURATION));
       }
       if (event.affectsSetting(AudioSettings.MIN_FREQUENCY)) {
         this.minFrequency = event.get<number>(AudioSettings.MIN_FREQUENCY);
@@ -223,6 +227,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.updateMode(state);
     // TODO: Clean up previous audio state once syncing with Autoplay interval.
 
+    // Cancel any echoes queued from the previous navigation so they don't
+    // bleed into the new point's playback. Already-sounding tones are left
+    // alone to avoid an audible click from cutting them off mid-envelope.
+    this.cancelPendingEchoes();
+
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF) {
       return;
@@ -287,8 +296,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
         return;
       }
 
-      const reverbArray = Array.isArray(audio.reverb) ? audio.reverb : undefined;
-      const reverbScalar = typeof audio.reverb === 'number' ? audio.reverb : undefined;
+      const zArray = Array.isArray(audio.zIntensity) ? audio.zIntensity : undefined;
+      const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
 
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
@@ -296,17 +305,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
       const playNext = (): void => {
         if (currentIndex < values.length) {
           const idx = currentIndex++;
-          const reverbForTone = reverbArray !== undefined ? reverbArray[idx] : reverbScalar;
-          this.playTone(
-            {
-              min: audio.freq.min,
-              max: audio.freq.max,
-              raw: values[idx],
-            },
-            this.resolvePanning(audio.panning, idx),
-            paletteEntry,
-            reverbForTone,
-          );
+          const toneFreq = {
+            min: audio.freq.min,
+            max: audio.freq.max,
+            raw: values[idx],
+          };
+          const tonePanning = this.resolvePanning(audio.panning, idx);
+          this.playTone(toneFreq, tonePanning, paletteEntry);
+          const zForTone = zArray !== undefined ? zArray[idx] : zScalar;
+          this.scheduleEchoes(toneFreq, tonePanning, paletteEntry, zForTone);
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -320,8 +327,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
       if (value === 0) {
         this.playZeroTone(panning);
       } else {
-        const reverbScalar = typeof audio.reverb === 'number' ? audio.reverb : undefined;
-        this.playTone(audio.freq, panning, paletteEntry, reverbScalar);
+        this.playTone(audio.freq, panning, paletteEntry);
+        const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
+        this.scheduleEchoes(audio.freq, panning, paletteEntry, zScalar);
       }
     }
   }
@@ -347,7 +355,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     freq: Frequency,
     panning: Panning,
     paletteEntry?: AudioPaletteEntry,
-    reverb?: number,
+    volumeScale: number = 1,
+    reverbAmount: number = 0,
   ): AudioId {
     const fromFreq = { min: freq.min, max: freq.max };
     const toFreq = { min: this.minFrequency, max: this.maxFrequency };
@@ -355,7 +364,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
     // Y-axis not used for stereo panning
-    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry, reverb);
+    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry, volumeScale, reverbAmount);
   }
 
   /**
@@ -409,7 +418,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     frequency: number,
     position: SpatialPosition = { x: 0, y: 0 },
     paletteEntry?: AudioPaletteEntry,
-    reverb?: number,
+    volumeScale: number = 1,
+    reverbAmount: number = 0,
   ): AudioId {
     const duration = DEFAULT_DURATION;
     const startTime = this.audioContext.currentTime;
@@ -439,19 +449,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
     }
 
-    // Optional per-tone volume scaling driven by the same z-amount that drives
-    // reverb. When enabled, scale linearly between Z_VOLUME_MIN_SCALE and
-    // Z_VOLUME_MAX_SCALE as reverb (z) goes from 0 → 1. Gated on `reverb !==
-    // undefined` so traces without z data are never rescaled.
-    const zVolumeScalar = this.zScaleVolume && reverb !== undefined
-      ? Z_VOLUME_MIN_SCALE
-      + (Z_VOLUME_MAX_SCALE - Z_VOLUME_MIN_SCALE) * Math.max(0, Math.min(1, reverb))
-      : 1;
+    const scaledVolume = this.volume * Math.max(0, volumeScale);
 
     // Create gain nodes with ADSR envelope for each oscillator
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
-      let oscillatorVolume = this.volume * zVolumeScalar;
+      let oscillatorVolume = scaledVolume;
 
       if (i === 0) {
         // Primary oscillator uses fundamental amplitude
@@ -484,46 +487,32 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const stereoPanner = this.audioContext.createStereoPanner();
     stereoPanner.pan.value = position.x; // position.x is already -1 (left) to 1 (right)
 
-    // Connect oscillators → gain nodes → stereo panner
+    // Connect oscillators → gain nodes → stereo panner.
     for (let i = 0; i < oscillators.length; i++) {
       oscillators[i].connect(gainNodes[i]);
       gainNodes[i].connect(stereoPanner);
     }
 
-    // Optional reverb path: stereoPanner splits into parallel dry and wet signals,
-    // both feeding the compressor. When reverb is inactive, connect directly.
-    //
-    // Loudness comes from the global Reverb Intensity setting; per-tone z-amount
-    // (`reverb` ∈ [0, 1]) drives the *length* of the tail by truncating the wet
-    // gain back to silence at `startTime + duration + tailLen`. z=0 → no tail
-    // (skip the reverb path entirely); z=1 → full configured Reverb Duration.
-    const zAmount = reverb !== undefined
-      ? Math.max(0, Math.min(1, reverb))
-      : 0;
-    const reverbActive = zAmount > 0 && this.reverbIntensity > 0;
-    const tailLen = reverbActive ? this.reverbDuration * zAmount : 0;
+    // Echoes layer a small reverb tail on top, scaled by their position out of
+    // maxEchoCount so the effect ramps from none on the original tone to
+    // MAX_ECHO_REVERB_* at the conceptual final echo. The dry path is left
+    // unattenuated so echo volume stays controlled by `volumeScale` alone.
+    const reverb = Math.max(0, Math.min(1, reverbAmount));
+    const reverbActive = reverb > 0;
+    const tailLen = reverbActive ? MAX_ECHO_REVERB_TAIL * reverb : 0;
     let convolver: ConvolverNode | null = null;
     let wetGain: GainNode | null = null;
-    let dryGain: GainNode | null = null;
     if (reverbActive) {
       convolver = this.audioContext.createConvolver();
       convolver.buffer = this.getReverbIR();
 
-      const wetAmount = this.reverbIntensity * MAX_WET_GAIN;
+      const wetAmount = MAX_ECHO_REVERB_WET * reverb;
       wetGain = this.audioContext.createGain();
       wetGain.gain.setValueAtTime(wetAmount, startTime);
       wetGain.gain.setValueAtTime(wetAmount, startTime + duration);
-      wetGain.gain.linearRampToValueAtTime(
-        1e-4,
-        startTime + duration + tailLen,
-      );
+      wetGain.gain.linearRampToValueAtTime(1e-4, startTime + duration + tailLen);
 
-      dryGain = this.audioContext.createGain();
-      dryGain.gain.value = Math.max(0, 1 - DRY_TAPER * this.reverbIntensity);
-
-      stereoPanner.connect(dryGain);
-      dryGain.connect(this.compressor);
-
+      stereoPanner.connect(this.compressor);
       stereoPanner.connect(convolver);
       convolver.connect(wetGain);
       wetGain.connect(this.compressor);
@@ -536,7 +525,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const cleanUp = (audioId: AudioId): void => {
       stereoPanner.disconnect();
-      dryGain?.disconnect();
       wetGain?.disconnect();
       convolver?.disconnect();
       for (let i = 0; i < oscillators.length; i++) {
@@ -547,14 +535,63 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.activeAudioIds.delete(audioId);
     };
 
-    // When reverb is active, wait for the tail fade to complete before disconnecting
-    // the wet path; otherwise use the original 2× duration window for the dry tone.
+    // When reverb is active, wait for the tail to finish before tearing down
+    // so it doesn't get clipped mid-fade.
     const lifetimeMs = reverbActive
       ? (duration + tailLen) * 1e3 + 50
       : duration * 1e3 * 2;
     const audioId = setTimeout(() => cleanUp(audioId), lifetimeMs);
     this.activeAudioIds.set(audioId, oscillators);
     return audioId;
+  }
+
+  /**
+   * Schedules echo tones for a 3D point.
+   *
+   * Number of echoes scales with z: round(zIntensity * maxEchoCount). Each
+   * echo at index i is identical to the original tone except the volume is
+   * lerped between 1.0 (i=0, the original) and {@link echoVolume} (i=maxEchoCount).
+   * Volumes are pinned to position, not count — the 2nd echo always sounds at
+   * the same level whether 2 or 5 total echoes play. Echoes fire at i *
+   * echoDuration after the original.
+   *
+   * Skipped entirely when zIntensity is undefined (non-3D traces) or 0, and
+   * when maxEchoCount is 0.
+   */
+  private scheduleEchoes(
+    freq: Frequency,
+    panning: Panning,
+    paletteEntry: AudioPaletteEntry | undefined,
+    zIntensity: number | undefined,
+  ): void {
+    if (zIntensity === undefined || this.maxEchoCount <= 0) {
+      return;
+    }
+    const z = Math.max(0, Math.min(1, zIntensity));
+    const numEchoes = Math.round(z * this.maxEchoCount);
+    if (numEchoes <= 0) {
+      return;
+    }
+
+    for (let i = 1; i <= numEchoes; i++) {
+      const delayMs = i * this.echoDuration * 1000;
+      const positionFraction = i / this.maxEchoCount;
+      const volumeScale = 1 - positionFraction * (1 - this.echoVolume);
+      // Reverb ramps with echo position out of the configured max — so the
+      // last echo when z = zMax gets the full small tail, while a mid-z
+      // point's last echo gets a proportionally smaller one.
+      const reverbAmount = positionFraction;
+      const timeoutId: AudioId = setTimeout(() => {
+        this.pendingEchoTimeouts.delete(timeoutId);
+        this.playTone(freq, panning, paletteEntry, volumeScale, reverbAmount);
+      }, delayMs);
+      this.pendingEchoTimeouts.add(timeoutId);
+    }
+  }
+
+  private cancelPendingEchoes(): void {
+    this.pendingEchoTimeouts.forEach(id => clearTimeout(id));
+    this.pendingEchoTimeouts.clear();
   }
 
   private playSmooth(
@@ -893,6 +930,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private stopAll(): void {
+    this.cancelPendingEchoes();
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
@@ -909,25 +947,36 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Normalizes the reverb intensity setting (0-100) to a linear 0-1 multiplier.
+   * Clamps the configured maximum echo count to a non-negative integer.
+   * 0 disables echoes entirely.
    */
-  private normalizeReverbIntensity(value: number): number {
+  private normalizeEchoCount(value: number): number {
     if (!Number.isFinite(value)) {
-      return 1;
+      return 5;
+    }
+    return Math.max(0, Math.floor(value));
+  }
+
+  /**
+   * Normalizes the echo-volume setting (0-100 percent) to a 0-1 multiplier
+   * that's applied to the main tone volume for the Nth echo.
+   */
+  private normalizeEchoVolume(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0.5;
     }
     return Math.max(0, Math.min(1, value / 100));
   }
 
   /**
-   * Clamps the reverb-duration setting to a sensible range. Floors at 0.05s so
-   * the IR buffer always has at least a couple of samples; caps at 10s to keep
-   * the convolver and tail-fade timeout bounded.
+   * Clamps the echo-duration setting to a sensible delay (in seconds) between
+   * consecutive echoes. Floors well above zero so echoes are distinguishable.
    */
-  private normalizeReverbDuration(value: number): number {
+  private normalizeEchoDuration(value: number): number {
     if (!Number.isFinite(value)) {
-      return 2;
+      return 0.3;
     }
-    return Math.max(0.05, Math.min(10, value));
+    return Math.max(0.05, Math.min(2, value));
   }
 
   /**
@@ -939,7 +988,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return this.reverbIR;
     }
     const rate = this.audioContext.sampleRate;
-    const length = Math.max(1, Math.floor(rate * this.reverbDuration));
+    const length = Math.max(1, Math.floor(rate * REVERB_IR_DURATION));
     const impulse = this.audioContext.createBuffer(2, length, rate);
     for (let ch = 0; ch < 2; ch++) {
       const channel = impulse.getChannelData(ch);

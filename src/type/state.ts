@@ -186,11 +186,11 @@ export interface AudioState {
    */
   volumeScale?: number;
   /**
-   * Normalized reverb amount (0-1) for a third-dimension sonification cue.
+   * Normalized z-axis intensity (0-1) for a third-dimension sonification cue.
    * Scalar for a single tone; array (index-aligned with `freq.raw`) for group playback.
-   * Currently set by 3D scatter plots using z-axis values.
+   * Currently set by 3D scatter plots and drives echo count in the audio service.
    */
-  reverb?: number | number[];
+  zIntensity?: number | number[];
 }
 
 /**

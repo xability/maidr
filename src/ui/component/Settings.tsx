@@ -400,13 +400,41 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Reverb Intensity"
+              label="3D Echo Count"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.echoCount}
+                    onChange={e =>
+                      handleGeneralChange('echoCount', Number(e.target.value))}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'min': 0,
+                          'max': 20,
+                          'step': 1,
+                          'aria-label': 'Number of echoes for 3D charts',
+                          'aria-labelledby': 'echo-count-label',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Echo Volume"
               input={(
                 <FormControl fullWidth>
                   <Slider
-                    value={generalSettings.reverbIntensity}
+                    value={generalSettings.echoVolume}
                     onChange={(_, value) =>
-                      handleGeneralChange('reverbIntensity', Number(value))}
+                      handleGeneralChange('echoVolume', Number(value))}
                     min={0}
                     max={100}
                     step={1}
@@ -415,8 +443,8 @@ const Settings: React.FC = () => {
                       input: {
                         'aria-valuemin': 0,
                         'aria-valuemax': 100,
-                        'aria-label': 'Reverb Intensity',
-                        'aria-labelledby': 'reverb-intensity-label',
+                        'aria-label': 'Echo Volume',
+                        'aria-labelledby': 'echo-volume-label',
                       },
                     }}
                     className="settings-slider-value-label"
@@ -427,52 +455,26 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Reverb Duration (s)"
+              label="Echo Duration (s)"
               input={(
                 <FormControl fullWidth>
                   <Slider
-                    value={generalSettings.reverbDuration}
+                    value={generalSettings.echoDuration}
                     onChange={(_, value) =>
-                      handleGeneralChange('reverbDuration', Number(value))}
-                    min={0.1}
-                    max={5}
-                    step={0.1}
+                      handleGeneralChange('echoDuration', Number(value))}
+                    min={0.05}
+                    max={2}
+                    step={0.05}
                     valueLabelDisplay="auto"
                     slotProps={{
                       input: {
-                        'aria-valuemin': 0.1,
-                        'aria-valuemax': 5,
-                        'aria-label': 'Reverb Duration in seconds',
-                        'aria-labelledby': 'reverb-duration-label',
+                        'aria-valuemin': 0.05,
+                        'aria-valuemax': 2,
+                        'aria-label': 'Echo Duration in seconds',
+                        'aria-labelledby': 'echo-duration-label',
                       },
                     }}
                     className="settings-slider-value-label"
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Scale Volume with Z"
-              input={(
-                <FormControl>
-                  <FormControlLabel
-                    control={(
-                      <Checkbox
-                        checked={generalSettings.zScaleVolume}
-                        onChange={e =>
-                          handleGeneralChange('zScaleVolume', e.target.checked)}
-                        size="small"
-                      />
-                    )}
-                    label={generalSettings.zScaleVolume ? 'On' : 'Off'}
-                    slotProps={{
-                      typography: {
-                        variant: 'body2',
-                      },
-                    }}
-                    aria-label="Scale Volume with Z"
                   />
                 </FormControl>
               )}

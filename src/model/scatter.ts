@@ -278,11 +278,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   /**
-   * Normalizes z values to reverb amounts (0-1). Per-point:
-   * each NaN becomes 0 (no reverb), each finite value is scaled by (z-minZ)/(maxZ-minZ).
-   * Returns undefined when this trace has no z data, so the field is omitted from AudioState.
+   * Normalizes z values to a 0-1 intensity per point. Each NaN becomes 0 (no
+   * 3D cue), each finite value is scaled by (z-minZ)/(maxZ-minZ). Returns
+   * undefined when this trace has no z data, so the field is omitted from
+   * AudioState and the audio service skips the echo path entirely.
    */
-  private reverbFor(zValues: number[]): number[] | undefined {
+  private zIntensityFor(zValues: number[]): number[] | undefined {
     if (!this.hasZ) {
       return undefined;
     }
@@ -312,7 +313,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
             rows: 1,
             cols: this.cellXPoints.length,
           },
-          reverb: this.reverbFor(currentPoint.z),
+          zIntensity: this.zIntensityFor(currentPoint.z),
         };
       }
 
@@ -330,7 +331,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: this.numGridRows,
           cols: this.numGridCols,
         },
-        reverb: this.reverbFor(cell.zValues),
+        zIntensity: this.zIntensityFor(cell.zValues),
       };
     }
 
@@ -348,7 +349,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: current.y.length,
           cols: this.xPoints.length,
         },
-        reverb: this.reverbFor(current.z),
+        zIntensity: this.zIntensityFor(current.z),
       };
     } else {
       const current = this.yPoints[this.row];
@@ -372,7 +373,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
           rows: this.yPoints.length,
           cols,
         },
-        reverb: this.reverbFor(current.z),
+        zIntensity: this.zIntensityFor(current.z),
       };
     }
   }
