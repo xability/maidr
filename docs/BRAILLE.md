@@ -164,3 +164,17 @@ while high values are indicated by characters that have dots higher up.
 In multiline braille displays, all lines are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the line for a particular point. Vertically, each line of the braille display corresponds to a different line in the plot, allowing users to perceive the distribution of values across all lines at once.
 
 In single line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
+
+## multiline braile display support
+
+by exploiting the 2 dimensional nature of multiline braille displays, maidr can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, as it enables users to compare the distributions of different groups or lines without needing to navigate between them.
+
+### setup
+
+Users can setup multiline braille display support by following these steps:
+
+1. Open any plot in maidr.
+2. press ctrl+, (ctrl+ comma) to open the settings dialog.
+3. Press tab to navigate to the braille display control. Select "Single Line" or "Multi-Line" depending on your model and and press tab. If your braille display is not listed, select "Configure Manually" and press tab.
+4. Select your desired braille display. If you had selected configure manually, you will need to input the number of characters and lines present in your braille display. If your braille display is single line, select number of lines as 1.
+5. Press alt+s to save and exit the settings dialog.
