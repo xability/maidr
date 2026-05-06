@@ -8,6 +8,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  DescriptionState,
   HighlightState,
   TextState,
   TraceState,
@@ -17,11 +18,31 @@ import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_Z_AXIS = 'Level';
+
+/**
+ * Maps internal TraceType identifiers to human-readable chart type labels
+ * for display in the chart description modal and other user-facing surfaces.
+ */
+const CHART_TYPE_LABEL: Record<TraceType, string> = {
+  [TraceType.BAR]: 'Bar Chart',
+  [TraceType.BOX]: 'Box Plot',
+  [TraceType.CANDLESTICK]: 'Candlestick Chart',
+  [TraceType.DODGED]: 'Dodged Bar Chart',
+  [TraceType.HEATMAP]: 'Heatmap',
+  [TraceType.HISTOGRAM]: 'Histogram',
+  [TraceType.LINE]: 'Line Chart',
+  [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
+  [TraceType.SCATTER]: 'Scatter Plot',
+  [TraceType.SMOOTH]: 'Smooth Line Chart',
+  [TraceType.STACKED]: 'Stacked Bar Chart',
+  [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
+  [TraceType.VIOLIN_KDE]: 'Violin Plot',
+};
 
 export interface Dimension {
   rows: number;
@@ -479,6 +500,31 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected abstract get braille(): BrailleState;
 
   protected abstract get text(): TextState;
+
+  public abstract get description(): DescriptionState;
+
+  /**
+   * Returns a human-readable label for this trace's chart type
+   * (e.g., 'Bar Chart', 'Scatter Plot') for display in the description modal.
+   * Falls back to the raw layer type if no mapping is registered.
+   */
+  protected getChartTypeLabel(): string {
+    return CHART_TYPE_LABEL[this.layer.type] ?? this.layer.type;
+  }
+
+  /**
+   * Builds the axes object for the description state, including z only when
+   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * instead of constructing the axes object inline so charts without a real
+   * z dimension don't surface the placeholder default.
+   */
+  protected getDescriptionAxes(): DescriptionState['axes'] {
+    return {
+      x: this.xAxis,
+      y: this.yAxis,
+      ...(this.layer.axes?.z?.label && { z: this.z }),
+    };
+  }
 
   protected abstract get dimension(): Dimension;
 
