@@ -42,6 +42,10 @@ With three height levels of Braille, the encoding is as follows:
 - "⠀" (braille space) represents null or empty values
 - "⢳" represents a row separator
 
+### multiline displays
+
+In multiline braille displays, all rows of the heatmap are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of each cell in the corresponding row. Vertically, each line of the braille display corresponds to a different row of the heatmap, allowing users to perceive the distribution of values across the entire heatmap at once.
+
 ## Box plot
 
 The Braille representation of a boxplot uses Braille characters
@@ -88,6 +92,12 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ⠂ ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒ ⠂ ⠂
 
+### grouped boxplot
+
+Multiline braille displays represent grouped boxplots, such as horizontal boxplots and vertical boxplots with multiple groups, by displaying each group on a separate line of the braille display. Each line corresponds to a different group, allowing users to compare the distributions of multiple groups simultaneously. The same encoding principles for boxplots apply to each line, with Braille characters representing the various sections of the boxplot for each group.
+
+Single line braille displays represent grouped boxplots by allowing users to navigate vertically between groups using the up and down arrow keys. As the user navigates, the braille representation updates to show the boxplot for the current group, enabling users to explore each group's distribution one at a time.
+
 ## Scatter plot
 
 In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
@@ -119,6 +129,10 @@ In the braille representation of segmented bar plots, braille depends on where y
 - Summary level: Same as regular level, but values now reflect the combined size of all levels' values for this point.
 - Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
 
+### multiline displays
+
+In multiline braille displays, all levels are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the size of the level's value for a particular point. Vertically, each line of the braille display corresponds to a different level, allowing users to perceive the distribution of values across all levels at once.
+
 ## Violin Plot
 
 Violin plots have two layers, each with their own braille representation:
@@ -144,3 +158,9 @@ In the Braille representation of a line plot, braille is nearly identical to the
 data values are encoded as Braille characters based on their relative magnitude within the plot.
 Low values are denoted by Braille characters that have dots only along the bottom,
 while high values are indicated by characters that have dots higher up.
+
+### multiline plot
+
+In multiline braille displays, all lines are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the line for a particular point. Vertically, each line of the braille display corresponds to a different line in the plot, allowing users to perceive the distribution of values across all lines at once.
+
+In single line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
