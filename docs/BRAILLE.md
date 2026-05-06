@@ -101,6 +101,14 @@ With four height levels of Braille, the encoding is as follows:
 - ⠒ represents values from 50% to 75%
 - ⠉ represents values from 75% to 100%
 
+### grid navigation
+
+When the grid navigation rotor is activated, the braille representation of the scatter plot changes to highlight the number of points in each grid cell. The representation is similar to that of a barplot, where the number of points in each cell is represented by the height of the Braille character.
+
+In multiline braille displays, all cells are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the number of data points in the corresponding grid cell. Vertically, each line of the braille display corresponds to a different row of the grid, allowing users to perceive the distribution of points across the entire grid at once.
+
+In single line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
+
 ## Segmented Bar Plots
 
 Stacked bar, dodged bar, and normalized stacked bar all share the same system:
