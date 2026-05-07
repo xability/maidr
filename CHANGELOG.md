@@ -1,3 +1,11 @@
+# [3.67.0](https://github.com/xability/maidr/compare/v3.66.1...v3.67.0) (2026-05-07)
+
+
+### Features
+
+* description modal with d key ([#592](https://github.com/xability/maidr/issues/592)) ([797ecce](https://github.com/xability/maidr/commit/797eccee61de3e6488c8fa48ebb4a36da5334423))
+* let user select braille display model ([#608](https://github.com/xability/maidr/issues/608)) ([c2886bb](https://github.com/xability/maidr/commit/c2886bb46c6141a49b2cde1798c37b481dfd91ca))
+
 ## [3.66.1](https://github.com/xability/maidr/compare/v3.66.0...v3.66.1) (2026-05-04)
 
 
