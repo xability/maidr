@@ -11,6 +11,7 @@ These tactile encodings range from using distinct Braille characters to represen
 to using characters that visually resemble the corresponding sections of a plot.
 By providing a comprehensive Braille representation for various plot types,
 maidr enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
+For multiline braille display setup, see [Multiline Braille Display Support](#multiline-braille-display-support).
 
 ## Bar plot
 
@@ -113,7 +114,7 @@ With four height levels of Braille, the encoding is as follows:
 
 ### Grid Navigation
 
-When the grid navigation rotor is activated, the braille representation of the scatter plot changes to highlight the number of points in each grid cell. The representation is similar to that of a barplot, where the number of points in each cell is represented by the height of the Braille character.
+When the grid navigation rotor is activated, the braille representation of the scatter plot changes to highlight the number of points in each grid cell. The representation is similar to that of a heatmap, where the number of points in each cell is represented by the height of the Braille character.
 
 In multiline braille displays, all cells are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the number of data points in the corresponding grid cell. Vertically, each line of the braille display corresponds to a different row of the grid, allowing users to perceive the distribution of points across the entire grid at once.
 
