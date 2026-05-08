@@ -42,7 +42,7 @@ With three height levels of Braille, the encoding is as follows:
 - "⠀" (braille space) represents null or empty values
 - "⢳" represents a row separator
 
-### multiline displays
+### Multiline Displays
 
 In multiline braille displays, all rows of the heatmap are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of each cell in the corresponding row. Vertically, each line of the braille display corresponds to a different row of the heatmap, allowing users to perceive the distribution of values across the entire heatmap at once.
 
@@ -92,7 +92,7 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ⠂ ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒ ⠂ ⠂
 
-### grouped boxplot
+### Grouped Boxplot
 
 Multiline braille displays represent grouped boxplots, such as horizontal boxplots and vertical boxplots with multiple groups, by displaying each group on a separate line of the braille display. Each line corresponds to a different group, allowing users to compare the distributions of multiple groups simultaneously. The same encoding principles for boxplots apply to each line, with Braille characters representing the various sections of the boxplot for each group.
 
@@ -111,7 +111,7 @@ With four height levels of Braille, the encoding is as follows:
 - ⠒ represents values from 50% to 75%
 - ⠉ represents values from 75% to 100%
 
-### grid navigation
+### Grid Navigation
 
 When the grid navigation rotor is activated, the braille representation of the scatter plot changes to highlight the number of points in each grid cell. The representation is similar to that of a barplot, where the number of points in each cell is represented by the height of the Braille character.
 
@@ -129,7 +129,7 @@ In the braille representation of segmented bar plots, braille depends on where y
 - Summary level: Same as regular level, but values now reflect the combined size of all levels' values for this point.
 - Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
 
-### multiline displays
+### Multiline Displays
 
 In multiline braille displays, all levels are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the size of the level's value for a particular point. Vertically, each line of the braille display corresponds to a different level, allowing users to perceive the distribution of values across all levels at once.
 
@@ -159,22 +159,22 @@ data values are encoded as Braille characters based on their relative magnitude 
 Low values are denoted by Braille characters that have dots only along the bottom,
 while high values are indicated by characters that have dots higher up.
 
-### multiline plot
+### Multiline Plot
 
-In multiline braille displays, all lines are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the line for a particular point. Vertically, each line of the braille display corresponds to a different line in the plot, allowing users to perceive the distribution of values across all lines at once.
+In multiline braille displays, all data series are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the series for a particular point. Vertically, each line of the braille display corresponds to a different series in the plot, allowing users to perceive the distribution of values across all series at once.
 
 In single line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
 
-## multiline braile display support
+## Multiline Braille Display Support
 
-by exploiting the 2 dimensional nature of multiline braille displays, maidr can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, as it enables users to compare the distributions of different groups or lines without needing to navigate between them.
+By exploiting the two-dimensional nature of multiline braille displays, maidr can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, as it enables users to compare the distributions of different groups or lines without needing to navigate between them.
 
-### setup
+### Setup
 
-Users can setup multiline braille display support by following these steps:
+Users can set up multiline braille display support by following these steps:
 
 1. Open any plot in maidr.
-2. press ctrl+, (ctrl+ comma) to open the settings dialog.
-3. Press tab to navigate to the braille display control. Select "Single Line" or "Multi-Line" depending on your model and and press tab. If your braille display is not listed, select "Configure Manually" and press tab.
-4. Select your desired braille display. If you had selected configure manually, you will need to input the number of characters and lines present in your braille display. If your braille display is single line, select number of lines as 1.
+2. Press ctrl+, (ctrl+ comma) to open the settings dialog.
+3. Press tab to navigate to the braille display control. Select "Single Line" or "Multi-Line" depending on your model and press tab. If your braille display is not listed, select "Configure Manually" and press tab.
+4. Select your braille display model, or if you selected "Configure Manually," enter the number of characters per line and the number of lines on your braille display. If your braille display is single line, select number of lines as 1.
 5. Press alt+s to save and exit the settings dialog.
