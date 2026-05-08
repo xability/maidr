@@ -29,6 +29,10 @@ Given the four height levels of Braille, the encoding is as follows:
 This tactile encoding allows users to easily differentiate between the various value ranges in the bar plot,
 facilitating their understanding of the data distribution and its underlying trends.
 
+### Multiline Displays
+
+Bar plots use a single-line representation. On multiline braille displays, the bar plot appears on the first line and the remaining lines are unused.
+
 ## Heatmap
 
 In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the plot,
@@ -159,7 +163,7 @@ The braille representation for the box layer is identical to the standard box pl
 
 ### Multiline Displays
 
-In multiline braille displays, each violin is represented on its own line using the KDE and box encodings above. In single-line braille displays, use the up and down arrow keys to move between violins; the braille representation updates to the current violin.
+In multiline braille displays, each violin is represented on its own line using the KDE or box encodings above, depending on the selected layer. Horizontally, the braille characters represent the density profile and summary statistics along the value axis for that violin. Vertically, each line corresponds to a different violin, allowing users to compare categories simultaneously. In single-line braille displays, use the up and down arrow keys to move between violins; the braille representation updates to the current violin.
 
 ## Line plot
 
@@ -183,8 +187,8 @@ By leveraging the two-dimensional nature of multiline braille displays, MAIDR ca
 Users can set up multiline braille display support by following these steps:
 
 1. Open any plot in MAIDR.
-2. Press Ctrl+, (Command+, on macOS) to open the settings dialog.
-3. Press Tab to reach the Braille Display options, then choose "Single line", "Multi-line", or "Configure manually".
-4. If you chose "Single line" or "Multi-line", tab to the Single-Line Display or Multi-Line Display dropdown and select your model.
-5. If you chose "Configure manually", enter Braille Display Size (cells per row) and Braille Display Lines (rows). Set the number of lines to 1 for a single-line display.
-6. Press Alt+S to save and close the settings dialog.
+2. Press `Ctrl+,` (`Command+,` on macOS) to open the settings dialog.
+3. Press Tab to reach the Braille Display options.
+	- If your braille display model is listed, choose "Single line" or "Multi-line", then tab to the Single-Line Display or Multi-Line Display dropdown and select your braille display model.
+	- If your braille display model is not listed, choose "Configure manually", then enter Braille Display Size (cells per row) and Braille Display Lines (rows). Set the number of lines to 1 for a single-line display.
+4. Press `Alt+S` to save and close the settings dialog.
