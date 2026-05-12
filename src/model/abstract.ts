@@ -583,6 +583,16 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Returns true if this trace supports point-by-point navigation mode.
+   * Opt-in per trace type: override to return true for traces that expose
+   * individual data points navigable in reading order (left/right) and
+   * column-major order (up/down). Currently only ScatterTrace.
+   */
+  public supportsPointMode(): boolean {
+    return false;
+  }
+
+  /**
    * Move to the next point intersection (right arrow in intersection rotor mode).
    * Default is a no-op returning false; subclasses that advertise
    * {@link supportsIntersectionMode} must override to provide real behavior.

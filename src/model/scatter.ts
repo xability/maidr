@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { GridNavigable } from '@type/navigation';
+import type { GridNavigable, PointNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
@@ -42,7 +42,17 @@ enum NavMode {
   ROW = 'row',
 }
 
-export class ScatterTrace extends AbstractTrace implements GridNavigable {
+/**
+ * A single scatter datapoint as the point-navigation rotor sees it,
+ * paired with its rendered SVG element (when one was found).
+ */
+interface FlatPoint {
+  x: number;
+  y: number;
+  svg: SVGElement | null;
+}
+
+export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -77,6 +87,22 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   private cellPointIndex: number;
   private cellXPoints: ScatterXPoint[]; // Grouped cell points by X (like xPoints)
   private cellSvgGroups: SVGElement[][]; // SVG elements grouped by X
+
+  // Point navigation state (POINT_MODE)
+  // - flatPoints: every individual datapoint, in original data order
+  // - readingOrder / columnOrder: permutations of flatPoints indices for the
+  //   two arrow axes. Right/Left walk readingOrder (y desc, x asc); Down/Up
+  //   walk columnOrder (x asc, y desc). Out-of-bounds at either end of either
+  //   array — no wrap.
+  // - readingPos / columnPos: inverse lookups (flat index -> sort position),
+  //   so a single keystroke is O(1).
+  private readonly flatPoints: FlatPoint[];
+  private readonly readingOrder: number[];
+  private readonly columnOrder: number[];
+  private readonly readingPos: number[];
+  private readonly columnPos: number[];
+  private isInPointMode: boolean;
+  private pointModeIndex: number;
 
   /**
    * Creates a new scatter trace instance and organizes data by X and Y coordinates.
@@ -146,6 +172,40 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       this.numGridRows = 0;
       this.numGridCols = 0;
     }
+
+    // Point navigation: pair each data point with its rendered SVG element by
+    // index (the same index correspondence buildGridCells relies on), then
+    // build two sort orders. Both orders are full permutations of the flat
+    // points list — the same N indices, just visited in different sequences.
+    this.flatPoints = data.map((p, i) => ({
+      x: p.x,
+      y: p.y,
+      svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
+    }));
+    this.readingOrder = this.flatPoints
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const pa = this.flatPoints[a];
+        const pb = this.flatPoints[b];
+        return pb.y - pa.y || pa.x - pb.x;
+      });
+    this.columnOrder = this.flatPoints
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const pa = this.flatPoints[a];
+        const pb = this.flatPoints[b];
+        return pa.x - pb.x || pb.y - pa.y;
+      });
+    this.readingPos = Array.from<number>({ length: this.flatPoints.length });
+    this.columnPos = Array.from<number>({ length: this.flatPoints.length });
+    for (let i = 0; i < this.readingOrder.length; i++) {
+      this.readingPos[this.readingOrder[i]] = i;
+    }
+    for (let i = 0; i < this.columnOrder.length; i++) {
+      this.columnPos[this.columnOrder[i]] = i;
+    }
+    this.isInPointMode = false;
+    this.pointModeIndex = 0;
   }
 
   /**
@@ -224,6 +284,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get braille(): BrailleState {
+    if (this.isInPointMode) {
+      // Point mode renders one datapoint at a time; braille has no meaningful
+      // surface for that, so fall through to the empty state.
+      return this.outOfBoundsState as BrailleState;
+    }
     // Grid mode: return 2D grid of point counts for braille display
     if (this.isInGridMode && this.gridCells) {
       const gridValues: number[][] = [];
@@ -254,6 +319,27 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get audio(): AudioState {
+    if (this.isInPointMode) {
+      const point = this.flatPoints[this.pointModeIndex];
+      // Pan by position among unique x values so points at the same x produce
+      // identical horizontal panning; xValues is sorted ascending in the
+      // constructor.
+      const xIndex = this.xValues.indexOf(point.x);
+      return {
+        freq: {
+          raw: point.y,
+          min: this.minY,
+          max: this.maxY,
+        },
+        panning: {
+          y: 0,
+          x: xIndex < 0 ? 0 : xIndex,
+          rows: 1,
+          cols: this.xValues.length,
+        },
+      };
+    }
+
     if (this.isInGridMode && this.gridCells) {
       // Grid cell point navigation mode - play Y values at current X
       if (this.isInGridCellMode && this.cellXPoints.length > 0) {
@@ -324,6 +410,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get text(): TextState {
+    if (this.isInPointMode) {
+      const point = this.flatPoints[this.pointModeIndex];
+      return {
+        main: { label: this.xAxis, value: point.x },
+        cross: { label: this.yAxis, value: point.y },
+      };
+    }
+
     if (this.isInGridMode && this.gridCells) {
       const cell = this.gridCells[this.gridRow][this.gridCol];
 
@@ -393,6 +487,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get dimension(): Dimension {
+    if (this.isInPointMode) {
+      // Single-point view; dimension feeds out-of-bounds panning fallback.
+      return {
+        rows: 1,
+        cols: this.xValues.length,
+      };
+    }
     if (this.isInGridMode) {
       return {
         rows: this.numGridRows,
@@ -406,6 +507,17 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   protected get highlight(): HighlightState {
+    if (this.isInPointMode) {
+      const point = this.flatPoints[this.pointModeIndex];
+      if (!point.svg) {
+        return this.outOfBoundsState as HighlightState;
+      }
+      return {
+        empty: false,
+        elements: [point.svg],
+      };
+    }
+
     if (this.isInGridMode && this.gridCells) {
       const cell = this.gridCells[this.gridRow][this.gridCol];
 
@@ -928,6 +1040,107 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     if (!this.isInGridCellMode || this.cellXPoints.length === 0)
       return null;
     return this.cellXPoints[this.cellPointIndex] ?? null;
+  }
+
+  // ── Point navigation (POINT_MODE) ─────────────────────────────────────
+
+  public override supportsPointMode(): boolean {
+    return this.flatPoints.length > 0;
+  }
+
+  /**
+   * Enters or exits point-by-point navigation mode.
+   *
+   * On entry, the current point is seeded from whatever ROW_COL position the
+   * user was on so they keep their place in the data. When the previous mode
+   * highlighted a group of points (e.g. a column of points sharing an x in
+   * COL mode), we pick the first point in reading order from that group —
+   * highest y for COL mode, lowest x for ROW mode.
+   *
+   * On exit, no state needs to be unwound; the existing row/col indices are
+   * untouched while in point mode, so ROW_COL navigation resumes where it
+   * left off.
+   */
+  public setPointMode(enabled: boolean): void {
+    if (enabled === this.isInPointMode) {
+      return;
+    }
+    this.isInPointMode = enabled;
+    if (enabled) {
+      this.pointModeIndex = this.computeEntryPointIndex();
+    }
+  }
+
+  public movePointLeft(): boolean {
+    return this.stepPoint(this.readingPos, this.readingOrder, -1);
+  }
+
+  public movePointRight(): boolean {
+    return this.stepPoint(this.readingPos, this.readingOrder, +1);
+  }
+
+  public movePointUp(): boolean {
+    // columnOrder is sorted (x asc, y desc), so y-increasing within an
+    // x-column means stepping backward in that order.
+    return this.stepPoint(this.columnPos, this.columnOrder, -1);
+  }
+
+  public movePointDown(): boolean {
+    return this.stepPoint(this.columnPos, this.columnOrder, +1);
+  }
+
+  /**
+   * Walks one step in a sort order. Out-of-bounds notifies and returns false
+   * without moving the index.
+   */
+  private stepPoint(positions: number[], order: number[], delta: -1 | 1): boolean {
+    if (!this.isInPointMode || this.flatPoints.length === 0) {
+      return false;
+    }
+    const pos = positions[this.pointModeIndex];
+    const next = pos + delta;
+    if (next < 0 || next >= order.length) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.pointModeIndex = order[next];
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Picks the seed flat-point index for entering POINT_MODE based on the
+   * current ROW_COL selection. The previous mode may have highlighted several
+   * points at once (a whole x-column in COL mode, a whole y-row in ROW mode);
+   * we pick the first of that group in reading order so the user starts at a
+   * predictable corner of the highlighted region.
+   */
+  private computeEntryPointIndex(): number {
+    let targetX: number;
+    let targetY: number;
+    if (this.mode === NavMode.COL) {
+      // COL mode highlights every point at xPoints[col].x; first in reading
+      // order at fixed x is the one with the highest y. xPoints[col].y is
+      // sorted ascending in the constructor, so the last entry is the max.
+      const group = this.xPoints[this.col];
+      if (!group || group.y.length === 0) {
+        return 0;
+      }
+      targetX = group.x;
+      targetY = group.y[group.y.length - 1];
+    } else {
+      // ROW mode highlights every point at yPoints[row].y; first in reading
+      // order at fixed y is the one with the lowest x. yPoints[row].x is
+      // sorted ascending, so the first entry is the min.
+      const group = this.yPoints[this.row];
+      if (!group || group.x.length === 0) {
+        return 0;
+      }
+      targetX = group.x[0];
+      targetY = group.y;
+    }
+    const idx = this.flatPoints.findIndex(p => p.x === targetX && p.y === targetY);
+    return idx === -1 ? 0 : idx;
   }
 
   // ── Grid construction helpers ─────────────────────────────────────────
