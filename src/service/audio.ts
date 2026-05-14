@@ -649,12 +649,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * @param guidance - Pointer guidance state from the active trace, or null to reset guidance
    */
   public playPointerGuidance(guidance: PointerGuidanceState | null): void {
-    if (
-      this.mode === AudioMode.OFF
-      || !guidance
-      || guidance.onCurve
-    ) {
+    // Reset throttle only when guidance signals end-of-exploration
+    // (pointer left, or pointer now on-curve). Audio being OFF is a
+    // separate concern — keep the throttle intact so re-enabling audio
+    // mid-hover doesn't fire an immediate beep on the next pointermove.
+    if (!guidance || guidance.onCurve) {
       this.nextPointerGuidanceBeepAt = 0;
+      return;
+    }
+    if (this.mode === AudioMode.OFF) {
       return;
     }
 
@@ -709,6 +712,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     oscillator.start(startTime);
     oscillator.stop(startTime + POINTER_GUIDANCE_BEEP_DURATION);
 
+    // Schedule cleanup after 2× the beep duration to let the
+    // exponentialRampToValueAtTime tail finish before disconnecting the
+    // nodes — disconnecting mid-ramp would clip the fade-out.
     const audioId = setTimeout(() => {
       oscillator.disconnect();
       gainNode.disconnect();

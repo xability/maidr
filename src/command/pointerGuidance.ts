@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Command that routes pointer/touch movement into guidance sonification.
@@ -41,11 +42,20 @@ export class PointerGuidanceCommand implements Command {
    * navigation and plays directional guidance. If no event is provided,
    * guidance is reset (equivalent to calling {@link reset}).
    *
+   * No-ops outside `Scope.TRACE` (mirroring `CommandExecutor.isValidForScope`)
+   * so guidance does not fire while modals or other navigation scopes are
+   * active — pointer events still reach the listener even then.
+   *
    * @param event - Optional pointer/mouse event containing clientX/clientY
    */
   public execute(event?: Event): void {
+    // Pointer-leave / missing-coordinate paths always reset so stale
+    // throttle state from a prior trace-scope hover doesn't leak.
     if (!event || !this.hasClientCoordinates(event)) {
       this.reset();
+      return;
+    }
+    if (!this.isInTraceScope()) {
       return;
     }
 
@@ -75,10 +85,14 @@ export class PointerGuidanceCommand implements Command {
    * @param event - Pointer/mouse event containing clientX/clientY
    */
   public executeNavigateOnly(event: Event): void {
-    if (!this.hasClientCoordinates(event)) {
+    if (!this.isInTraceScope() || !this.hasClientCoordinates(event)) {
       return;
     }
     this.context.moveToPointAndGetPointerGuidance(event.clientX, event.clientY);
+  }
+
+  private isInTraceScope(): boolean {
+    return this.context.scope === Scope.TRACE;
   }
 
   private hasClientCoordinates(

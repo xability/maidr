@@ -234,4 +234,27 @@ describe('AudioService.playPointerGuidance', () => {
     expect(ctx.oscillators.length).toBe(afterFirst + 1);
     service.dispose();
   });
+
+  test('audio OFF does not reset throttle — preserves timing across mode toggles', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    // Fire one beep so the throttle is armed.
+    service.playPointerGuidance(OFF_CURVE);
+    const afterFirst = ctx.oscillators.length;
+
+    // Toggle audio OFF and call again — must not reset throttle.
+    service.toggle();
+    service.playPointerGuidance(OFF_CURVE);
+    expect(ctx.oscillators.length).toBe(afterFirst); // no new oscillator while OFF
+
+    // Toggle back ON without advancing currentTime. If the throttle was
+    // (incorrectly) reset by the OFF call, this would fire a beep
+    // immediately; preserving the throttle blocks it.
+    service.toggle();
+    service.playPointerGuidance(OFF_CURVE);
+    expect(ctx.oscillators.length).toBe(afterFirst);
+    service.dispose();
+  });
 });
