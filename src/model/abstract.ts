@@ -272,20 +272,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Moves the element to the specified (x, y) point.
-   *
-   * This base implementation is intentionally left empty. Subclasses should override
-   * this method to provide specific logic for moving to a point, such as updating
-   * highlight values or managing selection boxes.
-   *
-   * @param _x - The x-coordinate to move to.
-   * @param _y - The y-coordinate to move to.
-   */
-  public moveToPoint(_x: number, _y: number): void {
-    // implement basic stuff, assuming something like highlightValues that holds the points and boxes
-  }
-
-  /**
    * Returns true if this trace supports compare (lower/higher value) navigation.
    * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
    * currently have).
@@ -763,16 +749,6 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     x: number,
     y: number,
   ): NearestPoint | null;
-
-  /**
-   * Moves to the nearest point at the specified coordinates (used for hover functionality).
-   * @param x - The x-coordinate
-   * @param y - The y-coordinate
-   */
-  public moveToPoint(x: number, y: number): void {
-    const nearest = this.findNearestPoint(x, y);
-    this.moveToNearest(x, y, nearest);
-  }
 
   /**
    * Moves the active point to the pointer location and returns directional

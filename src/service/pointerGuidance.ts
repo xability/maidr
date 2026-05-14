@@ -1,4 +1,5 @@
 import type { PointerGuidanceState } from '@type/state';
+import { MathUtil } from '@util/math';
 
 /**
  * Derived beep parameters for pointer/touch guidance.
@@ -50,37 +51,21 @@ export function resolvePointerGuidanceBeep(
     return null;
   }
 
-  const distanceNorm = clamp(guidance.distancePx / config.maxDistancePx, 0, 1);
-  const interval = interpolate(distanceNorm, 0, 1, config.minInterval, config.maxInterval);
+  const distanceNorm = MathUtil.clamp(guidance.distancePx / config.maxDistancePx, 0, 1);
+  const interval = MathUtil.interpolate(distanceNorm, 0, 1, config.minInterval, config.maxInterval);
 
   return {
     frequency:
       guidance.verticalRelation === 'below'
         ? config.highFrequency
         : config.lowFrequency,
-    // Inverted pan by requirement: pointer right of curve => pan left.
+    // Pan toward the curve: pointer left of curve → positive (right) pan,
+    // pointer right of curve → negative (left) pan. The audio "pulls" the
+    // user toward the data.
     pan:
       guidance.horizontalRelation === 'right'
         ? -config.panMagnitude
         : config.panMagnitude,
     interval,
   };
-}
-
-function interpolate(
-  value: number,
-  fromMin: number,
-  fromMax: number,
-  toMin: number,
-  toMax: number,
-): number {
-  if (fromMin === fromMax) {
-    return toMin;
-  }
-
-  return ((value - fromMin) / (fromMax - fromMin)) * (toMax - toMin) + toMin;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
 }

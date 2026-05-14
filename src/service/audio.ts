@@ -4,6 +4,7 @@ import type { AudioState, PlotState, PointerGuidanceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
+import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 import {
   DEFAULT_POINTER_GUIDANCE_CONFIG,
@@ -791,17 +792,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private interpolate(value: number, from: Range, to: Range): number {
-    if (from.min === from.max) {
-      return to.min;
-    }
-
-    return (
-      ((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min
-    );
+    return MathUtil.interpolate(value, from.min, from.max, to.min, to.max);
   }
 
   private clamp(value: number, from: number, to: number): number {
-    return Math.max(from, Math.min(value, to));
+    return MathUtil.clamp(value, from, to);
   }
 
   /**

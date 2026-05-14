@@ -407,7 +407,8 @@ export class KeybindingService {
  * Service for managing mouse interactions with plot elements based on hover settings.
  */
 export class Mousebindingservice implements Observer<Settings>, Disposable {
-  private mouseListener!: (event: MouseEvent | PointerEvent) => void;
+  private pointermoveListener!: (event: PointerEvent) => void;
+  private clickListener!: (event: MouseEvent) => void;
   private pointerLeaveListener!: () => void;
   private readonly pointerGuidanceCommand: PointerGuidanceCommand;
 
@@ -445,10 +446,19 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
    * Registers mouse event listeners based on the current hover mode setting.
    */
   public registerEvents(): void {
-    // Create the mouse listener if it doesn't exist
-    if (!this.mouseListener) {
-      this.mouseListener = (event: MouseEvent | PointerEvent) => {
+    // Lazily create listeners. pointermove gets full guidance behaviour;
+    // click only navigates so a click between points does not trigger a
+    // directional guidance beep (data sonification still fires via the
+    // Observer chain on a successful move).
+    if (!this.pointermoveListener) {
+      this.pointermoveListener = (event: PointerEvent) => {
         this.pointerGuidanceCommand.execute(event);
+      };
+    }
+
+    if (!this.clickListener) {
+      this.clickListener = (event: MouseEvent) => {
+        this.pointerGuidanceCommand.executeNavigateOnly(event);
       };
     }
 
@@ -463,11 +473,10 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
 
     // Add appropriate listeners based on hover mode
     if (this.hoverMode === 'pointermove') {
-      this.plot.addEventListener('pointermove', this.mouseListener);
+      this.plot.addEventListener('pointermove', this.pointermoveListener);
       this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
     } else if (this.hoverMode === 'click') {
-      this.plot.addEventListener('click', this.mouseListener);
-      this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
+      this.plot.addEventListener('click', this.clickListener);
     } else {
       this.pointerGuidanceCommand.execute();
     }
@@ -477,9 +486,11 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
    * Removes all mouse event listeners from the plot element.
    */
   private removeEventListeners(): void {
-    if (this.mouseListener) {
-      this.plot.removeEventListener('pointermove', this.mouseListener);
-      this.plot.removeEventListener('click', this.mouseListener);
+    if (this.pointermoveListener) {
+      this.plot.removeEventListener('pointermove', this.pointermoveListener);
+    }
+    if (this.clickListener) {
+      this.plot.removeEventListener('click', this.clickListener);
     }
     if (this.pointerLeaveListener) {
       this.plot.removeEventListener('pointerleave', this.pointerLeaveListener);
