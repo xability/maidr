@@ -464,7 +464,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
 
     if (!this.pointerLeaveListener) {
       this.pointerLeaveListener = () => {
-        this.pointerGuidanceCommand.execute();
+        this.pointerGuidanceCommand.reset();
       };
     }
 
@@ -478,7 +478,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     } else if (this.hoverMode === 'click') {
       this.plot.addEventListener('click', this.clickListener);
     } else {
-      this.pointerGuidanceCommand.execute();
+      this.pointerGuidanceCommand.reset();
     }
   }
 
@@ -495,7 +495,7 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     if (this.pointerLeaveListener) {
       this.plot.removeEventListener('pointerleave', this.pointerLeaveListener);
     }
-    this.pointerGuidanceCommand.execute();
+    this.pointerGuidanceCommand.reset();
   }
 
   /**

@@ -2,7 +2,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/gra
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
@@ -692,8 +692,17 @@ export class ViolinBoxTrace extends AbstractTrace {
   /**
    * Hover-driven movement is disabled for violin box plots, but pointer
    * guidance still surfaces directional cues toward the nearest element.
+   *
+   * Parameters retained on the signature (rather than the zero-arg form
+   * TypeScript permits) so the override matches the base contract at a
+   * glance.
    */
-  protected override moveToNearest(): void {
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    _nearest: NearestPoint | null,
+    _onCurve?: boolean,
+  ): void {
     // Disabled for violin box plots
   }
 

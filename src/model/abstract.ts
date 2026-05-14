@@ -777,8 +777,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {
       onCurve,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
-      verticalRelation: y < nearest.centerY ? 'above' : 'below',
-      horizontalRelation: x < nearest.centerX ? 'left' : 'right',
+      cursorVerticalPosition: y < nearest.centerY ? 'above' : 'below',
+      cursorHorizontalPosition: x < nearest.centerX ? 'left' : 'right',
     };
   }
 

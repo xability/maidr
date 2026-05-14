@@ -658,6 +658,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
+    // `audioContext.currentTime` returns 0 while the context is suspended
+    // (before the first user gesture resumes it). The rate-limit gate
+    // below still works in that case — `nextPointerGuidanceBeepAt` is
+    // also 0, so the first beep is allowed. AudioContext resume is
+    // handled upstream by the audio system on user interaction.
     const now = this.audioContext.currentTime;
     if (now < this.nextPointerGuidanceBeepAt) {
       return;

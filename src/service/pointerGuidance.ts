@@ -55,15 +55,17 @@ export function resolvePointerGuidanceBeep(
   const interval = MathUtil.interpolate(distanceNorm, 0, 1, config.minInterval, config.maxInterval);
 
   return {
+    // Cursor below the curve → high pitch (point is "up high"),
+    // cursor above the curve → low pitch (point is "down below").
     frequency:
-      guidance.verticalRelation === 'below'
+      guidance.cursorVerticalPosition === 'below'
         ? config.highFrequency
         : config.lowFrequency,
-    // Pan toward the curve: pointer left of curve → positive (right) pan,
-    // pointer right of curve → negative (left) pan. The audio "pulls" the
+    // Pan toward the curve: cursor left of curve → positive (right) pan,
+    // cursor right of curve → negative (left) pan. The audio "pulls" the
     // user toward the data.
     pan:
-      guidance.horizontalRelation === 'right'
+      guidance.cursorHorizontalPosition === 'right'
         ? -config.panMagnitude
         : config.panMagnitude,
     interval,

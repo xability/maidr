@@ -8,8 +8,8 @@ describe('resolvePointerGuidanceBeep', () => {
     const beep = resolvePointerGuidanceBeep({
       onCurve: true,
       distancePx: 0,
-      verticalRelation: 'below',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'below',
+      cursorHorizontalPosition: 'left',
     });
 
     expect(beep).toBeNull();
@@ -19,8 +19,8 @@ describe('resolvePointerGuidanceBeep', () => {
     const beep = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: DEFAULT_POINTER_GUIDANCE_CONFIG.maxDistancePx + 1,
-      verticalRelation: 'below',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'below',
+      cursorHorizontalPosition: 'left',
     });
 
     expect(beep).toBeNull();
@@ -30,14 +30,14 @@ describe('resolvePointerGuidanceBeep', () => {
     const belowLeft = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 10,
-      verticalRelation: 'below',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'below',
+      cursorHorizontalPosition: 'left',
     });
     const aboveRight = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 10,
-      verticalRelation: 'above',
-      horizontalRelation: 'right',
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'right',
     });
 
     expect(belowLeft?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.highFrequency);
@@ -51,14 +51,14 @@ describe('resolvePointerGuidanceBeep', () => {
     const far = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: DEFAULT_POINTER_GUIDANCE_CONFIG.maxDistancePx,
-      verticalRelation: 'above',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'left',
     });
     const near = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 1,
-      verticalRelation: 'above',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'left',
     });
 
     expect(far).not.toBeNull();

@@ -39,19 +39,30 @@ export class PointerGuidanceCommand implements Command {
    *
    * If an event with client coordinates is provided, updates nearest point
    * navigation and plays directional guidance. If no event is provided,
-   * guidance is reset (used for pointer leave / unregister).
+   * guidance is reset (equivalent to calling {@link reset}).
    *
    * @param event - Optional pointer/mouse event containing clientX/clientY
    */
   public execute(event?: Event): void {
     if (!event || !this.hasClientCoordinates(event)) {
-      this.audioService.playPointerGuidance(null);
+      this.reset();
       return;
     }
 
     const { clientX, clientY } = event;
     const guidance = this.context.moveToPointAndGetPointerGuidance(clientX, clientY);
     this.audioService.playPointerGuidance(guidance);
+  }
+
+  /**
+   * Clears any in-flight guidance state.
+   *
+   * Called when the pointer leaves the plot or when hover mode changes to
+   * `none`, so the throttle (`nextPointerGuidanceBeepAt`) resets and no
+   * stale beep is queued for a fresh entry.
+   */
+  public reset(): void {
+    this.audioService.playPointerGuidance(null);
   }
 
   /**

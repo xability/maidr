@@ -47,8 +47,8 @@ describe('PointerGuidanceCommand.execute', () => {
     const guidance: PointerGuidanceState = {
       onCurve: false,
       distancePx: 25,
-      verticalRelation: 'above',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'left',
     };
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks(guidance);
     const command = new PointerGuidanceCommand(context, audio);
@@ -65,8 +65,8 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks({
       onCurve: false,
       distancePx: 25,
-      verticalRelation: 'above',
-      horizontalRelation: 'left',
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'left',
     });
     const command = new PointerGuidanceCommand(context, audio);
 

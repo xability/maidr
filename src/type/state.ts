@@ -183,16 +183,25 @@ export interface AudioState {
 
 /**
  * Directional guidance state for pointer/touch exploration near a curve.
+ *
+ * Position fields describe where the **pointer** sits relative to the
+ * nearest curve point — e.g. `cursorVerticalPosition: 'above'` means the
+ * pointer is above the curve. Phrasing them from the cursor's frame keeps
+ * call-site semantics unambiguous.
  */
 export interface PointerGuidanceState {
   /** True when pointer/finger is touching the curve's active point region. */
   onCurve: boolean;
-  /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+  /**
+   * Distance in screen pixels from pointer/finger to the nearest curve
+   * point center. Set even when `onCurve` is true (callers should check
+   * `onCurve` before using this).
+   */
   distancePx: number;
-  /** Relative vertical relation of pointer/finger to the curve. */
-  verticalRelation: 'above' | 'below';
-  /** Relative horizontal relation of pointer/finger to the curve. */
-  horizontalRelation: 'left' | 'right';
+  /** Pointer position relative to the curve along the vertical axis. */
+  cursorVerticalPosition: 'above' | 'below';
+  /** Pointer position relative to the curve along the horizontal axis. */
+  cursorHorizontalPosition: 'left' | 'right';
 }
 
 /**
