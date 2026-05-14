@@ -10,8 +10,8 @@ import type {
   BrailleState,
   DescriptionState,
   HighlightState,
+  PointerGuidanceState,
   TextState,
-  TouchGuidanceState,
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
@@ -50,7 +50,7 @@ export interface Dimension {
   cols: number;
 }
 
-interface NearestPoint {
+export interface NearestPoint {
   element: SVGElement;
   row: number;
   col: number;
@@ -303,14 +303,21 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Gets directional touch/pointer guidance near the active data geometry.
-   * Default behavior returns null for non-trace contexts.
+   * Moves the active point to the (x, y) pointer location and returns
+   * directional guidance toward the nearest data geometry.
+   *
+   * Combines navigation and guidance into a single call so traces compute
+   * `findNearestPoint` only once per pointer event. Default returns null
+   * for non-trace contexts.
    *
    * @param _x - Screen-space x position of the pointer/finger
    * @param _y - Screen-space y position of the pointer/finger
-   * @returns Null when guidance is unavailable
+   * @returns Guidance state, or null when unavailable
    */
-  public getTouchGuidance(_x: number, _y: number): TouchGuidanceState | null {
+  public moveToPointAndGetPointerGuidance(
+    _x: number,
+    _y: number,
+  ): PointerGuidanceState | null {
     return null;
   }
 }
@@ -764,36 +771,66 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public moveToPoint(x: number, y: number): void {
     const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
-    }
+    this.moveToNearest(x, y, nearest);
   }
 
   /**
-   * Computes directional guidance for pointer/touch exploration near curves.
+   * Moves the active point to the pointer location and returns directional
+   * guidance toward the nearest data geometry in a single call.
    *
-   * @param x - Screen-space x position
-   * @param y - Screen-space y position
+   * Combining both operations avoids running `findNearestPoint` twice per
+   * `pointermove` event — important on dense plots where the scan is the
+   * hot path.
+   *
+   * @param x - Screen-space x position of the pointer/finger
+   * @param y - Screen-space y position of the pointer/finger
    * @returns Guidance state relative to nearest point, or null when unavailable
    */
-  public override getTouchGuidance(x: number, y: number): TouchGuidanceState | null {
+  public override moveToPointAndGetPointerGuidance(
+    x: number,
+    y: number,
+  ): PointerGuidanceState | null {
     const nearest = this.findNearestPoint(x, y);
     if (!nearest) {
       return null;
     }
 
+    const onCurve = this.isPointInBounds(x, y, nearest);
+    this.moveToNearest(x, y, nearest, onCurve);
+
     return {
-      onCurve: this.isPointInBounds(x, y, nearest),
+      onCurve,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
       verticalRelation: y < nearest.centerY ? 'above' : 'below',
       horizontalRelation: x < nearest.centerX ? 'left' : 'right',
     };
+  }
+
+  /**
+   * Moves the trace to the nearest point when the pointer is within its
+   * bounds and the trace is not already focused on that point.
+   *
+   * Subclasses override this to customise hover-driven navigation:
+   * - Box / ViolinBox no-op the move while still surfacing guidance.
+   * - Scatter switches into column navigation mode before delegating.
+   */
+  protected moveToNearest(
+    x: number,
+    y: number,
+    nearest: NearestPoint | null,
+    onCurve?: boolean,
+  ): void {
+    if (!nearest) {
+      return;
+    }
+    const isOnCurve = onCurve ?? this.isPointInBounds(x, y, nearest);
+    if (!isOnCurve) {
+      return;
+    }
+    if (this.row === nearest.row && this.col === nearest.col) {
+      return;
+    }
+    this.moveToIndex(nearest.row, nearest.col);
   }
 
   /**

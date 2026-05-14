@@ -690,9 +690,10 @@ export class ViolinBoxTrace extends AbstractTrace {
   }
 
   /**
-   * Disabled for violin box plots.
+   * Hover-driven movement is disabled for violin box plots, but pointer
+   * guidance still surfaces directional cues toward the nearest element.
    */
-  public moveToPoint(_x: number, _y: number): void {
+  protected override moveToNearest(): void {
     // Disabled for violin box plots
   }
 

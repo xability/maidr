@@ -6,9 +6,9 @@ import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
+  PointerGuidanceState,
   SubplotState,
   SubplotSummary,
-  TouchGuidanceState,
   TraceState,
 } from '@type/state';
 import type { SubplotLayout } from '@util/subplotLayout';
@@ -595,12 +595,15 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   moveToPoint: (x: number, y: number) => void;
 
   /**
-   * Computes directional guidance for pointer/touch exploration near this trace.
+   * Moves to the nearest point at (x, y) and returns directional guidance
+   * toward the nearest data geometry in a single call. Combining the two
+   * operations avoids running `findNearestPoint` twice per pointer event.
+   *
    * @param x - Screen-space x position
    * @param y - Screen-space y position
    * @returns Guidance state or null if unavailable
    */
-  getTouchGuidance: (x: number, y: number) => TouchGuidanceState | null;
+  moveToPointAndGetPointerGuidance: (x: number, y: number) => PointerGuidanceState | null;
 
   /**
    * Gets extrema targets for navigation.

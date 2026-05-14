@@ -2,7 +2,7 @@ import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -1200,23 +1200,17 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   /**
-   * Moves to the nearest scatter point at the specified screen coordinates.
-   * @param x - The x-coordinate in screen space
-   * @param y - The y-coordinate in screen space
+   * Switches scatter into column-navigation mode before delegating to the
+   * shared hover/guidance logic. Called by both `moveToPoint` and
+   * `moveToPointAndGetPointerGuidance` via the AbstractTrace base.
    */
-  public moveToPoint(x: number, y: number): void {
-    // set to vertical mode
+  protected override moveToNearest(
+    x: number,
+    y: number,
+    nearest: NearestPoint | null,
+    onCurve?: boolean,
+  ): void {
     this.mode = NavMode.COL;
-
-    const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
-    }
+    super.moveToNearest(x, y, nearest, onCurve);
   }
 }

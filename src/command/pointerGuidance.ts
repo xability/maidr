@@ -34,15 +34,13 @@ export class PointerGuidanceCommand implements Command {
    */
   public execute(event?: Event): void {
     if (!event || !this.hasClientCoordinates(event)) {
-      this.audioService.playTouchGuidance(null);
+      this.audioService.playPointerGuidance(null);
       return;
     }
 
     const { clientX, clientY } = event;
-    this.context.moveToPoint(clientX, clientY);
-
-    const guidance = this.context.getTouchGuidance(clientX, clientY);
-    this.audioService.playTouchGuidance(guidance);
+    const guidance = this.context.moveToPointAndGetPointerGuidance(clientX, clientY);
+    this.audioService.playPointerGuidance(guidance);
   }
 
   private hasClientCoordinates(

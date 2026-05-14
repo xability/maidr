@@ -184,7 +184,7 @@ export interface AudioState {
 /**
  * Directional guidance state for pointer/touch exploration near a curve.
  */
-export interface TouchGuidanceState {
+export interface PointerGuidanceState {
   /** True when pointer/finger is touching the curve's active point region. */
   onCurve: boolean;
   /** Distance in screen pixels from pointer/finger to the nearest curve point center. */

@@ -1,9 +1,9 @@
-import type { TouchGuidanceState } from '@type/state';
+import type { PointerGuidanceState } from '@type/state';
 
 /**
- * Derived beep parameters for touch/pointer guidance.
+ * Derived beep parameters for pointer/touch guidance.
  */
-export interface TouchGuidanceBeep {
+export interface PointerGuidanceBeep {
   frequency: number;
   pan: number;
   interval: number;
@@ -12,7 +12,7 @@ export interface TouchGuidanceBeep {
 /**
  * Configuration values used to map guidance state into audible cues.
  */
-export interface TouchGuidanceConfig {
+export interface PointerGuidanceConfig {
   maxDistancePx: number;
   minInterval: number;
   maxInterval: number;
@@ -24,7 +24,7 @@ export interface TouchGuidanceConfig {
 /**
  * Default guidance mapping configuration.
  */
-export const DEFAULT_TOUCH_GUIDANCE_CONFIG: TouchGuidanceConfig = {
+export const DEFAULT_POINTER_GUIDANCE_CONFIG: PointerGuidanceConfig = {
   maxDistancePx: 160,
   minInterval: 0.08,
   maxInterval: 0.55,
@@ -42,10 +42,10 @@ export const DEFAULT_TOUCH_GUIDANCE_CONFIG: TouchGuidanceConfig = {
  * @param config - Optional configuration overriding defaults
  * @returns Beep parameters or null
  */
-export function resolveTouchGuidanceBeep(
-  guidance: TouchGuidanceState | null,
-  config: TouchGuidanceConfig = DEFAULT_TOUCH_GUIDANCE_CONFIG,
-): TouchGuidanceBeep | null {
+export function resolvePointerGuidanceBeep(
+  guidance: PointerGuidanceState | null,
+  config: PointerGuidanceConfig = DEFAULT_POINTER_GUIDANCE_CONFIG,
+): PointerGuidanceBeep | null {
   if (!guidance || guidance.onCurve || guidance.distancePx > config.maxDistancePx) {
     return null;
   }

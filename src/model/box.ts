@@ -527,9 +527,10 @@ export class BoxTrace extends AbstractTrace {
   }
 
   /**
-   * Moves to the nearest point at the specified coordinates (disabled for boxplots).
+   * Hover-driven movement is disabled for boxplots, but pointer guidance
+   * still surfaces directional cues toward the nearest box element.
    */
-  public moveToPoint(_x: number, _y: number): void {
+  protected override moveToNearest(): void {
     // Disabled for boxplots
   }
 }
