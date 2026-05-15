@@ -1,18 +1,12 @@
 import type { PointerGuidanceState } from '@type/state';
 import { MathUtil } from '@util/math';
 
-/**
- * Derived beep parameters for pointer/touch guidance.
- */
 export interface PointerGuidanceBeep {
   frequency: number;
   pan: number;
   interval: number;
 }
 
-/**
- * Configuration values used to map guidance state into audible cues.
- */
 export interface PointerGuidanceConfig {
   maxDistancePx: number;
   minInterval: number;
@@ -22,9 +16,6 @@ export interface PointerGuidanceConfig {
   panMagnitude: number;
 }
 
-/**
- * Default guidance mapping configuration.
- */
 export const DEFAULT_POINTER_GUIDANCE_CONFIG: PointerGuidanceConfig = {
   maxDistancePx: 160,
   minInterval: 0.08,
@@ -35,13 +26,10 @@ export const DEFAULT_POINTER_GUIDANCE_CONFIG: PointerGuidanceConfig = {
 };
 
 /**
- * Converts directional pointer guidance into beep parameters.
- *
- * Returns null when no off-curve guidance beep should play.
- *
- * @param guidance - Directional guidance state
- * @param config - Optional configuration overriding defaults
- * @returns Beep parameters or null
+ * Returns null when no off-curve guidance beep should play (on-curve or
+ * beyond `maxDistancePx`). `curveVertical: 'above'` follows screen-space
+ * convention (y increases downward), so `above` is visually higher and
+ * therefore maps to a higher pitch.
  */
 export function resolvePointerGuidanceBeep(
   guidance: PointerGuidanceState | null,
@@ -55,7 +43,6 @@ export function resolvePointerGuidanceBeep(
   const interval = MathUtil.interpolate(distanceNorm, 0, 1, config.minInterval, config.maxInterval);
 
   return {
-    // Point above cursor → high pitch; point below → low pitch.
     frequency:
       guidance.curveVertical === 'above'
         ? config.highFrequency

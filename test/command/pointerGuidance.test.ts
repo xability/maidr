@@ -68,7 +68,9 @@ describe('PointerGuidanceCommand.execute', () => {
     expect(playPointerGuidance).toHaveBeenCalledWith(guidance);
   });
 
-  it('no-ops outside trace scope when an event is provided', () => {
+  it('resets and skips navigation when an event arrives outside trace scope', () => {
+    // Out-of-scope events must clear stale throttle state so the first
+    // beep after returning to trace scope isn't delayed.
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance }
       = createMocks(null, Scope.HELP);
     const command = new PointerGuidanceCommand(context, audio);
@@ -76,7 +78,7 @@ describe('PointerGuidanceCommand.execute', () => {
     command.execute({ clientX: 5, clientY: 5 } as unknown as Event);
 
     expect(moveToPointAndGetPointerGuidance).not.toHaveBeenCalled();
-    expect(playPointerGuidance).not.toHaveBeenCalled();
+    expect(playPointerGuidance).toHaveBeenCalledWith(null);
   });
 
   it('still resets on pointer-leave outside trace scope', () => {

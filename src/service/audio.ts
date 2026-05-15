@@ -687,7 +687,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    this.playPointerGuidanceBeep(beep.frequency, beep.pan, now);
+    if (!this.playPointerGuidanceBeep(beep.frequency, beep.pan, now)) {
+      // Beep was skipped (volume = 0). Don't advance the throttle: doing so
+      // would silently delay the next valid beep after the user turns volume
+      // back up.
+      return;
+    }
     this.nextPointerGuidanceBeepAt = now + beep.interval;
   }
 
@@ -695,10 +700,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     frequency: number,
     pan: number,
     startTime: number,
-  ): void {
+  ): boolean {
     const guidanceVolume = this.volume * POINTER_GUIDANCE_VOLUME;
     if (guidanceVolume <= 0) {
-      return;
+      return false;
     }
 
     const oscillator = this.audioContext.createOscillator();
@@ -742,6 +747,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.activeAudioIds.delete(audioId);
     }, POINTER_GUIDANCE_BEEP_DURATION * 1000 * 2);
     this.activeAudioIds.set(audioId, nodes);
+    return true;
   }
 
   private playZeroTone(panning: Panning): AudioId {

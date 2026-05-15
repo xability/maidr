@@ -128,15 +128,34 @@ function installAudioContextMock(): MockAudioContext {
   return ctx;
 }
 
-function createSettings(): SettingsService {
-  // Every settings lookup returns 100 — for `general.volume` that maps to
-  // full volume in AudioService, which is what every test here needs. The
-  // min/max frequency reads inherit the same 100 but those values don't
-  // affect pointer-guidance assertions.
-  return {
-    get: <T>(_key: string) => 100 as unknown as T,
-    onChange: jest.fn(),
+interface SettingsHandle {
+  service: SettingsService;
+  /** Fires a synthetic settings-change event so AudioService re-reads volume. */
+  setVolume: (value: number) => void;
+}
+
+function createSettings(volume: number = 100): SettingsHandle {
+  // Every settings lookup returns the same value — `general.volume` is the
+  // only one that affects pointer-guidance assertions; min/max frequency
+  // reads share the value but don't matter here.
+  const state = { volume };
+  let listener: ((event: { affectsSetting: (k: string) => boolean; get: <T>(k: string) => T }) => void) | null = null;
+  const service = {
+    get: <T>(key: string) => (key === 'general.volume' ? state.volume : 100) as unknown as T,
+    onChange: (fn: typeof listener) => {
+      listener = fn;
+    },
   } as unknown as SettingsService;
+  return {
+    service,
+    setVolume(value: number) {
+      state.volume = value;
+      listener?.({
+        affectsSetting: (k: string) => k === 'general.volume',
+        get: <T>(k: string) => (k === 'general.volume' ? value : 100) as unknown as T,
+      });
+    },
+  };
 }
 
 function createNotification(): NotificationService {
@@ -159,7 +178,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('skips beep when audio mode is OFF', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
     service.toggle(); // SEPARATE -> OFF
 
     const oscillatorsBefore = ctx.oscillators.length;
@@ -172,7 +191,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('skips beep when guidance is on-curve', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     const oscillatorsBefore = ctx.oscillators.length;
     service.playPointerGuidance({ onCurve: true });
@@ -184,7 +203,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('plays a beep for off-curve guidance', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     const oscillatorsBefore = ctx.oscillators.length;
     service.playPointerGuidance(OFF_CURVE);
@@ -196,7 +215,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('rate-limits subsequent beeps inside the throttle window', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     service.playPointerGuidance(OFF_CURVE);
     const afterFirst = ctx.oscillators.length;
@@ -211,7 +230,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('emits another beep once currentTime advances past the throttle', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     service.playPointerGuidance(OFF_CURVE);
     const afterFirst = ctx.oscillators.length;
@@ -226,7 +245,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('resets the throttle when called with null guidance', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     service.playPointerGuidance(OFF_CURVE);
     const afterFirst = ctx.oscillators.length;
@@ -243,7 +262,7 @@ describe('AudioService.playPointerGuidance', () => {
   it('out-of-range guidance does not reset throttle — prevents beep on every boundary crossing', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     // Fire one in-range beep so the throttle is armed.
     service.playPointerGuidance(OFF_CURVE);
@@ -267,10 +286,33 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
+  it('volume=0 skips beep without consuming throttle slot', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    // Volume starts at 0, so playPointerGuidanceBeep returns early. The
+    // throttle must NOT advance — otherwise turning volume back up would
+    // silently delay the next beep until the would-be interval elapsed.
+    const settings = createSettings(0);
+    const service = new AudioService(createNotification(), settings.service, INITIAL_STATE);
+
+    const oscillatorsBefore = ctx.oscillators.length;
+    service.playPointerGuidance(OFF_CURVE);
+    expect(ctx.oscillators.length).toBe(oscillatorsBefore); // no beep emitted
+
+    // Turn volume back up without advancing currentTime. If the previous
+    // call had armed the throttle, this call would be blocked. Because the
+    // implementation only advances the throttle when a beep actually fires,
+    // the gate is still open and this beep emits immediately.
+    settings.setVolume(100);
+    service.playPointerGuidance(OFF_CURVE);
+    expect(ctx.oscillators.length).toBe(oscillatorsBefore + 1);
+    service.dispose();
+  });
+
   it('audio OFF does not reset throttle — preserves timing across mode toggles', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
-    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
 
     // Fire one beep so the throttle is armed.
     service.playPointerGuidance(OFF_CURVE);

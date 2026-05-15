@@ -28,13 +28,12 @@ export class PointerGuidanceCommand implements Command {
    * stays silent while modals or other scopes own input.
    */
   public execute(event?: Event): void {
-    // Pointer-leave / missing-coordinate paths always reset so stale
-    // throttle state from a prior trace-scope hover doesn't leak.
-    if (!event || !this.hasClientCoordinates(event)) {
+    // Pointer-leave / missing-coordinate / out-of-scope events all need to
+    // clear in-flight guidance: otherwise a throttle slot armed during a
+    // prior trace-scope hover would silently delay the next beep when the
+    // user returns to trace scope.
+    if (!event || !this.hasClientCoordinates(event) || !this.isInTraceScope()) {
       this.reset();
-      return;
-    }
-    if (!this.isInTraceScope()) {
       return;
     }
 
