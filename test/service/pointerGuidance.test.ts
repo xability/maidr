@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import {
   DEFAULT_POINTER_GUIDANCE_CONFIG,
   resolvePointerGuidanceBeep,
