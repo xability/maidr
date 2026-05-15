@@ -30,7 +30,7 @@ export class PointerGuidanceCommand implements Command {
    * @param context - Application context used for point navigation and guidance lookup
    * @param audioService - Audio service that renders guidance beeps
    */
-  public constructor(context: Context, audioService: AudioService) {
+  constructor(context: Context, audioService: AudioService) {
     this.context = context;
     this.audioService = audioService;
   }

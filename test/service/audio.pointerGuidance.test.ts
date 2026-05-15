@@ -9,7 +9,7 @@
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { PlotState, PointerGuidanceState } from '@type/state';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 interface MockOscillator {
   type: string;
@@ -121,9 +121,10 @@ function installAudioContextMock(): MockAudioContext {
     createDynamicsCompressor: makeCompressor,
     close: jest.fn(),
   };
-  (globalThis as any).AudioContext = function () {
+  const audioGlobal = globalThis as unknown as { AudioContext: new () => MockAudioContext };
+  audioGlobal.AudioContext = function () {
     return ctx;
-  };
+  } as unknown as new () => MockAudioContext;
   return ctx;
 }
 
@@ -151,7 +152,7 @@ const OFF_CURVE: PointerGuidanceState = {
 };
 
 describe('AudioService.playPointerGuidance', () => {
-  test('skips beep when audio mode is OFF', async () => {
+  it('skips beep when audio mode is OFF', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -164,7 +165,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('skips beep when guidance is on-curve', async () => {
+  it('skips beep when guidance is on-curve', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -176,7 +177,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('plays a beep for off-curve guidance', async () => {
+  it('plays a beep for off-curve guidance', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -188,7 +189,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('rate-limits subsequent beeps inside the throttle window', async () => {
+  it('rate-limits subsequent beeps inside the throttle window', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -203,7 +204,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('emits another beep once currentTime advances past the throttle', async () => {
+  it('emits another beep once currentTime advances past the throttle', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -218,7 +219,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('resets the throttle when called with null guidance', async () => {
+  it('resets the throttle when called with null guidance', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -235,7 +236,7 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
-  test('audio OFF does not reset throttle — preserves timing across mode toggles', async () => {
+  it('audio OFF does not reset throttle — preserves timing across mode toggles', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);

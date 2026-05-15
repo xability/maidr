@@ -706,12 +706,24 @@ export class AudioService implements Observer<PlotState>, Disposable {
     gainNode.gain.setValueAtTime(guidanceVolume, startTime);
     gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + POINTER_GUIDANCE_BEEP_DURATION);
 
-    const stereoPanner = this.audioContext.createStereoPanner();
-    stereoPanner.pan.value = this.clamp(pan, -1, 1);
+    // `createStereoPanner` is unavailable on Safari < 14.5. Degrade
+    // gracefully: still emit the directional beep (high/low pitch already
+    // conveys vertical direction); horizontal direction is lost on
+    // unsupported platforms, which is preferable to a runtime throw.
+    const stereoPanner = typeof this.audioContext.createStereoPanner === 'function'
+      ? this.audioContext.createStereoPanner()
+      : null;
+    if (stereoPanner) {
+      stereoPanner.pan.value = this.clamp(pan, -1, 1);
+    }
 
     oscillator.connect(gainNode);
-    gainNode.connect(stereoPanner);
-    stereoPanner.connect(this.compressor);
+    if (stereoPanner) {
+      gainNode.connect(stereoPanner);
+      stereoPanner.connect(this.compressor);
+    } else {
+      gainNode.connect(this.compressor);
+    }
 
     oscillator.start(startTime);
     oscillator.stop(startTime + POINTER_GUIDANCE_BEEP_DURATION);
@@ -719,13 +731,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // Schedule cleanup after 2× the beep duration to let the
     // exponentialRampToValueAtTime tail finish before disconnecting the
     // nodes — disconnecting mid-ramp would clip the fade-out.
+    const nodes: AudioNode[] = stereoPanner
+      ? [oscillator, gainNode, stereoPanner]
+      : [oscillator, gainNode];
     const audioId = setTimeout(() => {
-      oscillator.disconnect();
-      gainNode.disconnect();
-      stereoPanner.disconnect();
+      nodes.forEach(node => node.disconnect());
       this.activeAudioIds.delete(audioId);
     }, POINTER_GUIDANCE_BEEP_DURATION * 1000 * 2);
-    this.activeAudioIds.set(audioId, [oscillator, gainNode, stereoPanner]);
+    this.activeAudioIds.set(audioId, nodes);
   }
 
   private playZeroTone(panning: Panning): AudioId {

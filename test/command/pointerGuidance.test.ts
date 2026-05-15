@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { PointerGuidanceState } from '@type/state';
 import { PointerGuidanceCommand } from '@command/pointerGuidance';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { Scope } from '@type/event';
 
 interface Mocks {
@@ -32,7 +32,7 @@ function createMocks(
 }
 
 describe('PointerGuidanceCommand.execute', () => {
-  test('resets guidance when called with no event (pointer leave)', () => {
+  it('resets guidance when called with no event (pointer leave)', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks();
     const command = new PointerGuidanceCommand(context, audio);
 
@@ -42,7 +42,7 @@ describe('PointerGuidanceCommand.execute', () => {
     expect(playPointerGuidance).toHaveBeenCalledWith(null);
   });
 
-  test('resets guidance when event lacks client coordinates', () => {
+  it('resets guidance when event lacks client coordinates', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks();
     const command = new PointerGuidanceCommand(context, audio);
 
@@ -52,7 +52,7 @@ describe('PointerGuidanceCommand.execute', () => {
     expect(playPointerGuidance).toHaveBeenCalledWith(null);
   });
 
-  test('navigates and plays guidance from event coordinates', () => {
+  it('navigates and plays guidance from event coordinates', () => {
     const guidance: PointerGuidanceState = {
       onCurve: false,
       distancePx: 25,
@@ -68,7 +68,7 @@ describe('PointerGuidanceCommand.execute', () => {
     expect(playPointerGuidance).toHaveBeenCalledWith(guidance);
   });
 
-  test('no-ops outside trace scope when an event is provided', () => {
+  it('no-ops outside trace scope when an event is provided', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance }
       = createMocks(null, Scope.HELP);
     const command = new PointerGuidanceCommand(context, audio);
@@ -79,7 +79,7 @@ describe('PointerGuidanceCommand.execute', () => {
     expect(playPointerGuidance).not.toHaveBeenCalled();
   });
 
-  test('still resets on pointer-leave outside trace scope', () => {
+  it('still resets on pointer-leave outside trace scope', () => {
     // Reset must run regardless of scope so stale throttle state from a
     // prior trace-scope hover doesn't leak across scope changes.
     const { context, audio, playPointerGuidance } = createMocks(null, Scope.SUBPLOT);
@@ -92,7 +92,7 @@ describe('PointerGuidanceCommand.execute', () => {
 });
 
 describe('PointerGuidanceCommand.executeNavigateOnly', () => {
-  test('navigates without playing guidance', () => {
+  it('navigates without playing guidance', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks({
       onCurve: false,
       distancePx: 25,
@@ -107,7 +107,7 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
     expect(playPointerGuidance).not.toHaveBeenCalled();
   });
 
-  test('does nothing when event lacks client coordinates', () => {
+  it('does nothing when event lacks client coordinates', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks();
     const command = new PointerGuidanceCommand(context, audio);
 
@@ -117,7 +117,7 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
     expect(playPointerGuidance).not.toHaveBeenCalled();
   });
 
-  test('no-ops outside trace scope', () => {
+  it('no-ops outside trace scope', () => {
     const { context, audio, moveToPointAndGetPointerGuidance }
       = createMocks(null, Scope.SUBPLOT);
     const command = new PointerGuidanceCommand(context, audio);

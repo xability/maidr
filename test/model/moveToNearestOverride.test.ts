@@ -17,7 +17,7 @@ import type {
   DescriptionState,
   TextState,
 } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { AbstractTrace } from '@model/abstract';
 import { TraceType } from '@type/grammar';
 
@@ -129,6 +129,23 @@ class NoMoveTrace extends TestTrace {
   }
 }
 
+/**
+ * Subclass that records a pre-delegation side effect (mirrors ScatterTrace,
+ * which sets `this.mode = NavMode.COL` before delegating to the base hook).
+ */
+class SideEffectTrace extends TestTrace {
+  public sideEffectSetBeforeMove = false;
+  protected override moveToNearest(
+    x: number,
+    y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    this.sideEffectSetBeforeMove = true;
+    super.moveToNearest(x, y, nearest, onCurve);
+  }
+}
+
 const NEAREST: NearestPoint = {
   element: {} as SVGElement,
   row: 3,
@@ -138,7 +155,7 @@ const NEAREST: NearestPoint = {
 };
 
 describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', () => {
-  test('default behaviour moves when cursor is on-curve', () => {
+  it('default behaviour moves when cursor is on-curve', () => {
     // Cursor at (90, 60) is left and below the nearest point at (100, 50).
     const trace = new TestTrace(NEAREST, true);
     const guidance = trace.moveToPointAndGetPointerGuidance(90, 60);
@@ -152,7 +169,7 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     });
   });
 
-  test('override skips the move but still returns guidance', () => {
+  it('override skips the move but still returns guidance', () => {
     const trace = new NoMoveTrace(NEAREST, true);
     const guidance = trace.moveToPointAndGetPointerGuidance(90, 60);
 
@@ -162,7 +179,7 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     expect(guidance?.distancePx).toBeCloseTo(Math.hypot(10, 10));
   });
 
-  test('override returns off-curve guidance with distance', () => {
+  it('override returns off-curve guidance with distance', () => {
     const trace = new NoMoveTrace(NEAREST, false);
     const guidance = trace.moveToPointAndGetPointerGuidance(NEAREST.centerX + 80, NEAREST.centerY + 60);
 
@@ -173,7 +190,7 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     expect(guidance?.cursorVerticalPosition).toBe('below');
   });
 
-  test('returns null when no nearest point exists', () => {
+  it('returns null when no nearest point exists', () => {
     const trace = new (class extends TestTrace {
       protected override findNearestPoint(): null {
         return null;
@@ -181,5 +198,13 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     })(NEAREST, false);
 
     expect(trace.moveToPointAndGetPointerGuidance(0, 0)).toBeNull();
+  });
+
+  it('override that performs a side effect still delegates the move (mirrors ScatterTrace mode switch)', () => {
+    const trace = new SideEffectTrace(NEAREST, true);
+    trace.moveToPointAndGetPointerGuidance(90, 60);
+
+    expect(trace.sideEffectSetBeforeMove).toBe(true);
+    expect(trace.moveToIndexCalls).toBe(1);
   });
 });

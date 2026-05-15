@@ -471,7 +471,12 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     // Remove any existing listeners first to avoid duplicates
     this.removeEventListeners();
 
-    // Add appropriate listeners based on hover mode
+    // Add appropriate listeners based on hover mode.
+    // `pointerleave` is only attached for `pointermove` mode: it exists to
+    // clear throttle state that `pointermove` builds up during continuous
+    // hover. `click` mode produces a single discrete event with no throttle
+    // state to clear, so it intentionally skips the leave handler — the
+    // removal guard in `removeEventListeners` still no-ops safely.
     if (this.hoverMode === 'pointermove') {
       this.plot.addEventListener('pointermove', this.pointermoveListener);
       this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
