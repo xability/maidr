@@ -116,6 +116,9 @@ function installAudioContextMock(): MockAudioContext {
       this.oscillators.push(osc);
       return osc;
     },
+    // `makeGain`/`makePanner`/`makeCompressor` are constructor functions:
+    // every `ctx.createGain()` call invokes them fresh, so each consumer
+    // gets its own gain node rather than sharing a singleton.
     createGain: makeGain,
     createStereoPanner: makePanner,
     createDynamicsCompressor: makeCompressor,

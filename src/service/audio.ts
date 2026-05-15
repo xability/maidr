@@ -45,7 +45,12 @@ const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
 
+// 60 ms is short enough that rapid beeps don't blur together at the fastest
+// throttle interval, while still being long enough to be clearly audible as
+// a discrete tone rather than a click.
 const POINTER_GUIDANCE_BEEP_DURATION = 0.06;
+// 35 % of the master volume keeps guidance audibly quieter than data tones,
+// so the user perceives it as a navigational cue rather than as data.
 const POINTER_GUIDANCE_VOLUME = 0.35;
 
 const DEFAULT_DURATION = 0.3;

@@ -778,12 +778,12 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       return { onCurve: true };
     }
 
-    // Tie-breaks at the exact center are arbitrary by design: at single-pixel
-    // precision the user can't perceive the difference, and forcing strict
-    // inequality avoids a third "centered" state that beep mapping would
-    // need to handle. Fields describe where the curve point sits relative
-    // to the cursor — `y < centerY` means cursor is above, so the point is
-    // below; `x < centerX` means cursor is left, so the point is right.
+    // Fields describe where the curve point sits relative to the cursor.
+    // Screen-space: y grows downward, so a smaller y is higher on screen —
+    // `y < centerY` puts the point below the cursor. Tie-breaks at the exact
+    // center are arbitrary by design: at single-pixel precision the user
+    // can't perceive the difference, and forcing strict inequality avoids a
+    // third "centered" state that beep mapping would need to handle.
     return {
       onCurve: false,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
