@@ -7,10 +7,14 @@ import { Scope } from '@type/event';
  * Routes pointer/touch movement into guidance sonification.
  *
  * Constructed directly by `Mousebindingservice` rather than through
- * `CommandFactory`: pointer events carry coordinates the keyboard-oriented
- * factory contract does not accept. Because of that bypass, the scope check
- * in {@link isInTraceScope} duplicates `CommandExecutor.isValidForScope` —
- * keep the two in sync if scope validation evolves.
+ * `CommandFactory` because pointer events carry coordinates the
+ * keyboard-oriented factory contract does not accept.
+ *
+ * Keyboard commands rely on hotkeys-js scope routing — only the active
+ * scope receives the event, so commands don't self-validate. DOM
+ * pointer listeners receive every event regardless of scope, so this
+ * command must filter via {@link isInTraceScope}. The check is unique
+ * to this code path; there is no peer implementation to keep in sync.
  */
 export class PointerGuidanceCommand implements Command {
   private readonly context: Context;
