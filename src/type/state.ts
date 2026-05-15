@@ -184,28 +184,22 @@ export interface AudioState {
 /**
  * Directional guidance state for pointer/touch exploration near a curve.
  *
- * Position fields describe where the **cursor** sits, not where the curve
- * point sits. Reading `cursorVerticalPosition: 'below'` as "the cursor is
- * below the curve" is correct; reading it as "the point is below the
- * cursor" is the opposite and wrong. Pitch and pan mappings invert this
- * frame back into curve-relative cues (cursor below → high pitch because
- * the point is up high), so call-site logic must keep the cursor frame
- * in mind.
+ * Position fields describe where the **curve point** sits relative to the
+ * cursor, so they line up directly with the audio output: `curveVertical:
+ * 'above'` plays a high pitch (point is up there), `curveHorizontal:
+ * 'left'` pans audio to the left (point is to the left).
  */
-export interface PointerGuidanceState {
-  /** True when pointer/finger is touching the curve's active point region. */
-  onCurve: boolean;
-  /**
-   * Distance in screen pixels from pointer/finger to the nearest curve
-   * point center. Set even when `onCurve` is true (callers should check
-   * `onCurve` before using this).
-   */
-  distancePx: number;
-  /** Where the cursor sits vertically relative to the curve. */
-  cursorVerticalPosition: 'above' | 'below';
-  /** Where the cursor sits horizontally relative to the curve. */
-  cursorHorizontalPosition: 'left' | 'right';
-}
+export type PointerGuidanceState
+  = | { onCurve: true }
+    | {
+      onCurve: false;
+      /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+      distancePx: number;
+      /** Where the curve point sits vertically relative to the cursor. */
+      curveVertical: 'above' | 'below';
+      /** Where the curve point sits horizontally relative to the cursor. */
+      curveHorizontal: 'left' | 'right';
+    };
 
 /**
  * Union type for all braille display states across different plot types.

@@ -5,12 +5,7 @@ import {
 
 describe('resolvePointerGuidanceBeep', () => {
   it('returns null for on-curve guidance', () => {
-    const beep = resolvePointerGuidanceBeep({
-      onCurve: true,
-      distancePx: 0,
-      cursorVerticalPosition: 'below',
-      cursorHorizontalPosition: 'left',
-    });
+    const beep = resolvePointerGuidanceBeep({ onCurve: true });
 
     expect(beep).toBeNull();
   });
@@ -19,46 +14,48 @@ describe('resolvePointerGuidanceBeep', () => {
     const beep = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: DEFAULT_POINTER_GUIDANCE_CONFIG.maxDistancePx + 1,
-      cursorVerticalPosition: 'below',
-      cursorHorizontalPosition: 'left',
+      curveVertical: 'above',
+      curveHorizontal: 'right',
     });
 
     expect(beep).toBeNull();
   });
 
   it('maps directional cues to pitch and pan', () => {
-    const belowLeft = resolvePointerGuidanceBeep({
+    // Curve point is above and to the right (cursor below-left of curve).
+    const pointAboveRight = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 10,
-      cursorVerticalPosition: 'below',
-      cursorHorizontalPosition: 'left',
+      curveVertical: 'above',
+      curveHorizontal: 'right',
     });
-    const aboveRight = resolvePointerGuidanceBeep({
+    // Curve point is below and to the left (cursor above-right of curve).
+    const pointBelowLeft = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 10,
-      cursorVerticalPosition: 'above',
-      cursorHorizontalPosition: 'right',
+      curveVertical: 'below',
+      curveHorizontal: 'left',
     });
 
-    expect(belowLeft?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.highFrequency);
-    expect(belowLeft?.pan).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.panMagnitude);
+    expect(pointAboveRight?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.highFrequency);
+    expect(pointAboveRight?.pan).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.panMagnitude);
 
-    expect(aboveRight?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.lowFrequency);
-    expect(aboveRight?.pan).toBe(-DEFAULT_POINTER_GUIDANCE_CONFIG.panMagnitude);
+    expect(pointBelowLeft?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.lowFrequency);
+    expect(pointBelowLeft?.pan).toBe(-DEFAULT_POINTER_GUIDANCE_CONFIG.panMagnitude);
   });
 
   it('beep interval gets shorter as pointer gets closer', () => {
     const far = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: DEFAULT_POINTER_GUIDANCE_CONFIG.maxDistancePx,
-      cursorVerticalPosition: 'above',
-      cursorHorizontalPosition: 'left',
+      curveVertical: 'below',
+      curveHorizontal: 'right',
     });
     const near = resolvePointerGuidanceBeep({
       onCurve: false,
       distancePx: 1,
-      cursorVerticalPosition: 'above',
-      cursorHorizontalPosition: 'left',
+      curveVertical: 'below',
+      curveHorizontal: 'right',
     });
 
     expect(far).not.toBeNull();

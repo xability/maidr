@@ -156,17 +156,12 @@ const NEAREST: NearestPoint = {
 
 describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', () => {
   it('default behaviour moves when cursor is on-curve', () => {
-    // Cursor at (90, 60) is left and below the nearest point at (100, 50).
+    // Cursor at (90, 60) is inside the bounds (stub returns inBounds=true).
     const trace = new TestTrace(NEAREST, true);
     const guidance = trace.moveToPointAndGetPointerGuidance(90, 60);
 
     expect(trace.moveToIndexCalls).toBe(1);
-    expect(guidance).toEqual({
-      onCurve: true,
-      distancePx: Math.hypot(NEAREST.centerX - 90, NEAREST.centerY - 60),
-      cursorVerticalPosition: 'below',
-      cursorHorizontalPosition: 'left',
-    });
+    expect(guidance).toEqual({ onCurve: true });
   });
 
   it('override skips the move but still returns guidance', () => {
@@ -174,20 +169,21 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     const guidance = trace.moveToPointAndGetPointerGuidance(90, 60);
 
     expect(trace.moveToIndexCalls).toBe(0);
-    expect(guidance).not.toBeNull();
-    expect(guidance?.onCurve).toBe(true);
-    expect(guidance?.distancePx).toBeCloseTo(Math.hypot(10, 10));
+    expect(guidance).toEqual({ onCurve: true });
   });
 
   it('override returns off-curve guidance with distance', () => {
     const trace = new NoMoveTrace(NEAREST, false);
+    // Cursor right-and-below the nearest point: curve point is left and above.
     const guidance = trace.moveToPointAndGetPointerGuidance(NEAREST.centerX + 80, NEAREST.centerY + 60);
 
     expect(trace.moveToIndexCalls).toBe(0);
-    expect(guidance?.onCurve).toBe(false);
-    expect(guidance?.distancePx).toBeCloseTo(100);
-    expect(guidance?.cursorHorizontalPosition).toBe('right');
-    expect(guidance?.cursorVerticalPosition).toBe('below');
+    if (guidance === null || guidance.onCurve) {
+      throw new Error('expected off-curve guidance');
+    }
+    expect(guidance.distancePx).toBeCloseTo(100);
+    expect(guidance.curveHorizontal).toBe('left');
+    expect(guidance.curveVertical).toBe('above');
   });
 
   it('returns null when no nearest point exists', () => {

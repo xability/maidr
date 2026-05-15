@@ -774,15 +774,21 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     const onCurve = this.isPointInBounds(x, y, nearest);
     this.moveToNearest(x, y, nearest, onCurve);
 
+    if (onCurve) {
+      return { onCurve: true };
+    }
+
+    // Tie-breaks at the exact center are arbitrary by design: at single-pixel
+    // precision the user can't perceive the difference, and forcing strict
+    // inequality avoids a third "centered" state that beep mapping would
+    // need to handle. Fields describe where the curve point sits relative
+    // to the cursor — `y < centerY` means cursor is above, so the point is
+    // below; `x < centerX` means cursor is left, so the point is right.
     return {
-      onCurve,
+      onCurve: false,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
-      // Tie-breaks at the exact center are arbitrary by design: at single-pixel
-      // precision the user can't perceive the difference, and forcing strict
-      // inequality avoids a third "centered" state that beep mapping would
-      // need to handle.
-      cursorVerticalPosition: y < nearest.centerY ? 'above' : 'below',
-      cursorHorizontalPosition: x < nearest.centerX ? 'left' : 'right',
+      curveVertical: y < nearest.centerY ? 'below' : 'above',
+      curveHorizontal: x < nearest.centerX ? 'right' : 'left',
     };
   }
 

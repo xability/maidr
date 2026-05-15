@@ -151,8 +151,8 @@ const INITIAL_STATE: PlotState = {
 const OFF_CURVE: PointerGuidanceState = {
   onCurve: false,
   distancePx: 25,
-  cursorVerticalPosition: 'above',
-  cursorHorizontalPosition: 'left',
+  curveVertical: 'below',
+  curveHorizontal: 'right',
 };
 
 describe('AudioService.playPointerGuidance', () => {
@@ -175,7 +175,7 @@ describe('AudioService.playPointerGuidance', () => {
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
     const oscillatorsBefore = ctx.oscillators.length;
-    service.playPointerGuidance({ ...OFF_CURVE, onCurve: true });
+    service.playPointerGuidance({ onCurve: true });
 
     expect(ctx.oscillators.length).toBe(oscillatorsBefore);
     service.dispose();
@@ -255,8 +255,8 @@ describe('AudioService.playPointerGuidance', () => {
     const OUT_OF_RANGE: PointerGuidanceState = {
       onCurve: false,
       distancePx: 9999,
-      cursorVerticalPosition: 'above',
-      cursorHorizontalPosition: 'left',
+      curveVertical: 'below',
+      curveHorizontal: 'right',
     };
     service.playPointerGuidance(OUT_OF_RANGE);
     expect(ctx.oscillators.length).toBe(afterFirst);
