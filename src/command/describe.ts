@@ -7,7 +7,20 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
+import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
+import { DEFAULT_FIGURE_TITLE } from '@model/plot';
 import { TraceType } from '@type/grammar';
+
+/**
+ * Returns true only when the title was authored in the MAIDR JSON, i.e. it is
+ * not one of the placeholder defaults applied by the Figure/Trace models when
+ * the JSON omits the `title` field. Mirrors the same check used by
+ * {@link DescriptionService.getDescription} so the `l t` announce and `d`
+ * description stay consistent about what counts as a real title.
+ */
+function isAuthoredTitle(title: string): boolean {
+  return title !== DEFAULT_FIGURE_TITLE && title !== DEFAULT_SUBPLOT_TITLE;
+}
 
 /**
  * Abstract base class for describe commands.
@@ -240,7 +253,14 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     }
 
     if (state.type === 'figure') {
-      this.announce(state.title, 'Figure title');
+      // Only announce when the JSON provided a title; the model otherwise
+      // substitutes DEFAULT_FIGURE_TITLE ('MAIDR Plot') which is a placeholder,
+      // not a real title.
+      if (isAuthoredTitle(state.title)) {
+        this.announce(state.title, 'Figure title');
+      } else {
+        this.announceUnavailable();
+      }
       this.restoreScope();
       return;
     }
@@ -269,17 +289,20 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   /**
    * Announces the appropriate title when in trace context:
    * subplot title for multi-panel, figure title for single-panel.
+   * Falls through to "No title available" when neither was authored in JSON.
    */
   private announceTraceTitle(traceTitle: string): void {
-    // Multi-panel: show the subplot-level title if available.
-    if (this.context.isMultiPanel && traceTitle !== 'unavailable') {
+    // Multi-panel: show the subplot-level title only when it was authored
+    // in the layer's JSON (not the DEFAULT_SUBPLOT_TITLE placeholder).
+    if (this.context.isMultiPanel && isAuthoredTitle(traceTitle)) {
       this.announce(traceTitle, 'Subplot title');
       return;
     }
 
-    // Single-panel (or multi-panel without subplot title): show figure title.
+    // Single-panel (or multi-panel without subplot title): show the figure
+    // title only when it was authored in the top-level JSON.
     const figureTitle = this.context.figureTitle;
-    if (figureTitle !== 'unavailable') {
+    if (isAuthoredTitle(figureTitle)) {
       this.announce(figureTitle, 'Title');
       return;
     }
@@ -289,11 +312,13 @@ export class AnnounceTitleCommand extends AnnounceCommand {
 
   /**
    * Announces that the title is not available and plays a warning tone.
+   * Verbose phrasing matches the user-facing "no data" wording used when the
+   * MAIDR JSON omits a title.
    */
   private announceUnavailable(): void {
     const text = this.textService.isTerse()
       ? 'unavailable'
-      : 'Title is not available';
+      : 'No title available';
     this.textViewModel.update(text);
     this.audioService.playWarningToneIfEnabled();
   }
