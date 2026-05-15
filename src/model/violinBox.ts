@@ -700,8 +700,8 @@ export class ViolinBoxTrace extends AbstractTrace {
   protected override moveToNearest(
     _x: number,
     _y: number,
-    _nearest: NearestPoint | null,
-    _onCurve?: boolean,
+    _nearest: NearestPoint,
+    _onCurve: boolean,
   ): void {
     // Disabled for violin box plots
   }

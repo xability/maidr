@@ -1207,8 +1207,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   protected override moveToNearest(
     x: number,
     y: number,
-    nearest: NearestPoint | null,
-    onCurve?: boolean,
+    nearest: NearestPoint,
+    onCurve: boolean,
   ): void {
     this.mode = NavMode.COL;
     super.moveToNearest(x, y, nearest, onCurve);

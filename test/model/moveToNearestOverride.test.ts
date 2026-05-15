@@ -17,7 +17,7 @@ import type {
   DescriptionState,
   TextState,
 } from '@type/state';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { AbstractTrace } from '@model/abstract';
 import { TraceType } from '@type/grammar';
 
@@ -122,8 +122,8 @@ class NoMoveTrace extends TestTrace {
   protected override moveToNearest(
     _x: number,
     _y: number,
-    _nearest: NearestPoint | null,
-    _onCurve?: boolean,
+    _nearest: NearestPoint,
+    _onCurve: boolean,
   ): void {
     // Disabled — same pattern BoxTrace/ViolinBoxTrace use.
   }
@@ -179,7 +179,6 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
         return null;
       }
     })(NEAREST, false);
-    void jest.fn(); // touch jest import so the linter keeps it
 
     expect(trace.moveToPointAndGetPointerGuidance(0, 0)).toBeNull();
   });

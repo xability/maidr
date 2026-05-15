@@ -777,6 +777,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {
       onCurve,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
+      // Tie-breaks at the exact center are arbitrary by design: at single-pixel
+      // precision the user can't perceive the difference, and forcing strict
+      // inequality avoids a third "centered" state that beep mapping would
+      // need to handle.
       cursorVerticalPosition: y < nearest.centerY ? 'above' : 'below',
       cursorHorizontalPosition: x < nearest.centerX ? 'left' : 'right',
     };
@@ -786,21 +790,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Moves the trace to the nearest point when the pointer is within its
    * bounds and the trace is not already focused on that point.
    *
+   * `onCurve` is intentionally non-optional: the caller has already paid
+   * the cost of {@link isPointInBounds} to assemble guidance state, and
+   * forcing subclasses to accept the value makes the contract explicit so a
+   * future override cannot silently recompute (or worse, ignore) it.
+   *
    * Subclasses override this to customise hover-driven navigation:
    * - Box / ViolinBox no-op the move while still surfacing guidance.
    * - Scatter switches into column navigation mode before delegating.
    */
   protected moveToNearest(
-    x: number,
-    y: number,
-    nearest: NearestPoint | null,
-    onCurve?: boolean,
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
   ): void {
-    if (!nearest) {
-      return;
-    }
-    const isOnCurve = onCurve ?? this.isPointInBounds(x, y, nearest);
-    if (!isOnCurve) {
+    if (!onCurve) {
       return;
     }
     if (this.row === nearest.row && this.col === nearest.col) {

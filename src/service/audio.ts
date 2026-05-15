@@ -657,6 +657,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.nextPointerGuidanceBeepAt = 0;
       return;
     }
+    // Guidance is intentionally mode-agnostic across SEPARATE / COMBINED /
+    // future audio variants: it serves a navigational role that is
+    // orthogonal to how data tones are rendered. Only the explicit "audio
+    // off" choice suppresses it.
     if (this.mode === AudioMode.OFF) {
       return;
     }

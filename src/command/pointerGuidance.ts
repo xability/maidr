@@ -82,9 +82,13 @@ export class PointerGuidanceCommand implements Command {
    * point via the standard Observer chain, never play an off-curve
    * directional beep (which is only meaningful for continuous exploration).
    *
-   * @param event - Pointer/mouse event containing clientX/clientY
+   * Typed as `PointerEvent | MouseEvent` because both event shapes guarantee
+   * the `clientX`/`clientY` properties this method consumes; the runtime
+   * guard remains as a defensive fallback for unusual event subclasses.
+   *
+   * @param event - Pointer or mouse event containing clientX/clientY
    */
-  public executeNavigateOnly(event: Event): void {
+  public executeNavigateOnly(event: PointerEvent | MouseEvent): void {
     if (!this.isInTraceScope() || !this.hasClientCoordinates(event)) {
       return;
     }
