@@ -129,6 +129,10 @@ function installAudioContextMock(): MockAudioContext {
 }
 
 function createSettings(): SettingsService {
+  // Every settings lookup returns 100 — for `general.volume` that maps to
+  // full volume in AudioService, which is what every test here needs. The
+  // min/max frequency reads inherit the same 100 but those values don't
+  // affect pointer-guidance assertions.
   return {
     get: <T>(_key: string) => 100 as unknown as T,
     onChange: jest.fn(),
@@ -233,6 +237,33 @@ describe('AudioService.playPointerGuidance', () => {
     service.playPointerGuidance(OFF_CURVE);
 
     expect(ctx.oscillators.length).toBe(afterFirst + 1);
+    service.dispose();
+  });
+
+  it('out-of-range guidance does not reset throttle — prevents beep on every boundary crossing', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    // Fire one in-range beep so the throttle is armed.
+    service.playPointerGuidance(OFF_CURVE);
+    const afterFirst = ctx.oscillators.length;
+
+    // Send an out-of-range event (distancePx beyond the configured max).
+    // The resolver returns null and the service must NOT reset the throttle;
+    // otherwise the immediate-next in-range call would unblock and beep.
+    const OUT_OF_RANGE: PointerGuidanceState = {
+      onCurve: false,
+      distancePx: 9999,
+      cursorVerticalPosition: 'above',
+      cursorHorizontalPosition: 'left',
+    };
+    service.playPointerGuidance(OUT_OF_RANGE);
+    expect(ctx.oscillators.length).toBe(afterFirst);
+
+    // Re-enter range while currentTime is still inside the throttle window.
+    service.playPointerGuidance(OFF_CURVE);
+    expect(ctx.oscillators.length).toBe(afterFirst); // still throttled
     service.dispose();
   });
 

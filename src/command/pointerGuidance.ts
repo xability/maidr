@@ -4,49 +4,28 @@ import type { Command } from './command';
 import { Scope } from '@type/event';
 
 /**
- * Command that routes pointer/touch movement into guidance sonification.
+ * Routes pointer/touch movement into guidance sonification.
  *
- * Instantiated directly by `Mousebindingservice` rather than through
- * `CommandFactory` because pointer events carry coordinates that the
- * keyboard-oriented factory contract does not accept. This is the only
- * input-driven command that needs that data, so the deviation is local.
- *
- * Two execution paths are exposed:
- * - {@link execute} — used by `pointermove` and `pointerleave`. Navigates
- *   to the nearest point and plays a directional guidance beep when
- *   off-curve, or resets guidance when no event is provided.
- * - {@link executeNavigateOnly} — used by `click`. Performs navigation
- *   only; the regular data sonification fires through the Observer chain
- *   on a successful move, and guidance beeps are suppressed so a click
- *   that lands between points does not produce an unexpected beep.
+ * Constructed directly by `Mousebindingservice` rather than through
+ * `CommandFactory`: pointer events carry coordinates the keyboard-oriented
+ * factory contract does not accept. Because of that bypass, the scope check
+ * in {@link isInTraceScope} duplicates `CommandExecutor.isValidForScope` —
+ * keep the two in sync if scope validation evolves.
  */
 export class PointerGuidanceCommand implements Command {
   private readonly context: Context;
   private readonly audioService: AudioService;
 
-  /**
-   * Creates an instance of PointerGuidanceCommand.
-   *
-   * @param context - Application context used for point navigation and guidance lookup
-   * @param audioService - Audio service that renders guidance beeps
-   */
   constructor(context: Context, audioService: AudioService) {
     this.context = context;
     this.audioService = audioService;
   }
 
   /**
-   * Executes pointer/touch guidance behavior.
-   *
-   * If an event with client coordinates is provided, updates nearest point
-   * navigation and plays directional guidance. If no event is provided,
-   * guidance is reset (equivalent to calling {@link reset}).
-   *
-   * No-ops outside `Scope.TRACE` (mirroring `CommandExecutor.isValidForScope`)
-   * so guidance does not fire while modals or other navigation scopes are
-   * active — pointer events still reach the listener even then.
-   *
-   * @param event - Optional pointer/mouse event containing clientX/clientY
+   * Handles a pointermove / pointerleave event: navigates to the nearest
+   * point and plays a directional beep when off-curve, or resets guidance
+   * when called with no event. No-ops outside `Scope.TRACE` so guidance
+   * stays silent while modals or other scopes own input.
    */
   public execute(event?: Event): void {
     // Pointer-leave / missing-coordinate paths always reset so stale
@@ -64,29 +43,16 @@ export class PointerGuidanceCommand implements Command {
     this.audioService.playPointerGuidance(guidance);
   }
 
-  /**
-   * Clears any in-flight guidance state.
-   *
-   * Called when the pointer leaves the plot or when hover mode changes to
-   * `none`, so the throttle (`nextPointerGuidanceBeepAt`) resets and no
-   * stale beep is queued for a fresh entry.
-   */
+  /** Clears in-flight guidance and the throttle so a fresh entry starts clean. */
   public reset(): void {
     this.audioService.playPointerGuidance(null);
   }
 
   /**
-   * Navigates to the nearest data point without playing a guidance beep.
-   *
-   * Used by `click` hover mode: a click should snap to and sonify a data
-   * point via the standard Observer chain, never play an off-curve
-   * directional beep (which is only meaningful for continuous exploration).
-   *
-   * Typed as `PointerEvent | MouseEvent` because both event shapes guarantee
-   * the `clientX`/`clientY` properties this method consumes; the runtime
-   * guard remains as a defensive fallback for unusual event subclasses.
-   *
-   * @param event - Pointer or mouse event containing clientX/clientY
+   * Click-mode entry point: snaps to the nearest point without a guidance
+   * beep, leaving the regular Observer-chain sonification to fire. The
+   * runtime coordinate check stays despite the narrowed parameter type
+   * because exotic event subclasses can still arrive at the listener.
    */
   public executeNavigateOnly(event: PointerEvent | MouseEvent): void {
     if (!this.isInTraceScope() || !this.hasClientCoordinates(event)) {

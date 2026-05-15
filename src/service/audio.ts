@@ -680,7 +680,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
       DEFAULT_POINTER_GUIDANCE_CONFIG,
     );
     if (!beep) {
-      this.nextPointerGuidanceBeepAt = 0;
+      // Off-curve but out of range: leave the throttle untouched. If the
+      // cursor oscillates across the maxDistancePx boundary the user would
+      // otherwise hear a beep on every re-entry, since each out-of-range
+      // event would reset and unblock the next in-range one.
       return;
     }
 
