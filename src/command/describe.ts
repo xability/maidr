@@ -287,19 +287,22 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Announces the appropriate title when in trace context:
-   * subplot title for multi-panel, figure title for single-panel.
-   * Falls through to "No title available" when neither was authored in JSON.
+   * Announces the appropriate title when in trace context.
+   *
+   * Mirrors {@link DescriptionService.getDescription} precedence: prefer the
+   * authored layer/trace title (labeled "Subplot title" in multi-panel figures
+   * and "Title" in single-panel figures), then fall back to the figure title,
+   * then to "No title available". This keeps `l t` consistent with `d` for
+   * plots that only set a layer title (e.g. multiline_plot.html).
    */
   private announceTraceTitle(traceTitle: string): void {
-    // Multi-panel: show the subplot-level title only when it was authored
-    // in the layer's JSON (not the DEFAULT_SUBPLOT_TITLE placeholder).
-    if (this.context.isMultiPanel && isAuthoredTitle(traceTitle)) {
-      this.announce(traceTitle, 'Subplot title');
+    if (isAuthoredTitle(traceTitle)) {
+      const label = this.context.isMultiPanel ? 'Subplot title' : 'Title';
+      this.announce(traceTitle, label);
       return;
     }
 
-    // Single-panel (or multi-panel without subplot title): show the figure
+    // Trace-level title was a placeholder; fall back to the figure-level
     // title only when it was authored in the top-level JSON.
     const figureTitle = this.context.figureTitle;
     if (isAuthoredTitle(figureTitle)) {
