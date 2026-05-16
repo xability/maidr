@@ -235,7 +235,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    *   figure title, announced as "Title is ...".
    * - Trace-level scope, multi-panel: prefers the layer title as
    *   "Subplot title is ...", then falls back to the figure title as
-   *   "Title is ...".
+   *   "Figure title is ..." so the announcement disambiguates the source.
    */
   public execute(): void {
     const state = this.context.state;
@@ -282,9 +282,11 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    *
    * Mirrors {@link DescriptionService.getDescription} precedence: prefer the
    * authored layer/trace title (labeled "Subplot title" in multi-panel figures
-   * and "Title" in single-panel figures), then fall back to the figure title,
-   * then to "No title available". Keeps `l t` consistent with `d` for plots
-   * that only set a layer title (e.g. multiline_plot.html).
+   * and "Title" in single-panel figures), then fall back to the figure title
+   * (labeled "Figure title" in multi-panel and "Title" in single-panel so the
+   * announcement makes the source self-describing), then to "No title
+   * available". Keeps `l t` consistent with `d` for plots that only set a
+   * layer title (e.g. multiline_plot.html).
    * @param {string} traceTitle - The trace-level title from the current state.
    */
   private announceTraceTitle(traceTitle: string): void {
@@ -297,7 +299,8 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     // Trace title was a placeholder; fall back to the figure-level title.
     const figureTitle = this.context.figureTitle;
     if (this.context.isAuthoredTitle(figureTitle)) {
-      this.announce(figureTitle, 'Title');
+      const fallbackLabel = this.context.isMultiPanel ? 'Figure title' : 'Title';
+      this.announce(figureTitle, fallbackLabel);
       return;
     }
 

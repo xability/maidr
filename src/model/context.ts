@@ -121,6 +121,12 @@ export class Context implements Disposable {
    * unavailable placeholder when the figure has no state. Use
    * {@link isAuthoredTitle} to distinguish an authored title from the
    * model's default substitutions.
+   *
+   * The empty-state branch returns DEFAULT_SUBPLOT_TITLE (the generic
+   * "unavailable" sentinel) rather than DEFAULT_FIGURE_TITLE because there
+   * is no figure at all in that case; "MAIDR Plot" would be misleading.
+   * Both sentinels are rejected by isAuthoredTitle, so callers see the
+   * same "not authored" outcome regardless.
    */
   public get figureTitle(): string {
     const figureState = this.figure.state;
@@ -157,6 +163,11 @@ export class Context implements Disposable {
    * is not the placeholder default the Figure model substitutes when the
    * JSON omits `subtitle`. Same empty-string and collision caveats apply
    * as {@link isAuthoredTitle}.
+   *
+   * Currently DEFAULT_SUBTITLE and DEFAULT_CAPTION are both 'unavailable',
+   * so this method is functionally identical to {@link isAuthoredCaption};
+   * they are kept separate so the two can diverge independently without
+   * touching callers.
    * @param {string} subtitle - The subtitle string to check.
    */
   public isAuthoredSubtitle(subtitle: string): boolean {
@@ -167,7 +178,8 @@ export class Context implements Disposable {
    * Returns true when the given caption came from the MAIDR JSON, i.e. it
    * is not the placeholder default the Figure model substitutes when the
    * JSON omits `caption`. Same empty-string and collision caveats apply
-   * as {@link isAuthoredTitle}.
+   * as {@link isAuthoredTitle}; same independence rationale applies as
+   * {@link isAuthoredSubtitle}.
    * @param {string} caption - The caption string to check.
    */
   public isAuthoredCaption(caption: string): boolean {

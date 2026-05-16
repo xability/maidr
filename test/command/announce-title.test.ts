@@ -6,6 +6,7 @@ import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { PlotState } from '@type/state';
 import { AnnounceTitleCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
+import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
 
 /**
  * Mock factory configuration for the title-related context surface.
@@ -26,7 +27,7 @@ function createMockContext(overrides: ContextOverrides): Context {
   const authored = new Set(overrides.authoredTitles ?? []);
   return {
     state: overrides.state,
-    figureTitle: overrides.figureTitle ?? 'unavailable',
+    figureTitle: overrides.figureTitle ?? DEFAULT_SUBPLOT_TITLE,
     isMultiPanel: overrides.isMultiPanel ?? false,
     isAuthoredTitle: (title: string) => authored.has(title),
   } as unknown as Context;
@@ -93,10 +94,11 @@ describe('AnnounceTitleCommand', () => {
       authoredTitles: ['Basic Multiline Plot'],
     });
     const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
     const command = new AnnounceTitleCommand(
       context,
       textViewModel,
-      createMockAudioService(),
+      audioService,
       createMockTextService(),
       createMockDisplayService(),
     );
@@ -106,6 +108,8 @@ describe('AnnounceTitleCommand', () => {
     expect(textViewModel.update).toHaveBeenCalledWith(
       'Title is Basic Multiline Plot',
     );
+    // The authored layer title was found — no fallback warning tone.
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 
   test('announces "No title available" when neither figure nor layer title is authored', () => {
@@ -210,6 +214,33 @@ describe('AnnounceTitleCommand', () => {
 
     expect(textViewModel.update).toHaveBeenCalledWith(
       'Title is My Authored Figure',
+    );
+  });
+
+  test('labels the figure-title fallback as "Figure title" in multi-panel figures', () => {
+    const context = createMockContext({
+      state: {
+        empty: false,
+        type: 'trace',
+        title: 'unavailable',
+      } as unknown as PlotState,
+      figureTitle: 'My Authored Figure',
+      isMultiPanel: true,
+      authoredTitles: ['My Authored Figure'],
+    });
+    const textViewModel = createMockTextViewModel();
+    const command = new AnnounceTitleCommand(
+      context,
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Figure title is My Authored Figure',
     );
   });
 
