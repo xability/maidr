@@ -13,10 +13,9 @@ import { TraceType } from '@type/grammar';
 
 /**
  * Returns true only when the title was authored in the MAIDR JSON, i.e. it is
- * not one of the placeholder defaults applied by the Figure/Trace models when
- * the JSON omits the `title` field. Mirrors the same check used by
- * {@link DescriptionService.getDescription} so the `l t` announce and `d`
- * description stay consistent about what counts as a real title.
+ * not a placeholder default substituted by the Figure/Trace models when the
+ * JSON omits `title`. Matches the filter used by `DescriptionService` so the
+ * `l t` announce and `d` description agree on what counts as a real title.
  */
 function isAuthoredTitle(title: string): boolean {
   return title !== DEFAULT_FIGURE_TITLE && title !== DEFAULT_SUBPLOT_TITLE;
@@ -237,11 +236,18 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Executes the command to display the title based on state type.
+   * Executes the command to display the title sourced from the MAIDR JSON.
    *
-   * - Single-panel plots: announces the figure title as "Title is ...".
-   * - Multi-panel at figure level: announces "Figure title is ...".
-   * - Multi-panel at trace level: announces "Subplot title is ...".
+   * Only announces titles authored in the JSON; the model's placeholder
+   * defaults are treated as "no title". Announces "No title available"
+   * when nothing was authored at either level.
+   *
+   * - Figure-level scope (multi-panel): "Figure title is ...".
+   * - Trace-level scope, single-panel: prefers the layer title, then the
+   *   figure title, announced as "Title is ...".
+   * - Trace-level scope, multi-panel: prefers the layer title as
+   *   "Subplot title is ...", then falls back to the figure title as
+   *   "Title is ...".
    */
   public execute(): void {
     const state = this.context.state;
@@ -253,9 +259,6 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     }
 
     if (state.type === 'figure') {
-      // Only announce when the JSON provided a title; the model otherwise
-      // substitutes DEFAULT_FIGURE_TITLE ('MAIDR Plot') which is a placeholder,
-      // not a real title.
       if (isAuthoredTitle(state.title)) {
         this.announce(state.title, 'Figure title');
       } else {
@@ -292,8 +295,9 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    * Mirrors {@link DescriptionService.getDescription} precedence: prefer the
    * authored layer/trace title (labeled "Subplot title" in multi-panel figures
    * and "Title" in single-panel figures), then fall back to the figure title,
-   * then to "No title available". This keeps `l t` consistent with `d` for
-   * plots that only set a layer title (e.g. multiline_plot.html).
+   * then to "No title available". Keeps `l t` consistent with `d` for plots
+   * that only set a layer title (e.g. multiline_plot.html).
+   * @param {string} traceTitle - The trace-level title from the current state.
    */
   private announceTraceTitle(traceTitle: string): void {
     if (isAuthoredTitle(traceTitle)) {
@@ -302,8 +306,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
       return;
     }
 
-    // Trace-level title was a placeholder; fall back to the figure-level
-    // title only when it was authored in the top-level JSON.
+    // Trace title was a placeholder; fall back to the figure-level title.
     const figureTitle = this.context.figureTitle;
     if (isAuthoredTitle(figureTitle)) {
       this.announce(figureTitle, 'Title');
@@ -315,8 +318,6 @@ export class AnnounceTitleCommand extends AnnounceCommand {
 
   /**
    * Announces that the title is not available and plays a warning tone.
-   * Verbose phrasing matches the user-facing "no data" wording used when the
-   * MAIDR JSON omits a title.
    */
   private announceUnavailable(): void {
     const text = this.textService.isTerse()
