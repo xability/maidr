@@ -2,6 +2,7 @@ import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
+import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { Orientation } from '@type/grammar';
@@ -9,6 +10,7 @@ import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
+import { DEFAULT_FIGURE_TITLE } from './plot';
 
 /**
  * Build a human-readable plot type string with optional orientation prefix.
@@ -115,14 +117,28 @@ export class Context implements Disposable {
   }
 
   /**
-   * Returns the figure-level title (the top-level plot title).
+   * Returns the figure-level title (the top-level plot title), or the
+   * unavailable placeholder when the figure has no state. Use
+   * {@link isAuthoredTitle} to distinguish an authored title from the
+   * model's default substitutions.
    */
   public get figureTitle(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.title;
     }
-    return 'unavailable';
+    return DEFAULT_SUBPLOT_TITLE;
+  }
+
+  /**
+   * Returns true when the given title came from the MAIDR JSON, i.e. it is
+   * not a placeholder default substituted by the Figure or Trace models
+   * when the JSON omits `title`. Encapsulates the model's internal default
+   * constants so the command layer can avoid importing them directly.
+   * @param {string} title - The title string to check.
+   */
+  public isAuthoredTitle(title: string): boolean {
+    return title !== DEFAULT_FIGURE_TITLE && title !== DEFAULT_SUBPLOT_TITLE;
   }
 
   /**

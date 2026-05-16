@@ -7,19 +7,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
-import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
-import { DEFAULT_FIGURE_TITLE } from '@model/plot';
 import { TraceType } from '@type/grammar';
-
-/**
- * Returns true only when the title was authored in the MAIDR JSON, i.e. it is
- * not a placeholder default substituted by the Figure/Trace models when the
- * JSON omits `title`. Matches the filter used by `DescriptionService` so the
- * `l t` announce and `d` description agree on what counts as a real title.
- */
-function isAuthoredTitle(title: string): boolean {
-  return title !== DEFAULT_FIGURE_TITLE && title !== DEFAULT_SUBPLOT_TITLE;
-}
 
 /**
  * Abstract base class for describe commands.
@@ -259,7 +247,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     }
 
     if (state.type === 'figure') {
-      if (isAuthoredTitle(state.title)) {
+      if (this.context.isAuthoredTitle(state.title)) {
         this.announce(state.title, 'Figure title');
       } else {
         this.announceUnavailable();
@@ -300,7 +288,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    * @param {string} traceTitle - The trace-level title from the current state.
    */
   private announceTraceTitle(traceTitle: string): void {
-    if (isAuthoredTitle(traceTitle)) {
+    if (this.context.isAuthoredTitle(traceTitle)) {
       const label = this.context.isMultiPanel ? 'Subplot title' : 'Title';
       this.announce(traceTitle, label);
       return;
@@ -308,7 +296,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
 
     // Trace title was a placeholder; fall back to the figure-level title.
     const figureTitle = this.context.figureTitle;
-    if (isAuthoredTitle(figureTitle)) {
+    if (this.context.isAuthoredTitle(figureTitle)) {
       this.announce(figureTitle, 'Title');
       return;
     }
