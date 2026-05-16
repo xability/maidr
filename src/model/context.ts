@@ -10,7 +10,7 @@ import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
-import { DEFAULT_FIGURE_TITLE } from './plot';
+import { DEFAULT_CAPTION, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from './plot';
 
 /**
  * Build a human-readable plot type string with optional orientation prefix.
@@ -134,11 +134,44 @@ export class Context implements Disposable {
    * Returns true when the given title came from the MAIDR JSON, i.e. it is
    * not a placeholder default substituted by the Figure or Trace models
    * when the JSON omits `title`. Encapsulates the model's internal default
-   * constants so the command layer can avoid importing them directly.
+   * constants so callers (commands, services) can avoid importing them.
+   *
+   * Empty / whitespace-only strings are also treated as unauthored, since
+   * announcing a bare label like "Title is " is not useful.
+   *
+   * Known limitation: a title authored as the exact placeholder string
+   * (e.g. "MAIDR Plot" or "unavailable") will be filtered out. The sentinel
+   * defaults are deliberately uncommon strings to minimize collision risk.
    * @param {string} title - The title string to check.
    */
   public isAuthoredTitle(title: string): boolean {
-    return title !== DEFAULT_FIGURE_TITLE && title !== DEFAULT_SUBPLOT_TITLE;
+    return (
+      title.trim() !== ''
+      && title !== DEFAULT_FIGURE_TITLE
+      && title !== DEFAULT_SUBPLOT_TITLE
+    );
+  }
+
+  /**
+   * Returns true when the given subtitle came from the MAIDR JSON, i.e. it
+   * is not the placeholder default the Figure model substitutes when the
+   * JSON omits `subtitle`. Same empty-string and collision caveats apply
+   * as {@link isAuthoredTitle}.
+   * @param {string} subtitle - The subtitle string to check.
+   */
+  public isAuthoredSubtitle(subtitle: string): boolean {
+    return subtitle.trim() !== '' && subtitle !== DEFAULT_SUBTITLE;
+  }
+
+  /**
+   * Returns true when the given caption came from the MAIDR JSON, i.e. it
+   * is not the placeholder default the Figure model substitutes when the
+   * JSON omits `caption`. Same empty-string and collision caveats apply
+   * as {@link isAuthoredTitle}.
+   * @param {string} caption - The caption string to check.
+   */
+  public isAuthoredCaption(caption: string): boolean {
+    return caption.trim() !== '' && caption !== DEFAULT_CAPTION;
   }
 
   /**
@@ -150,25 +183,29 @@ export class Context implements Disposable {
   }
 
   /**
-   * Returns the figure-level subtitle.
+   * Returns the figure-level subtitle, or the unavailable placeholder when
+   * the figure has no state. Use {@link isAuthoredSubtitle} to distinguish
+   * an authored subtitle from the model's default substitution.
    */
   public get figureSubtitle(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.subtitle;
     }
-    return 'unavailable';
+    return DEFAULT_SUBTITLE;
   }
 
   /**
-   * Returns the figure-level caption.
+   * Returns the figure-level caption, or the unavailable placeholder when
+   * the figure has no state. Use {@link isAuthoredCaption} to distinguish
+   * an authored caption from the model's default substitution.
    */
   public get figureCaption(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.caption;
     }
-    return 'unavailable';
+    return DEFAULT_CAPTION;
   }
 
   public toggleScope(scope: Scope): void {

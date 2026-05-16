@@ -341,11 +341,14 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
   /**
    * Executes the command to display the subtitle.
    * Accesses subtitle from the figure level via Context, since subtitle
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a subtitle; otherwise announces "No subtitle
+   * available", matching the unavailable phrasing used by sibling title
+   * and caption commands.
    */
   public execute(): void {
     const subtitle = this.context.figureSubtitle;
-    if (subtitle !== 'unavailable') {
+    if (this.context.isAuthoredSubtitle(subtitle)) {
       const text = this.textService.isTerse()
         ? subtitle
         : `Subtitle is ${subtitle}`;
@@ -353,7 +356,7 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Subtitle is not available';
+        : 'No subtitle available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -386,11 +389,14 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
   /**
    * Executes the command to display the caption.
    * Accesses caption from the figure level via Context, since caption
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a caption; otherwise announces "No caption
+   * available", matching the unavailable phrasing used by sibling title
+   * and subtitle commands.
    */
   public execute(): void {
     const caption = this.context.figureCaption;
-    if (caption !== 'unavailable') {
+    if (this.context.isAuthoredCaption(caption)) {
       const text = this.textService.isTerse()
         ? caption
         : `Caption is ${caption}`;
@@ -398,7 +404,7 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Caption is not available';
+        : 'No caption available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }

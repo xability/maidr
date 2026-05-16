@@ -212,4 +212,73 @@ describe('AnnounceTitleCommand', () => {
       'Title is My Authored Figure',
     );
   });
+
+  test('announces "No title available" when the active state is empty', () => {
+    const context = createMockContext({
+      state: { empty: true, type: 'figure' } as unknown as PlotState,
+      authoredTitles: [],
+    });
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceTitleCommand(
+      context,
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('No title available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+
+  test('announces "No title available" for unexpected (subplot) state types', () => {
+    const context = createMockContext({
+      state: { empty: false, type: 'subplot' } as unknown as PlotState,
+      authoredTitles: [],
+    });
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceTitleCommand(
+      context,
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('No title available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+
+  test('announces "No title available" in multi-panel figures when neither layer nor figure title is authored', () => {
+    const context = createMockContext({
+      state: {
+        empty: false,
+        type: 'trace',
+        title: 'unavailable',
+      } as unknown as PlotState,
+      figureTitle: 'MAIDR Plot',
+      isMultiPanel: true,
+      authoredTitles: [],
+    });
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceTitleCommand(
+      context,
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('No title available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
 });
