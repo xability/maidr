@@ -301,11 +301,13 @@ export class RotorNavigationService {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
       this.notifyPointMode(false);
+      this.notifyIntersectionMode(false);
       return;
     }
     this.context.setRotorEnabled(true);
     this.notifyGridMode(currMode === Constant.GRID_MODE);
     this.notifyPointMode(currMode === Constant.POINT_MODE);
+    this.notifyIntersectionMode(currMode === Constant.INTERSECTION_MODE);
   }
 
   /**
@@ -511,6 +513,20 @@ export class RotorNavigationService {
     const activeTrace = this.context.active;
     if (isPointNavigable(activeTrace)) {
       activeTrace.setPointMode(enabled);
+    }
+  }
+
+  /**
+   * Notifies the active trace that it has entered or left INTERSECTION_MODE.
+   * AbstractTrace has a no-op default, so calling this on any trace is safe;
+   * scatter and other traces with mode-sensitive state output override it to
+   * flip an internal flag. Line-style traces don't need to know — their state
+   * output is unchanged by the rotor mode — so this call is a no-op there.
+   */
+  private notifyIntersectionMode(enabled: boolean): void {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      activeTrace.setIntersectionMode(enabled);
     }
   }
 

@@ -1,9 +1,10 @@
 import type { Context } from '@model/context';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import { LineTrace } from '@model/line';
+import { ScatterTrace } from '@model/scatter';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
@@ -42,6 +43,44 @@ function createTraceWithIntersections(): LineTrace {
       { x: 2, y: 0 },
       { x: 3, y: 3 },
     ],
+  ]));
+}
+
+/**
+ * Build a scatter layer with arbitrary points for rotor tests.
+ */
+function createScatterLayer(data: ScatterPoint[]): MaidrLayer {
+  return {
+    id: 'rotor-test-scatter-layer',
+    type: TraceType.SCATTER,
+    title: 'Rotor test scatter',
+    axes: { x: { label: 'X' }, y: { label: 'Y' } },
+    data,
+  };
+}
+
+/**
+ * Scatter with at least one x-column that stacks multiple y values, which is
+ * the capability gate for INTERSECTION_MODE.
+ */
+function createScatterTraceWithStack(): ScatterTrace {
+  return new ScatterTrace(createScatterLayer([
+    { x: 0, y: 1 },
+    { x: 0, y: 2 },
+    { x: 0, y: 3 },
+    { x: 1, y: 5 },
+  ]));
+}
+
+/**
+ * Scatter where every x is unique. INTERSECTION_MODE should be hidden from
+ * the rotor cycle here — there is nothing to navigate within.
+ */
+function createScatterTraceWithoutStack(): ScatterTrace {
+  return new ScatterTrace(createScatterLayer([
+    { x: 0, y: 1 },
+    { x: 1, y: 2 },
+    { x: 2, y: 3 },
   ]));
 }
 
@@ -240,6 +279,81 @@ describe('RotorNavigationService intersection dispatch', () => {
     service.moveUp();
     service.moveUp();
     expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('moveRight in intersection mode advances within the current scatter stack', () => {
+    // The scatter analogue of line intersection: arriving on an x-column
+    // with multiple stacked y values, left/right step through them. The
+    // rotor must route arrow keys to moveToNextIntersection just like it
+    // does for lines.
+    const trace = createScatterTraceWithStack();
+    trace.col = 0; // First x-column, which has the stacked points.
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+    cycleTo(service, Constant.INTERSECTION_MODE);
+
+    expect(service.moveRight()).toBeNull();
+    expect(service.moveRight()).toBeNull();
+    // Stack at x=0 has 3 ys; we started at index 0 and stepped twice.
+    // Next press should hit the bound.
+    expect(service.moveRight()).not.toBeNull();
+  });
+
+  test('moveLeft at the bottom of the scatter stack returns a bound message', () => {
+    const trace = createScatterTraceWithStack();
+    trace.col = 0;
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+    cycleTo(service, Constant.INTERSECTION_MODE);
+
+    const result = service.moveLeft();
+    expect(result).not.toBeNull();
+    expect(result).toMatch(/No intersection.*left/i);
+  });
+
+  test('INTERSECTION_MODE is offered for scatter when an x-column has stacked points', () => {
+    // The capability check is "any x has >= 2 y values" — the scatter
+    // analogue of "more than one line" for lines. Without that, the rotor
+    // would just bound out on every press, so the mode is excluded entirely.
+    const trace = createScatterTraceWithStack();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    const seen = new Set<string>();
+    seen.add(service.getMode());
+    for (let i = 0; i < 10; i++) {
+      service.moveToNextRotorUnit();
+      seen.add(service.getMode());
+    }
+
+    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(true);
+  });
+
+  test('INTERSECTION_MODE is absent for scatter when every x-column has a single point', () => {
+    const trace = createScatterTraceWithoutStack();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    const seen = new Set<string>();
+    seen.add(service.getMode());
+    for (let i = 0; i < 10; i++) {
+      service.moveToNextRotorUnit();
+      seen.add(service.getMode());
+    }
+
+    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
   });
 
   test('INTERSECTION_MODE is absent from the rotor cycle for a single-line trace', () => {

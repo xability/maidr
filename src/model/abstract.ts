@@ -611,6 +611,19 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Notifies the trace that the rotor is entering or leaving INTERSECTION_MODE.
+   * Default is a no-op; line-style traces don't need to track mode state
+   * because their state output is unchanged by the rotor mode. Traces whose
+   * audio/text output differs in intersection mode (e.g. ScatterTrace, which
+   * normally plays the whole x-column as a chord and must instead focus a
+   * single point) override this to flip an internal flag.
+   * @param _enabled True when entering intersection mode, false when leaving.
+   */
+  public setIntersectionMode(_enabled: boolean): void {
+    // Default no-op
+  }
+
+  /**
    * Default implementation for updating visual point position
    * Subclasses can override if they need custom positioning logic
    */
