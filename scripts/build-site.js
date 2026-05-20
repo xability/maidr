@@ -57,6 +57,7 @@ const PAGE_DESCRIPTIONS = {
   'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
+  'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -142,6 +143,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
+    .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -252,6 +254,20 @@ if (fs.existsSync(vegaliteMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'vegalite.html'), vegalitePage);
 }
 
+// Build chartjs.html from docs/chartjs.md
+console.log('Building chartjs.html from docs/chartjs.md...');
+const chartjsMdPath = path.join(ROOT, 'docs', 'chartjs.md');
+if (fs.existsSync(chartjsMdPath)) {
+  const chartjsMd = fs.readFileSync(chartjsMdPath, 'utf-8');
+  const chartjsHtml = `
+<div class="content">
+  ${marked.parse(chartjsMd)}
+</div>
+`;
+  const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -316,6 +332,19 @@ const examplesContent = `
     <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
   </ul>
   <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Chart.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('chartjs/bar.html', 'Chart.js Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/line.html', 'Chart.js Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/scatter.html', 'Chart.js Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/bar-stacked.html', 'Chart.js Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/bar-dodged.html', 'Chart.js Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/boxplot.html', 'Chart.js Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/candlestick.html', 'Chart.js Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/heatmap.html', 'Chart.js Heatmap'); return false;">Heatmap (Matrix)</a></li>
+  </ul>
+  <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <h3>D3.js</h3>
   <ul>
@@ -517,7 +546,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -576,6 +605,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
   { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
   { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
+  { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -583,7 +613,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

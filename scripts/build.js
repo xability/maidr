@@ -120,6 +120,21 @@ const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'chartjs',
+    entry: 'src/adapters/chartjs/index.ts',
+    libName: 'maidrChartjs',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'chartjs.mjs' : 'chartjs.js',
+    emptyOutDir: false,
+    // React is bundled in (mirrors d3/google-charts UMD strategy) so the UMD
+    // build can be loaded via classic <script> tags from file:// URLs.
+    // Chart.js stays external — host pages always load it themselves.
+    external: ['chart.js', 'chart.js/auto'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 function createViteConfig(config) {

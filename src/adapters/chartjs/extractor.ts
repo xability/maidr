@@ -2,15 +2,18 @@
  * Extracts data from Chart.js chart instances and converts it to the MAIDR
  * JSON schema format.
  *
- * Supported chart types:
- * - Native: bar (plain/stacked/dodged), line, scatter, bubble, pie, doughnut, radar, polarArea
+ * Supported chart types (those with a genuine MAIDR trace-type equivalent):
+ * - Native: bar (plain/stacked/dodged), line, scatter, bubble
  * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap)
- * Unsupported types fall back to a bar-chart extraction.
+ *
+ * Unsupported types (pie, doughnut, radar, polarArea, treemap, sankey, etc.)
+ * are rejected with an explicit error rather than silently mapped to a bar
+ * chart, because MAIDR has no semantically equivalent trace for them.
  */
 
-import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, NavigateCallback, ScatterPoint, SegmentedPoint } from '../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, NavigateCallback, ScatterPoint, SegmentedPoint } from '../../type/grammar';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, MaidrPluginOptions } from './types';
-import { Orientation, TraceType } from '../type/grammar';
+import { Orientation, TraceType } from '../../type/grammar';
 
 // ---------------------------------------------------------------------------
 // Monotonic ID counter for guaranteed unique IDs
@@ -100,6 +103,19 @@ function isCandlestickValue(v: ChartJsDataValue): v is { x: number | string; o: 
   return v != null && typeof v === 'object' && 'o' in v && 'h' in v && 'l' in v && 'c' in v;
 }
 
+/**
+ * Format a candlestick x-axis value for human/screen-reader consumption.
+ * The Chart.js financial plugin requires a time scale, so `x` is typically
+ * epoch milliseconds (e.g. from Luxon). A bare `String(...)` would surface
+ * "1704088800000" rather than a readable date. Detect epoch-ms values and
+ * format as ISO date; otherwise pass through.
+ */
+function formatCandlestickValue(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 1e11)
+    return new Date(value).toISOString().slice(0, 10);
+  return String(value);
+}
+
 function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y: string | number; v: number } {
   return v != null && typeof v === 'object' && 'v' in v;
 }
@@ -128,12 +144,6 @@ function extractLayers(
     case 'scatter':
     case 'bubble':
       return extractScatterLayers(chart, pluginOptions);
-    case 'pie':
-    case 'doughnut':
-      return extractPieLayers(chart, pluginOptions);
-    case 'radar':
-    case 'polarArea':
-      return extractRadarLayers(chart, pluginOptions);
     case 'boxplot':
       return extractBoxplotLayers(chart, pluginOptions);
     case 'candlestick':
@@ -142,8 +152,10 @@ function extractLayers(
     case 'matrix':
       return extractHeatmapLayers(chart, pluginOptions);
     default:
-      console.warn(`MAIDR Chart.js plugin: unknown chart type "${chartType}", falling back to bar extraction`);
-      return extractBarLayers(chart, pluginOptions);
+      throw new Error(
+        `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
+        + 'Supported types: bar, line, scatter, bubble, boxplot, candlestick, ohlc, matrix.',
+      );
   }
 }
 
@@ -186,8 +198,8 @@ function singleDatasetToBarLayer(
     title: dataset.label,
     ...(chart.options.indexAxis === 'y' ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
-      x: getAxisLabel(chart, 'x', pluginOptions),
-      y: getAxisLabel(chart, 'y', pluginOptions),
+      x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+      y: { label: getAxisLabel(chart, 'y', pluginOptions) },
     },
     data: points,
   };
@@ -202,14 +214,20 @@ function extractSegmentedBarLayers(
   const labels = data.labels ?? [];
   const numCategories = Math.max(0, labels.length, ...data.datasets.map(ds => ds.data.length));
 
+  // MAIDR's `SegmentedTrace` indexes its 2-D data as `points[row][col]` where
+  // `row` is the group (z) and `col` is the category (x). Iterate by dataset
+  // (group) first, then categories within each group, to match that shape.
   const points: SegmentedPoint[][] = [];
-  for (let i = 0; i < numCategories; i++) {
-    const categoryPoints: SegmentedPoint[] = data.datasets.map(dataset => ({
-      x: labels[i] ?? i,
-      y: toNumber(dataset.data[i]),
-      fill: dataset.label ?? '',
-    }));
-    points.push(categoryPoints);
+  for (const dataset of data.datasets) {
+    const groupPoints: SegmentedPoint[] = [];
+    for (let j = 0; j < numCategories; j++) {
+      groupPoints.push({
+        x: labels[j] ?? j,
+        y: toNumber(dataset.data[j]),
+        z: dataset.label ?? '',
+      });
+    }
+    points.push(groupPoints);
   }
 
   return [
@@ -218,9 +236,9 @@ function extractSegmentedBarLayers(
       type: traceType,
       ...(chart.options.indexAxis === 'y' ? { orientation: Orientation.HORIZONTAL } : {}),
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
-        fill: 'Group',
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+        z: { label: 'Group' },
       },
       data: points,
     },
@@ -242,7 +260,7 @@ function extractLineLayers(
     dataset.data.map((value, i) => ({
       x: labels[i] ?? i,
       y: toNumber(value),
-      fill: dataset.label ?? `Line ${dsIdx + 1}`,
+      z: dataset.label ?? `Line ${dsIdx + 1}`,
     })),
   );
 
@@ -251,8 +269,8 @@ function extractLineLayers(
       id: '0',
       type: TraceType.LINE,
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
       data: lineData,
     },
@@ -277,8 +295,8 @@ function extractScatterLayers(
       type: TraceType.SCATTER,
       title: dataset.label,
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
       data: scatterData,
     };
@@ -293,73 +311,6 @@ function datasetToScatterPoints(dataset: ChartJsDataset): ScatterPoint[] {
     }
   }
   return points;
-}
-
-// ---------------------------------------------------------------------------
-// Pie / Doughnut chart extraction (mapped to bar)
-// ---------------------------------------------------------------------------
-
-function extractPieLayers(
-  chart: ChartJsChart,
-  pluginOptions?: MaidrPluginOptions,
-): MaidrLayer[] {
-  const data = chart.data;
-  const labels = data.labels ?? [];
-  const dataset = data.datasets[0];
-
-  if (!dataset)
-    return [];
-
-  const barData: BarPoint[] = dataset.data.map((value, i) => ({
-    x: labels[i] ?? `Slice ${i + 1}`,
-    y: toNumber(value),
-  }));
-
-  return [
-    {
-      id: '0',
-      type: TraceType.BAR,
-      title: pluginOptions?.title ?? dataset.label ?? chart.config.type,
-      axes: {
-        x: pluginOptions?.axes?.x ?? 'Category',
-        y: pluginOptions?.axes?.y ?? 'Value',
-      },
-      data: barData,
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// Radar / Polar Area chart extraction (mapped to bar)
-// ---------------------------------------------------------------------------
-
-function extractRadarLayers(
-  chart: ChartJsChart,
-  pluginOptions?: MaidrPluginOptions,
-): MaidrLayer[] {
-  const data = chart.data;
-  const labels = data.labels ?? [];
-
-  if (data.datasets.length === 0)
-    return [];
-
-  return data.datasets.map((dataset, idx) => {
-    const barData: BarPoint[] = dataset.data.map((value, i) => ({
-      x: labels[i] ?? i,
-      y: toNumber(value),
-    }));
-
-    return {
-      id: String(idx),
-      type: TraceType.BAR,
-      title: dataset.label ?? chart.config.type,
-      axes: {
-        x: pluginOptions?.axes?.x ?? 'Category',
-        y: pluginOptions?.axes?.y ?? 'Value',
-      },
-      data: barData,
-    };
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -379,7 +330,7 @@ function extractBoxplotLayers(
       if (isBoxplotValue(point)) {
         const outliers = point.outliers ?? [];
         boxData.push({
-          fill: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
+          z: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
           lowerOutliers: outliers.filter(v => v < point.min),
           min: point.min,
           q1: point.q1,
@@ -397,8 +348,8 @@ function extractBoxplotLayers(
       id: '0',
       type: TraceType.BOX,
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
       data: boxData,
     },
@@ -419,7 +370,7 @@ function extractCandlestickLayers(
     for (const point of dataset.data) {
       if (isCandlestickValue(point)) {
         candlestickData.push({
-          value: String(point.x),
+          value: formatCandlestickValue(point.x),
           open: point.o,
           high: point.h,
           low: point.l,
@@ -438,8 +389,8 @@ function extractCandlestickLayers(
       id: '0',
       type: TraceType.CANDLESTICK,
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
       data: candlestickData,
     },
@@ -489,8 +440,8 @@ function extractHeatmapLayers(
       id: '0',
       type: TraceType.HEATMAP,
       axes: {
-        x: getAxisLabel(chart, 'x', pluginOptions),
-        y: getAxisLabel(chart, 'y', pluginOptions),
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
       data: heatmapData,
     },

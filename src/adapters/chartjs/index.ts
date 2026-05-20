@@ -37,6 +37,6 @@
  * @packageDocumentation
  */
 
-export { extractMaidrData } from './chartjs/extractor';
-export { maidrPlugin } from './chartjs/plugin';
-export type { ChartJsChart, ChartJsPlugin, MaidrPluginOptions } from './chartjs/types';
+export { extractMaidrData } from './extractor';
+export { maidrPlugin } from './plugin';
+export type { ChartJsChart, ChartJsPlugin, MaidrPluginOptions } from './types';

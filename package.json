@@ -38,7 +38,7 @@
     "./chartjs": {
       "types": "./dist/chartjs.d.mts",
       "import": "./dist/chartjs.mjs",
-      "default": "./dist/chartjs.mjs"
+      "default": "./dist/chartjs.js"
     }
   },
   "main": "dist/maidr.js",

@@ -132,4 +132,10 @@ export interface MaidrPluginOptions {
   title?: string;
   /** Override axis labels. */
   axes?: { x?: string; y?: string };
+  /**
+   * Outline color used for the DOM highlight overlay drawn on top of the
+   * canvas during MAIDR navigation. Accepts any CSS color string.
+   * Defaults to a translucent orange.
+   */
+  highlightColor?: string;
 }
