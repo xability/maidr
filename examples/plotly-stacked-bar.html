@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Stacked Bar Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Stacked Bar Chart</h1>
+    <p>
+      A plotly.js stacked bar chart auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="stacked-bar-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var trace1 = {
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: [20, 14, 23, 25],
+        name: 'Product A',
+        type: 'bar'
+      };
+
+      var trace2 = {
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: [15, 18, 20, 22],
+        name: 'Product B',
+        type: 'bar'
+      };
+
+      var layout = {
+        barmode: 'stack',
+        title: { text: 'Quarterly Revenue Breakdown' },
+        xaxis: { title: { text: 'Quarter' } },
+        yaxis: { title: { text: 'Revenue ($M)' } }
+      };
+
+      Plotly.newPlot('stacked-bar-chart', [trace1, trace2], layout);
+    </script>
+  </body>
+</html>

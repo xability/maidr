@@ -31,6 +31,13 @@ export class SmoothTrace extends LineTrace {
     };
   }
 
+  /**
+   * Gets the description state for the smooth trace.
+   * Inherits from line; chartType resolves via getChartTypeLabel() using
+   * the layer's TraceType.SMOOTH, producing the human-readable label.
+   * @returns The description state containing chart metadata and data table
+   */
+
   protected get audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
     const getY = (i: number): number => {

@@ -7,6 +7,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
+      "@adapters/*": ["adapters/*"],
       "@command/*": ["command/*"],
       "@model/*": ["model/*"],
       "@state/*": ["state/*"],
@@ -28,5 +29,5 @@
     "skipLibCheck": true
   },
 
-  "exclude": ["node_modules", "dist", "test-react-app"]
+  "exclude": ["node_modules", "dist", "test-react-app", "examples", "_site"]
 }
