@@ -1,5 +1,5 @@
 /**
- * AnyChart → MAIDR adapter.
+ * AnyChart → MAIDR adapter converters.
  *
  * Extracts data from an AnyChart chart instance and produces a {@link Maidr}
  * JSON object that the core MAIDR library can consume. This allows AnyChart
@@ -20,13 +20,6 @@
  */
 
 import type {
-  AnyChartBinderOptions,
-  AnyChartInstance,
-  AnyChartIterator,
-  AnyChartSeries,
-  AnyChartTitle,
-} from '../type/anychart';
-import type {
   BarPoint,
   BoxPoint,
   CandlestickPoint,
@@ -40,8 +33,15 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
-} from '../type/grammar';
-import { TraceType } from '../type/grammar';
+} from '@type/grammar';
+import type {
+  AnyChartBinderOptions,
+  AnyChartInstance,
+  AnyChartIterator,
+  AnyChartSeries,
+  AnyChartTitle,
+} from './types';
+import { TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -328,7 +328,7 @@ function buildBoxLayer(
 ): MaidrLayer {
   const rows = extractRawRows(series);
   const data: BoxPoint[] = rows.map(r => ({
-    fill: asString(r.x ?? r.name ?? r._index),
+    z: asString(r.x ?? r.name ?? r._index),
     // Outlier arrays are not available through AnyChart's iterator API.
     lowerOutliers: [],
     min: asNumber(r.lowest),
@@ -473,7 +473,7 @@ function buildSegmentedLayer(
     groups.get(fill)!.push({
       x: asString(r.x ?? r.name ?? r._index),
       y: asNumber(r.value ?? r.y),
-      fill,
+      z: fill,
     });
   }
   const data: SegmentedPoint[][] = [...groups.values()];
@@ -596,8 +596,8 @@ export function anyChartToMaidr(
     // Attach axis labels.
     if (xAxisLabel || yAxisLabel) {
       layer.axes = {
-        ...(xAxisLabel ? { x: xAxisLabel } : {}),
-        ...(yAxisLabel ? { y: yAxisLabel } : {}),
+        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
+        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
       };
     }
 

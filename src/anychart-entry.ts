@@ -22,12 +22,12 @@
  *
  * @packageDocumentation
  */
-export { anyChartToMaidr, bindAnyChart } from './adapter/anychart';
+export { anyChartToMaidr, bindAnyChart } from './adapters/anychart';
 
 /**
  * Re-exported types for configuring the AnyChart adapter.
  */
-export type { AnyChartBinderOptions, AnyChartInstance } from './type/anychart';
+export type { AnyChartBinderOptions, AnyChartInstance } from './adapters/anychart';
 
 /**
  * Re-exported core MAIDR types so consumers can type the output.
