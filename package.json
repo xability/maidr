@@ -34,6 +34,11 @@
       "types": "./dist/vegalite.d.mts",
       "import": "./dist/vegalite.mjs",
       "default": "./dist/vegalite.js"
+    },
+    "./chartjs": {
+      "types": "./dist/chartjs.d.mts",
+      "import": "./dist/chartjs.mjs",
+      "default": "./dist/chartjs.js"
     }
   },
   "main": "dist/maidr.js",
@@ -63,11 +68,15 @@
     "dev:recharts": "vite --config examples/recharts/vite.config.ts"
   },
   "peerDependencies": {
+    "chart.js": "^4.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
     "recharts": "^2.0.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
+    "chart.js": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
