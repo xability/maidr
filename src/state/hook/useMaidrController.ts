@@ -51,7 +51,14 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       return null;
 
     // Create a deep copy to prevent mutations on the original data object.
-    const dataClone = structuredClone(data);
+    // `structuredClone` cannot clone functions, so peel off the optional
+    // `onNavigate` callback first, clone the remaining serializable payload,
+    // and re-attach the callback. This preserves the public API contract that
+    // `Maidr.onNavigate` is honoured (consumed in Controller.registerNavigateCallback).
+    const { onNavigate, ...serializable } = data;
+    const dataClone: MaidrData = structuredClone(serializable);
+    if (onNavigate)
+      dataClone.onNavigate = onNavigate;
     const ctrl = new Controller(dataClone, plotElement, store);
     return ctrl;
   }, [data, store]);

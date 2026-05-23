@@ -8,6 +8,7 @@ import { Provider } from 'react-redux';
 import Braille from './component/Braille';
 import Chat from './component/Chat';
 import CommandPalette from './component/CommandPalette';
+import Description from './component/Description';
 import Help from './component/Help';
 import Review from './component/Review';
 import Settings from './component/Settings';
@@ -32,6 +33,9 @@ const App: FC<AppProps> = ({ plot }) => {
 
       case 'COMMAND_PALETTE':
         return <CommandPalette />;
+
+      case 'DESCRIPTION':
+        return <Description />;
 
       case 'GO_TO_EXTREMA':
         return <GoToExtrema />;
