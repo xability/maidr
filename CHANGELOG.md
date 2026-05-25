@@ -1,3 +1,10 @@
+# [3.68.0](https://github.com/xability/maidr/compare/v3.67.0...v3.68.0) (2026-05-25)
+
+
+### Features
+
+* add Chart.js charting library support ([#538](https://github.com/xability/maidr/issues/538)) ([#554](https://github.com/xability/maidr/issues/554)) ([eaefcfc](https://github.com/xability/maidr/commit/eaefcfc03424f6a23f07baf334c1790b02b11df6))
+
 # [3.67.0](https://github.com/xability/maidr/compare/v3.66.1...v3.67.0) (2026-05-07)
 
 
