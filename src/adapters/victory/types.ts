@@ -10,9 +10,10 @@ import type {
 import type { ReactNode } from 'react';
 
 /**
- * Props for the MaidrVictory component.
+ * Configuration accepted by both the {@link MaidrVictory} wrapper component
+ * and the `useVictoryAdapter` hook.
  */
-export interface MaidrVictoryProps {
+export interface VictoryAdapterConfig {
   /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
   /** Chart title displayed in text descriptions. */
@@ -26,18 +27,23 @@ export interface MaidrVictoryProps {
 }
 
 /**
+ * Props for the MaidrVictory component (identical to {@link VictoryAdapterConfig}).
+ */
+export type MaidrVictoryProps = VictoryAdapterConfig;
+
+/**
  * Victory chart component types that MAIDR can extract data from.
+ *
+ * VictoryStack is a container component (handled separately from the
+ * individual data components) that maps to a stacked bar chart.
  */
 export type VictoryComponentType
   = | 'VictoryBar'
     | 'VictoryLine'
     | 'VictoryScatter'
-    | 'VictoryArea'
-    | 'VictoryPie'
     | 'VictoryBoxPlot'
     | 'VictoryCandlestick'
     | 'VictoryHistogram'
-    | 'VictoryGroup'
     | 'VictoryStack';
 
 /**

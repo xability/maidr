@@ -1,7 +1,9 @@
 import type {
   BarPoint,
   BoxPoint,
+  BoxSelector,
   CandlestickPoint,
+  CandlestickSelector,
   CandlestickTrend,
   HistogramPoint,
   LinePoint,
@@ -53,16 +55,14 @@ function getVictoryDisplayName(type: unknown): string | null {
 
 /**
  * Checks whether a display name corresponds to a supported Victory data
- * component. Container components (VictoryGroup, VictoryStack, VictoryChart)
- * are handled separately.
+ * component. Container components (VictoryStack, VictoryChart) are handled
+ * separately.
  */
 function isDataComponent(name: string): name is VictoryComponentType {
   return (
     name === 'VictoryBar'
     || name === 'VictoryLine'
     || name === 'VictoryScatter'
-    || name === 'VictoryArea'
-    || name === 'VictoryPie'
     || name === 'VictoryBoxPlot'
     || name === 'VictoryCandlestick'
     || name === 'VictoryHistogram'
@@ -132,7 +132,7 @@ function validateRawData(rawData: unknown): rawData is Record<string, unknown>[]
 }
 
 /**
- * Extracts data from a VictoryBar or VictoryPie element.
+ * Extracts data from a VictoryBar element.
  */
 function extractBarData(
   props: Record<string, unknown>,
@@ -152,7 +152,7 @@ function extractBarData(
 }
 
 /**
- * Extracts data from a VictoryLine or VictoryArea element.
+ * Extracts data from a VictoryLine element.
  */
 function extractLineData(
   props: Record<string, unknown>,
@@ -209,7 +209,7 @@ function extractBoxData(
   const points: BoxPoint[] = rawData.map((d) => {
     const x = d.x as string | number;
     return {
-      fill: String(x),
+      z: String(x),
       lowerOutliers: (d.lowerOutliers ?? []) as number[],
       min: Number(d.min ?? 0),
       q1: Number(d.q1 ?? 0),
@@ -337,11 +337,9 @@ function extractLayerFromElement(
 
   switch (name) {
     case 'VictoryBar':
-    case 'VictoryPie':
       extracted = extractBarData(props);
       break;
     case 'VictoryLine':
-    case 'VictoryArea':
       extracted = extractLineData(props);
       break;
     case 'VictoryScatter':
@@ -372,19 +370,18 @@ function extractLayerFromElement(
 }
 
 // ---------------------------------------------------------------------------
-// Grouped / stacked bar extraction
+// Stacked bar extraction
 // ---------------------------------------------------------------------------
 
 /**
- * Extracts a segmented (grouped or stacked) bar layer from a VictoryGroup
- * or VictoryStack container.
+ * Extracts a segmented (stacked) bar layer from a VictoryStack container.
  *
  * Each child VictoryBar becomes one series (row) in the resulting
  * `SegmentedPoint[][]` data.
  */
 function extractSegmentedLayer(
   containerElement: ReactElement,
-  containerType: 'VictoryGroup' | 'VictoryStack',
+  containerType: 'VictoryStack',
   layerId: number,
   axisLabels: { x?: string; y?: string },
 ): VictoryLayerInfo | null {
@@ -412,7 +409,7 @@ function extractSegmentedLayer(
     const points: SegmentedPoint[] = rawData.map(d => ({
       x: getX(d) as string | number,
       y: getY(d) as number | string,
-      fill: seriesName,
+      z: seriesName,
     }));
 
     series.push(points);
@@ -445,8 +442,8 @@ function extractSegmentedLayer(
  *
  * Handles:
  * - `<VictoryChart>` wrappers (processes children)
- * - Standalone data components (e.g. `<VictoryPie>`)
- * - `<VictoryGroup>` and `<VictoryStack>` for segmented bar charts
+ * - Standalone data components (e.g. `<VictoryScatter>`)
+ * - `<VictoryStack>` for stacked bar charts
  */
 export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
@@ -461,8 +458,8 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
       if (!name)
         return;
 
-      // VictoryGroup / VictoryStack → segmented bar
-      if (name === 'VictoryGroup' || name === 'VictoryStack') {
+      // VictoryStack → stacked bar
+      if (name === 'VictoryStack') {
         const segmented = extractSegmentedLayer(child, name, layerId, axisLabels);
         if (segmented) {
           layers.push(segmented);
@@ -510,10 +507,13 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
  * @param selector - CSS selector for the SVG elements (may be undefined if
  *                   tagging was not possible)
  */
-export function toMaidrLayer(layer: VictoryLayerInfo, selector?: string): MaidrLayer {
+export function toMaidrLayer(
+  layer: VictoryLayerInfo,
+  selector?: string | BoxSelector[] | CandlestickSelector,
+): MaidrLayer {
   const axes: MaidrLayer['axes'] = {
-    x: layer.xAxisLabel,
-    y: layer.yAxisLabel,
+    x: layer.xAxisLabel ? { label: layer.xAxisLabel } : undefined,
+    y: layer.yAxisLabel ? { label: layer.yAxisLabel } : undefined,
   };
 
   const { data } = layer;
@@ -533,7 +533,7 @@ export function toMaidrLayer(layer: VictoryLayerInfo, selector?: string): MaidrL
         id: layer.id,
         type: TraceType.LINE,
         axes,
-        selectors: selector ? [selector] : undefined,
+        selectors: selector ? [selector as string] : undefined,
         data: data.points,
       };
 
@@ -551,6 +551,7 @@ export function toMaidrLayer(layer: VictoryLayerInfo, selector?: string): MaidrL
         id: layer.id,
         type: TraceType.BOX,
         axes,
+        selectors: selector as BoxSelector[] | undefined,
         data: data.points,
       };
 
@@ -559,6 +560,7 @@ export function toMaidrLayer(layer: VictoryLayerInfo, selector?: string): MaidrL
         id: layer.id,
         type: TraceType.CANDLESTICK,
         axes,
+        selectors: selector as CandlestickSelector | undefined,
         data: data.points,
       };
 
@@ -571,18 +573,13 @@ export function toMaidrLayer(layer: VictoryLayerInfo, selector?: string): MaidrL
         data: data.points,
       };
 
-    case 'segmented': {
-      const traceType = layer.victoryType === 'VictoryStack'
-        ? TraceType.STACKED
-        : TraceType.DODGED;
-
+    case 'segmented':
       return {
         id: layer.id,
-        type: traceType,
+        type: TraceType.STACKED,
         axes,
         selectors: selector,
         data: data.points,
       };
-    }
   }
 }

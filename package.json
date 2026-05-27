@@ -62,7 +62,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
-    "docs": "npm run build:recharts-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
+    "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",
     "docs:serve": "npm run docs && npx http-server _site -o",
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
@@ -150,10 +150,10 @@
     "typedoc": "^0.28.15",
     "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
+    "victory": "^37.0.0",
     "vite": "^6.3.5",
     "vite-plugin-dts": "^4.5.4",
-    "vite-plugin-singlefile": "^2.3.2",
-    "victory": "^37.0.0"
+    "vite-plugin-singlefile": "^2.3.2"
   },
   "overrides": {
     "axios": ">=1.15.0"

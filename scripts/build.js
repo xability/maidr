@@ -135,6 +135,17 @@ const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'victory',
+    entry: 'src/victory-entry.ts',
+    formats: ['es'],
+    fileName: () => 'victory.mjs',
+    emptyOutDir: false,
+    external: ['react', 'react-dom', 'react/jsx-runtime', 'victory'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 function createViteConfig(config) {
