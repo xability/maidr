@@ -24,12 +24,11 @@
     <!-- 2. Load the core MAIDR runtime (handles maidr-data attribute). -->
     <script src="../dist/maidr.js"></script>
 
-    <!-- 3. Load the MAIDR AnyChart adapter. -->
-    <script type="module">
-      import { bindAnyChart } from '../dist/anychart.mjs';
-
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../dist/anychart.js"></script>
+    <script>
       // Wait for AnyChart and the DOM to be ready.
-      document.addEventListener('DOMContentLoaded', () => {
+      document.addEventListener('DOMContentLoaded', function () {
         // Create an AnyChart bar chart.
         const chart = anychart.bar([
           ['Sat', 87],
@@ -46,7 +45,7 @@
 
         // Bind the chart to MAIDR – extracts data, sets maidr-data, and
         // dispatches the initialisation event.
-        bindAnyChart(chart, {
+        maidrAnyChart.bindAnyChart(chart, {
           id: 'anychart-bar',
           title: 'The Number of Tips by Day',
           axes: { x: 'Day', y: 'Count' },

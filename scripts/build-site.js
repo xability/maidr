@@ -58,6 +58,7 @@ const PAGE_DESCRIPTIONS = {
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
+  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -144,6 +145,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
+    .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -268,6 +270,20 @@ if (fs.existsSync(chartjsMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
 }
 
+// Build anychart.html from docs/anychart.md
+console.log('Building anychart.html from docs/anychart.md...');
+const anychartMdPath = path.join(ROOT, 'docs', 'anychart.md');
+if (fs.existsSync(anychartMdPath)) {
+  const anychartMd = fs.readFileSync(anychartMdPath, 'utf-8');
+  const anychartHtml = `
+<div class="content">
+  ${marked.parse(anychartMd)}
+</div>
+`;
+  const anychartPage = generatePage({ title: 'AnyChart', content: anychartHtml, activePage: 'anychart', slug: 'anychart.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'anychart.html'), anychartPage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -374,6 +390,17 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
   </ul>
   <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>AnyChart</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('anychart/bar.html', 'AnyChart Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/line.html', 'AnyChart Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/scatter.html', 'AnyChart Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/box.html', 'AnyChart Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/heatmap.html', 'AnyChart Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/candlestick.html', 'AnyChart Candlestick'); return false;">Candlestick</a></li>
+  </ul>
+  <p>See the <a href="anychart.html">AnyChart Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <div id="content" hidden="true">Select an example above.</div>
 </div>
@@ -546,7 +573,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'anychart.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -606,6 +633,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
   { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
   { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
+  { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -613,7 +641,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'anychart.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

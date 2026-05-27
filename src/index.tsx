@@ -61,6 +61,7 @@ if (document.readyState === 'loading') {
 // prevents duplicate initialisation for the same element.
 document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
   const target = event.target;
+
   if (!(target instanceof HTMLElement))
     return;
 
@@ -338,10 +339,61 @@ function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
 }
 
 /**
+ * Adopts a DOM node into React's tree inside an explicitly sized host div.
+ *
+ * Used by adapters that bind charts whose rendered element has no intrinsic
+ * size (e.g. an AnyChart `<svg>` whose dimensions live in internal layout
+ * state rather than HTML width/height attributes). The {@link MaidrComponent}
+ * focusable wrapper uses `width: fit-content`; with `display: contents` on
+ * the adapter and an intrinsic-less child, the wrapper computes to `0×0`
+ * pixels and becomes unfocusable. Wrapping the node in a real layout box
+ * with explicit dimensions keeps the wrapper measurable and focusable.
+ *
+ * Activated by stamping `data-maidr-host-width` and `data-maidr-host-height`
+ * on the bound element before dispatching `maidr:bindchart`.
+ *
+ * Mirrors the Chart.js adapter's `CanvasHost` pattern.
+ */
+function SizedDomNodeAdapter({
+  node,
+  width,
+  height,
+}: {
+  node: HTMLElement;
+  width: number;
+  height: number;
+}): JSX.Element {
+  const ref = useCallback(
+    (container: HTMLDivElement | null) => {
+      if (container) {
+        if (!container.contains(node)) {
+          container.appendChild(node);
+        }
+      } else {
+        node.parentNode?.removeChild(node);
+      }
+    },
+    [node, width, height],
+  );
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
+        position: 'relative',
+      }}
+    />
+  );
+}
+
+/**
  * Initializes MAIDR for a plot element by rendering the {@link MaidrComponent}
  * React component. The existing plot element is adopted into React's tree
- * via {@link DomNodeAdapter}, giving both script-tag and React consumers
- * the same single code path.
+ * via {@link DomNodeAdapter} (or {@link SizedDomNodeAdapter} when the element
+ * carries `data-maidr-host-width` / `data-maidr-host-height` attributes),
+ * giving both script-tag and React consumers the same single code path.
  */
 function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   // Create a transparent container for the React root.
@@ -350,10 +402,23 @@ function initMaidr(maidr: Maidr, plot: HTMLElement): void {
   container.style.display = 'contents';
   plot.parentNode!.replaceChild(container, plot);
 
+  // Opt-in path for adapters whose bound element has no intrinsic size.
+  const hostWidth = plot.dataset.maidrHostWidth;
+  const hostHeight = plot.dataset.maidrHostHeight;
+
+  const adopt
+    = hostWidth && hostHeight
+      ? (
+          <SizedDomNodeAdapter
+            node={plot}
+            width={Number(hostWidth)}
+            height={Number(hostHeight)}
+          />
+        )
+      : <DomNodeAdapter node={plot} />;
+
   const root = createRoot(container, { identifierPrefix: maidr.id });
   root.render(
-    <MaidrComponent data={maidr}>
-      <DomNodeAdapter node={plot} />
-    </MaidrComponent>,
+    <MaidrComponent data={maidr}>{adopt}</MaidrComponent>,
   );
 }

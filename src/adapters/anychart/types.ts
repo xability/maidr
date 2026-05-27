@@ -23,14 +23,48 @@ export interface AnyChartPoint {
   exists: () => boolean;
 }
 
+/** A data view (mapping / set) backing a series. */
+export interface AnyChartDataView {
+  getIterator: () => AnyChartIterator;
+}
+
+/**
+ * Marker configuration for a series.
+ *
+ * Returned by `series.markers()` on line / area / spline / scatter series.
+ * Calling `enabled(true)` turns on visible marker rendering, which is what
+ * MAIDR relies on to stamp per-point highlight attributes.
+ */
+export interface AnyChartMarkers {
+  /**
+   * Getter / setter. With no argument, returns the current enabled state.
+   * With a boolean argument, enables or disables marker rendering.
+   */
+  enabled: ((value: boolean) => AnyChartMarkers) & (() => boolean);
+}
+
 /** An individual series within a chart. */
 export interface AnyChartSeries {
   id: () => string | number;
   name: () => string;
   seriesType: () => string;
-  getIterator: () => AnyChartIterator;
+  /**
+   * Some AnyChart series expose `getIterator()` directly, while in
+   * production builds the iterator must be obtained via the data view
+   * returned by `series.data()`. The adapter handles both shapes.
+   */
+  getIterator?: () => AnyChartIterator;
+  data?: () => AnyChartDataView;
   getPoint: (index: number) => AnyChartPoint;
   getStat: (key: string) => unknown;
+  /**
+   * Marker configuration accessor.
+   *
+   * Only present on series types that support marker rendering
+   * (line, spline, step-line, area variants, scatter). Bar / column / box /
+   * candlestick series do not expose this method.
+   */
+  markers?: () => AnyChartMarkers;
 }
 
 /** Title object returned by `chart.title()`. */
@@ -58,6 +92,12 @@ export interface AnyChartAxis {
 export interface AnyChartStage {
   container: () => HTMLElement | null;
   domElement: () => HTMLElement | null;
+  /**
+   * Register a one-shot listener for a Stage event such as
+   * `'stagerendered'`. AnyChart fires `'stagerendered'` after the chart SVG
+   * has been attached to the DOM, in both sync and async render modes.
+   */
+  listenOnce?: (event: string, handler: () => void) => void;
 }
 
 /**
@@ -87,6 +127,14 @@ export interface AnyChartInstance {
 
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;
+
+  /**
+   * Chart-level data accessor. Present on single-dataset chart types such
+   * as Heatmap, which do not expose a series-based API and instead store
+   * their cells in a top-level data view. Absent on multi-series Cartesian
+   * charts (bar, line, scatter, box, candlestick).
+   */
+  data?: () => AnyChartDataView;
 
   /** SVG string export. */
   toSvg?: () => string;
