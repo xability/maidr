@@ -138,11 +138,13 @@ const builds = [
   {
     name: 'amcharts',
     entry: 'src/adapters/amcharts/index.ts',
-    formats: ['es'],
-    fileName: () => 'amcharts.mjs',
+    libName: 'maidrAmCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
     emptyOutDir: false,
     // amCharts 5 is loaded by the host page (CDN/global); the adapter is pure
-    // data conversion with no React, so nothing needs bundling or externalizing.
+    // data conversion with no React. The UMD build (amcharts.js) exposes the
+    // `maidrAmCharts` global so examples load via a classic <script> from file://.
     external: [],
     useReact: false,
     useDts: true,

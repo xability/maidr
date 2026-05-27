@@ -2,7 +2,7 @@
 
 MAIDR ships an amCharts 5 *binder* that converts a rendered amCharts 5 `XYChart` into MAIDR's accessibility schema. Pass the result to the `<Maidr>` React component, or set it as a `maidr` attribute on the chart container, and the chart gains audio sonification, text descriptions, braille output, and keyboard navigation.
 
-> **Note:** amCharts 5 is a commercial charting library and is **not** bundled with MAIDR — load it yourself. amCharts 4 has a different API and is not supported. The MAIDR amCharts adapter ships as an ES module (`dist/amcharts.mjs`).
+> **Note:** amCharts 5 is a commercial charting library and is **not** bundled with MAIDR — load it yourself. amCharts 4 has a different API and is not supported. The MAIDR amCharts adapter ships as both a UMD bundle (`dist/amcharts.js`, exposing the `maidrAmCharts` global for plain `<script>` tags) and an ES module (`dist/amcharts.mjs`, for bundlers via `import 'maidr/amcharts'`).
 
 ## Quick Start
 
@@ -17,8 +17,9 @@ Load amCharts 5 and MAIDR core, build your chart as usual, then convert it once 
     <!-- 1. Load amCharts 5 (core + XY) -->
     <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
-    <!-- 2. Load MAIDR core -->
+    <!-- 2. Load MAIDR core + amCharts adapter (UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/amcharts.js"></script>
   </head>
   <body>
     <div id="chartdiv" style="width: 600px; height: 400px"></div>
@@ -46,14 +47,13 @@ Load amCharts 5 and MAIDR core, build your chart as usual, then convert it once 
       series.data.setAll(data);
     </script>
 
-    <!-- 4. After the chart renders, convert it to MAIDR data -->
-    <script type="module">
-      import { fromAmCharts } from 'https://cdn.jsdelivr.net/npm/maidr/dist/amcharts.mjs';
-
+    <!-- 4. After the chart renders, convert it to MAIDR data via the
+         `maidrAmCharts` UMD global. -->
+    <script>
       // amCharts validates data asynchronously; in production listen to a
       // series' "datavalidated" event instead of a fixed timeout.
-      setTimeout(() => {
-        const maidrData = fromAmCharts(root, {
+      setTimeout(function () {
+        var maidrData = maidrAmCharts.fromAmCharts(root, {
           title: 'Number of Tips by Day',
           axisLabels: { x: 'Day', y: 'Count' },
         });
