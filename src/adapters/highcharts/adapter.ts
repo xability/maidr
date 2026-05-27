@@ -15,6 +15,7 @@
  */
 
 import type {
+  AxisConfig,
   BarPoint,
   BoxPoint,
   CandlestickPoint,
@@ -28,30 +29,18 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
-import type { HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
+import type { HighchartsAdapterOptions, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   barSelector,
-  boxplotSelector,
-  candlestickSelector,
+  boxplotSelectors,
+  candlestickSelectors,
   ensureContainerId,
-  heatmapSelector,
+  heatmapSelectors,
   histogramSelector,
   lineSelectors,
   scatterSelector,
 } from './selectors';
-
-/**
- * Options for customizing the adapter output.
- */
-export interface HighchartsAdapterOptions {
-  /** Override the generated chart ID. Defaults to `highcharts-{n}`. */
-  id?: string;
-  /** Override the chart title. Defaults to `chart.title.textStr`. */
-  title?: string;
-  /** Convert only specific series by index. Default: all visible series. */
-  seriesIndices?: number[];
-}
 
 let chartCounter = 0;
 
@@ -171,9 +160,10 @@ function resolveSeriesType(series: HighchartsSeries, chart: HighchartsChart): st
   return series.type || series.options.type || chart.options.chart?.type || 'line';
 }
 
-function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): string {
+function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): AxisConfig {
   const axisObj = axis === 'x' ? series.xAxis : series.yAxis;
-  return axisObj?.options?.title?.text ?? (axis === 'x' ? 'X' : 'Y');
+  const label = axisObj?.options?.title?.text ?? (axis === 'x' ? 'X' : 'Y');
+  return { label };
 }
 
 function pointLabel(point: HighchartsPoint): string | number {
@@ -296,7 +286,7 @@ function convertStackedBar(
       .map(p => ({
         x: pointLabel(p),
         y: traceType === TraceType.NORMALIZED ? (p.percentage ?? (p.y as number)) : (p.y as number),
-        fill: series.name,
+        z: series.name,
       })),
   );
 
@@ -337,7 +327,7 @@ function convertDodgedBar(
       .map(p => ({
         x: pointLabel(p),
         y: p.y as number,
-        fill: series.name,
+        z: series.name,
       })),
   );
 
@@ -375,14 +365,14 @@ function convertSeries(
     case 'scatter':
       return convertScatterSeries(series, containerId);
     case 'boxplot':
-      return convertBoxSeries(series, containerId);
+      return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
       return convertHeatmapSeries(series, chart, containerId);
     case 'histogram':
       return convertHistogramSeries(series, containerId);
     case 'candlestick':
     case 'ohlc':
-      return convertCandlestickSeries(series, containerId);
+      return convertCandlestickSeries(series, chart, containerId);
     default:
       console.warn(`[MAIDR Highcharts] Unsupported series type: "${seriesType}"; skipping.`);
       return null;
@@ -454,6 +444,7 @@ function convertScatterSeries(
 
 function convertBoxSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
   const data: BoxPoint[] = series.data.map((p, i) => {
@@ -476,7 +467,7 @@ function convertBoxSeries(
     }
 
     return {
-      fill: p.category ?? p.name ?? String(p.x),
+      z: p.category ?? p.name ?? String(p.x),
       lowerOutliers: [],
       min: p.low ?? 0,
       q1: p.q1 ?? 0,
@@ -487,17 +478,173 @@ function convertBoxSeries(
     };
   });
 
+  // Stamp each rendered `g.highcharts-point` group with a stable index so
+  // per-box selectors (returned by `boxplotSelectors`) can disambiguate them.
+  // BoxTrace expects `selectors.length === data.length`; a mismatch here makes
+  // it bail out with `highlightValues = null` and silently disable highlight.
+  stampBoxIndices(chart, containerId, series.index, data.length);
+
   return {
     id: String(series.index),
     type: TraceType.BOX,
     title: series.name || undefined,
-    selectors: boxplotSelector(containerId, series.index),
+    selectors: boxplotSelectors(containerId, series.index, data.length),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
     data,
   };
+}
+
+/**
+ * Adds `data-maidr-box-index="N"` to each rendered box group in a Highcharts
+ * boxplot series. Idempotent: re-running overwrites existing attributes,
+ * which is important because Highcharts may re-render on updates.
+ *
+ * If the rendered group count doesn't match `expectedCount`, a warning is
+ * emitted and stamping continues for whichever groups exist; downstream
+ * `BoxTrace.mapToSvgElements` will then return null and disable highlight.
+ */
+function stampBoxIndices(
+  chart: HighchartsChart,
+  containerId: string,
+  seriesIndex: number,
+  expectedCount: number,
+): void {
+  const container = chart.renderTo ?? document.getElementById(containerId);
+  if (!container) {
+    console.warn(`[MAIDR Highcharts] Boxplot stamping: container "${containerId}" not found.`);
+    return;
+  }
+
+  const selector = `.highcharts-series-group .highcharts-series-${seriesIndex} g.highcharts-point`;
+  const groups = container.querySelectorAll<SVGGElement>(selector);
+
+  if (groups.length !== expectedCount) {
+    console.warn(
+      `[MAIDR Highcharts] Boxplot series ${seriesIndex}: expected ${expectedCount} `
+      + `box groups but found ${groups.length} in DOM. Highlight may not work.`,
+    );
+  }
+
+  groups.forEach((group, i) => {
+    group.removeAttribute('data-maidr-box-index');
+    group.setAttribute('data-maidr-box-index', String(i));
+    splitWhiskerPath(group, i);
+  });
+}
+
+/**
+ * Splits a Highcharts whisker `<path>` element into two separate `<path>`
+ * elements (one per cap) so MAIDR can highlight `min` and `max` independently.
+ *
+ * Highcharts renders both whisker caps inside a single `<path>` with two
+ * subpaths in the `d` attribute, e.g.:
+ *   - Vertical:   `M x1 y_high L x2 y_high M x1 y_low L x2 y_low`
+ *   - Horizontal: `M x_high y1 L x_high y2 M x_low y1 L x_low y2`
+ *
+ * After splitting:
+ *   - Two new `<path>` siblings are inserted after the original, each carrying
+ *     `data-maidr-box-part="upper-whisker"` or `"lower-whisker"`.
+ *   - The original loses its `highcharts-boxplot-whisker` class (so future
+ *     class-based queries skip it) and is marked `data-maidr-split-original`.
+ *
+ * Orientation is inferred from the relative midpoint offsets between the two
+ * subpaths, matching the D3 box binder's classification logic.
+ *
+ * Idempotent: re-running on an already-split group is a no-op.
+ */
+function splitWhiskerPath(group: SVGGElement, boxIndex: number): void {
+  const original = group.querySelector<SVGPathElement>('path.highcharts-boxplot-whisker');
+  if (!original) {
+    // Some box configs (e.g. no whisker rendering) legitimately omit it.
+    return;
+  }
+  if (original.hasAttribute('data-maidr-split-original')) {
+    // Already split (re-stamp on same DOM).
+    return;
+  }
+
+  const d = original.getAttribute('d');
+  if (!d) {
+    console.warn(`[MAIDR Highcharts] Whisker path in box ${boxIndex} has no 'd' attribute; skipping split.`);
+    return;
+  }
+
+  // Highcharts uses uppercase commands; each cap starts with a fresh M.
+  const subpaths = d.match(/M[^M]*/g);
+  if (!subpaths || subpaths.length !== 2) {
+    console.warn(
+      `[MAIDR Highcharts] Whisker path in box ${boxIndex} has `
+      + `${subpaths?.length ?? 0} subpaths (expected 2); skipping split.`,
+    );
+    return;
+  }
+
+  const m0 = subpathMidpoint(subpaths[0]);
+  const m1 = subpathMidpoint(subpaths[1]);
+  if (!m0 || !m1) {
+    console.warn(`[MAIDR Highcharts] Could not compute whisker midpoints for box ${boxIndex}; skipping split.`);
+    return;
+  }
+
+  // Pick the dominant axis to classify: whichever differs more between
+  // the two cap midpoints is the orientation axis.
+  const dx = Math.abs(m0.x - m1.x);
+  const dy = Math.abs(m0.y - m1.y);
+
+  let upperIdx: number;
+  if (dy >= dx) {
+    // Vertical boxplot: SVG y grows downward → smaller y is visually upper.
+    upperIdx = m0.y < m1.y ? 0 : 1;
+  } else {
+    // Horizontal boxplot: larger x is the "max" (high-value) side.
+    upperIdx = m0.x > m1.x ? 0 : 1;
+  }
+  const lowerIdx = 1 - upperIdx;
+
+  const upperPath = original.cloneNode(true) as SVGPathElement;
+  upperPath.setAttribute('d', subpaths[upperIdx].trim());
+  upperPath.setAttribute('data-maidr-box-part', 'upper-whisker');
+
+  const lowerPath = original.cloneNode(true) as SVGPathElement;
+  lowerPath.setAttribute('d', subpaths[lowerIdx].trim());
+  lowerPath.setAttribute('data-maidr-box-part', 'lower-whisker');
+
+  // Insert after original so the visual stacking order is preserved. Note:
+  // afterend insertions go in reverse, so insert lower first then upper to
+  // end up with [original, upper, lower] which keeps the natural order.
+  original.insertAdjacentElement('afterend', lowerPath);
+  original.insertAdjacentElement('afterend', upperPath);
+
+  // Strip the original's identifying class so attribute-only selectors (and
+  // any future `.highcharts-boxplot-whisker` queries) skip it. We keep it in
+  // the DOM rather than hiding so Highcharts' own internal references stay
+  // valid; the new paths render the same caps on top.
+  original.classList.remove('highcharts-boxplot-whisker');
+  original.setAttribute('data-maidr-split-original', 'true');
+}
+
+/**
+ * Returns the (x, y) midpoint of an SVG path subpath by averaging all
+ * coordinate pairs found in the substring. Robust to optional whitespace,
+ * negative values, and decimals.
+ */
+function subpathMidpoint(subpath: string): { x: number; y: number } | null {
+  const nums = subpath.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (nums.length < 2) {
+    return null;
+  }
+  let sumX = 0;
+  let sumY = 0;
+  let count = 0;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    sumX += nums[i];
+    sumY += nums[i + 1];
+    count++;
+  }
+  return count > 0 ? { x: sumX / count, y: sumY / count } : null;
 }
 
 function convertHeatmapSeries(
@@ -563,17 +710,53 @@ function convertHeatmapSeries(
     points,
   };
 
+  // Stamp `data-maidr-row` / `data-maidr-col` onto each rendered cell using
+  // the user-supplied (x, y) grid indices. This makes the selector→cell
+  // mapping independent of Highcharts' DOM insertion order (which may be
+  // row- or column-major depending on how `series.data` was provided).
+  stampHeatmapIndices(series);
+
   return {
     id: String(series.index),
     type: TraceType.HEATMAP,
     title: series.name || undefined,
-    selectors: heatmapSelector(containerId, series.index),
+    selectors: heatmapSelectors(containerId, series.index, rows, cols),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
     data,
   };
+}
+
+/**
+ * Stamps each rendered heatmap cell with `data-maidr-row` / `data-maidr-col`
+ * attributes derived from its (x, y) grid indices.
+ *
+ * Highcharts emits heatmap cells in `series.data` order, which depends on
+ * how the user supplied the data (row-major, column-major, or arbitrary).
+ * Rather than rely on positional DOM ordering, we use each point's `.graphic`
+ * reference (set by Highcharts during render) to attach unambiguous
+ * coordinate attributes that selectors can target directly.
+ *
+ * Cells without a rendered `graphic` (e.g. null data points) are skipped.
+ *
+ * Idempotent: re-stamping overwrites existing attributes.
+ */
+function stampHeatmapIndices(series: HighchartsSeries): void {
+  for (const point of series.data) {
+    const element = point.graphic?.element;
+    if (!element) {
+      continue;
+    }
+    const xIdx = Math.round(point.x);
+    const yIdx = typeof point.y === 'number' ? Math.round(point.y) : null;
+    if (yIdx === null) {
+      continue;
+    }
+    element.setAttribute('data-maidr-col', String(xIdx));
+    element.setAttribute('data-maidr-row', String(yIdx));
+  }
 }
 
 function convertHistogramSeries(
@@ -615,6 +798,7 @@ function convertHistogramSeries(
  */
 function convertCandlestickSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
   const data: CandlestickPoint[] = series.data
@@ -643,15 +827,149 @@ function convertCandlestickSeries(
       };
     });
 
+  // Stamp each rendered `<path class="highcharts-point">` with a stable index
+  // and split its three internal subpaths into separate body/upper-wick/
+  // lower-wick `<path>` siblings so per-section selectors can target them.
+  stampCandlestickIndices(chart, containerId, series.index, data.length);
+
   return {
     id: String(series.index),
     type: TraceType.CANDLESTICK,
     title: series.name || undefined,
-    selectors: candlestickSelector(containerId, series.index),
+    selectors: candlestickSelectors(containerId, series.index, data.length),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
     data,
   };
+}
+
+/**
+ * Adds `data-maidr-candle-index="N"` to each rendered candlestick path and
+ * splits its compound `d` attribute into three separate `<path>` siblings
+ * (body, upper-wick, lower-wick) so MAIDR can highlight each section
+ * independently.
+ *
+ * Idempotent: re-running overwrites existing index attributes; the split
+ * step bails out if it detects the original was already processed.
+ */
+function stampCandlestickIndices(
+  chart: HighchartsChart,
+  containerId: string,
+  seriesIndex: number,
+  expectedCount: number,
+): void {
+  const container = chart.renderTo ?? document.getElementById(containerId);
+  if (!container) {
+    console.warn(`[MAIDR Highcharts] Candlestick stamping: container "${containerId}" not found.`);
+    return;
+  }
+
+  // Highcharts emits each candle as a `<path class="highcharts-point">`
+  // directly under the series group (no wrapping `<g>` like boxplot).
+  const selector = `.highcharts-series-group .highcharts-series-${seriesIndex} path.highcharts-point`;
+  const paths = container.querySelectorAll<SVGPathElement>(selector);
+
+  if (paths.length !== expectedCount) {
+    console.warn(
+      `[MAIDR Highcharts] Candlestick series ${seriesIndex}: expected ${expectedCount} `
+      + `candle paths but found ${paths.length} in DOM. Highlight may not work.`,
+    );
+  }
+
+  paths.forEach((path, i) => {
+    path.removeAttribute('data-maidr-candle-index');
+    path.setAttribute('data-maidr-candle-index', String(i));
+    splitCandlestickPath(path, i);
+  });
+}
+
+/**
+ * Splits a Highcharts candlestick `<path>` element into three separate `<path>`
+ * siblings (one per visual section) so MAIDR can highlight `body`, `wickHigh`,
+ * and `wickLow` independently.
+ *
+ * Highcharts renders a single candle as one `<path>` with three subpaths in
+ * the `d` attribute:
+ *   - Body: a rectangle traced with four `L` commands and closed by `Z`.
+ *   - Upper wick: short vertical line above the body (one M + one L, no Z).
+ *   - Lower wick: short vertical line below the body (one M + one L, no Z).
+ *
+ * The body is identified by the presence of `Z` (closepath). The remaining
+ * two subpaths are classified by midpoint Y (smaller Y = upper, since SVG
+ * Y grows downward).
+ *
+ * After splitting:
+ *   - Three new `<path>` siblings are inserted after the original, each
+ *     carrying `data-maidr-candle-part="body" | "upper-wick" | "lower-wick"`
+ *     (plus the inherited `data-maidr-candle-index`).
+ *   - The original loses its `highcharts-point` class and is marked
+ *     `data-maidr-split-original` so future class-only queries skip it.
+ *
+ * Idempotent: re-running on an already-split path is a no-op.
+ */
+function splitCandlestickPath(original: SVGPathElement, candleIndex: number): void {
+  if (original.hasAttribute('data-maidr-split-original')) {
+    return;
+  }
+
+  const d = original.getAttribute('d');
+  if (!d) {
+    console.warn(`[MAIDR Highcharts] Candlestick path ${candleIndex} has no 'd' attribute; skipping split.`);
+    return;
+  }
+
+  // Highcharts uses uppercase commands; each subpath starts with a fresh M.
+  const subpaths = d.match(/M[^M]*/g);
+  if (!subpaths || subpaths.length !== 3) {
+    console.warn(
+      `[MAIDR Highcharts] Candlestick path ${candleIndex} has `
+      + `${subpaths?.length ?? 0} subpaths (expected 3); skipping split.`,
+    );
+    return;
+  }
+
+  // The body is the only subpath with a closepath command.
+  const bodyIdx = subpaths.findIndex(sp => /z/i.test(sp));
+  if (bodyIdx === -1) {
+    console.warn(`[MAIDR Highcharts] Candlestick path ${candleIndex}: no body subpath found; skipping split.`);
+    return;
+  }
+
+  const wickIndices = [0, 1, 2].filter(i => i !== bodyIdx);
+  const m0 = subpathMidpoint(subpaths[wickIndices[0]]);
+  const m1 = subpathMidpoint(subpaths[wickIndices[1]]);
+  if (!m0 || !m1) {
+    console.warn(`[MAIDR Highcharts] Could not compute wick midpoints for candle ${candleIndex}; skipping split.`);
+    return;
+  }
+
+  // SVG y grows downward → smaller y is visually upper.
+  const upperWickIdx = m0.y < m1.y ? wickIndices[0] : wickIndices[1];
+  const lowerWickIdx = upperWickIdx === wickIndices[0] ? wickIndices[1] : wickIndices[0];
+
+  const cloneSubpath = (subpathIdx: number, part: 'body' | 'upper-wick' | 'lower-wick'): SVGPathElement => {
+    const clone = original.cloneNode(true) as SVGPathElement;
+    clone.setAttribute('d', subpaths[subpathIdx].trim());
+    clone.setAttribute('data-maidr-candle-part', part);
+    return clone;
+  };
+
+  const bodyPath = cloneSubpath(bodyIdx, 'body');
+  const upperPath = cloneSubpath(upperWickIdx, 'upper-wick');
+  const lowerPath = cloneSubpath(lowerWickIdx, 'lower-wick');
+
+  // afterend inserts in reverse, so insert lower → upper → body to end with
+  // [original, body, upper, lower] (visual stacking preserved).
+  original.insertAdjacentElement('afterend', lowerPath);
+  original.insertAdjacentElement('afterend', upperPath);
+  original.insertAdjacentElement('afterend', bodyPath);
+
+  // Strip the identifying class so subsequent `.highcharts-point` queries
+  // skip the now-superseded original. Keep it in the DOM (and visible) so
+  // Highcharts' internal references stay valid; the new paths render the
+  // same shapes on top.
+  original.classList.remove('highcharts-point');
+  original.setAttribute('data-maidr-split-original', 'true');
 }

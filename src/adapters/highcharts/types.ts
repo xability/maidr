@@ -7,6 +7,18 @@
  */
 
 /**
+ * Options for customizing the {@link highchartsToMaidr} adapter output.
+ */
+export interface HighchartsAdapterOptions {
+  /** Override the generated chart ID. Defaults to `highcharts-{n}`. */
+  id?: string;
+  /** Override the chart title. Defaults to `chart.title.textStr`. */
+  title?: string;
+  /** Convert only specific series by index. Default: all visible series. */
+  seriesIndices?: number[];
+}
+
+/**
  * Represents a Highcharts chart instance.
  * Passed to {@link highchartsToMaidr} to generate MAIDR-compatible data.
  */
