@@ -15,10 +15,12 @@
 			  "type": "box",
 			  "title": "Horizontal Box Plot Example",
 			  "axes": {
-				"x": "Values",
-				"y": "Group",
-				"format": {
-				  "x": { "function": "return Number(value).toFixed(1)" }
+				"x": {
+				  "label": "Values",
+				  "format": { "function": "return Number(value).toFixed(1)" }
+				},
+				"y": {
+				  "label": "Group"
 				}
 			  },
 			  "data": [
@@ -36,7 +38,7 @@
 					200,
 					210
 				  ],
-				  "fill": "Group 3"
+				  "z": "Group 3"
 				},
 				{
 				  "lowerOutliers": [
@@ -53,7 +55,7 @@
 					180,
 					190
 				  ],
-				  "fill": "Group 2"
+				  "z": "Group 2"
 				},
 				{
 				  "lowerOutliers": [
@@ -69,7 +71,7 @@
 					150,
 					160
 				  ],
-				  "fill": "Group 1"
+				  "z": "Group 1"
 				}
 			  ],
 			  "selectors": [
@@ -122,7 +124,7 @@
 
   <body>
     <div>
-      <link rel="stylesheet" href="../src/ui/css/styles.css" />
+      <link rel="stylesheet" href="../dist/maidr.css" />
       <script type="text/javascript" src="../dist/maidr.js"></script>
       <div>
         <svg

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Candlestick Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Candlestick Chart</h1>
+    <p>
+      A plotly.js candlestick chart auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="candlestick-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var data = [{
+        x: ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05',
+            '2024-01-08', '2024-01-09', '2024-01-10', '2024-01-11',
+            '2024-01-12', '2024-01-16'],
+        open:  [150.0, 152.5, 151.0, 153.0, 154.5, 155.0, 153.5, 156.0, 157.5, 158.0],
+        high:  [153.0, 154.0, 154.5, 155.0, 156.0, 157.0, 155.5, 158.0, 159.0, 160.5],
+        low:   [149.0, 151.0, 150.0, 152.0, 153.0, 154.0, 152.5, 155.0, 156.5, 157.0],
+        close: [152.5, 151.0, 153.0, 154.5, 155.0, 153.5, 155.0, 157.5, 158.0, 160.0],
+        type: 'candlestick',
+        name: 'ACME Stock'
+      }];
+
+      var layout = {
+        title: { text: 'ACME Stock Price (Jan 2024)' },
+        xaxis: { title: { text: 'Date' } },
+        yaxis: { title: { text: 'Price ($)' } }
+      };
+
+      Plotly.newPlot('candlestick-chart', data, layout);
+    </script>
+  </body>
+</html>

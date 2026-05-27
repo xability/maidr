@@ -1,0 +1,246 @@
+import type { ExtremaTarget } from '@type/extrema';
+import type { MaidrLayer } from '@type/grammar';
+import { describe, expect, test } from '@jest/globals';
+import { LineTrace } from '@model/line';
+import { TraceType } from '@type/grammar';
+
+/**
+ * Create a minimal line layer for model-only tests.
+ * @param data Multiline data points for the trace
+ * @returns Line layer definition for LineTrace
+ */
+function createLineLayer(data: MaidrLayer['data']): MaidrLayer {
+  return {
+    id: 'test-line-layer',
+    type: TraceType.LINE,
+    title: 'Intersection test layer',
+    axes: {
+      x: { label: 'X' },
+      y: { label: 'Y' },
+    },
+    data,
+  };
+}
+
+/**
+ * Return only the intersection targets from an extrema target list.
+ * @param targets All extrema targets produced by the trace
+ * @returns Intersection targets only
+ */
+function getIntersectionTargets(targets: ExtremaTarget[]): ExtremaTarget[] {
+  return targets.filter(target => target.type === 'intersection');
+}
+
+describe('LineTrace intersection classification', () => {
+  test('labels a shared sampled point as a point intersection', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+      ],
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].intersectionKind).toBe('point');
+    expect(intersections[0].label).toContain('Point intersection');
+  });
+
+  test('labels a segment-only crossing as a slope intersection', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 2, y: 0 },
+      ],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].intersectionKind).toBe('slope');
+    expect(intersections[0].label).toContain('Slope intersection');
+  });
+});
+
+describe('LineTrace intersection rotor navigation', () => {
+  test('reports intersection mode supported only for multiline traces', () => {
+    const multiline = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+      ],
+    ]));
+    const single = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+      ],
+    ]));
+
+    expect(multiline.supportsIntersectionMode()).toBe(true);
+    expect(single.supportsIntersectionMode()).toBe(false);
+  });
+
+  /**
+   * Build a two-line trace with two point intersections (cols 1 and 4 on the
+   * active line) and one slope intersection (near col 2) between them. Used to
+   * verify that intersection navigation skips slope crossings.
+   * @returns A LineTrace ready for intersection navigation assertions.
+   */
+  function createMixedIntersectionTrace(): LineTrace {
+    return new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 5 },
+        { x: 3, y: 0 },
+        { x: 4, y: 5 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+        { x: 3, y: 5 },
+        { x: 4, y: 5 },
+      ],
+    ]));
+  }
+
+  test('moveToNextIntersection advances to the next point intersection, skipping slope crossings', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(4);
+  });
+
+  test('moveToNextIntersection returns false at the last intersection', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 4;
+
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(4);
+  });
+
+  test('moveToPrevIntersection retreats to the previous point intersection', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 4;
+
+    expect(trace.moveToPrevIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    expect(trace.moveToPrevIntersection()).toBe(false);
+    expect(trace.col).toBe(1);
+  });
+
+  test('moveToPrevIntersection returns false when positioned before all intersections', () => {
+    const trace = createMixedIntersectionTrace();
+    trace.col = 0;
+
+    expect(trace.moveToPrevIntersection()).toBe(false);
+    expect(trace.col).toBe(0);
+  });
+
+  test('deduplicates a multi-way point intersection shared across 3 lines', () => {
+    // All three lines share (x=1, y=1). findAllIntersectionsForCurrentLine
+    // returns one entry per crossing pair (line0↔1 and line0↔2), both with
+    // the same pointIndex on line 0. Navigation must treat them as a single
+    // intersection — the Set-based dedup in getPointIntersectionIndices is
+    // what makes that work.
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 3 },
+        { x: 1, y: 1 },
+        { x: 2, y: 3 },
+      ],
+    ]));
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    // Only one intersection exists, so the next advance must hit the bound.
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(1);
+  });
+
+  test('scopes intersections to the active row (row > 0)', () => {
+    // Line 0 has no shared points with line 1 (0,0 vs 0,1 etc.)
+    // Line 1 shares (1, 5) with line 2. Active row = 1 should expose that
+    // intersection; changing row must change which intersections are visible.
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 5 },
+        { x: 2, y: 9 },
+      ],
+      [
+        { x: 0, y: 9 },
+        { x: 1, y: 5 },
+        { x: 2, y: 1 },
+      ],
+    ]));
+    trace.row = 1;
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(1);
+
+    // Sanity: from row 0 the same cursor position finds no point intersection
+    // because line 0 does not share any sampled point with lines 1 or 2.
+    trace.row = 0;
+    trace.col = 0;
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(0);
+  });
+
+  test('returns false when no point intersections exist on the current line', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 2, y: 2 },
+      ],
+      [
+        { x: 0, y: 2 },
+        { x: 2, y: 0 },
+      ],
+    ]));
+    trace.col = 0;
+
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.moveToPrevIntersection()).toBe(false);
+  });
+});
