@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Scatter Plot Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Scatter Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="scatter-chart"
+      aria-label="Scatter plot loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Scatter plot: any of `point`, `circle`, or `square` marks with
+      // quantitative x + y. The MAIDR binder maps these to SCATTER.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Horsepower vs. Miles per Gallon',
+        data: {
+          values: [
+            { hp: 130, mpg: 18 },
+            { hp: 165, mpg: 15 },
+            { hp: 150, mpg: 18 },
+            { hp: 150, mpg: 16 },
+            { hp: 140, mpg: 17 },
+            { hp: 198, mpg: 15 },
+            { hp: 220, mpg: 14 },
+            { hp: 215, mpg: 14 },
+            { hp: 225, mpg: 14 },
+            { hp: 190, mpg: 15 },
+            { hp: 97, mpg: 24 },
+            { hp: 88, mpg: 22 },
+            { hp: 70, mpg: 18 },
+            { hp: 76, mpg: 21 },
+            { hp: 86, mpg: 27 },
+          ],
+        },
+        mark: 'point',
+        encoding: {
+          x: { field: 'hp', type: 'quantitative', title: 'Horsepower' },
+          y: { field: 'mpg', type: 'quantitative', title: 'Miles per Gallon' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#scatter-chart', spec, { id: 'cars-scatter' })
+        .catch((err) => console.error('[vegalite-bindscatter]', err));
+    </script>
+  </body>
+</html>
