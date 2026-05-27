@@ -1,15 +1,17 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
+import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { Scope } from '@type/event';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Command to toggle the braille display on or off.
@@ -289,28 +291,74 @@ export class CommandPaletteSelectCommand implements Command {
 
 /**
  * Command to toggle a specific scope in the application context.
+ * For label scopes (TRACE_LABEL, FIGURE_LABEL), uses DisplayService to
+ * properly manage the focus stack and preserve the previous scope.
  */
 export class ToggleScopeCommand implements Command {
   private readonly context: Context;
   private readonly scope: Scope;
+  private readonly textViewModel?: TextViewModel;
+  private readonly displayService?: DisplayService;
 
   /**
    * Creates an instance of ToggleScopeCommand.
    * @param {Context} context - The application context.
    * @param {Scope} scope - The scope to toggle.
+   * @param {TextViewModel} [textViewModel] - Optional text view model for text-off warnings.
+   * @param {DisplayService} [displayService] - Optional display service for label scope management.
    */
-  public constructor(context: Context, scope: Scope) {
+  public constructor(
+    context: Context,
+    scope: Scope,
+    textViewModel?: TextViewModel,
+    displayService?: DisplayService,
+  ) {
     this.context = context;
     this.scope = scope;
+    this.textViewModel = textViewModel;
+    this.displayService = displayService;
   }
 
   /**
    * Toggles the specified scope in the context.
+   * For label scopes, uses DisplayService to preserve the previous scope on the stack.
    */
   public execute(): void {
-    this.context.toggleScope(this.scope);
+    this.textViewModel?.warnIfTextOff();
+
+    // For label scopes, use DisplayService to preserve the previous scope
+    if (
+      (this.scope === Scope.TRACE_LABEL || this.scope === Scope.FIGURE_LABEL)
+      && this.displayService
+    ) {
+      this.displayService.enterLabelScope(this.scope);
+    } else {
+      this.context.toggleScope(this.scope);
+    }
   }
 }
+/**
+ * Command to toggle the chart description modal on or off.
+ */
+export class ToggleDescriptionCommand implements Command {
+  private readonly descriptionViewModel: DescriptionViewModel;
+
+  /**
+   * Creates an instance of ToggleDescriptionCommand.
+   * @param {DescriptionViewModel} descriptionViewModel - The description view model.
+   */
+  public constructor(descriptionViewModel: DescriptionViewModel) {
+    this.descriptionViewModel = descriptionViewModel;
+  }
+
+  /**
+   * Toggles the chart description modal.
+   */
+  public execute(): void {
+    this.descriptionViewModel.toggle();
+  }
+}
+
 export class ToggleHighContrast implements Command {
   private readonly highContrastService: HighContrastService;
 

@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, Orientation, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 /**
@@ -49,7 +49,7 @@ export type SubplotState
 /**
  * Empty trace state used as a placeholder when no data is available.
  */
-interface TraceEmptyState {
+export interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
@@ -72,7 +72,7 @@ export type TraceState
       title: string;
       xAxis: string;
       yAxis: string;
-      fill: string;
+      z: string;
       hasMultiPoints: boolean;
       audio: AudioState;
       braille: BrailleState;
@@ -90,6 +90,10 @@ export type TraceState
        * Only present for multiline plots where plotType === 'multiline'.
        */
       groupCount?: number;
+      /**
+       * Plot orientation, if applicable (e.g. bar, box, violin).
+       */
+      orientation?: Orientation;
     };
 
 /**
@@ -246,7 +250,7 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 /**
  * Axis type identifier for formatting.
  */
-export type AxisType = 'x' | 'y' | 'fill';
+export type AxisType = 'x' | 'y' | 'z';
 
 /**
  * Text description state containing labels and values for screen reader output.
@@ -254,7 +258,7 @@ export type AxisType = 'x' | 'y' | 'fill';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  fill?: { label: string; value: number | string };
+  z?: { label: string; value: number | string };
   range?: { min: number; max: number };
   section?: string;
   /**
@@ -269,6 +273,18 @@ export interface TextState {
    * Used to apply correct formatter regardless of orientation.
    */
   crossAxis?: AxisType;
+  /**
+   * Range for the cross axis, used in grid navigation to show both axis ranges.
+   */
+  crossRange?: { min: number; max: number };
+  /**
+   * Points in the current grid cell, listed as coordinate pairs.
+   */
+  gridPoints?: { x: number; y: number }[];
+  /**
+   * Current grid cell position (1-indexed for display).
+   */
+  gridPosition?: { row: number; col: number };
 }
 
 /**
@@ -277,6 +293,59 @@ export interface TextState {
 export type AutoplayState = {
   [key in MovableDirection]: number;
 };
+
+/**
+ * A single statistic entry for chart description (e.g., "Min: 5", "Groups: 3").
+ */
+export interface DescriptionStat {
+  label: string;
+  value: string | number;
+}
+
+/**
+ * Summary of a single subplot in a multi-panel figure, used to give users
+ * an at-a-glance list of what's available before they navigate in.
+ */
+export interface SubplotSummary {
+  /** 1-based visual index (top-left = 1, reading order). */
+  index: number;
+  /** Layer title for the subplot, or empty string if not available. */
+  title: string;
+  /** Trace type label(s) for the subplot's layers. */
+  traceTypes: string[];
+  /** True if this is the subplot the user is currently focused on. */
+  isActive: boolean;
+}
+
+/**
+ * Description state containing objective chart metadata for the description modal.
+ * Fetched on-demand when the user opens the description dialog.
+ */
+export interface DescriptionState {
+  /** Chart/trace type label (e.g., "Bar Chart", "Line Plot") */
+  chartType: string;
+  /** Chart title */
+  title: string;
+  /** Axes information */
+  axes: {
+    x?: string;
+    y?: string;
+    z?: string;
+  };
+  /** Chart-specific summary statistics */
+  stats: DescriptionStat[];
+  /** Data table for raw data display */
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
+  /**
+   * List of all subplots in the figure, populated only when the figure has
+   * more than one subplot. Lets users see what other subplots are available
+   * without having to navigate through them.
+   */
+  subplots?: SubplotSummary[];
+}
 
 /**
  * Highlight state for visual emphasis of current plot elements.
