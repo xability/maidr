@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Scatter Plot Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Scatter Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="scatter-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('scatter-chart'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Iris Setosa',
+            data: [
+              { x: 5.1, y: 3.5 },
+              { x: 4.9, y: 3.0 },
+              { x: 4.7, y: 3.2 },
+              { x: 4.6, y: 3.1 },
+              { x: 5.0, y: 3.6 },
+              { x: 5.4, y: 3.9 },
+              { x: 4.6, y: 3.4 },
+              { x: 5.0, y: 3.4 },
+            ],
+            backgroundColor: '#9467bd',
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Sepal Length vs Sepal Width' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Sepal Length (cm)' } },
+            y: { title: { display: true, text: 'Sepal Width (cm)' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

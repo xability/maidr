@@ -8,7 +8,7 @@ import type {
 } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -408,6 +408,41 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * Gets the description state for the candlestick trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const bullCount = this.candles.filter(c => c.trend === 'Bull').length;
+    const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of periods', value: this.candles.length },
+      { label: 'Price range', value: `${this.min} to ${this.max}` },
+      { label: 'Bull count', value: bullCount },
+      { label: 'Bear count', value: bearCount },
+    ];
+
+    const headers = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Trend'];
+    const rows: (string | number)[][] = this.candles.map(c => [
+      c.value,
+      c.open,
+      c.high,
+      c.low,
+      c.close,
+      c.volume ?? '',
+      c.trend,
+    ]);
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
+  /**
    * Cleans up resources and disposes of the candlestick instance
    */
   public dispose(): void {
@@ -681,7 +716,7 @@ export class Candlestick extends AbstractTrace {
         value: crossValue,
       },
       section: this.currentSegmentType ?? 'open',
-      fill: { label: TREND, value: point.trend },
+      z: { label: TREND, value: point.trend },
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };
@@ -774,6 +809,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -787,6 +823,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     } else {
@@ -820,6 +857,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -835,6 +873,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     }
@@ -854,7 +893,7 @@ export class Candlestick extends AbstractTrace {
     this.currentSegmentType = target.segment as CandlestickNavSegmentType;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**

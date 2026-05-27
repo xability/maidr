@@ -31,7 +31,7 @@ const chartData: MaidrData = {
     layers: [{
       id: '0',
       type: 'bar',
-      axes: { x: 'Quarter', y: 'Revenue' },
+      axes: { x: { label: 'Quarter' }, y: { label: 'Revenue' } },
       data: [
         { x: 'Q1', y: 120 },
         { x: 'Q2', y: 200 },
@@ -124,15 +124,18 @@ interface MaidrLayer {
   selectors?: string | string[]; // CSS selectors for SVG highlight elements
   orientation?: Orientation;     // 'vert' or 'horz' (for bar/box plots)
   axes?: {
-    x?: string;            // X-axis label
-    y?: string;            // Y-axis label
-    fill?: string;         // Fill/group label
-    format?: {             // Axis value formatting
-      x?: AxisFormat;
-      y?: AxisFormat;
-      fill?: AxisFormat;
-    };
+    x?: AxisConfig;        // X-axis configuration
+    y?: AxisConfig;        // Y-axis configuration
+    z?: AxisConfig;        // Z / fill / level axis configuration (heatmap, grouped)
   };
+  // Where AxisConfig is:
+  //   interface AxisConfig {
+  //     label?: string;      // Axis label (defaults to 'X' / 'Y' / 'Level')
+  //     min?: number;        // Minimum value
+  //     max?: number;        // Maximum value
+  //     tickStep?: number;   // Tick spacing
+  //     format?: AxisFormat; // Per-axis value formatting
+  //   }
   data: BarPoint[] | BoxPoint[] | LinePoint[][] | ScatterPoint[] | ...;
 }
 ```
@@ -177,7 +180,7 @@ const data: MaidrData = {
       id: '0',
       type: 'bar',
       selectors: 'rect.bar',  // CSS selector for SVG bar elements
-      axes: { x: 'Day', y: 'Count' },
+      axes: { x: { label: 'Day' }, y: { label: 'Count' } },
       data: [
         { x: 'Mon', y: 20 },
         { x: 'Tue', y: 35 },
@@ -200,7 +203,7 @@ const data: MaidrData = {
     layers: [{
       id: '0',
       type: 'line',
-      axes: { x: 'Month', y: 'Temperature (F)' },
+      axes: { x: { label: 'Month' }, y: { label: 'Temperature (F)' } },
       data: [[
         { x: 1, y: 32, fill: '2023' },
         { x: 2, y: 35, fill: '2023' },
@@ -221,7 +224,7 @@ const data: MaidrData = {
     layers: [{
       id: '0',
       type: 'point',
-      axes: { x: 'Height (in)', y: 'Weight (lbs)' },
+      axes: { x: { label: 'Height (in)' }, y: { label: 'Weight (lbs)' } },
       data: [
         { x: 65, y: 150 },
         { x: 70, y: 175 },
@@ -244,7 +247,7 @@ const data: MaidrData = {
       id: '0',
       type: 'bar',
       selectors: 'rect.bar',  // Matches <rect class="bar"> elements
-      axes: { x: 'Category', y: 'Value' },
+      axes: { x: { label: 'Category' }, y: { label: 'Value' } },
       data: [
         { x: 'A', y: 10 },
         { x: 'B', y: 20 },
@@ -298,10 +301,10 @@ const data: MaidrData = {
       id: '0',
       type: 'bar',
       axes: {
-        x: 'Month',
-        y: 'Revenue',
-        format: {
-          y: { type: 'currency', decimals: 2, currency: 'USD' },
+        x: { label: 'Month' },
+        y: {
+          label: 'Revenue',
+          format: { type: 'currency', decimals: 2, currency: 'USD' },
         },
       },
       data: [
@@ -315,12 +318,15 @@ const data: MaidrData = {
 
 Supported format types: `currency`, `percent`, `fixed`, `number`, `date`, `scientific`.
 
-You can also provide a custom formatting function as a string:
+You can also provide a custom formatting function as a string (per-axis):
 
 ```typescript
-format: {
+axes: {
   x: {
-    function: "const days = {Mon: 'Monday', Tue: 'Tuesday'}; return days[value] || value"
+    label: 'Day',
+    format: {
+      function: "const days = {Mon: 'Monday', Tue: 'Tuesday'}; return days[value] || value"
+    }
   }
 }
 ```
