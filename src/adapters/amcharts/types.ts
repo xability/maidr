@@ -12,11 +12,29 @@
  */
 
 /**
+ * A 2D point in pixels, as used by amCharts' `Sprite.toGlobal()`.
+ */
+export interface AmPoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * Minimal interface for an amCharts 5 event dispatcher (`root.events`,
+ * `series.events`). Returns a disposer-like value we treat opaquely.
+ */
+export interface AmEvents {
+  on: (type: string, callback: () => void) => { dispose?: () => void } | unknown;
+}
+
+/**
  * Minimal interface for `am5.Root`.
  */
 export interface AmRoot {
   dom: HTMLElement;
   container: AmContainer;
+  /** Render/lifecycle events (e.g. `frameended`); present at runtime. */
+  events?: AmEvents;
 }
 
 /**
@@ -61,6 +79,8 @@ export interface AmXYSeries extends AmEntity {
   columns?: AmListLike<AmSprite>;
   bullets?: AmListLike<AmBullet>;
   strokes?: AmListLike<AmSprite>;
+  /** Converts a series-local point to root-container coordinates. */
+  toGlobal?: (point: AmPoint) => AmPoint;
 }
 
 /**
@@ -89,10 +109,20 @@ export interface AmBullet {
 
 /**
  * Minimal interface for an amCharts 5 visual sprite / graphic.
+ *
+ * In amCharts 5, geometry accessors (`x()`, `y()`, `width()`, `height()`)
+ * are methods returning pixels in the sprite's local coordinate space, and
+ * `toGlobal()` maps a local point to root-container coordinates. They are
+ * optional here because not every sprite exposes laid-out geometry.
  */
 export interface AmSprite {
   dom?: SVGElement;
   uid?: number;
+  x?: () => number;
+  y?: () => number;
+  width?: () => number;
+  height?: () => number;
+  toGlobal?: (point: AmPoint) => AmPoint;
 }
 
 // ---------------------------------------------------------------------------

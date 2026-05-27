@@ -1,6 +1,6 @@
 # amCharts 5 Integration
 
-MAIDR ships an amCharts 5 *binder* that converts a rendered amCharts 5 `XYChart` into MAIDR's accessibility schema. Pass the result to the `<Maidr>` React component, or set it as a `maidr` attribute on the chart container, and the chart gains audio sonification, text descriptions, braille output, and keyboard navigation.
+MAIDR ships an amCharts 5 *binder*. The recommended entry point, `bindAmCharts(root)`, mounts MAIDR over a rendered amCharts 5 `XYChart` and adds audio sonification, text descriptions, braille output, keyboard navigation, and a **visual highlight overlay** on the active data point. A lower-level `fromAmCharts(root)` returns plain MAIDR JSON (no highlighting) for the `maidr` attribute or the `<Maidr>` React component.
 
 > **Note:** amCharts 5 is a commercial charting library and is **not** bundled with MAIDR — load it yourself. amCharts 4 has a different API and is not supported. The MAIDR amCharts adapter ships as both a UMD bundle (`dist/amcharts.js`, exposing the `maidrAmCharts` global for plain `<script>` tags) and an ES module (`dist/amcharts.mjs`, for bundlers via `import 'maidr/amcharts'`).
 
@@ -17,8 +17,7 @@ Load amCharts 5 and MAIDR core, build your chart as usual, then convert it once 
     <!-- 1. Load amCharts 5 (core + XY) -->
     <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
-    <!-- 2. Load MAIDR core + amCharts adapter (UMD) -->
-    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+    <!-- 2. Load the MAIDR amCharts adapter (UMD; bundles MAIDR + React) -->
     <script src="https://cdn.jsdelivr.net/npm/maidr/dist/amcharts.js"></script>
   </head>
   <body>
@@ -47,32 +46,31 @@ Load amCharts 5 and MAIDR core, build your chart as usual, then convert it once 
       series.data.setAll(data);
     </script>
 
-    <!-- 4. After the chart renders, convert it to MAIDR data via the
-         `maidrAmCharts` UMD global. -->
+    <!-- 4. After the chart renders, mount MAIDR with canvas highlighting. -->
     <script>
       // amCharts validates data asynchronously; in production listen to a
       // series' "datavalidated" event instead of a fixed timeout.
       setTimeout(function () {
-        var maidrData = maidrAmCharts.fromAmCharts(root, {
+        maidrAmCharts.bindAmCharts(root, {
           title: 'Number of Tips by Day',
           axisLabels: { x: 'Day', y: 'Count' },
         });
-        document.getElementById('chartdiv').setAttribute('maidr', JSON.stringify(maidrData));
       }, 1000);
     </script>
   </body>
 </html>
 ```
 
-Once the `maidr` attribute is set, click the chart (or Tab to it) and MAIDR activates with audio, text, braille, and arrow-key navigation.
+Once bound, click the chart (or Tab to it) and MAIDR activates with audio, text, braille, arrow-key navigation, and a highlight box drawn on the active data point.
 
 ## How It Works
 
-The amCharts binder is a pure data-conversion step — it does not render anything itself:
+There are two entry points:
 
-1. **Build** — you create the amCharts 5 chart normally.
-2. **Convert** — `fromAmCharts(root)` (or `fromXYChart(chart, containerEl)`) walks the chart's series, classifies each one, and extracts its data into MAIDR's [schema](SCHEMA.html). Each series becomes a layer; all line series merge into a single multi-line layer.
-3. **Activate** — pass the result to `<Maidr data={...}>`, or set it as a `maidr` attribute on the container. MAIDR's `MutationObserver` detects the attribute and mounts itself — the same async pattern used by the Google Charts adapter.
+- **`bindAmCharts(root, options?)`** (recommended) — mounts the MAIDR UI over the chart and returns `{ maidr, dispose }`. Because it hands a live data object (not JSON) to MAIDR's React component, it can wire an `onNavigate` callback that drives the **canvas highlight overlay**. This is the only way to get visual highlighting (see below). `bindXYChart(chart, root, options?)` is the same when you already hold the chart reference.
+- **`fromAmCharts(root, options?)`** — returns plain MAIDR JSON for the `maidr` HTML attribute or `<Maidr data={...}>`. Enables audio, text, and braille, but **not** visual highlighting, because the highlight callback is a function and cannot survive JSON serialization.
+
+Both walk the chart's series, classify each one, and extract its data into MAIDR's [schema](SCHEMA.html). Each series becomes a layer; all line series merge into a single multi-line layer.
 
 Series are classified by their amCharts class name and field configuration:
 
@@ -81,6 +79,10 @@ Series are classified by their amCharts class name and field configuration:
 - `ColumnSeries` with both X and Y category axes → **heatmap** (heat value read from the `value` field)
 - `ColumnSeries` on a value X axis with `openValueXField` bin edges → **histogram**
 - `LineSeries` (incl. smoothed/step variants) → **line**
+
+### Visual Highlighting
+
+amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes for MAIDR's usual highlighting. `bindAmCharts` instead draws an absolutely-positioned outline box over the canvas at the active data point's pixel geometry (computed via am5's `sprite.toGlobal()`) — the same overlay approach the Chart.js adapter uses. The overlay re-anchors on resize. Call the returned `dispose()` to unmount MAIDR, remove the overlay, and restore the chart. Highlighting is unavailable on the `fromAmCharts` JSON/attribute path.
 
 ## Supported Chart Types
 
@@ -209,16 +211,16 @@ npm install maidr @amcharts/amcharts5
 ```
 
 ```ts
-import { fromAmCharts } from 'maidr/amcharts';
-import { Maidr } from 'maidr/react';
+import { bindAmCharts } from 'maidr/amcharts';
 
-const data = fromAmCharts(root); // root: am5.Root
-
-// Then render with the React component:
-// <Maidr data={data}><div id="chartdiv" /></Maidr>
+// root: am5.Root — mounts MAIDR + canvas highlight overlay, returns a handle.
+const binding = bindAmCharts(root, { title: 'Sales by Day' });
+// later: binding.dispose();
 ```
 
-`fromAmCharts(root, options?)` finds the first `XYChart` in `root.container`. If you already hold the chart reference, call `fromXYChart(chart, containerEl, options?)` directly. The `options` object accepts `title`, `subtitle`, and `axisLabels: { x, y }` overrides.
+`bindAmCharts(root, options?)` finds the first `XYChart` in `root.container`; `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
+
+For the data-only path (no highlighting), use `fromAmCharts(root, options?)` / `fromXYChart(chart, containerEl, options?)`, which return MAIDR JSON for the `maidr` attribute or `<Maidr data={...}>`.
 
 ## API Documentation
 

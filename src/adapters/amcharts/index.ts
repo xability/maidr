@@ -12,29 +12,29 @@
  * MAIDR. Consumers must install amCharts 5 separately. amCharts 4 has a
  * significantly different API and is not supported.
  *
+ * Two ways to use it:
+ *
+ * 1. {@link bindAmCharts} (recommended) — mounts the MAIDR UI over the chart
+ *    AND draws a canvas highlight overlay on the active data point. Required
+ *    for visual highlighting, because amCharts renders to canvas.
+ * 2. {@link fromAmCharts} — returns plain MAIDR JSON for the `maidr` HTML
+ *    attribute or `<Maidr data={...}>`. Enables audio/text/braille but NOT
+ *    visual highlighting (the highlight callback cannot survive JSON).
+ *
  * @example
  * ```ts
- * import { fromAmCharts } from 'maidr/amcharts';
- * import { Maidr } from 'maidr/react';
+ * import { bindAmCharts } from 'maidr/amcharts';
  *
- * // 1. Create your amCharts 5 chart as usual.
  * const root = am5.Root.new('chartdiv');
- * const chart = root.container.children.push(
- *   am5xy.XYChart.new(root, {}),
- * );
  * // ... add axes, series, data ...
- *
- * // 2. Convert to MAIDR data.
- * const data = fromAmCharts(root);
- *
- * // 3. Use with the Maidr React component.
- * <Maidr data={data}>
- *   <div id="chartdiv" />
- * </Maidr>
+ * const binding = bindAmCharts(root, { title: 'Sales by Day' });
+ * // later, to clean up: binding.dispose();
  * ```
  *
  * @packageDocumentation
  */
 
 export { fromAmCharts, fromXYChart } from './adapter';
+export { bindAmCharts, bindXYChart } from './binder';
+export type { AmChartsBinding, AmChartsBindOptions } from './binder';
 export type { AmChartsBinderOptions, AmRoot, AmXYChart, AmXYSeries } from './types';

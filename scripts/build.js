@@ -142,11 +142,13 @@ const builds = [
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
     emptyOutDir: false,
-    // amCharts 5 is loaded by the host page (CDN/global); the adapter is pure
-    // data conversion with no React. The UMD build (amcharts.js) exposes the
-    // `maidrAmCharts` global so examples load via a classic <script> from file://.
+    // `bindAmCharts` mounts the MAIDR React UI over the chart, so React is
+    // bundled in (mirrors chartjs/d3) and the UMD build (amcharts.js) exposes
+    // the `maidrAmCharts` global for classic <script> use from file://.
+    // amCharts itself is never imported (it's duck-typed off the live objects
+    // passed in), so there is nothing to externalize.
     external: [],
-    useReact: false,
+    useReact: true,
     useDts: true,
     aliases: adapterAliases,
   },

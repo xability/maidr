@@ -43,7 +43,7 @@
     "./amcharts": {
       "types": "./dist/amcharts.d.mts",
       "import": "./dist/amcharts.mjs",
-      "default": "./dist/amcharts.mjs"
+      "default": "./dist/amcharts.js"
     }
   },
   "main": "dist/maidr.js",

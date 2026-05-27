@@ -8,9 +8,9 @@
     <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
 
-    <!-- 2. Load MAIDR core and the amCharts adapter (UMD builds). The adapter
-         exposes a `maidrAmCharts` global used in the binding script below. -->
-    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
     <script type="text/javascript" src="../dist/amcharts.js"></script>
 
     <style>
@@ -310,15 +310,14 @@
       })();
     </script>
 
-    <!-- After amCharts finishes rendering, convert each chart to MAIDR data
-         using the `maidrAmCharts` UMD global. In production, prefer listening
-         to a series' "datavalidated" event instead of a fixed timeout. -->
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
     <script>
       function bindAll() {
         for (const b of (window.__amBindings || [])) {
           try {
-            var maidrData = maidrAmCharts.fromAmCharts(b.root, b.options);
-            b.el.setAttribute('maidr', JSON.stringify(maidrData));
+            maidrAmCharts.bindAmCharts(b.root, b.options);
           } catch (err) {
             console.error('MAIDR amCharts bind failed:', err);
           }
