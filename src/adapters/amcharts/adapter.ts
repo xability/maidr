@@ -17,14 +17,12 @@
 
 import type {
   BarPoint,
-  CandlestickPoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
-  ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
 import type {
@@ -37,18 +35,15 @@ import { Orientation, TraceType } from '@type/grammar';
 import {
   classifySeriesKind,
   extractBarPoints,
-  extractCandlestickPoints,
   extractHeatmapData,
   extractHistogramPoints,
   extractLinePoints,
-  extractScatterPoints,
   extractSegmentedPoints,
   readAxisLabel,
-} from './extractors';
+} from './extractor';
 import {
   buildColumnSelector,
   buildLineSelector,
-  buildScatterSelector,
 } from './selectors';
 
 // ---------------------------------------------------------------------------
@@ -145,20 +140,6 @@ export function fromXYChart(
         }
         break;
       }
-      case 'scatter': {
-        const data = extractScatterPoints(series);
-        if (data.length === 0)
-          break;
-        layers.push(buildScatterLayer(series, data, xLabel, yLabel, containerEl));
-        break;
-      }
-      case 'candlestick': {
-        const data = extractCandlestickPoints(series);
-        if (data.length === 0)
-          break;
-        layers.push(buildCandlestickLayer(series, data, xLabel, yLabel));
-        break;
-      }
       default:
         // Skip unsupported series types.
         break;
@@ -173,7 +154,7 @@ export function fromXYChart(
       layers.push(buildBarLayer(series, data, xLabel, yLabel, containerEl));
     }
   } else if (barSeriesList.length > 1) {
-    const layer = buildSegmentedLayer(barSeriesList, chart, xLabel, yLabel, containerEl);
+    const layer = buildSegmentedLayer(barSeriesList, xLabel, yLabel, containerEl);
     if (layer) {
       layers.push(layer);
     }
@@ -219,19 +200,18 @@ function buildBarLayer(
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
-    axes: { x: xLabel, y: yLabel },
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
   };
 }
 
 function buildSegmentedLayer(
   barSeriesList: AmXYSeries[],
-  chart: AmXYChart,
   xLabel: string,
   yLabel: string,
   containerEl: HTMLElement,
 ): MaidrLayer | null {
-  const stackMode = detectStackMode(chart);
+  const stackMode = detectStackMode(barSeriesList);
 
   let traceType: TraceType;
   switch (stackMode) {
@@ -272,7 +252,7 @@ function buildSegmentedLayer(
     type: traceType,
     ...(combinedSelector ? { selectors: combinedSelector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
-    axes: { x: xLabel, y: yLabel },
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
   };
 }
@@ -291,7 +271,7 @@ function buildHistogramLayer(
     type: TraceType.HISTOGRAM,
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
-    axes: { x: xLabel, y: yLabel },
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
   };
 }
@@ -304,7 +284,7 @@ function buildHeatmapLayer(
   return {
     id: `heatmap-${uid()}`,
     type: TraceType.HEATMAP,
-    axes: { x: xLabel, y: yLabel },
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
   };
 }
@@ -321,41 +301,7 @@ function buildLineLayer(
     type: TraceType.LINE,
     ...(title ? { title } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
-    axes: { x: xLabel, y: yLabel },
-    data,
-  };
-}
-
-function buildScatterLayer(
-  series: AmXYSeries,
-  data: ScatterPoint[],
-  xLabel: string,
-  yLabel: string,
-  containerEl: HTMLElement,
-): MaidrLayer {
-  const selector = buildScatterSelector(series, containerEl);
-
-  return {
-    id: layerId(series),
-    type: TraceType.SCATTER,
-    title: seriesName(series),
-    ...(selector ? { selectors: selector } : {}),
-    axes: { x: xLabel, y: yLabel },
-    data,
-  };
-}
-
-function buildCandlestickLayer(
-  series: AmXYSeries,
-  data: CandlestickPoint[],
-  xLabel: string,
-  yLabel: string,
-): MaidrLayer {
-  return {
-    id: layerId(series),
-    type: TraceType.CANDLESTICK,
-    title: seriesName(series),
-    axes: { x: xLabel, y: yLabel },
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
   };
 }
@@ -376,23 +322,25 @@ function findXYChart(root: AmRoot): AmXYChart | undefined {
 }
 
 /**
- * Detect the stacking mode from the chart's value axes.
+ * Detect the stacking mode from a list of column series.
  *
- * In amCharts 5, stacking is controlled by setting `stackMode` on a
- * `ValueAxis`: `"normal"` for stacked, `"100%"` for normalized.
+ * In amCharts 5, stacking is a per-series setting, not an axis setting:
+ * `series.get('stacked')` is `true` for stacked columns, and a 100%
+ * (normalized) stack additionally sets `valueYShow` (or `valueXShow` for
+ * horizontal columns) to `'valueYTotalPercent'` / `'valueXTotalPercent'`.
+ * Series with no `stacked` flag render side-by-side (dodged).
  */
-function detectStackMode(chart: AmXYChart): 'none' | 'normal' | '100%' {
-  for (const axis of chart.yAxes.values) {
-    const mode = axis.get('stackMode');
-    if (mode === 'normal' || mode === '100%')
-      return mode;
+function detectStackMode(barSeriesList: AmXYSeries[]): 'none' | 'normal' | '100%' {
+  let anyStacked = false;
+  for (const series of barSeriesList) {
+    if (series.get('stacked') !== true)
+      continue;
+    anyStacked = true;
+    const show = series.get('valueYShow') ?? series.get('valueXShow');
+    if (show === 'valueYTotalPercent' || show === 'valueXTotalPercent')
+      return '100%';
   }
-  for (const axis of chart.xAxes.values) {
-    const mode = axis.get('stackMode');
-    if (mode === 'normal' || mode === '100%')
-      return mode;
-  }
-  return 'none';
+  return anyStacked ? 'normal' : 'none';
 }
 
 function readChartTitle(chart: AmXYChart): string | undefined {

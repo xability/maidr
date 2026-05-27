@@ -95,16 +95,6 @@ export function buildLineSelector(
   return undefined;
 }
 
-/**
- * Attempt to build a CSS selector string for scatter (bullet) series.
- */
-export function buildScatterSelector(
-  series: AmXYSeries,
-  containerEl: HTMLElement,
-): string | undefined {
-  return buildLineSelector(series, containerEl);
-}
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

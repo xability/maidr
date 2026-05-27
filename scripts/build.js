@@ -135,6 +135,19 @@ const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'amcharts',
+    entry: 'src/adapters/amcharts/index.ts',
+    formats: ['es'],
+    fileName: () => 'amcharts.mjs',
+    emptyOutDir: false,
+    // amCharts 5 is loaded by the host page (CDN/global); the adapter is pure
+    // data conversion with no React, so nothing needs bundling or externalizing.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 function createViteConfig(config) {

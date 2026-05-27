@@ -58,6 +58,7 @@ const PAGE_DESCRIPTIONS = {
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
+  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, and heatmap chart types.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -144,6 +145,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
+    .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -266,6 +268,20 @@ if (fs.existsSync(chartjsMdPath)) {
 `;
   const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
+}
+
+// Build amcharts.html from docs/amcharts.md
+console.log('Building amcharts.html from docs/amcharts.md...');
+const amchartsMdPath = path.join(ROOT, 'docs', 'amcharts.md');
+if (fs.existsSync(amchartsMdPath)) {
+  const amchartsMd = fs.readFileSync(amchartsMdPath, 'utf-8');
+  const amchartsHtml = `
+<div class="content">
+  ${marked.parse(amchartsMd)}
+</div>
+`;
+  const amchartsPage = generatePage({ title: 'amCharts', content: amchartsHtml, activePage: 'amcharts', slug: 'amcharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'amcharts.html'), amchartsPage);
 }
 
 // Build examples.html (inline gallery content — no middle iframe)

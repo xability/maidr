@@ -54,7 +54,7 @@ export interface AmXYChart extends AmEntity {
 
 /**
  * Minimal interface for an amCharts 5 XY series
- * (ColumnSeries, LineSeries, CandlestickSeries, etc.).
+ * (ColumnSeries, LineSeries, etc.).
  */
 export interface AmXYSeries extends AmEntity {
   dataItems: AmDataItem[];
@@ -80,7 +80,7 @@ export interface AmDataItem {
 }
 
 /**
- * Minimal interface for an amCharts 5 bullet (used for scatter points).
+ * Minimal interface for an amCharts 5 bullet (used for line point markers).
  */
 export interface AmBullet {
   get: (key: string) => unknown;
