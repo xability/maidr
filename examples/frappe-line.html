@@ -4,20 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Frappe Charts Line - MAIDR Example</title>
-    <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
-         If upgrading, verify SVG class names match. -->
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
     <script
-      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"
-      integrity="sha384-oIj1GL49K/irZ6Webc7IYYAOjw3d/OzrJWDEF0bpI4aeq8xW/Chzc/YBYAMhAsu/"
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
       crossorigin="anonymous"
-      onerror="document.getElementById('error').hidden=false"
     ></script>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
-      integrity="sha384-2HTXu4gz74CXcykbd4twJUks9w/p4XNK6tSdc3WcQJVfFr9KggfJTBUr04JpK/Y5"
-      crossorigin="anonymous"
-    />
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
   </head>
 
   <body>
@@ -31,20 +27,16 @@
     </main>
 
     <script>
-      // Guard: skip if Frappe Charts failed to load from CDN.
-      if (typeof frappe !== 'undefined') {
-        // 1. Create the Frappe line chart
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
         const data = {
-          labels: [
-            '2018',
-            '2019',
-            '2020',
-            '2021',
-            '2022',
-            '2023',
-            '2024',
-            '2025',
-          ],
+          labels: ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'],
           datasets: [
             {
               name: 'Revenue',
@@ -53,6 +45,8 @@
           ],
         };
 
+        // dotSize > 0 renders per-point <circle> dots, which the adapter's line
+        // selector targets for highlighting.
         const chart = new frappe.Chart('#chart', {
           title: 'Annual Revenue (in thousands)',
           data: data,
@@ -64,69 +58,34 @@
           },
         });
 
-        // 2. Use requestAnimationFrame with fallback DOM check
-        requestAnimationFrame(function initMaidr() {
-          const container = document.querySelector('#chart');
-          const svg = container.querySelector('svg.frappe-chart');
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting.
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'line',
+          title: 'Annual Revenue (in thousands)',
+          axes: { x: 'Year', y: 'Revenue (thousands USD)' },
+        });
 
-          if (!svg) {
-            requestAnimationFrame(initMaidr);
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
             return;
           }
-
-          // Frappe Charts v1.6.2 renders the line path as
-          // <path class="line-graph-path"> inside dataset groups.
-          // MAIDR LineTrace expects a string[] of selectors (one per line),
-          // where each selector points to the SVG path element for that line.
-          const pathSelector =
-            '.dataset-units.dataset-line .line-graph-path';
-
-          // Build MAIDR data points (array of arrays, one per line)
-          const maidrPoints = [
-            data.labels.map((label, i) => ({
-              x: Number(label),
-              y: data.datasets[0].values[i],
-            })),
-          ];
-
-          // 3. Construct the MAIDR JSON schema
-          const maidr = {
-            id: 'frappe-line-chart',
-            title: 'Annual Revenue (in thousands)',
-            subplots: [
-              [
-                {
-                  layers: [
-                    {
-                      id: '0',
-                      type: 'line',
-                      // LineTrace expects string[] (one selector per line)
-                      selectors: [pathSelector],
-                      axes: {
-                        x: 'Year',
-                        y: 'Revenue (thousands USD)',
-                      },
-                      data: maidrPoints,
-                    },
-                  ],
-                },
-              ],
-            ],
-          };
-
-          // 4. Attach MAIDR data to the SVG element
-          svg.setAttribute('maidr-data', JSON.stringify(maidr));
-          svg.id = maidr.id;
-
-          // 5. Dynamically load maidr.js so it initializes on the ready SVG.
-          //    Unlike static examples where maidr.js is loaded via a <script> tag
-          //    before the SVG exists, Frappe Charts generates the SVG at runtime.
-          //    Loading maidr.js dynamically ensures its main() function finds the
-          //    SVG element with the maidr-data attribute already attached.
-          const script = document.createElement('script');
-          script.src = '../dist/maidr.js';
-          document.body.appendChild(script);
-        });
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
       }
     </script>
   </body>

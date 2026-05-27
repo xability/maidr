@@ -58,6 +58,7 @@ const PAGE_DESCRIPTIONS = {
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
+  'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, and mixed axis (bar + line) chart types.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -144,6 +145,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
+    .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -268,6 +270,20 @@ if (fs.existsSync(chartjsMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
 }
 
+// Build frappe.html from docs/frappe.md
+console.log('Building frappe.html from docs/frappe.md...');
+const frappeMdPath = path.join(ROOT, 'docs', 'frappe.md');
+if (fs.existsSync(frappeMdPath)) {
+  const frappeMd = fs.readFileSync(frappeMdPath, 'utf-8');
+  const frappeHtml = `
+<div class="content">
+  ${marked.parse(frappeMd)}
+</div>
+`;
+  const frappePage = generatePage({ title: 'Frappe Charts', content: frappeHtml, activePage: 'frappe', slug: 'frappe.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'frappe.html'), frappePage);
+}
+
 // Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
@@ -345,6 +361,16 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('chartjs/heatmap.html', 'Chart.js Heatmap'); return false;">Heatmap (Matrix)</a></li>
   </ul>
   <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Frappe Charts</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('frappe-bar.html', 'Frappe Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-line.html', 'Frappe Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-multiline.html', 'Frappe Multi-Line Chart'); return false;">Multi-Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-scatter.html', 'Frappe Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-mixed.html', 'Frappe Mixed Axis Chart'); return false;">Mixed Axis (Bar + Line)</a></li>
+  </ul>
+  <p>See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <h3>D3.js</h3>
   <ul>
@@ -546,7 +572,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'frappe.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -606,6 +632,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
   { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
   { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
+  { loc: 'https://maidr.ai/frappe.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'frappe.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -613,7 +640,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'frappe.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

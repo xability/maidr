@@ -4,20 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Frappe Charts Scatter - MAIDR Example</title>
-    <!-- Frappe Charts v1.6.2 - CSS selectors below are specific to this version.
-         If upgrading, verify SVG class names match. -->
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
     <script
-      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"
-      integrity="sha384-oIj1GL49K/irZ6Webc7IYYAOjw3d/OzrJWDEF0bpI4aeq8xW/Chzc/YBYAMhAsu/"
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
       crossorigin="anonymous"
-      onerror="document.getElementById('error').hidden=false"
     ></script>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.css"
-      integrity="sha384-2HTXu4gz74CXcykbd4twJUks9w/p4XNK6tSdc3WcQJVfFr9KggfJTBUr04JpK/Y5"
-      crossorigin="anonymous"
-    />
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
   </head>
 
   <body>
@@ -31,13 +27,16 @@
     </main>
 
     <script>
-      // Guard: skip if Frappe Charts failed to load from CDN.
-      if (typeof frappe !== 'undefined') {
-        // 1. Create the Frappe scatter chart
-        //
-        // NOTE: Frappe Charts' scatter type spaces labels evenly on the x-axis,
-        // regardless of their numeric values. The data below uses evenly spaced
-        // numeric labels so the visual spacing matches the data semantics.
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        // NOTE: Frappe Charts spaces labels evenly on the x-axis regardless of
+        // their numeric value, so use evenly spaced numeric labels.
         const data = {
           labels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
           datasets: [
@@ -48,73 +47,49 @@
           ],
         };
 
+        // Frappe Charts v1.6.2 has no native 'scatter' type. A line chart with
+        // the connecting line hidden renders only the data-point dots (<circle>
+        // elements), which the adapter's scatter selector targets.
         const chart = new frappe.Chart('#chart', {
           title: 'Temperature vs Altitude',
           data: data,
-          type: 'scatter',
+          type: 'line',
           height: 400,
           colors: ['#e44c55'],
+          lineOptions: {
+            hideLine: 1,
+            dotSize: 6,
+          },
         });
 
-        // 2. Use requestAnimationFrame with fallback DOM check
-        requestAnimationFrame(function initMaidr() {
-          const container = document.querySelector('#chart');
-          const svg = container.querySelector('svg.frappe-chart');
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting.
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'scatter',
+          title: 'Temperature vs Altitude',
+          axes: { x: 'Altitude (m)', y: 'Temperature (C)' },
+        });
 
-          if (!svg) {
-            requestAnimationFrame(initMaidr);
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
             return;
           }
-
-          // Frappe Charts v1.6.2 renders scatter data points as <circle>
-          // elements inside <g class="dataset-units dataset-line dataset-{index}">
-          // (scatter charts reuse the line dataset group structure).
-          const pointSelector =
-            '.dataset-units.dataset-line circle';
-
-          // Build MAIDR scatter data points
-          const maidrPoints = data.labels.map((label, i) => ({
-            x: Number(label),
-            y: data.datasets[0].values[i],
-          }));
-
-          // 3. Construct the MAIDR JSON schema
-          const maidr = {
-            id: 'frappe-scatter-chart',
-            title: 'Temperature vs Altitude',
-            subplots: [
-              [
-                {
-                  layers: [
-                    {
-                      id: '0',
-                      type: 'point',
-                      selectors: pointSelector,
-                      axes: {
-                        x: 'Altitude (m)',
-                        y: 'Temperature (C)',
-                      },
-                      data: maidrPoints,
-                    },
-                  ],
-                },
-              ],
-            ],
-          };
-
-          // 4. Attach MAIDR data to the SVG element
-          svg.setAttribute('maidr-data', JSON.stringify(maidr));
-          svg.id = maidr.id;
-
-          // 5. Dynamically load maidr.js so it initializes on the ready SVG.
-          //    Unlike static examples where maidr.js is loaded via a <script> tag
-          //    before the SVG exists, Frappe Charts generates the SVG at runtime.
-          //    Loading maidr.js dynamically ensures its main() function finds the
-          //    SVG element with the maidr-data attribute already attached.
-          const script = document.createElement('script');
-          script.src = '../dist/maidr.js';
-          document.body.appendChild(script);
-        });
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
       }
     </script>
   </body>

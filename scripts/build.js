@@ -94,6 +94,21 @@ const builds = [
     },
   },
   {
+    name: 'frappe',
+    entry: 'src/frappe-entry.ts',
+    libName: 'maidrFrappe',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'frappe.mjs' : 'frappe.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
