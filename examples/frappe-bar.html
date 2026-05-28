@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Bar - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Bar Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        const data = {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          datasets: [
+            {
+              name: 'Visitors',
+              values: [120, 240, 180, 300, 150, 90, 210],
+            },
+          ],
+        };
+
+        const chart = new frappe.Chart('#chart', {
+          title: 'Daily Website Visitors',
+          data: data,
+          type: 'bar',
+          height: 400,
+          colors: ['#7cd6fd'],
+        });
+
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting
+        // (otherwise highlights bind to nodes Frappe later replaces, and only
+        // start working after the chart is re-initialized).
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'bar',
+          title: 'Daily Website Visitors',
+          axes: { x: 'Day of Week', y: 'Number of Visitors' },
+        });
+
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
+            return;
+          }
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -50,6 +50,11 @@
       "import": "./dist/chartjs.mjs",
       "default": "./dist/chartjs.js"
     },
+    "./frappe": {
+      "types": "./dist/frappe.d.mts",
+      "import": "./dist/frappe.mjs",
+      "default": "./dist/frappe.js"
+    },
     "./victory": {
       "types": "./dist/victory.d.mts",
       "import": "./dist/victory.mjs",
