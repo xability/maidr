@@ -166,6 +166,23 @@ const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'amcharts',
+    entry: 'src/adapters/amcharts/index.ts',
+    libName: 'maidrAmCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
+    emptyOutDir: false,
+    // `bindAmCharts` mounts the MAIDR React UI over the chart, so React is
+    // bundled in (mirrors chartjs/d3) and the UMD build (amcharts.js) exposes
+    // the `maidrAmCharts` global for classic <script> use from file://.
+    // amCharts itself is never imported (it's duck-typed off the live objects
+    // passed in), so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'victory',
     entry: 'src/victory-entry.ts',
     formats: ['es'],

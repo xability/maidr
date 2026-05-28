@@ -50,6 +50,11 @@
       "import": "./dist/chartjs.mjs",
       "default": "./dist/chartjs.js"
     },
+    "./amcharts": {
+      "types": "./dist/amcharts.d.mts",
+      "import": "./dist/amcharts.mjs",
+      "default": "./dist/amcharts.js"
+    },
     "./frappe": {
       "types": "./dist/frappe.d.mts",
       "import": "./dist/frappe.mjs",

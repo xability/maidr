@@ -58,6 +58,7 @@ const PAGE_DESCRIPTIONS = {
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
+  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, and heatmap chart types.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, and mixed axis (bar + line) chart types.',
   'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, and candlestick chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
@@ -148,6 +149,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
+    .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
     .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
@@ -274,6 +276,20 @@ if (fs.existsSync(chartjsMdPath)) {
 `;
   const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
+}
+
+// Build amcharts.html from docs/amcharts.md
+console.log('Building amcharts.html from docs/amcharts.md...');
+const amchartsMdPath = path.join(ROOT, 'docs', 'amcharts.md');
+if (fs.existsSync(amchartsMdPath)) {
+  const amchartsMd = fs.readFileSync(amchartsMdPath, 'utf-8');
+  const amchartsHtml = `
+<div class="content">
+  ${marked.parse(amchartsMd)}
+</div>
+`;
+  const amchartsPage = generatePage({ title: 'amCharts', content: amchartsHtml, activePage: 'amcharts', slug: 'amcharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'amcharts.html'), amchartsPage);
 }
 
 // Build frappe.html from docs/frappe.md
@@ -448,6 +464,12 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
   </ul>
   <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>amCharts 5</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('amcharts.html', 'amCharts 5 Examples'); return false;">amCharts 5 Examples (Bar, Dodged, Stacked, Normalized, Line, Histogram, Heatmap)</a></li>
+  </ul>
+  <p>See the <a href="amcharts.html">amCharts 5 Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <h3>Victory</h3>
   <ul>
@@ -690,7 +712,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'frappe.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -750,6 +772,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
   { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
   { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
+  { loc: 'https://maidr.ai/amcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'amcharts.md')) },
   { loc: 'https://maidr.ai/frappe.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'frappe.md')) },
   { loc: 'https://maidr.ai/victory.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'victory.md')) },
   { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
@@ -761,7 +784,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'frappe.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

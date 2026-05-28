@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 
-const SETTINGS_KEY = 'maidr-settings';
+export const SETTINGS_KEY = 'maidr-settings';
 
 function getValue<T>(settings: any, key: string): T | undefined {
   return key.split('.').reduce((acc, part) => {
