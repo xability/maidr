@@ -25,6 +25,11 @@
       "import": "./dist/google-charts.mjs",
       "default": "./dist/google-charts.mjs"
     },
+    "./highcharts": {
+      "types": "./dist/highcharts.d.mts",
+      "import": "./dist/highcharts.mjs",
+      "default": "./dist/highcharts.js"
+    },
     "./recharts": {
       "types": "./dist/recharts.d.mts",
       "import": "./dist/recharts.mjs",

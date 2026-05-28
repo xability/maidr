@@ -109,6 +109,21 @@ const builds = [
     },
   },
   {
+    name: 'highcharts',
+    entry: 'src/adapters/highcharts/index.ts',
+    libName: 'maidrHighcharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'highcharts.mjs' : 'highcharts.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'vegalite',
     entry: 'src/vegalite-entry.ts',
     libName: 'maidrVegaLite',
