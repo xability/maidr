@@ -391,6 +391,12 @@ const examplesContent = `
   </ul>
   <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
+  <h3>amCharts 5</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('amcharts.html', 'amCharts 5 Examples'); return false;">amCharts 5 Examples (Bar, Dodged, Stacked, Normalized, Line, Histogram, Heatmap)</a></li>
+  </ul>
+  <p>See the <a href="amcharts.html">amCharts 5 Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
   <div id="content" hidden="true">Select an example above.</div>
 </div>
 
