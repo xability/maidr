@@ -150,6 +150,22 @@ const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'anychart',
+    entry: 'src/anychart-entry.ts',
+    libName: 'maidrAnyChart',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'anychart.mjs' : 'anychart.js',
+    emptyOutDir: false,
+    // AnyChart is loaded separately on the host page; do not bundle it.
+    external: ['anychart'],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
 ];
 
 function createViteConfig(config) {

@@ -15,6 +15,11 @@
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
     },
+    "./anychart": {
+      "types": "./dist/anychart.d.mts",
+      "import": "./dist/anychart.mjs",
+      "default": "./dist/anychart.mjs"
+    },
     "./d3": {
       "types": "./dist/d3.d.mts",
       "import": "./dist/d3.mjs",
