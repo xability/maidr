@@ -26,6 +26,7 @@ import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { NavMap } from './navmap';
 import type {
+  AmBounds,
   AmChartsBinderOptions,
   AmRoot,
   AmXYChart,
@@ -110,6 +111,32 @@ function AmHost({ node, width, height, onHost }: AmHostProps): JSX.Element {
 // Highlight bridge
 // ---------------------------------------------------------------------------
 
+/**
+ * Read the plot-area bounds (CSS px, root-relative) used to clip highlights.
+ * Tries `globalBounds()`, then `toGlobal()` + `width()/height()`; returns
+ * `null` if neither is available (the overlay's `overflow:hidden` still clips
+ * to the chart box).
+ */
+function readPlotBounds(chart: AmXYChart): AmBounds | null {
+  const pc = chart.plotContainer;
+  if (!pc) {
+    return null;
+  }
+  try {
+    const bounds = pc.globalBounds?.();
+    if (bounds && Number.isFinite(bounds.left) && Number.isFinite(bounds.bottom)) {
+      return bounds;
+    }
+    if (pc.toGlobal && pc.width && pc.height) {
+      const tl = pc.toGlobal({ x: 0, y: 0 });
+      return { left: tl.x, top: tl.y, right: tl.x + pc.width(), bottom: tl.y + pc.height() };
+    }
+  } catch {
+    // Fall through; overlay overflow:hidden still clips to the chart box.
+  }
+  return null;
+}
+
 function applyHighlight(
   overlay: HighlightOverlay,
   navMap: NavMap,
@@ -124,7 +151,7 @@ function applyHighlight(
 
   // Clip the highlight to the visible plot area; a column's geometry can
   // extend to the value=0 baseline beyond a clipped (min > 0) axis.
-  const plotBounds = chart.plotContainer?.globalBounds?.() ?? null;
+  const plotBounds = readPlotBounds(chart);
 
   const rects = [];
   for (const target of targets) {

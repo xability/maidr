@@ -80,7 +80,12 @@ export interface AmXYChart extends AmEntity {
   xAxes: AmListLike<AmAxis>;
   yAxes: AmListLike<AmAxis>;
   /** The masked plot area container; its bounds clip the visible columns. */
-  plotContainer?: { globalBounds?: () => AmBounds };
+  plotContainer?: {
+    toGlobal?: (point: AmPoint) => AmPoint;
+    width?: () => number;
+    height?: () => number;
+    globalBounds?: () => AmBounds;
+  };
 }
 
 /**

@@ -60,6 +60,9 @@ export class HighlightOverlay {
     this.container.style.position = 'absolute';
     this.container.style.pointerEvents = 'none';
     this.container.style.zIndex = '1';
+    // Clip highlight boxes to the chart area; a column's geometry can extend
+    // to the value=0 baseline below a clipped (min > 0) axis.
+    this.container.style.overflow = 'hidden';
     this.syncToRoot();
     host.appendChild(this.container);
   }
@@ -142,7 +145,28 @@ export function dataItemToOverlayRect(
  */
 function columnRect(target: NavTarget): OverlayRect | null {
   const sprite = readColumnSprite(target);
-  const bounds = sprite?.globalBounds?.();
+  if (!sprite) {
+    return null;
+  }
+
+  // Proven path: toGlobal maps the sprite's LOCAL corners ({0,0} = top-left,
+  // {width,height} = bottom-right) to root-container CSS px. (Passing the
+  // sprite's own x()/y() double-counts its offset — the earlier bug.)
+  if (sprite.toGlobal && sprite.width && sprite.height) {
+    const w = sprite.width();
+    const h = sprite.height();
+    const tl = sprite.toGlobal({ x: 0, y: 0 });
+    const br = sprite.toGlobal({ x: w, y: h });
+    return {
+      left: Math.min(tl.x, br.x),
+      top: Math.min(tl.y, br.y),
+      width: Math.abs(br.x - tl.x),
+      height: Math.abs(br.y - tl.y),
+    };
+  }
+
+  // Fallback for builds where toGlobal isn't exposed.
+  const bounds = sprite.globalBounds?.();
   return bounds ? boundsToRect(bounds) : null;
 }
 
@@ -207,17 +231,23 @@ function readColumnSprite(target: NavTarget): AmSprite | undefined {
  * dataItem's `point` converted via the series.
  */
 function readPointGlobal(target: NavTarget): AmPoint | null {
-  const bulletBounds = target.dataItem.bullets?.[0]?.sprite?.globalBounds?.();
+  // Proven path: the dataItem's series-local point mapped via the series.
+  const point = target.dataItem.get('point') as AmPoint | undefined;
+  if (point && target.series.toGlobal) {
+    return target.series.toGlobal(point);
+  }
+
+  const bullet = target.dataItem.bullets?.[0]?.sprite;
+  if (bullet?.toGlobal && bullet.x && bullet.y) {
+    return bullet.toGlobal({ x: bullet.x(), y: bullet.y() });
+  }
+
+  const bulletBounds = bullet?.globalBounds?.();
   if (bulletBounds) {
     return {
       x: (bulletBounds.left + bulletBounds.right) / 2,
       y: (bulletBounds.top + bulletBounds.bottom) / 2,
     };
-  }
-
-  const point = target.dataItem.get('point') as AmPoint | undefined;
-  if (point && target.series.toGlobal) {
-    return target.series.toGlobal(point);
   }
 
   return null;
