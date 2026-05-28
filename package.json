@@ -15,6 +15,11 @@
       "import": "./dist/react.mjs",
       "default": "./dist/react.mjs"
     },
+    "./anychart": {
+      "types": "./dist/anychart.d.mts",
+      "import": "./dist/anychart.mjs",
+      "default": "./dist/anychart.mjs"
+    },
     "./d3": {
       "types": "./dist/d3.d.mts",
       "import": "./dist/d3.mjs",
@@ -24,6 +29,11 @@
       "types": "./dist/google-charts.d.mts",
       "import": "./dist/google-charts.mjs",
       "default": "./dist/google-charts.mjs"
+    },
+    "./highcharts": {
+      "types": "./dist/highcharts.d.mts",
+      "import": "./dist/highcharts.mjs",
+      "default": "./dist/highcharts.js"
     },
     "./recharts": {
       "types": "./dist/recharts.d.mts",

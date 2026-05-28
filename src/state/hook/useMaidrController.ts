@@ -94,10 +94,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       focusInTimerRef.current = null;
       if (!controllerRef.current) {
         const ctrl = createControllerRef.current();
-        if (!ctrl)
+        if (!ctrl) {
           return;
+        }
         controllerRef.current = ctrl;
-        setContextValue(ctrl.getContextValue());
+        const cv = ctrl.getContextValue();
+        setContextValue(cv);
         ctrl.initializeHighContrast();
       }
       if (!hasAnnouncedRef.current) {
