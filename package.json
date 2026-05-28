@@ -49,6 +49,11 @@
       "types": "./dist/chartjs.d.mts",
       "import": "./dist/chartjs.mjs",
       "default": "./dist/chartjs.js"
+    },
+    "./victory": {
+      "types": "./dist/victory.d.mts",
+      "import": "./dist/victory.mjs",
+      "default": "./dist/victory.mjs"
     }
   },
   "main": "dist/maidr.js",
@@ -67,7 +72,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
-    "docs": "npm run build:recharts-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
+    "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",
     "docs:serve": "npm run docs && npx http-server _site -o",
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
@@ -75,13 +80,16 @@
     "e2e:debug": "npx playwright test --debug",
     "e2e:install": "npx playwright install --with-deps",
     "build:react-example": "vite build --config examples/react-app/vite.config.ts",
-    "dev:recharts": "vite --config examples/recharts/vite.config.ts"
+    "dev:recharts": "vite --config examples/recharts/vite.config.ts",
+    "build:victory-example": "vite build --config examples/victory/vite.config.ts",
+    "dev:victory": "vite --config examples/victory/vite.config.ts"
   },
   "peerDependencies": {
     "chart.js": "^4.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
-    "recharts": "^2.0.0 || ^3.0.0"
+    "recharts": "^2.0.0 || ^3.0.0",
+    "victory": "^37.0.0"
   },
   "peerDependenciesMeta": {
     "chart.js": {
@@ -94,6 +102,9 @@
       "optional": true
     },
     "recharts": {
+      "optional": true
+    },
+    "victory": {
       "optional": true
     }
   },
@@ -149,6 +160,7 @@
     "typedoc": "^0.28.15",
     "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
+    "victory": "^37.0.0",
     "vite": "^6.3.5",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-singlefile": "^2.3.2"
