@@ -20,6 +20,17 @@ export interface AmPoint {
 }
 
 /**
+ * Global bounding box in CSS pixels (relative to the root container), as
+ * returned by amCharts' `Sprite.globalBounds()` / `Container.globalBounds()`.
+ */
+export interface AmBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
  * Minimal interface for an amCharts 5 event dispatcher (`root.events`,
  * `series.events`). Returns a disposer-like value we treat opaquely.
  */
@@ -68,6 +79,8 @@ export interface AmXYChart extends AmEntity {
   series: AmListLike<AmXYSeries>;
   xAxes: AmListLike<AmAxis>;
   yAxes: AmListLike<AmAxis>;
+  /** The masked plot area container; its bounds clip the visible columns. */
+  plotContainer?: { globalBounds?: () => AmBounds };
 }
 
 /**
@@ -123,6 +136,8 @@ export interface AmSprite {
   width?: () => number;
   height?: () => number;
   toGlobal?: (point: AmPoint) => AmPoint;
+  /** Global bounding box in CSS px; the reliable way to get a sprite's rect. */
+  globalBounds?: () => AmBounds;
 }
 
 // ---------------------------------------------------------------------------

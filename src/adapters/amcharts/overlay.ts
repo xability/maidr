@@ -7,14 +7,18 @@
  * it draws absolute-positioned `<div>` rectangles on top of the chart at the
  * pixel geometry of the active data point.
  *
- * Coordinates: amCharts `Sprite.toGlobal()` returns a point relative to the
- * root container, which fills `root.dom`. We mount the overlay container over
- * `root.dom`, so `toGlobal()` output can be used directly as CSS `left`/`top`
- * on the overlay children.
+ * Geometry: we read the element's screen box via am5 `Sprite.globalBounds()`
+ * (CSS px relative to the root container, which fills `root.dom`) and clip it
+ * to the plot area, so the box hugs the *visible* bar even when the value axis
+ * baseline (value 0) sits outside the clipped plot.
+ *
+ * Color: the box uses MAIDR's configured highlight color, supplied by a
+ * provider read at draw time so a settings change is reflected on the next
+ * navigation.
  */
 
 import type { NavTarget } from './navmap';
-import type { AmPoint, AmRoot, AmSprite } from './types';
+import type { AmBounds, AmPoint, AmSprite } from './types';
 
 /**
  * Rectangle in CSS pixels relative to the overlay container (root.dom) top-left.
@@ -26,9 +30,6 @@ export interface OverlayRect {
   height: number;
 }
 
-const DEFAULT_HIGHLIGHT_COLOR = 'rgba(255, 140, 0, 0.9)';
-const DEFAULT_FILL_COLOR = 'rgba(255, 165, 0, 0.25)';
-
 /** Side length of the box drawn around a line/scatter point. */
 const POINT_BOX_SIZE = 14;
 
@@ -39,22 +40,20 @@ const POINT_BOX_SIZE = 14;
 export class HighlightOverlay {
   private readonly container: HTMLDivElement;
   private readonly rootDom: HTMLElement;
-  private readonly outlineColor: string;
-  private readonly fillColor: string;
+  private readonly getColor: () => string;
 
   /**
    * @param host - Positioned wrapper element that contains `root.dom`.
    * @param rootDom - The amCharts root DOM element the overlay aligns to.
-   * @param highlightColor - Optional outline color override.
+   * @param getColor - Returns the current highlight color (read at draw time).
    */
   public constructor(
     host: HTMLElement,
     rootDom: HTMLElement,
-    highlightColor?: string,
+    getColor: () => string,
   ) {
     this.rootDom = rootDom;
-    this.outlineColor = highlightColor ?? DEFAULT_HIGHLIGHT_COLOR;
-    this.fillColor = highlightColor ?? DEFAULT_FILL_COLOR;
+    this.getColor = getColor;
 
     this.container = document.createElement('div');
     this.container.setAttribute('data-maidr-amcharts-overlay', '');
@@ -72,6 +71,9 @@ export class HighlightOverlay {
     this.syncToRoot();
     this.clear();
 
+    const color = this.getColor();
+    const fill = `color-mix(in srgb, ${color} 22%, transparent)`;
+
     for (const rect of rects) {
       const node = document.createElement('div');
       node.setAttribute('data-maidr-amcharts-highlight', '');
@@ -80,8 +82,8 @@ export class HighlightOverlay {
       node.style.top = `${rect.top}px`;
       node.style.width = `${Math.max(rect.width, 1)}px`;
       node.style.height = `${Math.max(rect.height, 1)}px`;
-      node.style.background = this.fillColor;
-      node.style.outline = `2px solid ${this.outlineColor}`;
+      node.style.background = fill;
+      node.style.outline = `2px solid ${color}`;
       node.style.boxSizing = 'border-box';
       node.style.pointerEvents = 'none';
       this.container.appendChild(node);
@@ -119,67 +121,75 @@ export class HighlightOverlay {
 
 /**
  * Convert a navigation target (an am5 series + dataItem) into an overlay
- * rectangle in root-container pixels. Returns `null` when geometry is not
- * available (e.g., the sprite has not been laid out yet), in which case the
+ * rectangle in root-container pixels, clipped to the plot area. Returns `null`
+ * when geometry is unavailable or fully outside the plot, in which case the
  * caller should clear the overlay.
- *
- * `root` is accepted for API symmetry with future axis-based fallbacks; the
- * current implementation reads geometry directly off the dataItem sprites.
  */
 export function dataItemToOverlayRect(
   target: NavTarget,
-  _root: AmRoot,
+  plotBounds: AmBounds | null,
 ): OverlayRect | null {
-  if (target.kind === 'point') {
-    return pointRect(target);
+  const rect = target.kind === 'point' ? pointRect(target) : columnRect(target);
+  if (!rect) {
+    return null;
   }
-  return columnRect(target);
+  return plotBounds ? intersectRect(rect, plotBounds) : rect;
 }
 
 /**
  * Rectangle for a column-shaped data point (bar / segmented / histogram /
- * heatmap cell). Reads the column graphics sprite's local box and maps both
- * corners to global (root-container) coordinates via `toGlobal`.
+ * heatmap cell), read directly from the column graphics sprite's global box.
  */
 function columnRect(target: NavTarget): OverlayRect | null {
   const sprite = readColumnSprite(target);
-  if (!sprite || !sprite.toGlobal)
-    return null;
-
-  const x = sprite.x?.();
-  const y = sprite.y?.();
-  const w = sprite.width?.();
-  const h = sprite.height?.();
-  if (x == null || y == null || w == null || h == null)
-    return null;
-
-  const topLeft = sprite.toGlobal({ x, y });
-  const bottomRight = sprite.toGlobal({ x: x + w, y: y + h });
-
-  return {
-    left: Math.min(topLeft.x, bottomRight.x),
-    top: Math.min(topLeft.y, bottomRight.y),
-    width: Math.abs(bottomRight.x - topLeft.x),
-    height: Math.abs(bottomRight.y - topLeft.y),
-  };
+  const bounds = sprite?.globalBounds?.();
+  return bounds ? boundsToRect(bounds) : null;
 }
 
 /**
  * Rectangle for a line/scatter point: a small box centered on the point.
- * Prefers the dataItem's `point` (converted via the series), falling back to
- * the first bullet sprite's position.
  */
 function pointRect(target: NavTarget): OverlayRect | null {
-  const global = readPointGlobal(target);
-  if (!global)
+  const center = readPointGlobal(target);
+  if (!center) {
     return null;
-
+  }
   return {
-    left: global.x - POINT_BOX_SIZE / 2,
-    top: global.y - POINT_BOX_SIZE / 2,
+    left: center.x - POINT_BOX_SIZE / 2,
+    top: center.y - POINT_BOX_SIZE / 2,
     width: POINT_BOX_SIZE,
     height: POINT_BOX_SIZE,
   };
+}
+
+/** Normalize an am5 bounds object to an OverlayRect. */
+function boundsToRect(b: AmBounds): OverlayRect {
+  return {
+    left: Math.min(b.left, b.right),
+    top: Math.min(b.top, b.bottom),
+    width: Math.abs(b.right - b.left),
+    height: Math.abs(b.bottom - b.top),
+  };
+}
+
+/** Intersect a rect with the plot bounds; `null` if it collapses (offscreen). */
+function intersectRect(rect: OverlayRect, bounds: AmBounds): OverlayRect | null {
+  const plotLeft = Math.min(bounds.left, bounds.right);
+  const plotRight = Math.max(bounds.left, bounds.right);
+  const plotTop = Math.min(bounds.top, bounds.bottom);
+  const plotBottom = Math.max(bounds.top, bounds.bottom);
+
+  const left = Math.max(rect.left, plotLeft);
+  const top = Math.max(rect.top, plotTop);
+  const right = Math.min(rect.left + rect.width, plotRight);
+  const bottom = Math.min(rect.top + rect.height, plotBottom);
+
+  const width = right - left;
+  const height = bottom - top;
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+  return { left, top, width, height };
 }
 
 /**
@@ -193,20 +203,21 @@ function readColumnSprite(target: NavTarget): AmSprite | undefined {
 
 /**
  * Resolve the global (root-container) coordinates of a line/scatter point.
+ * Prefers the first bullet sprite's bounds center, falling back to the
+ * dataItem's `point` converted via the series.
  */
 function readPointGlobal(target: NavTarget): AmPoint | null {
+  const bulletBounds = target.dataItem.bullets?.[0]?.sprite?.globalBounds?.();
+  if (bulletBounds) {
+    return {
+      x: (bulletBounds.left + bulletBounds.right) / 2,
+      y: (bulletBounds.top + bulletBounds.bottom) / 2,
+    };
+  }
+
   const point = target.dataItem.get('point') as AmPoint | undefined;
   if (point && target.series.toGlobal) {
     return target.series.toGlobal(point);
-  }
-
-  const bulletSprite = target.dataItem.bullets?.[0]?.sprite;
-  if (
-    bulletSprite?.x
-    && bulletSprite.y
-    && bulletSprite.toGlobal
-  ) {
-    return bulletSprite.toGlobal({ x: bulletSprite.x(), y: bulletSprite.y() });
   }
 
   return null;

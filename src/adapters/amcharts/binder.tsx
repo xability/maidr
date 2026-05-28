@@ -36,6 +36,7 @@ import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { fromXYChart } from './adapter';
 import { classifySeriesKind } from './extractor';
+import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
 
@@ -112,7 +113,7 @@ function AmHost({ node, width, height, onHost }: AmHostProps): JSX.Element {
 function applyHighlight(
   overlay: HighlightOverlay,
   navMap: NavMap,
-  root: AmRoot,
+  chart: AmXYChart,
   event: NavEvent,
 ): void {
   const targets = navMap.resolve(event.layerId, event.row, event.col);
@@ -121,9 +122,13 @@ function applyHighlight(
     return;
   }
 
+  // Clip the highlight to the visible plot area; a column's geometry can
+  // extend to the value=0 baseline beyond a clipped (min > 0) axis.
+  const plotBounds = chart.plotContainer?.globalBounds?.() ?? null;
+
   const rects = [];
   for (const target of targets) {
-    const rect = dataItemToOverlayRect(target, root);
+    const rect = dataItemToOverlayRect(target, plotBounds);
     if (rect)
       rects.push(rect);
   }
@@ -136,7 +141,7 @@ function applyHighlight(
 
 function createHighlightCallback(
   navMap: NavMap,
-  root: AmRoot,
+  chart: AmXYChart,
   getOverlay: () => HighlightOverlay | null,
   recordActive: (event: NavEvent) => void,
 ): NavigateCallback {
@@ -146,7 +151,7 @@ function createHighlightCallback(
       const overlay = getOverlay();
       if (!overlay)
         return;
-      applyHighlight(overlay, navMap, root, event);
+      applyHighlight(overlay, navMap, chart, event);
     } catch {
       // Ignore highlight errors (e.g., during teardown or before layout).
     }
@@ -296,7 +301,7 @@ export function bindXYChart(
       ...data,
       onNavigate: createHighlightCallback(
         navMap,
-        root,
+        chart,
         () => overlay,
         (event) => {
           lastActive = event;
@@ -309,13 +314,14 @@ export function bindXYChart(
       return { maidr: data, dispose: () => {} };
     }
 
+    const getColor = (): string => options?.highlightColor ?? getHighlightColor();
     const overlayPromise = rendered.hostPromise.then((host) => {
       if (!host)
         return null;
-      overlay = new HighlightOverlay(host, root.dom, options?.highlightColor);
+      overlay = new HighlightOverlay(host, root.dom, getColor);
       // Paint the initial position if navigation already happened.
       if (lastActive)
-        applyHighlight(overlay, navMap, root, lastActive);
+        applyHighlight(overlay, navMap, chart, lastActive);
       return overlay;
     });
 
@@ -324,7 +330,7 @@ export function bindXYChart(
         if (!ov || !lastActive)
           return;
         try {
-          applyHighlight(ov, navMap, root, lastActive);
+          applyHighlight(ov, navMap, chart, lastActive);
         } catch {
           // Ignore; chart may be mid-teardown.
         }
