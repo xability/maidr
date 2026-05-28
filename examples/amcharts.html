@@ -108,6 +108,7 @@
         ];
         xAxis.data.setAll(data);
         series.data.setAll(data);
+        addLegend(root, chart);
         register("bar-chart", root, { title: "Number of Tips by Day", axisLabels: { x: "Day", y: "Count" } });
       })();
 
@@ -277,6 +278,7 @@
           { from: 40, to: 50, count: 3 },
         ];
         series.data.setAll(data);
+        addLegend(root, chart);
         register("histogram-chart", root, { title: "Value Distribution", axisLabels: { x: "Value", y: "Frequency" } });
       })();
 
@@ -318,6 +320,20 @@
         xAxis.data.setAll(weekdays.map(function (w) { return { weekday: w }; }));
         yAxis.data.setAll(hours.map(function (h) { return { hour: h }; }));
         series.data.setAll(data);
+        // Heatmaps use a heat (gradient) legend, not a series legend.
+        var heatLegend = chart.bottomAxesContainer.children.push(
+          am5.HeatLegend.new(root, {
+            orientation: "horizontal",
+            startColor: am5.color(0xe6f2ff),
+            endColor: am5.color(0x0b5cad),
+            startText: "Low",
+            endText: "High",
+          })
+        );
+        series.events.on("datavalidated", function () {
+          heatLegend.set("startValue", series.getPrivate("valueLow"));
+          heatLegend.set("endValue", series.getPrivate("valueHigh"));
+        });
         register("heatmap-chart", root, { title: "Activity by Weekday and Hour", axisLabels: { x: "Weekday", y: "Hour" } });
       })();
     </script>
