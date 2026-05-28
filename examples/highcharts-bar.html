@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Bar Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Bar Chart</h1>
+    <p>
+      A Highcharts column chart made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate bars.
+    </p>
+
+    <div id="bar-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('bar-chart', {
+        chart: { type: 'column' },
+        title: { text: 'Number of Tips by Day' },
+        xAxis: {
+          categories: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          title: { text: 'Day' },
+        },
+        yAxis: { title: { text: 'Count' } },
+        series: [{ name: 'Tips', data: [20, 14, 23, 25, 22] }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'bar-chart' });
+      document.getElementById('bar-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
