@@ -224,11 +224,18 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Executes the command to display the title based on state type.
+   * Executes the command to display the title sourced from the MAIDR JSON.
    *
-   * - Single-panel plots: announces the figure title as "Title is ...".
-   * - Multi-panel at figure level: announces "Figure title is ...".
-   * - Multi-panel at trace level: announces "Subplot title is ...".
+   * Only announces titles authored in the JSON; the model's placeholder
+   * defaults are treated as "no title". Announces "No title available"
+   * when nothing was authored at either level.
+   *
+   * - Figure-level scope (multi-panel): "Figure title is ...".
+   * - Trace-level scope, single-panel: prefers the layer title, then the
+   *   figure title, announced as "Title is ...".
+   * - Trace-level scope, multi-panel: prefers the layer title as
+   *   "Subplot title is ...", then falls back to the figure title as
+   *   "Figure title is ..." so the announcement disambiguates the source.
    */
   public execute(): void {
     const state = this.context.state;
@@ -240,7 +247,11 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     }
 
     if (state.type === 'figure') {
-      this.announce(state.title, 'Figure title');
+      if (this.context.isAuthoredTitle(state.title)) {
+        this.announce(state.title, 'Figure title');
+      } else {
+        this.announceUnavailable();
+      }
       this.restoreScope();
       return;
     }
@@ -267,20 +278,29 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Announces the appropriate title when in trace context:
-   * subplot title for multi-panel, figure title for single-panel.
+   * Announces the appropriate title when in trace context.
+   *
+   * Mirrors {@link DescriptionService.getDescription} precedence: prefer the
+   * authored layer/trace title (labeled "Subplot title" in multi-panel figures
+   * and "Title" in single-panel figures), then fall back to the figure title
+   * (labeled "Figure title" in multi-panel and "Title" in single-panel so the
+   * announcement makes the source self-describing), then to "No title
+   * available". Keeps `l t` consistent with `d` for plots that only set a
+   * layer title (e.g. multiline_plot.html).
+   * @param {string} traceTitle - The trace-level title from the current state.
    */
   private announceTraceTitle(traceTitle: string): void {
-    // Multi-panel: show the subplot-level title if available.
-    if (this.context.isMultiPanel && traceTitle !== 'unavailable') {
-      this.announce(traceTitle, 'Subplot title');
+    if (this.context.isAuthoredTitle(traceTitle)) {
+      const label = this.context.isMultiPanel ? 'Subplot title' : 'Title';
+      this.announce(traceTitle, label);
       return;
     }
 
-    // Single-panel (or multi-panel without subplot title): show figure title.
+    // Trace title was a placeholder; fall back to the figure-level title.
     const figureTitle = this.context.figureTitle;
-    if (figureTitle !== 'unavailable') {
-      this.announce(figureTitle, 'Title');
+    if (this.context.isAuthoredTitle(figureTitle)) {
+      const fallbackLabel = this.context.isMultiPanel ? 'Figure title' : 'Title';
+      this.announce(figureTitle, fallbackLabel);
       return;
     }
 
@@ -293,7 +313,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   private announceUnavailable(): void {
     const text = this.textService.isTerse()
       ? 'unavailable'
-      : 'Title is not available';
+      : 'No title available';
     this.textViewModel.update(text);
     this.audioService.playWarningToneIfEnabled();
   }
@@ -324,11 +344,14 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
   /**
    * Executes the command to display the subtitle.
    * Accesses subtitle from the figure level via Context, since subtitle
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a subtitle; otherwise announces "No subtitle
+   * available", matching the unavailable phrasing used by sibling title
+   * and caption commands.
    */
   public execute(): void {
     const subtitle = this.context.figureSubtitle;
-    if (subtitle !== 'unavailable') {
+    if (this.context.isAuthoredSubtitle(subtitle)) {
       const text = this.textService.isTerse()
         ? subtitle
         : `Subtitle is ${subtitle}`;
@@ -336,7 +359,7 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Subtitle is not available';
+        : 'No subtitle available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -369,11 +392,14 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
   /**
    * Executes the command to display the caption.
    * Accesses caption from the figure level via Context, since caption
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a caption; otherwise announces "No caption
+   * available", matching the unavailable phrasing used by sibling title
+   * and subtitle commands.
    */
   public execute(): void {
     const caption = this.context.figureCaption;
-    if (caption !== 'unavailable') {
+    if (this.context.isAuthoredCaption(caption)) {
       const text = this.textService.isTerse()
         ? caption
         : `Caption is ${caption}`;
@@ -381,7 +407,7 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Caption is not available';
+        : 'No caption available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
