@@ -367,10 +367,23 @@ export function bindXYChart(
     const resizeObserver = new ResizeObserver(replay);
     resizeObserver.observe(root.dom);
 
+    // Clear the highlight when focus leaves the chart, matching the SVG
+    // adapters (whose HighlightService clears when the Controller disposes).
+    // focusout bubbles up from the focusable plot element through `container`.
+    const handleFocusOut = (event: FocusEvent): void => {
+      const next = event.relatedTarget as Node | null;
+      if (next && rendered.container.contains(next)) {
+        return;
+      }
+      void overlayPromise.then(ov => ov?.clear());
+    };
+    rendered.container.addEventListener('focusout', handleFocusOut);
+
     return {
       maidr: maidrData,
       dispose: () => {
         resizeObserver.disconnect();
+        rendered.container.removeEventListener('focusout', handleFocusOut);
         void overlayPromise.then(ov => ov?.dispose());
         teardownMount(rendered, root.dom);
       },

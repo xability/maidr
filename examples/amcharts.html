@@ -72,6 +72,14 @@
         });
       }
 
+      // Add a legend identifying each series (for multi-series charts).
+      function addLegend(root, chart) {
+        var legend = chart.children.push(
+          am5.Legend.new(root, { centerX: am5.p50, x: am5.p50 })
+        );
+        legend.data.setAll(chart.series.values);
+      }
+
       // -------------------------------------------------------------------
       // Bar / Column
       // -------------------------------------------------------------------
@@ -133,6 +141,7 @@
         xAxis.data.setAll(data);
         addSeries("2020", "y2020");
         addSeries("2025", "y2025");
+        addLegend(root, chart);
         register("dodged-chart", root, { title: "City Populations (thousands)", axisLabels: { x: "City", y: "Population" } });
       })();
 
@@ -165,6 +174,7 @@
         xAxis.data.setAll(data);
         addSeries("Did not survive", "died");
         addSeries("Survived", "survived");
+        addLegend(root, chart);
         register("stacked-chart", root, { title: "Passenger Count by Class and Survival", axisLabels: { x: "Class", y: "Count" } });
       })();
 
@@ -201,6 +211,7 @@
         xAxis.data.setAll(data);
         addSeries("Did not survive", "died");
         addSeries("Survived", "survived");
+        addLegend(root, chart);
         register("normalized-chart", root, { title: "Survival Share by Class", axisLabels: { x: "Class", y: "Percent" } });
       })();
 
@@ -234,6 +245,7 @@
         xAxis.data.setAll(data);
         addSeries("Sales", "sales");
         addSeries("Expenses", "expenses");
+        addLegend(root, chart);
         register("line-chart", root, { title: "Company Performance", axisLabels: { x: "Year", y: "Amount" } });
       })();
 
