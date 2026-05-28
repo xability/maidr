@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Scatter Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Scatter Plot</h1>
+    <p>
+      A Highcharts scatter chart made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate points.
+    </p>
+
+    <div id="scatter-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('scatter-chart', {
+        chart: { type: 'scatter' },
+        title: { text: 'Iris Sepal vs Petal Length' },
+        xAxis: { title: { text: 'Sepal Length (cm)' } },
+        yAxis: { title: { text: 'Petal Length (cm)' } },
+        series: [
+          {
+            name: 'Setosa',
+            data: [
+              [5.1, 1.4], [4.9, 1.4], [4.7, 1.3], [4.6, 1.5],
+              [5.0, 1.4], [5.4, 1.7], [4.6, 1.4], [5.0, 1.5],
+            ],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'scatter-chart' });
+      document.getElementById('scatter-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

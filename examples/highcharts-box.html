@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Box Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships boxplot, errorbar, columnrange, arearange, etc. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Box Plot</h1>
+    <p>
+      A Highcharts boxplot made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate boxes and their five-number summary.
+    </p>
+
+    <div id="box-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('box-chart', {
+        chart: { type: 'boxplot' },
+        title: { text: 'Iris Sepal Length Distribution' },
+        xAxis: {
+          categories: ['Setosa', 'Versicolor', 'Virginica'],
+          title: { text: 'Species' },
+        },
+        yAxis: { title: { text: 'Sepal Length (cm)' } },
+        series: [{
+          name: 'Observations',
+          data: [
+            // [low, q1, median, q3, high]
+            [2.3, 2.7, 3.0, 3.4, 4.5],
+            [4.7, 5.2, 5.9, 6.3, 7.0],
+            [6.0, 6.5, 7.1, 7.5, 8.0],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'box-chart' });
+      document.getElementById('box-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

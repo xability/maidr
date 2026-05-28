@@ -1,7 +1,7 @@
 {
   "name": "maidr",
   "type": "module",
-  "version": "3.67.0",
+  "version": "3.68.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/xability/maidr"
@@ -29,6 +29,11 @@
       "types": "./dist/google-charts.d.mts",
       "import": "./dist/google-charts.mjs",
       "default": "./dist/google-charts.mjs"
+    },
+    "./highcharts": {
+      "types": "./dist/highcharts.d.mts",
+      "import": "./dist/highcharts.mjs",
+      "default": "./dist/highcharts.js"
     },
     "./recharts": {
       "types": "./dist/recharts.d.mts",
