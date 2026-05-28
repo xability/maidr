@@ -386,7 +386,7 @@ export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
+  selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in

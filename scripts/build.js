@@ -124,6 +124,21 @@ const builds = [
     },
   },
   {
+    name: 'highcharts',
+    entry: 'src/adapters/highcharts/index.ts',
+    libName: 'maidrHighcharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'highcharts.mjs' : 'highcharts.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'vegalite',
     entry: 'src/vegalite-entry.ts',
     libName: 'maidrVegaLite',
@@ -149,6 +164,33 @@ const builds = [
     useReact: true,
     useDts: true,
     aliases: adapterAliases,
+  },
+  {
+    name: 'victory',
+    entry: 'src/victory-entry.ts',
+    formats: ['es'],
+    fileName: () => 'victory.mjs',
+    emptyOutDir: false,
+    external: ['react', 'react-dom', 'react/jsx-runtime', 'victory'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'anychart',
+    entry: 'src/anychart-entry.ts',
+    libName: 'maidrAnyChart',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'anychart.mjs' : 'anychart.js',
+    emptyOutDir: false,
+    // AnyChart is loaded separately on the host page; do not bundle it.
+    external: ['anychart'],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
   },
 ];
 
