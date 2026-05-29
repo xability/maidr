@@ -10,6 +10,7 @@ import type {
   BrailleState,
   DescriptionState,
   HighlightState,
+  PointerGuidanceState,
   TextState,
   TraceState,
 } from '@type/state';
@@ -53,6 +54,8 @@ export interface NearestPoint {
   element: SVGElement;
   row: number;
   col: number;
+  centerX: number;
+  centerY: number;
 }
 
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
@@ -269,20 +272,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Moves the element to the specified (x, y) point.
-   *
-   * This base implementation is intentionally left empty. Subclasses should override
-   * this method to provide specific logic for moving to a point, such as updating
-   * highlight values or managing selection boxes.
-   *
-   * @param _x - The x-coordinate to move to.
-   * @param _y - The y-coordinate to move to.
-   */
-  public moveToPoint(_x: number, _y: number): void {
-    // implement basic stuff, assuming something like highlightValues that holds the points and boxes
-  }
-
-  /**
    * Returns true if this trace supports compare (lower/higher value) navigation.
    * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
    * currently have).
@@ -297,6 +286,25 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public dataModeName(): string {
     return Constant.DATA_MODE;
+  }
+
+  /**
+   * Moves the active point to the (x, y) pointer location and returns
+   * directional guidance toward the nearest data geometry.
+   *
+   * Combines navigation and guidance into a single call so traces compute
+   * `findNearestPoint` only once per pointer event. Default returns null
+   * for non-trace contexts.
+   *
+   * @param _x - Screen-space x position of the pointer/finger
+   * @param _y - Screen-space y position of the pointer/finger
+   * @returns Guidance state, or null when unavailable
+   */
+  public moveToPointAndGetPointerGuidance(
+    _x: number,
+    _y: number,
+  ): PointerGuidanceState | null {
+    return null;
   }
 }
 
@@ -743,21 +751,73 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   ): NearestPoint | null;
 
   /**
-   * Moves to the nearest point at the specified coordinates (used for hover functionality).
-   * @param x - The x-coordinate
-   * @param y - The y-coordinate
+   * Moves the active point to the pointer location and returns directional
+   * guidance toward the nearest data geometry in a single call.
+   *
+   * Combining both operations avoids running `findNearestPoint` twice per
+   * `pointermove` event — important on dense plots where the scan is the
+   * hot path.
+   *
+   * @param x - Screen-space x position of the pointer/finger
+   * @param y - Screen-space y position of the pointer/finger
+   * @returns Guidance state relative to nearest point, or null when unavailable
    */
-  public moveToPoint(x: number, y: number): void {
+  public override moveToPointAndGetPointerGuidance(
+    x: number,
+    y: number,
+  ): PointerGuidanceState | null {
     const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
+    if (!nearest) {
+      return null;
     }
+
+    const onCurve = this.isPointInBounds(x, y, nearest);
+    this.moveToNearest(x, y, nearest, onCurve);
+
+    if (onCurve) {
+      return { onCurve: true };
+    }
+
+    // Fields describe where the curve point sits relative to the cursor.
+    // Screen-space: y grows downward, so a smaller y is higher on screen —
+    // `y < centerY` puts the point below the cursor. Tie-breaks at the exact
+    // center are arbitrary by design: at single-pixel precision the user
+    // can't perceive the difference, and forcing strict inequality avoids a
+    // third "centered" state that beep mapping would need to handle.
+    return {
+      onCurve: false,
+      distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
+      curveVertical: y < nearest.centerY ? 'below' : 'above',
+      curveHorizontal: x < nearest.centerX ? 'right' : 'left',
+    };
+  }
+
+  /**
+   * Moves the trace to the nearest point when the pointer is within its
+   * bounds and the trace is not already focused on that point.
+   *
+   * `onCurve` is intentionally non-optional: the caller has already paid
+   * the cost of {@link isPointInBounds} to assemble guidance state, and
+   * forcing subclasses to accept the value makes the contract explicit so a
+   * future override cannot silently recompute (or worse, ignore) it.
+   *
+   * Subclasses override this to customise hover-driven navigation:
+   * - Box / ViolinBox no-op the move while still surfacing guidance.
+   * - Scatter switches into column navigation mode before delegating.
+   */
+  protected moveToNearest(
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
+    }
+    if (this.row === nearest.row && this.col === nearest.col) {
+      return;
+    }
+    this.moveToIndex(nearest.row, nearest.col);
   }
 
   /**

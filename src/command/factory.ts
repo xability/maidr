@@ -97,6 +97,11 @@ import {
 
 /**
  * Factory for creating command instances based on key input.
+ *
+ * Note: `PointerGuidanceCommand` is intentionally not produced here. It is
+ * wired directly by `Mousebindingservice` because its contract carries raw
+ * pointer coordinates (`clientX`/`clientY`) per event, which doesn't fit the
+ * keyword-based `Keys` lookup this factory uses.
  */
 export class CommandFactory {
   private readonly context: Context;

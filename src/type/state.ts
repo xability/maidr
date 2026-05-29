@@ -182,6 +182,26 @@ export interface AudioState {
 }
 
 /**
+ * Directional guidance state for pointer/touch exploration near a curve.
+ *
+ * Position fields describe where the **curve point** sits relative to the
+ * cursor, so they line up directly with the audio output: `curveVertical:
+ * 'above'` plays a high pitch (point is up there), `curveHorizontal:
+ * 'left'` pans audio to the left (point is to the left).
+ */
+export type PointerGuidanceState
+  = | { onCurve: true }
+    | {
+      onCurve: false;
+      /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+      distancePx: number;
+      /** Where the curve point sits vertically relative to the cursor. */
+      curveVertical: 'above' | 'below';
+      /** Where the curve point sits horizontally relative to the cursor. */
+      curveHorizontal: 'left' | 'right';
+    };
+
+/**
  * Union type for all braille display states across different plot types.
  */
 export type BrailleState
