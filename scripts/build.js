@@ -93,6 +93,33 @@ const builds = [
       '@type': path.resolve(rootDir, 'src/type'),
     },
   },
+  {
+    name: 'd3',
+    entry: 'src/adapters/d3/index.ts',
+    libName: 'maidrD3',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'd3.mjs' : 'd3.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
+    name: 'vegalite',
+    entry: 'src/vegalite-entry.ts',
+    libName: 'maidrVegaLite',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'vegalite.mjs' : 'vegalite.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 function createViteConfig(config) {

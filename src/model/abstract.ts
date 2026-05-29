@@ -8,6 +8,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  DescriptionState,
   HighlightState,
   TextState,
   TraceState,
@@ -17,11 +18,31 @@ import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_Z_AXIS = 'Level';
+
+/**
+ * Maps internal TraceType identifiers to human-readable chart type labels
+ * for display in the chart description modal and other user-facing surfaces.
+ */
+const CHART_TYPE_LABEL: Record<TraceType, string> = {
+  [TraceType.BAR]: 'Bar Chart',
+  [TraceType.BOX]: 'Box Plot',
+  [TraceType.CANDLESTICK]: 'Candlestick Chart',
+  [TraceType.DODGED]: 'Dodged Bar Chart',
+  [TraceType.HEATMAP]: 'Heatmap',
+  [TraceType.HISTOGRAM]: 'Histogram',
+  [TraceType.LINE]: 'Line Chart',
+  [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
+  [TraceType.SCATTER]: 'Scatter Plot',
+  [TraceType.SMOOTH]: 'Smooth Line Chart',
+  [TraceType.STACKED]: 'Stacked Bar Chart',
+  [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
+  [TraceType.VIOLIN_KDE]: 'Violin Plot',
+};
 
 export interface Dimension {
   rows: number;
@@ -480,6 +501,31 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected abstract get text(): TextState;
 
+  public abstract get description(): DescriptionState;
+
+  /**
+   * Returns a human-readable label for this trace's chart type
+   * (e.g., 'Bar Chart', 'Scatter Plot') for display in the description modal.
+   * Falls back to the raw layer type if no mapping is registered.
+   */
+  protected getChartTypeLabel(): string {
+    return CHART_TYPE_LABEL[this.layer.type] ?? this.layer.type;
+  }
+
+  /**
+   * Builds the axes object for the description state, including z only when
+   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * instead of constructing the axes object inline so charts without a real
+   * z dimension don't surface the placeholder default.
+   */
+  protected getDescriptionAxes(): DescriptionState['axes'] {
+    return {
+      x: this.xAxis,
+      y: this.yAxis,
+      ...(this.layer.axes?.z?.label && { z: this.z }),
+    };
+  }
+
   protected abstract get dimension(): Dimension;
 
   protected abstract get highlightValues():
@@ -511,7 +557,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Common post-navigation cleanup that should be called by subclasses
    * after they update their internal state
    */
-  protected finalizeExtremaNavigation(): void {
+  protected finalizeNavigation(): void {
     // Ensure we're not in initial entry state after navigation
     if (this.isInitialEntry) {
       this.isInitialEntry = false;
@@ -522,6 +568,59 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     // Notify observers of state change
     this.notifyStateUpdate();
+  }
+
+  /**
+   * Returns true if this trace supports intersection navigation mode.
+   * Opt-in per trace type: override to return true (possibly conditionally,
+   * e.g. based on data shape) for trace types that expose point intersections
+   * between series. Intersection navigation is a trace-level capability — it
+   * has no meaning at the figure or subplot level, which is why it lives on
+   * AbstractTrace rather than AbstractPlot.
+   */
+  public supportsIntersectionMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Returns true if this trace supports point-by-point navigation mode.
+   * Opt-in per trace type: override to return true for traces that expose
+   * individual data points navigable in reading order (left/right) and
+   * column-major order (up/down). Currently only ScatterTrace.
+   */
+  public supportsPointMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the next point intersection (right arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToNextIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the previous point intersection (left arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToPrevIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Notifies the trace that the rotor is entering or leaving INTERSECTION_MODE.
+   * Default is a no-op; line-style traces don't need to track mode state
+   * because their state output is unchanged by the rotor mode. Traces whose
+   * audio/text output differs in intersection mode (e.g. ScatterTrace, which
+   * normally plays the whole x-column as a chord and must instead focus a
+   * single point) override this to flip an internal flag.
+   * @param _enabled True when entering intersection mode, false when leaving.
+   */
+  public setIntersectionMode(_enabled: boolean): void {
+    // Default no-op
   }
 
   /**

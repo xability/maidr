@@ -186,7 +186,10 @@ export class AnnounceZCommand extends AnnounceCommand {
 
     if (hasValidZ) {
       const zLabel = zData!.label;
-      this.textViewModel.update(`${zLabel}`);
+      const text = this.textService.isTerse()
+        ? zLabel
+        : `Z label is ${zLabel}`;
+      this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'

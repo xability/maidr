@@ -144,10 +144,18 @@ export interface AudioState {
   panning: {
     y: number;
     /**
-     * Horizontal pan index in [0, cols-1] (interpolated to [-1, +1] at playback).
-     * May be a number[] index-aligned with freq.raw when each tone has its own
-     * x-position (e.g. scatter ROW mode — tones sweep across the stereo field
-     * at each point's actual x-value).
+     * Stereo pan position along the x axis (0..cols-1).
+     *
+     * Use a single number when every tone in the emitted frequency chord
+     * shares the same horizontal location (e.g. scatter COL mode, line
+     * navigation). Use an array, parallel to `freq.raw`, when the chord
+     * spans different x positions and each tone should pan to its own slot
+     * (e.g. scatter ROW mode, where the row's chord is multiple points at
+     * different x values).
+     *
+     * The audio service resolves the array per iteration of the chord; out
+     * of range indices fall back to entry zero, so traces never need to
+     * pad.
      */
     x: number | number[];
     rows: number;
@@ -305,6 +313,59 @@ export interface TextState {
 export type AutoplayState = {
   [key in MovableDirection]: number;
 };
+
+/**
+ * A single statistic entry for chart description (e.g., "Min: 5", "Groups: 3").
+ */
+export interface DescriptionStat {
+  label: string;
+  value: string | number;
+}
+
+/**
+ * Summary of a single subplot in a multi-panel figure, used to give users
+ * an at-a-glance list of what's available before they navigate in.
+ */
+export interface SubplotSummary {
+  /** 1-based visual index (top-left = 1, reading order). */
+  index: number;
+  /** Layer title for the subplot, or empty string if not available. */
+  title: string;
+  /** Trace type label(s) for the subplot's layers. */
+  traceTypes: string[];
+  /** True if this is the subplot the user is currently focused on. */
+  isActive: boolean;
+}
+
+/**
+ * Description state containing objective chart metadata for the description modal.
+ * Fetched on-demand when the user opens the description dialog.
+ */
+export interface DescriptionState {
+  /** Chart/trace type label (e.g., "Bar Chart", "Line Plot") */
+  chartType: string;
+  /** Chart title */
+  title: string;
+  /** Axes information */
+  axes: {
+    x?: string;
+    y?: string;
+    z?: string;
+  };
+  /** Chart-specific summary statistics */
+  stats: DescriptionStat[];
+  /** Data table for raw data display */
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
+  /**
+   * List of all subplots in the figure, populated only when the figure has
+   * more than one subplot. Lets users see what other subplots are available
+   * without having to navigate through them.
+   */
+  subplots?: SubplotSummary[];
+}
 
 /**
  * Highlight state for visual emphasis of current plot elements.

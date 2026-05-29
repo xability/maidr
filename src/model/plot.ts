@@ -3,7 +3,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, HighlightState, SubplotState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, SubplotState, SubplotSummary, TraceState } from '@type/state';
 import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
@@ -13,9 +13,9 @@ import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
-const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
-const DEFAULT_SUBTITLE = 'unavailable';
-const DEFAULT_CAPTION = 'unavailable';
+export const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
+export const DEFAULT_SUBTITLE = 'unavailable';
+export const DEFAULT_CAPTION = 'unavailable';
 
 /**
  * Represents a figure containing one or more subplots
@@ -252,6 +252,34 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.notifyStateUpdate();
   }
 
+  /**
+   * Builds at-a-glance summaries of every subplot in the figure, ordered by
+   * visual position (top-left first). Returns an empty array for single-panel
+   * figures since there is nothing extra to surface.
+   */
+  public getSubplotSummaries(): SubplotSummary[] {
+    if (this.size <= 1) {
+      return [];
+    }
+
+    const summaries: SubplotSummary[] = [];
+    for (let r = 0; r < this.subplots.length; r++) {
+      for (let c = 0; c < this.subplots[r].length; c++) {
+        const subplot = this.subplots[r][c];
+        const key = `${r},${c}`;
+        const visualIndex = this.visualOrderMap.get(key) ?? summaries.length + 1;
+        summaries.push({
+          index: visualIndex,
+          title: subplot.primaryTitle,
+          traceTypes: [...subplot.traceTypes],
+          isActive: r === this.row && c === this.col,
+        });
+      }
+    }
+    summaries.sort((a, b) => a.index - b.index);
+    return summaries;
+  }
+
   protected get outOfBoundsState(): FigureState {
     return {
       empty: true,
@@ -272,6 +300,11 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
   public readonly traces: Trace[][];
   public readonly traceTypes: string[];
+  /**
+   * Title of the subplot's first layer, used as the subplot title in
+   * description summaries. Empty string when no layer title was provided.
+   */
+  public readonly primaryTitle: string;
 
   private readonly size: number;
   private readonly highlightValue: SVGElement | null;
@@ -293,6 +326,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
     const layers = subplot.layers;
     this.size = layers.length;
+    this.primaryTitle = layers[0]?.title ?? '';
 
     // Store the first layer's selector string for DOM-based axes lookup.
     const firstLayerSelectors = layers[0]?.selectors;

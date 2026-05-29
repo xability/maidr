@@ -1,6 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
-import type { HighlightState, TextState } from '@type/state';
+import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -128,7 +128,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     }
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -191,6 +191,51 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.col = safeCol;
   }
 
+  /**
+   * Gets the description state for the segmented bar trace.
+   * Overrides bar description to include fill category information.
+   * @returns The description state containing chart metadata and data table
+   */
+  public override get description(): DescriptionState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    // Exclude the summary row (last row) for stats and data
+    const dataPoints = this.points.slice(0, -1);
+
+    const zCategories = [
+      ...new Set(
+        dataPoints.map(row => row[0]?.z).filter(Boolean),
+      ),
+    ] as string[];
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of bars', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      { label: 'Number of groups', value: dataPoints.length },
+      { label: `${this.z} categories`, value: zCategories.join(', ') },
+    ];
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis, this.z]
+      : [this.yAxis, this.xAxis, this.z];
+
+    const rows: (string | number)[][] = dataPoints.flatMap(group =>
+      group.map((p) => {
+        const main = isVertical ? p.x : p.y;
+        const cross = isVertical ? p.y : p.x;
+        return [main, cross, p.z ?? UNDEFINED];
+      }),
+    );
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
   protected get text(): TextState {
     return {
       ...super.text,
@@ -235,20 +280,64 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // (e.g. Plotly stacked bars render zero-height segments), map 1:1.
     const skipZeros = domElements.length < totalExpected;
 
+    const isRowMajor = this.layer.domMapping?.order === 'row';
+    const isForward = this.layer.domMapping?.groupDirection === 'forward';
+
     const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
-      for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
-        const row = new Array<SVGElement>();
-        for (let c = 0; c < this.barValues[r].length; c++) {
-          if (skipZeros && this.barValues[r][c] === 0) {
-            row.push(Svg.createEmptyElement());
-          } else if (domIndex >= domElements.length) {
-            return new Array<Array<SVGElement>>();
-          } else {
-            row.push(domElements[domIndex++]);
+      // Path-element branch (used by Vega-Lite, which renders bars as
+      // `<path>` elements). Honour `domMapping` the same way the rect
+      // branch below does, so adapters that detect runtime DOM order
+      // can correctly align segmented data with the rendered chart.
+      for (let r = 0; r < this.barValues.length; r++) {
+        svgElements.push(new Array<SVGElement>());
+      }
+
+      if (isRowMajor || !this.layer.domMapping) {
+        // Row-major DOM order (default for path marks): DOM is laid out
+        // [series0-all-cats, series1-all-cats, ...]. This was the
+        // pre-existing behaviour and is preserved as the fallback when
+        // no `domMapping` hint is supplied by an adapter.
+        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
+          for (let c = 0; c < this.barValues[r].length; c++) {
+            if (skipZeros && this.barValues[r][c] === 0) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else if (domIndex >= domElements.length) {
+              svgElements[r].push(Svg.createEmptyElement());
+            } else {
+              svgElements[r].push(domElements[domIndex++]);
+            }
           }
         }
-        svgElements.push(row);
+      } else {
+        // Column-major DOM order: DOM is laid out
+        // [cat0-all-series, cat1-all-series, ...].
+        if (!this.barValues[0]) {
+          return null;
+        }
+        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
+          if (isForward) {
+            for (let r = 0; r < this.barValues.length; r++) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          } else {
+            for (let r = this.barValues.length - 1; r >= 0; r--) {
+              if (skipZeros && this.barValues[r][c] === 0) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else if (domIndex >= domElements.length) {
+                svgElements[r].push(Svg.createEmptyElement());
+              } else {
+                svgElements[r].push(domElements[domIndex++]);
+              }
+            }
+          }
+        }
       }
     } else if (domElements[0] instanceof SVGRectElement) {
       // Safety check: ensure barValues is valid

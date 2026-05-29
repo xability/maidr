@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -99,6 +99,33 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
+  /**
+   * Gets the description state for the heatmap trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const stats: DescriptionState['stats'] = [
+      { label: 'Rows', value: this.y.length },
+      { label: 'Columns', value: this.x.length },
+      { label: 'Min value', value: this.min },
+      { label: 'Max value', value: this.max },
+    ];
+
+    const headers = [this.yAxis, ...this.x];
+    const rows: (string | number)[][] = this.y.map((yLabel, r) => [
+      yLabel,
+      ...this.heatmapValues[r],
+    ]);
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
   protected get dimension(): Dimension {
     return {
       rows: this.heatmapValues.length,
@@ -143,10 +170,17 @@ export class Heatmap extends AbstractTrace {
       // If layer.domMapping?.order === 'row', use row-major mapping for rects.
       // Otherwise, preserve current default: column-major mapping.
       if (this.layer.domMapping?.order === 'row') {
+        // Rects are laid out top-to-bottom row-major in the DOM (as produced
+        // by a standard D3 heatmap join). The model has already reversed
+        // `heatmapValues` so row 0 = bottom of the visual grid (Cartesian
+        // convention, matches navigation where UP increments row). Flip the
+        // DOM row index so the highlight tracks that same reversal, mirroring
+        // what the SVGPath branch above does.
         for (let r = 0; r < numRows; r++) {
+          const rowIndex = numRows - 1 - r;
           const row = new Array<SVGElement>();
           for (let c = 0; c < numCols; c++) {
-            const flatIndex = r * numCols + c;
+            const flatIndex = rowIndex * numCols + c;
             row.push(domElements[flatIndex]);
           }
           svgElements.push(row);
@@ -591,7 +625,7 @@ export class Heatmap extends AbstractTrace {
       this.col = target.categoryIndex;
 
       // Use common finalization method
-      this.finalizeExtremaNavigation();
+      this.finalizeNavigation();
     }
   }
 }

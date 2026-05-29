@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -71,9 +71,61 @@ export class LineTrace extends AbstractTrace {
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    // `layer.selectors` is `string | string[] | ...` per the schema. When a
+    // single-line binder (e.g. the D3 smooth/line binders) emits a bare
+    // string, wrap it in an array so the per-line length check inside
+    // `mapToSvgElements` (`selectors.length !== this.lineValues.length`)
+    // compares array length to line count, not character count.
+    const normalizedSelectors: string[] | undefined = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : (layer.selectors as string[] | undefined);
+    this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
+  }
+
+  /**
+   * Gets the description state for the line trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const isMultiline = this.points.length > 1;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of lines', value: this.points.length },
+      { label: 'Points per line', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+    ];
+
+    if (isMultiline) {
+      const lineNames = this.points
+        .map((line, i) => line[0]?.z || `Line ${i + 1}`)
+        .join(', ');
+      stats.push({ label: 'Line names', value: lineNames });
+    }
+
+    let headers: string[];
+    let rows: (string | number)[][];
+
+    if (isMultiline) {
+      headers = [this.xAxis, this.yAxis, 'Line'];
+      rows = this.points.flatMap((line, i) => {
+        const lineName = line[0]?.z || `Line ${i + 1}`;
+        return line.map(p => [p.x, p.y, lineName]);
+      });
+    } else {
+      headers = [this.xAxis, this.yAxis];
+      rows = this.points[0].map(p => [p.x, p.y]);
+    }
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
   }
 
   public dispose(): void {
@@ -181,6 +233,10 @@ export class LineTrace extends AbstractTrace {
       | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
+    // Resolve z label: honor user-provided spec label, otherwise fall back
+    // to LineTrace-specific default ("Group") rather than the generic "Level".
+    const zLabel = this.layer.axes?.z?.label ?? TYPE;
+
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
@@ -199,13 +255,13 @@ export class LineTrace extends AbstractTrace {
 
       zData = {
         z: {
-          label: TYPE,
+          label: zLabel,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
       // Single line or no intersection - use normal z data
-      zData = point.z ? { z: { label: TYPE, value: point.z } } : {};
+      zData = point.z ? { z: { label: zLabel, value: point.z } } : {};
     }
 
     return {
@@ -465,7 +521,18 @@ export class LineTrace extends AbstractTrace {
     let allFailed = true;
 
     for (let r = 0; r < selectors.length; r++) {
-      const elements = Svg.selectAllElements(selectors[r]);
+      // Pass shouldClone=false so we DON'T mutate the DOM by inserting a
+      // hidden clone after every match. Inserting a clone shifts
+      // :nth-child(N) indices for subsequent iterations: a multi-series
+      // line chart with sibling <path> elements in the same <g> ends up
+      // with iteration r=1 matching the clone of path0 (instead of path1)
+      // and r=2 matching the clone of clone of path0, etc. The downstream
+      // mapViaPathParsing then reads series 0's `d` for every series, so
+      // all highlights collapse onto series 0 even though navigation
+      // announcement (which uses lineValues, not the DOM) is correct.
+      // Highlighting always re-clones via Svg.createHighlightElement, so
+      // we don't need the pre-cloned hidden elements.
+      const elements = Svg.selectAllElements(selectors[r], false);
       if (elements.length === 0 || elements.length !== this.lineValues[r].length) {
         svgElements.push([]);
         continue;
@@ -488,8 +555,24 @@ export class LineTrace extends AbstractTrace {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
 
+    // Detect selector layout:
+    //   - Standard case (e.g. matplotlib/seaborn multi-line): each series has
+    //     a UNIQUE selector that resolves to exactly one <path> (e.g.
+    //     "g[id='maidr-<uuid-A>'] path", "g[id='maidr-<uuid-B>'] path", ...).
+    //   - Color-hue case (e.g. Vega-Lite single mark with a color encoding):
+    //     all entries in `selectors` are IDENTICAL — Vega renders N sibling
+    //     `<g class="mark-line role-mark layer_0_marks">` groups, each with
+    //     exactly one `<path>`, so a single shared selector matches all N.
+    // For the standard case, selectNthElement(selectors[r], r) would ask for
+    // the r-th match of a selector that has only 1 match, returning null for
+    // r >= 1 and crashing the highlight pipeline downstream. So branch on
+    // selector uniqueness.
+    const uniqueSelectors = new Set(selectors).size === selectors.length;
+
     for (let r = 0; r < selectors.length; r++) {
-      const lineElement = Svg.selectElement(selectors[r], false);
+      const lineElement = uniqueSelectors
+        ? Svg.selectElement(selectors[r], false)
+        : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
         continue;
@@ -1068,7 +1151,7 @@ export class LineTrace extends AbstractTrace {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -1161,6 +1244,73 @@ export class LineTrace extends AbstractTrace {
 
   public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
+    return true;
+  }
+
+  /**
+   * Intersection navigation mode is available only when the plot has
+   * multiple lines. `points` is a 2-D array whose outer dimension is the line
+   * index, so `length > 1` means at least two lines exist — a prerequisite for
+   * any crossing between sampled series to be possible.
+   */
+  public override supportsIntersectionMode(): boolean {
+    return this.points.length > 1;
+  }
+
+  /**
+   * Collect point-type intersections for the current line, sorted by
+   * pointIndex (column), with duplicate pointIndexes removed so that
+   * navigation advances one data point at a time.
+   *
+   * Sort rationale: {@link findAllIntersectionsForCurrentLine} sorts its
+   * results by continuous x-coordinate, which can differ from `pointIndex`
+   * order when an intersection falls between sampled points (the "nearest
+   * point" mapping is non-monotonic in those cases). Rotor navigation moves
+   * by column, so we sort explicitly by pointIndex here.
+   *
+   * Performance note: the underlying {@link findAllIntersectionsForCurrentLine}
+   * caches results per active row, so repeated calls while the cursor stays on
+   * the same line are O(n) over the cached intersection list (typically small).
+   */
+  private getPointIntersectionIndices(): number[] {
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    const seen = new Set<number>();
+    for (const intersection of intersections) {
+      if (intersection.intersectionKind === 'point') {
+        seen.add(intersection.pointIndex);
+      }
+    }
+    return [...seen].sort((a, b) => a - b);
+  }
+
+  public override moveToNextIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    const target = indices.find(index => index > this.col);
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
+    return true;
+  }
+
+  public override moveToPrevIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    // Walk the sorted indices backwards to find the largest value < col.
+    // A reverse loop avoids both Array.prototype.findLast (ES2023) and the
+    // array allocation that [...indices].reverse() would introduce.
+    let target: number | undefined;
+    for (let i = indices.length - 1; i >= 0; i--) {
+      if (indices[i] < this.col) {
+        target = indices[i];
+        break;
+      }
+    }
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
     return true;
   }
 }

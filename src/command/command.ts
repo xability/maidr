@@ -12,6 +12,7 @@ import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -69,6 +70,8 @@ export interface CommandContext {
   helpViewModel: HelpViewModel;
   /** Review view model for review functionality. */
   reviewViewModel: ReviewViewModel;
+  /** Description view model for chart description modal. */
+  descriptionViewModel: DescriptionViewModel;
   /** Settings view model for application settings. */
   settingsViewModel: SettingsViewModel;
   /** Text view model for text display. */

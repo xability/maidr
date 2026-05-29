@@ -1,3 +1,38 @@
+# [3.67.0](https://github.com/xability/maidr/compare/v3.66.1...v3.67.0) (2026-05-07)
+
+
+### Features
+
+* description modal with d key ([#592](https://github.com/xability/maidr/issues/592)) ([797ecce](https://github.com/xability/maidr/commit/797eccee61de3e6488c8fa48ebb4a36da5334423))
+* let user select braille display model ([#608](https://github.com/xability/maidr/issues/608)) ([c2886bb](https://github.com/xability/maidr/commit/c2886bb46c6141a49b2cde1798c37b481dfd91ca))
+
+## [3.66.1](https://github.com/xability/maidr/compare/v3.66.0...v3.66.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* harden altair adapter pipeline across line, box, count, dodged plots ([#609](https://github.com/xability/maidr/issues/609)) ([14a08a4](https://github.com/xability/maidr/commit/14a08a408788a7e7ef3474079cbe392487c1c15f))
+
+# [3.66.0](https://github.com/xability/maidr/compare/v3.65.0...v3.66.0) (2026-05-02)
+
+
+### Bug Fixes
+
+* honor custom z label in multiline plots and align l z with l x / l y semantics ([#607](https://github.com/xability/maidr/issues/607)) ([7741e85](https://github.com/xability/maidr/commit/7741e85347fbffa9ebdb7a2cd913ac66204c9a08))
+
+
+### Features
+
+* add intersecting point rotor mode for multiline plots ([#604](https://github.com/xability/maidr/issues/604)) ([b4f8257](https://github.com/xability/maidr/commit/b4f8257c45ac85aa0edd71d142142aa5c6716fdb)), closes [#2](https://github.com/xability/maidr/issues/2) [#3](https://github.com/xability/maidr/issues/3) [#4](https://github.com/xability/maidr/issues/4) [#1](https://github.com/xability/maidr/issues/1) [#1](https://github.com/xability/maidr/issues/1)
+* add Vega-Lite adapter for accessible chart binding ([#540](https://github.com/xability/maidr/issues/540)) ([#556](https://github.com/xability/maidr/issues/556)) ([86ec308](https://github.com/xability/maidr/commit/86ec3085ca94b13225221326ff6769af171575ff))
+
+# [3.65.0](https://github.com/xability/maidr/compare/v3.64.1...v3.65.0) (2026-04-28)
+
+
+### Features
+
+* add D3.js charting library support via maidr/d3 binder ([#551](https://github.com/xability/maidr/issues/551)) ([03f1dc6](https://github.com/xability/maidr/commit/03f1dc693b590ac9df6da19f868a677f19b5cffe)), closes [#537](https://github.com/xability/maidr/issues/537)
+
 ## [3.64.1](https://github.com/xability/maidr/compare/v3.64.0...v3.64.1) (2026-04-23)
 
 
