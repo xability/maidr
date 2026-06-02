@@ -308,26 +308,31 @@ export class AudioService implements Observer<PlotState>, Disposable {
         return panXSource;
       };
 
+      // zIntensity is also per-tone (array) or shared (scalar). Drives the
+      // 3D echo cue downstream of each tone.
+      const zArray = Array.isArray(audio.zIntensity) ? audio.zIntensity : undefined;
+      const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
+
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
           const i = currentIndex++;
-          this.playTone(
-            {
-              min: audio.freq.min,
-              max: audio.freq.max,
-              raw: values[i],
-            },
-            {
-              x: panAt(i),
-              y: audio.panning.y,
-              rows: audio.panning.rows,
-              cols: audio.panning.cols,
-            },
-            paletteEntry,
-          );
+          const toneFreq = {
+            min: audio.freq.min,
+            max: audio.freq.max,
+            raw: values[i],
+          };
+          const tonePanning: Panning = {
+            x: panAt(i),
+            y: audio.panning.y,
+            rows: audio.panning.rows,
+            cols: audio.panning.cols,
+          };
+          this.playTone(toneFreq, tonePanning, paletteEntry);
+          const zForTone = zArray !== undefined ? zArray[i] : zScalar;
+          this.scheduleEchoes(toneFreq, tonePanning, paletteEntry, zForTone);
           activeIds.push(setTimeout(playNext, playRate));
         } else {
           this.stop(activeIds);
@@ -342,6 +347,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
         this.playZeroTone(pan);
       } else {
         this.playTone(audio.freq, pan, paletteEntry);
+        const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
+        this.scheduleEchoes(audio.freq, pan, paletteEntry, zScalar);
       }
     }
   }

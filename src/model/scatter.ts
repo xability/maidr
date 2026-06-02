@@ -56,6 +56,7 @@ enum NavMode {
 interface FlatPoint {
   x: number;
   y: number;
+  z: number;
   svg: SVGElement | null;
 }
 
@@ -223,6 +224,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.flatPoints = data.map((p, i) => ({
       x: p.x,
       y: p.y,
+      z: typeof p.z === 'number' ? p.z : Number.NaN,
       svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
     }));
     this.readingOrder = this.flatPoints
@@ -495,6 +497,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           rows: 1,
           cols: this.xValues.length,
         },
+        zIntensity: this.zIntensityFor([point.z])?.[0],
       };
     }
 
