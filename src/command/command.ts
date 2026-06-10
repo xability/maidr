@@ -5,6 +5,7 @@ import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
@@ -50,6 +51,8 @@ export interface CommandContext {
   highContrastService: HighContrastService;
   /** Highlight service for visual highlighting. */
   highlightService: HighlightService;
+  /** Monitor service for live data monitoring. */
+  monitorService: MonitorService;
   /** Rotor navigation service for alternative navigation. */
   rotorNavigationService: RotorNavigationService;
   settingsService: SettingsService;

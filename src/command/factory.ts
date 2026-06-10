@@ -5,6 +5,7 @@ import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { TextService } from '@service/text';
@@ -89,6 +90,7 @@ import {
   ToggleDescriptionCommand,
   ToggleHelpCommand,
   ToggleHighContrast,
+  ToggleMonitorCommand,
   ToggleReviewCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
@@ -107,6 +109,7 @@ export class CommandFactory {
   private readonly displayService: DisplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
+  private readonly monitorService: MonitorService;
   private readonly notificationService: NotificationService;
   private readonly rotorService: RotorNavigationService;
   private readonly textService: TextService;
@@ -135,6 +138,7 @@ export class CommandFactory {
     this.displayService = commandContext.displayService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
+    this.monitorService = commandContext.monitorService;
     this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
     this.textService = commandContext.textService;
@@ -216,6 +220,8 @@ export class CommandFactory {
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
       case 'TOGGLE_HIGH_CONTRAST':
         return new ToggleHighContrast(this.highContrastService);
+      case 'TOGGLE_MONITOR':
+        return new ToggleMonitorCommand(this.monitorService);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);

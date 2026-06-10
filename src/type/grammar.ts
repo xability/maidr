@@ -174,6 +174,23 @@ export interface Maidr {
    */
   subplots: MaidrSubplot[][];
   /**
+   * Enables live/realtime mode for this chart. When true:
+   * - React consumers can update the `data` prop to replace the chart data in place.
+   * - Script-tag consumers can push updates via `window.maidrLive.setData()` /
+   *   `window.maidrLive.appendData()`.
+   * - The 'M' key toggles monitor mode, which auto-sonifies and announces
+   *   newly appended data points.
+   *
+   * Static charts (the default) are unaffected.
+   */
+  live?: boolean;
+  /**
+   * Sliding window size for streaming data. When set, appending a data point
+   * beyond this width drops the oldest point(s), keeping at most `maxWidth`
+   * points per series. Only applies to `appendData` updates.
+   */
+  maxWidth?: number;
+  /**
    * Optional callback invoked when the active data point changes.
    * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,
    * since canvas elements cannot be targeted with CSS selectors.

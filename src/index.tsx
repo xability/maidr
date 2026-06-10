@@ -1,15 +1,51 @@
 import type { JSX } from 'react';
+import type { AppendDataOptions, LiveDataPoint } from './service/liveData';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { Maidr as MaidrComponent } from './maidr-component';
+import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
+
+/**
+ * Public realtime/streaming API for script-tag consumers, exposed as
+ * `window.maidrLive`.
+ *
+ * @example
+ * ```js
+ * // Replace all data for the chart with id 'stock-chart'.
+ * window.maidrLive.setData(updatedMaidrJson);
+ *
+ * // Stream a new point into the first (or only) chart.
+ * window.maidrLive.appendData({ x: 42, y: 3.14 });
+ *
+ * // Stream into a specific chart, layer, and series.
+ * window.maidrLive.appendData(
+ *   { x: 42, y: 3.14 },
+ *   { id: 'stock-chart', layerId: 'prices', groupIndex: 1 },
+ * );
+ * ```
+ */
+export interface MaidrLiveApi {
+  /** Replaces all data for the chart identified by `maidr.id`. */
+  setData: (maidr: Maidr) => boolean;
+  /** Appends a single data point to a chart layer (streaming). */
+  appendData: (
+    point: LiveDataPoint,
+    options?: AppendDataOptions & { id?: string },
+  ) => boolean;
+}
 
 declare global {
   interface Window {
     maidr?: Maidr;
+    /**
+     * Realtime/streaming data API. Use `setData` to replace chart data and
+     * `appendData` to stream individual points into live charts.
+     */
+    maidrLive?: MaidrLiveApi;
     /**
      * Disconnects all MAIDR MutationObservers to free memory.
      * Call this when cleaning up in SPAs or before page unload.
@@ -17,6 +53,12 @@ declare global {
     disconnectMaidrObservers?: () => void;
   }
 }
+
+// Expose the realtime data API globally for script-tag consumers.
+window.maidrLive = {
+  setData: maidr => liveDataManager.setData(maidr),
+  appendData: (point, options) => liveDataManager.appendData(point, options),
+};
 
 /** Stores active MutationObservers for cleanup. */
 let maidrAttributeObserver: MutationObserver | null = null;
