@@ -1,9 +1,10 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
-import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse } from '@type/llm';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { Scope } from '@type/event';
+import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
 import { Api } from '@util/api';
 import { Svg } from '@util/svg';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
@@ -12,6 +13,7 @@ import { formatSystemPrompt, formatUserPrompt } from './prompts';
 const GPT_MAX_TOKENS = 1000;
 const CLAUDE_MAX_TOKENS = 256;
 const GEMINI_MAX_TOKENS = 1000;
+const OLLAMA_MAX_TOKENS = 1000;
 
 /**
  * Service for managing chat interactions with different LLM providers.
@@ -35,6 +37,7 @@ export class ChatService {
       OPENAI: new Gpt(display.plot, maidr, textService, 'gpt-4o'),
       ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, 'claude-3-7-sonnet-latest'),
       GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, 'gemini-2.0-flash'),
+      OLLAMA: new Ollama(display.plot, maidr, textService, 'llama3.2'),
     };
   }
 
@@ -97,6 +100,15 @@ interface GeminiResponse {
 }
 
 /**
+ * Response structure from the Ollama chat API (non-streaming).
+ */
+interface OllamaResponse {
+  message: {
+    content: string;
+  };
+}
+
+/**
  * Abstract base class for LLM model implementations providing common functionality.
  * @template T - The response type specific to the LLM provider
  */
@@ -143,6 +155,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         currentPositionText,
         request.message,
         expertiseLevel,
+        request.version,
       );
 
       const url = request.clientToken
@@ -220,6 +233,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
    * @param {string} currentText - The current position text
    * @param {string} message - The user's message
    * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the provider default
    * @returns {string} The JSON payload
    */
   protected abstract getPayload(
@@ -229,6 +243,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     currentText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string;
 
   /**
@@ -594,6 +609,130 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
   protected getHeaders(request: LlmRequest): Record<string, string> {
     const headers = super.getHeaders(request);
     // Gemini uses API key in URL, so we don't need to add it to headers
+    delete headers.Authorization;
+    return headers;
+  }
+}
+
+/**
+ * Ollama local model implementation. Talks to a locally running Ollama server
+ * (https://ollama.com) so users can analyze sensitive data offline without an
+ * API key. The request's `apiKey` field carries the server base URL.
+ */
+class Ollama extends AbstractLlmModel<OllamaResponse> {
+  private readonly version: OllamaVersion;
+
+  /**
+   * Creates a new Ollama model instance.
+   * @param {HTMLElement} svg - The SVG element representing the plot
+   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {TextService} textService - The text service for retrieving coordinate text
+   * @param {OllamaVersion} version - The default Ollama model to use when none is selected
+   */
+  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: OllamaVersion) {
+    super(svg, maidr, textService);
+    this.version = version;
+  }
+
+  /**
+   * Gets the Ollama chat API URL on the configured local server.
+   * @param {string} [baseUrl] - The Ollama server base URL (stored in the apiKey field)
+   * @returns {string} The Ollama chat API URL
+   */
+  protected getApiUrl(baseUrl?: string): string {
+    const base = (baseUrl?.trim() || DEFAULT_OLLAMA_BASE_URL).replace(/\/+$/, '');
+    return `${base}/api/chat`;
+  }
+
+  /**
+   * Gets the endpoint name for MAIDR service routing.
+   * @returns {string} The endpoint name 'ollama'
+   */
+  protected getEndPoint(): string {
+    return 'ollama';
+  }
+
+  /**
+   * Constructs the Ollama-specific request payload using the native chat API.
+   * @param {string} customInstruction - Custom instructions from the user
+   * @param {string} maidrJson - The MAIDR data as JSON string
+   * @param {string} image - The base64-encoded plot image
+   * @param {string} currentPositionText - The current position text
+   * @param {string} message - The user's message
+   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {LlmVersion} [version] - The locally installed model selected by the user
+   * @returns {string} The JSON payload for the Ollama chat API
+   */
+  protected getPayload(
+    customInstruction: string,
+    maidrJson: string,
+    image: string,
+    currentPositionText: string,
+    message: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
+  ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+      expertiseLevel: expertise,
+    };
+
+    // Ollama expects raw base64 without the data-URL prefix. Multimodal
+    // models (e.g. llava, llama3.2-vision) use the image; text-only models
+    // ignore it.
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
+    return JSON.stringify({
+      model: version ?? this.version,
+      stream: false,
+      options: {
+        num_predict: OLLAMA_MAX_TOKENS,
+      },
+      messages: [
+        {
+          role: 'system',
+          content: formatSystemPrompt(customInstruction, context.expertiseLevel),
+        },
+        {
+          role: 'user',
+          content: formatUserPrompt(context),
+          images: [rawBase64],
+        },
+      ],
+    });
+  }
+
+  /**
+   * Formats the Ollama response into a standard LlmResponse.
+   * @param {OllamaResponse} response - The raw response from the Ollama chat API
+   * @returns {LlmResponse} The formatted response
+   */
+  protected formatResponse(response: OllamaResponse): LlmResponse {
+    if (!response.message?.content) {
+      return {
+        success: false,
+        error: 'Invalid response format',
+      };
+    }
+
+    return {
+      success: true,
+      data: response.message.content,
+    };
+  }
+
+  /**
+   * Builds HTTP headers for Ollama requests. The local server needs no
+   * authentication, and the apiKey field holds the base URL, so the bearer
+   * header added by the base class is removed.
+   * @param {LlmRequest} request - The request containing connection details
+   * @returns {Record<string, string>} The HTTP headers
+   */
+  protected getHeaders(request: LlmRequest): Record<string, string> {
+    const headers = super.getHeaders(request);
     delete headers.Authorization;
     return headers;
   }

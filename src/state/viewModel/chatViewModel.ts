@@ -34,6 +34,8 @@ function getModelDisplayName(modelKey: string): string {
       return 'Anthropic Claude';
     case 'GOOGLE_GEMINI':
       return 'Google Gemini';
+    case 'OLLAMA':
+      return 'Ollama';
     default:
       return 'AI Assistant';
   }
@@ -209,7 +211,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
+      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
 
     this.store.dispatch(addSystemMessage({
       text,
@@ -236,7 +238,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
+      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
 
     this.store.dispatch(updateWelcomeMessage({
       text,
@@ -349,6 +351,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           customInstruction: llmSettings.customInstruction,
           expertise,
           apiKey: config.apiKey,
+          version: config.version,
         });
 
         this.audioService.stop(audioId);

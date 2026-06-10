@@ -67,6 +67,11 @@ function getValidVersion(
   currentVersion: string | undefined,
 ): LlmVersion {
   const config = MODEL_VERSIONS[modelKey];
+  // Ollama models are whatever the user has pulled locally, so any non-empty
+  // name is valid even when it is not in the curated suggestion list.
+  if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
+    return currentVersion as LlmVersion;
+  }
   const validOptions = config.options as readonly LlmVersion[];
   if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
     return config.default;
@@ -179,22 +184,36 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const validVersion = getValidVersion(modelKey, modelSettings.version);
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
+  // Models installed on the local Ollama server, probed once the server URL
+  // validates; replaces the curated suggestion list so users pick from what
+  // they actually have pulled.
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
+
+  // Ollama is a local server: the credential field holds its base URL and
+  // "validation" means reachability, so most labels differ from the cloud
+  // providers' API-key wording.
+  const isOllama = modelKey === 'OLLAMA';
+  const credentialLabel = isOllama ? 'Server URL' : 'API Key';
 
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
     if (isValidating)
-      return 'Validating API key...';
-    if (isValid === false)
-      return `${modelSettings.name} API key is invalid`;
+      return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
+    if (isValid === false) {
+      return isOllama
+        ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
+        : `${modelSettings.name} API key is invalid`;
+    }
     if (isValid === true)
-      return `${modelSettings.name} API key is valid`;
+      return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
     return '';
   };
 
   const validateApiKey = async (apiKey: string): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
       setIsValid(null);
+      setInstalledModels([]);
       return;
     }
 
@@ -205,8 +224,14 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
         apiKey,
       );
       setIsValid(result.isValid);
+      if (isOllama) {
+        setInstalledModels(
+          result.isValid ? await LlmValidationService.fetchOllamaModels(apiKey) : [],
+        );
+      }
     } catch (error) {
       setIsValid(false);
+      setInstalledModels([]);
     } finally {
       setIsValidating(false);
     }
@@ -222,8 +247,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    return config.options.map((version) => {
-      const label = config.labels[version as keyof typeof config.labels];
+    let options: readonly string[] = config.options;
+    if (isOllama && installedModels.length > 0) {
+      options = installedModels;
+    }
+    // Keep the saved Ollama model selectable even when it is missing from the
+    // current options (e.g. a model that has since been removed locally).
+    if (isOllama && validVersion && !options.includes(validVersion)) {
+      options = [...options, validVersion];
+    }
+    return options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;
       return (
         <MenuItem
@@ -262,13 +296,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 size="small"
                 value={modelSettings.apiKey}
                 onChange={e => onChangeKey(modelKey, e.target.value)}
-                placeholder={`Enter ${modelSettings.name} API Key`}
-                type="password"
+                placeholder={
+                  isOllama
+                    ? 'Enter Ollama server URL (e.g. http://localhost:11434)'
+                    : `Enter ${modelSettings.name} API Key`
+                }
+                type={isOllama ? 'text' : 'password'}
                 error={isValid === false}
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} API Key`,
+                    'aria-label': `${modelSettings.name} ${credentialLabel}`,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -278,11 +316,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                           aria-live="polite"
                           aria-label={
                             isValidating
-                              ? 'Validating API key'
+                              ? isOllama
+                                ? 'Checking Ollama server'
+                                : 'Validating API key'
                               : isValid === true
-                                ? 'API key is valid'
+                                ? isOllama
+                                  ? 'Ollama server is reachable'
+                                  : 'API key is valid'
                                 : isValid === false
-                                  ? 'API key is invalid'
+                                  ? isOllama
+                                    ? 'Ollama server is unreachable'
+                                    : 'API key is invalid'
                                   : ''
                           }
                         >

@@ -1,4 +1,5 @@
 import type { Llm } from '@type/llm';
+import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
 
 /**
  * Represents the result of an API key validation attempt.
@@ -11,6 +12,25 @@ interface ValidationResponse {
 }
 
 /**
+ * Response structure of the Ollama tags endpoint listing installed models.
+ */
+interface OllamaTagsResponse {
+  models?: {
+    name: string;
+  }[];
+}
+
+/**
+ * Normalizes an Ollama base URL by trimming whitespace and trailing slashes.
+ * @param baseUrl - The user-provided server base URL
+ * @returns The normalized base URL
+ */
+function normalizeOllamaBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '');
+  return trimmed || DEFAULT_OLLAMA_BASE_URL;
+}
+
+/**
  * Service for validating API keys across different LLM providers.
  */
 export class LlmValidationService {
@@ -19,9 +39,11 @@ export class LlmValidationService {
   private static readonly GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   /**
-   * Validates an API key for the specified LLM provider.
+   * Validates an API key for the specified LLM provider. For Ollama the
+   * credential is the local server base URL, so reachability is checked
+   * instead of key validity.
    * @param modelKey - The LLM provider identifier
-   * @param apiKey - The API key to validate
+   * @param apiKey - The API key (or Ollama server base URL) to validate
    * @returns Promise resolving to validation result with status and optional error message
    */
   public static async validateApiKey(modelKey: Llm, apiKey: string): Promise<ValidationResponse> {
@@ -33,6 +55,8 @@ export class LlmValidationService {
           return await this.validateAnthropicKey(apiKey);
         case 'GOOGLE_GEMINI':
           return await this.validateGeminiKey(apiKey);
+        case 'OLLAMA':
+          return await this.validateOllamaServer(apiKey);
         default:
           return { isValid: false, error: 'Invalid model key' };
       }
@@ -97,6 +121,53 @@ export class LlmValidationService {
       return { isValid: false, error: 'Invalid API key' };
     } catch {
       return { isValid: false, error: 'Invalid API key' };
+    }
+  }
+
+  /**
+   * Validates that a local Ollama server is reachable by querying its
+   * installed-models endpoint (the API equivalent of `ollama ps`/`ollama list`).
+   * @param baseUrl - The Ollama server base URL
+   * @returns Promise resolving to validation result
+   */
+  private static async validateOllamaServer(baseUrl: string): Promise<ValidationResponse> {
+    const unreachable: ValidationResponse = {
+      isValid: false,
+      error: 'Cannot reach Ollama server. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.',
+    };
+    try {
+      const response = await fetch(`${normalizeOllamaBaseUrl(baseUrl)}/api/tags`, {
+        method: 'GET',
+      }).catch(() => ({ ok: false }));
+
+      if (response.ok) {
+        return { isValid: true };
+      }
+
+      return unreachable;
+    } catch {
+      return unreachable;
+    }
+  }
+
+  /**
+   * Fetches the list of models installed on a local Ollama server.
+   * @param baseUrl - The Ollama server base URL
+   * @returns Promise resolving to the installed model names, or an empty array if unreachable
+   */
+  public static async fetchOllamaModels(baseUrl: string): Promise<string[]> {
+    try {
+      const response = await fetch(`${normalizeOllamaBaseUrl(baseUrl)}/api/tags`, {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json() as OllamaTagsResponse;
+      return (data.models ?? []).map(model => model.name);
+    } catch {
+      return [];
     }
   }
 

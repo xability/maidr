@@ -1,4 +1,4 @@
-import type { LlmVersion } from '@type/llm';
+import type { LlmVersion, OllamaVersion } from '@type/llm';
 
 /**
  * Available OpenAI GPT model versions.
@@ -38,6 +38,8 @@ export interface ModelVersions {
   ANTHROPIC_CLAUDE: ModelConfig<ClaudeVersion>;
   /** Google Gemini model configuration */
   GOOGLE_GEMINI: ModelConfig<GeminiVersion>;
+  /** Ollama local model configuration */
+  OLLAMA: ModelConfig<OllamaVersion>;
 }
 
 /**
@@ -73,6 +75,22 @@ export const MODEL_VERSIONS: ModelVersions = {
       'gemini-2.0-flash-lite': 'Gemini 2.0 Flash Lite',
       'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash Preview',
       'gemini-2.5-pro-preview-05-06': 'Gemini 2.5 Pro Preview',
+    },
+  },
+  // Curated suggestions only; the actual list of installed models is probed
+  // from the local Ollama server (/api/tags) and replaces these in the UI
+  // whenever the server is reachable.
+  OLLAMA: {
+    default: 'llama3.2',
+    options: ['llama3.2', 'llama3.2-vision', 'llama3.1', 'mistral', 'gemma3', 'phi4', 'llava'] as const,
+    labels: {
+      'llama3.2': 'Llama 3.2',
+      'llama3.2-vision': 'Llama 3.2 Vision',
+      'llama3.1': 'Llama 3.1',
+      'mistral': 'Mistral',
+      'gemma3': 'Gemma 3',
+      'phi4': 'Phi-4',
+      'llava': 'LLaVA',
     },
   },
 };

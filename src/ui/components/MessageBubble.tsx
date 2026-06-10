@@ -21,6 +21,8 @@ function getModelDisplayName(model?: string): string {
       return 'Anthropic Claude';
     case 'GOOGLE_GEMINI':
       return 'Google Gemini';
+    case 'OLLAMA':
+      return 'Ollama';
     default:
       return 'AI Assistant';
   }

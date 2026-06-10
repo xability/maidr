@@ -1,6 +1,7 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { MODEL_VERSIONS } from '@service/modelVersions';
+import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
 import React from 'react';
 
@@ -16,6 +17,13 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
   const settingsViewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
   const currentSettings = settingsViewModel.state;
+
+  // Probe the local Ollama server for installed models so the dropdown
+  // offers what the user actually has pulled, not just curated suggestions.
+  const ollamaEnabled = enabledModels.some(model => model.modelKey === 'OLLAMA');
+  const ollamaModels = useOllamaModels(
+    ollamaEnabled ? currentSettings.llm.models.OLLAMA.apiKey : null,
+  );
 
   const handleModelChange = (modelKey: Llm, version: LlmVersion): void => {
     // Get the latest settings state
@@ -40,25 +48,46 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     chatViewModel.updateWelcomeMessage();
   };
 
-  const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
-    const config = MODEL_VERSIONS[modelKey];
-    const labels = config.labels as Record<string, string>;
-    return config.options.map((version) => {
-      const typedVersion = version as LlmVersion;
-      return {
-        label: labels[typedVersion],
-        value: typedVersion,
-      };
-    });
-  };
   const getCurrentVersion = (modelKey: Llm): LlmVersion => {
     const config = MODEL_VERSIONS[modelKey];
     const currentVersion = currentSettings.llm.models[modelKey].version;
+    // Ollama models are whatever the user has pulled locally, so any
+    // non-empty name is valid even outside the curated suggestion list.
+    if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
+      return currentVersion as LlmVersion;
+    }
     const validOptions = config.options as readonly LlmVersion[];
     if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
       return config.default;
     }
     return currentVersion as LlmVersion;
+  };
+
+  const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
+    const config = MODEL_VERSIONS[modelKey];
+    const labels = config.labels as Record<string, string>;
+
+    let options: readonly string[] = config.options;
+    if (modelKey === 'OLLAMA') {
+      if (ollamaModels.length > 0) {
+        options = ollamaModels;
+      }
+      // Keep the saved model selectable even when it is missing from the
+      // probed list (e.g. it was removed locally), so the Select always has
+      // a matching option for its current value.
+      const currentVersion = getCurrentVersion(modelKey);
+      if (!options.includes(currentVersion)) {
+        options = [...options, currentVersion];
+      }
+    }
+
+    return options.map((version) => {
+      const typedVersion = version as LlmVersion;
+      return {
+        label: labels[typedVersion] ?? typedVersion,
+        value: typedVersion,
+      };
+    });
   };
 
   return (
