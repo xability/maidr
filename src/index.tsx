@@ -29,7 +29,11 @@ import { Constant } from './util/constant';
  * ```
  */
 export interface MaidrLiveApi {
-  /** Replaces all data for the chart identified by `maidr.id`. */
+  /**
+   * Replaces all data for the chart identified by `maidr.id`.
+   * MAIDR keeps a reference to the passed object — do not mutate it after
+   * calling; pass a fresh object (or a structuredClone) for each update.
+   */
   setData: (maidr: Maidr) => boolean;
   /** Appends a single data point to a chart layer (streaming). */
   appendData: (
