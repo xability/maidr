@@ -235,7 +235,9 @@ abstract class AbstractLlmModel<T> implements LlmModel {
    * @param {string} currentText - The current position text
    * @param {string} message - The user's message
    * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
-   * @param {LlmVersion} [version] - The user-selected model version, overriding the provider default
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the provider
+   * default. Currently only Ollama consumes this (the local model name determines which model
+   * runs); cloud providers still use the version fixed at construction.
    * @returns {string} The JSON payload
    */
   protected abstract getPayload(
@@ -727,14 +729,14 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
 
   /**
    * Builds HTTP headers for Ollama requests. The local server needs no
-   * authentication, and the apiKey field holds the base URL, so the bearer
-   * header added by the base class is removed.
-   * @param {LlmRequest} request - The request containing connection details
+   * authentication (the apiKey field holds the base URL), so the base-class
+   * credential headers are intentionally not used.
+   * @param {LlmRequest} _request - The request containing connection details (unused)
    * @returns {Record<string, string>} The HTTP headers
    */
-  protected getHeaders(request: LlmRequest): Record<string, string> {
-    const headers = super.getHeaders(request);
-    delete headers.Authorization;
-    return headers;
+  protected getHeaders(_request: LlmRequest): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+    };
   }
 }
