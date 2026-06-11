@@ -149,6 +149,9 @@ export class Context implements Disposable {
     this.plotContext.clear();
 
     if (snapshot !== null && snapshot.shape === this.describeShape(figure)) {
+      // Same shape: restore positions and stack depth. The keyboard scope is
+      // intentionally left untouched so active modes (e.g. braille) survive
+      // the update.
       this.restoreNavigation(figure, snapshot, options);
       this._instructionContext = this.resolveInstructionContext(figure);
     } else {
@@ -198,8 +201,11 @@ export class Context implements Disposable {
    * @returns A comparable shape signature
    */
   private describeShape(figure: Figure): string {
+    // Include trace types so a same-count replacement with different layer
+    // types (e.g. bar -> line) resets navigation instead of restoring a
+    // position onto an incompatible data structure.
     return figure.subplots
-      .map(row => row.map(subplot => subplot.getSize()).join(','))
+      .map(row => row.map(subplot => subplot.traceTypes.join('+')).join(','))
       .join(';');
   }
 
@@ -241,9 +247,15 @@ export class Context implements Disposable {
         this.plotContext.push(subplot);
         this.plotContext.push(trace);
         break;
-      default:
-        this.plotContext.push(figure.subplots.flat().length === 1 ? trace : figure);
+      default: {
+        // Depth 1 is ambiguous: a multi-subplot figure starts at figure
+        // level, a single-subplot single-layer chart at trace level.
+        // Discriminate exactly like initializePlotContext does.
+        const figureState = figure.state;
+        const atFigureLevel = figureState.empty || figureState.size !== 1;
+        this.plotContext.push(atFigureLevel ? figure : trace);
         break;
+      }
     }
   }
 

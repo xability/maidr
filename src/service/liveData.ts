@@ -25,6 +25,8 @@ const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
   TraceType.STACKED,
   TraceType.DODGED,
   TraceType.NORMALIZED,
+  // Violin KDE data is ViolinKdePoint[][] (one group per violin) — unlike
+  // heatmap, which uses object-shaped data and cannot be appended to.
   TraceType.VIOLIN_KDE,
 ]);
 
@@ -286,6 +288,10 @@ export class LiveDataManager {
 
   /**
    * Replaces all data for a registered chart and notifies it.
+   *
+   * The manager stores the passed reference without cloning; callers must
+   * not mutate the object after handing it over. (Consumers clone before
+   * giving it to the model layer, which does take ownership.)
    *
    * @param maidr - The full replacement config; the target chart is `maidr.id`
    * @returns True when a registered chart was updated

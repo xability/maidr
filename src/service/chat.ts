@@ -21,6 +21,11 @@ export class ChatService {
   private readonly textService: TextService;
   private readonly models: Record<Llm, LlmModel>;
 
+  // Mutable: replaced on live data updates; serialized lazily so
+  // high-frequency streaming never pays for JSON.stringify.
+  private data: Maidr;
+  private cachedJson: string | null;
+
   /**
    * Creates a new ChatService instance with configured LLM models.
    * @param {DisplayService} display - The display service for managing UI focus
@@ -30,11 +35,14 @@ export class ChatService {
   public constructor(display: DisplayService, textService: TextService, maidr: Maidr) {
     this.display = display;
     this.textService = textService;
+    this.data = maidr;
+    this.cachedJson = null;
 
+    const getJson = (): string => this.getDataJson();
     this.models = {
-      OPENAI: new Gpt(display.plot, maidr, textService, 'gpt-4o'),
-      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, 'claude-3-7-sonnet-latest'),
-      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, 'gemini-2.0-flash'),
+      OPENAI: new Gpt(display.plot, getJson, textService, 'gpt-4o'),
+      ANTHROPIC_CLAUDE: new Claude(display.plot, getJson, textService, 'claude-3-7-sonnet-latest'),
+      GOOGLE_GEMINI: new Gemini(display.plot, getJson, textService, 'gemini-2.0-flash'),
     };
   }
 
@@ -49,16 +57,26 @@ export class ChatService {
   }
 
   /**
+   * Returns the serialized chart data shared with all LLM providers,
+   * serializing on first use after a data change and caching thereafter.
+   * @returns {string} The current chart data as a JSON string
+   */
+  public getDataJson(): string {
+    if (this.cachedJson === null) {
+      this.cachedJson = JSON.stringify(this.data);
+    }
+    return this.cachedJson;
+  }
+
+  /**
    * Refreshes the chart data shared with the LLM providers after a live
    * data update, so AI answers reflect the data currently on screen.
+   * Serialization is deferred until the next LLM request.
    * @param {Maidr} maidr - The updated MAIDR data structure
    */
   public updateData(maidr: Maidr): void {
-    // Serialize once and share the string across providers.
-    const json = JSON.stringify(maidr);
-    for (const model of Object.values(this.models)) {
-      model.setData(json);
-    }
+    this.data = maidr;
+    this.cachedJson = null;
   }
 
   /**
@@ -74,7 +92,6 @@ export class ChatService {
  */
 interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
-  setData: (json: string) => void;
 }
 
 /**
@@ -116,7 +133,7 @@ interface GeminiResponse {
  */
 abstract class AbstractLlmModel<T> implements LlmModel {
   protected readonly svg: HTMLElement;
-  protected json: string;
+  protected readonly getJson: () => string;
   protected readonly textService: TextService;
 
   private readonly maidrBaseUrl: string;
@@ -125,25 +142,17 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Creates a new AbstractLlmModel instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Supplier of the current chart data as JSON
+   *                                 (shared and cached by ChatService)
    * @param {TextService} textService - The text service for retrieving coordinate text
    */
-  protected constructor(svg: HTMLElement, maidr: Maidr, textService: TextService) {
+  protected constructor(svg: HTMLElement, getJson: () => string, textService: TextService) {
     this.svg = svg;
-    this.json = JSON.stringify(maidr);
+    this.getJson = getJson;
     this.textService = textService;
 
     this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
-  }
-
-  /**
-   * Replaces the serialized chart data sent with LLM prompts.
-   * Called when a live data update changes the chart contents.
-   * @param {string} json - The updated MAIDR data, already serialized
-   */
-  public setData(json: string): void {
-    this.json = json;
   }
 
   /**
@@ -161,7 +170,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
       const payload = this.getPayload(
         request.customInstruction,
-        this.json,
+        this.getJson(),
         image,
         currentPositionText,
         request.message,
@@ -271,12 +280,12 @@ class Gpt extends AbstractLlmModel<GptResponse> {
   /**
    * Creates a new GPT model instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Supplier of the current chart data as JSON
    * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {GptVersion} version - The GPT model version to use
    */
-  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: GptVersion) {
-    super(svg, maidr, textService);
+  public constructor(svg: HTMLElement, getJson: () => string, textService: TextService, version: GptVersion) {
+    super(svg, getJson, textService);
     this.version = version;
   }
 
@@ -388,12 +397,12 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   /**
    * Creates a new Claude model instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Supplier of the current chart data as JSON
    * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {ClaudeVersion} version - The Claude model version to use
    */
-  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: ClaudeVersion) {
-    super(svg, maidr, textService);
+  public constructor(svg: HTMLElement, getJson: () => string, textService: TextService, version: ClaudeVersion) {
+    super(svg, getJson, textService);
     this.version = version;
   }
 
@@ -504,12 +513,12 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
   /**
    * Creates a new Gemini model instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Supplier of the current chart data as JSON
    * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {GeminiVersion} version - The Gemini model version to use
    */
-  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: GeminiVersion) {
-    super(svg, maidr, textService);
+  public constructor(svg: HTMLElement, getJson: () => string, textService: TextService, version: GeminiVersion) {
+    super(svg, getJson, textService);
     this.version = version;
   }
 

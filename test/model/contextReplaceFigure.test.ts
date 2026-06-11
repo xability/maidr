@@ -129,6 +129,28 @@ describe('context.replaceFigure', () => {
     expect(context.active).toBe(newFigure.subplots[0][0].traces[1][0]);
   });
 
+  test('resets navigation when a layer type changes (same layer count)', () => {
+    const context = new Context(new Figure(createMaidr(3)));
+    context.active.isInitialEntry = false;
+    context.active.col = 2;
+
+    const lineMaidr: Maidr = {
+      id: 'live-test',
+      subplots: [[{
+        layers: [{
+          id: 'layer-0',
+          type: TraceType.LINE,
+          axes: { x: { label: 'X' }, y: { label: 'Y' } },
+          data: [[{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 3 }]],
+        }],
+      }]],
+    };
+    context.replaceFigure(() => new Figure(lineMaidr));
+
+    expect(context.active.isInitialEntry).toBe(true);
+    expect(context.active.col).toBe(0);
+  });
+
   test('resets navigation when the figure shape changes', () => {
     const context = new Context(new Figure(createMaidr(3)));
     context.active.isInitialEntry = false;

@@ -485,6 +485,37 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
+  /**
+   * Computes the trace state at an arbitrary position without moving the
+   * user's cursor or notifying observers. Used by monitor mode to sonify
+   * and announce a newly appended point while the user stays put.
+   *
+   * The state getters read `this.row`/`this.col` internally, so the cursor
+   * is moved temporarily and always restored in a finally block — this
+   * method is the single owner of that pattern.
+   *
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  public getStateAt(row: number, col: number): TraceState {
+    const previous = {
+      row: this.row,
+      col: this.col,
+      isInitialEntry: this.isInitialEntry,
+    };
+    try {
+      this.isInitialEntry = false;
+      this.row = row;
+      this.col = col;
+      return this.state;
+    } finally {
+      this.row = previous.row;
+      this.col = previous.col;
+      this.isInitialEntry = previous.isInitialEntry;
+    }
+  }
+
   public resetToInitialEntry(): void {
     this.isInitialEntry = true;
     this.row = 0;

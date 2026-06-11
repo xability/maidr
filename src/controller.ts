@@ -420,25 +420,13 @@ export class Controller implements Disposable {
     if (!trace) {
       return;
     }
-    // Temporarily move the trace cursor to the new point to compute its
-    // state, then restore — observers are only notified via MonitorService.
-    const previous = {
-      row: trace.row,
-      col: trace.col,
-      isInitialEntry: trace.isInitialEntry,
-    };
     try {
-      trace.isInitialEntry = false;
-      trace.row = appended.row;
-      trace.col = appended.col;
-      const state = trace.state;
+      // Compute the new point's state without moving the user's cursor;
+      // observers are only notified via MonitorService.
+      const state = trace.getStateAt(appended.row, appended.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);
-    } finally {
-      trace.row = previous.row;
-      trace.col = previous.col;
-      trace.isInitialEntry = previous.isInitialEntry;
     }
   }
 

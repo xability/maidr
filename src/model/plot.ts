@@ -556,6 +556,15 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   resetToInitialEntry: () => void;
 
   /**
+   * Computes the trace state at an arbitrary position without moving the
+   * cursor or notifying observers (used by monitor mode).
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  getStateAt: (row: number, col: number) => TraceState;
+
+  /**
    * Notifies all observers with a specific state
    * @param state - The trace state to send to observers
    */

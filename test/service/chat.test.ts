@@ -1,7 +1,7 @@
 import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { Maidr } from '@type/grammar';
-import { describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { ChatService } from '@service/chat';
 import { TraceType } from '@type/grammar';
 
@@ -40,41 +40,52 @@ function createChatService(maidr: Maidr): ChatService {
   return new ChatService(display, textService, maidr);
 }
 
-/**
- * Reads the serialized chart data held by each LLM model of a ChatService.
- * @param service - The chat service
- * @returns The JSON strings keyed by provider
- */
-function getModelJson(service: ChatService): Record<string, string> {
-  const models = (service as unknown as { models: Record<string, { json: string }> }).models;
-  return Object.fromEntries(
-    Object.entries(models).map(([name, model]) => [name, model.json]),
-  );
-}
+describe('chatService data serialization', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-describe('chatService.updateData', () => {
-  test('models start with the initial chart data', () => {
+  test('getDataJson serializes the initial chart data', () => {
     const initial = createMaidr(1);
     const service = createChatService(initial);
 
-    const json = getModelJson(service);
-    for (const value of Object.values(json)) {
-      expect(value).toBe(JSON.stringify(initial));
-    }
+    expect(service.getDataJson()).toBe(JSON.stringify(initial));
   });
 
-  test('updateData refreshes the chart data used by every LLM model', () => {
+  test('updateData refreshes the chart data shared with LLM providers', () => {
     const service = createChatService(createMaidr(1));
     const updated = createMaidr(42);
 
     service.updateData(updated);
 
-    const json = getModelJson(service);
-    expect(Object.keys(json)).toEqual(
-      expect.arrayContaining(['OPENAI', 'ANTHROPIC_CLAUDE', 'GOOGLE_GEMINI']),
-    );
-    for (const value of Object.values(json)) {
-      expect(value).toBe(JSON.stringify(updated));
+    expect(service.getDataJson()).toBe(JSON.stringify(updated));
+  });
+
+  test('serialization is lazy: streaming updates do not stringify', () => {
+    const initial = createMaidr(1);
+    const service = createChatService(initial);
+    const spy = jest.spyOn(JSON, 'stringify');
+
+    for (let i = 0; i < 10; i++) {
+      service.updateData(createMaidr(i));
     }
+
+    const chartCalls = spy.mock.calls.filter(
+      call => (call[0] as Maidr | undefined)?.id === 'chat-chart',
+    );
+    expect(chartCalls).toHaveLength(0);
+  });
+
+  test('serialization is cached across repeated reads', () => {
+    const service = createChatService(createMaidr(1));
+    const spy = jest.spyOn(JSON, 'stringify');
+
+    service.getDataJson();
+    service.getDataJson();
+
+    const chartCalls = spy.mock.calls.filter(
+      call => (call[0] as Maidr | undefined)?.id === 'chat-chart',
+    );
+    expect(chartCalls).toHaveLength(1);
   });
 });
