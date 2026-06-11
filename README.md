@@ -20,13 +20,14 @@ and encourages a multi-modal exploration on visualization.
 2. [Data Schema](#data-schema)
 3. [React Integration](#react-integration)
 4. [Controls](#controls)
-5. [Braille Generation](#braille-generation)
-6. [Examples](#examples)
-7. [Binders](#binders)
-8. [Papers](#papers)
-9. [License](#license)
-10. [Contact](#contact)
-11. [Acknowledgments](#acknowledgments)
+5. [Live & Streaming Data](#live--streaming-data)
+6. [Braille Generation](#braille-generation)
+7. [Examples](#examples)
+8. [Binders](#binders)
+9. [Papers](#papers)
+10. [License](#license)
+11. [Contact](#contact)
+12. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
@@ -109,6 +110,11 @@ For the full React guide with TypeScript types reference, data examples for all 
 
 maidr provides keyboard-based interaction for navigating and exploring plots. Users can move through data points with arrow keys and toggle between braille, text, and sonification modes.
 For the complete list of keyboard shortcuts and interaction controls, see the [Controls documentation](docs/CONTROLS.md).
+
+## Live & Streaming Data
+
+maidr supports realtime data updates for live-updating visualizations (stock tickers, sensor dashboards, live metrics). Charts configured with `live: true` can be updated in place via `window.maidrLive.setData()` / `appendData()` (script tag) or by updating the `data` prop (React), with an optional `maxWidth` sliding window for streaming. Pressing **M** toggles monitor mode, which auto-sonifies and announces newly appended data points.
+For the full API and examples, see the [Live & Streaming Data documentation](docs/LIVE_DATA.md).
 
 ## Braille Generation
 

@@ -49,6 +49,17 @@ export class ChatService {
   }
 
   /**
+   * Refreshes the chart data shared with the LLM providers after a live
+   * data update, so AI answers reflect the data currently on screen.
+   * @param {Maidr} maidr - The updated MAIDR data structure
+   */
+  public updateData(maidr: Maidr): void {
+    for (const model of Object.values(this.models)) {
+      model.setData(maidr);
+    }
+  }
+
+  /**
    * Toggles the focus to the chat scope.
    */
   public toggle(): void {
@@ -61,6 +72,7 @@ export class ChatService {
  */
 interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
+  setData: (maidr: Maidr) => void;
 }
 
 /**
@@ -102,7 +114,7 @@ interface GeminiResponse {
  */
 abstract class AbstractLlmModel<T> implements LlmModel {
   protected readonly svg: HTMLElement;
-  protected readonly json: string;
+  protected json: string;
   protected readonly textService: TextService;
 
   private readonly maidrBaseUrl: string;
@@ -121,6 +133,15 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
     this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
+  }
+
+  /**
+   * Replaces the serialized chart data sent with LLM prompts.
+   * Called when a live data update changes the chart contents.
+   * @param {Maidr} maidr - The updated MAIDR data structure
+   */
+  public setData(maidr: Maidr): void {
+    this.json = JSON.stringify(maidr);
   }
 
   /**

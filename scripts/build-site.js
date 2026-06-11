@@ -67,6 +67,7 @@ const PAGE_DESCRIPTIONS = {
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
   'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+  'Live & Streaming Data': 'How to update MAIDR charts in realtime — setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
   'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
 };
 
@@ -731,6 +732,7 @@ if (fs.existsSync(docsSource)) {
         SCHEMA: 'Data Schema',
         BRAILLE: 'Braille Generation',
         CONTROLS: 'Keyboard Controls',
+        LIVE_DATA: 'Live & Streaming Data',
         VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
       };
       const title = titleMap[baseName] ?? baseName;
