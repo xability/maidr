@@ -204,6 +204,11 @@ export class Context implements Disposable {
     // Include trace types so a same-count replacement with different layer
     // types (e.g. bar -> line) resets navigation instead of restoring a
     // position onto an incompatible data structure.
+    //
+    // Group/series counts within a layer are deliberately NOT included:
+    // appendData can add a new series (groupIndex === count), and that must
+    // preserve the user's position. Restored indices are clamped into the
+    // new bounds, so a differing series count can never land out of range.
     return figure.subplots
       .map(row => row.map(subplot => subplot.traceTypes.join('+')).join(','))
       .join(';');

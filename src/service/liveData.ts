@@ -46,6 +46,10 @@ export type LiveDataPoint
 
 /**
  * Options identifying the target layer (and group) for an appended data point.
+ *
+ * Each append rebuilds the chart model from the full data, so per-update
+ * cost scales with total chart size. For high-frequency streams, set
+ * `Maidr.maxWidth` to bound the data (and the cost) per series.
  */
 export interface AppendDataOptions {
   /** Row of the target subplot in the subplot grid. Defaults to 0. */
