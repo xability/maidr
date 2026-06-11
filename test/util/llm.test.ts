@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
-import { getModelDisplayName, normalizeOllamaBaseUrl } from '@util/llm';
+import { getModelDisplayName, isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 
 describe('normalizeOllamaBaseUrl', () => {
   test('returns an already-clean URL unchanged', () => {
@@ -29,6 +29,25 @@ describe('normalizeOllamaBaseUrl', () => {
 
   test('falls back to the default for undefined input', () => {
     expect(normalizeOllamaBaseUrl(undefined)).toBe(DEFAULT_OLLAMA_BASE_URL);
+  });
+});
+
+describe('isValidOllamaBaseUrl', () => {
+  test('accepts http URLs', () => {
+    expect(isValidOllamaBaseUrl('http://localhost:11434')).toBe(true);
+  });
+
+  test('accepts https URLs', () => {
+    expect(isValidOllamaBaseUrl('https://ollama.example.com')).toBe(true);
+  });
+
+  test('rejects non-web schemes', () => {
+    expect(isValidOllamaBaseUrl('file:///etc/hosts')).toBe(false);
+    expect(isValidOllamaBaseUrl('ftp://example.com')).toBe(false);
+  });
+
+  test('accepts blank input via the default base URL fallback', () => {
+    expect(isValidOllamaBaseUrl('')).toBe(true);
   });
 });
 

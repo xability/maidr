@@ -1,5 +1,5 @@
 import type { Llm } from '@type/llm';
-import { normalizeOllamaBaseUrl } from '@util/llm';
+import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 
 // Local servers have no infrastructure-level timeouts, so cap the probe to
 // keep the settings UI from spinning indefinitely on a hung Ollama instance.
@@ -155,9 +155,7 @@ export class LlmValidationService {
    */
   public static async probeOllamaServer(baseUrl: string): Promise<OllamaProbeResult> {
     const url = normalizeOllamaBaseUrl(baseUrl);
-    // Only plain web schemes make sense for an Ollama server; rejecting
-    // anything else avoids handing arbitrary protocols to fetch.
-    if (!/^https?:\/\//i.test(url)) {
+    if (!isValidOllamaBaseUrl(url)) {
       return { reachable: false, models: [] };
     }
     try {

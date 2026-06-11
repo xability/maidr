@@ -13,6 +13,17 @@ export function normalizeOllamaBaseUrl(baseUrl?: string): string {
 }
 
 /**
+ * Checks that an Ollama base URL uses a plain web scheme. Only http(s) makes
+ * sense for an Ollama server, and rejecting anything else avoids handing
+ * arbitrary protocols (file:, etc.) to fetch in both the probe and chat paths.
+ * @param baseUrl - The user-provided server base URL
+ * @returns True when the normalized URL starts with http:// or https://
+ */
+export function isValidOllamaBaseUrl(baseUrl?: string): boolean {
+  return /^https?:\/\//i.test(normalizeOllamaBaseUrl(baseUrl));
+}
+
+/**
  * Converts an LLM provider key to a human-readable display name.
  * @param modelKey - The LLM provider identifier
  * @returns The display name for the provider

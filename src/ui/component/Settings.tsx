@@ -34,7 +34,7 @@ import {
   Typography,
 } from '@mui/material';
 import { LlmValidationService } from '@service/llmValidation';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
   MAX_BRAILLE_LINES,
@@ -61,23 +61,6 @@ const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 // cannot drift apart and announce a shortcut that no longer fires.
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
-
-function getValidVersion(
-  modelKey: Llm,
-  currentVersion: string | undefined,
-): LlmVersion {
-  const config = MODEL_VERSIONS[modelKey];
-  // Ollama models are whatever the user has pulled locally, so any non-empty
-  // name is valid even when it is not in the curated suggestion list.
-  if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
-    return currentVersion as LlmVersion;
-  }
-  const validOptions = config.options as readonly LlmVersion[];
-  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-    return config.default;
-  }
-  return currentVersion as LlmVersion;
-}
 
 interface SettingRowProps {
   label: string;

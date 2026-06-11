@@ -5,7 +5,7 @@ import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { Scope } from '@type/event';
 import { Api } from '@util/api';
-import { normalizeOllamaBaseUrl } from '@util/llm';
+import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
@@ -639,11 +639,18 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
   }
 
   /**
-   * Gets the Ollama chat API URL on the configured local server.
+   * Gets the Ollama chat API URL on the configured local server. Settings can
+   * be saved with an unvalidated URL, so the same scheme guard used by the
+   * reachability probe applies here; the thrown error is caught by
+   * getLlmResponse and surfaced as a chat error message.
    * @param {string} [baseUrl] - The Ollama server base URL (stored in the apiKey field)
    * @returns {string} The Ollama chat API URL
+   * @throws {Error} If the base URL does not use an http(s) scheme
    */
   protected getApiUrl(baseUrl?: string): string {
+    if (!isValidOllamaBaseUrl(baseUrl)) {
+      throw new Error('Invalid Ollama server URL: it must start with http:// or https://');
+    }
     return `${normalizeOllamaBaseUrl(baseUrl)}/api/chat`;
   }
 

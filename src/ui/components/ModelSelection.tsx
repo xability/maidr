@@ -1,6 +1,6 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
 import React from 'react';
@@ -48,20 +48,8 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     chatViewModel.updateWelcomeMessage();
   };
 
-  const getCurrentVersion = (modelKey: Llm): LlmVersion => {
-    const config = MODEL_VERSIONS[modelKey];
-    const currentVersion = currentSettings.llm.models[modelKey].version;
-    // Ollama models are whatever the user has pulled locally, so any
-    // non-empty name is valid even outside the curated suggestion list.
-    if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
-      return currentVersion as LlmVersion;
-    }
-    const validOptions = config.options as readonly LlmVersion[];
-    if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-      return config.default;
-    }
-    return currentVersion as LlmVersion;
-  };
+  const getCurrentVersion = (modelKey: Llm): LlmVersion =>
+    getValidVersion(modelKey, currentSettings.llm.models[modelKey].version);
 
   const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
     const config = MODEL_VERSIONS[modelKey];

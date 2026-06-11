@@ -1,4 +1,4 @@
-import type { LlmVersion, OllamaVersion } from '@type/llm';
+import type { Llm, LlmVersion, OllamaVersion } from '@type/llm';
 
 /**
  * Available OpenAI GPT model versions.
@@ -79,7 +79,7 @@ export const MODEL_VERSIONS: ModelVersions = {
   },
   // Curated suggestions only; the actual list of installed models is probed
   // from the local Ollama server (/api/tags) and replaces these in the UI
-  // whenever the server is reachable.
+  // whenever the server is reachable. See getValidVersion below.
   OLLAMA: {
     default: 'llama3.2',
     options: ['llama3.2', 'llama3.2-vision', 'llama3.1', 'mistral', 'gemma3', 'phi4', 'llava'] as const,
@@ -94,3 +94,27 @@ export const MODEL_VERSIONS: ModelVersions = {
     },
   },
 };
+
+/**
+ * Resolves a saved model version to a valid one for the given provider,
+ * falling back to the provider default when the saved value is unrecognized.
+ * @param modelKey - The LLM provider identifier
+ * @param currentVersion - The saved model version, if any
+ * @returns The validated model version
+ */
+export function getValidVersion(
+  modelKey: Llm,
+  currentVersion: string | undefined,
+): LlmVersion {
+  const config = MODEL_VERSIONS[modelKey];
+  // Ollama models are whatever the user has pulled locally, so any non-empty
+  // name is valid even when it is not in the curated suggestion list.
+  if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
+    return currentVersion as LlmVersion;
+  }
+  const validOptions = config.options as readonly LlmVersion[];
+  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
+    return config.default;
+  }
+  return currentVersion as LlmVersion;
+}
