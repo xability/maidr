@@ -1,7 +1,7 @@
 import type { NotificationService } from '@service/notification';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { PlotState, TraceState } from '@type/state';
+import type { TraceState } from '@type/state';
 
 /**
  * Monitor mode for live charts.
@@ -26,8 +26,8 @@ export class MonitorService implements Disposable {
    */
   public constructor(
     isLive: boolean,
-    private readonly audio: Observer<PlotState>,
-    private readonly text: Observer<PlotState>,
+    private readonly audio: Observer<TraceState>,
+    private readonly text: Observer<TraceState>,
     private readonly notification: NotificationService,
   ) {
     this.isLive = isLive;

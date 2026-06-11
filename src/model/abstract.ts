@@ -494,9 +494,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * is moved temporarily and always restored in a finally block — this
    * method is the single owner of that pattern.
    *
-   * Re-entrancy hazard: this is only safe because state getters are
-   * synchronous and never notify observers. If a getter ever becomes async
-   * or triggers notifications, callers could observe the temporary cursor.
+   * Re-entrancy hazard: this is only safe because the entire call chain is
+   * synchronous (no await points), so timers (e.g. autoplay ticks) cannot
+   * interleave before the finally-restore, and state getters never notify
+   * observers. If a getter ever becomes async or triggers notifications,
+   * callers could observe the temporary cursor.
    *
    * @param row - The row of the position to compute state for
    * @param col - The column of the position to compute state for

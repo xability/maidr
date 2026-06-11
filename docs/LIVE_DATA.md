@@ -70,7 +70,7 @@ window.maidrLive.appendData(
 
 The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
 
-**Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead.
+**Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
 
 ### `window.maidrLive.setData(maidr)`
 
@@ -198,7 +198,7 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 ## Behavior Details
 
 - **Silent updates:** a data update by itself never speaks or plays audio — only monitor mode produces output, and only for appended points. This keeps screen reader users in control.
-- **Position preservation:** updates restore the user's subplot, layer, and point position, clamped into the new data's bounds.
+- **Position preservation:** updates restore the user's subplot, layer, and point position, clamped into the new data's bounds. This includes series-count changes: a `setData` that removes the series the user was on clamps the cursor to the nearest remaining series rather than resetting navigation.
 - **Modes:** text, braille, sonification, and review modes stay enabled across updates. Braille content refreshes on the next navigation.
 - **Visual highlight:** highlights re-bind on each update by re-querying the layer's `selectors`. The selectors must remain *stable across re-renders* — if your charting library regenerates elements with different classes or ids each frame (common with keyed D3/Vega re-renders), pin a stable class on the data elements and use that in `selectors`. When the selector matches a different number of elements than data points, highlighting is disabled for that update (everything else keeps working).
 - **Performance:** each update rebuilds the chart model from the full data, so the cost scales with total chart size, not with the size of the appended point. For streams faster than a few updates per second, set `maxWidth` — it bounds the data (and therefore the per-update cost) regardless of how long the stream runs.

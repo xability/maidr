@@ -1,6 +1,6 @@
 import type { NotificationService } from '@service/notification';
 import type { Observer } from '@type/observable';
-import type { PlotState, TraceState } from '@type/state';
+import type { TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { MonitorService } from '@service/monitor';
 
@@ -11,8 +11,8 @@ import { MonitorService } from '@service/monitor';
  */
 function createMonitorService(isLive: boolean): {
   service: MonitorService;
-  audio: Observer<PlotState>;
-  text: Observer<PlotState>;
+  audio: Observer<TraceState>;
+  text: Observer<TraceState>;
   notification: NotificationService;
 } {
   const audio = { update: jest.fn() };
