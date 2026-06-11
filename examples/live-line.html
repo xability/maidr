@@ -76,6 +76,10 @@
         var tick = 2;
         var value = 49;
         var timer = null;
+        // The SVG redraw keeps its own copy of the points: the drawing code
+        // below stands in for your charting library, which renders
+        // independently of MAIDR. Keep its window size equal to maxWidth so
+        // the visual stays in sync with what MAIDR exposes.
         var windowSize = 20;
         var points = maidr.subplots[0][0].layers[0].data[0].slice();
 

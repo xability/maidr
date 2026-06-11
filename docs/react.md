@@ -315,18 +315,18 @@ function LiveSensorChart() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setData(prev => ({
-        ...prev,
-        subplots: [[{
-          layers: [{
-            ...prev.subplots[0][0].layers[0],
-            data: [[
-              ...(prev.subplots[0][0].layers[0].data as { x: number; y: number }[][])[0],
-              { x: Date.now(), y: 30 + Math.random() * 40 },
-            ]],
-          }],
-        }]],
-      }));
+      setData((prev) => {
+        const points = (prev.subplots[0][0].layers[0].data as { x: number; y: number }[][])[0];
+        // Note: `maxWidth` only applies to appendMaidrData; when replacing
+        // data via the prop (setData), trim the window yourself.
+        const next = [...points, { x: Date.now(), y: 30 + Math.random() * 40 }].slice(-20);
+        return {
+          ...prev,
+          subplots: [[{
+            layers: [{ ...prev.subplots[0][0].layers[0], data: [next] }],
+          }]],
+        };
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -339,7 +339,7 @@ function LiveSensorChart() {
 }
 ```
 
-For streaming individual points, the imperative helpers avoid rebuilding the data object yourself:
+For streaming individual points, prefer the imperative helpers: they avoid rebuilding the data object by hand and apply the `maxWidth` sliding window automatically:
 
 ```tsx
 import { appendMaidrData, setMaidrData } from 'maidr/react';

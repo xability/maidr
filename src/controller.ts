@@ -45,6 +45,7 @@ import { resolveSubplotLayout } from '@util/subplotLayout';
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
  */
 export class Controller implements Disposable {
+  // Mutable: replaced in place on live data updates (see updateData).
   private figure: Figure;
   private readonly context: Context;
 
@@ -391,12 +392,15 @@ export class Controller implements Disposable {
         = this.figure.row === appended.subplotRow
           && this.figure.col === appended.subplotCol;
       const activeSubplot = this.figure.activeSubplot;
+      // Subplot traces are built as one single-trace row per layer
+      // (traces[layerIndex][0]), so the subplot's active row IS the layer index.
       const onAppendedTrace
         = onAppendedSubplot && activeSubplot.row === appended.layerIndex;
       const onAppendedGroup
         = onAppendedTrace && activeSubplot.activeTrace.row === appended.row;
       return onAppendedGroup ? appended.trimmed : 0;
-    } catch {
+    } catch (error) {
+      console.warn('[maidr] Failed to resolve sliding-window shift:', error);
       return 0;
     }
   }
@@ -416,25 +420,25 @@ export class Controller implements Disposable {
     if (!trace) {
       return;
     }
+    // Temporarily move the trace cursor to the new point to compute its
+    // state, then restore — observers are only notified via MonitorService.
+    const previous = {
+      row: trace.row,
+      col: trace.col,
+      isInitialEntry: trace.isInitialEntry,
+    };
     try {
-      // Temporarily move the trace cursor to the new point to compute its
-      // state, then restore — observers are only notified via MonitorService.
-      const previous = {
-        row: trace.row,
-        col: trace.col,
-        isInitialEntry: trace.isInitialEntry,
-      };
       trace.isInitialEntry = false;
       trace.row = appended.row;
       trace.col = appended.col;
       const state = trace.state;
-      trace.row = previous.row;
-      trace.col = previous.col;
-      trace.isInitialEntry = previous.isInitialEntry;
-
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);
+    } finally {
+      trace.row = previous.row;
+      trace.col = previous.col;
+      trace.isInitialEntry = previous.isInitialEntry;
     }
   }
 

@@ -1,6 +1,6 @@
 import type { BarPoint, LinePoint, Maidr } from '@type/grammar';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { appendPointToMaidr, LiveDataManager } from '@service/liveData';
+import { appendPointToMaidr, cloneMaidrData, LiveDataManager } from '@service/liveData';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -198,6 +198,34 @@ describe('appendPointToMaidr', () => {
     expect(data[0][0]).toEqual({ x: 2, y: 20 });
     expect(data[0][1]).toEqual({ x: 3, y: 30 });
     expect(result!.appended.trimmed).toBe(1);
+  });
+});
+
+describe('cloneMaidrData', () => {
+  test('deep-clones the data so mutations do not affect the original', () => {
+    const maidr = createBarMaidr();
+    const clone = cloneMaidrData(maidr);
+
+    (clone.subplots[0][0].layers[0].data as BarPoint[]).push({ x: 'C', y: 3 });
+
+    expect(maidr.subplots[0][0].layers[0].data).toHaveLength(2);
+    expect(clone.subplots[0][0].layers[0].data).toHaveLength(3);
+  });
+
+  test('preserves the non-serializable onNavigate callback by reference', () => {
+    const maidr = createBarMaidr();
+    const onNavigate = jest.fn();
+    maidr.onNavigate = onNavigate;
+
+    const clone = cloneMaidrData(maidr);
+
+    expect(clone.onNavigate).toBe(onNavigate);
+  });
+
+  test('omits onNavigate when the original has none', () => {
+    const clone = cloneMaidrData(createBarMaidr());
+
+    expect(clone.onNavigate).toBeUndefined();
   });
 });
 

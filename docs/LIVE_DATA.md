@@ -163,7 +163,7 @@ For static charts (no `live` flag), prop changes keep the existing behavior: the
 
 ### 2. Imperative helpers (streaming)
 
-`setMaidrData` and `appendMaidrData` mirror the script-tag API:
+`setMaidrData` and `appendMaidrData` mirror the script-tag API. Prefer `appendMaidrData` for streaming: it applies the `maxWidth` sliding window automatically, whereas prop updates and `setMaidrData` replace data verbatim:
 
 ```tsx
 import { appendMaidrData, setMaidrData } from 'maidr/react';

@@ -74,6 +74,7 @@ export class HighContrastService implements Disposable {
   private readonly settingsService: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
+  // Mutable: replaced in place on live data updates (see setFigure).
   private figure: Figure;
   private readonly context: Context;
 

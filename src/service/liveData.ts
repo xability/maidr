@@ -15,9 +15,6 @@ import type {
 import { TraceType } from '@type/grammar';
 
 /**
- * A single data point that can be appended to a live chart layer.
- */
-/**
  * Trace types whose layer data is a nested array of groups
  * (`LiveDataPoint[][]`) rather than a flat point array. Used so appending
  * works even when the outer array starts empty (no shape to inspect).
@@ -31,6 +28,9 @@ const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
   TraceType.VIOLIN_KDE,
 ]);
 
+/**
+ * A single data point that can be appended to a live chart layer.
+ */
 export type LiveDataPoint
   = | BarPoint
     | BoxPoint
@@ -368,7 +368,7 @@ export class LiveDataManager {
       return id;
     }
     if (this.instances.size === 1) {
-      return this.instances.keys().next().value as string;
+      return this.instances.keys().next().value!;
     }
     console.warn(
       `[maidr] appendData: chart id is required when ${this.instances.size} charts are registered`,
@@ -379,6 +379,9 @@ export class LiveDataManager {
 
 /**
  * Shared singleton routing live data updates across all chart instances.
+ *
+ * Tests should construct their own `new LiveDataManager()` instead of using
+ * this instance, since state registered here is shared module-wide.
  */
 export const liveDataManager = new LiveDataManager();
 

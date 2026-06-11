@@ -67,7 +67,7 @@ describe('context.replaceFigure', () => {
     oldTrace.col = 1;
 
     const newFigure = new Figure(createMaidr(4));
-    context.replaceFigure(newFigure);
+    context.replaceFigure(() => newFigure);
 
     expect(context.active).not.toBe(oldTrace);
     expect(context.active.col).toBe(1);
@@ -80,7 +80,7 @@ describe('context.replaceFigure', () => {
     context.active.isInitialEntry = false;
     context.active.col = 4;
 
-    context.replaceFigure(new Figure(createMaidr(2)));
+    context.replaceFigure(() => new Figure(createMaidr(2)));
 
     expect(context.active.col).toBe(1);
   });
@@ -90,7 +90,7 @@ describe('context.replaceFigure', () => {
     context.active.isInitialEntry = false;
     context.active.col = 2;
 
-    context.replaceFigure(new Figure(createMaidr(5)), { activeColShift: 1 });
+    context.replaceFigure(() => new Figure(createMaidr(5)), { activeColShift: 1 });
 
     expect(context.active.col).toBe(1);
   });
@@ -100,7 +100,7 @@ describe('context.replaceFigure', () => {
     context.active.isInitialEntry = false;
     context.active.col = 0;
 
-    context.replaceFigure(new Figure(createMaidr(5)), { activeColShift: 1 });
+    context.replaceFigure(() => new Figure(createMaidr(5)), { activeColShift: 1 });
 
     expect(context.active.col).toBe(0);
   });
@@ -108,7 +108,7 @@ describe('context.replaceFigure', () => {
   test('keeps initial-entry state when the user has not navigated yet', () => {
     const context = new Context(new Figure(createMaidr(3)));
 
-    context.replaceFigure(new Figure(createMaidr(4)));
+    context.replaceFigure(() => new Figure(createMaidr(4)));
 
     expect(context.active.isInitialEntry).toBe(true);
     expect(context.active.col).toBe(0);
@@ -124,7 +124,7 @@ describe('context.replaceFigure', () => {
     oldFigure.subplots[0][0].row = 1;
 
     const newFigure = new Figure(createMaidr(3, 3));
-    context.replaceFigure(newFigure);
+    context.replaceFigure(() => newFigure);
 
     expect(context.active).toBe(newFigure.subplots[0][0].traces[1][0]);
   });
@@ -135,7 +135,7 @@ describe('context.replaceFigure', () => {
     context.active.col = 2;
 
     const multiPanel = new Figure(createMultiPanelMaidr(1, 2));
-    context.replaceFigure(multiPanel);
+    context.replaceFigure(() => multiPanel);
 
     expect(context.active).toBe(multiPanel);
     expect(context.scope).toBe(Scope.SUBPLOT);

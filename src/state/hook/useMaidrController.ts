@@ -187,6 +187,11 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // React-driven data updates: for live charts, a new `data` prop replaces
   // the chart data in place (equivalent to setData). Static charts keep the
   // existing behavior — the new data is picked up on the next focus-in.
+  //
+  // Data ownership chain: prop changes on live charts route through
+  // liveDataManager.setData, whose listener (above) is the single writer of
+  // latestDataRef for live updates; non-live prop changes write latestDataRef
+  // directly and only sync the manager's stored copy.
   const previousDataRef = useRef<MaidrData>(data);
   useEffect(() => {
     if (previousDataRef.current === data) {

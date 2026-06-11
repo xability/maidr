@@ -358,9 +358,8 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
-    // The subplot highlight element is a hidden clone inserted at
-    // construction; remove it so repeated live updates don't accumulate
-    // stale clones in the DOM.
+    // Remove the cloned highlight element to avoid stale DOM nodes
+    // accumulating after live data updates.
     this.highlightValue?.remove();
     super.dispose();
   }

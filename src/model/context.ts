@@ -66,6 +66,7 @@ export class Context implements Disposable {
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
   private readonly navigationService: NavigationService;
+  // Mutable: replaced in place on live data updates (see replaceFigure).
   private figure: Figure;
   private _instructionContext: Plot;
   private isRotorActive: boolean;
@@ -137,13 +138,13 @@ export class Context implements Disposable {
    * @returns The newly created figure
    */
   public replaceFigure(
-    createFigure: (() => Figure) | Figure,
+    createFigure: () => Figure,
     options: ReplaceFigureOptions = {},
   ): Figure {
     const snapshot = this.captureNavigationSnapshot();
     this.figure.dispose();
 
-    const figure = typeof createFigure === 'function' ? createFigure() : createFigure;
+    const figure = createFigure();
     this.figure = figure;
     this.plotContext.clear();
 
