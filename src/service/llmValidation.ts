@@ -21,6 +21,17 @@ interface OllamaTagsResponse {
 }
 
 /**
+ * Result of probing a local Ollama server: reachability plus the installed
+ * models, so a single request can answer both questions.
+ */
+export interface OllamaProbeResult {
+  /** Indicates whether the Ollama server responded successfully */
+  reachable: boolean;
+  /** Names of the models installed on the server (empty when unreachable) */
+  models: string[];
+}
+
+/**
  * Normalizes an Ollama base URL by trimming whitespace and trailing slashes.
  * @param baseUrl - The user-provided server base URL
  * @returns The normalized base URL
@@ -131,22 +142,36 @@ export class LlmValidationService {
    * @returns Promise resolving to validation result
    */
   private static async validateOllamaServer(baseUrl: string): Promise<ValidationResponse> {
-    const unreachable: ValidationResponse = {
+    const { reachable } = await this.probeOllamaServer(baseUrl);
+    if (reachable) {
+      return { isValid: true };
+    }
+    return {
       isValid: false,
       error: 'Cannot reach Ollama server. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.',
     };
+  }
+
+  /**
+   * Probes a local Ollama server, answering both reachability and the list of
+   * installed models with a single request so callers that need both (e.g.
+   * the settings dialog) avoid duplicate round-trips.
+   * @param baseUrl - The Ollama server base URL
+   * @returns Promise resolving to the probe result
+   */
+  public static async probeOllamaServer(baseUrl: string): Promise<OllamaProbeResult> {
     try {
       const response = await fetch(`${normalizeOllamaBaseUrl(baseUrl)}/api/tags`, {
         method: 'GET',
-      }).catch(() => ({ ok: false }));
-
-      if (response.ok) {
-        return { isValid: true };
+      });
+      if (!response.ok) {
+        return { reachable: false, models: [] };
       }
 
-      return unreachable;
+      const data = await response.json() as OllamaTagsResponse;
+      return { reachable: true, models: (data.models ?? []).map(model => model.name) };
     } catch {
-      return unreachable;
+      return { reachable: false, models: [] };
     }
   }
 
@@ -156,19 +181,8 @@ export class LlmValidationService {
    * @returns Promise resolving to the installed model names, or an empty array if unreachable
    */
   public static async fetchOllamaModels(baseUrl: string): Promise<string[]> {
-    try {
-      const response = await fetch(`${normalizeOllamaBaseUrl(baseUrl)}/api/tags`, {
-        method: 'GET',
-      });
-      if (!response.ok) {
-        return [];
-      }
-
-      const data = await response.json() as OllamaTagsResponse;
-      return (data.models ?? []).map(model => model.name);
-    } catch {
-      return [];
-    }
+    const { models } = await this.probeOllamaServer(baseUrl);
+    return models;
   }
 
   /**

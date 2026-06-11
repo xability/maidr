@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterAll, afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { LlmValidationService } from '@service/llmValidation';
 
 describe('LlmValidationService (Ollama)', () => {
   const fetchMock = jest.fn<typeof fetch>();
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -10,6 +11,12 @@ describe('LlmValidationService (Ollama)', () => {
 
   afterEach(() => {
     fetchMock.mockReset();
+  });
+
+  // Restore the real fetch so the mock cannot leak into other test suites
+  // running in the same Jest worker environment.
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
   });
 
   function mockTagsResponse(models: string[]): void {
@@ -61,6 +68,25 @@ describe('LlmValidationService (Ollama)', () => {
         'http://localhost:11434/api/tags',
         { method: 'GET' },
       );
+    });
+  });
+
+  describe('probeOllamaServer', () => {
+    test('answers reachability and installed models with a single request', async () => {
+      mockTagsResponse(['llama3.2']);
+
+      const probe = await LlmValidationService.probeOllamaServer('http://localhost:11434');
+
+      expect(probe).toEqual({ reachable: true, models: ['llama3.2'] });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    test('reports unreachable without throwing', async () => {
+      fetchMock.mockRejectedValue(new Error('connection refused'));
+
+      const probe = await LlmValidationService.probeOllamaServer('http://localhost:11434');
+
+      expect(probe).toEqual({ reachable: false, models: [] });
     });
   });
 

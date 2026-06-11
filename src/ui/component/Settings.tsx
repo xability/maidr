@@ -219,15 +219,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(
-        modelKey,
-        apiKey,
-      );
-      setIsValid(result.isValid);
       if (isOllama) {
-        setInstalledModels(
-          result.isValid ? await LlmValidationService.fetchOllamaModels(apiKey) : [],
+        // A single probe answers both reachability and the installed-model
+        // list, avoiding a second /api/tags round-trip per debounce cycle.
+        const probe = await LlmValidationService.probeOllamaServer(apiKey);
+        setIsValid(probe.reachable);
+        setInstalledModels(probe.models);
+      } else {
+        const result = await LlmValidationService.validateApiKey(
+          modelKey,
+          apiKey,
         );
+        setIsValid(result.isValid);
       }
     } catch (error) {
       setIsValid(false);
