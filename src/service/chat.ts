@@ -692,7 +692,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
 
     // Ollama expects raw base64 without the data-URL prefix. Multimodal
     // models (e.g. llava, llama3.2-vision) use the image; text-only models
-    // ignore it.
+    // ignore it. Omit the field entirely if conversion produced nothing.
     const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
 
     return JSON.stringify({
@@ -709,7 +709,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
         {
           role: 'user',
           content: formatUserPrompt(context),
-          images: [rawBase64],
+          ...(rawBase64 ? { images: [rawBase64] } : {}),
         },
       ],
     });

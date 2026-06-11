@@ -203,6 +203,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       if (!isStale()) {
         setIsValid(null);
         setInstalledModels([]);
+        // Also clear the spinner: a superseded in-flight request skips its
+        // own finally-cleanup as stale, so this cycle owns the state.
+        setIsValidating(false);
       }
       return;
     }
