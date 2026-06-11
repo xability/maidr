@@ -27,6 +27,8 @@ function createMonitorService(isLive: boolean): {
  * @returns A trace state stub
  */
 function createTraceState(): TraceState {
+  // Partial stub — MonitorService only checks `.empty` and forwards the
+  // state object untouched to its observers.
   return { empty: false, type: 'trace' } as TraceState;
 }
 

@@ -55,6 +55,9 @@ declare global {
 }
 
 // Expose the realtime data API globally for script-tag consumers.
+if (window.maidrLive) {
+  console.warn('[maidr] window.maidrLive is being redefined — was the maidr script loaded twice?');
+}
 window.maidrLive = {
   setData: maidr => liveDataManager.setData(maidr),
   appendData: (point, options) => liveDataManager.appendData(point, options),

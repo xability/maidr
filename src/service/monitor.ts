@@ -76,6 +76,9 @@ export class MonitorService implements Disposable {
     if (!this.enabled || state.empty) {
       return;
     }
+    // Deliberate direct update() calls instead of notifyStateUpdate():
+    // monitoring must announce the new point without moving the user's
+    // cursor or fanning out to the other observers (highlight, braille...).
     this.audio.update(state);
     this.text.update(state);
   }

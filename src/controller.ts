@@ -414,6 +414,8 @@ export class Controller implements Disposable {
       return;
     }
     const subplot = this.figure.subplots[appended.subplotRow]?.[appended.subplotCol];
+    // Subplots hold one single-trace row per layer (see Subplot.activeLayerIndex),
+    // so the appended layer's trace lives at traces[layerIndex][0].
     const trace = subplot?.traces[appended.layerIndex]?.[0];
     if (!trace) {
       return;

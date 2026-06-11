@@ -59,6 +59,9 @@ export class ChatService {
   /**
    * Returns the serialized chart data shared with all LLM providers,
    * serializing on first use after a data change and caching thereafter.
+   *
+   * Exposed for the LLM model suppliers and tests; the caching strategy is
+   * an implementation detail and not part of the stable public API.
    * @returns {string} The current chart data as a JSON string
    */
   public getDataJson(): string {
