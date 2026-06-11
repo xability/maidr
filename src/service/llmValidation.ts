@@ -1,5 +1,9 @@
 import type { Llm } from '@type/llm';
-import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
+import { normalizeOllamaBaseUrl } from '@util/llm';
+
+// Local servers have no infrastructure-level timeouts, so cap the probe to
+// keep the settings UI from spinning indefinitely on a hung Ollama instance.
+const OLLAMA_PROBE_TIMEOUT_MS = 5000;
 
 /**
  * Represents the result of an API key validation attempt.
@@ -29,16 +33,6 @@ export interface OllamaProbeResult {
   reachable: boolean;
   /** Names of the models installed on the server (empty when unreachable) */
   models: string[];
-}
-
-/**
- * Normalizes an Ollama base URL by trimming whitespace and trailing slashes.
- * @param baseUrl - The user-provided server base URL
- * @returns The normalized base URL
- */
-function normalizeOllamaBaseUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim().replace(/\/+$/, '');
-  return trimmed || DEFAULT_OLLAMA_BASE_URL;
 }
 
 /**
@@ -137,7 +131,7 @@ export class LlmValidationService {
 
   /**
    * Validates that a local Ollama server is reachable by querying its
-   * installed-models endpoint (the API equivalent of `ollama ps`/`ollama list`).
+   * installed-models endpoint (the API equivalent of `ollama list`).
    * @param baseUrl - The Ollama server base URL
    * @returns Promise resolving to validation result
    */
@@ -160,9 +154,16 @@ export class LlmValidationService {
    * @returns Promise resolving to the probe result
    */
   public static async probeOllamaServer(baseUrl: string): Promise<OllamaProbeResult> {
+    const url = normalizeOllamaBaseUrl(baseUrl);
+    // Only plain web schemes make sense for an Ollama server; rejecting
+    // anything else avoids handing arbitrary protocols to fetch.
+    if (!/^https?:\/\//i.test(url)) {
+      return { reachable: false, models: [] };
+    }
     try {
-      const response = await fetch(`${normalizeOllamaBaseUrl(baseUrl)}/api/tags`, {
+      const response = await fetch(`${url}/api/tags`, {
         method: 'GET',
+        signal: AbortSignal.timeout(OLLAMA_PROBE_TIMEOUT_MS),
       });
       if (!response.ok) {
         return { reachable: false, models: [] };

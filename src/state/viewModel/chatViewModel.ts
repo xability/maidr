@@ -6,6 +6,7 @@ import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getModelDisplayName } from '@util/llm';
 import { AbstractViewModel } from './viewModel';
 
 /**
@@ -20,26 +21,6 @@ const initialState: ChatState = {
   messages: [],
   suggestions: [],
 };
-
-/**
- * Converts a model key to a human-readable display name.
- * @param {string} modelKey - The model key identifier.
- * @returns {string} The display name for the model.
- */
-function getModelDisplayName(modelKey: string): string {
-  switch (modelKey) {
-    case 'OPENAI':
-      return 'OpenAI';
-    case 'ANTHROPIC_CLAUDE':
-      return 'Anthropic Claude';
-    case 'GOOGLE_GEMINI':
-      return 'Google Gemini';
-    case 'OLLAMA':
-      return 'Ollama';
-    default:
-      return 'AI Assistant';
-  }
-}
 
 const chatSlice = createSlice({
   name: 'chat',

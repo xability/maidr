@@ -35,7 +35,7 @@ describe('LlmValidationService (Ollama)', () => {
       expect(result.isValid).toBe(true);
       expect(fetchMock).toHaveBeenCalledWith(
         'http://localhost:11434/api/tags',
-        { method: 'GET' },
+        { method: 'GET', signal: expect.any(AbortSignal) },
       );
     });
 
@@ -55,7 +55,7 @@ describe('LlmValidationService (Ollama)', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(
         'http://localhost:11434/api/tags',
-        { method: 'GET' },
+        { method: 'GET', signal: expect.any(AbortSignal) },
       );
     });
 
@@ -66,7 +66,7 @@ describe('LlmValidationService (Ollama)', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(
         'http://localhost:11434/api/tags',
-        { method: 'GET' },
+        { method: 'GET', signal: expect.any(AbortSignal) },
       );
     });
   });
@@ -87,6 +87,13 @@ describe('LlmValidationService (Ollama)', () => {
       const probe = await LlmValidationService.probeOllamaServer('http://localhost:11434');
 
       expect(probe).toEqual({ reachable: false, models: [] });
+    });
+
+    test('rejects non-http(s) URLs without making a request', async () => {
+      const probe = await LlmValidationService.probeOllamaServer('file:///etc/hosts');
+
+      expect(probe).toEqual({ reachable: false, models: [] });
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

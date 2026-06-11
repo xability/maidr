@@ -4,8 +4,8 @@ import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResp
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { Scope } from '@type/event';
-import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
 import { Api } from '@util/api';
+import { normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
@@ -13,6 +13,8 @@ import { formatSystemPrompt, formatUserPrompt } from './prompts';
 const GPT_MAX_TOKENS = 1000;
 const CLAUDE_MAX_TOKENS = 256;
 const GEMINI_MAX_TOKENS = 1000;
+// Maps to Ollama's num_predict, which caps generated tokens only (it is not
+// the context window).
 const OLLAMA_MAX_TOKENS = 1000;
 
 /**
@@ -640,8 +642,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
    * @returns {string} The Ollama chat API URL
    */
   protected getApiUrl(baseUrl?: string): string {
-    const base = (baseUrl?.trim() || DEFAULT_OLLAMA_BASE_URL).replace(/\/+$/, '');
-    return `${base}/api/chat`;
+    return `${normalizeOllamaBaseUrl(baseUrl)}/api/chat`;
   }
 
   /**
