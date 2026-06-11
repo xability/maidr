@@ -4,7 +4,11 @@
  * Consolidates all Vite build configurations into a single file.
  * Builds run sequentially due to vite-plugin-dts limitations.
  *
- * Usage: node scripts/build.js
+ * Usage: node scripts/build.js [name ...]
+ *
+ * With no arguments, all bundles are built. Passing bundle names (e.g.
+ * `node scripts/build.js core react`) builds only those bundles; selective
+ * builds never empty the output directory.
  */
 
 import path from 'node:path';
@@ -246,11 +250,26 @@ function createViteConfig(config) {
 
 async function main() {
   const startTime = Date.now();
+
+  const requested = process.argv.slice(2);
+  const unknown = requested.filter(name => !builds.some(b => b.name === name));
+  if (unknown.length > 0) {
+    console.error(`Unknown bundle name(s): ${unknown.join(', ')}`);
+    console.error(`Available: ${builds.map(b => b.name).join(', ')}`);
+    process.exit(1);
+  }
+  const selected = requested.length > 0
+    ? builds
+        .filter(b => requested.includes(b.name))
+        // Selective builds must not wipe the other bundles from dist.
+        .map(b => ({ ...b, emptyOutDir: false }))
+    : builds;
+
   console.log('Building MAIDR library...\n');
 
-  for (let i = 0; i < builds.length; i++) {
-    const config = builds[i];
-    const step = `[${i + 1}/${builds.length}]`;
+  for (let i = 0; i < selected.length; i++) {
+    const config = selected[i];
+    const step = `[${i + 1}/${selected.length}]`;
     console.log(`${step} Building ${config.name}...`);
 
     const t = Date.now();

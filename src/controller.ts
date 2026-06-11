@@ -363,6 +363,7 @@ export class Controller implements Disposable {
     this.highContrastService.setFigure(this.figure);
     this.formatterService.refresh(maidr);
     this.chatService.updateData(maidr);
+    this.monitorService.setLive(maidr.live === true);
     this.registerObservers();
     if (maidr.onNavigate) {
       this.registerNavigateCallback(maidr.onNavigate);

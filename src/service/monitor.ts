@@ -14,6 +14,7 @@ import type { PlotState, TraceState } from '@type/state';
  */
 export class MonitorService implements Disposable {
   private enabled: boolean;
+  private isLive: boolean;
 
   /**
    * Creates a new MonitorService.
@@ -24,12 +25,26 @@ export class MonitorService implements Disposable {
    * @param notification - Service for user feedback on toggling
    */
   public constructor(
-    private readonly isLive: boolean,
+    isLive: boolean,
     private readonly audio: Observer<PlotState>,
     private readonly text: Observer<PlotState>,
     private readonly notification: NotificationService,
   ) {
+    this.isLive = isLive;
     this.enabled = false;
+  }
+
+  /**
+   * Updates the live flag when a data update changes the chart's
+   * configuration. Turning live mode off also stops monitoring.
+   *
+   * @param isLive - Whether the chart is now configured for live updates
+   */
+  public setLive(isLive: boolean): void {
+    this.isLive = isLive;
+    if (!isLive) {
+      this.enabled = false;
+    }
   }
 
   /**

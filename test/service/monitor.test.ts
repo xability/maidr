@@ -96,6 +96,25 @@ describe('monitorService', () => {
     expect(text.update).not.toHaveBeenCalled();
   });
 
+  test('setLive enables toggling after a live data update flips the flag', () => {
+    const { service, notification } = createMonitorService(false);
+
+    service.setLive(true);
+    service.toggle();
+
+    expect(service.isEnabled).toBe(true);
+    expect(notification.notify).toHaveBeenCalledWith('Monitoring on');
+  });
+
+  test('setLive(false) turns monitoring off', () => {
+    const { service } = createMonitorService(true);
+
+    service.toggle();
+    service.setLive(false);
+
+    expect(service.isEnabled).toBe(false);
+  });
+
   test('dispose disables monitoring', () => {
     const { service } = createMonitorService(true);
 

@@ -12,10 +12,25 @@ import type {
   SmoothPoint,
   ViolinKdePoint,
 } from '@type/grammar';
+import { TraceType } from '@type/grammar';
 
 /**
  * A single data point that can be appended to a live chart layer.
  */
+/**
+ * Trace types whose layer data is a nested array of groups
+ * (`LiveDataPoint[][]`) rather than a flat point array. Used so appending
+ * works even when the outer array starts empty (no shape to inspect).
+ */
+const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
+  TraceType.LINE,
+  TraceType.SMOOTH,
+  TraceType.STACKED,
+  TraceType.DODGED,
+  TraceType.NORMALIZED,
+  TraceType.VIOLIN_KDE,
+]);
+
 export type LiveDataPoint
   = | BarPoint
     | BoxPoint
@@ -121,7 +136,9 @@ function applySlidingWindow<T>(
  *
  * Supports flat point arrays (bar, histogram, scatter, candlestick, box) and
  * nested group arrays (line, smooth, segmented, violin) via `groupIndex`.
- * Heatmap layers (object data) are not supported.
+ * For nested layers, a `groupIndex` equal to the current group count creates
+ * a new group, which also makes appending into an initially empty layer
+ * (`data: []`) work. Heatmap layers (object data) are not supported.
  *
  * The returned config shares all untouched structures with the input; the
  * input is never mutated.
@@ -164,17 +181,27 @@ export function appendPointToMaidr(
   let col: number;
   let trimmed: number;
 
-  if (Array.isArray(layer.data[0])) {
+  // Nested layers are detected by trace type so that an initially empty
+  // outer array (`data: []`) still gets the correct `LiveDataPoint[][]`
+  // shape; the data-shape check covers any remaining cases.
+  const isNested = NESTED_DATA_TYPES.has(layer.type) || Array.isArray(layer.data[0]);
+
+  if (isNested) {
     // Nested group data (e.g. multiline): append within the target group.
+    // A groupIndex equal to the group count starts a new group.
     const groups = layer.data as LiveDataPoint[][];
     const groupIndex = options.groupIndex ?? 0;
-    if (groupIndex < 0 || groupIndex >= groups.length) {
+    if (groupIndex < 0 || groupIndex > groups.length) {
       console.warn(`[maidr] appendData: no group at index ${groupIndex}`);
       return null;
     }
-    const result = applySlidingWindow([...groups[groupIndex], point], maidr.maxWidth);
-    newData = groups.map((group, i) =>
-      i === groupIndex ? result.points : group,
+    const isNewGroup = groupIndex === groups.length;
+    const targetGroup = isNewGroup ? [] : groups[groupIndex];
+    const result = applySlidingWindow([...targetGroup, point], maidr.maxWidth);
+    newData = (
+      isNewGroup
+        ? [...groups, result.points]
+        : groups.map((group, i) => (i === groupIndex ? result.points : group))
     ) as MaidrLayer['data'];
     row = groupIndex;
     col = result.points.length - 1;

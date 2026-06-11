@@ -118,6 +118,31 @@ describe('appendPointToMaidr', () => {
     expect(result!.appended.layerId).toBe('layer-0');
   });
 
+  test('treats an empty nested-data layer (line with data: []) as nested', () => {
+    const maidr = createLineMaidr();
+    maidr.subplots[0][0].layers[0].data = [];
+
+    const result = appendPointToMaidr(maidr, { x: 1, y: 10 });
+
+    expect(result).not.toBeNull();
+    const data = result!.maidr.subplots[0][0].layers[0].data as LinePoint[][];
+    expect(data).toEqual([[{ x: 1, y: 10 }]]);
+    expect(result!.appended.row).toBe(0);
+    expect(result!.appended.col).toBe(0);
+  });
+
+  test('creates a new group when groupIndex equals the current group count', () => {
+    const maidr = createLineMaidr();
+    const result = appendPointToMaidr(maidr, { x: 1, y: 99 }, { groupIndex: 2 });
+
+    expect(result).not.toBeNull();
+    const data = result!.maidr.subplots[0][0].layers[0].data as LinePoint[][];
+    expect(data).toHaveLength(3);
+    expect(data[2]).toEqual([{ x: 1, y: 99 }]);
+    expect(result!.appended.row).toBe(2);
+    expect(result!.appended.col).toBe(0);
+  });
+
   test('returns null for an unknown layerId', () => {
     const maidr = createBarMaidr();
     const result = appendPointToMaidr(maidr, { x: 'C', y: 3 }, { layerId: 'missing' });
@@ -125,7 +150,7 @@ describe('appendPointToMaidr', () => {
     expect(result).toBeNull();
   });
 
-  test('returns null for an out-of-range groupIndex', () => {
+  test('returns null for a groupIndex beyond the next new group', () => {
     const maidr = createLineMaidr();
     const result = appendPointToMaidr(maidr, { x: 3, y: 30 }, { groupIndex: 5 });
 

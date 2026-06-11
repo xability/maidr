@@ -39,7 +39,7 @@ var maidr = {
 };
 ```
 
-Static charts are completely unaffected: live features are opt-in, and `setData` / `appendData` simply update the data used the next time the chart is activated.
+Static charts are completely unaffected: in-place updates are opt-in via `live: true`. On charts without the flag, `setData` / `appendData` still store the new data, but it is only picked up the next time the chart is activated (focused), and monitor mode is unavailable.
 
 ## Script-Tag API: `window.maidrLive`
 
@@ -65,7 +65,7 @@ window.maidrLive.appendData(
 | `id` | string | the only registered chart | Which chart to update. Required when multiple charts are on the page. |
 | `layerId` | string | — | Target layer by id. Takes precedence over `layerIndex`. |
 | `layerIndex` | number | `0` | Target layer by position within the subplot. |
-| `groupIndex` | number | `0` | Series index for nested data (e.g. which line of a multiline chart). |
+| `groupIndex` | number | `0` | Series index for nested data (e.g. which line of a multiline chart). Passing the current group count starts a new series; appending into an empty layer (`data: []`) creates the first series automatically. |
 | `subplotRow` / `subplotCol` | number | `0` / `0` | Target subplot in multi-panel figures. |
 
 The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.

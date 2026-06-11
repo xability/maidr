@@ -54,8 +54,10 @@ export class ChatService {
    * @param {Maidr} maidr - The updated MAIDR data structure
    */
   public updateData(maidr: Maidr): void {
+    // Serialize once and share the string across providers.
+    const json = JSON.stringify(maidr);
     for (const model of Object.values(this.models)) {
-      model.setData(maidr);
+      model.setData(json);
     }
   }
 
@@ -72,7 +74,7 @@ export class ChatService {
  */
 interface LlmModel {
   getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
-  setData: (maidr: Maidr) => void;
+  setData: (json: string) => void;
 }
 
 /**
@@ -138,10 +140,10 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Replaces the serialized chart data sent with LLM prompts.
    * Called when a live data update changes the chart contents.
-   * @param {Maidr} maidr - The updated MAIDR data structure
+   * @param {string} json - The updated MAIDR data, already serialized
    */
-  public setData(maidr: Maidr): void {
-    this.json = JSON.stringify(maidr);
+  public setData(json: string): void {
+    this.json = json;
   }
 
   /**

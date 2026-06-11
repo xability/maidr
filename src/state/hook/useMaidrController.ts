@@ -166,12 +166,23 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     latestDataRef.current = data;
     const disposable = liveDataManager.register(data, (event) => {
       latestDataRef.current = event.maidr;
-      controllerRef.current?.updateData(cloneMaidrData(event.maidr), event.appended);
+      // In-place refresh is opt-in via `live: true`; static charts pick the
+      // new data up on the next focus-in instead.
+      if (event.maidr.live === true && controllerRef.current) {
+        try {
+          controllerRef.current.updateData(cloneMaidrData(event.maidr), event.appended);
+        } catch (error) {
+          // A failed swap can leave the model half-built; drop the controller
+          // so the next focus-in rebuilds cleanly from the stored data.
+          console.error('[maidr] Live data update failed; the chart will reload on next focus:', error);
+          disposeController();
+        }
+      }
     });
     return () => disposable.dispose();
     // Re-register only when the chart identity changes; data *content*
     // changes flow through the effect below.
-  }, [data.id]);
+  }, [data.id, disposeController]);
 
   // React-driven data updates: for live charts, a new `data` prop replaces
   // the chart data in place (equivalent to setData). Static charts keep the
