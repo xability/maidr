@@ -200,7 +200,8 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 - **Silent updates:** a data update by itself never speaks or plays audio — only monitor mode produces output, and only for appended points. This keeps screen reader users in control.
 - **Position preservation:** updates restore the user's subplot, layer, and point position, clamped into the new data's bounds.
 - **Modes:** text, braille, sonification, and review modes stay enabled across updates. Braille content refreshes on the next navigation.
-- **Visual highlight:** if your SVG re-renders with the same selectors, highlights re-bind to the new elements automatically on each update.
+- **Visual highlight:** highlights re-bind on each update by re-querying the layer's `selectors`. The selectors must remain *stable across re-renders* — if your charting library regenerates elements with different classes or ids each frame (common with keyed D3/Vega re-renders), pin a stable class on the data elements and use that in `selectors`. When the selector matches a different number of elements than data points, highlighting is disabled for that update (everything else keeps working).
+- **Performance:** each update rebuilds the chart model from the full data, so the cost scales with total chart size, not with the size of the appended point. For streams faster than a few updates per second, set `maxWidth` — it bounds the data (and therefore the per-update cost) regardless of how long the stream runs.
 - **AI chat:** chart descriptions and the AI assistant use the latest data as of the question being asked.
 
 ## Keyboard Controls

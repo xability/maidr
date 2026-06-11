@@ -194,7 +194,9 @@ export function appendPointToMaidr(
     const groups = layer.data as LiveDataPoint[][];
     const groupIndex = options.groupIndex ?? 0;
     if (groupIndex < 0 || groupIndex > groups.length) {
-      console.warn(`[maidr] appendData: no group at index ${groupIndex}`);
+      console.warn(
+        `[maidr] appendData: no group at index ${groupIndex} (layer has ${groups.length})`,
+      );
       return null;
     }
     const isNewGroup = groupIndex === groups.length;
@@ -311,6 +313,9 @@ export class LiveDataManager {
    * Replaces the stored data for a chart without notifying it.
    * Used to keep the registry in sync with externally-driven updates
    * (e.g. React prop changes on non-live charts).
+   *
+   * Like {@link setData}, the reference is stored without cloning;
+   * callers must not mutate the object after handing it over.
    *
    * @param maidr - The replacement config
    */

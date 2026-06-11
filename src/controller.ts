@@ -392,10 +392,8 @@ export class Controller implements Disposable {
         = this.figure.row === appended.subplotRow
           && this.figure.col === appended.subplotCol;
       const activeSubplot = this.figure.activeSubplot;
-      // Subplot traces are built as one single-trace row per layer
-      // (traces[layerIndex][0]), so the subplot's active row IS the layer index.
       const onAppendedTrace
-        = onAppendedSubplot && activeSubplot.row === appended.layerIndex;
+        = onAppendedSubplot && activeSubplot.activeLayerIndex === appended.layerIndex;
       const onAppendedGroup
         = onAppendedTrace && activeSubplot.activeTrace.row === appended.row;
       return onAppendedGroup ? appended.trimmed : 0;

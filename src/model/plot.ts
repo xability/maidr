@@ -393,6 +393,19 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
+   * Index of the active layer within the subplot.
+   *
+   * Traces are constructed as one single-trace row per layer
+   * (`traces[layerIndex][0]`), so the active trace row IS the layer index.
+   * This accessor makes that invariant explicit for callers (e.g. the
+   * Controller's sliding-window cursor tracking) instead of having them
+   * depend on the internal layout.
+   */
+  public get activeLayerIndex(): number {
+    return this.row;
+  }
+
+  /**
    * Override moveOnce to avoid "initial entry" no-op behavior for layer navigation.
    *
    * For multi-layer subplots, the MovableGrid is used to step between layers

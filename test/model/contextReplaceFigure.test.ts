@@ -129,6 +129,20 @@ describe('context.replaceFigure', () => {
     expect(context.active).toBe(newFigure.subplots[0][0].traces[1][0]);
   });
 
+  test('clears the old model\'s observers on replacement (no stale accumulation)', () => {
+    const oldFigure = new Figure(createMaidr(3));
+    const context = new Context(oldFigure);
+    const oldTrace = oldFigure.subplots[0][0].traces[0][0];
+    oldTrace.addObserver({ update: jest.fn() });
+
+    context.replaceFigure(() => new Figure(createMaidr(3)));
+
+    // The dispose chain (Figure -> Subplot -> Trace) must empty the observer
+    // list so streaming updates never accumulate stale observers.
+    const observers = (oldTrace as unknown as { observers: unknown[] }).observers;
+    expect(observers).toHaveLength(0);
+  });
+
   test('resets navigation when a layer type changes (same layer count)', () => {
     const context = new Context(new Figure(createMaidr(3)));
     context.active.isInitialEntry = false;
