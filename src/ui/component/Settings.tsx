@@ -52,6 +52,7 @@ import {
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
+import { resolveOllamaVersionOptions } from '@util/llm';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -193,10 +194,16 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     return '';
   };
 
-  const validateApiKey = async (apiKey: string): Promise<void> => {
+  // The debounce only spaces out request starts; it cannot cancel a request
+  // already in flight. isStale lets a superseded cycle (newer keystroke or
+  // unmount) discard its response so a slow early probe can never overwrite
+  // the state of a newer one.
+  const validateApiKey = async (apiKey: string, isStale: () => boolean): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
-      setIsValid(null);
-      setInstalledModels([]);
+      if (!isStale()) {
+        setIsValid(null);
+        setInstalledModels([]);
+      }
       return;
     }
 
@@ -206,6 +213,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
         // A single probe answers both reachability and the installed-model
         // list, avoiding a second /api/tags round-trip per debounce cycle.
         const probe = await LlmValidationService.probeOllamaServer(apiKey);
+        if (isStale()) {
+          return;
+        }
         setIsValid(probe.reachable);
         setInstalledModels(probe.models);
       } else {
@@ -213,35 +223,40 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
           modelKey,
           apiKey,
         );
+        if (isStale()) {
+          return;
+        }
         setIsValid(result.isValid);
       }
     } catch (error) {
-      setIsValid(false);
-      setInstalledModels([]);
+      if (!isStale()) {
+        setIsValid(false);
+        setInstalledModels([]);
+      }
     } finally {
-      setIsValidating(false);
+      if (!isStale()) {
+        setIsValidating(false);
+      }
     }
   };
 
   useEffect(() => {
+    let cancelled = false;
     const debounceTimer = setTimeout(() => {
-      validateApiKey(modelSettings.apiKey);
+      validateApiKey(modelSettings.apiKey, () => cancelled);
     }, 500);
 
-    return () => clearTimeout(debounceTimer);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+    };
   }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    let options: readonly string[] = config.options;
-    if (isOllama && installedModels.length > 0) {
-      options = installedModels;
-    }
-    // Keep the saved Ollama model selectable even when it is missing from the
-    // current options (e.g. a model that has since been removed locally).
-    if (isOllama && validVersion && !options.includes(validVersion)) {
-      options = [...options, validVersion];
-    }
+    const options: readonly string[] = isOllama
+      ? resolveOllamaVersionOptions(config.options, installedModels, validVersion)
+      : config.options;
     return options.map((version) => {
       const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;

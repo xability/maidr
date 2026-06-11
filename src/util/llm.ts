@@ -24,6 +24,29 @@ export function isValidOllamaBaseUrl(baseUrl?: string): boolean {
 }
 
 /**
+ * Builds the selectable Ollama model options for a version dropdown: the
+ * models installed on the local server when known, otherwise the curated
+ * suggestions, always keeping the saved model selectable even when it is
+ * missing from the list (e.g. it was removed locally) so the dropdown never
+ * loses its current value.
+ * @param curatedOptions - The static suggestion list from the model catalog
+ * @param installedModels - Models probed from the local server (may be empty)
+ * @param savedVersion - The currently saved model name, if any
+ * @returns The options to render in the dropdown
+ */
+export function resolveOllamaVersionOptions(
+  curatedOptions: readonly string[],
+  installedModels: readonly string[],
+  savedVersion?: string,
+): string[] {
+  const options = installedModels.length > 0 ? [...installedModels] : [...curatedOptions];
+  if (savedVersion?.trim() && !options.includes(savedVersion)) {
+    options.push(savedVersion);
+  }
+  return options;
+}
+
+/**
  * Converts an LLM provider key to a human-readable display name.
  * @param modelKey - The LLM provider identifier
  * @returns The display name for the provider

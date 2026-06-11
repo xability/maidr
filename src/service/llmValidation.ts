@@ -155,6 +155,9 @@ export class LlmValidationService {
    */
   public static async probeOllamaServer(baseUrl: string): Promise<OllamaProbeResult> {
     const url = normalizeOllamaBaseUrl(baseUrl);
+    // Note: blank input normalizes to the localhost default and therefore
+    // passes this check; truly empty fields are guarded upstream before the
+    // probe is ever invoked.
     if (!isValidOllamaBaseUrl(url)) {
       return { reachable: false, models: [] };
     }

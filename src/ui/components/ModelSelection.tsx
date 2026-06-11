@@ -3,6 +3,7 @@ import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
+import { resolveOllamaVersionOptions } from '@util/llm';
 import React from 'react';
 
 interface ModelSelectionProps {
@@ -55,19 +56,9 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     const config = MODEL_VERSIONS[modelKey];
     const labels = config.labels as Record<string, string>;
 
-    let options: readonly string[] = config.options;
-    if (modelKey === 'OLLAMA') {
-      if (ollamaModels.length > 0) {
-        options = ollamaModels;
-      }
-      // Keep the saved model selectable even when it is missing from the
-      // probed list (e.g. it was removed locally), so the Select always has
-      // a matching option for its current value.
-      const currentVersion = getCurrentVersion(modelKey);
-      if (!options.includes(currentVersion)) {
-        options = [...options, currentVersion];
-      }
-    }
+    const options: readonly string[] = modelKey === 'OLLAMA'
+      ? resolveOllamaVersionOptions(config.options, ollamaModels, getCurrentVersion(modelKey))
+      : config.options;
 
     return options.map((version) => {
       const typedVersion = version as LlmVersion;

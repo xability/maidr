@@ -1,6 +1,11 @@
 import { describe, expect, test } from '@jest/globals';
 import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
-import { getModelDisplayName, isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
+import {
+  getModelDisplayName,
+  isValidOllamaBaseUrl,
+  normalizeOllamaBaseUrl,
+  resolveOllamaVersionOptions,
+} from '@util/llm';
 
 describe('normalizeOllamaBaseUrl', () => {
   test('returns an already-clean URL unchanged', () => {
@@ -48,6 +53,33 @@ describe('isValidOllamaBaseUrl', () => {
 
   test('accepts blank input via the default base URL fallback', () => {
     expect(isValidOllamaBaseUrl('')).toBe(true);
+  });
+});
+
+describe('resolveOllamaVersionOptions', () => {
+  const curated = ['llama3.2', 'mistral'];
+
+  test('uses curated suggestions when no installed models are known', () => {
+    expect(resolveOllamaVersionOptions(curated, [], 'llama3.2')).toEqual(curated);
+  });
+
+  test('prefers installed models over curated suggestions', () => {
+    expect(resolveOllamaVersionOptions(curated, ['phi4:latest'], 'phi4:latest')).toEqual(['phi4:latest']);
+  });
+
+  test('keeps the saved model selectable when missing from the list', () => {
+    expect(resolveOllamaVersionOptions(curated, ['phi4:latest'], 'removed-model')).toEqual([
+      'phi4:latest',
+      'removed-model',
+    ]);
+  });
+
+  test('does not duplicate a saved model already in the list', () => {
+    expect(resolveOllamaVersionOptions(curated, [], 'mistral')).toEqual(curated);
+  });
+
+  test('ignores a blank saved model', () => {
+    expect(resolveOllamaVersionOptions(curated, [], '  ')).toEqual(curated);
   });
 });
 
