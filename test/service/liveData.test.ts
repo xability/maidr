@@ -1,4 +1,4 @@
-import type { BarPoint, LinePoint, Maidr } from '@type/grammar';
+import type { BarPoint, CandlestickPoint, LinePoint, Maidr } from '@type/grammar';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { appendPointToMaidr, cloneMaidrData, LiveDataManager } from '@service/liveData';
 import { TraceType } from '@type/grammar';
@@ -59,6 +59,33 @@ function createLineMaidr(id = 'line-chart'): Maidr {
   };
 }
 
+/**
+ * Creates a minimal candlestick Maidr config for live data tests.
+ * @param id - The chart identifier
+ * @returns A Maidr config with a single candlestick layer (two candles)
+ */
+function createCandlestickMaidr(id = 'candle-chart'): Maidr {
+  return {
+    id,
+    live: true,
+    subplots: [[
+      {
+        layers: [
+          {
+            id: 'candle-layer',
+            type: TraceType.CANDLESTICK,
+            axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+            data: [
+              { value: '2026-01-01', open: 10, high: 15, low: 9, close: 14, volume: 100, trend: 'Bull', volatility: 6 },
+              { value: '2026-01-02', open: 14, high: 18, low: 13, close: 17, volume: 120, trend: 'Bull', volatility: 5 },
+            ] as CandlestickPoint[],
+          },
+        ],
+      },
+    ]],
+  };
+}
+
 describe('appendPointToMaidr', () => {
   test('appends a point to flat (bar) layer data', () => {
     const maidr = createBarMaidr();
@@ -76,6 +103,8 @@ describe('appendPointToMaidr', () => {
       row: 0,
       col: 2,
       trimmed: 0,
+      nested: false,
+      trimShift: 'col',
     });
   });
 
@@ -107,6 +136,64 @@ describe('appendPointToMaidr', () => {
     const data = result!.maidr.subplots[0][0].layers[0].data as LinePoint[][];
     expect(data[1]).toHaveLength(2);
     expect(result!.appended.row).toBe(1);
+    expect(result!.appended.col).toBe(1);
+  });
+
+  test('marks nested (line) appends with nested: true', () => {
+    const maidr = createLineMaidr();
+    const result = appendPointToMaidr(maidr, { x: 3, y: 30 });
+
+    expect(result!.appended.nested).toBe(true);
+    expect(result!.appended.trimShift).toBe('col');
+  });
+
+  test('appends a full OHLC candle to a candlestick layer', () => {
+    const maidr = createCandlestickMaidr();
+    const candle: CandlestickPoint = {
+      value: '2026-01-03',
+      open: 17,
+      high: 19,
+      low: 12,
+      close: 13,
+      volume: 90,
+      trend: 'Bear',
+      volatility: 7,
+    };
+
+    const result = appendPointToMaidr(maidr, candle);
+
+    expect(result).not.toBeNull();
+    const data = result!.maidr.subplots[0][0].layers[0].data as CandlestickPoint[];
+    expect(data).toHaveLength(3);
+    expect(data[2]).toEqual(candle);
+    // Announce coordinates target the close section of the new candle
+    // (vertical layout: row = section index, col = candle index).
+    expect(result!.appended.row).toBe(4);
+    expect(result!.appended.col).toBe(2);
+    expect(result!.appended.nested).toBe(false);
+    expect(result!.appended.trimShift).toBe('col');
+  });
+
+  test('applies the maxWidth sliding window to candlestick data', () => {
+    const maidr = createCandlestickMaidr();
+    maidr.maxWidth = 2;
+    const candle: CandlestickPoint = {
+      value: '2026-01-03',
+      open: 17,
+      high: 19,
+      low: 12,
+      close: 13,
+      volume: 90,
+      trend: 'Bear',
+      volatility: 7,
+    };
+
+    const result = appendPointToMaidr(maidr, candle);
+
+    const data = result!.maidr.subplots[0][0].layers[0].data as CandlestickPoint[];
+    expect(data).toHaveLength(2);
+    expect(data[1]).toEqual(candle);
+    expect(result!.appended.trimmed).toBe(1);
     expect(result!.appended.col).toBe(1);
   });
 

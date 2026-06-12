@@ -12,7 +12,7 @@ Three capabilities work together:
 
 Data updates are applied **in place**: the user's current position, active modes (text, braille, sonification), and keyboard focus are all preserved while axes ranges, navigation, braille, and text descriptions reflect the new data immediately.
 
-A complete runnable demo lives at [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html).
+Complete runnable demos: [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html) (streaming line chart) and [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html) (live stock ticker).
 
 ## Enabling Live Mode
 
@@ -71,6 +71,37 @@ window.maidrLive.appendData(
 The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
 
 **Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
+
+### Streaming candlesticks (stock ticker)
+
+Candlestick layers stream the same way — append a full OHLC object per candle. While monitoring (`M`), each new candle's **close** price is sonified and announced; users can still arrow Up/Down through the open/high/low/close/volatility segments of any candle:
+
+```javascript
+var maidr = {
+  id: 'live-ticker',
+  title: 'Live Stock Ticker',
+  live: true,
+  maxWidth: 15, // keep the latest 15 candles
+  subplots: [[{
+    layers: [{
+      id: 'ticker-layer',
+      type: 'candlestick',
+      axes: { x: { label: 'Time' }, y: { label: 'Price' } },
+      data: [
+        { value: '09:30', open: 100, high: 102.5, low: 99, close: 101.5 },
+      ],
+    }],
+  }]],
+};
+
+// Each tick: stream one OHLC candle.
+window.maidrLive.appendData(
+  { value: '09:31', open: 101.5, high: 103, low: 100.5, close: 100.75 },
+  { id: 'live-ticker' },
+);
+```
+
+`trend` and `volatility` are computed by MAIDR from the OHLC values, so they can be omitted from streamed candles. See the full demo at [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html).
 
 ### `window.maidrLive.setData(maidr)`
 

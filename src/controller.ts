@@ -384,7 +384,7 @@ export class Controller implements Disposable {
    * @returns The column shift to apply during position restoration
    */
   private resolveActiveColShift(appended?: AppendedPointInfo): number {
-    if (!appended || appended.trimmed === 0) {
+    if (!appended || appended.trimmed === 0 || appended.trimShift !== 'col') {
       return 0;
     }
     try {
@@ -394,9 +394,16 @@ export class Controller implements Disposable {
       const activeSubplot = this.figure.activeSubplot;
       const onAppendedTrace
         = onAppendedSubplot && activeSubplot.activeLayerIndex === appended.layerIndex;
-      const onAppendedGroup
-        = onAppendedTrace && activeSubplot.activeTrace.row === appended.row;
-      return onAppendedGroup ? appended.trimmed : 0;
+      if (!onAppendedTrace) {
+        return 0;
+      }
+      // For nested layers only the appended series shifted, so the cursor
+      // moves only when the user is on that series. Flat layers (bar,
+      // vertical candlestick...) shift every row's columns equally.
+      if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
+        return 0;
+      }
+      return appended.trimmed;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);
       return 0;

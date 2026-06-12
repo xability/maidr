@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr Live Candlestick Example</title>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      #controls {
+        margin-bottom: 1rem;
+      }
+      svg {
+        border: 1px solid #ccc;
+        background: #fff;
+      }
+    </style>
+    <script>
+      // Live candlestick (stock ticker) demo: one new OHLC candle per second.
+      // `live: true` enables in-place updates and the 'M' (monitor mode) key;
+      // `maxWidth` keeps a sliding window of the last 15 candles. While
+      // monitoring, each new candle's CLOSE price is sonified and announced.
+      var maidr = {
+        id: 'live-ticker',
+        title: 'Live Stock Ticker',
+        live: true,
+        maxWidth: 15,
+        subplots: [
+          [
+            {
+              layers: [
+                {
+                  id: 'ticker-layer',
+                  type: 'candlestick',
+                  title: 'Live Stock Ticker',
+                  axes: {
+                    x: { label: 'Time' },
+                    y: { label: 'Price', format: { type: 'currency', decimals: 2 } },
+                  },
+                  data: [
+                    { value: '09:30', open: 100, high: 102.5, low: 99, close: 101.5 },
+                    { value: '09:31', open: 101.5, high: 103, low: 100.5, close: 100.75 },
+                    { value: '09:32', open: 100.75, high: 101.25, low: 98.5, close: 99.25 },
+                  ],
+                },
+              ],
+            },
+          ],
+        ],
+      };
+    </script>
+  </head>
+  <body>
+    <h1>maidr Live Candlestick / Stock Ticker Demo</h1>
+    <p>
+      Click the chart (or Tab to it), then use arrow keys: Left/Right move
+      between candles, Up/Down move between OHLC segments (open, high, low,
+      close, volatility). Press <kbd>M</kbd> to toggle
+      <strong>monitor mode</strong>: each new candle's close price is
+      automatically sonified and announced while you keep your position.
+    </p>
+    <div id="controls">
+      <button id="start" type="button">Start ticker</button>
+      <button id="stop" type="button" disabled>Stop ticker</button>
+    </div>
+
+    <svg id="live-ticker" width="640" height="320" viewBox="0 0 640 320">
+      <g id="candles"></g>
+    </svg>
+
+    <script>
+      (function () {
+        var timer = null;
+        var minute = 32;
+        var lastClose = 99.25;
+        // Local copy for the SVG redraw only (stands in for your charting
+        // library). Never mutate data already handed to MAIDR — stream new
+        // candles through appendData instead.
+        var windowSize = 15;
+        var candles = maidr.subplots[0][0].layers[0].data.slice();
+
+        function redraw() {
+          var w = 640;
+          var h = 320;
+          var pad = 24;
+          var lows = candles.map(function (c) { return c.low; });
+          var highs = candles.map(function (c) { return c.high; });
+          var min = Math.min.apply(null, lows) - 1;
+          var max = Math.max.apply(null, highs) + 1;
+          var y = function (price) {
+            return h - pad - ((price - min) / (max - min)) * (h - 2 * pad);
+          };
+          var slot = (w - 2 * pad) / Math.max(candles.length, 1);
+          var parts = candles.map(function (c, i) {
+            var cx = pad + slot * (i + 0.5);
+            var bw = Math.min(slot * 0.6, 18);
+            var up = c.close >= c.open;
+            var top = y(Math.max(c.open, c.close));
+            var bodyH = Math.max(Math.abs(y(c.open) - y(c.close)), 1);
+            var color = up ? '#2e7d32' : '#c62828';
+            return (
+              '<line x1="' + cx + '" y1="' + y(c.high) + '" x2="' + cx + '" y2="' + y(c.low) + '" stroke="' + color + '" />'
+              + '<rect x="' + (cx - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + bodyH + '" fill="' + color + '" />'
+            );
+          });
+          document.getElementById('candles').innerHTML = parts.join('');
+        }
+
+        function nextCandle() {
+          minute += 1;
+          var open = lastClose;
+          var drift = (Math.random() - 0.5) * 3;
+          var close = Math.round((open + drift) * 100) / 100;
+          var high = Math.round((Math.max(open, close) + Math.random() * 1.5) * 100) / 100;
+          var low = Math.round((Math.min(open, close) - Math.random() * 1.5) * 100) / 100;
+          lastClose = close;
+          return {
+            value: '09:' + String(minute).padStart(2, '0'),
+            open: open,
+            high: high,
+            low: low,
+            close: close,
+          };
+        }
+
+        function step() {
+          var candle = nextCandle();
+
+          candles.push(candle);
+          if (candles.length > windowSize) {
+            candles.shift();
+          }
+          redraw();
+
+          // Stream the same candle into maidr: navigation, sonification,
+          // text, and braille all reflect the new data immediately.
+          window.maidrLive.appendData(candle, { id: 'live-ticker' });
+        }
+
+        document.getElementById('start').addEventListener('click', function () {
+          if (timer) return;
+          timer = setInterval(step, 1000);
+          this.disabled = true;
+          document.getElementById('stop').disabled = false;
+        });
+
+        document.getElementById('stop').addEventListener('click', function () {
+          clearInterval(timer);
+          timer = null;
+          this.disabled = true;
+          document.getElementById('start').disabled = false;
+        });
+
+        redraw();
+      })();
+    </script>
+  </body>
+</html>

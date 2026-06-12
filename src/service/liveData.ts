@@ -12,7 +12,8 @@ import type {
   SmoothPoint,
   ViolinKdePoint,
 } from '@type/grammar';
-import { TraceType } from '@type/grammar';
+import { CANDLESTICK_SECTIONS } from '@model/candlestick';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Trace types whose layer data is a nested array of groups
@@ -77,6 +78,19 @@ export interface AppendedPointInfo {
   col: number;
   /** Number of points dropped from the front by the `maxWidth` sliding window. */
   trimmed: number;
+  /**
+   * True when the point was merged into a nested group layer (e.g. multiline),
+   * where `row` is the series index. For flat layers `row`/`col` are announce
+   * coordinates whose meaning depends on the trace type (e.g. candlestick
+   * rows are OHLC sections).
+   */
+  nested: boolean;
+  /**
+   * Which trace axis a sliding-window trim shifts: 'col' when columns index
+   * data points, 'none' when the point axis is not the column axis (e.g.
+   * horizontal candlesticks) and no cursor shift should be applied.
+   */
+  trimShift: 'col' | 'none';
 }
 
 /**
@@ -186,6 +200,8 @@ export function appendPointToMaidr(
   let row: number;
   let col: number;
   let trimmed: number;
+  let nested: boolean;
+  let trimShift: 'col' | 'none' = 'col';
 
   // Nested layers are detected by trace type so that an initially empty
   // outer array (`data: []`) still gets the correct `LiveDataPoint[][]`
@@ -214,6 +230,7 @@ export function appendPointToMaidr(
     row = groupIndex;
     col = result.points.length - 1;
     trimmed = result.trimmed;
+    nested = true;
   } else {
     // Flat point data (e.g. bar, scatter): traces store these as a single row.
     const points = layer.data as LiveDataPoint[];
@@ -222,6 +239,22 @@ export function appendPointToMaidr(
     row = 0;
     col = result.points.length - 1;
     trimmed = result.trimmed;
+    nested = false;
+
+    // Candlestick navigation maps one axis to OHLC sections: target the
+    // 'close' section of the new candle for monitor announcements.
+    if (layer.type === TraceType.CANDLESTICK) {
+      const closeSection = CANDLESTICK_SECTIONS.indexOf('close');
+      if (layer.orientation === Orientation.HORIZONTAL) {
+        // Horizontal layout: rows index candles, columns index sections —
+        // a window trim shifts rows, so no column shift applies.
+        row = col;
+        col = closeSection;
+        trimShift = 'none';
+      } else {
+        row = closeSection;
+      }
+    }
   }
 
   const newMaidr: Maidr = {
@@ -251,6 +284,8 @@ export function appendPointToMaidr(
       row,
       col,
       trimmed,
+      nested,
+      trimShift,
     },
   };
 }

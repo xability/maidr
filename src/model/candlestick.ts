@@ -8,7 +8,7 @@ import type {
 } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -29,6 +29,13 @@ const VOLATILITY_PRECISION_MULTIPLIER = 100;
  */
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
+
+/**
+ * Navigation sections of a candlestick trace, in row order (vertical layout).
+ * Exported so live-data tooling can target a specific section (e.g. 'close')
+ * when announcing newly streamed candles.
+ */
+export const CANDLESTICK_SECTIONS = SECTIONS;
 
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
@@ -336,6 +343,39 @@ export class Candlestick extends AbstractTrace {
 
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Computes the state at an arbitrary position without moving the cursor.
+   *
+   * Candlestick state getters read `currentPointIndex`/`currentSegmentType`
+   * rather than `row`/`col`, so those are mapped from the requested position
+   * and restored alongside the cursor.
+   *
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  public override getStateAt(row: number, col: number): TraceState {
+    const previous = {
+      pointIndex: this.currentPointIndex,
+      segmentType: this.currentSegmentType,
+    };
+    try {
+      const { pointIndex, segmentType }
+        = this.navigationService.computeIndexAndSegment(
+          row,
+          col,
+          this.orientation,
+          this.sections,
+        );
+      this.currentPointIndex = pointIndex;
+      this.currentSegmentType = segmentType;
+      return super.getStateAt(row, col);
+    } finally {
+      this.currentPointIndex = previous.pointIndex;
+      this.currentSegmentType = previous.segmentType;
+    }
   }
 
   public moveToIndex(row: number, col: number): boolean {
