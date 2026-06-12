@@ -159,6 +159,8 @@ describe('context.replaceFigure', () => {
               high: 12 + i,
               low: 9 + i,
               close: 11 + i,
+              trend: 'Bull' as const,
+              volatility: 3,
             })),
           },
           {
