@@ -12,7 +12,7 @@ Three capabilities work together:
 
 Data updates are applied **in place**: the user's current position, active modes (text, braille, sonification), and keyboard focus are all preserved while axes ranges, navigation, braille, and text descriptions reflect the new data immediately.
 
-Complete runnable demos: [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html) (streaming line chart) and [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html) (multi-layer live stock ticker: candlestick + volume + moving average).
+Complete runnable demos: [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html) (streaming line chart), [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html) (multi-layer simulated stock ticker: candlestick + volume + moving average), and [`examples/live-coinbase.html`](https://github.com/xability/maidr/blob/main/examples/live-coinbase.html) (**real** live market data from Coinbase's public WebSocket feed).
 
 ## Enabling Live Mode
 
@@ -216,6 +216,35 @@ appendMaidrData({ x: Date.now(), y: reading }, { id: 'live-sensor' });
 // Replace everything.
 setMaidrData(updatedMaidrJson);
 ```
+
+## Using Real Data Feeds
+
+Any realtime source works with the same pattern: receive the provider's payload, translate it to the layer's point shape, and call `appendData`. The [`examples/live-coinbase.html`](https://github.com/xability/maidr/blob/main/examples/live-coinbase.html) demo streams **real BTC-USD trades** from Coinbase Exchange's public WebSocket feed (no API key required), aggregating them client-side into 10-second OHLC candles:
+
+```javascript
+const ws = new WebSocket('wss://ws-feed.exchange.coinbase.com');
+ws.onopen = () => ws.send(JSON.stringify({
+  type: 'subscribe',
+  product_ids: ['BTC-USD'],
+  channels: ['ticker'],
+}));
+ws.onmessage = (e) => {
+  const m = JSON.parse(e.data);
+  if (m.type === 'ticker') {
+    // Aggregate trades into a candle bucket; when the bucket closes:
+    window.maidrLive.appendData(
+      { value: bucketTime, open, high, low, close },
+      { id: 'live-btc', layerId: 'candle-layer' },
+    );
+  }
+};
+```
+
+Notes for real feeds:
+
+- **Append closed candles, not in-progress updates.** Provider kline streams (e.g. Binance's `@kline_*`) emit many updates for the *same* candle while it forms; only `appendData` when the candle is final (Binance: `k.x === true`), or aggregate raw trades into your own buckets as the Coinbase demo does. Use `setData` if you want to revise the still-forming candle in place.
+- **Stock (equity) feeds need an API key.** Free keyless realtime equity data effectively doesn't exist; providers like Finnhub, Polygon, or Twelve Data offer free-tier keys with WebSocket trade streams that plug into the exact same pattern. Crypto exchange feeds (Coinbase, Kraken; Binance where not geo-blocked) are public and keyless, which is why the demo uses one.
+- **Bind after the first candle exists.** A candlestick layer can't start with `data: []`; the demo binds MAIDR via the `maidr-data` attribute + `maidr:bindchart` event once a seed candle is available (from the provider's REST snapshot or the first closed bucket). Dispatch the event from an HTML element (e.g. a host `<div>`), not the SVG itself.
 
 ## Monitor Mode
 
