@@ -15,6 +15,11 @@ export type Llm
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /**
+ * Anthropic API protocol version header value (not a model version).
+ */
+export const ANTHROPIC_API_VERSION = '2023-06-01';
+
+/**
  * Curated OpenAI GPT model versions. The settings dialog also offers the live
  * list fetched from the provider's models API, so saved versions may be any
  * model the user's key can access.

@@ -1,5 +1,7 @@
 import type { Llm } from '@type/llm';
+import { ANTHROPIC_API_VERSION } from '@type/llm';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
+import modelFilters from './modelFilters.json';
 
 // Local servers have no infrastructure-level timeouts, so cap the probe to
 // keep the settings UI from spinning indefinitely on a hung Ollama instance.
@@ -13,25 +15,13 @@ const OPENAI_MODELS_URL = 'https://api.openai.com/v1/models';
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models';
 const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-export const ANTHROPIC_API_VERSION = '2023-06-01';
-
 // The OpenAI models endpoint lists every model the key can access, including
-// audio, image, and embedding models that cannot serve the chat flow. Keep
-// chat-capable families and drop modality-specific variants.
-const OPENAI_CHAT_MODEL_PATTERN = /^(?:gpt-|chatgpt-|o\d)/;
-const OPENAI_NON_CHAT_SUBSTRINGS = [
-  'audio',
-  'realtime',
-  'transcribe',
-  'tts',
-  'whisper',
-  'embedding',
-  'moderation',
-  'image',
-  'dall-e',
-  'search',
-  'instruct',
-];
+// audio, image, and embedding models that cannot serve the chat flow. The
+// filters live in modelFilters.json so the weekly catalog drift check
+// (scripts/check-model-catalog.mjs) applies the exact same rules.
+const OPENAI_CHAT_MODEL_PATTERN = new RegExp(modelFilters.openai.chatModelPattern);
+const OPENAI_NON_CHAT_SUBSTRINGS: readonly string[] = modelFilters.openai.nonChatSubstrings;
+const GEMINI_EXCLUDED_SUBSTRINGS: readonly string[] = modelFilters.gemini.excludedSubstrings;
 
 /**
  * Represents the result of an API key validation attempt.
@@ -199,6 +189,8 @@ export class LlmValidationService {
    */
   private static async probeAnthropic(apiKey: string): Promise<ProviderProbeResult> {
     try {
+      // limit=100 covers the full Claude lineup today; the endpoint paginates,
+      // so revisit if Anthropic ever serves more than 100 models.
       const response = await fetch(`${ANTHROPIC_MODELS_URL}?limit=100`, {
         method: 'GET',
         headers: {
@@ -241,10 +233,7 @@ export class LlmValidationService {
       const models = (data.models ?? [])
         .filter(model =>
           model.supportedGenerationMethods?.includes('generateContent')
-          && !model.name.includes('embedding')
-          && !model.name.includes('image')
-          && !model.name.includes('tts')
-          && !model.name.includes('audio'),
+          && !GEMINI_EXCLUDED_SUBSTRINGS.some(substring => model.name.includes(substring)),
         )
         .map(model => model.name.replace(/^models\//, ''))
         .sort()

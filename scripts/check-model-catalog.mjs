@@ -10,8 +10,9 @@
  * present in the environment are skipped:
  *   OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY
  *
- * The fetch/filter logic mirrors LlmValidationService (src/service/
- * llmValidation.ts); keep the two in sync when changing either.
+ * The chat-capability filters are shared with LlmValidationService via
+ * src/service/modelFilters.json, so runtime probing and this check can never
+ * diverge.
  */
 
 import { readFileSync } from 'node:fs';
@@ -19,22 +20,13 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const CATALOG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'service', 'modelVersions.ts');
+const SERVICE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'service');
+const CATALOG_PATH = join(SERVICE_DIR, 'modelVersions.ts');
 
-const OPENAI_CHAT_MODEL_PATTERN = /^(?:gpt-|chatgpt-|o\d)/;
-const OPENAI_NON_CHAT_SUBSTRINGS = [
-  'audio',
-  'realtime',
-  'transcribe',
-  'tts',
-  'whisper',
-  'embedding',
-  'moderation',
-  'image',
-  'dall-e',
-  'search',
-  'instruct',
-];
+const modelFilters = JSON.parse(readFileSync(join(SERVICE_DIR, 'modelFilters.json'), 'utf8'));
+const OPENAI_CHAT_MODEL_PATTERN = new RegExp(modelFilters.openai.chatModelPattern);
+const OPENAI_NON_CHAT_SUBSTRINGS = modelFilters.openai.nonChatSubstrings;
+const GEMINI_EXCLUDED_SUBSTRINGS = modelFilters.gemini.excludedSubstrings;
 
 /** Extracts the curated options array for one provider from the catalog source. */
 function readCatalogOptions(source, provider) {
@@ -86,10 +78,7 @@ async function fetchGeminiModels(apiKey) {
   return (data.models ?? [])
     .filter(model =>
       model.supportedGenerationMethods?.includes('generateContent')
-      && !model.name.includes('embedding')
-      && !model.name.includes('image')
-      && !model.name.includes('tts')
-      && !model.name.includes('audio'),
+      && !GEMINI_EXCLUDED_SUBSTRINGS.some(substring => model.name.includes(substring)),
     )
     .map(model => model.name.replace(/^models\//, ''));
 }

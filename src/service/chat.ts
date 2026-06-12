@@ -4,10 +4,10 @@ import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResp
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { Scope } from '@type/event';
+import { ANTHROPIC_API_VERSION } from '@type/llm';
 import { Api } from '@util/api';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
-import { ANTHROPIC_API_VERSION } from './llmValidation';
 import { MODEL_VERSIONS } from './modelVersions';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
