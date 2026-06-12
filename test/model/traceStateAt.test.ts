@@ -54,6 +54,22 @@ describe('abstractTrace.getStateAt', () => {
     expect(trace.isInitialEntry).toBe(false);
   });
 
+  test('restores the cursor even when the state getter throws', () => {
+    const trace = new BarTrace(createBarLayer());
+    trace.isInitialEntry = false;
+    trace.col = 1;
+    const stateSpy = jest.spyOn(trace, 'state', 'get').mockImplementation(() => {
+      throw new Error('defensive getter');
+    });
+
+    expect(() => trace.getStateAt(0, 2)).toThrow('defensive getter');
+
+    stateSpy.mockRestore();
+    expect(trace.row).toBe(0);
+    expect(trace.col).toBe(1);
+    expect(trace.isInitialEntry).toBe(false);
+  });
+
   test('does not notify observers', () => {
     const trace = new BarTrace(createBarLayer());
     const observer = { update: jest.fn() };
