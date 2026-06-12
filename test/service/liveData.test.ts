@@ -383,6 +383,21 @@ describe('liveDataManager', () => {
     expect(manager.appendData({ x: 'C', y: 3 })).toBe(false);
   });
 
+  test('disposing a stale registration does not evict a newer one for the same id', () => {
+    const first = jest.fn();
+    const second = jest.fn();
+    const staleDisposable = manager.register(createBarMaidr(), first);
+    manager.register(createBarMaidr(), second);
+
+    // Disposing the replaced (stale) registration must not unregister the
+    // chart: the listener-identity guard keeps the newer registration alive.
+    staleDisposable.dispose();
+
+    expect(manager.setData(createBarMaidr())).toBe(true);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
   test('register returns a disposable that unregisters the chart', () => {
     const initial = createBarMaidr();
     const listener = jest.fn();
