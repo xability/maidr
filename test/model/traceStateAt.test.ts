@@ -70,6 +70,25 @@ describe('abstractTrace.getStateAt', () => {
     expect(trace.isInitialEntry).toBe(false);
   });
 
+  test('throws loudly if a state getter notifies observers during computation', () => {
+    const trace = new BarTrace(createBarLayer());
+    trace.isInitialEntry = false;
+    trace.col = 1;
+    const observer = { update: jest.fn() };
+    trace.addObserver(observer);
+    const stateSpy = jest.spyOn(trace, 'state', 'get').mockImplementation(() => {
+      trace.notifyStateUpdate();
+      return { empty: true, type: 'trace' } as never;
+    });
+
+    expect(() => trace.getStateAt(0, 2)).toThrow(/getStateAt/);
+
+    stateSpy.mockRestore();
+    expect(observer.update).not.toHaveBeenCalled();
+    expect(trace.col).toBe(1);
+    expect(trace.isInitialEntry).toBe(false);
+  });
+
   test('does not notify observers', () => {
     const trace = new BarTrace(createBarLayer());
     const observer = { update: jest.fn() };

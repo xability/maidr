@@ -221,6 +221,21 @@ describe('context.replaceFigure', () => {
     expect(context.active.col).toBe(0);
   });
 
+  test('restores figure-level position for multi-panel figures (depth 1)', () => {
+    const oldFigure = new Figure(createMultiPanelMaidr(1, 3));
+    const context = new Context(oldFigure);
+    // Multi-panel: stack is [figure]; user navigated to the second subplot.
+    oldFigure.isInitialEntry = false;
+    oldFigure.col = 1;
+
+    const newFigure = new Figure(createMultiPanelMaidr(1, 3));
+    context.replaceFigure(() => newFigure);
+
+    expect(context.active).toBe(newFigure);
+    expect(newFigure.col).toBe(1);
+    expect(context.scope).toBe(Scope.SUBPLOT);
+  });
+
   test('resets navigation when the figure shape changes', () => {
     const context = new Context(new Figure(createMaidr(3)));
     context.active.isInitialEntry = false;

@@ -59,9 +59,17 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   protected readonly observers: Observer<State>[];
   protected isWarning: boolean;
 
+  /**
+   * True while {@link AbstractTrace.getStateAt} computes state at a
+   * temporarily moved cursor. Enforces (structurally, not just by
+   * documentation) that state getters never notify observers.
+   */
+  protected isComputingStateAt: boolean;
+
   protected constructor() {
     this.observers = new Array<Observer<State>>();
     this.isWarning = false;
+    this.isComputingStateAt = false;
   }
   protected abstract get dimension(): Dimension;
 
@@ -141,6 +149,11 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Notifies all registered observers with the current state.
    */
   public notifyStateUpdate(): void {
+    if (this.isComputingStateAt) {
+      throw new Error(
+        'notifyStateUpdate() fired during getStateAt(): state getters must stay side-effect free',
+      );
+    }
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
@@ -510,12 +523,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       col: this.col,
       isInitialEntry: this.isInitialEntry,
     };
+    this.isComputingStateAt = true;
     try {
       this.isInitialEntry = false;
       this.row = row;
       this.col = col;
       return this.state;
     } finally {
+      this.isComputingStateAt = false;
       this.row = previous.row;
       this.col = previous.col;
       this.isInitialEntry = previous.isInitialEntry;

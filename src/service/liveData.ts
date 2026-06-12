@@ -462,7 +462,11 @@ export interface MaidrLiveApi {
    * calling; pass a fresh object (or a structuredClone) for each update.
    */
   setData: (maidr: Maidr) => boolean;
-  /** Appends a single data point to a chart layer (streaming). */
+  /**
+   * Appends a single data point to a chart layer (streaming).
+   * Each append rebuilds the chart model from the full data; set
+   * `Maidr.maxWidth` to bound per-update cost on high-frequency streams.
+   */
   appendData: (
     point: LiveDataPoint,
     options?: AppendDataOptions & { id?: string },
@@ -483,6 +487,9 @@ export function setMaidrData(maidr: Maidr): boolean {
 /**
  * Appends a single data point to a chart layer (streaming).
  * Convenience wrapper around {@link liveDataManager}.
+ *
+ * Each append rebuilds the chart model from the full data; set
+ * `Maidr.maxWidth` to bound per-update cost on high-frequency streams.
  *
  * @param point - The data point to append
  * @param options - Target chart (`id`), layer, and group
