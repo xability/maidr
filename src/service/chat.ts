@@ -590,6 +590,10 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     const userPrompt = formatUserPrompt(context);
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
+    // Raw base64 without the data-URL prefix; omit the image part entirely
+    // when conversion produced nothing (same handling as Claude and Ollama).
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
     const payload = JSON.stringify({
       generationConfig: {
         maxOutputTokens: GEMINI_MAX_TOKENS,
@@ -602,13 +606,15 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
             {
               text: combinedPrompt,
             },
-            {
-              inlineData: {
-                data: image.split(',')[1],
-                // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
-                mimeType: 'image/jpeg',
-              },
-            },
+            ...(rawBase64
+              ? [{
+                  inlineData: {
+                    data: rawBase64,
+                    // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
+                    mimeType: 'image/jpeg',
+                  },
+                }]
+              : []),
           ],
         },
       ],
@@ -686,13 +692,14 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
   }
 
   /**
-   * Gets the endpoint name for MAIDR service routing. Required by the
-   * abstract contract, but the proxy path (clientToken) never applies to a
-   * local Ollama server — requests always go directly to the user's machine.
-   * @returns {string} The endpoint name 'ollama'
+   * Required by the abstract contract, but the MAIDR proxy path
+   * (clientToken) can never apply to a local Ollama server — requests always
+   * go directly to the user's machine, so routing here is a configuration
+   * error and fails loudly.
+   * @throws {Error} Always; Ollama requests cannot be proxied
    */
   protected getEndPoint(): string {
-    return 'ollama';
+    throw new Error('Ollama requests cannot be routed through the MAIDR proxy');
   }
 
   /**
