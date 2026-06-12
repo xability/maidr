@@ -143,6 +143,60 @@ describe('context.replaceFigure', () => {
     expect(observers).toHaveLength(0);
   });
 
+  test('preserves the active layer across mixed-type multilayer updates (candle+volume+MA)', () => {
+    // Mirrors the py-maidr multilayer candlestick: candlestick + bar + line.
+    const createMultiLayer = (candles: number): Maidr => ({
+      id: 'live-test',
+      subplots: [[{
+        layers: [
+          {
+            id: 'candle',
+            type: TraceType.CANDLESTICK,
+            axes: { x: { label: 'Time' }, y: { label: 'Price' } },
+            data: Array.from({ length: candles }, (_, i) => ({
+              value: `t${i}`,
+              open: 10 + i,
+              high: 12 + i,
+              low: 9 + i,
+              close: 11 + i,
+            })),
+          },
+          {
+            id: 'volume',
+            type: TraceType.BAR,
+            axes: { x: { label: 'Time' }, y: { label: 'Volume' } },
+            data: Array.from({ length: candles }, (_, i) => ({ x: `t${i}`, y: 100 + i })),
+          },
+          {
+            id: 'ma',
+            type: TraceType.LINE,
+            axes: { x: { label: 'Time' }, y: { label: 'MA' } },
+            data: [Array.from({ length: candles }, (_, i) => ({ x: i, y: 10.5 + i }))],
+          },
+        ],
+      }]],
+    });
+
+    const oldFigure = new Figure(createMultiLayer(3));
+    const context = new Context(oldFigure);
+
+    // User switched to the volume (bar) layer, third bar.
+    const subplot = oldFigure.subplots[0][0];
+    subplot.isInitialEntry = false;
+    subplot.row = 1;
+    subplot.activeTrace.isInitialEntry = false;
+    subplot.activeTrace.col = 2;
+
+    // Simulate a streaming tick: one more point in every layer.
+    const newFigure = new Figure(createMultiLayer(4));
+    context.replaceFigure(() => newFigure);
+
+    // Still on the volume layer, same bar index.
+    expect(context.active).toBe(newFigure.subplots[0][0].traces[1][0]);
+    expect(context.active.col).toBe(2);
+    expect(context.active.isInitialEntry).toBe(false);
+  });
+
   test('resets navigation when a layer type changes (same layer count)', () => {
     const context = new Context(new Figure(createMaidr(3)));
     context.active.isInitialEntry = false;

@@ -12,7 +12,7 @@ Three capabilities work together:
 
 Data updates are applied **in place**: the user's current position, active modes (text, braille, sonification), and keyboard focus are all preserved while axes ranges, navigation, braille, and text descriptions reflect the new data immediately.
 
-Complete runnable demos: [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html) (streaming line chart) and [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html) (live stock ticker).
+Complete runnable demos: [`examples/live-line.html`](https://github.com/xability/maidr/blob/main/examples/live-line.html) (streaming line chart) and [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html) (multi-layer live stock ticker: candlestick + volume + moving average).
 
 ## Enabling Live Mode
 
@@ -101,7 +101,18 @@ window.maidrLive.appendData(
 );
 ```
 
-`trend` and `volatility` are computed by MAIDR from the OHLC values, so they can be omitted from streamed candles. See the full demo at [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html).
+`trend` and `volatility` are computed by MAIDR from the OHLC values, so they can be omitted from streamed candles.
+
+**Multi-layer tickers** (like the py-maidr candlestick example with candle + volume + moving-average layers) stream the same way: give each layer an `id` and append one point per layer per tick. Layer navigation (PageUp/PageDown), x-position sync across layers, and the user's active layer are all preserved across updates; while monitoring, each appended layer's point is announced:
+
+```javascript
+// One tick: stream into all three layers of the same subplot.
+window.maidrLive.appendData(candle, { id: 'live-ticker', layerId: 'candle-layer' });
+window.maidrLive.appendData(volumeBar, { id: 'live-ticker', layerId: 'volume-layer' });
+window.maidrLive.appendData(maPoint, { id: 'live-ticker', layerId: 'ma-layer' });
+```
+
+See the full multi-layer demo at [`examples/live-candlestick.html`](https://github.com/xability/maidr/blob/main/examples/live-candlestick.html).
 
 ### `window.maidrLive.setData(maidr)`
 

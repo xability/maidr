@@ -18,10 +18,14 @@
       }
     </style>
     <script>
-      // Live candlestick (stock ticker) demo: one new OHLC candle per second.
-      // `live: true` enables in-place updates and the 'M' (monitor mode) key;
-      // `maxWidth` keeps a sliding window of the last 15 candles. While
-      // monitoring, each new candle's CLOSE price is sonified and announced.
+      // Live multi-layer candlestick (stock ticker) demo, mirroring the
+      // py-maidr multilayer example: a candlestick layer, a volume bar
+      // layer, and a moving-average line layer in one subplot. One new
+      // tick per second streams a point into each layer via appendData.
+      //
+      // `live: true` enables in-place updates and the 'M' (monitor mode)
+      // key; `maxWidth` keeps a sliding window of the last 15 ticks per
+      // layer. PageUp/PageDown switches layers while navigating.
       var maidr = {
         id: 'live-ticker',
         title: 'Live Stock Ticker',
@@ -32,9 +36,9 @@
             {
               layers: [
                 {
-                  id: 'ticker-layer',
+                  id: 'candle-layer',
                   type: 'candlestick',
-                  title: 'Live Stock Ticker',
+                  title: 'Price (OHLC)',
                   axes: {
                     x: { label: 'Time' },
                     y: { label: 'Price', format: { type: 'currency', decimals: 2 } },
@@ -45,6 +49,36 @@
                     { value: '09:32', open: 100.75, high: 101.25, low: 98.5, close: 99.25 },
                   ],
                 },
+                {
+                  id: 'volume-layer',
+                  type: 'bar',
+                  title: 'Volume',
+                  axes: {
+                    x: { label: 'Time' },
+                    y: { label: 'Volume', format: { type: 'number', decimals: 0 } },
+                  },
+                  data: [
+                    { x: '09:30', y: 1200 },
+                    { x: '09:31', y: 1850 },
+                    { x: '09:32', y: 1430 },
+                  ],
+                },
+                {
+                  id: 'ma-layer',
+                  type: 'line',
+                  title: 'Moving Average (3)',
+                  axes: {
+                    x: { label: 'Time' },
+                    y: { label: 'MA Price', format: { type: 'currency', decimals: 2 } },
+                  },
+                  data: [
+                    [
+                      { x: '09:30', y: 101.5 },
+                      { x: '09:31', y: 101.13 },
+                      { x: '09:32', y: 100.5 },
+                    ],
+                  ],
+                },
               ],
             },
           ],
@@ -53,21 +87,25 @@
     </script>
   </head>
   <body>
-    <h1>maidr Live Candlestick / Stock Ticker Demo</h1>
+    <h1>maidr Live Multi-Layer Candlestick / Stock Ticker Demo</h1>
     <p>
       Click the chart (or Tab to it), then use arrow keys: Left/Right move
-      between candles, Up/Down move between OHLC segments (open, high, low,
-      close, volatility). Press <kbd>M</kbd> to toggle
-      <strong>monitor mode</strong>: each new candle's close price is
-      automatically sonified and announced while you keep your position.
+      between candles, Up/Down move between OHLC segments. Press
+      <kbd>PageUp</kbd>/<kbd>PageDown</kbd> to switch between the price
+      (candlestick), volume (bar), and moving-average (line) layers. Press
+      <kbd>M</kbd> to toggle <strong>monitor mode</strong>: each new tick's
+      close price, volume, and moving average are sonified and announced
+      while you keep your position.
     </p>
     <div id="controls">
       <button id="start" type="button">Start ticker</button>
       <button id="stop" type="button" disabled>Stop ticker</button>
     </div>
 
-    <svg id="live-ticker" width="640" height="320" viewBox="0 0 640 320">
+    <svg id="live-ticker" width="640" height="360" viewBox="0 0 640 360">
       <g id="candles"></g>
+      <g id="volumes"></g>
+      <polyline id="ma-line" fill="none" stroke="#1565c0" stroke-width="2" points="" />
     </svg>
 
     <script>
@@ -75,15 +113,17 @@
         var timer = null;
         var minute = 32;
         var lastClose = 99.25;
-        // Local copy for the SVG redraw only (stands in for your charting
+        // Local copies for the SVG redraw only (stand in for your charting
         // library). Never mutate data already handed to MAIDR — stream new
-        // candles through appendData instead.
+        // points through appendData instead.
         var windowSize = 15;
         var candles = maidr.subplots[0][0].layers[0].data.slice();
+        var volumes = maidr.subplots[0][0].layers[1].data.slice();
+        var mas = maidr.subplots[0][0].layers[2].data[0].slice();
 
         function redraw() {
           var w = 640;
-          var h = 320;
+          var h = 260; // price pane
           var pad = 24;
           var lows = candles.map(function (c) { return c.low; });
           var highs = candles.map(function (c) { return c.high; });
@@ -93,7 +133,7 @@
             return h - pad - ((price - min) / (max - min)) * (h - 2 * pad);
           };
           var slot = (w - 2 * pad) / Math.max(candles.length, 1);
-          var parts = candles.map(function (c, i) {
+          var candleParts = candles.map(function (c, i) {
             var cx = pad + slot * (i + 0.5);
             var bw = Math.min(slot * 0.6, 18);
             var up = c.close >= c.open;
@@ -105,38 +145,57 @@
               + '<rect x="' + (cx - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + bodyH + '" fill="' + color + '" />'
             );
           });
-          document.getElementById('candles').innerHTML = parts.join('');
+          document.getElementById('candles').innerHTML = candleParts.join('');
+
+          // Volume pane along the bottom.
+          var maxVol = Math.max.apply(null, volumes.map(function (v) { return v.y; }));
+          var volumeParts = volumes.map(function (v, i) {
+            var cx = pad + slot * (i + 0.5);
+            var bw = Math.min(slot * 0.6, 18);
+            var vh = (v.y / maxVol) * 70;
+            return '<rect x="' + (cx - bw / 2) + '" y="' + (350 - vh) + '" width="' + bw + '" height="' + vh + '" fill="#90a4ae" />';
+          });
+          document.getElementById('volumes').innerHTML = volumeParts.join('');
+
+          // Moving-average overlay on the price pane.
+          var coords = mas.map(function (p, i) {
+            var cx = pad + slot * (i + 0.5);
+            return cx.toFixed(1) + ',' + y(p.y).toFixed(1);
+          });
+          document.getElementById('ma-line').setAttribute('points', coords.join(' '));
         }
 
-        function nextCandle() {
+        function step() {
           minute += 1;
+          var time = '09:' + String(minute).padStart(2, '0');
+
+          // Next OHLC candle (random walk).
           var open = lastClose;
           var drift = (Math.random() - 0.5) * 3;
           var close = Math.round((open + drift) * 100) / 100;
           var high = Math.round((Math.max(open, close) + Math.random() * 1.5) * 100) / 100;
           var low = Math.round((Math.min(open, close) - Math.random() * 1.5) * 100) / 100;
           lastClose = close;
-          return {
-            value: '09:' + String(minute).padStart(2, '0'),
-            open: open,
-            high: high,
-            low: low,
-            close: close,
+          var candle = { value: time, open: open, high: high, low: low, close: close };
+
+          // Matching volume bar and 3-tick moving average of the close.
+          var volume = { x: time, y: Math.round(800 + Math.random() * 1500) };
+          var recent = candles.slice(-2).map(function (c) { return c.close; }).concat(close);
+          var ma = {
+            x: time,
+            y: Math.round((recent.reduce(function (a, b) { return a + b; }, 0) / recent.length) * 100) / 100,
           };
-        }
 
-        function step() {
-          var candle = nextCandle();
-
-          candles.push(candle);
-          if (candles.length > windowSize) {
-            candles.shift();
-          }
+          [candles, volumes, mas].forEach(function (arr, i) {
+            arr.push([candle, volume, ma][i]);
+            if (arr.length > windowSize) arr.shift();
+          });
           redraw();
 
-          // Stream the same candle into maidr: navigation, sonification,
-          // text, and braille all reflect the new data immediately.
-          window.maidrLive.appendData(candle, { id: 'live-ticker' });
+          // Stream the same tick into all three maidr layers.
+          window.maidrLive.appendData(candle, { id: 'live-ticker', layerId: 'candle-layer' });
+          window.maidrLive.appendData(volume, { id: 'live-ticker', layerId: 'volume-layer' });
+          window.maidrLive.appendData(ma, { id: 'live-ticker', layerId: 'ma-layer' });
         }
 
         document.getElementById('start').addEventListener('click', function () {
