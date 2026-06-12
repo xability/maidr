@@ -72,6 +72,8 @@ interface OllamaTagsResponse {
 interface ModelListResponse {
   data?: {
     id: string;
+    /** Unix timestamp of model creation (OpenAI only) */
+    created?: number;
   }[];
 }
 
@@ -179,15 +181,14 @@ export class LlmValidationService {
 
       const data = await response.json() as ModelListResponse;
       const models = (data.data ?? [])
-        .map(model => model.id)
-        .filter(id =>
-          OPENAI_CHAT_MODEL_PATTERN.test(id)
-          && !OPENAI_NON_CHAT_SUBSTRINGS.some(substring => id.includes(substring)),
+        .filter(model =>
+          OPENAI_CHAT_MODEL_PATTERN.test(model.id)
+          && !OPENAI_NON_CHAT_SUBSTRINGS.some(substring => model.id.includes(substring)),
         )
-        // Reverse-lexicographic puts newer families (gpt-5.x) before older
-        // ones (gpt-4x) — a rough but dependency-free recency ordering.
-        .sort()
-        .reverse();
+        // Newest first via the created timestamp — unlike name ordering,
+        // this keeps non-gpt families (o-series) properly ranked too.
+        .sort((a, b) => (b.created ?? 0) - (a.created ?? 0))
+        .map(model => model.id);
       return { isValid: true, models };
     } catch (error) {
       return { isValid: false, models: [], error: this.describeProbeFailure(error) };

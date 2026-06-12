@@ -72,17 +72,19 @@ describe('LlmValidationService (Ollama)', () => {
   });
 
   describe('probeProvider (cloud providers)', () => {
-    test('OpenAI: validates the key and filters to chat-capable models', async () => {
+    test('OpenAI: validates the key, filters to chat models, newest first', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
         json: async () => ({
           data: [
-            { id: 'gpt-5.5' },
-            { id: 'gpt-5.4-mini' },
-            { id: 'gpt-4o-audio-preview' },
-            { id: 'whisper-1' },
-            { id: 'text-embedding-3-large' },
-            { id: 'dall-e-3' },
+            { id: 'gpt-5.4-mini', created: 200 },
+            { id: 'gpt-5.5', created: 300 },
+            // o-series must rank by recency, not bury at the name-sort bottom.
+            { id: 'o3', created: 250 },
+            { id: 'gpt-4o-audio-preview', created: 400 },
+            { id: 'whisper-1', created: 400 },
+            { id: 'text-embedding-3-large', created: 400 },
+            { id: 'dall-e-3', created: 400 },
           ],
         }),
       } as Response);
@@ -90,7 +92,7 @@ describe('LlmValidationService (Ollama)', () => {
       const probe = await LlmValidationService.probeProvider('OPENAI', 'sk-test');
 
       expect(probe.isValid).toBe(true);
-      expect(probe.models).toEqual(['gpt-5.5', 'gpt-5.4-mini']);
+      expect(probe.models).toEqual(['gpt-5.5', 'o3', 'gpt-5.4-mini']);
       expect(fetchMock).toHaveBeenCalledWith(
         'https://api.openai.com/v1/models',
         expect.objectContaining({
