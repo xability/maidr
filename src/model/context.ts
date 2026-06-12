@@ -92,13 +92,6 @@ export class Context implements Disposable {
   }
 
   /**
-   * Builds the plot context stack for a fresh figure, pushing the initial
-   * scope, and returns the element to use as the instruction context.
-   *
-   * @param figure - The figure to initialize the stack from
-   * @returns The instruction context element
-   */
-  /**
    * Whether navigation for this figure starts at figure level (multiple
    * subplots) rather than subplot/trace level. Single source of truth for
    * the level discrimination used at construction, instruction resolution,
@@ -109,6 +102,13 @@ export class Context implements Disposable {
     return figureState.empty || figureState.size !== 1;
   }
 
+  /**
+   * Builds the plot context stack for a fresh figure, pushing the initial
+   * scope, and returns the element to use as the instruction context.
+   *
+   * @param figure - The figure to initialize the stack from
+   * @returns The instruction context element
+   */
   private initializePlotContext(figure: Figure): Plot {
     // Set the context to figure level.
     if (this.isFigureLevel(figure)) {

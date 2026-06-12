@@ -373,6 +373,8 @@ export class Candlestick extends AbstractTrace {
       this.currentSegmentType = segmentType;
       return super.getStateAt(row, col);
     } finally {
+      // The base-class finally (inside super.getStateAt) restores
+      // row/col/isInitialEntry; this one restores the candlestick fields.
       this.currentPointIndex = previous.pointIndex;
       this.currentSegmentType = previous.segmentType;
     }
