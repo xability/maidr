@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import type { AppendDataOptions, LiveDataPoint } from './service/liveData';
+import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -8,39 +8,6 @@ import { Maidr as MaidrComponent } from './maidr-component';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
-
-/**
- * Public realtime/streaming API for script-tag consumers, exposed as
- * `window.maidrLive`.
- *
- * @example
- * ```js
- * // Replace all data for the chart with id 'stock-chart'.
- * window.maidrLive.setData(updatedMaidrJson);
- *
- * // Stream a new point into the first (or only) chart.
- * window.maidrLive.appendData({ x: 42, y: 3.14 });
- *
- * // Stream into a specific chart, layer, and series.
- * window.maidrLive.appendData(
- *   { x: 42, y: 3.14 },
- *   { id: 'stock-chart', layerId: 'prices', groupIndex: 1 },
- * );
- * ```
- */
-export interface MaidrLiveApi {
-  /**
-   * Replaces all data for the chart identified by `maidr.id`.
-   * MAIDR keeps a reference to the passed object — do not mutate it after
-   * calling; pass a fresh object (or a structuredClone) for each update.
-   */
-  setData: (maidr: Maidr) => boolean;
-  /** Appends a single data point to a chart layer (streaming). */
-  appendData: (
-    point: LiveDataPoint,
-    options?: AppendDataOptions & { id?: string },
-  ) => boolean;
-}
 
 declare global {
   interface Window {

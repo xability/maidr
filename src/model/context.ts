@@ -98,10 +98,20 @@ export class Context implements Disposable {
    * @param figure - The figure to initialize the stack from
    * @returns The instruction context element
    */
+  /**
+   * Whether navigation for this figure starts at figure level (multiple
+   * subplots) rather than subplot/trace level. Single source of truth for
+   * the level discrimination used at construction, instruction resolution,
+   * and depth-1 stack restoration.
+   */
+  private isFigureLevel(figure: Figure): boolean {
+    const figureState = figure.state;
+    return figureState.empty || figureState.size !== 1;
+  }
+
   private initializePlotContext(figure: Figure): Plot {
     // Set the context to figure level.
-    const figureState = figure.state;
-    if (figureState.empty || figureState.size !== 1) {
+    if (this.isFigureLevel(figure)) {
       this.plotContext.push(figure);
       this.scopeContext.push(Scope.SUBPLOT);
       return figure;
@@ -252,15 +262,11 @@ export class Context implements Disposable {
         this.plotContext.push(subplot);
         this.plotContext.push(trace);
         break;
-      default: {
+      default:
         // Depth 1 is ambiguous: a multi-subplot figure starts at figure
         // level, a single-subplot single-layer chart at trace level.
-        // Discriminate exactly like initializePlotContext does.
-        const figureState = figure.state;
-        const atFigureLevel = figureState.empty || figureState.size !== 1;
-        this.plotContext.push(atFigureLevel ? figure : trace);
+        this.plotContext.push(this.isFigureLevel(figure) ? figure : trace);
         break;
-      }
     }
   }
 
@@ -294,8 +300,7 @@ export class Context implements Disposable {
    * choice made at construction time.
    */
   private resolveInstructionContext(figure: Figure): Plot {
-    const figureState = figure.state;
-    if (figureState.empty || figureState.size !== 1) {
+    if (this.isFigureLevel(figure)) {
       return figure;
     }
     const subplotState = figure.activeSubplot.state;

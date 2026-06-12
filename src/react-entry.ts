@@ -80,6 +80,7 @@ export {
   type AppendDataOptions,
   appendMaidrData,
   type LiveDataPoint,
+  type MaidrLiveApi,
   setMaidrData,
 } from './service/liveData';
 

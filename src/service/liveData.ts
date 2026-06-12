@@ -436,6 +436,40 @@ export class LiveDataManager {
 export const liveDataManager = new LiveDataManager();
 
 /**
+ * Public realtime/streaming API for script-tag consumers, exposed as
+ * `window.maidrLive` by the script bundle. Exported here so TypeScript
+ * consumers can type the global without importing the script-tag entry.
+ *
+ * @example
+ * ```js
+ * // Replace all data for the chart with id 'stock-chart'.
+ * window.maidrLive.setData(updatedMaidrJson);
+ *
+ * // Stream a new point into the first (or only) chart.
+ * window.maidrLive.appendData({ x: 42, y: 3.14 });
+ *
+ * // Stream into a specific chart, layer, and series.
+ * window.maidrLive.appendData(
+ *   { x: 42, y: 3.14 },
+ *   { id: 'stock-chart', layerId: 'prices', groupIndex: 1 },
+ * );
+ * ```
+ */
+export interface MaidrLiveApi {
+  /**
+   * Replaces all data for the chart identified by `maidr.id`.
+   * MAIDR keeps a reference to the passed object — do not mutate it after
+   * calling; pass a fresh object (or a structuredClone) for each update.
+   */
+  setData: (maidr: Maidr) => boolean;
+  /** Appends a single data point to a chart layer (streaming). */
+  appendData: (
+    point: LiveDataPoint,
+    options?: AppendDataOptions & { id?: string },
+  ) => boolean;
+}
+
+/**
  * Replaces all data for the chart identified by `maidr.id`.
  * Convenience wrapper around {@link liveDataManager}.
  *
