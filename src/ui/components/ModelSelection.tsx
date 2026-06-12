@@ -3,7 +3,7 @@ import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
-import { resolveOllamaVersionOptions } from '@util/llm';
+import { resolveVersionOptions } from '@util/llm';
 import React from 'react';
 
 interface ModelSelectionProps {
@@ -56,9 +56,14 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     const config = MODEL_VERSIONS[modelKey];
     const labels = config.labels as Record<string, string>;
 
-    const options: readonly string[] = modelKey === 'OLLAMA'
-      ? resolveOllamaVersionOptions(config.options, ollamaModels, getCurrentVersion(modelKey))
-      : config.options;
+    // Live model lists are probed in the settings dialog; here only the local
+    // Ollama list is fetched (cloud lists would cost an API call per chat
+    // open). The saved version is always kept selectable either way.
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      modelKey === 'OLLAMA' ? ollamaModels : [],
+      getCurrentVersion(modelKey),
+    );
 
     return options.map((version) => {
       const typedVersion = version as LlmVersion;

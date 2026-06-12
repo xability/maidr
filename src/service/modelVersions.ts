@@ -1,19 +1,4 @@
-import type { Llm, LlmVersion, OllamaVersion } from '@type/llm';
-
-/**
- * Available OpenAI GPT model versions.
- */
-export type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
-
-/**
- * Available Anthropic Claude model versions.
- */
-export type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
-
-/**
- * Available Google Gemini model versions.
- */
-export type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmVersion, OllamaVersion } from '@type/llm';
 
 /**
  * Configuration structure for LLM model versions including default, options, and display labels.
@@ -22,9 +7,9 @@ export type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemi
 export interface ModelConfig<T extends LlmVersion> {
   /** The default model version to use */
   default: T;
-  /** All available model versions */
+  /** Curated model versions offered when the live provider list is unavailable */
   options: readonly T[];
-  /** Human-readable labels for each model version */
+  /** Human-readable labels for each curated model version */
   labels: Record<T, string>;
 }
 
@@ -43,38 +28,52 @@ export interface ModelVersions {
 }
 
 /**
- * Configuration object containing default versions, available options, and display labels for all LLM providers.
+ * Curated model catalog: defaults, suggestions, and display labels per provider.
+ *
+ * These lists are snapshots and inevitably age as providers release and retire
+ * models. They are kept fresh through two mechanisms:
+ * 1. At runtime, the settings dialog probes each provider's models API with
+ *    the user's credentials and offers the live list, so users can always
+ *    select models released after this snapshot.
+ * 2. `npm run check-models` (scripts/check-model-catalog.mjs, also run weekly
+ *    in CI) compares these entries against the live provider APIs and flags
+ *    stale ones.
+ *
+ * Catalog snapshot last verified: 2026-06-12.
  */
 export const MODEL_VERSIONS: ModelVersions = {
   OPENAI: {
-    default: 'gpt-4o',
-    options: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o1-mini', 'o3', 'o4-mini'] as const,
+    default: 'gpt-5.5',
+    options: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-4o'] as const,
     labels: {
-      'gpt-4o': 'GPT-4o',
-      'gpt-4o-mini': 'GPT-4o Mini',
-      'gpt-4.1': 'GPT-4.1',
-      'o1-mini': 'o1-mini',
-      'o3': 'o3',
-      'o4-mini': 'o4-mini',
+      'gpt-5.5': 'GPT-5.5',
+      'gpt-5.5-pro': 'GPT-5.5 Pro',
+      'gpt-5.4': 'GPT-5.4',
+      'gpt-5.4-mini': 'GPT-5.4 Mini',
+      'gpt-5.4-nano': 'GPT-5.4 Nano',
+      'gpt-4o': 'GPT-4o (legacy)',
     },
   },
   ANTHROPIC_CLAUDE: {
-    default: 'claude-3-7-sonnet-latest',
-    options: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest'] as const,
+    default: 'claude-opus-4-8',
+    options: ['claude-fable-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'] as const,
     labels: {
-      'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
-      'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
-      'claude-3-7-sonnet-latest': 'Claude 3.7 Sonnet',
+      'claude-fable-5': 'Claude Fable 5',
+      'claude-opus-4-8': 'Claude Opus 4.8',
+      'claude-opus-4-7': 'Claude Opus 4.7',
+      'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+      'claude-haiku-4-5': 'Claude Haiku 4.5',
     },
   },
   GOOGLE_GEMINI: {
-    default: 'gemini-2.0-flash',
-    options: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-preview-04-17', 'gemini-2.5-pro-preview-05-06'] as const,
+    default: 'gemini-3.5-flash',
+    options: ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash'] as const,
     labels: {
-      'gemini-2.0-flash': 'Gemini 2.0 Flash',
-      'gemini-2.0-flash-lite': 'Gemini 2.0 Flash Lite',
-      'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash Preview',
-      'gemini-2.5-pro-preview-05-06': 'Gemini 2.5 Pro Preview',
+      'gemini-3.5-flash': 'Gemini 3.5 Flash',
+      'gemini-3.1-pro-preview': 'Gemini 3.1 Pro Preview',
+      'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
+      'gemini-2.5-pro': 'Gemini 2.5 Pro',
+      'gemini-2.5-flash': 'Gemini 2.5 Flash',
     },
   },
   // Curated suggestions only; the actual list of installed models is probed
@@ -96,25 +95,21 @@ export const MODEL_VERSIONS: ModelVersions = {
 };
 
 /**
- * Resolves a saved model version to a valid one for the given provider,
- * falling back to the provider default when the saved value is unrecognized.
+ * Resolves a saved model version for the given provider. Any non-empty saved
+ * version is accepted — model dropdowns are populated from each provider's
+ * live models API (and the local Ollama server), so valid selections are not
+ * limited to the curated catalog above. Only a blank version falls back to
+ * the provider default.
  * @param modelKey - The LLM provider identifier
  * @param currentVersion - The saved model version, if any
- * @returns The validated model version
+ * @returns The resolved model version
  */
 export function getValidVersion(
   modelKey: Llm,
   currentVersion: string | undefined,
 ): LlmVersion {
-  const config = MODEL_VERSIONS[modelKey];
-  // Ollama models are whatever the user has pulled locally, so any non-empty
-  // name is valid even when it is not in the curated suggestion list.
-  if (modelKey === 'OLLAMA' && currentVersion?.trim()) {
+  if (currentVersion?.trim()) {
     return currentVersion as LlmVersion;
   }
-  const validOptions = config.options as readonly LlmVersion[];
-  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-    return config.default;
-  }
-  return currentVersion as LlmVersion;
+  return MODEL_VERSIONS[modelKey].default;
 }

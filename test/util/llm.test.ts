@@ -4,7 +4,7 @@ import {
   getModelDisplayName,
   isValidOllamaBaseUrl,
   normalizeOllamaBaseUrl,
-  resolveOllamaVersionOptions,
+  resolveVersionOptions,
 } from '@util/llm';
 
 describe('normalizeOllamaBaseUrl', () => {
@@ -56,30 +56,30 @@ describe('isValidOllamaBaseUrl', () => {
   });
 });
 
-describe('resolveOllamaVersionOptions', () => {
+describe('resolveVersionOptions', () => {
   const curated = ['llama3.2', 'mistral'];
 
   test('uses curated suggestions when no installed models are known', () => {
-    expect(resolveOllamaVersionOptions(curated, [], 'llama3.2')).toEqual(curated);
+    expect(resolveVersionOptions(curated, [], 'llama3.2')).toEqual(curated);
   });
 
   test('prefers installed models over curated suggestions', () => {
-    expect(resolveOllamaVersionOptions(curated, ['phi4:latest'], 'phi4:latest')).toEqual(['phi4:latest']);
+    expect(resolveVersionOptions(curated, ['phi4:latest'], 'phi4:latest')).toEqual(['phi4:latest']);
   });
 
   test('keeps the saved model selectable when missing from the list', () => {
-    expect(resolveOllamaVersionOptions(curated, ['phi4:latest'], 'removed-model')).toEqual([
+    expect(resolveVersionOptions(curated, ['phi4:latest'], 'removed-model')).toEqual([
       'phi4:latest',
       'removed-model',
     ]);
   });
 
   test('does not duplicate a saved model already in the list', () => {
-    expect(resolveOllamaVersionOptions(curated, [], 'mistral')).toEqual(curated);
+    expect(resolveVersionOptions(curated, [], 'mistral')).toEqual(curated);
   });
 
   test('ignores a blank saved model', () => {
-    expect(resolveOllamaVersionOptions(curated, [], '  ')).toEqual(curated);
+    expect(resolveVersionOptions(curated, [], '  ')).toEqual(curated);
   });
 });
 

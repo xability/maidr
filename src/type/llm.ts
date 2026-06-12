@@ -15,19 +15,21 @@ export type Llm
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /**
- * Available OpenAI GPT model versions.
+ * Curated OpenAI GPT model versions. The settings dialog also offers the live
+ * list fetched from the provider's models API, so saved versions may be any
+ * model the user's key can access.
  */
-export type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
+export type GptVersion = 'gpt-5.5' | 'gpt-5.5-pro' | 'gpt-5.4' | 'gpt-5.4-mini' | 'gpt-5.4-nano' | 'gpt-4o';
 
 /**
- * Available Anthropic Claude model versions.
+ * Curated Anthropic Claude model versions.
  */
-export type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
+export type ClaudeVersion = 'claude-fable-5' | 'claude-opus-4-8' | 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
 
 /**
- * Available Google Gemini model versions.
+ * Curated Google Gemini model versions.
  */
-export type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
+export type GeminiVersion = 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite' | 'gemini-2.5-pro' | 'gemini-2.5-flash';
 
 /**
  * Available Ollama model versions. Ollama models are installed locally by the

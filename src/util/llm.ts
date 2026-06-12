@@ -24,22 +24,22 @@ export function isValidOllamaBaseUrl(baseUrl?: string): boolean {
 }
 
 /**
- * Builds the selectable Ollama model options for a version dropdown: the
- * models installed on the local server when known, otherwise the curated
- * suggestions, always keeping the saved model selectable even when it is
- * missing from the list (e.g. it was removed locally) so the dropdown never
- * loses its current value.
+ * Builds the selectable model options for a version dropdown: the live list
+ * probed from the provider (or local Ollama server) when known, otherwise the
+ * curated catalog suggestions, always keeping the saved model selectable even
+ * when it is missing from the list (e.g. retired by the provider or removed
+ * locally) so the dropdown never loses its current value.
  * @param curatedOptions - The static suggestion list from the model catalog
- * @param installedModels - Models probed from the local server (may be empty)
+ * @param availableModels - Models probed from the provider (may be empty)
  * @param savedVersion - The currently saved model name, if any
  * @returns The options to render in the dropdown
  */
-export function resolveOllamaVersionOptions(
+export function resolveVersionOptions(
   curatedOptions: readonly string[],
-  installedModels: readonly string[],
+  availableModels: readonly string[],
   savedVersion?: string,
 ): string[] {
-  const options = installedModels.length > 0 ? [...installedModels] : [...curatedOptions];
+  const options = availableModels.length > 0 ? [...availableModels] : [...curatedOptions];
   if (savedVersion?.trim() && !options.includes(savedVersion)) {
     options.push(savedVersion);
   }

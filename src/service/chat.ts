@@ -7,11 +7,13 @@ import { Scope } from '@type/event';
 import { Api } from '@util/api';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
+import { ANTHROPIC_API_VERSION } from './llmValidation';
+import { MODEL_VERSIONS } from './modelVersions';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 // Token limits for different LLM providers
 const GPT_MAX_TOKENS = 1000;
-const CLAUDE_MAX_TOKENS = 256;
+const CLAUDE_MAX_TOKENS = 1024;
 const GEMINI_MAX_TOKENS = 1000;
 // Maps to Ollama's num_predict, which caps generated tokens only (it is not
 // the context window).
@@ -35,11 +37,13 @@ export class ChatService {
     this.display = display;
     this.textService = textService;
 
+    // Construction-time versions are fallbacks only; the user-selected
+    // version arrives per request via LlmRequest.version.
     this.models = {
-      OPENAI: new Gpt(display.plot, maidr, textService, 'gpt-4o'),
-      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, 'claude-3-7-sonnet-latest'),
-      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, 'gemini-2.0-flash'),
-      OLLAMA: new Ollama(display.plot, maidr, textService, 'llama3.2'),
+      OPENAI: new Gpt(display.plot, maidr, textService, MODEL_VERSIONS.OPENAI.default),
+      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, MODEL_VERSIONS.ANTHROPIC_CLAUDE.default),
+      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, MODEL_VERSIONS.GOOGLE_GEMINI.default),
+      OLLAMA: new Ollama(display.plot, maidr, textService, MODEL_VERSIONS.OLLAMA.default),
     };
   }
 
@@ -80,11 +84,13 @@ interface GptResponse {
 }
 
 /**
- * Response structure from Anthropic Claude API.
+ * Response structure from Anthropic Claude API. Content blocks are a union
+ * (text, thinking, tool_use, ...), so both fields are read defensively.
  */
 interface ClaudeResponse {
   content: {
-    text: string;
+    type?: string;
+    text?: string;
   }[];
 }
 
@@ -162,7 +168,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
       const url = request.clientToken
         ? this.getMaidrUrl()
-        : this.getApiUrl(request.apiKey);
+        : this.getApiUrl(request.apiKey, request.version);
 
       const headers = this.getHeaders(request);
       const response = await Api.post<T>(url, payload, headers);
@@ -217,9 +223,11 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Gets the API URL for the specific LLM provider.
    * @param {string} [apiKey] - The API key for authentication
+   * @param {LlmVersion} [version] - The user-selected model version, for providers
+   * (e.g. Gemini) that encode the model in the URL
    * @returns {string} The API URL
    */
-  protected abstract getApiUrl(apiKey?: string): string;
+  protected abstract getApiUrl(apiKey?: string, version?: LlmVersion): string;
 
   /**
    * Gets the endpoint name for MAIDR service routing.
@@ -235,9 +243,8 @@ abstract class AbstractLlmModel<T> implements LlmModel {
    * @param {string} currentText - The current position text
    * @param {string} message - The user's message
    * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
-   * @param {LlmVersion} [version] - The user-selected model version, overriding the provider
-   * default. Currently only Ollama consumes this (the local model name determines which model
-   * runs); cloud providers still use the version fixed at construction.
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the
+   * construction-time default
    * @returns {string} The JSON payload
    */
   protected abstract getPayload(
@@ -309,6 +316,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     currentPositionText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string {
     const context: PromptContext = {
       customInstruction,
@@ -319,7 +327,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     };
 
     return JSON.stringify({
-      model: this.version,
+      model: version ?? this.version,
       max_tokens: GPT_MAX_TOKENS,
       messages: [
         {
@@ -394,11 +402,11 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   }
 
   /**
-   * Gets the Anthropic API URL.
-   * @returns {string} The Anthropic API URL
+   * Gets the Anthropic messages API URL.
+   * @returns {string} The Anthropic messages API URL
    */
   protected getApiUrl(): string {
-    return 'https://api.anthropic.com';
+    return 'https://api.anthropic.com/v1/messages';
   }
 
   /**
@@ -426,6 +434,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     currentPositionText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string {
     const context: PromptContext = {
       customInstruction,
@@ -435,24 +444,30 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
       expertiseLevel: expertise,
     };
 
+    // The Anthropic API expects raw base64 without the data-URL prefix.
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
     return JSON.stringify({
-      anthropic_version: this.version,
+      model: version ?? this.version,
       max_tokens: CLAUDE_MAX_TOKENS,
+      system: formatSystemPrompt(customInstruction, context.expertiseLevel),
       messages: [
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
-                data: image,
-              },
-            },
+            ...(rawBase64
+              ? [{
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/jpeg',
+                    data: rawBase64,
+                  },
+                }]
+              : []),
             {
               type: 'text',
-              text: `${formatSystemPrompt(customInstruction, context.expertiseLevel)}\n\n${formatUserPrompt(context)}`,
+              text: formatUserPrompt(context),
             },
           ],
         },
@@ -461,12 +476,15 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   }
 
   /**
-   * Formats the Claude response into a standard LlmResponse.
+   * Formats the Claude response into a standard LlmResponse. The first text
+   * block is used: models with always-on thinking (e.g. Claude Fable 5) emit
+   * thinking blocks before the text block, so position 0 cannot be assumed.
    * @param {ClaudeResponse} response - The raw response from Claude API
    * @returns {LlmResponse} The formatted response
    */
   protected formatResponse(response: ClaudeResponse): LlmResponse {
-    if (response.content.length === 0) {
+    const textBlock = response.content?.find(block => block.type === 'text' && block.text);
+    if (!textBlock?.text) {
       return {
         success: false,
         error: 'Invalid response format',
@@ -475,18 +493,28 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
     return {
       success: true,
-      data: response.content[0].text,
+      data: textBlock.text,
     };
   }
 
   /**
-   * Builds HTTP headers for Claude requests including version header.
+   * Builds HTTP headers for Claude requests. Direct calls authenticate via
+   * x-api-key (not a bearer token) and need the API version header plus the
+   * direct-browser-access opt-in for CORS; the MAIDR-proxy path keeps the
+   * base-class Authentication header.
    * @param {LlmRequest} request - The request containing authentication details
    * @returns {Record<string, string>} The HTTP headers
    */
   protected getHeaders(request: LlmRequest): Record<string, string> {
     const headers = super.getHeaders(request);
-    headers['anthropic-version'] = this.version;
+    headers['anthropic-version'] = ANTHROPIC_API_VERSION;
+    if (!request.clientToken) {
+      delete headers.Authorization;
+      headers['x-api-key'] = request.apiKey ?? '';
+      // Required for direct browser calls; the key is the user's own,
+      // entered client-side, so direct access is the intended model.
+      headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    }
     return headers;
   }
 }
@@ -510,16 +538,17 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
   }
 
   /**
-   * Gets the Google Gemini API URL with embedded API key.
+   * Gets the Google Gemini API URL with embedded API key and model.
    * @param {string} apiKey - The API key for authentication
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the default
    * @returns {string} The Gemini API URL
    * @throws {Error} If API key is not provided
    */
-  protected getApiUrl(apiKey: string): string {
+  protected getApiUrl(apiKey: string, version?: LlmVersion): string {
     if (!apiKey) {
       throw new Error('API key is required for Gemini API');
     }
-    return `https://generativelanguage.googleapis.com/v1beta/models/${this.version}:generateContent?key=${apiKey}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${version ?? this.version}:generateContent?key=${apiKey}`;
   }
 
   /**
@@ -575,7 +604,8 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
             {
               inlineData: {
                 data: image.split(',')[1],
-                mimeType: 'image/svg+xml',
+                // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
+                mimeType: 'image/jpeg',
               },
             },
           ],

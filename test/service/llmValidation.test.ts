@@ -71,6 +71,96 @@ describe('LlmValidationService (Ollama)', () => {
     });
   });
 
+  describe('probeProvider (cloud providers)', () => {
+    test('OpenAI: validates the key and filters to chat-capable models', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [
+            { id: 'gpt-5.5' },
+            { id: 'gpt-5.4-mini' },
+            { id: 'gpt-4o-audio-preview' },
+            { id: 'whisper-1' },
+            { id: 'text-embedding-3-large' },
+            { id: 'dall-e-3' },
+          ],
+        }),
+      } as Response);
+
+      const probe = await LlmValidationService.probeProvider('OPENAI', 'sk-test');
+
+      expect(probe.isValid).toBe(true);
+      expect(probe.models).toEqual(['gpt-5.5', 'gpt-5.4-mini']);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.openai.com/v1/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ Authorization: 'Bearer sk-test' }),
+        }),
+      );
+    });
+
+    test('Anthropic: validates via the models endpoint with required headers', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'claude-opus-4-8' }, { id: 'claude-sonnet-4-6' }],
+        }),
+      } as Response);
+
+      const probe = await LlmValidationService.probeProvider('ANTHROPIC_CLAUDE', 'sk-ant-test');
+
+      expect(probe.isValid).toBe(true);
+      expect(probe.models).toEqual(['claude-opus-4-8', 'claude-sonnet-4-6']);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/models?limit=100',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'x-api-key': 'sk-ant-test',
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          }),
+        }),
+      );
+    });
+
+    test('Gemini: keeps only text-generation models and strips the name prefix', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          models: [
+            { name: 'models/gemini-3.5-flash', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/gemini-2.5-pro', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
+            { name: 'models/gemini-3.1-flash-image', supportedGenerationMethods: ['generateContent'] },
+          ],
+        }),
+      } as Response);
+
+      const probe = await LlmValidationService.probeProvider('GOOGLE_GEMINI', 'g-key');
+
+      expect(probe.isValid).toBe(true);
+      expect(probe.models).toEqual(['gemini-3.5-flash', 'gemini-2.5-pro']);
+    });
+
+    test('reports invalid with no models when the provider rejects the key', async () => {
+      fetchMock.mockResolvedValue({ ok: false } as Response);
+
+      const probe = await LlmValidationService.probeProvider('OPENAI', 'bad-key');
+
+      expect(probe).toEqual({ isValid: false, models: [], error: 'Invalid API key' });
+    });
+
+    test('reports invalid when the network request fails', async () => {
+      fetchMock.mockRejectedValue(new Error('network down'));
+
+      const probe = await LlmValidationService.probeProvider('ANTHROPIC_CLAUDE', 'sk-ant-test');
+
+      expect(probe.isValid).toBe(false);
+      expect(probe.models).toEqual([]);
+    });
+  });
+
   describe('probeOllamaServer', () => {
     test('answers reachability and installed models with a single request', async () => {
       mockTagsResponse(['llama3.2']);

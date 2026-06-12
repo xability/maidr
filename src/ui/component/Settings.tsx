@@ -52,7 +52,7 @@ import {
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
-import { resolveOllamaVersionOptions } from '@util/llm';
+import { resolveVersionOptions } from '@util/llm';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -168,10 +168,10 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const validVersion = getValidVersion(modelKey, modelSettings.version);
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
-  // Models installed on the local Ollama server, probed once the server URL
-  // validates; replaces the curated suggestion list so users pick from what
-  // they actually have pulled.
-  const [installedModels, setInstalledModels] = useState<string[]>([]);
+  // Models available to this credential, probed from the provider's models
+  // API (or the local Ollama server) when the credential validates; replaces
+  // the curated suggestion list so users pick from what actually exists.
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   // Ollama is a local server: the credential field holds its base URL and
   // "validation" means reachability, so most labels differ from the cloud
@@ -202,7 +202,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     if (!modelSettings.enabled || !apiKey.trim()) {
       if (!isStale()) {
         setIsValid(null);
-        setInstalledModels([]);
+        setAvailableModels([]);
         // Also clear the spinner: a superseded in-flight request skips its
         // own finally-cleanup as stale, so this cycle owns the state.
         setIsValidating(false);
@@ -212,29 +212,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
     setIsValidating(true);
     try {
-      if (isOllama) {
-        // A single probe answers both reachability and the installed-model
-        // list, avoiding a second /api/tags round-trip per debounce cycle.
-        const probe = await LlmValidationService.probeOllamaServer(apiKey);
-        if (isStale()) {
-          return;
-        }
-        setIsValid(probe.reachable);
-        setInstalledModels(probe.models);
-      } else {
-        const result = await LlmValidationService.validateApiKey(
-          modelKey,
-          apiKey,
-        );
-        if (isStale()) {
-          return;
-        }
-        setIsValid(result.isValid);
+      // A single probe answers both credential validity and the live list of
+      // models the credential can access, for every provider.
+      const probe = await LlmValidationService.probeProvider(modelKey, apiKey);
+      if (isStale()) {
+        return;
       }
+      setIsValid(probe.isValid);
+      setAvailableModels(probe.models);
     } catch (error) {
       if (!isStale()) {
         setIsValid(false);
-        setInstalledModels([]);
+        setAvailableModels([]);
       }
     } finally {
       if (!isStale()) {
@@ -257,9 +246,11 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    const options: readonly string[] = isOllama
-      ? resolveOllamaVersionOptions(config.options, installedModels, validVersion)
-      : config.options;
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      availableModels,
+      validVersion,
+    );
     return options.map((version) => {
       const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;
