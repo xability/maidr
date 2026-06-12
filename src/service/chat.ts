@@ -20,6 +20,11 @@ const GEMINI_MAX_TOKENS = 1000;
 // the context window).
 const OLLAMA_MAX_TOKENS = 1000;
 
+// Generous cap for the chat request itself: large local models and
+// deep-reasoning cloud models can legitimately take a while, but a hung
+// provider must not stall the chat (and its waiting tone) forever.
+const LLM_REQUEST_TIMEOUT_MS = 120000;
+
 /**
  * Service for managing chat interactions with different LLM providers.
  */
@@ -172,7 +177,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         : this.getApiUrl(request.apiKey, request.version);
 
       const headers = this.getHeaders(request);
-      const response = await Api.post<T>(url, payload, headers);
+      const response = await Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS);
       if (!response.success) {
         return {
           success: false,

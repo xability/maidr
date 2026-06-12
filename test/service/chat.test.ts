@@ -108,6 +108,11 @@ describe('ChatService provider requests', () => {
     expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer sk-openai-test');
     expect(body.model).toBe('gpt-5.4-mini');
+
+    // Chat requests must carry a timeout so a hung provider cannot stall
+    // the chat indefinitely.
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
   test('Gemini: encodes the selected model and key in the URL', async () => {
