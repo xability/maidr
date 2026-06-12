@@ -144,6 +144,20 @@ export class LlmValidationService {
   }
 
   /**
+   * Describes a thrown probe failure. Network problems and timeouts are not
+   * credential problems, so they get a distinct message instead of the
+   * misleading "Invalid API key".
+   * @param error - The error thrown by fetch
+   * @returns A human-readable failure description
+   */
+  private static describeProbeFailure(error: unknown): string {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      return 'The provider did not respond in time. Check your network connection and try again.';
+    }
+    return 'Could not reach the provider. Check your network connection.';
+  }
+
+  /**
    * Probes the OpenAI models endpoint, validating the key and collecting the
    * chat-capable models it can access.
    * @param apiKey - The OpenAI API key
@@ -175,8 +189,8 @@ export class LlmValidationService {
         .sort()
         .reverse();
       return { isValid: true, models };
-    } catch {
-      return { isValid: false, models: [], error: 'Invalid API key' };
+    } catch (error) {
+      return { isValid: false, models: [], error: this.describeProbeFailure(error) };
     }
   }
 
@@ -208,8 +222,8 @@ export class LlmValidationService {
 
       const data = await response.json() as ModelListResponse;
       return { isValid: true, models: (data.data ?? []).map(model => model.id) };
-    } catch {
-      return { isValid: false, models: [], error: 'Invalid API key' };
+    } catch (error) {
+      return { isValid: false, models: [], error: this.describeProbeFailure(error) };
     }
   }
 
@@ -239,8 +253,8 @@ export class LlmValidationService {
         .sort()
         .reverse();
       return { isValid: true, models };
-    } catch {
-      return { isValid: false, models: [], error: 'Invalid API key' };
+    } catch (error) {
+      return { isValid: false, models: [], error: this.describeProbeFailure(error) };
     }
   }
 

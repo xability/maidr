@@ -26,6 +26,8 @@ jobs:
 
       - name: Check catalog against provider APIs
         id: check
+        # PIPESTATUS below is bash-specific; make the shell explicit.
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

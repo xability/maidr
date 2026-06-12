@@ -40,6 +40,11 @@ export interface ModelVersions {
  *    stale ones.
  *
  * Catalog snapshot last verified: 2026-06-12.
+ *
+ * Formatting note: scripts/check-model-catalog.mjs extracts each provider's
+ * `default` and `options` from this file's source text. Keep them as
+ * single-quoted string literals inside each provider block (the script fails
+ * loudly if the parse drifts, but save it the trouble).
  */
 export const MODEL_VERSIONS: ModelVersions = {
   OPENAI: {

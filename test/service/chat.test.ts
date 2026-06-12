@@ -46,7 +46,7 @@ describe('ChatService provider requests', () => {
   }
 
   function lastRequest(): { url: string; headers: Record<string, string>; body: any } {
-    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, options] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
     return {
       url,
       headers: options.headers as Record<string, string>,
@@ -111,7 +111,7 @@ describe('ChatService provider requests', () => {
 
     // Chat requests must carry a timeout so a hung provider cannot stall
     // the chat indefinitely.
-    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    const [, options] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 

@@ -151,13 +151,15 @@ describe('LlmValidationService (Ollama)', () => {
       expect(probe).toEqual({ isValid: false, models: [], error: 'Invalid API key' });
     });
 
-    test('reports invalid when the network request fails', async () => {
+    test('reports a network failure distinctly from an invalid key', async () => {
       fetchMock.mockRejectedValue(new Error('network down'));
 
       const probe = await LlmValidationService.probeProvider('ANTHROPIC_CLAUDE', 'sk-ant-test');
 
       expect(probe.isValid).toBe(false);
       expect(probe.models).toEqual([]);
+      expect(probe.error).not.toBe('Invalid API key');
+      expect(probe.error).toContain('network');
     });
   });
 
