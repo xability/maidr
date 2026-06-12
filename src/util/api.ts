@@ -58,7 +58,7 @@ export abstract class Api {
         method,
         headers,
         body,
-        ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+        ...(timeoutMs != null ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       });
 
       if (!response.ok) {

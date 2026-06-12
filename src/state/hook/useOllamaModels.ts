@@ -17,13 +17,13 @@ export function useOllamaModels(baseUrl: string | null): string[] {
     }
 
     let cancelled = false;
-    LlmValidationService.fetchOllamaModels(baseUrl)
-      .then((names) => {
+    LlmValidationService.probeOllamaServer(baseUrl)
+      .then(({ models: names }) => {
         if (!cancelled) {
           setModels(names);
         }
       })
-      // fetchOllamaModels resolves even on failure, but guard against future
+      // probeOllamaServer resolves even on failure, but guard against future
       // changes so a rejection can never surface as an unhandled promise.
       .catch(() => {
         if (!cancelled) {

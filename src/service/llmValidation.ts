@@ -288,14 +288,4 @@ export class LlmValidationService {
       return { reachable: false, models: [] };
     }
   }
-
-  /**
-   * Fetches the list of models installed on a local Ollama server.
-   * @param baseUrl - The Ollama server base URL
-   * @returns Promise resolving to the installed model names, or an empty array if unreachable
-   */
-  public static async fetchOllamaModels(baseUrl: string): Promise<string[]> {
-    const { models } = await this.probeOllamaServer(baseUrl);
-    return models;
-  }
 }

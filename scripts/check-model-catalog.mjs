@@ -139,7 +139,11 @@ async function main() {
       console.log('All catalog entries are still served.');
     }
     if (missing.length > 0) {
-      console.log(`Not in catalog (consider curating): ${missing.join(', ')}`);
+      // Providers can serve dozens of models; keep the report readable.
+      const MAX_LISTED = 15;
+      const shown = missing.slice(0, MAX_LISTED).join(', ');
+      const more = missing.length > MAX_LISTED ? ` (+${missing.length - MAX_LISTED} more)` : '';
+      console.log(`Not in catalog (consider curating): ${shown}${more}`);
     }
   }
 

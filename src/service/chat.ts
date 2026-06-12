@@ -505,23 +505,27 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
   /**
    * Builds HTTP headers for Claude requests. Direct calls authenticate via
-   * x-api-key (not a bearer token) and need the API version header plus the
-   * direct-browser-access opt-in for CORS; the MAIDR-proxy path keeps the
+   * x-api-key (not a bearer token) and need the direct-browser-access opt-in
+   * for CORS, so they build their own headers rather than amending the base
+   * class's bearer-style credentials; the MAIDR-proxy path keeps the
    * base-class Authentication header.
    * @param {LlmRequest} request - The request containing authentication details
    * @returns {Record<string, string>} The HTTP headers
    */
   protected getHeaders(request: LlmRequest): Record<string, string> {
-    const headers = super.getHeaders(request);
-    headers['anthropic-version'] = ANTHROPIC_API_VERSION;
-    if (!request.clientToken) {
-      delete headers.Authorization;
-      headers['x-api-key'] = request.apiKey ?? '';
+    if (request.clientToken) {
+      const headers = super.getHeaders(request);
+      headers['anthropic-version'] = ANTHROPIC_API_VERSION;
+      return headers;
+    }
+    return {
+      'Content-Type': 'application/json',
+      'anthropic-version': ANTHROPIC_API_VERSION,
       // Required for direct browser calls; the key is the user's own,
       // entered client-side, so direct access is the intended model.
-      headers['anthropic-dangerous-direct-browser-access'] = 'true';
-    }
-    return headers;
+      'anthropic-dangerous-direct-browser-access': 'true',
+      ...(request.apiKey ? { 'x-api-key': request.apiKey } : {}),
+    };
   }
 }
 

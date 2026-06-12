@@ -189,11 +189,11 @@ describe('LlmValidationService (Ollama)', () => {
     });
   });
 
-  describe('fetchOllamaModels', () => {
+  describe('probeOllamaServer response edge cases', () => {
     test('returns the installed model names', async () => {
       mockTagsResponse(['llama3.2', 'mistral:latest']);
 
-      const models = await LlmValidationService.fetchOllamaModels('http://localhost:11434');
+      const { models } = await LlmValidationService.probeOllamaServer('http://localhost:11434');
 
       expect(models).toEqual(['llama3.2', 'mistral:latest']);
     });
@@ -201,17 +201,9 @@ describe('LlmValidationService (Ollama)', () => {
     test('returns an empty list when the server responds with an error', async () => {
       fetchMock.mockResolvedValue({ ok: false } as Response);
 
-      const models = await LlmValidationService.fetchOllamaModels('http://localhost:11434');
+      const probe = await LlmValidationService.probeOllamaServer('http://localhost:11434');
 
-      expect(models).toEqual([]);
-    });
-
-    test('returns an empty list when the server is unreachable', async () => {
-      fetchMock.mockRejectedValue(new Error('connection refused'));
-
-      const models = await LlmValidationService.fetchOllamaModels('http://localhost:11434');
-
-      expect(models).toEqual([]);
+      expect(probe).toEqual({ reachable: false, models: [] });
     });
 
     test('returns an empty list when the response has no models field', async () => {
@@ -220,9 +212,9 @@ describe('LlmValidationService (Ollama)', () => {
         json: async () => ({}),
       } as Response);
 
-      const models = await LlmValidationService.fetchOllamaModels('http://localhost:11434');
+      const probe = await LlmValidationService.probeOllamaServer('http://localhost:11434');
 
-      expect(models).toEqual([]);
+      expect(probe).toEqual({ reachable: true, models: [] });
     });
   });
 });

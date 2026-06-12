@@ -155,6 +155,21 @@ describe('ChatService provider requests', () => {
     expect(body.messages[1].images).toEqual(['QUJD']);
   });
 
+  test('Ollama: rejects MAIDR-proxy routing with a clear error', async () => {
+    const response = await createService().sendMessage('OLLAMA', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'http://localhost:11434',
+      clientToken: 'proxy-token',
+      email: 'user@example.com',
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toContain('proxy');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test('falls back to the provider default version when none is selected', async () => {
     mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
 
