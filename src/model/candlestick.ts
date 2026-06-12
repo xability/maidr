@@ -361,6 +361,9 @@ export class Candlestick extends AbstractTrace {
       pointIndex: this.currentPointIndex,
       segmentType: this.currentSegmentType,
     };
+    // Raise the no-notify guard before any pre-super mutation so the whole
+    // override is covered, not just the base-class window.
+    this.isComputingStateAt = true;
     try {
       const { pointIndex, segmentType }
         = this.navigationService.computeIndexAndSegment(
@@ -374,7 +377,9 @@ export class Candlestick extends AbstractTrace {
       return super.getStateAt(row, col);
     } finally {
       // The base-class finally (inside super.getStateAt) restores
-      // row/col/isInitialEntry; this one restores the candlestick fields.
+      // row/col/isInitialEntry and lowers the guard; this finally restores
+      // the candlestick fields and clears the guard on pre-super throws.
+      this.isComputingStateAt = false;
       this.currentPointIndex = previous.pointIndex;
       this.currentSegmentType = previous.segmentType;
     }

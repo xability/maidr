@@ -209,8 +209,13 @@
           status.textContent = 'Connected — waiting for trades…';
         };
         ws.onmessage = function (e) {
-          var m = JSON.parse(e.data);
-          if (m.type === 'ticker' && m.price) {
+          var m;
+          try {
+            m = JSON.parse(e.data);
+          } catch (err) {
+            return; // ignore non-JSON frames defensively
+          }
+          if (m && m.type === 'ticker' && m.price) {
             onTrade(Number(m.price), Number(m.last_size || 0), Date.parse(m.time));
           }
         };
