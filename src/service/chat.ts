@@ -13,6 +13,7 @@ import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 // Token limits for different LLM providers
 const GPT_MAX_TOKENS = 1000;
+// Aligned with the other providers' ~1000-token response budget.
 const CLAUDE_MAX_TOKENS = 1024;
 const GEMINI_MAX_TOKENS = 1000;
 // Maps to Ollama's num_predict, which caps generated tokens only (it is not
@@ -685,7 +686,9 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
   }
 
   /**
-   * Gets the endpoint name for MAIDR service routing.
+   * Gets the endpoint name for MAIDR service routing. Required by the
+   * abstract contract, but the proxy path (clientToken) never applies to a
+   * local Ollama server — requests always go directly to the user's machine.
    * @returns {string} The endpoint name 'ollama'
    */
   protected getEndPoint(): string {
