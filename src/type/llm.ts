@@ -41,6 +41,13 @@ export type GeminiVersion = 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gem
  * user (`ollama pull <model>`), so any model name is valid. The intersection
  * with `Record<never, never>` keeps autocomplete for the curated suggestions
  * in the union below without restricting the accepted values.
+ *
+ * Deliberate tradeoff: because this type accepts any string, the LlmVersion
+ * union below also widens to accept any string for every provider. That is
+ * intentional — model dropdowns are populated from live provider APIs, so
+ * valid versions are not limited to the curated literals; correctness is
+ * enforced at runtime (getValidVersion, provider responses), not at compile
+ * time.
  */
 export type OllamaVersion = string & Record<never, never>;
 

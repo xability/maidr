@@ -375,6 +375,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               >
                 {renderMenuItems()}
               </Select>
+              {isValid === true
+                && availableModels.length > 0
+                && !availableModels.includes(validVersion) && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  role="status"
+                  sx={{ mt: 0.5 }}
+                >
+                  {`"${validVersion}" is not in ${modelSettings.name}'s current model list — it may have been retired. Consider selecting another model.`}
+                </Typography>
+              )}
             </FormControl>
           </Grid>
         </Grid>

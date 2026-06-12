@@ -28,13 +28,27 @@ const OPENAI_CHAT_MODEL_PATTERN = new RegExp(modelFilters.openai.chatModelPatter
 const OPENAI_NON_CHAT_SUBSTRINGS = modelFilters.openai.nonChatSubstrings;
 const GEMINI_EXCLUDED_SUBSTRINGS = modelFilters.gemini.excludedSubstrings;
 
-/** Extracts the curated options array for one provider from the catalog source. */
+/**
+ * Extracts the curated options array for one provider from the catalog
+ * source. Source-text parsing is inherently format-sensitive, so the result
+ * is sanity-checked against the provider's default: if the parse drifts from
+ * the file's actual shape, this throws instead of reporting bogus drift.
+ */
 function readCatalogOptions(source, provider) {
-  const blockMatch = source.match(new RegExp(`${provider}:\\s*\\{[\\s\\S]*?options:\\s*\\[([^\\]]*)\\]`));
+  const blockMatch = source.match(new RegExp(`${provider}:\\s*\\{([\\s\\S]*?)options:\\s*\\[([^\\]]*)\\]`));
   if (!blockMatch) {
     throw new Error(`Could not locate options for ${provider} in ${CATALOG_PATH}`);
   }
-  return [...blockMatch[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
+  const options = [...blockMatch[2].matchAll(/'([^']+)'/g)].map(match => match[1]);
+  const defaultMatch = blockMatch[1].match(/default:\s*'([^']+)'/);
+  if (options.length === 0 || !defaultMatch || !options.includes(defaultMatch[1])) {
+    throw new Error(
+      `Parsed catalog for ${provider} failed sanity checks (options: [${options.join(', ')}], `
+      + `default: ${defaultMatch?.[1] ?? 'not found'}) — the parser in this script likely needs `
+      + `updating for a formatting change in ${CATALOG_PATH}`,
+    );
+  }
+  return options;
 }
 
 async function fetchOpenAiModels(apiKey) {
