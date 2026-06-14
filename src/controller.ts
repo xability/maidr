@@ -1,3 +1,4 @@
+import type { AppendedPointInfo } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback } from '@type/grammar';
@@ -19,6 +20,7 @@ import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
@@ -43,7 +45,8 @@ import { resolveSubplotLayout } from '@util/subplotLayout';
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
  */
 export class Controller implements Disposable {
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see updateData).
+  private figure: Figure;
   private readonly context: Context;
 
   private readonly displayService: DisplayService;
@@ -60,6 +63,7 @@ export class Controller implements Disposable {
 
   private readonly autoplayService: AutoplayService;
   private readonly highContrastService: HighContrastService;
+  private readonly monitorService: MonitorService;
   private readonly highlightService: HighlightService;
   private readonly descriptionService: DescriptionService;
   private readonly helpService: HelpService;
@@ -103,6 +107,12 @@ export class Controller implements Disposable {
       this.displayService,
     );
     this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
+    this.monitorService = new MonitorService(
+      maidr.live === true,
+      this.audioService,
+      this.textService,
+      this.notificationService,
+    );
 
     this.brailleService = new BrailleService(
       this.context,
@@ -190,6 +200,7 @@ export class Controller implements Disposable {
       displayService: this.displayService,
       highContrastService: this.highContrastService,
       highlightService: this.highlightService,
+      monitorService: this.monitorService,
       notificationService: this.notificationService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
@@ -216,6 +227,7 @@ export class Controller implements Disposable {
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        monitorService: this.monitorService,
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
@@ -246,6 +258,7 @@ export class Controller implements Disposable {
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        monitorService: this.monitorService,
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
@@ -325,6 +338,106 @@ export class Controller implements Disposable {
   }
 
   /**
+   * Replaces the chart data in place (live/realtime update).
+   *
+   * Rebuilds the model layer (Figure/Subplot/Trace) from the new data while
+   * preserving the user's navigation position, then rewires all observers.
+   * Services, view models, and keybindings are untouched, so the update is
+   * cheap enough for streaming scenarios.
+   *
+   * The swap itself is silent; when monitor mode is enabled and the update
+   * appended a point, that point is sonified and announced without moving
+   * the user's position.
+   *
+   * @param maidr - The complete replacement MAIDR config (caller-owned copy)
+   * @param appended - Location of the newly appended point, for appendData updates
+   */
+  public updateData(maidr: Maidr, appended?: AppendedPointInfo): void {
+    const activeColShift = this.resolveActiveColShift(appended);
+
+    this.figure = this.context.replaceFigure(() => {
+      const figure = new Figure(maidr);
+      figure.applyLayout(resolveSubplotLayout(figure.subplots));
+      return figure;
+    }, { activeColShift });
+
+    this.highContrastService.setFigure(this.figure);
+    this.formatterService.refresh(maidr);
+    this.chatService.updateData(maidr);
+    this.monitorService.setLive(maidr.live === true);
+    this.registerObservers();
+    if (maidr.onNavigate) {
+      this.registerNavigateCallback(maidr.onNavigate);
+    }
+
+    if (appended) {
+      this.announceAppendedPoint(appended);
+    }
+  }
+
+  /**
+   * Computes how far the active trace's cursor must shift left so it stays
+   * on the same data point after a sliding-window trim. Zero when nothing
+   * was trimmed or the user is positioned on a different trace/group.
+   *
+   * @param appended - Append info for the incoming update, if any
+   * @returns The column shift to apply during position restoration
+   */
+  private resolveActiveColShift(appended?: AppendedPointInfo): number {
+    if (!appended || appended.trimmed === 0 || appended.trimShift !== 'col') {
+      return 0;
+    }
+    try {
+      const onAppendedSubplot
+        = this.figure.row === appended.subplotRow
+          && this.figure.col === appended.subplotCol;
+      const activeSubplot = this.figure.activeSubplot;
+      const onAppendedTrace
+        = onAppendedSubplot && activeSubplot.activeLayerIndex === appended.layerIndex;
+      if (!onAppendedTrace) {
+        return 0;
+      }
+      // For nested layers only the appended series shifted, so the cursor
+      // moves only when the user is on that series. Flat layers (bar,
+      // vertical candlestick...) shift every row's columns equally.
+      if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
+        return 0;
+      }
+      return appended.trimmed;
+    } catch (error) {
+      console.warn('[maidr] Failed to resolve sliding-window shift:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Sonifies and announces a newly appended data point through the monitor
+   * service, computing its state without moving the user's cursor.
+   *
+   * @param appended - Location of the appended point in the new figure
+   */
+  private announceAppendedPoint(appended: AppendedPointInfo): void {
+    if (!this.monitorService.isEnabled) {
+      return;
+    }
+    const subplot = this.figure.subplots[appended.subplotRow]?.[appended.subplotCol];
+    // Subplots hold one single-trace row per layer (see Subplot.activeLayerIndex),
+    // so the appended layer's trace lives at traces[layerIndex][0].
+    const trace = subplot?.traces[appended.layerIndex]?.[0];
+    if (!trace) {
+      return;
+    }
+    try {
+      // Compute the new point's state without moving the user's cursor;
+      // observers are only notified via MonitorService.
+      const state = trace.getStateAt(appended.row, appended.col);
+      this.monitorService.handleNewPoint(state);
+    } catch (error) {
+      console.warn('[maidr] Failed to announce appended data point:', error);
+    }
+  }
+
+  /**
    * Cleans up all services, view models, and event listeners.
    */
   public dispose(): void {
@@ -348,6 +461,7 @@ export class Controller implements Disposable {
     this.highContrastService.dispose();
     this.highlightService.dispose();
     this.autoplayService.dispose();
+    this.monitorService.dispose();
 
     this.textService.dispose();
     this.reviewService.dispose();

@@ -60,6 +60,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
   TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
@@ -134,6 +135,7 @@ const SUBPLOT_KEYMAP = {
   MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
@@ -221,6 +223,7 @@ const TRACE_KEYMAP = {
   TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
   TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),

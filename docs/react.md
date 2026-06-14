@@ -289,6 +289,67 @@ function Dashboard() {
 }
 ```
 
+## Live & Streaming Data
+
+Charts configured with `live: true` support realtime updates. Passing a new `data` prop replaces the chart data **in place**, preserving the user's navigation position and active modes:
+
+```tsx
+import { Maidr, type MaidrData } from 'maidr/react';
+import { useEffect, useState } from 'react';
+
+function LiveSensorChart() {
+  const [data, setData] = useState<MaidrData>({
+    id: 'live-sensor',
+    title: 'Live Sensor Readings',
+    live: true, // enable in-place updates and the 'M' monitor key
+    maxWidth: 20, // sliding window: keep the latest 20 points
+    subplots: [[{
+      layers: [{
+        id: 'sensor-layer',
+        type: 'line',
+        axes: { x: { label: 'Tick' }, y: { label: 'Reading' } },
+        data: [[{ x: 0, y: 50 }]],
+      }],
+    }]],
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setData((prev) => {
+        const points = (prev.subplots[0][0].layers[0].data as { x: number; y: number }[][])[0];
+        // Note: `maxWidth` only applies to appendMaidrData; when replacing
+        // data via the prop (setData), trim the window yourself.
+        const next = [...points, { x: Date.now(), y: 30 + Math.random() * 40 }].slice(-20);
+        return {
+          ...prev,
+          subplots: [[{
+            layers: [{ ...prev.subplots[0][0].layers[0], data: [next] }],
+          }]],
+        };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Maidr data={data}>
+      <MyLineSvg data={data} />
+    </Maidr>
+  );
+}
+```
+
+For streaming individual points, prefer the imperative helpers: they avoid rebuilding the data object by hand and apply the `maxWidth` sliding window automatically:
+
+```tsx
+import { appendMaidrData, setMaidrData } from 'maidr/react';
+
+appendMaidrData({ x: 42, y: 3.14 }, { id: 'live-sensor' }); // stream one point
+setMaidrData(updatedMaidrJson); // replace everything
+```
+
+While focused on a live chart, users can press **M** to toggle **monitor mode**, which auto-sonifies and announces each new point without moving their position. See the [Live & Streaming Data](docs/LIVE_DATA.html) guide for the full API.
+
 ## Axis Value Formatting
 
 You can format how axis values are displayed in text descriptions:

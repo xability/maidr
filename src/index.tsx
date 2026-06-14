@@ -1,9 +1,11 @@
 import type { JSX } from 'react';
+import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { Maidr as MaidrComponent } from './maidr-component';
+import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
 
@@ -11,12 +13,26 @@ declare global {
   interface Window {
     maidr?: Maidr;
     /**
+     * Realtime/streaming data API. Use `setData` to replace chart data and
+     * `appendData` to stream individual points into live charts.
+     */
+    maidrLive?: MaidrLiveApi;
+    /**
      * Disconnects all MAIDR MutationObservers to free memory.
      * Call this when cleaning up in SPAs or before page unload.
      */
     disconnectMaidrObservers?: () => void;
   }
 }
+
+// Expose the realtime data API globally for script-tag consumers.
+if (window.maidrLive) {
+  console.warn('[maidr] window.maidrLive is being redefined — was the maidr script loaded twice?');
+}
+window.maidrLive = {
+  setData: maidr => liveDataManager.setData(maidr),
+  appendData: (point, options) => liveDataManager.appendData(point, options),
+};
 
 /** Stores active MutationObservers for cleanup. */
 let maidrAttributeObserver: MutationObserver | null = null;

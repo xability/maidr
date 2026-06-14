@@ -59,9 +59,17 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   protected readonly observers: Observer<State>[];
   protected isWarning: boolean;
 
+  /**
+   * True while {@link AbstractTrace.getStateAt} computes state at a
+   * temporarily moved cursor. Enforces (structurally, not just by
+   * documentation) that state getters never notify observers.
+   */
+  protected isComputingStateAt: boolean;
+
   protected constructor() {
     this.observers = new Array<Observer<State>>();
     this.isWarning = false;
+    this.isComputingStateAt = false;
   }
   protected abstract get dimension(): Dimension;
 
@@ -141,6 +149,11 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Notifies all registered observers with the current state.
    */
   public notifyStateUpdate(): void {
+    if (this.isComputingStateAt) {
+      throw new Error(
+        'notifyStateUpdate() fired during getStateAt(): state getters must stay side-effect free',
+      );
+    }
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
@@ -483,6 +496,45 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       FORWARD: this.dimension.cols,
       BACKWARD: this.dimension.cols,
     };
+  }
+
+  /**
+   * Computes the trace state at an arbitrary position without moving the
+   * user's cursor or notifying observers. Used by monitor mode to sonify
+   * and announce a newly appended point while the user stays put.
+   *
+   * The state getters read `this.row`/`this.col` internally, so the cursor
+   * is moved temporarily and always restored in a finally block — this
+   * method is the single owner of that pattern.
+   *
+   * Re-entrancy hazard: this is only safe because the entire call chain is
+   * synchronous (no await points), so timers (e.g. autoplay ticks) cannot
+   * interleave before the finally-restore, and state getters never notify
+   * observers. If a getter ever becomes async or triggers notifications,
+   * callers could observe the temporary cursor.
+   *
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  public getStateAt(row: number, col: number): TraceState {
+    const previous = {
+      row: this.row,
+      col: this.col,
+      isInitialEntry: this.isInitialEntry,
+    };
+    this.isComputingStateAt = true;
+    try {
+      this.isInitialEntry = false;
+      this.row = row;
+      this.col = col;
+      return this.state;
+    } finally {
+      this.isComputingStateAt = false;
+      this.row = previous.row;
+      this.col = previous.col;
+      this.isInitialEntry = previous.isInitialEntry;
+    }
   }
 
   public resetToInitialEntry(): void {
