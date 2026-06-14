@@ -1,6 +1,7 @@
 import type { Message } from '@type/llm';
 import { AccountCircle } from '@mui/icons-material';
 import { Avatar, Box, Button, CircularProgress, Typography } from '@mui/material';
+import { getModelDisplayName } from '@util/llm';
 import React from 'react';
 import { ModelIcon } from './ModelIcon';
 import { ModelSelection } from './ModelSelection';
@@ -11,19 +12,6 @@ interface MessageBubbleProps {
   disabled?: boolean;
   _onOpenSettings?: () => void;
   onTypingUpdate?: () => void;
-}
-
-function getModelDisplayName(model?: string): string {
-  switch (model) {
-    case 'OPENAI':
-      return 'OpenAI';
-    case 'ANTHROPIC_CLAUDE':
-      return 'Anthropic Claude';
-    case 'GOOGLE_GEMINI':
-      return 'Google Gemini';
-    default:
-      return 'AI Assistant';
-  }
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings, onTypingUpdate }) => {

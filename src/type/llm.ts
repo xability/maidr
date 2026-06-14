@@ -6,27 +6,55 @@ import type { Status } from './event';
 export type Llm
   = | 'OPENAI'
     | 'ANTHROPIC_CLAUDE'
-    | 'GOOGLE_GEMINI';
+    | 'GOOGLE_GEMINI'
+    | 'OLLAMA';
 
 /**
- * Available OpenAI GPT model versions.
+ * Default base URL of a locally running Ollama server.
  */
-export type GptVersion = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'o1-mini' | 'o3' | 'o4-mini';
+export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /**
- * Available Anthropic Claude model versions.
+ * Anthropic API protocol version header value (not a model version).
  */
-export type ClaudeVersion = 'claude-3-5-haiku-latest' | 'claude-3-5-sonnet-latest' | 'claude-3-7-sonnet-latest';
+export const ANTHROPIC_API_VERSION = '2023-06-01';
 
 /**
- * Available Google Gemini model versions.
+ * Curated OpenAI GPT model versions. The settings dialog also offers the live
+ * list fetched from the provider's models API, so saved versions may be any
+ * model the user's key can access.
  */
-export type GeminiVersion = 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-2.5-flash-preview-04-17' | 'gemini-2.5-pro-preview-05-06';
+export type GptVersion = 'gpt-5.5' | 'gpt-5.5-pro' | 'gpt-5.4' | 'gpt-5.4-mini' | 'gpt-5.4-nano' | 'gpt-4o';
+
+/**
+ * Curated Anthropic Claude model versions.
+ */
+export type ClaudeVersion = 'claude-fable-5' | 'claude-opus-4-8' | 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
+
+/**
+ * Curated Google Gemini model versions.
+ */
+export type GeminiVersion = 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite' | 'gemini-2.5-pro' | 'gemini-2.5-flash';
+
+/**
+ * Available Ollama model versions. Ollama models are installed locally by the
+ * user (`ollama pull <model>`), so any model name is valid. The intersection
+ * with `Record<never, never>` keeps autocomplete for the curated suggestions
+ * in the union below without restricting the accepted values.
+ *
+ * Deliberate tradeoff: because this type accepts any string, the LlmVersion
+ * union below also widens to accept any string for every provider. That is
+ * intentional — model dropdowns are populated from live provider APIs, so
+ * valid versions are not limited to the curated literals; correctness is
+ * enforced at runtime (getValidVersion, provider responses), not at compile
+ * time.
+ */
+export type OllamaVersion = string & Record<never, never>;
 
 /**
  * Union of all supported LLM model versions across providers.
  */
-export type LlmVersion = GptVersion | ClaudeVersion | GeminiVersion;
+export type LlmVersion = GptVersion | ClaudeVersion | GeminiVersion | OllamaVersion;
 
 /**
  * Request payload for LLM API calls including message, instructions, and authentication.
@@ -35,9 +63,15 @@ export interface LlmRequest {
   message: string;
   customInstruction: string;
   expertise: 'basic' | 'intermediate' | 'advanced' | 'custom';
+  /**
+   * Provider credential. For cloud providers this is the API key; for Ollama
+   * it is the base URL of the local server (no key is required).
+   */
   apiKey?: string;
   email?: string;
   clientToken?: string;
+  /** Model version selected by the user, overriding the provider default. */
+  version?: LlmVersion;
 }
 
 /**
@@ -72,6 +106,7 @@ export interface Message {
  */
 export interface LlmModelSettings {
   name: string;
+  /** API key for cloud providers; server base URL for Ollama. */
   apiKey: string;
   enabled: boolean;
   version: LlmVersion;
