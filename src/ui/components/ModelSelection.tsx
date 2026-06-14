@@ -1,7 +1,9 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
+import { resolveVersionOptions } from '@util/llm';
 import React from 'react';
 
 interface ModelSelectionProps {
@@ -16,6 +18,13 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
   const settingsViewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
   const currentSettings = settingsViewModel.state;
+
+  // Probe the local Ollama server for installed models so the dropdown
+  // offers what the user actually has pulled, not just curated suggestions.
+  const ollamaEnabled = enabledModels.some(model => model.modelKey === 'OLLAMA');
+  const ollamaModels = useOllamaModels(
+    ollamaEnabled ? currentSettings.llm.models.OLLAMA.apiKey : null,
+  );
 
   const handleModelChange = (modelKey: Llm, version: LlmVersion): void => {
     // Get the latest settings state
@@ -40,25 +49,29 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
     chatViewModel.updateWelcomeMessage();
   };
 
+  const getCurrentVersion = (modelKey: Llm): LlmVersion =>
+    getValidVersion(modelKey, currentSettings.llm.models[modelKey].version);
+
   const getModelVersions = (modelKey: Llm): { label: string; value: LlmVersion }[] => {
     const config = MODEL_VERSIONS[modelKey];
     const labels = config.labels as Record<string, string>;
-    return config.options.map((version) => {
+
+    // Live model lists are probed in the settings dialog; here only the local
+    // Ollama list is fetched (cloud lists would cost an API call per chat
+    // open). The saved version is always kept selectable either way.
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      modelKey === 'OLLAMA' ? ollamaModels : [],
+      getCurrentVersion(modelKey),
+    );
+
+    return options.map((version) => {
       const typedVersion = version as LlmVersion;
       return {
-        label: labels[typedVersion],
+        label: labels[typedVersion] ?? typedVersion,
         value: typedVersion,
       };
     });
-  };
-  const getCurrentVersion = (modelKey: Llm): LlmVersion => {
-    const config = MODEL_VERSIONS[modelKey];
-    const currentVersion = currentSettings.llm.models[modelKey].version;
-    const validOptions = config.options as readonly LlmVersion[];
-    if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-      return config.default;
-    }
-    return currentVersion as LlmVersion;
   };
 
   return (

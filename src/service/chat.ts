@@ -1,17 +1,29 @@
 import type { DisplayService } from '@service/display';
 import type { Maidr } from '@type/grammar';
-import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse } from '@type/llm';
+import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { Scope } from '@type/event';
+import { ANTHROPIC_API_VERSION } from '@type/llm';
 import { Api } from '@util/api';
+import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
+import { MODEL_VERSIONS } from './modelVersions';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
 // Token limits for different LLM providers
 const GPT_MAX_TOKENS = 1000;
-const CLAUDE_MAX_TOKENS = 256;
+// Aligned with the other providers' ~1000-token response budget.
+const CLAUDE_MAX_TOKENS = 1024;
 const GEMINI_MAX_TOKENS = 1000;
+// Maps to Ollama's num_predict, which caps generated tokens only (it is not
+// the context window).
+const OLLAMA_MAX_TOKENS = 1000;
+
+// Generous cap for the chat request itself: large local models and
+// deep-reasoning cloud models can legitimately take a while, but a hung
+// provider must not stall the chat (and its waiting tone) forever.
+const LLM_REQUEST_TIMEOUT_MS = 120000;
 
 /**
  * Service for managing chat interactions with different LLM providers.
@@ -31,10 +43,13 @@ export class ChatService {
     this.display = display;
     this.textService = textService;
 
+    // Construction-time versions are fallbacks only; the user-selected
+    // version arrives per request via LlmRequest.version.
     this.models = {
-      OPENAI: new Gpt(display.plot, maidr, textService, 'gpt-4o'),
-      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, 'claude-3-7-sonnet-latest'),
-      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, 'gemini-2.0-flash'),
+      OPENAI: new Gpt(display.plot, maidr, textService, MODEL_VERSIONS.OPENAI.default),
+      ANTHROPIC_CLAUDE: new Claude(display.plot, maidr, textService, MODEL_VERSIONS.ANTHROPIC_CLAUDE.default),
+      GOOGLE_GEMINI: new Gemini(display.plot, maidr, textService, MODEL_VERSIONS.GOOGLE_GEMINI.default),
+      OLLAMA: new Ollama(display.plot, maidr, textService, MODEL_VERSIONS.OLLAMA.default),
     };
   }
 
@@ -75,11 +90,13 @@ interface GptResponse {
 }
 
 /**
- * Response structure from Anthropic Claude API.
+ * Response structure from Anthropic Claude API. Content blocks are a union
+ * (text, thinking, tool_use, ...), so both fields are read defensively.
  */
 interface ClaudeResponse {
   content: {
-    text: string;
+    type?: string;
+    text?: string;
   }[];
 }
 
@@ -94,6 +111,15 @@ interface GeminiResponse {
       }[];
     };
   }[];
+}
+
+/**
+ * Response structure from the Ollama chat API (non-streaming).
+ */
+interface OllamaResponse {
+  message: {
+    content: string;
+  };
 }
 
 /**
@@ -143,14 +169,15 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         currentPositionText,
         request.message,
         expertiseLevel,
+        request.version,
       );
 
       const url = request.clientToken
         ? this.getMaidrUrl()
-        : this.getApiUrl(request.apiKey);
+        : this.getApiUrl(request.apiKey, request.version);
 
       const headers = this.getHeaders(request);
-      const response = await Api.post<T>(url, payload, headers);
+      const response = await Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS);
       if (!response.success) {
         return {
           success: false,
@@ -202,9 +229,11 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Gets the API URL for the specific LLM provider.
    * @param {string} [apiKey] - The API key for authentication
+   * @param {LlmVersion} [version] - The user-selected model version, for providers
+   * (e.g. Gemini) that encode the model in the URL
    * @returns {string} The API URL
    */
-  protected abstract getApiUrl(apiKey?: string): string;
+  protected abstract getApiUrl(apiKey?: string, version?: LlmVersion): string;
 
   /**
    * Gets the endpoint name for MAIDR service routing.
@@ -220,6 +249,8 @@ abstract class AbstractLlmModel<T> implements LlmModel {
    * @param {string} currentText - The current position text
    * @param {string} message - The user's message
    * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the
+   * construction-time default
    * @returns {string} The JSON payload
    */
   protected abstract getPayload(
@@ -229,6 +260,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     currentText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string;
 
   /**
@@ -290,6 +322,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     currentPositionText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string {
     const context: PromptContext = {
       customInstruction,
@@ -300,7 +333,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     };
 
     return JSON.stringify({
-      model: this.version,
+      model: version ?? this.version,
       max_tokens: GPT_MAX_TOKENS,
       messages: [
         {
@@ -375,11 +408,11 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   }
 
   /**
-   * Gets the Anthropic API URL.
-   * @returns {string} The Anthropic API URL
+   * Gets the Anthropic messages API URL.
+   * @returns {string} The Anthropic messages API URL
    */
   protected getApiUrl(): string {
-    return 'https://api.anthropic.com';
+    return 'https://api.anthropic.com/v1/messages';
   }
 
   /**
@@ -407,6 +440,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     currentPositionText: string,
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
   ): string {
     const context: PromptContext = {
       customInstruction,
@@ -416,24 +450,30 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
       expertiseLevel: expertise,
     };
 
+    // The Anthropic API expects raw base64 without the data-URL prefix.
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
     return JSON.stringify({
-      anthropic_version: this.version,
+      model: version ?? this.version,
       max_tokens: CLAUDE_MAX_TOKENS,
+      system: formatSystemPrompt(customInstruction, context.expertiseLevel),
       messages: [
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
-                data: image,
-              },
-            },
+            ...(rawBase64
+              ? [{
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/jpeg',
+                    data: rawBase64,
+                  },
+                }]
+              : []),
             {
               type: 'text',
-              text: `${formatSystemPrompt(customInstruction, context.expertiseLevel)}\n\n${formatUserPrompt(context)}`,
+              text: formatUserPrompt(context),
             },
           ],
         },
@@ -442,12 +482,15 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
   }
 
   /**
-   * Formats the Claude response into a standard LlmResponse.
+   * Formats the Claude response into a standard LlmResponse. The first text
+   * block is used: models with always-on thinking (e.g. Claude Fable 5) emit
+   * thinking blocks before the text block, so position 0 cannot be assumed.
    * @param {ClaudeResponse} response - The raw response from Claude API
    * @returns {LlmResponse} The formatted response
    */
   protected formatResponse(response: ClaudeResponse): LlmResponse {
-    if (response.content.length === 0) {
+    const textBlock = response.content?.find(block => block.type === 'text' && block.text);
+    if (!textBlock?.text) {
       return {
         success: false,
         error: 'Invalid response format',
@@ -456,19 +499,33 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
     return {
       success: true,
-      data: response.content[0].text,
+      data: textBlock.text,
     };
   }
 
   /**
-   * Builds HTTP headers for Claude requests including version header.
+   * Builds HTTP headers for Claude requests. Direct calls authenticate via
+   * x-api-key (not a bearer token) and need the direct-browser-access opt-in
+   * for CORS, so they build their own headers rather than amending the base
+   * class's bearer-style credentials; the MAIDR-proxy path keeps the
+   * base-class Authentication header.
    * @param {LlmRequest} request - The request containing authentication details
    * @returns {Record<string, string>} The HTTP headers
    */
   protected getHeaders(request: LlmRequest): Record<string, string> {
-    const headers = super.getHeaders(request);
-    headers['anthropic-version'] = this.version;
-    return headers;
+    if (request.clientToken) {
+      const headers = super.getHeaders(request);
+      headers['anthropic-version'] = ANTHROPIC_API_VERSION;
+      return headers;
+    }
+    return {
+      'Content-Type': 'application/json',
+      'anthropic-version': ANTHROPIC_API_VERSION,
+      // Required for direct browser calls; the key is the user's own,
+      // entered client-side, so direct access is the intended model.
+      'anthropic-dangerous-direct-browser-access': 'true',
+      ...(request.apiKey ? { 'x-api-key': request.apiKey } : {}),
+    };
   }
 }
 
@@ -491,16 +548,17 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
   }
 
   /**
-   * Gets the Google Gemini API URL with embedded API key.
+   * Gets the Google Gemini API URL with embedded API key and model.
    * @param {string} apiKey - The API key for authentication
+   * @param {LlmVersion} [version] - The user-selected model version, overriding the default
    * @returns {string} The Gemini API URL
    * @throws {Error} If API key is not provided
    */
-  protected getApiUrl(apiKey: string): string {
+  protected getApiUrl(apiKey: string, version?: LlmVersion): string {
     if (!apiKey) {
       throw new Error('API key is required for Gemini API');
     }
-    return `https://generativelanguage.googleapis.com/v1beta/models/${this.version}:generateContent?key=${apiKey}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${version ?? this.version}:generateContent?key=${apiKey}`;
   }
 
   /**
@@ -541,6 +599,10 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     const userPrompt = formatUserPrompt(context);
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
+    // Raw base64 without the data-URL prefix; omit the image part entirely
+    // when conversion produced nothing (same handling as Claude and Ollama).
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
     const payload = JSON.stringify({
       generationConfig: {
         maxOutputTokens: GEMINI_MAX_TOKENS,
@@ -553,12 +615,15 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
             {
               text: combinedPrompt,
             },
-            {
-              inlineData: {
-                data: image.split(',')[1],
-                mimeType: 'image/svg+xml',
-              },
-            },
+            ...(rawBase64
+              ? [{
+                  inlineData: {
+                    data: rawBase64,
+                    // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
+                    mimeType: 'image/jpeg',
+                  },
+                }]
+              : []),
           ],
         },
       ],
@@ -596,5 +661,138 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     // Gemini uses API key in URL, so we don't need to add it to headers
     delete headers.Authorization;
     return headers;
+  }
+}
+
+/**
+ * Ollama local model implementation. Talks to a locally running Ollama server
+ * (https://ollama.com) so users can analyze sensitive data offline without an
+ * API key. The request's `apiKey` field carries the server base URL.
+ */
+class Ollama extends AbstractLlmModel<OllamaResponse> {
+  private readonly version: OllamaVersion;
+
+  /**
+   * Creates a new Ollama model instance.
+   * @param {HTMLElement} svg - The SVG element representing the plot
+   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {TextService} textService - The text service for retrieving coordinate text
+   * @param {OllamaVersion} version - The default Ollama model to use when none is selected
+   */
+  public constructor(svg: HTMLElement, maidr: Maidr, textService: TextService, version: OllamaVersion) {
+    super(svg, maidr, textService);
+    this.version = version;
+  }
+
+  /**
+   * Gets the Ollama chat API URL on the configured local server. Settings can
+   * be saved with an unvalidated URL, so the same scheme guard used by the
+   * reachability probe applies here; the thrown error is caught by
+   * getLlmResponse and surfaced as a chat error message.
+   * @param {string} [baseUrl] - The Ollama server base URL (stored in the apiKey field)
+   * @returns {string} The Ollama chat API URL
+   * @throws {Error} If the base URL does not use an http(s) scheme
+   */
+  protected getApiUrl(baseUrl?: string): string {
+    if (!isValidOllamaBaseUrl(baseUrl)) {
+      throw new Error('Invalid Ollama server URL: it must start with http:// or https://');
+    }
+    return `${normalizeOllamaBaseUrl(baseUrl)}/api/chat`;
+  }
+
+  /**
+   * Required by the abstract contract, but the MAIDR proxy path
+   * (clientToken) can never apply to a local Ollama server — requests always
+   * go directly to the user's machine, so routing here is a configuration
+   * error and fails loudly.
+   * @throws {Error} Always; Ollama requests cannot be proxied
+   */
+  protected getEndPoint(): string {
+    throw new Error('Ollama requests cannot be routed through the MAIDR proxy');
+  }
+
+  /**
+   * Constructs the Ollama-specific request payload using the native chat API.
+   * @param {string} customInstruction - Custom instructions from the user
+   * @param {string} maidrJson - The MAIDR data as JSON string
+   * @param {string} image - The base64-encoded plot image
+   * @param {string} currentPositionText - The current position text
+   * @param {string} message - The user's message
+   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {LlmVersion} [version] - The locally installed model selected by the user
+   * @returns {string} The JSON payload for the Ollama chat API
+   */
+  protected getPayload(
+    customInstruction: string,
+    maidrJson: string,
+    image: string,
+    currentPositionText: string,
+    message: string,
+    expertise: 'basic' | 'intermediate' | 'advanced',
+    version?: LlmVersion,
+  ): string {
+    const context: PromptContext = {
+      customInstruction,
+      maidrJson,
+      currentPositionText,
+      message,
+      expertiseLevel: expertise,
+    };
+
+    // Ollama expects raw base64 without the data-URL prefix. Multimodal
+    // models (e.g. llava, llama3.2-vision) use the image; text-only models
+    // ignore it. Omit the field entirely if conversion produced nothing.
+    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+
+    return JSON.stringify({
+      model: version ?? this.version,
+      stream: false,
+      options: {
+        num_predict: OLLAMA_MAX_TOKENS,
+      },
+      messages: [
+        {
+          role: 'system',
+          content: formatSystemPrompt(customInstruction, context.expertiseLevel),
+        },
+        {
+          role: 'user',
+          content: formatUserPrompt(context),
+          ...(rawBase64 ? { images: [rawBase64] } : {}),
+        },
+      ],
+    });
+  }
+
+  /**
+   * Formats the Ollama response into a standard LlmResponse.
+   * @param {OllamaResponse} response - The raw response from the Ollama chat API
+   * @returns {LlmResponse} The formatted response
+   */
+  protected formatResponse(response: OllamaResponse): LlmResponse {
+    if (!response.message?.content) {
+      return {
+        success: false,
+        error: 'Invalid response format',
+      };
+    }
+
+    return {
+      success: true,
+      data: response.message.content,
+    };
+  }
+
+  /**
+   * Builds HTTP headers for Ollama requests. The local server needs no
+   * authentication (the apiKey field holds the base URL), so the base-class
+   * credential headers are intentionally not used.
+   * @param {LlmRequest} _request - The request containing connection details (unused)
+   * @returns {Record<string, string>} The HTTP headers
+   */
+  protected getHeaders(_request: LlmRequest): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+    };
   }
 }

@@ -34,7 +34,7 @@ import {
   Typography,
 } from '@mui/material';
 import { LlmValidationService } from '@service/llmValidation';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
   MAX_BRAILLE_LINES,
@@ -52,6 +52,7 @@ import {
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
+import { resolveVersionOptions } from '@util/llm';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -61,18 +62,6 @@ const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 // cannot drift apart and announce a shortcut that no longer fires.
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
-
-function getValidVersion(
-  modelKey: Llm,
-  currentVersion: string | undefined,
-): LlmVersion {
-  const config = MODEL_VERSIONS[modelKey];
-  const validOptions = config.options as readonly LlmVersion[];
-  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-    return config.default;
-  }
-  return currentVersion as LlmVersion;
-}
 
 interface SettingRowProps {
   label: string;
@@ -179,51 +168,91 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const validVersion = getValidVersion(modelKey, modelSettings.version);
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
+  // Models available to this credential, probed from the provider's models
+  // API (or the local Ollama server) when the credential validates; replaces
+  // the curated suggestion list so users pick from what actually exists.
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+  // Ollama is a local server: the credential field holds its base URL and
+  // "validation" means reachability, so most labels differ from the cloud
+  // providers' API-key wording.
+  const isOllama = modelKey === 'OLLAMA';
+  const credentialLabel = isOllama ? 'Server URL' : 'API Key';
 
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
     if (isValidating)
-      return 'Validating API key...';
-    if (isValid === false)
-      return `${modelSettings.name} API key is invalid`;
+      return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
+    if (isValid === false) {
+      return isOllama
+        ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
+        : `${modelSettings.name} API key is invalid`;
+    }
     if (isValid === true)
-      return `${modelSettings.name} API key is valid`;
+      return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
     return '';
   };
 
-  const validateApiKey = async (apiKey: string): Promise<void> => {
+  // The debounce only spaces out request starts; it cannot cancel a request
+  // already in flight. isStale lets a superseded cycle (newer keystroke or
+  // unmount) discard its response so a slow early probe can never overwrite
+  // the state of a newer one.
+  const validateApiKey = async (apiKey: string, isStale: () => boolean): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
-      setIsValid(null);
+      if (!isStale()) {
+        setIsValid(null);
+        setAvailableModels([]);
+        // Also clear the spinner: a superseded in-flight request skips its
+        // own finally-cleanup as stale, so this cycle owns the state.
+        setIsValidating(false);
+      }
       return;
     }
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(
-        modelKey,
-        apiKey,
-      );
-      setIsValid(result.isValid);
+      // A single probe answers both credential validity and the live list of
+      // models the credential can access, for every provider.
+      const probe = await LlmValidationService.probeProvider(modelKey, apiKey);
+      if (isStale()) {
+        return;
+      }
+      setIsValid(probe.isValid);
+      setAvailableModels(probe.models);
     } catch (error) {
-      setIsValid(false);
+      if (!isStale()) {
+        setIsValid(false);
+        setAvailableModels([]);
+      }
     } finally {
-      setIsValidating(false);
+      if (!isStale()) {
+        setIsValidating(false);
+      }
     }
   };
 
   useEffect(() => {
+    let cancelled = false;
     const debounceTimer = setTimeout(() => {
-      validateApiKey(modelSettings.apiKey);
+      validateApiKey(modelSettings.apiKey, () => cancelled);
     }, 500);
 
-    return () => clearTimeout(debounceTimer);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+    };
   }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    return config.options.map((version) => {
-      const label = config.labels[version as keyof typeof config.labels];
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      availableModels,
+      validVersion,
+    );
+    return options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;
       return (
         <MenuItem
@@ -262,13 +291,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 size="small"
                 value={modelSettings.apiKey}
                 onChange={e => onChangeKey(modelKey, e.target.value)}
-                placeholder={`Enter ${modelSettings.name} API Key`}
-                type="password"
+                placeholder={
+                  isOllama
+                    ? 'Enter Ollama server URL (e.g. http://localhost:11434)'
+                    : `Enter ${modelSettings.name} API Key`
+                }
+                type={isOllama ? 'text' : 'password'}
                 error={isValid === false}
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} API Key`,
+                    'aria-label': `${modelSettings.name} ${credentialLabel}`,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -278,11 +311,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                           aria-live="polite"
                           aria-label={
                             isValidating
-                              ? 'Validating API key'
+                              ? isOllama
+                                ? 'Checking Ollama server'
+                                : 'Validating API key'
                               : isValid === true
-                                ? 'API key is valid'
+                                ? isOllama
+                                  ? 'Ollama server is reachable'
+                                  : 'API key is valid'
                                 : isValid === false
-                                  ? 'API key is invalid'
+                                  ? isOllama
+                                    ? 'Ollama server is unreachable'
+                                    : 'API key is invalid'
                                   : ''
                           }
                         >
@@ -336,6 +375,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               >
                 {renderMenuItems()}
               </Select>
+              {isValid === true
+                && availableModels.length > 0
+                && !availableModels.includes(validVersion) && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  role="status"
+                  sx={{ mt: 0.5 }}
+                >
+                  {`"${validVersion}" is not in ${modelSettings.name}'s current model list — it may have been retired. Consider selecting another model.`}
+                </Typography>
+              )}
             </FormControl>
           </Grid>
         </Grid>

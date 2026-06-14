@@ -77,6 +77,7 @@
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "check-models": "node scripts/check-model-catalog.mjs",
     "semantic-release": "semantic-release",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -1,4 +1,5 @@
 import type { Llm, LlmVersion } from './llm';
+import { DEFAULT_OLLAMA_BASE_URL } from './llm';
 
 /**
  * Default number of characters rendered per braille row when no user setting
@@ -76,6 +77,7 @@ export type HoverMode = 'off' | 'pointermove' | 'click';
  */
 export interface LlmModelSettings {
   name: string;
+  /** API key for cloud providers; server base URL for Ollama. */
   apiKey: string;
   enabled: boolean;
   version: LlmVersion;
@@ -146,19 +148,28 @@ export const DEFAULT_SETTINGS: Settings = {
         enabled: false,
         apiKey: '',
         name: 'OpenAI',
-        version: 'gpt-4o',
+        version: 'gpt-5.5',
       },
       ANTHROPIC_CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Anthropic Claude',
-        version: 'claude-3-7-sonnet-latest',
+        version: 'claude-opus-4-8',
       },
       GOOGLE_GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Google Gemini',
-        version: 'gemini-2.0-flash',
+        version: 'gemini-3.5-flash',
+      },
+      // Ollama runs locally and needs no API key; the apiKey field holds the
+      // server base URL instead, so the shared "enabled + non-empty key"
+      // readiness checks apply uniformly across providers.
+      OLLAMA: {
+        enabled: false,
+        apiKey: DEFAULT_OLLAMA_BASE_URL,
+        name: 'Ollama',
+        version: 'llama3.2',
       },
     },
   },
