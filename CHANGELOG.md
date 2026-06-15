@@ -1,3 +1,11 @@
+# [3.70.0](https://github.com/xability/maidr/compare/v3.69.0...v3.70.0) (2026-06-15)
+
+
+### Features
+
+* add Ollama support and live model discovery to maidrAI ([#621](https://github.com/xability/maidr/issues/621)) ([498089c](https://github.com/xability/maidr/commit/498089cbcbd8d79bfc9c061ef2810b34d1317ff9))
+* add realtime/streaming data support ([#620](https://github.com/xability/maidr/issues/620)) ([10424aa](https://github.com/xability/maidr/commit/10424aa2ff0966039392f4dc3888c139115e6316))
+
 # [3.69.0](https://github.com/xability/maidr/compare/v3.68.0...v3.69.0) (2026-05-28)
 
 
