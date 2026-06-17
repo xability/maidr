@@ -1,8 +1,7 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { DescriptionState } from '@type/state';
-import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
-import { DEFAULT_FIGURE_TITLE } from '@model/plot';
+import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
 
 /**
@@ -31,8 +30,8 @@ export class DescriptionService {
       // otherwise clear it.
       const layerTitle = description.title;
       const figureTitle = this.context.figureTitle;
-      const hasLayerTitle = layerTitle && layerTitle !== DEFAULT_SUBPLOT_TITLE;
-      const hasFigureTitle = figureTitle && figureTitle !== DEFAULT_FIGURE_TITLE && figureTitle !== DEFAULT_SUBPLOT_TITLE;
+      const hasLayerTitle = this.context.isAuthoredTitle(layerTitle);
+      const hasFigureTitle = this.context.isAuthoredTitle(figureTitle);
       const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
 
       const subplots = this.context.getSubplotSummaries();
