@@ -143,7 +143,21 @@ export interface AudioState {
   };
   panning: {
     y: number;
-    x: number;
+    /**
+     * Stereo pan position along the x axis (0..cols-1).
+     *
+     * Use a single number when every tone in the emitted frequency chord
+     * shares the same horizontal location (e.g. scatter COL mode, line
+     * navigation). Use an array, parallel to `freq.raw`, when the chord
+     * spans different x positions and each tone should pan to its own slot
+     * (e.g. scatter ROW mode, where the row's chord is multiple points at
+     * different x values).
+     *
+     * The audio service resolves the array per iteration of the chord; out
+     * of range indices fall back to entry zero, so traces never need to
+     * pad.
+     */
+    x: number | number[];
     rows: number;
     cols: number;
   };
@@ -179,6 +193,12 @@ export interface AudioState {
    * Range is 0.0 to 1.0, where 0.0 = quietest and 1.0 = loudest.
    */
   volumeScale?: number;
+  /**
+   * Normalized z-axis intensity (0-1) for a third-dimension sonification cue.
+   * Scalar for a single tone; array (index-aligned with `freq.raw`) for group playback.
+   * Currently set by 3D scatter plots and drives echo count in the audio service.
+   */
+  zIntensity?: number | number[];
 }
 
 /**
@@ -258,7 +278,7 @@ export type AxisType = 'x' | 'y' | 'z';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  z?: { label: string; value: number | string };
+  z?: { label: string; value: number | number[] | string };
   range?: { min: number; max: number };
   section?: string;
   /**

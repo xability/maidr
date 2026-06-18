@@ -414,6 +414,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       let zValue: string;
       if (state.z.value === 'Bull' || state.z.value === 'Bear') {
         zValue = state.z.value.toLowerCase();
+      } else if (Array.isArray(state.z.value)) {
+        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
       } else {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
@@ -509,6 +511,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       let zValue: string;
       if (state.z.value === 'Bull' || state.z.value === 'Bear') {
         zValue = state.z.value.toLowerCase();
+      } else if (Array.isArray(state.z.value)) {
+        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
       } else {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }

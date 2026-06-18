@@ -98,6 +98,22 @@ export interface LlmSettings {
  */
 export interface GeneralSettings {
   volume: number;
+  /**
+   * Maximum number of echoes for 3D charts. A point with z = zMax produces this
+   * many echoes; lower z values produce proportionally fewer. 0 disables echoes.
+   */
+  echoCount: number;
+  /**
+   * Volume of the final echo as a percentage (0–100) of the main tone's volume.
+   * Echo volumes lerp from 100% (the original tone) down to this value at the
+   * Nth echo, so each echo position has a fixed volume regardless of how many
+   * actually play.
+   */
+  echoVolume: number;
+  /**
+   * Delay between successive echoes, in seconds.
+   */
+  echoDuration: number;
   highlightColor: string;
   highContrastMode: boolean;
   highContrastLevels: number;
@@ -125,6 +141,9 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   general: {
     volume: 50,
+    echoCount: 5,
+    echoVolume: 50,
+    echoDuration: 0.3,
     highlightColor: '#03c809',
     highContrastMode: false,
     highContrastLevels: 2,
