@@ -490,9 +490,13 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
-    // Get position from audio.panning (contains x, y, rows, cols)
+    // Get position from audio.panning (contains x, y, rows, cols).
+    // panning.x may be a per-tone array when the chord spans multiple x
+    // positions (scatter ROW mode); the position announcement only needs
+    // a single representative slot, so collapse to entry zero.
     const { panning } = state.audio;
-    const { x, y, rows, cols } = panning;
+    const { y, rows, cols } = panning;
+    const x = Array.isArray(panning.x) ? (panning.x[0] ?? 0) : panning.x;
 
     // Check for special chart types
     const traceType = state.traceType;

@@ -635,6 +635,16 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Returns true if this trace supports point-by-point navigation mode.
+   * Opt-in per trace type: override to return true for traces that expose
+   * individual data points navigable in reading order (left/right) and
+   * column-major order (up/down). Currently only ScatterTrace.
+   */
+  public supportsPointMode(): boolean {
+    return false;
+  }
+
+  /**
    * Move to the next point intersection (right arrow in intersection rotor mode).
    * Default is a no-op returning false; subclasses that advertise
    * {@link supportsIntersectionMode} must override to provide real behavior.
@@ -650,6 +660,19 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public moveToPrevIntersection(): boolean {
     return false;
+  }
+
+  /**
+   * Notifies the trace that the rotor is entering or leaving INTERSECTION_MODE.
+   * Default is a no-op; line-style traces don't need to track mode state
+   * because their state output is unchanged by the rotor mode. Traces whose
+   * audio/text output differs in intersection mode (e.g. ScatterTrace, which
+   * normally plays the whole x-column as a chord and must instead focus a
+   * single point) override this to flip an internal flag.
+   * @param _enabled True when entering intersection mode, false when leaving.
+   */
+  public setIntersectionMode(_enabled: boolean): void {
+    // Default no-op
   }
 
   /**
