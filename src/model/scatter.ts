@@ -1215,9 +1215,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   /**
-   * Switches scatter into column-navigation mode before delegating to the
-   * shared hover/guidance logic. Called by both `moveToPoint` and
-   * `moveToPointAndGetPointerGuidance` via the AbstractTrace base.
+   * Switches scatter into column-navigation mode only when committing the
+   * hovered point. Off-curve guidance probes intentionally skip the mode
+   * change: `moveToPointAndGetPointerGuidance` fires on every pointermove,
+   * and an unconditional reset would silently erase a `ROW` mode the user
+   * set via keyboard while exploring nearby.
    */
   protected override moveToNearest(
     x: number,
@@ -1225,6 +1227,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     nearest: NearestPoint,
     onCurve: boolean,
   ): void {
+    if (!onCurve) {
+      return;
+    }
     this.mode = NavMode.COL;
     super.moveToNearest(x, y, nearest, onCurve);
   }

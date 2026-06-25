@@ -648,8 +648,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * Behavior:
    * - No guidance beep when on-curve (regular sonification continues to apply).
    * - Off-curve beeps repeat faster when closer and slower when farther.
-   * - High pitch when pointer is below the curve, low pitch when above.
-   * - Pan left when pointer is right of curve, pan right when left of curve.
+   * - High pitch when the curve is above the pointer, low pitch when below.
+   * - Pan toward the curve: pan right when the curve is right of the pointer,
+   *   pan left when the curve is left of the pointer.
    *
    * @param guidance - Pointer guidance state from the active trace, or null to reset guidance
    */
@@ -672,9 +673,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     // `audioContext.currentTime` returns 0 while the context is suspended
     // (before the first user gesture resumes it). The rate-limit gate
-    // below still works in that case — `nextPointerGuidanceBeepAt` is
-    // also 0, so the first beep is allowed. AudioContext resume is
-    // handled upstream by the audio system on user interaction.
+    // below would otherwise pass freely in that state; `playPointerGuidanceBeep`
+    // guards against actually arming oscillators on a suspended context.
     const now = this.audioContext.currentTime;
     if (now < this.nextPointerGuidanceBeepAt) {
       return;
@@ -693,9 +693,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }
 
     if (!this.playPointerGuidanceBeep(beep.frequency, beep.pan, now)) {
-      // Beep was skipped (volume = 0). Don't advance the throttle: doing so
-      // would silently delay the next valid beep after the user turns volume
-      // back up.
+      // Beep was skipped (volume = 0 or AudioContext not yet resumed). Don't
+      // advance the throttle: doing so would silently delay the next valid
+      // beep after the user turns volume back up or completes a user gesture.
       return;
     }
     this.nextPointerGuidanceBeepAt = now + beep.interval;
@@ -706,6 +706,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
     pan: number,
     startTime: number,
   ): boolean {
+    // Skip while the AudioContext is suspended — its `currentTime` is 0, so
+    // scheduling `start(0)` / `stop(0.06)` would fire an unexpected beep the
+    // moment the context resumes (e.g. when the user clicks to focus after
+    // hovering).
+    if (this.audioContext.state !== 'running') {
+      return false;
+    }
     const guidanceVolume = this.volume * POINTER_GUIDANCE_VOLUME;
     if (guidanceVolume <= 0) {
       return false;
@@ -717,7 +724,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const gainNode = this.audioContext.createGain();
     gainNode.gain.setValueAtTime(guidanceVolume, startTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + POINTER_GUIDANCE_BEEP_DURATION);
+    // Scale the ramp target with guidanceVolume so the fade-out stays below
+    // the starting value at any user volume. A fixed 0.001 inverts the ramp
+    // (tone swells) when guidanceVolume drops below 0.001 at low user volumes.
+    gainNode.gain.exponentialRampToValueAtTime(0.001 * guidanceVolume, startTime + POINTER_GUIDANCE_BEEP_DURATION);
 
     // `createStereoPanner` is unavailable on Safari < 14.5. Degrade
     // gracefully: still emit the directional beep (high/low pitch already
@@ -727,7 +737,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       ? this.audioContext.createStereoPanner()
       : null;
     if (stereoPanner) {
-      stereoPanner.pan.value = this.clamp(pan, -1, 1);
+      stereoPanner.pan.value = MathUtil.clamp(pan, -1, 1);
     }
 
     oscillator.connect(gainNode);
