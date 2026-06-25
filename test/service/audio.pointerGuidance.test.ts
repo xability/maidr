@@ -245,6 +245,26 @@ describe('AudioService.playPointerGuidance', () => {
     service.dispose();
   });
 
+  it('on-curve guidance does not reset throttle — prevents 60 Hz buzz at the boundary', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings().service, INITIAL_STATE);
+
+    // Arm the throttle with one off-curve beep.
+    service.playPointerGuidance(OFF_CURVE);
+    const afterFirst = ctx.oscillators.length;
+
+    // Cursor crosses the `isPointInBounds` boundary: on-curve event arrives,
+    // then the next frame goes off-curve again. The on-curve event must NOT
+    // zero the throttle; otherwise the next off-curve event would bypass the
+    // rate limit and beep every animation frame.
+    service.playPointerGuidance({ onCurve: true });
+    service.playPointerGuidance(OFF_CURVE);
+
+    expect(ctx.oscillators.length).toBe(afterFirst); // throttle still gates
+    service.dispose();
+  });
+
   it('resets the throttle when called with null guidance', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');

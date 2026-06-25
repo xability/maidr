@@ -6,15 +6,7 @@ import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
-import {
-  DEFAULT_POINTER_GUIDANCE_CONFIG,
-  resolvePointerGuidanceBeep,
-} from './pointerGuidance';
-
-interface Range {
-  min: number;
-  max: number;
-}
+import { resolvePointerGuidanceBeep } from './pointerGuidance';
 
 interface SpatialPosition {
   x: number;
@@ -306,11 +298,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {
-    const fromFreq = { min: freq.min, max: freq.max };
-    const toFreq = { min: this.minFrequency, max: this.maxFrequency };
-    const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
-
-    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const frequency = MathUtil.interpolate(freq.raw as number, freq.min, freq.max, this.minFrequency, this.maxFrequency);
+    const x = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
     // Y-axis not used for stereo panning
     return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
   }
@@ -467,11 +456,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
     const freqs = (freq.raw as number[]).map(v =>
-      this.interpolate(
-        v,
-        { min: freq.min, max: freq.max },
-        { min: this.minFrequency, max: this.maxFrequency },
-      ),
+      MathUtil.interpolate(v, freq.min, freq.max, this.minFrequency, this.maxFrequency),
     );
 
     // Base volume from user settings (0–1, quadratic scaling)
@@ -491,7 +476,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       freqs.push(freqs[0]);
     }
 
-    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
 
     // Use palette wave type if available, otherwise default sine
     const waveType = paletteEntry?.waveType || 'sine';
@@ -546,7 +531,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * @returns AudioId for the played tone
    */
   private playEmptyTone(panning: Panning): AudioId {
-    const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
+    const xPos = MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1);
 
     const ctx = this.audioContext;
     const now = ctx.currentTime;
@@ -643,24 +628,22 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Plays directional pointer/touch guidance beeps for nearby curve exploration.
-   *
-   * Behavior:
-   * - No guidance beep when on-curve (regular sonification continues to apply).
-   * - Off-curve beeps repeat faster when closer and slower when farther.
-   * - High pitch when the curve is above the pointer, low pitch when below.
-   * - Pan toward the curve: pan right when the curve is right of the pointer,
-   *   pan left when the curve is left of the pointer.
-   *
    * @param guidance - Pointer guidance state from the active trace, or null to reset guidance
    */
   public playPointerGuidance(guidance: PointerGuidanceState | null): void {
-    // Reset throttle only when guidance signals end-of-exploration
-    // (pointer left, or pointer now on-curve). Audio being OFF is a
-    // separate concern — keep the throttle intact so re-enabling audio
-    // mid-hover doesn't fire an immediate beep on the next pointermove.
-    if (!guidance || guidance.onCurve) {
+    // Reset throttle only when the pointer leaves the trace entirely. On an
+    // `onCurve: true` event we deliberately keep the throttle intact: a
+    // cursor sitting at the `isPointInBounds` boundary alternates on/off at
+    // frame rate, and resetting on each on-curve frame would let every
+    // following off-curve frame bypass the rate limit, producing a 60 Hz
+    // buzz instead of discrete beeps. The cost of letting the throttle
+    // carry over is at most one `minInterval` delay before the first
+    // off-curve beep — an intentional, imperceptible debounce.
+    if (!guidance) {
       this.nextPointerGuidanceBeepAt = 0;
+      return;
+    }
+    if (guidance.onCurve) {
       return;
     }
     // Guidance is intentionally mode-agnostic across SEPARATE / COMBINED /
@@ -680,10 +663,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    const beep = resolvePointerGuidanceBeep(
-      guidance,
-      DEFAULT_POINTER_GUIDANCE_CONFIG,
-    );
+    const beep = resolvePointerGuidanceBeep(guidance);
     if (!beep) {
       // Off-curve but out of range: leave the throttle untouched. If the
       // cursor oscillates across the maxDistancePx boundary the user would
@@ -766,7 +746,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playZeroTone(panning: Panning): AudioId {
-    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
     // Y-axis not used for stereo panning
     return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
@@ -809,10 +789,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const sharedValue = Array.isArray(tones[0].freq.raw)
       ? (tones[0].freq.raw[1] ?? tones[0].freq.raw[0])
       : (tones[0].freq.raw as number);
-    const sharedFrequency = this.interpolate(
+    const sharedFrequency = MathUtil.interpolate(
       sharedValue,
-      { min: tones[0].freq.min, max: tones[0].freq.max },
-      { min: this.minFrequency, max: this.maxFrequency },
+      tones[0].freq.min,
+      tones[0].freq.max,
+      this.minFrequency,
+      this.maxFrequency,
     );
 
     tones.forEach((tone, idx) => {
@@ -841,14 +823,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
       this.activeAudioIds.set(audioId, [oscillator]);
     });
-  }
-
-  private interpolate(value: number, from: Range, to: Range): number {
-    return MathUtil.interpolate(value, from.min, from.max, to.min, to.max);
-  }
-
-  private clamp(value: number, from: number, to: number): number {
-    return MathUtil.clamp(value, from, to);
   }
 
   /**

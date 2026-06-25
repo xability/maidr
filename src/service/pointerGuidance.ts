@@ -47,12 +47,16 @@ export function resolvePointerGuidanceBeep(
       guidance.curveVertical === 'above'
         ? config.highFrequency
         : config.lowFrequency,
-    // Pan toward the point: point left → negative (left) pan, point right →
-    // positive (right) pan. The audio "pulls" the user toward the data.
+    // Pan toward the curve. `'center'` (cursor exactly aligned with the
+    // curve column) zeros the pan instead of falling through to a
+    // direction the user can't perceive — this is the heatmap-center case
+    // where falling through to 'left' would point audio away from the data.
     pan:
-      guidance.curveHorizontal === 'left'
-        ? -config.panMagnitude
-        : config.panMagnitude,
+      guidance.curveHorizontal === 'center'
+        ? 0
+        : guidance.curveHorizontal === 'left'
+          ? -config.panMagnitude
+          : config.panMagnitude,
     interval,
   };
 }

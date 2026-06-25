@@ -26,10 +26,8 @@ export class PointerGuidanceCommand implements Command {
   }
 
   /**
-   * Handles a pointermove / pointerleave event: navigates to the nearest
-   * point and plays a directional beep when off-curve, or resets guidance
-   * when called with no event. No-ops outside `Scope.TRACE` so guidance
-   * stays silent while modals or other scopes own input.
+   * No-ops outside `Scope.TRACE` so guidance stays silent while modals or
+   * other scopes own input.
    */
   public execute(event?: Event): void {
     // Pointer-leave / missing-coordinate / out-of-scope events all need to

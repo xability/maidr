@@ -186,6 +186,19 @@ describe('moveToNearest override pattern (used by BoxTrace / ViolinBoxTrace)', (
     expect(guidance.curveVertical).toBe('above');
   });
 
+  it('emits curveHorizontal=center when cursor x exactly matches centerX', () => {
+    // Heatmap-style scenario: centerX is a computed pixel integer the
+    // cursor can hit exactly. Without the 'center' state, x === centerX
+    // would collapse into 'left' and pan audio away from the target.
+    const trace = new NoMoveTrace(NEAREST, false);
+    const guidance = trace.moveToPointAndGetPointerGuidance(NEAREST.centerX, NEAREST.centerY + 30);
+
+    if (guidance === null || guidance.onCurve) {
+      throw new Error('expected off-curve guidance');
+    }
+    expect(guidance.curveHorizontal).toBe('center');
+  });
+
   it('returns null when no nearest point exists', () => {
     const trace = new (class extends TestTrace {
       protected override findNearestPoint(): null {

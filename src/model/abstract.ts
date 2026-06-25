@@ -830,17 +830,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       return { onCurve: true };
     }
 
-    // Fields describe where the curve point sits relative to the cursor.
+    // Fields describe where the curve center sits relative to the cursor.
     // Screen-space: y grows downward, so a smaller y is higher on screen —
-    // `y < centerY` puts the point below the cursor. Tie-breaks at the exact
-    // center are arbitrary by design: at single-pixel precision the user
-    // can't perceive the difference, and forcing strict inequality avoids a
-    // third "centered" state that beep mapping would need to handle.
+    // `y < centerY` puts the curve center below the cursor. The vertical
+    // tie-break collapses to 'above'; at single-pixel precision the user
+    // can't perceive the difference, and forcing strict inequality avoids
+    // a third "centered" state that pitch mapping would need to handle.
+    // Horizontally we DO distinguish ties: heatmap centers are computed
+    // pixel integers users can hit exactly, and panning left at the moment
+    // the cursor crosses centerX would be a misleading directional cue.
     return {
       onCurve: false,
       distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
       curveVertical: y < nearest.centerY ? 'below' : 'above',
-      curveHorizontal: x < nearest.centerX ? 'right' : 'left',
+      curveHorizontal: x === nearest.centerX
+        ? 'center'
+        : x < nearest.centerX ? 'right' : 'left',
     };
   }
 

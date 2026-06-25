@@ -45,6 +45,20 @@ describe('resolvePointerGuidanceBeep', () => {
     expect(pointBelowLeft?.pan).toBe(-DEFAULT_POINTER_GUIDANCE_CONFIG.panMagnitude);
   });
 
+  it('returns pan = 0 when the curve is exactly aligned horizontally', () => {
+    // Cursor sits directly above/below a heatmap cell center: panning
+    // horizontally would be a misleading directional cue.
+    const centered = resolvePointerGuidanceBeep({
+      onCurve: false,
+      distancePx: 10,
+      curveVertical: 'above',
+      curveHorizontal: 'center',
+    });
+
+    expect(centered?.pan).toBe(0);
+    expect(centered?.frequency).toBe(DEFAULT_POINTER_GUIDANCE_CONFIG.highFrequency);
+  });
+
   it('beep interval gets shorter as pointer gets closer', () => {
     const far = resolvePointerGuidanceBeep({
       onCurve: false,

@@ -187,7 +187,9 @@ export interface AudioState {
  * Position fields describe where the **curve point** sits relative to the
  * cursor, so they line up directly with the audio output: `curveVertical:
  * 'above'` plays a high pitch (point is up there), `curveHorizontal:
- * 'left'` pans audio to the left (point is to the left).
+ * 'left'` pans audio to the left (point is to the left). `'center'`
+ * signals exact horizontal alignment so the resolver can drop pan to zero
+ * instead of choosing an arbitrary direction.
  */
 export type PointerGuidanceState
   = | { onCurve: true }
@@ -198,7 +200,7 @@ export type PointerGuidanceState
       /** Where the curve point sits vertically relative to the cursor. */
       curveVertical: 'above' | 'below';
       /** Where the curve point sits horizontally relative to the cursor. */
-      curveHorizontal: 'left' | 'right';
+      curveHorizontal: 'left' | 'right' | 'center';
     };
 
 /**
