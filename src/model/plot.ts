@@ -355,6 +355,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
+    // Remove the cloned highlight element to avoid stale DOM nodes
+    // accumulating after live data updates.
+    this.highlightValue?.remove();
     super.dispose();
   }
 
@@ -384,6 +387,19 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    */
   public get activeTrace(): Trace {
     return this.traces[this.row][this.col];
+  }
+
+  /**
+   * Index of the active layer within the subplot.
+   *
+   * Traces are constructed as one single-trace row per layer
+   * (`traces[layerIndex][0]`), so the active trace row IS the layer index.
+   * This accessor makes that invariant explicit for callers (e.g. the
+   * Controller's sliding-window cursor tracking) instead of having them
+   * depend on the internal layout.
+   */
+  public get activeLayerIndex(): number {
+    return this.row;
   }
 
   /**
@@ -543,6 +559,15 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Resets the trace to initial entry state
    */
   resetToInitialEntry: () => void;
+
+  /**
+   * Computes the trace state at an arbitrary position without moving the
+   * cursor or notifying observers (used by monitor mode).
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  getStateAt: (row: number, col: number) => TraceState;
 
   /**
    * Notifies all observers with a specific state

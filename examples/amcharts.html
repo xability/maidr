@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Integration</title>
+
+    <!-- 1. Load amCharts 5 (core + XY charts) from CDN -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 600px;
+        height: 380px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Integration</h1>
+    <p>
+      Each chart below is rendered by amCharts 5 and then made accessible via
+      MAIDR. Click a chart and use the arrow keys to explore the data through
+      audio sonification, text descriptions, and braille. Toggle B for Braille,
+      T for Text, S for Sonification, and R for Review mode.
+    </p>
+
+    <h2>Bar / Column Chart</h2>
+    <div id="bar-chart" class="chart"></div>
+
+    <h2>Dodged / Grouped Column Chart</h2>
+    <div id="dodged-chart" class="chart"></div>
+
+    <h2>Stacked Column Chart</h2>
+    <div id="stacked-chart" class="chart"></div>
+
+    <h2>100% Stacked (Normalized) Column Chart</h2>
+    <div id="normalized-chart" class="chart"></div>
+
+    <h2>Multi-series Line Chart</h2>
+    <div id="line-chart" class="chart"></div>
+
+    <h2>Histogram</h2>
+    <div id="histogram-chart" class="chart"></div>
+
+    <h2>Heatmap</h2>
+    <div id="heatmap-chart" class="chart"></div>
+
+    <script>
+      // Collects { el, root, options } for each chart so the ES-module block
+      // below can convert them to MAIDR data once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(elId, root, options) {
+        window.__amBindings.push({
+          el: document.getElementById(elId),
+          root: root,
+          options: options,
+        });
+      }
+
+      // Add a legend identifying each series (for multi-series charts).
+      function addLegend(root, chart) {
+        var legend = chart.children.push(
+          am5.Legend.new(root, { centerX: am5.p50, x: am5.p50 })
+        );
+        legend.data.setAll(chart.series.values);
+      }
+
+      // -------------------------------------------------------------------
+      // Bar / Column
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("bar-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "day", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Tips Count", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "count", categoryXField: "day",
+          })
+        );
+        var data = [
+          { day: "Sat", count: 87 },
+          { day: "Sun", count: 76 },
+          { day: "Thur", count: 62 },
+          { day: "Fri", count: 19 },
+        ];
+        xAxis.data.setAll(data);
+        series.data.setAll(data);
+        addLegend(root, chart);
+        register("bar-chart", root, { title: "Number of Tips by Day", axisLabels: { x: "Day", y: "Count" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Dodged / Grouped (multiple non-stacked column series)
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("dodged-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "city", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        function addSeries(name, field) {
+          var s = chart.series.push(
+            am5xy.ColumnSeries.new(root, { name: name, xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "city" })
+          );
+          s.data.setAll(data);
+          return s;
+        }
+        var data = [
+          { city: "New York", y2020: 8336, y2025: 8258 },
+          { city: "Los Angeles", y2020: 3979, y2025: 3898 },
+          { city: "Chicago", y2020: 2693, y2025: 2665 },
+          { city: "Houston", y2020: 2320, y2025: 2314 },
+        ];
+        xAxis.data.setAll(data);
+        addSeries("2020", "y2020");
+        addSeries("2025", "y2025");
+        addLegend(root, chart);
+        register("dodged-chart", root, { title: "City Populations (thousands)", axisLabels: { x: "City", y: "Population" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Stacked (multiple column series, stacked: true)
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("stacked-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "class", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        function addSeries(name, field) {
+          var s = chart.series.push(
+            am5xy.ColumnSeries.new(root, { name: name, stacked: true, xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "class" })
+          );
+          s.data.setAll(data);
+          return s;
+        }
+        var data = [
+          { class: "First", died: 80, survived: 136 },
+          { class: "Second", died: 97, survived: 87 },
+          { class: "Third", died: 372, survived: 119 },
+        ];
+        xAxis.data.setAll(data);
+        addSeries("Did not survive", "died");
+        addSeries("Survived", "survived");
+        addLegend(root, chart);
+        register("stacked-chart", root, { title: "Passenger Count by Class and Survival", axisLabels: { x: "Class", y: "Count" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Normalized / 100% stacked (stacked: true + valueYShow total percent)
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("normalized-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "class", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        // calculateTotals lets amCharts compute the percent totals for stacking.
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { calculateTotals: true, min: 0, max: 100, renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        function addSeries(name, field) {
+          var s = chart.series.push(
+            am5xy.ColumnSeries.new(root, {
+              name: name, stacked: true, valueYShow: "valueYTotalPercent",
+              xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "class",
+            })
+          );
+          s.data.setAll(data);
+          return s;
+        }
+        var data = [
+          { class: "First", died: 80, survived: 136 },
+          { class: "Second", died: 97, survived: 87 },
+          { class: "Third", died: 372, survived: 119 },
+        ];
+        xAxis.data.setAll(data);
+        addSeries("Did not survive", "died");
+        addSeries("Survived", "survived");
+        addLegend(root, chart);
+        register("normalized-chart", root, { title: "Survival Share by Class", axisLabels: { x: "Class", y: "Percent" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Multi-series Line
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("line-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "year", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        function addSeries(name, field) {
+          var s = chart.series.push(
+            am5xy.LineSeries.new(root, { name: name, xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "year" })
+          );
+          s.data.setAll(data);
+          return s;
+        }
+        var data = [
+          { year: "2020", sales: 1000, expenses: 400 },
+          { year: "2021", sales: 1170, expenses: 460 },
+          { year: "2022", sales: 660, expenses: 1120 },
+          { year: "2023", sales: 1030, expenses: 540 },
+        ];
+        xAxis.data.setAll(data);
+        addSeries("Sales", "sales");
+        addSeries("Expenses", "expenses");
+        addLegend(root, chart);
+        register("line-chart", root, { title: "Company Performance", axisLabels: { x: "Year", y: "Amount" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Histogram (column series on a value X axis with bin edges)
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("histogram-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Frequency", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "count", valueXField: "to", openValueXField: "from",
+          })
+        );
+        var data = [
+          { from: 0, to: 10, count: 4 },
+          { from: 10, to: 20, count: 11 },
+          { from: 20, to: 30, count: 18 },
+          { from: 30, to: 40, count: 9 },
+          { from: 40, to: 50, count: 3 },
+        ];
+        series.data.setAll(data);
+        addLegend(root, chart);
+        register("histogram-chart", root, { title: "Value Distribution", axisLabels: { x: "Value", y: "Frequency" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Heatmap (column series with category X and category Y axes)
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("heatmap-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: "none", wheelY: "none" })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "weekday", renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 30 }) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "hour", renderer: am5xy.AxisRendererY.new(root, { inversed: true, minGridDistance: 30 }) })
+        );
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            calculateAggregates: true, xAxis: xAxis, yAxis: yAxis,
+            categoryXField: "weekday", categoryYField: "hour", valueField: "value",
+          })
+        );
+        series.columns.template.setAll({ strokeOpacity: 1, strokeWidth: 1, width: am5.percent(100), height: am5.percent(100) });
+        series.set("heatRules", [{
+          target: series.columns.template,
+          dataField: "value",
+          min: am5.color(0xe6f2ff),
+          max: am5.color(0x0b5cad),
+          key: "fill",
+        }]);
+        var weekdays = ["Mon", "Tue", "Wed"];
+        var hours = ["9am", "12pm", "3pm"];
+        var data = [
+          { weekday: "Mon", hour: "9am", value: 12 }, { weekday: "Mon", hour: "12pm", value: 30 }, { weekday: "Mon", hour: "3pm", value: 18 },
+          { weekday: "Tue", hour: "9am", value: 8 }, { weekday: "Tue", hour: "12pm", value: 22 }, { weekday: "Tue", hour: "3pm", value: 27 },
+          { weekday: "Wed", hour: "9am", value: 15 }, { weekday: "Wed", hour: "12pm", value: 33 }, { weekday: "Wed", hour: "3pm", value: 10 },
+        ];
+        xAxis.data.setAll(weekdays.map(function (w) { return { weekday: w }; }));
+        yAxis.data.setAll(hours.map(function (h) { return { hour: h }; }));
+        series.data.setAll(data);
+        // Heatmaps use a heat (gradient) legend, not a series legend.
+        var heatLegend = chart.bottomAxesContainer.children.push(
+          am5.HeatLegend.new(root, {
+            orientation: "horizontal",
+            startColor: am5.color(0xe6f2ff),
+            endColor: am5.color(0x0b5cad),
+            startText: "Low",
+            endText: "High",
+          })
+        );
+        series.events.on("datavalidated", function () {
+          heatLegend.set("startValue", series.getPrivate("valueLow"));
+          heatLegend.set("endValue", series.getPrivate("valueHigh"));
+        });
+        register("heatmap-chart", root, { title: "Activity by Weekday and Hour", axisLabels: { x: "Weekday", y: "Hour" } });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

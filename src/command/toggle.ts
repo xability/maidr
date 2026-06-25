@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
+import type { MonitorService } from '@service/monitor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -368,5 +369,28 @@ export class ToggleHighContrast implements Command {
 
   public execute(): void {
     this.highContrastService.toggleHighContrast();
+  }
+}
+
+/**
+ * Command to toggle monitor mode for live charts. While monitoring is on,
+ * newly appended data points are auto-sonified and announced.
+ */
+export class ToggleMonitorCommand implements Command {
+  private readonly monitorService: MonitorService;
+
+  /**
+   * Creates an instance of ToggleMonitorCommand.
+   * @param {MonitorService} monitorService - The monitor service.
+   */
+  public constructor(monitorService: MonitorService) {
+    this.monitorService = monitorService;
+  }
+
+  /**
+   * Toggles monitor mode.
+   */
+  public execute(): void {
+    this.monitorService.toggle();
   }
 }

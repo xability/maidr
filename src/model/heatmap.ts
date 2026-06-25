@@ -43,7 +43,7 @@ export class Heatmap extends AbstractTrace {
     this.min = min;
     this.max = max;
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string | string[][] | undefined);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<number>(this.heatmapValues);
   }
@@ -133,13 +133,41 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  private mapToSvgElements(selector?: string): SVGElement[][] | null {
+  private mapToSvgElements(selector?: string | string[][]): SVGElement[][] | null {
     if (!selector) {
       return null;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
+
+    // Per-cell selector grid: `selector[r][c]` resolves to the SVG element for
+    // logical row `r`, column `c`. Used by adapters (e.g. Highcharts) that
+    // stamp coordinate attributes onto cells so the model→DOM mapping is
+    // independent of DOM insertion order.
+    if (Array.isArray(selector)) {
+      if (selector.length !== numRows) {
+        return null;
+      }
+      const svgElements: SVGElement[][] = [];
+      for (let r = 0; r < numRows; r++) {
+        const rowSelectors = selector[r];
+        if (!Array.isArray(rowSelectors) || rowSelectors.length !== numCols) {
+          return null;
+        }
+        const row: SVGElement[] = [];
+        for (let c = 0; c < numCols; c++) {
+          const el = document.querySelector<SVGElement>(rowSelectors[c]);
+          if (!el) {
+            return null;
+          }
+          row.push(el);
+        }
+        svgElements.push(row);
+      }
+      return svgElements;
+    }
+
     const domElements = Svg.selectAllElements(selector, false);
 
     // Plotly renders heatmaps as a single <image> element (canvas PNG).

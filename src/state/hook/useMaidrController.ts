@@ -2,6 +2,7 @@ import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { RefObject } from 'react';
+import { cloneMaidrData, liveDataManager } from '@service/liveData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller } from '../../controller';
 
@@ -45,16 +46,21 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
 
   const [contextValue, setContextValue] = useState<MaidrContextValue | null>(null);
 
+  // Latest chart data, kept current across prop changes and live updates
+  // (window.maidrLive / liveDataManager). The controller is built from this
+  // ref so a focus-in after an update always sees the freshest data.
+  const latestDataRef = useRef<MaidrData>(data);
+
   const createController = useCallback((): Controller | null => {
     const plotElement = plotRef.current;
     if (!plotElement)
       return null;
 
-    // Create a deep copy to prevent mutations on the original data object.
-    const dataClone = structuredClone(data);
-    const ctrl = new Controller(dataClone, plotElement, store);
+    // Create a deep copy to prevent mutations on the original data object
+    // (the model layer takes ownership of, and may mutate, the data arrays).
+    const ctrl = new Controller(cloneMaidrData(latestDataRef.current), plotElement, store);
     return ctrl;
-  }, [data, store]);
+  }, [store]);
 
   // Keep a ref to always access the latest createController, avoiding stale
   // closures when data changes between the time a timer is queued and fires.
@@ -87,10 +93,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       focusInTimerRef.current = null;
       if (!controllerRef.current) {
         const ctrl = createControllerRef.current();
-        if (!ctrl)
+        if (!ctrl) {
           return;
+        }
         controllerRef.current = ctrl;
-        setContextValue(ctrl.getContextValue());
+        const cv = ctrl.getContextValue();
+        setContextValue(cv);
         ctrl.initializeHighContrast();
       }
       if (!hasAnnouncedRef.current) {
@@ -148,6 +156,55 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       hasAnnouncedRef.current = false;
     }
   }, [disposeController]);
+
+  // Register this chart with the live data manager so external producers
+  // (script-tag consumers via window.maidrLive, or React prop updates routed
+  // through setData) can replace or append data at runtime. When an update
+  // arrives while the chart is active, the controller swaps its model in
+  // place, preserving the user's navigation position.
+  useEffect(() => {
+    latestDataRef.current = data;
+    const disposable = liveDataManager.register(data, (event) => {
+      latestDataRef.current = event.maidr;
+      // In-place refresh is opt-in via `live: true`; static charts pick the
+      // new data up on the next focus-in instead.
+      if (event.maidr.live === true && controllerRef.current) {
+        try {
+          controllerRef.current.updateData(cloneMaidrData(event.maidr), event.appended);
+        } catch (error) {
+          // A failed swap can leave the model half-built; drop the controller
+          // so the next focus-in rebuilds cleanly from the stored data.
+          console.error('[maidr] Live data update failed; the chart will reload on next focus:', error);
+          disposeController();
+        }
+      }
+    });
+    return () => disposable.dispose();
+    // Re-register only when the chart identity changes; data *content*
+    // changes flow through the effect below.
+  }, [data.id, disposeController]);
+
+  // React-driven data updates: for live charts, a new `data` prop replaces
+  // the chart data in place (equivalent to setData). Static charts keep the
+  // existing behavior — the new data is picked up on the next focus-in.
+  //
+  // Data ownership chain: prop changes on live charts route through
+  // liveDataManager.setData, whose listener (above) is the single writer of
+  // latestDataRef for live updates; non-live prop changes write latestDataRef
+  // directly and only sync the manager's stored copy.
+  const previousDataRef = useRef<MaidrData>(data);
+  useEffect(() => {
+    if (previousDataRef.current === data) {
+      return;
+    }
+    previousDataRef.current = data;
+    if (data.live) {
+      liveDataManager.setData(data);
+    } else {
+      latestDataRef.current = data;
+      liveDataManager.updateStoredData(data);
+    }
+  }, [data]);
 
   // Register visibility change listener.
   useEffect(() => {

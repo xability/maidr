@@ -74,7 +74,8 @@ export class HighContrastService implements Disposable {
   private readonly settingsService: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see setFigure).
+  private figure: Figure;
   private readonly context: Context;
 
   // Disposable for settings change subscription
@@ -173,6 +174,22 @@ export class HighContrastService implements Disposable {
     // High contrast will be applied when:
     // 1. The real Controller is created on focus-in (via initializeHighContrast)
     // 2. The user toggles high contrast mode via keyboard/settings
+  }
+
+  /**
+   * Points this service at a rebuilt figure after a live data update and
+   * re-captures original element colors. When high contrast is active, it is
+   * re-applied to the new model's elements.
+   *
+   * @param figure - The replacement figure
+   */
+  public setFigure(figure: Figure): void {
+    this.figure = figure;
+    this.originalColorInfo = null;
+    this.captureOriginalColors();
+    if (this.highContrastMode) {
+      this.applyHighContrast();
+    }
   }
 
   /**

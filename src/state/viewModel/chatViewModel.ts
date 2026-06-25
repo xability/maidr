@@ -6,6 +6,7 @@ import type { Llm, Message } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getModelDisplayName } from '@util/llm';
 import { AbstractViewModel } from './viewModel';
 
 /**
@@ -20,24 +21,6 @@ const initialState: ChatState = {
   messages: [],
   suggestions: [],
 };
-
-/**
- * Converts a model key to a human-readable display name.
- * @param {string} modelKey - The model key identifier.
- * @returns {string} The display name for the model.
- */
-function getModelDisplayName(modelKey: string): string {
-  switch (modelKey) {
-    case 'OPENAI':
-      return 'OpenAI';
-    case 'ANTHROPIC_CLAUDE':
-      return 'Anthropic Claude';
-    case 'GOOGLE_GEMINI':
-      return 'Google Gemini';
-    default:
-      return 'AI Assistant';
-  }
-}
 
 const chatSlice = createSlice({
   name: 'chat',
@@ -209,7 +192,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
+      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
 
     this.store.dispatch(addSystemMessage({
       text,
@@ -236,7 +219,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
     const text = enabledModels.length > 0
       ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide API keys in the settings page.';
+      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
 
     this.store.dispatch(updateWelcomeMessage({
       text,
@@ -349,6 +332,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           customInstruction: llmSettings.customInstruction,
           expertise,
           apiKey: config.apiKey,
+          version: config.version,
         });
 
         this.audioService.stop(audioId);

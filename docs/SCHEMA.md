@@ -127,6 +127,22 @@ Use the following to define the object properties:
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
 - `data`: the main data for your plot. See below.
 
+### Top-Level Properties for Live Charts
+
+The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.html) guide):
+
+- `live` (boolean): enables live mode — in-place data updates via `window.maidrLive.setData()` / `appendData()` and the **M** monitor-mode key.
+- `maxWidth` (number): sliding window size; appending a point beyond this width drops the oldest point(s), keeping at most `maxWidth` points per series.
+
+```javascript
+var maidr = {
+  id: "live_chart",
+  live: true,
+  maxWidth: 50,
+  subplots: [ /* ... */ ]
+};
+```
+
 ## Data Formats by Plot Type
 
 The data property is defined as a list of objects where each object is a record with fields x and y.

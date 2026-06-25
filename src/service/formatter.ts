@@ -57,6 +57,17 @@ export class FormatterService implements Disposable {
   }
 
   /**
+   * Rebuilds all layer formatters from updated MAIDR data.
+   * Called after a live data update replaces the chart data.
+   *
+   * @param maidr - The updated MAIDR data
+   */
+  public refresh(maidr: Maidr): void {
+    this.formatters.clear();
+    this.initializeFormatters(maidr);
+  }
+
+  /**
    * Extracts and resolves format configurations from all layers in the MAIDR data.
    */
   private initializeFormatters(maidr: Maidr): void {

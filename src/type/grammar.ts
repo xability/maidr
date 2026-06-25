@@ -148,6 +148,17 @@ export interface ViolinKdePoint {
  * };
  * ```
  */
+/**
+ * Callback invoked when the active data point changes during navigation.
+ * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+ *
+ * @param info - Object containing the current navigation position
+ * @param info.layerId - The ID of the active layer/trace
+ * @param info.row - The current row index (e.g., dataset index)
+ * @param info.col - The current column index (e.g., data point index)
+ */
+export type NavigateCallback = (info: { layerId: string; row: number; col: number }) => void;
+
 export interface Maidr {
   /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
@@ -162,6 +173,32 @@ export interface Maidr {
    * For a single chart, use `[[{ layers: [...] }]]`.
    */
   subplots: MaidrSubplot[][];
+  /**
+   * Enables live/realtime mode for this chart. When true:
+   * - React consumers can update the `data` prop to replace the chart data in place.
+   * - Script-tag consumers can push updates via `window.maidrLive.setData()` /
+   *   `window.maidrLive.appendData()`.
+   * - The 'M' key toggles monitor mode, which auto-sonifies and announces
+   *   newly appended data points.
+   *
+   * Static charts (the default) are unaffected.
+   */
+  live?: boolean;
+  /**
+   * Sliding window size for streaming data. When set, appending a data point
+   * beyond this width drops the oldest point(s), keeping at most `maxWidth`
+   * points per series. Only applies to `appendData` updates.
+   */
+  maxWidth?: number;
+  /**
+   * Optional callback invoked when the active data point changes.
+   * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,
+   * since canvas elements cannot be targeted with CSS selectors.
+   *
+   * This field is not serializable as JSON; it is only available when constructing
+   * MAIDR data programmatically (e.g., via the Chart.js plugin or React API).
+   */
+  onNavigate?: NavigateCallback;
 }
 
 /**
@@ -366,7 +403,7 @@ export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
+  selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in

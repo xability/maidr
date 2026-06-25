@@ -1096,6 +1096,21 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         }
       }
 
+      // Highcharts (and other path-rendered marker libraries) embed the
+      // marker center in the `d` attribute as `M x y …`. Parse the initial
+      // moveTo command to recover (x, y) when none of the explicit attribute
+      // fallbacks matched.
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const d = element.getAttribute('d');
+        if (d) {
+          const match = d.match(/M\s*([\d.eE+-]+)[\s,]+([\d.eE+-]+)/);
+          if (match) {
+            x = Number.parseFloat(match[1]);
+            y = Number.parseFloat(match[2]);
+          }
+        }
+      }
+
       if (!Number.isNaN(x)) {
         if (!xGroups.has(x))
           xGroups.set(x, []);

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr Live Market Data Example (Coinbase)</title>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      #status {
+        margin-bottom: 1rem;
+        font-weight: bold;
+      }
+      svg {
+        border: 1px solid #ccc;
+        background: #fff;
+      }
+    </style>
+    <script>
+      // REAL live market data demo: BTC-USD trades from Coinbase Exchange's
+      // public WebSocket feed (no API key required), aggregated client-side
+      // into 10-second OHLC candles and streamed into MAIDR via appendData.
+      //
+      // MAIDR is bound only after the first (seed) candle exists, using the
+      // `maidr-data` attribute + `maidr:bindchart` event, so the model never
+      // sees an empty candlestick layer.
+      //
+      // This page needs network access. For an offline/deterministic demo of
+      // the same APIs, see live-candlestick.html (simulated ticker).
+      function buildMaidrConfig(candle, volume) {
+        return {
+          id: 'live-btc',
+          title: 'BTC-USD Live (Coinbase, 10s candles)',
+          live: true,
+          maxWidth: 20,
+          subplots: [[{
+            layers: [
+              {
+                id: 'candle-layer',
+                type: 'candlestick',
+                title: 'BTC-USD Price',
+                axes: {
+                  x: { label: 'Time' },
+                  y: { label: 'Price', format: { type: 'currency', decimals: 2 } },
+                },
+                data: [candle],
+              },
+              {
+                id: 'volume-layer',
+                type: 'bar',
+                title: 'Volume (BTC)',
+                axes: {
+                  x: { label: 'Time' },
+                  y: { label: 'Volume', format: { type: 'fixed', decimals: 4 } },
+                },
+                data: [volume],
+              },
+            ],
+          }]],
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <h1>maidr Live Market Data Demo — Coinbase BTC-USD</h1>
+    <p>
+      Real trades from Coinbase's public WebSocket feed, bucketed into
+      10-second candles. Click the chart (or Tab to it), navigate with
+      arrow keys, switch to the volume layer with
+      <kbd>PageUp</kbd>/<kbd>PageDown</kbd>, and press <kbd>M</kbd> for
+      <strong>monitor mode</strong> to hear each new candle's close price
+      as it arrives.
+    </p>
+    <div id="status" role="status">Connecting to Coinbase…</div>
+
+    <!-- The bindchart event must be dispatched from an HTML element, so the
+         SVG chart lives inside this host div. -->
+    <div id="live-btc-host" style="width: fit-content">
+      <svg id="live-btc" width="640" height="360" viewBox="0 0 640 360">
+        <g id="candles"></g>
+        <g id="volumes"></g>
+      </svg>
+    </div>
+
+    <script>
+      (function () {
+        var BUCKET_MS = 10000;
+        var windowSize = 20;
+        var status = document.getElementById('status');
+        // Local copies for the SVG redraw only — never mutate data already
+        // handed to MAIDR; stream new candles through appendData instead.
+        var candles = [];
+        var volumes = [];
+        var bucket = null;
+
+        function fmtTime(ms) {
+          return new Date(ms).toLocaleTimeString([], {
+            hour12: false,
+            minute: '2-digit',
+            second: '2-digit',
+          });
+        }
+
+        function redraw() {
+          if (candles.length === 0) return;
+          var w = 640;
+          var h = 280;
+          var pad = 24;
+          var min = Math.min.apply(null, candles.map(function (c) { return c.low; }));
+          var max = Math.max.apply(null, candles.map(function (c) { return c.high; }));
+          if (max - min < 1) { max += 1; min -= 1; }
+          var y = function (p) {
+            return h - pad - ((p - min) / (max - min)) * (h - 2 * pad);
+          };
+          var slot = (w - 2 * pad) / Math.max(candles.length, 1);
+          document.getElementById('candles').innerHTML = candles.map(function (c, i) {
+            var cx = pad + slot * (i + 0.5);
+            var bw = Math.min(slot * 0.6, 18);
+            var up = c.close >= c.open;
+            var top = y(Math.max(c.open, c.close));
+            var bodyH = Math.max(Math.abs(y(c.open) - y(c.close)), 1);
+            var color = up ? '#2e7d32' : '#c62828';
+            return '<line x1="' + cx + '" y1="' + y(c.high) + '" x2="' + cx + '" y2="' + y(c.low) + '" stroke="' + color + '" />'
+              + '<rect x="' + (cx - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + bodyH + '" fill="' + color + '" />';
+          }).join('');
+          var maxVol = Math.max.apply(null, volumes.map(function (v) { return v.y; })) || 1;
+          document.getElementById('volumes').innerHTML = volumes.map(function (v, i) {
+            var cx = pad + slot * (i + 0.5);
+            var bw = Math.min(slot * 0.6, 18);
+            var vh = (v.y / maxVol) * 60;
+            return '<rect x="' + (cx - bw / 2) + '" y="' + (350 - vh) + '" width="' + bw + '" height="' + vh + '" fill="#90a4ae" />';
+          }).join('');
+        }
+
+        var bound = false;
+        function pushCandle(candle, volume) {
+          [candles, volumes].forEach(function (arr, i) {
+            arr.push([candle, volume][i]);
+            if (arr.length > windowSize) arr.shift();
+          });
+          redraw();
+          if (!bound) {
+            // First candle: bind MAIDR now so the model never sees an empty
+            // candlestick layer (adapter path: attribute + bindchart event).
+            bound = true;
+            var el = document.getElementById('live-btc-host');
+            el.setAttribute('maidr-data', JSON.stringify(buildMaidrConfig(candle, volume)));
+            el.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
+            return;
+          }
+          // Stream the real candle + volume into MAIDR.
+          window.maidrLive.appendData(candle, { id: 'live-btc', layerId: 'candle-layer' });
+          window.maidrLive.appendData(volume, { id: 'live-btc', layerId: 'volume-layer' });
+        }
+
+        function closeBucket() {
+          if (!bucket) return;
+          pushCandle(
+            {
+              value: fmtTime(bucket.start),
+              open: bucket.open,
+              high: bucket.high,
+              low: bucket.low,
+              close: bucket.close,
+            },
+            { x: fmtTime(bucket.start), y: Math.round(bucket.volume * 10000) / 10000 },
+          );
+          bucket = null;
+        }
+
+        function onTrade(price, size, timeMs) {
+          var start = Math.floor(timeMs / BUCKET_MS) * BUCKET_MS;
+          if (bucket && start !== bucket.start) closeBucket();
+          if (!bucket) {
+            bucket = { start: start, open: price, high: price, low: price, close: price, volume: 0 };
+          }
+          bucket.high = Math.max(bucket.high, price);
+          bucket.low = Math.min(bucket.low, price);
+          bucket.close = price;
+          bucket.volume += size;
+          status.textContent = 'Live: BTC-USD $' + price.toFixed(2)
+            + ' — next candle closes ' + fmtTime(start + BUCKET_MS);
+        }
+
+        // Seed one candle from the REST ticker so the chart is bound and
+        // navigable before the first live bucket closes.
+        fetch('https://api.exchange.coinbase.com/products/BTC-USD/ticker')
+          .then(function (r) { return r.json(); })
+          .then(function (t) {
+            if (bound) return; // a live bucket beat the REST seed
+            var p = Number(t.price);
+            var now = Math.floor(Date.now() / BUCKET_MS) * BUCKET_MS - BUCKET_MS;
+            pushCandle(
+              { value: fmtTime(now), open: p, high: p, low: p, close: p },
+              { x: fmtTime(now), y: 0 },
+            );
+          })
+          .catch(function () { /* the first live bucket will bind instead */ });
+
+        var ws = new WebSocket('wss://ws-feed.exchange.coinbase.com');
+        ws.onopen = function () {
+          ws.send(JSON.stringify({
+            type: 'subscribe',
+            product_ids: ['BTC-USD'],
+            channels: ['ticker'],
+          }));
+          status.textContent = 'Connected — waiting for trades…';
+        };
+        ws.onmessage = function (e) {
+          var m;
+          try {
+            m = JSON.parse(e.data);
+          } catch (err) {
+            return; // ignore non-JSON frames defensively
+          }
+          if (m && m.type === 'ticker' && m.price) {
+            onTrade(Number(m.price), Number(m.last_size || 0), Date.parse(m.time));
+          }
+        };
+        ws.onerror = function () {
+          status.textContent = 'Could not reach Coinbase (offline or blocked). '
+            + 'See live-candlestick.html for the simulated demo.';
+        };
+        ws.onclose = function () {
+          if (status.textContent.indexOf('Could not') !== 0) {
+            status.textContent = 'Feed disconnected. Reload to reconnect.';
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>

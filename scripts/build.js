@@ -4,7 +4,11 @@
  * Consolidates all Vite build configurations into a single file.
  * Builds run sequentially due to vite-plugin-dts limitations.
  *
- * Usage: node scripts/build.js
+ * Usage: node scripts/build.js [name ...]
+ *
+ * With no arguments, all bundles are built. Passing bundle names (e.g.
+ * `node scripts/build.js core react`) builds only those bundles; selective
+ * builds never empty the output directory.
  */
 
 import path from 'node:path';
@@ -94,11 +98,41 @@ const builds = [
     },
   },
   {
+    name: 'frappe',
+    entry: 'src/frappe-entry.ts',
+    libName: 'maidrFrappe',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'frappe.mjs' : 'frappe.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'd3.mjs' : 'd3.js',
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
+    name: 'highcharts',
+    entry: 'src/adapters/highcharts/index.ts',
+    libName: 'maidrHighcharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'highcharts.mjs' : 'highcharts.js',
     emptyOutDir: false,
     external: [],
     useReact: false,
@@ -119,6 +153,65 @@ const builds = [
     useReact: true,
     useDts: true,
     aliases: adapterAliases,
+  },
+  {
+    name: 'chartjs',
+    entry: 'src/adapters/chartjs/index.ts',
+    libName: 'maidrChartjs',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'chartjs.mjs' : 'chartjs.js',
+    emptyOutDir: false,
+    // React is bundled in (mirrors d3/google-charts UMD strategy) so the UMD
+    // build can be loaded via classic <script> tags from file:// URLs.
+    // Chart.js stays external — host pages always load it themselves.
+    external: ['chart.js', 'chart.js/auto'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'amcharts',
+    entry: 'src/adapters/amcharts/index.ts',
+    libName: 'maidrAmCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
+    emptyOutDir: false,
+    // `bindAmCharts` mounts the MAIDR React UI over the chart, so React is
+    // bundled in (mirrors chartjs/d3) and the UMD build (amcharts.js) exposes
+    // the `maidrAmCharts` global for classic <script> use from file://.
+    // amCharts itself is never imported (it's duck-typed off the live objects
+    // passed in), so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'victory',
+    entry: 'src/victory-entry.ts',
+    formats: ['es'],
+    fileName: () => 'victory.mjs',
+    emptyOutDir: false,
+    external: ['react', 'react-dom', 'react/jsx-runtime', 'victory'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'anychart',
+    entry: 'src/anychart-entry.ts',
+    libName: 'maidrAnyChart',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'anychart.mjs' : 'anychart.js',
+    emptyOutDir: false,
+    // AnyChart is loaded separately on the host page; do not bundle it.
+    external: ['anychart'],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
   },
 ];
 
@@ -157,11 +250,26 @@ function createViteConfig(config) {
 
 async function main() {
   const startTime = Date.now();
+
+  const requested = process.argv.slice(2);
+  const unknown = requested.filter(name => !builds.some(b => b.name === name));
+  if (unknown.length > 0) {
+    console.error(`Unknown bundle name(s): ${unknown.join(', ')}`);
+    console.error(`Available: ${builds.map(b => b.name).join(', ')}`);
+    process.exit(1);
+  }
+  const selected = requested.length > 0
+    ? builds
+        .filter(b => requested.includes(b.name))
+        // Selective builds must not wipe the other bundles from dist.
+        .map(b => ({ ...b, emptyOutDir: false }))
+    : builds;
+
   console.log('Building MAIDR library...\n');
 
-  for (let i = 0; i < builds.length; i++) {
-    const config = builds[i];
-    const step = `[${i + 1}/${builds.length}]`;
+  for (let i = 0; i < selected.length; i++) {
+    const config = selected[i];
+    const step = `[${i + 1}/${selected.length}]`;
     console.log(`${step} Building ${config.name}...`);
 
     const t = Date.now();

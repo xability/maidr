@@ -9,6 +9,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [React Integration](https://maidr.ai/react.html): How to use MAIDR with React
 - [Data Schema](https://maidr.ai/docs/SCHEMA.html): MAIDR data schema specification
 - [Keyboard Controls](https://maidr.ai/docs/CONTROLS.html): Keyboard controls reference
+- [Live & Streaming Data](https://maidr.ai/docs/LIVE_DATA.html): Realtime data updates, streaming, and monitor mode
 - [Braille Generation](https://maidr.ai/docs/BRAILLE.html): Braille output documentation
 - [API Documentation](https://maidr.ai/api/index.html): TypeDoc API reference
 - [Examples](https://maidr.ai/examples.html): Interactive examples gallery

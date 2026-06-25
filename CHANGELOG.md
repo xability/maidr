@@ -1,3 +1,29 @@
+# [3.70.0](https://github.com/xability/maidr/compare/v3.69.0...v3.70.0) (2026-06-15)
+
+
+### Features
+
+* add Ollama support and live model discovery to maidrAI ([#621](https://github.com/xability/maidr/issues/621)) ([498089c](https://github.com/xability/maidr/commit/498089cbcbd8d79bfc9c061ef2810b34d1317ff9))
+* add realtime/streaming data support ([#620](https://github.com/xability/maidr/issues/620)) ([10424aa](https://github.com/xability/maidr/commit/10424aa2ff0966039392f4dc3888c139115e6316))
+
+# [3.69.0](https://github.com/xability/maidr/compare/v3.68.0...v3.69.0) (2026-05-28)
+
+
+### Features
+
+* add amCharts 5 binder for MAIDR ([#544](https://github.com/xability/maidr/issues/544)) ([#560](https://github.com/xability/maidr/issues/560)) ([58294b7](https://github.com/xability/maidr/commit/58294b7d3aa7279d90a847925a3388596f4c320a))
+* add AnyChart charting library adapter ([#545](https://github.com/xability/maidr/issues/545)) ([#557](https://github.com/xability/maidr/issues/557)) ([b9bf719](https://github.com/xability/maidr/commit/b9bf719083373407770a1aa75ad8c3c621300124))
+* add Frappe Charts integration examples ([#546](https://github.com/xability/maidr/issues/546)) ([#559](https://github.com/xability/maidr/issues/559)) ([ed09586](https://github.com/xability/maidr/commit/ed095860c88f9f042a9b4e01d7d343ecd82ed3e9))
+* add Highcharts charting library adapter ([#549](https://github.com/xability/maidr/issues/549)) ([cdb0cfb](https://github.com/xability/maidr/commit/cdb0cfb12650798020920e8ca3ceb25069ab2795)), closes [#539](https://github.com/xability/maidr/issues/539)
+* add Victory charting library support ([#558](https://github.com/xability/maidr/issues/558)) ([52f3f91](https://github.com/xability/maidr/commit/52f3f9122b6d626452a300a31153dfdff941c008)), closes [#543](https://github.com/xability/maidr/issues/543)
+
+# [3.68.0](https://github.com/xability/maidr/compare/v3.67.0...v3.68.0) (2026-05-25)
+
+
+### Features
+
+* add Chart.js charting library support ([#538](https://github.com/xability/maidr/issues/538)) ([#554](https://github.com/xability/maidr/issues/554)) ([eaefcfc](https://github.com/xability/maidr/commit/eaefcfc03424f6a23f07baf334c1790b02b11df6))
+
 # [3.67.0](https://github.com/xability/maidr/compare/v3.66.1...v3.67.0) (2026-05-07)
 
 

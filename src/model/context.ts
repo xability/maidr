@@ -29,15 +29,46 @@ function formatPlotType(plotType: string, orientation?: Orientation | string): s
 
 type Plot = Figure | Subplot | Trace;
 
+/**
+ * Snapshot of the navigation state captured before a live data update,
+ * used to restore the user's position on the rebuilt model.
+ */
+interface NavigationSnapshot {
+  depth: number;
+  figureRow: number;
+  figureCol: number;
+  figureEntry: boolean;
+  subplotRow: number;
+  subplotCol: number;
+  subplotEntry: boolean;
+  traceRow: number;
+  traceCol: number;
+  traceEntry: boolean;
+  /** Per-row subplot counts plus the active subplot's layer count. */
+  shape: string;
+}
+
+/**
+ * Options for {@link Context.replaceFigure}.
+ */
+export interface ReplaceFigureOptions {
+  /**
+   * Number of columns the active trace's data shifted left due to a
+   * sliding-window trim, so the cursor can stay on the same data point.
+   */
+  activeColShift?: number;
+}
+
 export class Context implements Disposable {
   public readonly id: string;
-  public readonly instructionContext: Plot;
   public readonly selectorList: string[] = [];
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
   private readonly navigationService: NavigationService;
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see replaceFigure).
+  private figure: Figure;
+  private _instructionContext: Plot;
   private isRotorActive: boolean;
 
   public constructor(figure: Figure) {
@@ -50,28 +81,233 @@ export class Context implements Disposable {
 
     this.isRotorActive = false;
 
-    // Set the context to figure level.
+    this._instructionContext = this.initializePlotContext(figure);
+  }
+
+  /**
+   * The plot element whose state drives the initial instruction text.
+   */
+  public get instructionContext(): Plot {
+    return this._instructionContext;
+  }
+
+  /**
+   * Whether navigation for this figure starts at figure level (multiple
+   * subplots) rather than subplot/trace level. Single source of truth for
+   * the level discrimination used at construction, instruction resolution,
+   * and depth-1 stack restoration.
+   */
+  private isFigureLevel(figure: Figure): boolean {
     const figureState = figure.state;
-    if (figureState.empty || figureState.size !== 1) {
-      this.instructionContext = figure;
+    return figureState.empty || figureState.size !== 1;
+  }
+
+  /**
+   * Builds the plot context stack for a fresh figure, pushing the initial
+   * scope, and returns the element to use as the instruction context.
+   *
+   * @param figure - The figure to initialize the stack from
+   * @returns The instruction context element
+   */
+  private initializePlotContext(figure: Figure): Plot {
+    // Set the context to figure level.
+    if (this.isFigureLevel(figure)) {
       this.plotContext.push(figure);
       this.scopeContext.push(Scope.SUBPLOT);
-      return;
+      return figure;
     }
 
     // Set the context to subplot level.
     this.scopeContext.push(Scope.TRACE);
     const subplotState = figure.activeSubplot.state;
     if (subplotState.empty || subplotState.size !== 1) {
-      this.instructionContext = figure.activeSubplot;
       this.plotContext.push(figure.activeSubplot);
       this.plotContext.push(figure.activeSubplot.activeTrace);
-      return;
+      return figure.activeSubplot;
     }
 
     // Set the context to trace level (single-layer plot)
-    this.instructionContext = figure.activeSubplot.activeTrace;
     this.plotContext.push(figure.activeSubplot.activeTrace);
+    return figure.activeSubplot.activeTrace;
+  }
+
+  /**
+   * Replaces the underlying figure with a rebuilt model (live data update),
+   * preserving the user's navigation position when the figure shape allows.
+   *
+   * The old figure is disposed *before* `createFigure` runs so that stale
+   * highlight clones are removed from the DOM before the new model queries
+   * its SVG selectors.
+   *
+   * Positions are restored silently (no observer notifications) so a data
+   * update never announces or sonifies by itself; monitor mode handles
+   * user-facing feedback separately.
+   *
+   * @param createFigure - Factory that builds the replacement figure
+   * @param options - Optional position adjustments (e.g. sliding-window shift)
+   * @returns The newly created figure
+   */
+  public replaceFigure(
+    createFigure: () => Figure,
+    options: ReplaceFigureOptions = {},
+  ): Figure {
+    const snapshot = this.captureNavigationSnapshot();
+    this.figure.dispose();
+
+    const figure = createFigure();
+    this.figure = figure;
+    this.plotContext.clear();
+
+    if (snapshot !== null && snapshot.shape === this.describeShape(figure)) {
+      // Same shape: restore positions and stack depth. The keyboard scope is
+      // intentionally left untouched so active modes (e.g. braille) survive
+      // the update.
+      this.restoreNavigation(figure, snapshot, options);
+      this._instructionContext = this.resolveInstructionContext(figure);
+    } else {
+      // Shape changed (or old model was unreadable): rebuild from scratch,
+      // exactly like construction, and realign the keyboard scope.
+      this.scopeContext.clear();
+      this._instructionContext = this.initializePlotContext(figure);
+      hotkeys.setScope(this.scope);
+    }
+
+    return figure;
+  }
+
+  /**
+   * Captures the current navigation positions from the active figure.
+   *
+   * @returns The snapshot, or null when the old model cannot be read
+   */
+  private captureNavigationSnapshot(): NavigationSnapshot | null {
+    try {
+      const figure = this.figure;
+      const subplot = figure.activeSubplot;
+      const trace = subplot.activeTrace;
+      return {
+        depth: this.plotContext.size(),
+        figureRow: figure.row,
+        figureCol: figure.col,
+        figureEntry: figure.isInitialEntry,
+        subplotRow: subplot.row,
+        subplotCol: subplot.col,
+        subplotEntry: subplot.isInitialEntry,
+        traceRow: trace.row,
+        traceCol: trace.col,
+        traceEntry: trace.isInitialEntry,
+        shape: this.describeShape(figure),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Describes the structural shape of a figure (subplot grid and layer
+   * counts) for compatibility checks between old and new models.
+   *
+   * @param figure - The figure to describe
+   * @returns A comparable shape signature
+   */
+  private describeShape(figure: Figure): string {
+    // Include trace types so a same-count replacement with different layer
+    // types (e.g. bar -> line) resets navigation instead of restoring a
+    // position onto an incompatible data structure.
+    //
+    // Group/series counts within a layer are deliberately NOT included:
+    // appendData can add a new series (groupIndex === count), and that must
+    // preserve the user's position. Restored indices are clamped into the
+    // new bounds, so a differing series count can never land out of range.
+    return figure.subplots
+      .map(row => row.map(subplot => subplot.traceTypes.join('+')).join(','))
+      .join(';');
+  }
+
+  /**
+   * Restores navigation positions onto the new figure and rebuilds the plot
+   * context stack at the same depth the user was at.
+   */
+  private restoreNavigation(
+    figure: Figure,
+    snapshot: NavigationSnapshot,
+    options: ReplaceFigureOptions,
+  ): void {
+    const clamp = (value: number, max: number): number =>
+      Math.max(0, Math.min(value, max));
+
+    figure.isInitialEntry = snapshot.figureEntry;
+    figure.row = clamp(snapshot.figureRow, figure.subplots.length - 1);
+    figure.col = clamp(snapshot.figureCol, figure.subplots[figure.row].length - 1);
+
+    const subplot = figure.activeSubplot;
+    subplot.isInitialEntry = snapshot.subplotEntry;
+    subplot.row = clamp(snapshot.subplotRow, subplot.traces.length - 1);
+    subplot.col = clamp(snapshot.subplotCol, subplot.traces[subplot.row].length - 1);
+
+    const trace = subplot.activeTrace;
+    if (!snapshot.traceEntry) {
+      trace.isInitialEntry = false;
+      this.restoreTracePosition(trace, snapshot, options);
+    }
+
+    // Rebuild the stack at the depth the user was navigating.
+    switch (snapshot.depth) {
+      case 3:
+        this.plotContext.push(figure);
+        this.plotContext.push(subplot);
+        this.plotContext.push(trace);
+        break;
+      case 2:
+        this.plotContext.push(subplot);
+        this.plotContext.push(trace);
+        break;
+      default:
+        // Depth 1 is ambiguous: a multi-subplot figure starts at figure
+        // level, a single-subplot single-layer chart at trace level.
+        this.plotContext.push(this.isFigureLevel(figure) ? figure : trace);
+        break;
+    }
+  }
+
+  /**
+   * Restores the trace-level cursor, applying the sliding-window shift and
+   * clamping into the new data bounds without notifying observers.
+   */
+  private restoreTracePosition(
+    trace: Trace,
+    snapshot: NavigationSnapshot,
+    options: ReplaceFigureOptions,
+  ): void {
+    let row = Math.max(0, snapshot.traceRow);
+    let col = Math.max(0, snapshot.traceCol - (options.activeColShift ?? 0));
+
+    // Clamp the row first (column 0 always exists for a non-empty row).
+    while (row > 0 && !trace.isMovable([row, 0])) {
+      row -= 1;
+    }
+    trace.row = row;
+
+    // With the row in place, clamp the column against that row's length.
+    while (col > 0 && !trace.isMovable([row, col])) {
+      col -= 1;
+    }
+    trace.col = col;
+  }
+
+  /**
+   * Resolves the instruction context element for a figure, mirroring the
+   * choice made at construction time.
+   */
+  private resolveInstructionContext(figure: Figure): Plot {
+    if (this.isFigureLevel(figure)) {
+      return figure;
+    }
+    const subplotState = figure.activeSubplot.state;
+    if (subplotState.empty || subplotState.size !== 1) {
+      return figure.activeSubplot;
+    }
+    return figure.activeSubplot.activeTrace;
   }
 
   public dispose(): void {

@@ -20,19 +20,20 @@ and encourages a multi-modal exploration on visualization.
 2. [Data Schema](#data-schema)
 3. [React Integration](#react-integration)
 4. [Controls](#controls)
-5. [Braille Generation](#braille-generation)
-6. [Examples](#examples)
-7. [Binders](#binders)
-8. [Papers](#papers)
-9. [License](#license)
-10. [Contact](#contact)
-11. [Acknowledgments](#acknowledgments)
+5. [Live & Streaming Data](#live--streaming-data)
+6. [Braille Generation](#braille-generation)
+7. [Examples](#examples)
+8. [Binders](#binders)
+9. [Papers](#papers)
+10. [License](#license)
+11. [Contact](#contact)
+12. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
 To use maidr, follow these steps:
 
-1. **Import your plot or plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT-4 Vision and Google Gemini Pro-Vision. The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, histogram, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
+1. **Import your plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT, Anthropic Claude, Google Gemini, or local models running on your own machine via [Ollama](https://ollama.com) (no API key required, suitable for sensitive data). The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, histogram, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
 
 2. **Create an HTML file**: Include the main script file `maidr.js` or `maidr.min.js` as well as the stylesheet `styles.css` or `styles.min.css`. Add the SVG of your plot to the main HTML body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
@@ -109,6 +110,11 @@ For the full React guide with TypeScript types reference, data examples for all 
 
 maidr provides keyboard-based interaction for navigating and exploring plots. Users can move through data points with arrow keys and toggle between braille, text, and sonification modes.
 For the complete list of keyboard shortcuts and interaction controls, see the [Controls documentation](docs/CONTROLS.md).
+
+## Live & Streaming Data
+
+maidr supports realtime data updates for live-updating visualizations (stock tickers, sensor dashboards, live metrics). Charts configured with `live: true` can be updated in place via `window.maidrLive.setData()` / `appendData()` (script tag) or by updating the `data` prop (React), with an optional `maxWidth` sliding window for streaming. Pressing **M** toggles monitor mode, which auto-sonifies and announces newly appended data points.
+For the full API and examples, see the [Live & Streaming Data documentation](docs/LIVE_DATA.md).
 
 ## Braille Generation
 
