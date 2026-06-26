@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState, SubplotSummary } from '@type/state';
+import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
@@ -420,20 +420,15 @@ export class Context implements Disposable {
   }
 
   /**
-   * Moves the active plot element to the specified (x, y) point.
+   * Moves to the nearest point at (x, y) and returns directional guidance
+   * toward the nearest data geometry in a single call.
    *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
-   * @remarks
-   * This method assumes that `this.active` is a valid object with a `moveToPoint` method.
-   * If `this.active` is `null` or does not implement `moveToPoint`, this method will do nothing.
-   *
-   * Limitations:
-   * - If `this.active` is `null` or `undefined`, the method will not perform any action.
-   * - If `this.active` does not implement `moveToPoint`, the method will not perform any action.
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state, or null when unavailable for current scope
    */
-  public moveToPoint(x: number, y: number): void {
-    this.active.moveToPoint(x, y);
+  public moveToPointAndGetPointerGuidance(x: number, y: number): PointerGuidanceState | null {
+    return this.active.moveToPointAndGetPointerGuidance(x, y);
   }
 
   public stepTrace(direction: MovableDirection): void {

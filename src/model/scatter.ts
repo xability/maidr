@@ -2,7 +2,7 @@ import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -1183,7 +1183,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   public findNearestPoint(
     _x: number,
     _y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -1209,27 +1209,28 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
   /**
-   * Moves to the nearest scatter point at the specified screen coordinates.
-   * @param x - The x-coordinate in screen space
-   * @param y - The y-coordinate in screen space
+   * Switches scatter into column-navigation mode only when committing the
+   * hovered point. Off-curve guidance probes intentionally skip the mode
+   * change: `moveToPointAndGetPointerGuidance` fires on every pointermove,
+   * and an unconditional reset would silently erase a `ROW` mode the user
+   * set via keyboard while exploring nearby.
    */
-  public moveToPoint(x: number, y: number): void {
-    // set to vertical mode
-    this.mode = NavMode.COL;
-
-    const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
+  protected override moveToNearest(
+    x: number,
+    y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
     }
+    this.mode = NavMode.COL;
+    super.moveToNearest(x, y, nearest, onCurve);
   }
 }

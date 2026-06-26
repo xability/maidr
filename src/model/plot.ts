@@ -3,7 +3,14 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { Observable } from '@type/observable';
-import type { FigureState, HighlightState, SubplotState, SubplotSummary, TraceState } from '@type/state';
+import type {
+  FigureState,
+  HighlightState,
+  PointerGuidanceState,
+  SubplotState,
+  SubplotSummary,
+  TraceState,
+} from '@type/state';
 import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
@@ -243,16 +250,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   /**
-   * Moves to a specific point in the figure (implementation in subclasses)
-   * @param _x - The x coordinate
-   * @param _y - The y coordinate
-   */
-  public moveToPoint(_x: number, _y: number): void {
-    // implement in plot classes
-    this.notifyStateUpdate();
-  }
-
-  /**
    * Builds at-a-glance summaries of every subplot in the figure, ordered by
    * visual position (top-left first). Returns an empty array for single-panel
    * figures since there is nothing extra to surface.
@@ -459,11 +456,6 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
-  public moveToPoint(_x: number, _y: number): void {
-    // implement in plot classes
-    this.notifyStateUpdate();
-  }
-
   /**
    * Gets the subplot state with figure position context
    * @param _figureRow - The row position in the figure
@@ -592,25 +584,19 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   getAllOriginalElements: () => SVGElement[];
 
   /**
-   * Move the active point within this trace to the given (x, y) viewport
-   * coordinates. Implemented by all concrete traces via AbstractPlot /
-   * AbstractTrace, and used by Context for hover / click navigation.
+   * Moves to the nearest point at (x, y) and returns directional guidance
+   * toward the nearest data geometry in a single call. Combining the two
+   * operations avoids running `findNearestPoint` twice per pointer event.
    *
-   * @param x - The x-coordinate in viewport pixels to move to.
-   * @param y - The y-coordinate in viewport pixels to move to.
+   * For ViolinKdeTrace, coordinates map to (violin index, y-value within
+   * KDE curve); for ViolinBoxTrace, to (section index, violin index) for
+   * vertical orientation, or the inverse for horizontal.
    *
-   * Behavior:
-   * - Finds the nearest data point to the given coordinates
-   * - If no valid nearest point exists or coordinates are out of bounds, no action is taken
-   * - If coordinates are within bounds and position is different, triggers state update via moveToIndex
-   * - If already at the target position, returns without triggering state update
-   *
-   * Violin Plot Specific Behavior:
-   * - For ViolinKdeTrace: Coordinates map to (violin index, y-value within KDE curve)
-   * - For ViolinBoxTrace: Coordinates map to (section index, violin index) for vertical
-   *   orientation, or (violin index, section index) for horizontal orientation
+   * @param x - Screen-space x position in viewport pixels
+   * @param y - Screen-space y position in viewport pixels
+   * @returns Guidance state, or null when unavailable for this plot level
    */
-  moveToPoint: (x: number, y: number) => void;
+  moveToPointAndGetPointerGuidance: (x: number, y: number) => PointerGuidanceState | null;
 
   /**
    * Gets extrema targets for navigation.

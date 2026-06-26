@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -239,7 +239,16 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
-   * Finds the nearest bar element at the specified coordinates.
+   * Finds the bar element under the specified coordinates.
+   *
+   * Unlike line/scatter/box traces (which return the nearest center regardless
+   * of cursor position), bar charts hit-test against each bar's bounding box
+   * and return null when the cursor is between bars. As a consequence, pointer
+   * guidance beeps fire only when the pointer is inside a bar — there is no
+   * directional guidance toward the closest bar from outside. This is
+   * intentional: bars are area marks (not points), and "nearest bar" from
+   * an arbitrary position is rarely the user's intent.
+   *
    * @param x - The x-coordinate
    * @param y - The y-coordinate
    * @returns Object containing the element and its position, or null if not found
@@ -247,7 +256,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues
@@ -284,7 +293,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
           && y >= bbox.y
           && y <= bbox.y + bbox.height
         ) {
-          return { element: targetElement, row, col };
+          return {
+            element: targetElement,
+            row,
+            col,
+            centerX: bbox.x + bbox.width / 2,
+            centerY: bbox.y + bbox.height / 2,
+          };
         }
       }
     }

@@ -1,15 +1,12 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
-import type { AudioState, PlotState } from '@type/state';
+import type { AudioState, PlotState, PointerGuidanceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
+import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
-
-interface Range {
-  min: number;
-  max: number;
-}
+import { resolvePointerGuidanceBeep } from './pointerGuidance';
 
 interface SpatialPosition {
   x: number;
@@ -39,6 +36,14 @@ const COMPLETE_FREQUENCY = 880;
 const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
+
+// 60 ms is short enough that rapid beeps don't blur together at the fastest
+// throttle interval, while still being long enough to be clearly audible as
+// a discrete tone rather than a click.
+const POINTER_GUIDANCE_BEEP_DURATION = 0.06;
+// 35 % of the master volume keeps guidance audibly quieter than data tones,
+// so the user perceives it as a navigational cue rather than as data.
+const POINTER_GUIDANCE_VOLUME = 0.35;
 
 const DEFAULT_DURATION = 0.3;
 const DEFAULT_PALETTE_INDEX = AudioPaletteIndex.SINE_BASIC;
@@ -74,13 +79,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private isCombinedAudio: boolean;
   private mode: AudioMode;
-  private readonly activeAudioIds: Map<AudioId, OscillatorNode | OscillatorNode[]>;
+  private readonly activeAudioIds: Map<AudioId, AudioNode | AudioNode[]>;
 
   private volume: number;
   private minFrequency: number;
   private maxFrequency: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
+  private nextPointerGuidanceBeepAt: number;
 
   /**
    * Creates an instance of AudioService.
@@ -117,6 +123,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
+    this.nextPointerGuidanceBeepAt = 0;
   }
 
   /**
@@ -291,11 +298,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {
-    const fromFreq = { min: freq.min, max: freq.max };
-    const toFreq = { min: this.minFrequency, max: this.maxFrequency };
-    const frequency = this.interpolate(freq.raw as number, fromFreq, toFreq);
-
-    const x = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const frequency = MathUtil.interpolate(freq.raw as number, freq.min, freq.max, this.minFrequency, this.maxFrequency);
+    const x = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
     // Y-axis not used for stereo panning
     return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
   }
@@ -452,11 +456,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const startTime = ctx.currentTime;
     const duration = DEFAULT_DURATION;
     const freqs = (freq.raw as number[]).map(v =>
-      this.interpolate(
-        v,
-        { min: freq.min, max: freq.max },
-        { min: this.minFrequency, max: this.maxFrequency },
-      ),
+      MathUtil.interpolate(v, freq.min, freq.max, this.minFrequency, this.maxFrequency),
     );
 
     // Base volume from user settings (0–1, quadratic scaling)
@@ -476,7 +476,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       freqs.push(freqs[0]);
     }
 
-    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
 
     // Use palette wave type if available, otherwise default sine
     const waveType = paletteEntry?.waveType || 'sine';
@@ -531,7 +531,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * @returns AudioId for the played tone
    */
   private playEmptyTone(panning: Panning): AudioId {
-    const xPos = this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 });
+    const xPos = MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1);
 
     const ctx = this.audioContext;
     const now = ctx.currentTime;
@@ -627,8 +627,126 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.playWarningTone();
   }
 
+  /**
+   * @param guidance - Pointer guidance state from the active trace, or null to reset guidance
+   */
+  public playPointerGuidance(guidance: PointerGuidanceState | null): void {
+    // Reset throttle only when the pointer leaves the trace entirely. On an
+    // `onCurve: true` event we deliberately keep the throttle intact: a
+    // cursor sitting at the `isPointInBounds` boundary alternates on/off at
+    // frame rate, and resetting on each on-curve frame would let every
+    // following off-curve frame bypass the rate limit, producing a 60 Hz
+    // buzz instead of discrete beeps. The cost of letting the throttle
+    // carry over is at most one `minInterval` delay before the first
+    // off-curve beep — an intentional, imperceptible debounce.
+    if (!guidance) {
+      this.nextPointerGuidanceBeepAt = 0;
+      return;
+    }
+    if (guidance.onCurve) {
+      return;
+    }
+    // Guidance is intentionally mode-agnostic across SEPARATE / COMBINED /
+    // future audio variants: it serves a navigational role that is
+    // orthogonal to how data tones are rendered. Only the explicit "audio
+    // off" choice suppresses it.
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+
+    // `audioContext.currentTime` returns 0 while the context is suspended
+    // (before the first user gesture resumes it). The rate-limit gate
+    // below would otherwise pass freely in that state; `playPointerGuidanceBeep`
+    // guards against actually arming oscillators on a suspended context.
+    const now = this.audioContext.currentTime;
+    if (now < this.nextPointerGuidanceBeepAt) {
+      return;
+    }
+
+    const beep = resolvePointerGuidanceBeep(guidance);
+    if (!beep) {
+      // Off-curve but out of range: leave the throttle untouched. If the
+      // cursor oscillates across the maxDistancePx boundary the user would
+      // otherwise hear a beep on every re-entry, since each out-of-range
+      // event would reset and unblock the next in-range one.
+      return;
+    }
+
+    if (!this.playPointerGuidanceBeep(beep.frequency, beep.pan, now)) {
+      // Beep was skipped (volume = 0 or AudioContext not yet resumed). Don't
+      // advance the throttle: doing so would silently delay the next valid
+      // beep after the user turns volume back up or completes a user gesture.
+      return;
+    }
+    this.nextPointerGuidanceBeepAt = now + beep.interval;
+  }
+
+  private playPointerGuidanceBeep(
+    frequency: number,
+    pan: number,
+    startTime: number,
+  ): boolean {
+    // Skip while the AudioContext is suspended — its `currentTime` is 0, so
+    // scheduling `start(0)` / `stop(0.06)` would fire an unexpected beep the
+    // moment the context resumes (e.g. when the user clicks to focus after
+    // hovering).
+    if (this.audioContext.state !== 'running') {
+      return false;
+    }
+    const guidanceVolume = this.volume * POINTER_GUIDANCE_VOLUME;
+    if (guidanceVolume <= 0) {
+      return false;
+    }
+
+    const oscillator = this.audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.setValueAtTime(guidanceVolume, startTime);
+    // Scale the ramp target with guidanceVolume so the fade-out stays below
+    // the starting value at any user volume. A fixed 0.001 inverts the ramp
+    // (tone swells) when guidanceVolume drops below 0.001 at low user volumes.
+    gainNode.gain.exponentialRampToValueAtTime(0.001 * guidanceVolume, startTime + POINTER_GUIDANCE_BEEP_DURATION);
+
+    // `createStereoPanner` is unavailable on Safari < 14.5. Degrade
+    // gracefully: still emit the directional beep (high/low pitch already
+    // conveys vertical direction); horizontal direction is lost on
+    // unsupported platforms, which is preferable to a runtime throw.
+    const stereoPanner = typeof this.audioContext.createStereoPanner === 'function'
+      ? this.audioContext.createStereoPanner()
+      : null;
+    if (stereoPanner) {
+      stereoPanner.pan.value = MathUtil.clamp(pan, -1, 1);
+    }
+
+    oscillator.connect(gainNode);
+    if (stereoPanner) {
+      gainNode.connect(stereoPanner);
+      stereoPanner.connect(this.compressor);
+    } else {
+      gainNode.connect(this.compressor);
+    }
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + POINTER_GUIDANCE_BEEP_DURATION);
+
+    // Schedule cleanup after 2× the beep duration to let the
+    // exponentialRampToValueAtTime tail finish before disconnecting the
+    // nodes — disconnecting mid-ramp would clip the fade-out.
+    const nodes: AudioNode[] = stereoPanner
+      ? [oscillator, gainNode, stereoPanner]
+      : [oscillator, gainNode];
+    const audioId = setTimeout(() => {
+      nodes.forEach(node => node.disconnect());
+      this.activeAudioIds.delete(audioId);
+    }, POINTER_GUIDANCE_BEEP_DURATION * 1000 * 2);
+    this.activeAudioIds.set(audioId, nodes);
+    return true;
+  }
+
   private playZeroTone(panning: Panning): AudioId {
-    const xPos = this.clamp(this.interpolate(panning.x, { min: 0, max: panning.cols - 1 }, { min: -1, max: 1 }), -1, 1);
+    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
     // Y-axis not used for stereo panning
     return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
@@ -671,10 +789,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const sharedValue = Array.isArray(tones[0].freq.raw)
       ? (tones[0].freq.raw[1] ?? tones[0].freq.raw[0])
       : (tones[0].freq.raw as number);
-    const sharedFrequency = this.interpolate(
+    const sharedFrequency = MathUtil.interpolate(
       sharedValue,
-      { min: tones[0].freq.min, max: tones[0].freq.max },
-      { min: this.minFrequency, max: this.maxFrequency },
+      tones[0].freq.min,
+      tones[0].freq.max,
+      this.minFrequency,
+      this.maxFrequency,
     );
 
     tones.forEach((tone, idx) => {
@@ -703,20 +823,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
       this.activeAudioIds.set(audioId, [oscillator]);
     });
-  }
-
-  private interpolate(value: number, from: Range, to: Range): number {
-    if (from.min === from.max) {
-      return to.min;
-    }
-
-    return (
-      ((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min
-    );
-  }
-
-  private clamp(value: number, from: number, to: number): number {
-    return Math.max(from, Math.min(value, to));
   }
 
   /**
@@ -767,8 +873,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
       const activeNodes = Array.isArray(activeNode) ? activeNode : [activeNode];
       activeNodes.forEach((node) => {
-        node?.disconnect();
-        node?.stop();
+        this.stopAudioNode(node);
       });
 
       clearTimeout(audioId);
@@ -776,13 +881,27 @@ export class AudioService implements Observer<PlotState>, Disposable {
     });
   }
 
+  private stopAudioNode(node: AudioNode): void {
+    node.disconnect();
+    if ('stop' in node) {
+      try {
+        // `stop` is defined on AudioScheduledSourceNode — the common parent
+        // of OscillatorNode, AudioBufferSourceNode, and ConstantSourceNode —
+        // so this is the right granularity if a future palette entry adds a
+        // sample-based source.
+        (node as AudioScheduledSourceNode).stop();
+      } catch {
+        // Node may have already been stopped; safe to ignore.
+      }
+    }
+  }
+
   private stopAll(): void {
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
       nodes.forEach((node) => {
-        node.disconnect();
-        node.stop();
+        this.stopAudioNode(node);
       });
     });
     this.activeAudioIds.clear();
