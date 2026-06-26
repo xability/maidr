@@ -39,7 +39,10 @@ export function resolvePointerGuidanceBeep(
     return null;
   }
 
-  const distanceNorm = MathUtil.clamp(guidance.distancePx / config.maxDistancePx, 0, 1);
+  // The early-return above guarantees distancePx <= maxDistancePx, and
+  // Math.hypot is non-negative, so the ratio is already in [0, 1] — no
+  // clamp needed.
+  const distanceNorm = guidance.distancePx / config.maxDistancePx;
   const interval = MathUtil.interpolate(distanceNorm, 0, 1, config.minInterval, config.maxInterval);
 
   return {

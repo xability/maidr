@@ -1183,7 +1183,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   public findNearestPoint(
     _x: number,
     _y: number,
-  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
+  ): NearestPoint | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;

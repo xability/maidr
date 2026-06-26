@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -256,7 +256,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
+  ): NearestPoint | null {
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues

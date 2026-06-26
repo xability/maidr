@@ -659,7 +659,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number; centerX: number; centerY: number } | null {
+  ): NearestPoint | null {
     if (!this.highlightCenters) {
       return null;
     }

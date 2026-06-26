@@ -885,7 +885,11 @@ export class AudioService implements Observer<PlotState>, Disposable {
     node.disconnect();
     if ('stop' in node) {
       try {
-        (node as OscillatorNode).stop();
+        // `stop` is defined on AudioScheduledSourceNode — the common parent
+        // of OscillatorNode, AudioBufferSourceNode, and ConstantSourceNode —
+        // so this is the right granularity if a future palette entry adds a
+        // sample-based source.
+        (node as AudioScheduledSourceNode).stop();
       } catch {
         // Node may have already been stopped; safe to ignore.
       }
