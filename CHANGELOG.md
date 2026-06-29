@@ -1,3 +1,10 @@
+# [3.71.0](https://github.com/xability/maidr/compare/v3.70.0...v3.71.0) (2026-06-29)
+
+
+### Features
+
+* add auditory directional guidance towards svg element with mouse ([#587](https://github.com/xability/maidr/issues/587)) ([301109b](https://github.com/xability/maidr/commit/301109b8c2e44016cda2c47a12a7eb1daac182f7)), closes [#3](https://github.com/xability/maidr/issues/3) [#2](https://github.com/xability/maidr/issues/2) [#1](https://github.com/xability/maidr/issues/1) [#4](https://github.com/xability/maidr/issues/4) [#6](https://github.com/xability/maidr/issues/6) [#7](https://github.com/xability/maidr/issues/7)
+
 # [3.70.0](https://github.com/xability/maidr/compare/v3.69.0...v3.70.0) (2026-06-15)
 
 
