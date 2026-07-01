@@ -165,3 +165,94 @@ describe('ScatterTrace intersection mode', () => {
     expect(trace.moveToPrevIntersection()).toBe(false);
   });
 });
+
+describe('ScatterTrace autoplay-driven movement (moveOnce / isMovable)', () => {
+  // Autoplay drives movement through context.moveOnce / isMovable rather than
+  // the rotor service, so both must honor the active rotor sub-mode. These
+  // tests exercise that path directly (the same path AutoplayService walks).
+
+  describe('point mode', () => {
+    // Reading order sorts (y desc, x asc); entry seeds at the top of the
+    // current x-column, which for this data is reading position 0.
+    const makeTrace = (): ScatterTrace => {
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 2 },
+        { x: 1, y: 2 },
+        { x: 0, y: 1 },
+      ]));
+      // Consume the initial-entry handshake so moveOnce steps immediately —
+      // mirrors a user who has navigated before opening the rotor.
+      trace.isInitialEntry = false;
+      return trace;
+    };
+
+    test('moveOnce walks the full reading order then bounds', () => {
+      const trace = makeTrace();
+      trace.setPointMode(true);
+
+      expect(trace.isMovable('BACKWARD')).toBe(false); // at reading position 0
+      expect(trace.isMovable('FORWARD')).toBe(true);
+
+      let steps = 0;
+      while (trace.isMovable('FORWARD')) {
+        expect(trace.moveOnce('FORWARD')).toBe(true);
+        steps++;
+      }
+      // Three points, starting at position 0 → two forward steps to the end.
+      expect(steps).toBe(2);
+      expect(trace.moveOnce('FORWARD')).toBe(false);
+    });
+
+    test('autoplay step counts cover every datapoint', () => {
+      const trace = makeTrace();
+      trace.setPointMode(true);
+      const autoplay = (trace.state as { autoplay: Record<string, number> }).autoplay;
+      expect(autoplay.FORWARD).toBe(3);
+      expect(autoplay.BACKWARD).toBe(3);
+      expect(autoplay.UPWARD).toBe(3);
+      expect(autoplay.DOWNWARD).toBe(3);
+    });
+  });
+
+  describe('intersection mode', () => {
+    const makeTrace = (): ScatterTrace => {
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 0, y: 3 },
+        { x: 1, y: 9 },
+      ]));
+      trace.isInitialEntry = false; // skip the initial-entry handshake
+      trace.col = 0; // x=0 column holds a 3-point stack
+      trace.setIntersectionMode(true);
+      return trace;
+    };
+
+    test('moveOnce walks the stack left/right and bounds at the top', () => {
+      const trace = makeTrace();
+
+      expect(trace.isMovable('BACKWARD')).toBe(false); // at stack index 0
+      expect(trace.isMovable('FORWARD')).toBe(true);
+
+      expect(trace.moveOnce('FORWARD')).toBe(true);
+      expect(trace.moveOnce('FORWARD')).toBe(true);
+      expect(trace.isMovable('FORWARD')).toBe(false);
+      expect(trace.moveOnce('FORWARD')).toBe(false);
+    });
+
+    test('vertical movement is never allowed', () => {
+      const trace = makeTrace();
+      expect(trace.isMovable('UPWARD')).toBe(false);
+      expect(trace.isMovable('DOWNWARD')).toBe(false);
+      expect(trace.moveOnce('UPWARD')).toBe(false);
+      expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    });
+
+    test('autoplay step counts match the current stack length', () => {
+      const trace = makeTrace();
+      const autoplay = (trace.state as { autoplay: Record<string, number> }).autoplay;
+      expect(autoplay.FORWARD).toBe(3);
+      expect(autoplay.BACKWARD).toBe(3);
+    });
+  });
+});

@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointNavigable } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
+import type { AudioState, AutoplayState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
 import type { Dimension } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -631,6 +631,28 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     };
   }
 
+  /**
+   * Reports the number of steps autoplay will take in each direction so the
+   * service can pace a full traversal over the configured total duration.
+   *
+   * Point and intersection modes traverse indices that don't line up with the
+   * ROW_COL dimension: point mode walks the flat reading/column orders (every
+   * datapoint), intersection mode walks the current stack. Falling back to the
+   * base (dimension-based) counts would under- or over-estimate the step count
+   * and mis-pace autoplay, so both modes are reported explicitly here.
+   */
+  protected override get autoplay(): AutoplayState {
+    if (this.isInPointMode) {
+      const n = Math.max(1, this.flatPoints.length);
+      return { UPWARD: n, DOWNWARD: n, FORWARD: n, BACKWARD: n };
+    }
+    if (this.isInIntersectionMode) {
+      const n = Math.max(1, this.getIntersectionStackValues().length);
+      return { UPWARD: n, DOWNWARD: n, FORWARD: n, BACKWARD: n };
+    }
+    return super.autoplay;
+  }
+
   protected get dimension(): Dimension {
     if (this.isInIntersectionMode) {
       // Match the audio panning geometry so out-of-bounds fallback pans the
@@ -826,6 +848,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return this.moveOnceInGridMode(direction);
     }
 
+    // Handle point mode navigation (used by autoplay and direct calls). Manual
+    // arrow presses route through the rotor service, but autoplay drives
+    // movement through context.moveOnce, so the mode must be honored here too —
+    // same pattern as grid mode above.
+    if (this.isInPointMode) {
+      return this.moveOnceInPointMode(direction);
+    }
+
+    // Handle intersection mode navigation (used by autoplay and direct calls).
+    if (this.isInIntersectionMode) {
+      return this.moveOnceInIntersectionMode(direction);
+    }
+
     if (!this.isMovable(direction)) {
       this.notifyOutOfBounds();
       return false;
@@ -888,6 +923,54 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     // Grid movement methods already call notifyStateUpdate() or notifyOutOfBounds()
     return moved;
+  }
+
+  /**
+   * Handles movement in point mode, mapping arrow directions to point-by-point
+   * navigation. Right/left walk the reading order (which wraps across rows);
+   * up/down walk the column order. Used by autoplay, which calls this via
+   * moveOnce; manual arrows reach the same movePoint* methods through the rotor
+   * service. The movePoint* methods already notify observers / out-of-bounds.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false if at boundary
+   */
+  private moveOnceInPointMode(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'FORWARD':
+        return this.movePointRight();
+      case 'BACKWARD':
+        return this.movePointLeft();
+      case 'UPWARD':
+        return this.movePointUp();
+      case 'DOWNWARD':
+        return this.movePointDown();
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Handles movement in intersection mode. Only Left/Right are meaningful —
+   * navigation is restricted to walking the current stack — so Up/Down report
+   * out of bounds. Used by autoplay via moveOnce; manual arrows reach the same
+   * moveTo*Intersection methods through the rotor service. Those methods notify
+   * observers on success; the boundary case is guarded by isMovable, which
+   * autoplay checks before each step.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false otherwise
+   */
+  private moveOnceInIntersectionMode(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'FORWARD':
+        return this.moveToNextIntersection();
+      case 'BACKWARD':
+        return this.moveToPrevIntersection();
+      case 'UPWARD':
+      case 'DOWNWARD':
+      default:
+        this.notifyOutOfBounds();
+        return false;
+    }
   }
 
   public moveToExtreme(direction: MovableDirection): boolean {
@@ -979,6 +1062,45 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           return this.gridRow < this.numGridRows - 1;
         case 'DOWNWARD':
           return this.gridRow > 0;
+        default:
+          return false;
+      }
+    }
+
+    // Check point mode boundaries. Mirrors the step directions in
+    // movePoint*/stepPoint: Right/Left walk readingOrder, Down/Up walk
+    // columnOrder. Autoplay calls this before each step and stops at the end.
+    if (this.isInPointMode) {
+      if (this.flatPoints.length === 0) {
+        return false;
+      }
+      switch (target) {
+        case 'FORWARD':
+          return this.readingPos[this.pointModeIndex] < this.readingOrder.length - 1;
+        case 'BACKWARD':
+          return this.readingPos[this.pointModeIndex] > 0;
+        case 'DOWNWARD':
+          return this.columnPos[this.pointModeIndex] < this.columnOrder.length - 1;
+        case 'UPWARD':
+          return this.columnPos[this.pointModeIndex] > 0;
+        default:
+          return false;
+      }
+    }
+
+    // Check intersection mode boundaries. Navigation is horizontal-only, so
+    // Up/Down are never movable; Left/Right walk the current stack.
+    if (this.isInIntersectionMode) {
+      const stack = this.getIntersectionStackValues();
+      if (stack.length === 0) {
+        return false;
+      }
+      const idx = Math.min(this.intersectionStackIndex, stack.length - 1);
+      switch (target) {
+        case 'FORWARD':
+          return idx < stack.length - 1;
+        case 'BACKWARD':
+          return idx > 0;
         default:
           return false;
       }
