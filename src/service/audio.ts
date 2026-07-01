@@ -249,7 +249,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (audio.isContinuous) {
       this.playSmooth(
         audio.freq,
-        audio.panning,
+        this.collapsePanning(audio.panning),
         paletteEntry,
         audio.volumeMultiplier,
         audio.volumeScale,
@@ -257,23 +257,36 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else if (Array.isArray(audio.freq.raw)) {
       const values = audio.freq.raw as number[];
       if (values.length === 0) {
-        this.playZeroTone(audio.panning);
+        this.playZeroTone(this.collapsePanning(audio.panning));
         return;
       }
+
+      // panning.x may be a per-tone array, parallel to values, when the
+      // chord spans different x positions (e.g. scatter ROW mode where
+      // the row's chord plays one note per x). Falls back to a shared
+      // single number for the common case.
+      const panXSource = audio.panning.x;
+      const panAt = (i: number): number => {
+        if (Array.isArray(panXSource)) {
+          return panXSource[i] ?? panXSource[0] ?? 0;
+        }
+        return panXSource;
+      };
 
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
+          const i = currentIndex++;
           this.playTone(
             {
               min: audio.freq.min,
               max: audio.freq.max,
-              raw: values[currentIndex++],
+              raw: values[i],
             },
             {
-              x: audio.panning.x,
+              x: panAt(i),
               y: audio.panning.y,
               rows: audio.panning.rows,
               cols: audio.panning.cols,
@@ -289,12 +302,28 @@ export class AudioService implements Observer<PlotState>, Disposable {
       playNext();
     } else {
       const value = audio.freq.raw as number;
+      const pan = this.collapsePanning(audio.panning);
       if (value === 0) {
-        this.playZeroTone(audio.panning);
+        this.playZeroTone(pan);
       } else {
-        this.playTone(audio.freq, audio.panning, paletteEntry);
+        this.playTone(audio.freq, pan, paletteEntry);
       }
     }
+  }
+
+  /**
+   * Narrow an AudioState panning to the internal {@link Panning} shape (x as
+   * a single number). When the caller supplied a per-tone array, use entry
+   * zero — single-tone, smooth-glissando, and empty/zero paths only play
+   * one pan slot.
+   */
+  private collapsePanning(panning: AudioState['panning']): Panning {
+    return {
+      x: Array.isArray(panning.x) ? (panning.x[0] ?? 0) : panning.x,
+      y: panning.y,
+      rows: panning.rows,
+      cols: panning.cols,
+    };
   }
 
   private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {

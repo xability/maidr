@@ -143,7 +143,21 @@ export interface AudioState {
   };
   panning: {
     y: number;
-    x: number;
+    /**
+     * Stereo pan position along the x axis (0..cols-1).
+     *
+     * Use a single number when every tone in the emitted frequency chord
+     * shares the same horizontal location (e.g. scatter COL mode, line
+     * navigation). Use an array, parallel to `freq.raw`, when the chord
+     * spans different x positions and each tone should pan to its own slot
+     * (e.g. scatter ROW mode, where the row's chord is multiple points at
+     * different x values).
+     *
+     * The audio service resolves the array per iteration of the chord; out
+     * of range indices fall back to entry zero, so traces never need to
+     * pad.
+     */
+    x: number | number[];
     rows: number;
     cols: number;
   };

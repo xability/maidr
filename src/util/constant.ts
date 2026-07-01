@@ -153,4 +153,6 @@ export abstract class Constant {
   static readonly GRID_MODE = 'GRID NAVIGATION';
   /** Rotor mode for navigating point intersections between lines in multiline plots */
   static readonly INTERSECTION_MODE = 'INTERSECTING POINT NAVIGATION';
+  /** Rotor mode for navigating individual points one at a time (scatter only) */
+  static readonly POINT_MODE = 'POINT NAVIGATION';
 }
