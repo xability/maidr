@@ -438,6 +438,9 @@ export class LiveDataManager {
  *
  * Flat layers ignore the appended `row`: there it is an announce
  * coordinate (e.g. a candlestick OHLC section), not a series index.
+ * `col` is never checked — it is the new point's position, not a focus
+ * requirement; monitoring means hearing new points on the focused
+ * layer/series wherever the user's cursor sits along it.
  *
  * @param figure - The figure whose focus state to check
  * @param appended - Location of the appended point

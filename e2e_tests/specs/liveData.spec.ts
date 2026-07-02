@@ -60,7 +60,7 @@ test.describe('live data: monitor mode focus', () => {
 
     const ok = await append(page, { x: 3, y: 64.5 }, { id: 'live-sensor' });
     expect(ok).toBe(true);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(600); // settle: silence cannot be polled
 
     // The aria region still shows the pre-append point; nothing announced.
     const text = await ariaText(page);
@@ -84,7 +84,7 @@ test.describe('live data: monitor mode focus', () => {
       { id: 'live-sensor', groupIndex: 1 },
     );
     expect(otherSeries).toBe(true);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(600); // settle: silence cannot be polled
     expect(await ariaText(page)).not.toContain('77.5');
 
     // An append to the focused series is announced.
@@ -113,7 +113,7 @@ test.describe('live data: monitor mode focus', () => {
       { value: '09:34', open: 99.25, high: 104, low: 99, close: 103.5 },
       { id: 'live-ticker', layerId: 'candle-layer' },
     );
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(600); // settle: silence cannot be polled
     expect(await ariaText(page)).not.toContain('103.5');
 
     // A full tick announces only the focused (MA) layer's point.
