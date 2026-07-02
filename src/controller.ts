@@ -414,23 +414,33 @@ export class Controller implements Disposable {
    * Sonifies and announces a newly appended data point through the monitor
    * service, computing its state without moving the user's cursor.
    *
+   * Only appends to the layer the user is currently focused on are
+   * announced: multi-layer charts stream one point per layer per tick, and
+   * sonifying every layer would bury the focused signal in overlapping
+   * tones. Switching layers (PageUp/PageDown) switches what is monitored.
+   *
    * @param appended - Location of the appended point in the new figure
    */
   private announceAppendedPoint(appended: AppendedPointInfo): void {
     if (!this.monitorService.isEnabled) {
       return;
     }
-    const subplot = this.figure.subplots[appended.subplotRow]?.[appended.subplotCol];
-    // Subplots hold one single-trace row per layer (see Subplot.activeLayerIndex),
-    // so the appended layer's trace lives at traces[layerIndex][0].
-    const trace = subplot?.traces[appended.layerIndex]?.[0];
-    if (!trace) {
-      return;
-    }
     try {
-      // Compute the new point's state without moving the user's cursor;
-      // observers are only notified via MonitorService.
-      const state = trace.getStateAt(appended.row, appended.col);
+      const onActiveSubplot
+        = this.figure.row === appended.subplotRow
+          && this.figure.col === appended.subplotCol;
+      if (!onActiveSubplot) {
+        return;
+      }
+      const activeSubplot = this.figure.activeSubplot;
+      if (activeSubplot.activeLayerIndex !== appended.layerIndex) {
+        return;
+      }
+      // The focused layer's trace IS the active trace (one single-trace row
+      // per layer; see Subplot.activeLayerIndex). Compute the new point's
+      // state without moving the user's cursor; observers are only notified
+      // via MonitorService.
+      const state = activeSubplot.activeTrace.getStateAt(appended.row, appended.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);

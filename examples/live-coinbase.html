@@ -70,10 +70,17 @@
       10-second candles. Click the chart (or Tab to it), navigate with
       arrow keys, switch to the volume layer with
       <kbd>PageUp</kbd>/<kbd>PageDown</kbd>, and press <kbd>M</kbd> for
-      <strong>monitor mode</strong> to hear each new candle's close price
-      as it arrives.
+      <strong>monitor mode</strong> to hear the focused layer's new value as
+      each candle closes (price on the candle layer, volume on the volume
+      layer).
     </p>
-    <div id="status" role="status">Connecting to Coinbase…</div>
+    <!-- Connection lifecycle only: this is a live region, so it must change
+         rarely. Per-tick data NEVER belongs in a live region — screen readers
+         would announce every trade. New-candle announcements are delivered
+         through MAIDR's opt-in monitor mode (M) instead. -->
+    <div id="conn" role="status">Connecting to Coinbase…</div>
+    <!-- Ticking price readout: intentionally NOT a live region. -->
+    <div id="price"></div>
 
     <!-- The bindchart event must be dispatched from an HTML element, so the
          SVG chart lives inside this host div. -->
@@ -88,7 +95,8 @@
       (function () {
         var BUCKET_MS = 10000;
         var windowSize = 20;
-        var status = document.getElementById('status');
+        var conn = document.getElementById('conn');
+        var price = document.getElementById('price');
         // Local copies for the SVG redraw only — never mutate data already
         // handed to MAIDR; stream new candles through appendData instead.
         var candles = [];
@@ -170,17 +178,20 @@
           bucket = null;
         }
 
-        function onTrade(price, size, timeMs) {
+        function onTrade(tradePrice, size, timeMs) {
+          if (conn.textContent !== 'Connected.') {
+            conn.textContent = 'Connected.'; // one-time live-region transition
+          }
           var start = Math.floor(timeMs / BUCKET_MS) * BUCKET_MS;
           if (bucket && start !== bucket.start) closeBucket();
           if (!bucket) {
-            bucket = { start: start, open: price, high: price, low: price, close: price, volume: 0 };
+            bucket = { start: start, open: tradePrice, high: tradePrice, low: tradePrice, close: tradePrice, volume: 0 };
           }
-          bucket.high = Math.max(bucket.high, price);
-          bucket.low = Math.min(bucket.low, price);
-          bucket.close = price;
+          bucket.high = Math.max(bucket.high, tradePrice);
+          bucket.low = Math.min(bucket.low, tradePrice);
+          bucket.close = tradePrice;
           bucket.volume += size;
-          status.textContent = 'Live: BTC-USD $' + price.toFixed(2)
+          price.textContent = 'Live: BTC-USD $' + tradePrice.toFixed(2)
             + ' — next candle closes ' + fmtTime(start + BUCKET_MS);
         }
 
@@ -206,7 +217,7 @@
             product_ids: ['BTC-USD'],
             channels: ['ticker'],
           }));
-          status.textContent = 'Connected — waiting for trades…';
+          conn.textContent = 'Connected — waiting for trades…';
         };
         ws.onmessage = function (e) {
           var m;
@@ -220,12 +231,12 @@
           }
         };
         ws.onerror = function () {
-          status.textContent = 'Could not reach Coinbase (offline or blocked). '
+          conn.textContent = 'Could not reach Coinbase (offline or blocked). '
             + 'See live-candlestick.html for the simulated demo.';
         };
         ws.onclose = function () {
-          if (status.textContent.indexOf('Could not') !== 0) {
-            status.textContent = 'Feed disconnected. Reload to reconnect.';
+          if (conn.textContent.indexOf('Could not') !== 0) {
+            conn.textContent = 'Feed disconnected. Reload to reconnect.';
           }
         };
       })();

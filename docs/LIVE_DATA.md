@@ -103,7 +103,7 @@ window.maidrLive.appendData(
 
 `trend` and `volatility` are computed by MAIDR from the OHLC values, so they can be omitted from streamed candles.
 
-**Multi-layer tickers** (like the py-maidr candlestick example with candle + volume + moving-average layers) stream the same way: give each layer an `id` and append one point per layer per tick. Layer navigation (PageUp/PageDown), x-position sync across layers, and the user's active layer are all preserved across updates; while monitoring, each appended layer's point is announced:
+**Multi-layer tickers** (like the py-maidr candlestick example with candle + volume + moving-average layers) stream the same way: give each layer an `id` and append one point per layer per tick. Layer navigation (PageUp/PageDown), x-position sync across layers, and the user's active layer are all preserved across updates; while monitoring, only the **focused layer's** appended point is announced — the other layers' ticks stay silent so overlapping tones never bury the signal:
 
 ```javascript
 // One tick: stream into all three layers of the same subplot.
@@ -242,6 +242,8 @@ ws.onmessage = (e) => {
 
 Notes for real feeds:
 
+- **Never put per-tick values in an `aria-live` region.** A `role="status"`/`aria-live` element updated on every trade makes screen readers announce continuously, regardless of monitor mode. Keep live regions for rare connection-state transitions (connecting/connected/disconnected) and render ticking values in a plain element; new-data announcements belong to the opt-in monitor mode.
+
 - **Append closed candles, not in-progress updates.** Provider kline streams (e.g. Binance's `@kline_*`) emit many updates for the *same* candle while it forms; only `appendData` when the candle is final (Binance: `k.x === true`), or aggregate raw trades into your own buckets as the Coinbase demo does. Use `setData` if you want to revise the still-forming candle in place.
 - **Stock (equity) feeds need an API key.** Free keyless realtime equity data effectively doesn't exist; providers like Finnhub, Polygon, or Twelve Data offer free-tier keys with WebSocket trade streams that plug into the exact same pattern. Crypto exchange feeds (Coinbase, Kraken; Binance where not geo-blocked) are public and keyless, which is why the demo uses one.
 - **Bind after the first candle exists.** A candlestick layer can't start with `data: []`; the demo binds MAIDR via the `maidr-data` attribute + `maidr:bindchart` event once a seed candle is available (from the provider's REST snapshot or the first closed bucket). Dispatch the event from an HTML element (e.g. a host `<div>`), not the SVG itself.
@@ -250,7 +252,7 @@ Notes for real feeds:
 
 On live charts (`live: true`), pressing **M** toggles **monitor mode**. While monitoring is on:
 
-- Every newly appended data point is **automatically sonified** (a tone at the point's pitch) and **announced** to screen readers (e.g. "Tick is 42, Reading is 3.14").
+- Every data point appended to the **focused layer** is **automatically sonified** (a tone at the point's pitch) and **announced** to screen readers (e.g. "Tick is 42, Reading is 3.14"). On multi-layer charts, appends to other layers stay silent — switch layers (PageUp/PageDown) to change which metric you monitor.
 - The user's current position **does not move** — they can keep exploring historical data while hearing new points arrive, then jump to the live edge with `Ctrl/Cmd + Right Arrow`.
 - Toggling announces "Monitoring on" / "Monitoring off". On non-live charts, pressing M explains that monitoring is only available for live charts.
 
