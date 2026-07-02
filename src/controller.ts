@@ -421,9 +421,11 @@ export class Controller implements Disposable {
         return;
       }
       // The focused layer's trace IS the active trace (one single-trace row
-      // per layer; see Subplot.activeLayerIndex). Compute the new point's
-      // state without moving the user's cursor; observers are only notified
-      // via MonitorService.
+      // per layer; see Subplot.activeLayerIndex) — the focus predicate above
+      // guarantees the indices are in range, so no null guard is needed;
+      // any residual access failure lands in the catch below. Compute the
+      // new point's state without moving the user's cursor; observers are
+      // only notified via MonitorService.
       const state = this.figure.activeSubplot.activeTrace.getStateAt(appended.row, appended.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
