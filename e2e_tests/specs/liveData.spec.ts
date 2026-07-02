@@ -9,12 +9,34 @@ import { expect, test } from '@playwright/test';
  * - examples/live-candlestick.html — multi-layer ticker (candle + volume + MA)
  *
  * Requires a built bundle (dist/maidr.js), like every other spec.
+ *
+ * Unlike the other specs, this one drives the page directly instead of a
+ * BasePage-derived page object: it targets the live-data demo pages and the
+ * public `window.maidrLive` API surface rather than the standard plot
+ * fixtures the page objects model. Positive announcement assertions poll
+ * via waitForFunction; only silence assertions (asserting the *absence* of
+ * an announcement) use a fixed settle wait, since absence cannot be polled.
  */
 
 /** Reads the MAIDR aria text region for the active chart. */
 async function ariaText(page: Page): Promise<string> {
   return page.evaluate(
     () => document.querySelector('[id^="react-container"]')?.textContent ?? '',
+  );
+}
+
+/**
+ * Polls until the aria text region contains the expected substring.
+ * Fails the test via Playwright's timeout if it never appears.
+ */
+async function waitForAriaText(page: Page, expected: string): Promise<void> {
+  await page.waitForFunction(
+    (needle) => {
+      const text = document.querySelector('[id^="react-container"]')?.textContent ?? '';
+      return text.includes(needle);
+    },
+    expected,
+    { timeout: 5000 },
   );
 }
 
@@ -54,8 +76,7 @@ test.describe('live data: monitor mode focus', () => {
     await page.keyboard.press('ArrowRight'); // land on series 0
     await page.waitForTimeout(200);
     await page.keyboard.press('m'); // monitor on
-    await page.waitForTimeout(200);
-    expect(await ariaText(page)).toContain('Monitoring on');
+    await waitForAriaText(page, 'Monitoring on');
 
     // Start a second series; the user is on series 0, so this stays silent.
     const otherSeries = await append(
@@ -69,8 +90,7 @@ test.describe('live data: monitor mode focus', () => {
 
     // An append to the focused series is announced.
     await append(page, { x: 3, y: 64.5 }, { id: 'live-sensor', groupIndex: 0 });
-    await page.waitForTimeout(300);
-    expect(await ariaText(page)).toContain('64.5');
+    await waitForAriaText(page, '64.5');
   });
 
   test('multi-layer ticker: only the focused layer is announced', async ({ page }) => {
@@ -87,8 +107,7 @@ test.describe('live data: monitor mode focus', () => {
     await page.keyboard.press('PageUp'); // MA layer
     await page.waitForTimeout(250);
     await page.keyboard.press('m');
-    await page.waitForTimeout(200);
-    expect(await ariaText(page)).toContain('Monitoring on');
+    await waitForAriaText(page, 'Monitoring on');
 
     // A candle-only append targets an unfocused layer: silent.
     await append(
@@ -107,9 +126,8 @@ test.describe('live data: monitor mode focus', () => {
     );
     await append(page, { x: '09:35', y: 1700 }, { id: 'live-ticker', layerId: 'volume-layer' });
     await append(page, { x: '09:35', y: 101.5 }, { id: 'live-ticker', layerId: 'ma-layer' });
-    await page.waitForTimeout(300);
+    await waitForAriaText(page, '101.5');
     let text = await ariaText(page);
-    expect(text).toContain('101.5');
     expect(text).not.toContain('105.25');
     expect(text).not.toContain('1,700');
 
@@ -126,9 +144,8 @@ test.describe('live data: monitor mode focus', () => {
     );
     await append(page, { x: '09:36', y: 1400 }, { id: 'live-ticker', layerId: 'volume-layer' });
     await append(page, { x: '09:36', y: 104.25 }, { id: 'live-ticker', layerId: 'ma-layer' });
-    await page.waitForTimeout(300);
+    await waitForAriaText(page, '107.75');
     text = await ariaText(page);
-    expect(text).toContain('107.75');
     expect(text).not.toContain('104.25');
     expect(text).not.toContain('1,400');
   });
