@@ -20,6 +20,7 @@ import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
@@ -388,22 +389,9 @@ export class Controller implements Disposable {
       return 0;
     }
     try {
-      const onAppendedSubplot
-        = this.figure.row === appended.subplotRow
-          && this.figure.col === appended.subplotCol;
-      const activeSubplot = this.figure.activeSubplot;
-      const onAppendedTrace
-        = onAppendedSubplot && activeSubplot.activeLayerIndex === appended.layerIndex;
-      if (!onAppendedTrace) {
-        return 0;
-      }
-      // For nested layers only the appended series shifted, so the cursor
-      // moves only when the user is on that series. Flat layers (bar,
-      // vertical candlestick...) shift every row's columns equally.
-      if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
-        return 0;
-      }
-      return appended.trimmed;
+      // The cursor follows trimmed data only on the focused layer/series —
+      // the same focus rule that scopes monitor announcements.
+      return isAppendedPointFocused(this.figure, appended) ? appended.trimmed : 0;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);
       return 0;
@@ -426,21 +414,14 @@ export class Controller implements Disposable {
       return;
     }
     try {
-      const onActiveSubplot
-        = this.figure.row === appended.subplotRow
-          && this.figure.col === appended.subplotCol;
-      if (!onActiveSubplot) {
-        return;
-      }
-      const activeSubplot = this.figure.activeSubplot;
-      if (activeSubplot.activeLayerIndex !== appended.layerIndex) {
+      if (!isAppendedPointFocused(this.figure, appended)) {
         return;
       }
       // The focused layer's trace IS the active trace (one single-trace row
       // per layer; see Subplot.activeLayerIndex). Compute the new point's
       // state without moving the user's cursor; observers are only notified
       // via MonitorService.
-      const state = activeSubplot.activeTrace.getStateAt(appended.row, appended.col);
+      const state = this.figure.activeSubplot.activeTrace.getStateAt(appended.row, appended.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);
