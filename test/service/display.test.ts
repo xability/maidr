@@ -14,6 +14,8 @@ function createMockPlot(): HTMLElement {
     setAttribute: jest.fn(),
     removeAttribute: jest.fn(),
     tabIndex: 0,
+    classList: { contains: jest.fn(() => false) },
+    closest: jest.fn(() => null),
   } as unknown as HTMLElement;
 }
 

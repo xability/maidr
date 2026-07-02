@@ -27,6 +27,7 @@ function createMockDisplayService(overrides: Record<string, unknown> = {}): Disp
     dismissModalScope: jest.fn(),
     notifyFocusChange: jest.fn(),
     toggleFocus: jest.fn(),
+    syncFocusStack: jest.fn(),
     ...overrides,
   } as unknown as DisplayService;
 }

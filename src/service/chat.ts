@@ -710,7 +710,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
   /**
    * Creates a new Ollama model instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Returns the serialized MAIDR data structure
    * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {OllamaVersion} version - The default Ollama model to use when none is selected
    */

@@ -103,7 +103,7 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
     });
     const command = new PointerGuidanceCommand(context, audio);
 
-    command.executeNavigateOnly({ clientX: 10, clientY: 20 } as unknown as Event);
+    command.executeNavigateOnly({ clientX: 10, clientY: 20 } as unknown as MouseEvent);
 
     expect(moveToPointAndGetPointerGuidance).toHaveBeenCalledWith(10, 20);
     expect(playPointerGuidance).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
     const { context, audio, moveToPointAndGetPointerGuidance, playPointerGuidance } = createMocks();
     const command = new PointerGuidanceCommand(context, audio);
 
-    command.executeNavigateOnly({} as Event);
+    command.executeNavigateOnly({} as MouseEvent);
 
     expect(moveToPointAndGetPointerGuidance).not.toHaveBeenCalled();
     expect(playPointerGuidance).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('PointerGuidanceCommand.executeNavigateOnly', () => {
       = createMocks(null, Scope.SUBPLOT);
     const command = new PointerGuidanceCommand(context, audio);
 
-    command.executeNavigateOnly({ clientX: 1, clientY: 2 } as unknown as Event);
+    command.executeNavigateOnly({ clientX: 1, clientY: 2 } as unknown as MouseEvent);
 
     expect(moveToPointAndGetPointerGuidance).not.toHaveBeenCalled();
   });
