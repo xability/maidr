@@ -354,6 +354,9 @@ export class Controller implements Disposable {
    * @param appended - Location of the newly appended point, for appendData updates
    */
   public updateData(maidr: Maidr, appended?: AppendedPointInfo): void {
+    // Ordering is load-bearing: the sliding-window shift must be resolved
+    // against the OLD figure (the user's current position) before the swap,
+    // while announceAppendedPoint below runs against the NEW figure.
     const activeColShift = this.resolveActiveColShift(appended);
 
     this.figure = this.context.replaceFigure(() => {
