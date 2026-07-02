@@ -52,12 +52,11 @@ test.describe('live data: monitor mode focus', () => {
   test('append with monitor off is completely silent', async ({ page }) => {
     await page.goto('examples/live-line.html');
     await page.click('#live-sensor');
-    await page.waitForTimeout(300);
+    await waitForAriaText(page, 'maidr plot'); // focus-in shows the instruction
     await page.keyboard.press('ArrowRight'); // initial entry -> first point
-    await page.waitForTimeout(150);
+    await waitForAriaText(page, '50');
     await page.keyboard.press('ArrowRight'); // second point (x=1, y=52)
-    await page.waitForTimeout(200);
-    expect(await ariaText(page)).toContain('52');
+    await waitForAriaText(page, '52');
 
     const ok = await append(page, { x: 3, y: 64.5 }, { id: 'live-sensor' });
     expect(ok).toBe(true);
@@ -72,9 +71,9 @@ test.describe('live data: monitor mode focus', () => {
   test('nested layers: only the focused series is announced', async ({ page }) => {
     await page.goto('examples/live-line.html');
     await page.click('#live-sensor');
-    await page.waitForTimeout(300);
+    await waitForAriaText(page, 'maidr plot'); // focus-in shows the instruction
     await page.keyboard.press('ArrowRight'); // land on series 0
-    await page.waitForTimeout(200);
+    await waitForAriaText(page, '50');
     await page.keyboard.press('m'); // monitor on
     await waitForAriaText(page, 'Monitoring on');
 
@@ -96,16 +95,15 @@ test.describe('live data: monitor mode focus', () => {
   test('multi-layer ticker: only the focused layer is announced', async ({ page }) => {
     await page.goto('examples/live-candlestick.html');
     await page.click('#live-ticker');
-    await page.waitForTimeout(300);
+    await waitForAriaText(page, 'maidr plot'); // focus-in shows the instruction
     await page.keyboard.press('ArrowRight'); // candle layer, first candle
-    await page.waitForTimeout(200);
-    expect(await ariaText(page)).toContain('09:30');
+    await waitForAriaText(page, '09:30');
 
     // Move to the moving-average layer and enable monitoring.
     await page.keyboard.press('PageUp'); // volume layer
-    await page.waitForTimeout(250);
+    await waitForAriaText(page, 'Layer 2 of 3');
     await page.keyboard.press('PageUp'); // MA layer
-    await page.waitForTimeout(250);
+    await waitForAriaText(page, 'Layer 3 of 3');
     await page.keyboard.press('m');
     await waitForAriaText(page, 'Monitoring on');
 
@@ -134,9 +132,9 @@ test.describe('live data: monitor mode focus', () => {
     // Switch focus back to the candle layer: the next tick announces the
     // close price and nothing else.
     await page.keyboard.press('PageDown');
-    await page.waitForTimeout(250);
+    await waitForAriaText(page, 'Layer 2 of 3');
     await page.keyboard.press('PageDown');
-    await page.waitForTimeout(250);
+    await waitForAriaText(page, 'Layer 1 of 3');
     await append(
       page,
       { value: '09:36', open: 105.25, high: 108, low: 105, close: 107.75 },
