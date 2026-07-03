@@ -98,6 +98,29 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 
 > Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
 
+## Multi-Panel Charts
+
+When one amCharts `Root` contains **multiple XYCharts** — amCharts' native multi-panel pattern (`root.container.set("layout", root.verticalLayout)` plus several `XYChart` children, or a `horizontalLayout`/`GridLayout`) — both `bindAmCharts` and `fromAmCharts` convert **each chart into its own MAIDR subplot**. The same applies to **am5stock `StockChart` panels** (`StockPanel` extends `XYChart`), which the binder finds by walking the root's container tree; scrollbar preview charts (`XYChartScrollbar`) are excluded.
+
+```js
+var root = am5.Root.new("chartdiv");
+root.container.set("layout", root.verticalLayout);
+var priceChart = root.container.children.push(am5xy.XYChart.new(root, { height: am5.percent(60) }));
+var volumeChart = root.container.children.push(am5xy.XYChart.new(root, { height: am5.percent(40) }));
+// ... axes, series, data for each chart ...
+maidrAmCharts.bindAmCharts(root); // one MAIDR figure, two subplots
+```
+
+Details:
+
+- **Navigation:** a multi-panel figure starts in subplot mode — arrow keys move between panels, Enter drills into a panel, Escape returns. Inside a panel, the usual data-point navigation applies.
+- **Panel grid:** panels are arranged by their rendered position (rows clustered by top coordinate, sorted left-to-right), so vertical, horizontal, and grid layouts all map naturally. If geometry is not available yet (e.g. `fromAmCharts` called before layout), panels fall back to a single row in insertion order.
+- **Panel names:** each chart's title (an `am5.Label` child of the chart) becomes the panel's display name in subplot summaries. Axis labels are read from each chart's own axes; the `axisLabels` option remains a figure-wide override.
+- **Highlighting:** one overlay covers the whole root; each highlight box is clipped to the owning panel's plot area.
+- `bindXYChart(chart, root)` / `fromXYChart(chart, containerEl)` still bind exactly one chart; `fromXYCharts(charts, containerEl)` converts a specific set of charts; `findXYCharts(root)` returns every chart the binder would find.
+
+> Stacked value axes **within one** `XYChart` (the classic price+volume single-chart pattern) are *not* split into panels — amCharts cannot reliably distinguish that layout from a dual-scale overlay, so all series stay in one subplot. Charts in **separate Roots** (one `div` each) remain separate MAIDR figures.
+
 ## Code Examples
 
 A complete, runnable page covering every supported type lives at [`examples/amcharts.html`](https://github.com/xability/maidr/blob/main/examples/amcharts.html). The snippets below show the per-type series configuration; the surrounding root/chart/axis boilerplate and the `fromAmCharts` conversion are identical to the Quick Start.
@@ -218,7 +241,7 @@ const binding = bindAmCharts(root, { title: 'Sales by Day' });
 // later: binding.dispose();
 ```
 
-`bindAmCharts(root, options?)` finds the first `XYChart` in `root.container`; `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
+`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
 
 For the data-only path (no highlighting), use `fromAmCharts(root, options?)` / `fromXYChart(chart, containerEl, options?)`, which return MAIDR JSON for the `maidr` attribute or `<Maidr data={...}>`.
 
