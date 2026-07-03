@@ -382,6 +382,48 @@ Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix
 </script>
 ```
 
+## Multi-Panel Charts (Axis Stacking)
+
+Chart.js has no facet API, but since v3.7 a single chart can render stacked panels via **axis stacking**: two or more scales of the same axis kind share a `stack` name and are laid out in separate, non-overlapping bands. Datasets pick their panel with `yAxisID` (or `xAxisID`).
+
+MAIDR detects this layout automatically and exposes each panel as its own **subplot**: y-stacked scales become an N-rows-by-1-column figure, x-stacked scales become 1-row-by-N-columns, ordered by on-canvas position. Navigation starts at the subplot level — arrow keys move between panels, `Enter` drills into a panel, `Escape` returns. Each panel announces its own value-axis label (from that scale's `title.text`, which also names the panel) while sharing the common index axis.
+
+```html
+<div style="width: 700px; height: 500px">
+  <canvas id="stacked-panels-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('stacked-panels-chart'), {
+    type: 'line',
+    data: {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      datasets: [
+        { label: 'Price', data: [102, 110, 108, 121, 119, 127] }, // default yAxisID: 'y'
+        { label: 'Volume', data: [34, 51, 42, 65, 48, 70], yAxisID: 'y2' },
+      ],
+    },
+    options: {
+      plugins: { title: { display: true, text: 'Stock Price and Trading Volume' } },
+      scales: {
+        x: { title: { display: true, text: 'Month' } },
+        y: { stack: 'panels', stackWeight: 2, title: { display: true, text: 'Price ($)' } },
+        y2: { stack: 'panels', stackWeight: 1, offset: true, title: { display: true, text: 'Volume (M shares)' } },
+      },
+    },
+  });
+</script>
+```
+
+Notes:
+
+- Every supported chart type works inside panels; each panel's datasets are extracted with that panel's own scale, so per-panel `stacked: true` still maps to the `STACKED` trace type while another panel stays `DODGED`.
+- Classic **dual-axis** charts (two y scales overlaying the same plot area, no `stack` option) are *not* panels and remain a single subplot, exactly as before.
+- Multiple `Chart` instances arranged in a page grid are still separate MAIDR figures; grouping several charts into one figure is not yet supported.
+
+For programmatic use, `extractChartData(chart)` returns the extracted MAIDR schema together with a `layerDatasetIndices` map that ties each figure-unique layer id back to the Chart.js datasets that produced it.
+
 ## Keyboard Controls
 
 Once a chart is focused, use standard MAIDR keyboard shortcuts:

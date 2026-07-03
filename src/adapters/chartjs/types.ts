@@ -33,6 +33,8 @@ export interface ChartJsChart {
   readonly data: ChartJsData;
   readonly options: ChartJsOptions;
   readonly config: { readonly type: string };
+  /** Runtime scale instances keyed by scale id, laid out with pixel geometry. */
+  readonly scales?: Record<string, ChartJsRuntimeScale>;
   getDatasetMeta: (datasetIndex: number) => ChartJsDatasetMeta;
   setActiveElements: (elements: ChartJsActiveElement[]) => void;
   tooltip?: {
@@ -60,6 +62,10 @@ export interface ChartJsDataset {
   data: ChartJsDataValue[];
   type?: string;
   stack?: string;
+  /** Id of the x scale this dataset is plotted against (defaults to `'x'`). */
+  xAxisID?: string;
+  /** Id of the y scale this dataset is plotted against (defaults to `'y'`). */
+  yAxisID?: string;
   backgroundColor?: string | string[];
   borderColor?: string | string[];
 }
@@ -80,6 +86,28 @@ export interface ChartJsScale {
   title?: { text?: string; display?: boolean };
   type?: string;
   stacked?: boolean;
+  /** Which axis this scale belongs to; defaults from the scale id's first letter. */
+  axis?: 'x' | 'y';
+  /**
+   * Axis-stacking group name (Chart.js >= 3.7). Scales of the same axis kind
+   * sharing a `stack` are laid out in separate, non-overlapping bands — the
+   * native Chart.js way to express stacked panels within one canvas.
+   */
+  stack?: string;
+  /** Relative size of this scale's band within its axis stack. */
+  stackWeight?: number;
+}
+
+/**
+ * A laid-out runtime scale instance (from `chart.scales`), exposing the pixel
+ * band it occupies. Used to order axis-stacked panels by visual position.
+ */
+export interface ChartJsRuntimeScale {
+  axis?: 'x' | 'y' | 'r';
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
 }
 
 /**
