@@ -463,6 +463,7 @@ export class Controller implements Disposable {
     this.autoplayService.dispose();
     this.monitorService.dispose();
 
+    this.chatService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
