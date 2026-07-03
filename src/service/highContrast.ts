@@ -186,6 +186,10 @@ export class HighContrastService implements Disposable {
   public setFigure(figure: Figure): void {
     this.figure = figure;
     this.originalColorInfo = null;
+    // Invalidate the trace-element cache so getAllTraceElements() rebuilds from
+    // the new figure. Without this, colour classification would run against the
+    // replaced figure's detached SVG elements and pin them in memory.
+    this.traceElementsCache = null;
     this.captureOriginalColors();
     if (this.highContrastMode) {
       this.applyHighContrast();
@@ -355,11 +359,9 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    // Apply plot fill style
-    this.displayService.plot.setAttribute(
-      'style',
-      `fill:${this.highContrastLightColor}`,
-    );
+    // Apply plot fill style. Set only the `fill` property so any other inline
+    // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
+    this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
     // Handle stacked/dodged bar exception: apply patterns
     if ('type' in this.context.instructionContext) {
@@ -413,11 +415,9 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    // Restore plot fill style
-    this.displayService.plot.setAttribute(
-      'style',
-      `fill:${this.defaultForegroundColor}`,
-    );
+    // Restore plot fill style by removing only the `fill` property we set,
+    // leaving all other inline styles on the plot element intact.
+    this.displayService.plot.style.removeProperty('fill');
 
     // Clean up pattern service
     if (this.patternService) {
@@ -767,20 +767,14 @@ export class HighContrastService implements Disposable {
         return colorArray[0];
       }
 
-      if (colorArray.length === 1) {
-        return colorArray[0];
-      }
-
       let closestColor = colorArray[0];
-      if (colorArray.length > 1) {
-        let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[1]));
+      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[0]));
 
-        for (let i = 1; i < colorArray.length; i++) {
-          const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestColor = colorArray[i];
-          }
+      for (let i = 1; i < colorArray.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestColor = colorArray[i];
         }
       }
 

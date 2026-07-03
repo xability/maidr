@@ -88,6 +88,10 @@ export class SettingsService implements Disposable {
 
     this.storage.save(SETTINGS_KEY, this.currentSettings);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
+    // Notify Observer<Settings> registrants (e.g. Mousebindingservice) so that
+    // observer-based consumers such as hover-mode react immediately. This is a
+    // separate audience from the onChange emitter, so no double-notification.
+    this.notifyStateUpdate();
   }
 
   public resetSettings(): Settings {
@@ -96,6 +100,7 @@ export class SettingsService implements Disposable {
 
     this.storage.remove(SETTINGS_KEY);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, this.currentSettings));
+    this.notifyStateUpdate();
     return this.currentSettings;
   }
 

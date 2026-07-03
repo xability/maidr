@@ -5,7 +5,6 @@ import type { Event, Focus } from '@type/event';
 import { Emitter, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapters/plotly';
 
 /**
  * Type for traces that support ensureInitialized method.
@@ -96,11 +95,11 @@ export class DisplayService implements Disposable {
 
     this.onChangeEmitter.dispose();
 
-    // Disconnect Plotly-specific MutationObservers to prevent memory leaks.
-    // Only affects Plotly charts; no-op for matplotlib or other chart types.
-    if (isPlotlyPlot(this.plot)) {
-      disconnectPlotlyObservers(this.plot);
-    }
+    // NOTE: Plotly MutationObservers (stroke mirror + layout) are chart-lifetime
+    // resources installed once by normalizePlotlySvg, not per focus session.
+    // They must NOT be disconnected here: DisplayService.dispose() runs on every
+    // focusout, and tearing them down would permanently break subplot highlight
+    // mirroring on refocus. True teardown belongs to chart unmount / page unload.
   }
 
   /**
