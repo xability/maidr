@@ -264,7 +264,10 @@ function observeForMaidrAttributes(): void {
         const target = mutation.target as HTMLElement;
         const maidrAttr = target.getAttribute(Constant.MAIDR);
 
-        if (!maidrAttr)
+        // Only JSON-shaped values are maidr configs. Chart exports (e.g.
+        // matplotlib) stamp unrelated `maidr="<uuid>"` attributes on SVG
+        // groups; parsing those would just log JSON errors.
+        if (!maidrAttr || !maidrAttr.startsWith('{'))
           continue;
 
         // Skip if attribute value hasn't changed (allows re-init on data change)
@@ -287,9 +290,9 @@ function observeForMaidrAttributes(): void {
 
           const element = node as HTMLElement;
 
-          // Check the element itself
+          // Check the element itself (JSON-shaped values only — see above)
           const maidrAttr = element.getAttribute(Constant.MAIDR);
-          if (maidrAttr) {
+          if (maidrAttr && maidrAttr.startsWith('{')) {
             const previousValue = element.getAttribute('data-maidr-value');
             if (previousValue !== maidrAttr) {
               element.setAttribute('data-maidr-value', maidrAttr);
@@ -297,8 +300,8 @@ function observeForMaidrAttributes(): void {
             }
           }
 
-          // Check descendants
-          const descendants = element.querySelectorAll<HTMLElement>(`[${Constant.MAIDR}]`);
+          // Check descendants (the selector already filters to JSON-shaped values)
+          const descendants = element.querySelectorAll<HTMLElement>(Constant.MAIDR_JSON_SELECTOR);
           for (const desc of descendants) {
             const descAttr = desc.getAttribute(Constant.MAIDR);
             if (descAttr) {
