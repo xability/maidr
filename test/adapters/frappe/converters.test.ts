@@ -128,7 +128,7 @@ describe('createMaidrFromFrappeCharts (multi-panel)', () => {
     expect(maidr.subplots[1][0].layers[0].title).toBe('C');
   });
 
-  it('scopes each panel\'s layer selectors and subplot selector to its own container id', () => {
+  it('scopes each panel\'s layer selectors to its own container id, without a subplot selector', () => {
     const { wrapper, containers } = makeDom(2);
 
     const maidr = createMaidrFromFrappeCharts(
@@ -144,8 +144,13 @@ describe('createMaidrFromFrappeCharts (multi-panel)', () => {
     expect(secondId).not.toBe('');
     expect(firstId).not.toBe(secondId);
 
-    expect(first.selector).toBe(`#${firstId} svg.frappe-chart`);
-    expect(second.selector).toBe(`#${secondId} svg.frappe-chart`);
+    // No subplot selector: the core would clone its match as a hidden
+    // sibling, and Frappe's only whole-panel element is the top-level
+    // `svg.frappe-chart` in HTML flow — its clone would double the panel's
+    // height on every focus. Panel geometry is resolved from the first layer
+    // selector instead (see multiPanelLayout.test.ts).
+    expect(first.selector).toBeUndefined();
+    expect(second.selector).toBeUndefined();
     expect(first.layers[0].selectors)
       .toBe(`#${firstId} svg.frappe-chart .dataset-units.dataset-bars.dataset-0 rect.bar`);
     expect(second.layers[0].selectors)

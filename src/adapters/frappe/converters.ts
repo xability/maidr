@@ -186,7 +186,6 @@ export function createMaidrFromFrappeCharts(
         chartType: panel.chartType,
         axes: panel.axes,
         panelTitle: panel.title,
-        includePanelSelector: true,
       });
     }),
   );
@@ -218,19 +217,21 @@ interface BuildSubplotOptions {
    * is stamped onto `layers[0]`.
    */
   panelTitle?: string;
-  /**
-   * When true, sets `MaidrSubplot.selector` to the panel's own SVG so the core
-   * can resolve per-panel highlight and axes elements. Only useful in
-   * multi-panel figures; omitted for single charts to keep their output
-   * unchanged.
-   */
-  includePanelSelector?: boolean;
 }
 
 /**
  * Builds one {@link MaidrSubplot} from a rendered Frappe chart. All layer
  * selectors are scoped to the container's `id`, so panels never match each
  * other's SVG elements.
+ *
+ * No `MaidrSubplot.selector` is emitted deliberately: the core resolves that
+ * selector into a `visibility: hidden` clone inserted right after the match,
+ * and the only whole-panel target in Frappe output is the top-level
+ * `svg.frappe-chart` — an element in normal HTML flow, whose hidden clone
+ * would double the panel's height on every focus. The core's visual-layout
+ * pass instead measures the first element matched by each panel's first
+ * layer selector (all container-id-scoped, so per-panel unique), which keeps
+ * multi-row grids ordered and vertically oriented correctly.
  */
 function buildSubplot(
   chart: FrappeChart,
@@ -250,9 +251,6 @@ function buildSubplot(
   const isMultiLine = options.chartType === 'line' && data.datasets.length > 1;
   return {
     ...(isMultiLine ? { legend: data.datasets.map((d, i) => d.name ?? `Series ${i + 1}`) } : {}),
-    ...(options.includePanelSelector
-      ? { selector: `#${container.id} svg.frappe-chart` }
-      : {}),
     layers,
   };
 }
