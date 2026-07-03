@@ -60,9 +60,10 @@ export function extractMaidrData(
  * Charts using Chart.js axis stacking (2+ scales of the same axis kind laid
  * out in separate bands via the scale `stack` option) become multi-subplot
  * figures: one MAIDR subplot per stacked panel, arranged as N rows × 1 column
- * for y-stacks and 1 row × N columns for x-stacks, ordered by on-canvas
- * position. All other charts — including classic dual-axis overlays — remain
- * a single subplot.
+ * for y-stacks (rows bottom-first, matching the grammar's matplotlib row
+ * convention so Up/Down arrows track the on-canvas direction) and 1 row × N
+ * columns for x-stacks (left-to-right). All other charts — including classic
+ * dual-axis overlays — remain a single subplot.
  */
 export function extractChartData(
   chart: ChartJsChart,
@@ -132,10 +133,41 @@ function scaleAxisKind(chart: ChartJsChart, scaleId: string): AxisKind | null {
   return prefix === 'x' || prefix === 'y' ? prefix : null;
 }
 
+/** The static edge positions Chart.js lays scales out against. */
+const STATIC_SCALE_POSITIONS = ['left', 'right', 'top', 'bottom'] as const;
+type StaticScalePosition = (typeof STATIC_SCALE_POSITIONS)[number];
+
+function isStaticScalePosition(value: unknown): value is StaticScalePosition {
+  return STATIC_SCALE_POSITIONS.includes(value as StaticScalePosition);
+}
+
+/**
+ * Where a scale is placed: the declared static position, the laid-out runtime
+ * position, or the Chart.js default for the axis kind.
+ */
+function scalePosition(
+  chart: ChartJsChart,
+  scaleId: string,
+  axisKind: AxisKind,
+): StaticScalePosition {
+  const declared = chart.options.scales?.[scaleId]?.position;
+  if (isStaticScalePosition(declared))
+    return declared;
+  const runtime = chart.scales?.[scaleId]?.position;
+  if (isStaticScalePosition(runtime))
+    return runtime;
+  return axisKind === 'y' ? 'left' : 'bottom';
+}
+
 /**
  * Whether the given same-kind scales are laid out as stacked (non-overlapping)
- * bands: either 2+ of them opt into axis stacking via the `stack` option, or
- * the runtime geometry shows disjoint bands along the axis direction.
+ * bands: either 2+ of them share the same axis-stacking group, or the runtime
+ * geometry shows disjoint bands along the axis direction.
+ *
+ * Chart.js only bands scales that share BOTH the same `stack` name AND the
+ * same position (core layouts key stacks by `position + stack`); scales with
+ * different stack names, or the same name on opposite edges, each occupy the
+ * full chart area as a classic dual-axis overlay.
  */
 function isStackedScaleLayout(
   chart: ChartJsChart,
@@ -143,11 +175,17 @@ function isStackedScaleLayout(
   axisKind: AxisKind,
 ): boolean {
   const scales = chart.options.scales ?? {};
-  const stackCount = scaleIds
-    .filter(id => typeof scales[id]?.stack === 'string' && scales[id]?.stack !== '')
-    .length;
-  if (stackCount >= 2)
-    return true;
+  const stackGroupSizes = new Map<string, number>();
+  for (const id of scaleIds) {
+    const stack = scales[id]?.stack;
+    if (typeof stack !== 'string' || stack === '')
+      continue;
+    const key = `${scalePosition(chart, id, axisKind)}|${stack}`;
+    const size = (stackGroupSizes.get(key) ?? 0) + 1;
+    if (size >= 2)
+      return true;
+    stackGroupSizes.set(key, size);
+  }
   return hasDisjointBands(chart, scaleIds, axisKind);
 }
 
@@ -218,9 +256,13 @@ function partitionDatasets(
   const byScale = new Map<string, PanelPartition>();
 
   chart.data.datasets.forEach((dataset, index) => {
-    const axisId = (axisKind === 'y' ? dataset.yAxisID : dataset.xAxisID) ?? axisKind;
-    // Datasets referencing an unknown scale fold into the default panel.
-    const scaleId = kindIds.includes(axisId) ? axisId : axisKind;
+    const explicitId = axisKind === 'y' ? dataset.yAxisID : dataset.xAxisID;
+    // Chart.js resolves a missing/unknown axis id to the FIRST declared
+    // same-kind scale (mergeScaleConfig `firstIDs` / `getFirstScaleId`), not
+    // to the literal 'y'/'x' — mirror that so no phantom panel is invented.
+    const scaleId = explicitId !== undefined && kindIds.includes(explicitId)
+      ? explicitId
+      : kindIds[0];
     let panel = byScale.get(scaleId);
     if (!panel) {
       panel = { scaleId, datasets: [], datasetIndices: [] };
@@ -234,9 +276,14 @@ function partitionDatasets(
 }
 
 /**
- * Order panels in visual reading order: by the runtime scale band position
- * (`top` for y-stacks, `left` for x-stacks) when the chart is laid out, with
- * scale declaration order as the fallback.
+ * Order panels to match MAIDR grid-row semantics. Chart.js draws to a
+ * `<canvas>`, so the core layout pass has no DOM geometry to measure and uses
+ * raw data order with the grammar's native matplotlib convention: grid row 0
+ * is the BOTTOM row and Up Arrow moves to row+1. y-stack panels are therefore
+ * ordered bottom-first (descending runtime `top`) so vertical arrow keys move
+ * the way the panels look on canvas; x-stack panels read left-to-right
+ * (ascending runtime `left`). Without runtime layout, scale declaration order
+ * stands in for top-to-bottom / left-to-right on-canvas order.
  */
 function orderPanelsByGeometry(
   chart: ChartJsChart,
@@ -249,10 +296,11 @@ function orderPanelsByGeometry(
     const runtimeB = chart.scales?.[b.scaleId];
     if (runtimeA && runtimeB) {
       return axisKind === 'y'
-        ? runtimeA.top - runtimeB.top
+        ? runtimeB.top - runtimeA.top
         : runtimeA.left - runtimeB.left;
     }
-    return declarationOrder.indexOf(a.scaleId) - declarationOrder.indexOf(b.scaleId);
+    const declared = declarationOrder.indexOf(a.scaleId) - declarationOrder.indexOf(b.scaleId);
+    return axisKind === 'y' ? -declared : declared;
   });
 }
 
@@ -331,8 +379,11 @@ function extractPanelSubplots(
   if (panelSubplots.length < 2)
     return null;
 
-  // y-stacks read top-to-bottom (N rows × 1 col); x-stacks left-to-right
-  // (1 row × N cols) — both already in visual reading order.
+  // y-stacks become N rows × 1 col with rows BOTTOM-FIRST (see
+  // orderPanelsByGeometry): row 0 is the bottom panel, so the core's
+  // Up Arrow (row+1) moves visually up. Panel numbering consequently
+  // announces bottom-up ("Subplot 1" = bottom panel). x-stacks become
+  // 1 row × N cols in left-to-right reading order.
   const subplots = layout.axisKind === 'y'
     ? panelSubplots.map(subplot => [subplot])
     : [panelSubplots];

@@ -89,6 +89,12 @@ export interface ChartJsScale {
   /** Which axis this scale belongs to; defaults from the scale id's first letter. */
   axis?: 'x' | 'y';
   /**
+   * Which chart edge the scale is placed against. Chart.js also accepts
+   * dynamic positions (`'center'` or an `{ [scaleId]: value }` object), hence
+   * the loose type; only the static edge strings participate in axis stacking.
+   */
+  position?: string | Record<string, number>;
+  /**
    * Axis-stacking group name (Chart.js >= 3.7). Scales of the same axis kind
    * sharing a `stack` are laid out in separate, non-overlapping bands — the
    * native Chart.js way to express stacked panels within one canvas.
@@ -104,6 +110,8 @@ export interface ChartJsScale {
  */
 export interface ChartJsRuntimeScale {
   axis?: 'x' | 'y' | 'r';
+  /** Resolved edge the scale was laid out against. */
+  position?: string;
   top: number;
   bottom: number;
   left: number;

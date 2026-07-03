@@ -109,12 +109,13 @@ describe('chart.js highlight target resolution', () => {
 
       const { resolve } = setup(chart);
 
-      // Panel 2's single line: MAIDR row 0, but Chart.js dataset 1.
-      expect(resolve('1_0', 0, 0)).toEqual([{ datasetIndex: 1, index: 0 }]);
+      // Bottom-first rows: panel 0 is the y2 (Volume) band = Chart.js
+      // dataset 1; panel 1 is the y (Price) band = dataset 0.
+      expect(resolve('0_0', 0, 0)).toEqual([{ datasetIndex: 1, index: 0 }]);
       // Gap skipping still maps through to the original element index.
-      expect(resolve('1_0', 0, 1)).toEqual([{ datasetIndex: 1, index: 2 }]);
-      // Panel 1 stays on dataset 0.
-      expect(resolve('0_0', 0, 2)).toEqual([{ datasetIndex: 0, index: 2 }]);
+      expect(resolve('0_0', 0, 1)).toEqual([{ datasetIndex: 1, index: 2 }]);
+      // The Price panel stays on dataset 0.
+      expect(resolve('1_0', 0, 2)).toEqual([{ datasetIndex: 0, index: 2 }]);
     });
 
     it('routes scatter panel layers to the original dataset, not the panel-local one', () => {
@@ -128,10 +129,11 @@ describe('chart.js highlight target resolution', () => {
 
       const { resolve } = setup(chart);
 
-      expect(resolve('0_0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
-      expect(resolve('1_0', 0, 0)).toEqual([{ datasetIndex: 1, index: 0 }]);
-      // Second layer of panel 2 = dataset 2; its bucket has two shared-X points.
-      expect(resolve('1_1', 0, 0)).toEqual([
+      // Bottom-first rows: panel 0 is the y2 band (S2, S3), panel 1 is y (S1).
+      expect(resolve('0_0', 0, 0)).toEqual([{ datasetIndex: 1, index: 0 }]);
+      expect(resolve('1_0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
+      // Second layer of the y2 panel = dataset 2; its bucket has two shared-X points.
+      expect(resolve('0_1', 0, 0)).toEqual([
         { datasetIndex: 2, index: 0 },
         { datasetIndex: 2, index: 1 },
       ]);
@@ -152,9 +154,11 @@ describe('chart.js highlight target resolution', () => {
 
       const panelTwoLayer = layers.find(layer => layer.id === '1_0');
       expect(panelTwoLayer).toBeDefined();
-      // Panel 2, MAIDR row 1 = its second dataset = original dataset 3.
-      expect(resolve('1_0', 1, 1)).toEqual([{ datasetIndex: 3, index: 1 }]);
-      expect(resolve('0_0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
+      // Bottom-first rows: panel 0 is the y2 band (North/South). Its MAIDR
+      // row 1 = its second dataset = original dataset 3 (South).
+      expect(resolve('0_0', 1, 1)).toEqual([{ datasetIndex: 3, index: 1 }]);
+      // The y panel (East/West) row 0 = original dataset 0 (East).
+      expect(resolve('1_0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
     });
 
     it('returns no targets for unknown layer ids', () => {
