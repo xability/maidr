@@ -26,6 +26,25 @@ export interface CommandPaletteState {
   search: string;
 }
 
+/**
+ * Filters commands by the palette search text (matching description or key).
+ * Single source of truth shared by the view model's selection/execution logic
+ * and CommandPalette.tsx's rendered list, so the two can never diverge.
+ * @param commands - The full command list
+ * @param search - The current search text
+ * @returns The commands matching the search, or all commands when it is blank
+ */
+export function filterCommands(commands: CommandItem[], search: string): CommandItem[] {
+  if (!search.trim()) {
+    return commands;
+  }
+  const searchLower = search.toLowerCase();
+  return commands.filter(command =>
+    command.description.toLowerCase().includes(searchLower)
+    || command.key.toLowerCase().includes(searchLower),
+  );
+}
+
 const initialState: CommandPaletteState = {
   visible: false,
   commands: [],
@@ -179,14 +198,7 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
    */
   private getFilteredCommands(): CommandItem[] {
     const { commands, search } = this.state;
-    if (!search.trim()) {
-      return commands;
-    }
-    const searchLower = search.toLowerCase();
-    return commands.filter(command =>
-      command.description.toLowerCase().includes(searchLower)
-      || command.key.toLowerCase().includes(searchLower),
-    );
+    return filterCommands(commands, search);
   }
 
   /**

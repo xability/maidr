@@ -298,16 +298,30 @@ function buildSegmentedRows(
   const isNormalized = traceType === TraceType.NORMALIZED;
 
   // Build the shared category-label list (index → label), preferring the axis
-  // categories, then per-point category/name, then the bare index.
+  // categories, then per-point category/name, then the x value itself.
   const axisCategories = seriesList[0]?.xAxis?.categories;
+
+  // Category axes index points 0..n-1, so x doubles as the row index. Numeric
+  // axes carry raw x values (e.g. years); map those to dense indices instead —
+  // indexing rows by Math.round(1990) would fabricate ~2000 zero cells.
+  const xToIndex = new Map<number, number>();
+  if (!axisCategories) {
+    const uniqueXs = [...new Set(
+      seriesList.flatMap(series => series.data.map(p => Math.round(p.x))),
+    )].sort((a, b) => a - b);
+    uniqueXs.forEach((x, i) => xToIndex.set(x, i));
+  }
+  const indexForX = (x: number): number =>
+    axisCategories ? Math.round(x) : (xToIndex.get(Math.round(x)) ?? -1);
+
   const categoryLabels: (string | number)[] = [];
   for (const series of seriesList) {
     for (const p of series.data) {
-      const index = Math.round(p.x);
+      const index = indexForX(p.x);
       if (index < 0)
         continue;
       if (categoryLabels[index] === undefined) {
-        categoryLabels[index] = axisCategories?.[index] ?? p.category ?? p.name ?? index;
+        categoryLabels[index] = axisCategories?.[index] ?? p.category ?? p.name ?? Math.round(p.x);
       }
     }
   }
@@ -327,7 +341,7 @@ function buildSegmentedRows(
 
     // Overlay each rendered point at its category index.
     for (const p of series.data) {
-      const index = Math.round(p.x);
+      const index = indexForX(p.x);
       if (index < 0 || index >= categoryCount)
         continue;
       const value = isNormalized ? (p.percentage ?? p.y ?? 0) : (p.y ?? 0);

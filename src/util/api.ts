@@ -78,14 +78,18 @@ export abstract class Api {
       // providers (e.g. Gemini) the API key is embedded as a `?key=...`
       // query parameter, which must never reach the console or any
       // log-collection tooling on the host page. Host + path are kept
-      // for debuggability.
-      const safeUrl = url.split('?')[0];
-      console.error(`Error in API ${method} request to ${safeUrl}:`, error);
+      // for debuggability. The error message gets the same treatment:
+      // some runtimes embed the full request URL in fetch failure text.
+      const redactQuery = (text: string): string => text.replace(/\?\S*/g, '');
+      const safeUrl = redactQuery(url);
+      const rawMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const safeMessage = redactQuery(rawMessage);
+      console.error(`Error in API ${method} request to ${safeUrl}: ${safeMessage}`);
       return {
         success: false,
         error: {
           statusCode: HttpStatus.SERVER_ERROR,
-          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          message: safeMessage,
         },
       };
     }

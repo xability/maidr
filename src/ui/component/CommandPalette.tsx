@@ -1,13 +1,9 @@
+import type { CommandItem } from '@state/viewModel/commandPaletteViewModel';
 import type { Keys } from '@type/event';
 import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { filterCommands } from '@state/viewModel/commandPaletteViewModel';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-
-interface CommandItem {
-  key: string;
-  description: string;
-  commandKey: Keys;
-}
 
 const CommandPalette: React.FC = () => {
   const commandPaletteViewModel = useViewModel('commandPalette');
@@ -16,17 +12,12 @@ const CommandPalette: React.FC = () => {
   const listRef = useRef<HTMLUListElement>(null);
   const enterPressedRef = useRef(false);
 
-  // Filter commands based on search
-  const filteredCommands = useMemo(() => {
-    if (!state.search.trim()) {
-      return state.commands;
-    }
-    const searchLower = state.search.toLowerCase();
-    return state.commands.filter((command: CommandItem) =>
-      command.description.toLowerCase().includes(searchLower)
-      || command.key.toLowerCase().includes(searchLower),
-    );
-  }, [state.commands, state.search]);
+  // Filter commands with the same predicate the view model uses for
+  // selection bounds and Enter-to-execute, so the two can never diverge.
+  const filteredCommands = useMemo(
+    () => filterCommands(state.commands, state.search),
+    [state.commands, state.search],
+  );
 
   // Ensure search input gets focus when dialog opens or when returning to search
   useEffect(() => {

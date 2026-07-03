@@ -684,6 +684,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     } else {
       if (row >= 0 && row < this.yPoints.length) {
         this.row = row;
+        // Keep the x cursor inside the target row's bounds: ROW-mode panning
+        // and highlight lookup index yPoints[row].x by this.col.
+        this.col = Math.max(0, Math.min(this.col, this.yPoints[row].x.length - 1));
         this.notifyStateUpdate();
         return true;
       } else {
