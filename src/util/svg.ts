@@ -18,6 +18,33 @@ export abstract class Svg {
   private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
   /**
+   * Attribute stamped on every element MAIDR creates (hidden clones, markers,
+   * overlay shapes). Distinguishes MAIDR-owned elements from the chart's own
+   * live geometry so disposal can remove the former without deleting the latter.
+   */
+  private static readonly OWNED_ATTRIBUTE = 'data-maidr-owned';
+
+  /**
+   * Marks an element as created (and therefore owned) by MAIDR.
+   * @param element - The element to mark
+   * @returns The same element, for chaining
+   */
+  private static markOwned<T extends SVGElement>(element: T): T {
+    element.setAttribute(this.OWNED_ATTRIBUTE, 'true');
+    return element;
+  }
+
+  /**
+   * Returns true if the element was created by MAIDR (safe to remove on
+   * disposal). Original chart elements referenced for in-place highlighting
+   * are not owned and must never be removed.
+   * @param element - The element to check
+   */
+  public static isOwned(element: Element): boolean {
+    return element.hasAttribute(this.OWNED_ATTRIBUTE);
+  }
+
+  /**
    * Converts an SVG element to a Base64-encoded JPEG data URL.
    * @param svg - The SVG element to convert
    * @returns A promise resolving to the Base64 data URL, or empty string on error
@@ -82,6 +109,7 @@ export abstract class Svg {
 
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        this.markOwned(clone);
         element.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
@@ -102,6 +130,9 @@ export abstract class Svg {
 
     const clone = element?.cloneNode(true) as T;
     clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    if (clone) {
+      this.markOwned(clone);
+    }
 
     element?.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
@@ -143,7 +174,7 @@ export abstract class Svg {
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
     element.setAttribute(Constant.STROKE, Constant.TRANSPARENT);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    return element;
+    return this.markOwned(element);
   }
 
   /**
@@ -167,6 +198,7 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE, color);
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(element);
 
     parent.parentElement?.appendChild(element);
     return element;
@@ -242,6 +274,7 @@ export abstract class Svg {
     line.setAttribute(Constant.STROKE, style.stroke);
     line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
     line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(line);
 
     box.insertAdjacentElement(Constant.AFTER_END, line);
     return line;
@@ -302,6 +335,7 @@ export abstract class Svg {
         circle.setAttribute(Constant.STROKE, fallbackColor);
         circle.setAttribute(Constant.STROKE_WIDTH, '2');
         circle.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+        this.markOwned(circle);
         element.insertAdjacentElement(Constant.AFTER_END, circle);
         return circle;
       }
@@ -309,7 +343,7 @@ export abstract class Svg {
       // getBBox may fail for elements not in the DOM; fall through to normal path.
     }
 
-    const clone = element.cloneNode(true) as SVGElement;
+    const clone = this.markOwned(element.cloneNode(true) as SVGElement);
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
 

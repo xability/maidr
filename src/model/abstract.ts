@@ -18,6 +18,7 @@ import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 
 export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
@@ -349,13 +350,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   /**
    * Cleans up trace resources including values and highlighted SVG elements.
+   *
+   * Only removes elements MAIDR created (hidden clones, synthetic markers);
+   * traces that highlight the chart's original live elements in place (e.g.
+   * heatmap cells, line dots) merely drop their references so the visible
+   * chart geometry survives focusout and live-data rebuilds.
    */
   public dispose(): void {
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach(element => element.remove());
+          elements.forEach((element) => {
+            if (Svg.isOwned(element)) {
+              element.remove();
+            }
+          });
         }),
       );
       this.highlightValues.length = 0;
@@ -795,6 +805,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public getId(): string {
     return this.id;
+  }
+
+  /**
+   * The trace's chart type. Lightweight alternative to reading
+   * `state.traceType`, which eagerly computes the full audio/braille/text/
+   * highlight state just to expose this one string.
+   */
+  public get traceType(): TraceType {
+    return this.type;
   }
 
   protected abstract findNearestPoint(

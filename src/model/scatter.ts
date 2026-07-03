@@ -158,11 +158,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     this.yPoints.length = 0;
 
     if (this.highlightXValues) {
-      this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightXValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightXValues.length = 0;
     }
     if (this.highlightYValues) {
-      this.highlightYValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightYValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightYValues.length = 0;
     }
 
@@ -675,7 +675,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    */
   public isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
-      return false;
+      // Array targets are raw cursor coordinates, used by
+      // Context.restoreTracePosition to keep the user's position across
+      // live data updates. A rebuilt trace always starts in COL mode, where
+      // the cursor is (0, xIndex); ROW mode uses (yIndex, xIndex).
+      const [row, col] = target;
+      if (this.mode === NavMode.COL) {
+        return row === 0 && col >= 0 && col < this.xPoints.length;
+      }
+      return row >= 0 && row < this.yPoints.length && col >= 0 && col < this.xPoints.length;
     }
 
     // Check grid mode boundaries
