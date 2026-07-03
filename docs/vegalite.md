@@ -409,13 +409,13 @@ const spec = {
 maidrVegaLite.embed('#chart', spec, { id: 'barley-facet' });
 ```
 
-Each panel announces its facet value (e.g. "site: Crookston") or repeated field name as its title, and highlighting is scoped per panel — the adapter stamps each rendered facet cell with a `data-maidr-cell` attribute at bind time so selectors only ever match their own panel's marks.
+Each panel announces its facet value (e.g. "site: Crookston") or repeated field name as its title, and highlighting is scoped per panel — the adapter stamps each rendered facet cell with a `data-maidr-cell` attribute at bind time so selectors only ever match their own panel's marks. All selectors are additionally prefixed with the chart container's id (one is generated if the container has none), so several charts on one page — even two copies of the same spec — never highlight each other's elements.
 
 Notes and current limitations:
 
 - Custom facet `sort` orders are honoured when the chart is bound with a compiled view (the normal `embed()` / `bindVegaLite()` paths); converting a spec standalone with `vegaLiteToMaidr(spec)` falls back to ascending value order.
 - Panels with **independent scales** (`resolve: { scale: independent }`) navigate fine, but visual-order corrections for line charts assume shared axes.
-- For multi-**row** panel grids, the Up/Down arrow direction at the panel level follows data order rather than screen direction (Vega-Lite SVGs carry no per-panel axes ids for MAIDR core to infer the visual layout from).
+- For multi-**row** panel grids, MAIDR core measures each panel's rendered geometry (via the per-panel background selectors the adapter emits) to order panels visually and keep Up/Down arrows matching screen direction. If the chart is not laid out when it receives focus (e.g. inside a `display: none` tab), panel navigation falls back to data order.
 
 See [`examples/vegalite-facet-bar.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-facet-bar.html) (facet operator, wrapped facet, shorthand, and repeat) and [`examples/vegalite-hconcat-box.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-hconcat-box.html) (concatenation) for runnable versions.
 

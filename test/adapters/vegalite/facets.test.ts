@@ -147,6 +147,17 @@ describe('vega-Lite facet/repeat helpers', () => {
       // Non-word characters in field names become underscores.
       expect(repeatChildName({ repeat: 'my field' })).toBe('child__my_field');
     });
+
+    it('prefixes an underscore for digit-leading field names (varName rule)', () => {
+      // Vega-Lite's varName prepends `_` when the field starts with a
+      // digit, so the compiled classes are `child___2020_marks` /
+      // `child___2020_group`. Without the prefix every selector for a
+      // repeated year-column chart matches nothing.
+      expect(repeatChildName({ repeat: '2020' })).toBe('child___2020');
+      expect(repeatChildName({ row: '3rd quarter' })).toBe('child__row__3rd_quarter');
+      expect(repeatChildName({ column: '2019', row: 'yield' }))
+        .toBe('child__row_yieldcolumn__2019');
+    });
   });
 
   describe('chunkIntoRows', () => {
@@ -208,6 +219,60 @@ describe('vega-Lite faceted conversion', () => {
     expect(result.subplots).toHaveLength(3);
     expect(result.subplots.every(row => row.length === 1)).toBe(true);
     expect(result.subplots[1][0].layers[0].title).toBe('site: B');
+
+    // Every panel of a multi-ROW grid must carry a subplot selector that
+    // resolves to a real per-panel element — MAIDR core measures its
+    // geometry to compute the visual panel order and to keep Up/Down
+    // arrows matching screen direction (Vega SVGs have no axes_* ids).
+    result.subplots.forEach((row, r) => {
+      expect(row[0].selector)
+        .toBe(`g[data-maidr-cell="vl-chart-${r}-0"] > path.background`);
+    });
+  });
+
+  it('drops layers whose rows do not cover a facet cell (layered child)', () => {
+    // The point layer carries its own dataset covering only site A. Cell
+    // B must contain just the bar layer — an empty-data SCATTER layer
+    // would crash MAIDR core's trace state getters on PageDown.
+    const spec: VegaLiteSpec = {
+      data: { values: siteValues },
+      facet: { column: { field: 'site', type: 'nominal' } },
+      spec: {
+        layer: [
+          {
+            mark: 'bar',
+            encoding: {
+              x: { field: 'variety', type: 'nominal' },
+              y: { field: 'yield', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'point',
+            data: { values: [{ site: 'A', variety: 'v1', yield: 11 }] },
+            encoding: {
+              x: { field: 'variety', type: 'nominal' },
+              y: { field: 'yield', type: 'quantitative' },
+            },
+          },
+        ],
+      },
+    };
+    const result = vegaLiteToMaidr(spec);
+
+    expect(result.subplots).toHaveLength(1);
+    expect(result.subplots[0]).toHaveLength(3);
+
+    const [cellA, cellB, cellC] = result.subplots[0];
+    expect(cellA.layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.SCATTER]);
+    expect(cellB.layers.map(l => l.type)).toEqual([TraceType.BAR]);
+    expect(cellC.layers.map(l => l.type)).toEqual([TraceType.BAR]);
+
+    // No emitted layer may carry an empty data array.
+    for (const subplot of result.subplots.flat()) {
+      for (const layer of subplot.layers) {
+        expect(Array.isArray(layer.data) && layer.data.length === 0).toBe(false);
+      }
+    }
   });
 
   it('converts the encoding.column shorthand like the facet operator', () => {
@@ -455,6 +520,57 @@ describe('concat wrap columns', () => {
     const result = vegaLiteToMaidr(spec);
     expect(result.subplots).toHaveLength(1);
     expect(result.subplots[0]).toHaveLength(2);
+  });
+
+  it('emits per-panel background selectors so core can measure panel geometry', () => {
+    // Multi-ROW vconcat grids rely on MAIDR core measuring each panel's
+    // own element to compute visual order / vertical arrow direction.
+    // The concat cell group selector is that element.
+    const bar = (values: Record<string, unknown>[]): VegaLiteSpec => ({
+      data: { values },
+      mark: 'bar',
+      encoding: {
+        x: { field: 'x', type: 'nominal' },
+        y: { field: 'y', type: 'quantitative' },
+      },
+    });
+    const spec: VegaLiteSpec = {
+      vconcat: [bar([{ x: 'a', y: 1 }]), bar([{ x: 'b', y: 2 }])],
+    };
+    const result = vegaLiteToMaidr(spec);
+    expect(result.subplots).toHaveLength(2);
+    expect(result.subplots[0][0].selector)
+      .toBe('g.mark-group.role-scope.concat_0_group > g > path.background');
+    expect(result.subplots[1][0].selector)
+      .toBe('g.mark-group.role-scope.concat_1_group > g > path.background');
+  });
+
+  it('collapses to the empty-figure fallback when a concat child is unsupported', () => {
+    // A `{ layers: [] }` subplot inside a grid crashes MAIDR core on
+    // focus; the converter must collapse the whole grid to the single
+    // empty fallback, which bindVegaLite refuses to mount.
+    const spec: VegaLiteSpec = {
+      hconcat: [
+        {
+          data: { values: [{ x: 'a', y: 1 }] },
+          mark: 'bar',
+          encoding: { x: { field: 'x', type: 'nominal' }, y: { field: 'y', type: 'quantitative' } },
+        },
+        {
+          data: { values: [{ x: 'a', y: 1 }] },
+          mark: 'arc',
+          encoding: { x: { field: 'x', type: 'nominal' }, y: { field: 'y', type: 'quantitative' } },
+        },
+      ],
+    };
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const result = vegaLiteToMaidr(spec);
+      expect(result.subplots).toEqual([[{ layers: [] }]]);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('unsupported mark type'));
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
 

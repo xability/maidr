@@ -43,8 +43,9 @@ import type {
   VegaView,
 } from './adapters/vegalite/types';
 import type { BoxPoint, BoxSelector, HeatmapData, LinePoint, Maidr, MaidrLayer } from './type/grammar';
+import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
 import { vegaLiteToMaidr } from './adapters/vegalite/converters';
-import { buildCellDomMap, stampFacetCells } from './adapters/vegalite/facets';
+import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
 import { Orientation, TraceType } from './type/grammar';
 import { initMaidrOnElement } from './util/initMaidr';
 
@@ -1118,6 +1119,7 @@ function buildBoxPlotSelectorsFromDom(
   svg: SVGSVGElement,
   layers: MaidrLayer[],
   cellDomMap?: Map<MaidrLayer, CellDomInfo>,
+  containerScope?: string,
 ): void {
   for (const layer of layers) {
     if (layer.type !== TraceType.BOX) {
@@ -1139,10 +1141,16 @@ function buildBoxPlotSelectorsFromDom(
     // panel so sibling panels' boxes don't contaminate the pairing, and
     // prefix the attribute selectors built in step 9 with the panel scope
     // — every panel numbers its boxes from 0, so the bare attribute
-    // selector would match all panels at document level.
+    // selector would match all panels at document level. Single-panel
+    // layers fall back to the chart's container scope for the same
+    // reason: every CHART numbers its boxes from 0 too, so a bare
+    // attribute selector would match another chart's boxes when several
+    // box plots share the page.
     const cellInfo = cellDomMap?.get(layer);
     const root: Element = cellInfo?.root ?? svg;
-    const scopePrefix = cellInfo ? `${cellInfo.scope} ` : '';
+    const scopePrefix = cellInfo
+      ? `${cellInfo.scope} `
+      : (containerScope ? `${containerScope} ` : '');
 
     // 0. Discover sub-mark groups in the rendered DOM.
     //
@@ -1530,6 +1538,42 @@ function collectLayers(maidr: Maidr): MaidrLayer[] {
   return layers;
 }
 
+/**
+ * Prefix every selector in the schema with the chart container's scope
+ * (`#<containerId>`) so several charts on one page never resolve each
+ * other's DOM elements — MAIDR resolves all selectors document-globally.
+ *
+ * Applies to subplot selectors and to string / string[] layer selectors.
+ * BOX layers still carry their placeholder string selector at this point;
+ * the `BoxSelector[]` structures built later by
+ * {@link buildBoxPlotSelectorsFromDom} receive the same scope through its
+ * `containerScope` / cell-scope prefixes.
+ */
+function scopeSelectorsToContainer(
+  maidr: Maidr,
+  layers: MaidrLayer[],
+  containerScope: string,
+): void {
+  for (const row of maidr.subplots) {
+    for (const subplot of row) {
+      if (typeof subplot.selector === 'string') {
+        subplot.selector = scopeSelector(subplot.selector, containerScope);
+      }
+    }
+  }
+  for (const layer of layers) {
+    const selectors = layer.selectors;
+    if (typeof selectors === 'string') {
+      layer.selectors = scopeSelector(selectors, containerScope);
+    } else if (
+      Array.isArray(selectors)
+      && selectors.every(sel => typeof sel === 'string')
+    ) {
+      layer.selectors = (selectors as string[]).map(sel => scopeSelector(sel, containerScope));
+    }
+  }
+}
+
 export { vegaLiteToMaidr } from './adapters/vegalite/converters';
 
 export type {
@@ -1590,14 +1634,38 @@ export function bindVegaLite(
     return;
   }
 
-  // Derive an id from the options, the container, or a timestamp fallback.
-  // Use || for container.id since empty string is falsy but not nullish.
-  const id = options?.id
-    || container.id
-    || `vl-${Date.now()}`;
+  // Ensure the container carries an id: every selector emitted below is
+  // prefixed with `#<containerId>` because MAIDR resolves selectors
+  // against the whole document — without the prefix, two charts compiled
+  // from the same spec (identical Vega class names) would resolve each
+  // other's elements. The chart id defaults to the container id so the
+  // two stay aligned. (Use || since an empty options.id is falsy.)
+  const containerId = ensureContainerId(container, 'vl');
+  const id = options?.id || containerId;
 
   const maidr: Maidr = vegaLiteToMaidr(spec, view, { ...options, id });
   const layers = collectLayers(maidr);
+
+  // A schema with no usable layer at all is the converter's fallback for
+  // unsupported specs (a lone `{ layers: [] }` subplot). That shape
+  // crashes MAIDR core the moment the chart receives focus
+  // (`Subplot.activeTrace` on an empty traces array), so skip binding
+  // entirely — the chart still renders, it just isn't navigable.
+  if (layers.length === 0) {
+    console.warn(
+      '[maidr/vegalite] Spec produced no accessible layers; skipping MAIDR '
+      + 'binding. The chart renders normally but will not be keyboard-navigable.',
+    );
+    return;
+  }
+
+  // Prefix every selector with the container id (page-global uniqueness).
+  // Facet selectors already bake the chart id into their `data-maidr-cell`
+  // attribute values, where the prefix is harmless; it is essential for
+  // repeat / concat / single-view selectors, which are class-only and
+  // identical across charts built from the same spec.
+  const containerScope = `#${cssEscape(containerId)}`;
+  scopeSelectorsToContainer(maidr, layers, containerScope);
 
   // For faceted specs, stamp each rendered cell with the `data-maidr-cell`
   // attribute the converter baked into that panel's selectors. Must run
@@ -1658,7 +1726,7 @@ export function bindVegaLite(
   // doesn't appear at all" caused by `buildSelector` returning a
   // single string instead of the per-group structure
   // BoxTrace.mapToSvgElements expects.
-  buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers, cellDomMap);
+  buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers, cellDomMap, containerScope);
 
   // SVGSVGElement is not an HTMLElement, but initMaidrOnElement only
   // needs basic DOM node capabilities (parentNode, attributes).

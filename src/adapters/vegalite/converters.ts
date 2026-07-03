@@ -1093,6 +1093,13 @@ function buildConcatMaidr(
   let globalLayerIndex = 0;
 
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
+    // Each concat child compiles to a per-cell Vega scope group
+    // (`concat_<i>_group`) wrapping the panel's background path. Pointing
+    // the subplot selector at that background gives MAIDR core a real
+    // per-panel element to measure, which is what lets it compute the
+    // visual panel order (and vertical arrow direction) for multi-row
+    // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
+    const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) => {
         // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
@@ -1115,7 +1122,7 @@ function buildConcatMaidr(
         globalLayerIndex++;
         return layer;
       }).filter(Boolean) as MaidrLayer[];
-      return { layers };
+      return { layers, selector };
     }
     // A single-view concat child renders under `concat_<i>_marks` (or the
     // sugar-expanded `concat_<i>_layer_0_marks`).
@@ -1131,8 +1138,16 @@ function buildConcatMaidr(
     if (layer)
       layer.id = `${i}_0`;
     globalLayerIndex++;
-    return { layers: layer ? [layer] : [] };
+    return { layers: layer ? [layer] : [], selector };
   });
+
+  // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
+  // model on focus; collapse to the same single empty figure other
+  // unsupported specs produce (bindVegaLite skips mounting that shape).
+  if (subplotEntries.some(entry => entry.layers.length === 0)) {
+    console.warn('[maidr/vegalite] Concat spec contains a child with an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
 
   // vconcat produces one subplot per row (column layout).
   // hconcat produces all subplots in a single row.
@@ -1315,6 +1330,14 @@ function buildFacetMaidr(
         const cellRows = layerRows[j].filter(row =>
           cell.filters.every(([field, key]) => String(row[field]) === key),
         );
+        // Skip layers whose rows don't cover this facet value (e.g. an
+        // annotation layer with its own dataset covering only some cells).
+        // convertLayerSpec would happily emit a layer with `data: []`,
+        // and a zero-point trace crashes MAIDR core's state getters the
+        // moment the user PageUp/PageDown's onto it.
+        if (cellRows.length === 0) {
+          return null;
+        }
         return convertLayerSpec(
           layerSpec,
           j,
@@ -1367,9 +1390,12 @@ function buildFacetMaidr(
  * `{repeat: ...}` field references substituted for that cell's fields.
  *
  * Unlike facets, repeat cells compile to per-cell Vega child views whose
- * mark classes are already unique (`child__row_<rf>column_<cf>_marks`
- * etc.), so selectors are class-scoped and no bind-time stamping is
- * needed.
+ * mark classes are already unique *within one chart*
+ * (`child__row_<rf>column_<cf>_marks` etc.), so selectors are class-scoped
+ * and no bind-time stamping is needed. Cross-chart uniqueness (two charts
+ * built from the same repeated fields compile to identical class names) is
+ * handled at bind time, where `bindVegaLite` prefixes every selector with
+ * the chart container's id.
  */
 function buildRepeatMaidr(
   id: string,

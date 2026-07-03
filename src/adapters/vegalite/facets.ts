@@ -25,8 +25,10 @@
  *     <childName>_group">` per cell, and the marks inside carry the
  *     already-unique class `<childName>_marks`, where `<childName>` is
  *     `child__row_<rf>column_<cf>` / `child__row_<rf>` /
- *     `child__column_<cf>` / `child__<f>` (non-word characters in field
- *     names replaced with `_`). No stamping is needed for repeats.
+ *     `child__column_<cf>` / `child__<f>` (field names sanitised with
+ *     Vega-Lite's `varName`: non-word characters become `_`, and a
+ *     leading digit gains a `_` prefix). No stamping is needed for
+ *     repeats.
  */
 
 import type { Maidr, MaidrLayer } from '@type/grammar';
@@ -186,10 +188,12 @@ export function substituteRepeatFields(
  * per-cell unique without any stamping.
  *
  * Mirrors Vega-Lite's `varName` sanitisation: every non-word character in
- * a field name becomes `_`.
+ * a field name becomes `_`, and a field name starting with a digit gains a
+ * leading `_` (e.g. field `2020` → `child___2020`).
  */
 export function repeatChildName(cell: RepeatCellMapping): string {
-  const sanitize = (field: string): string => field.replace(/\W/g, '_');
+  const sanitize = (field: string): string =>
+    (field.match(/^\d/) ? '_' : '') + field.replace(/\W/g, '_');
   if (cell.row !== undefined && cell.column !== undefined) {
     return `child__row_${sanitize(cell.row)}column_${sanitize(cell.column)}`;
   }
@@ -463,11 +467,11 @@ function crossCheckHeaders(svg: SVGSVGElement, maidr: Maidr): void {
  * Build the per-layer cell scope map used by the bind-time fixup passes
  * that need a per-panel DOM root (`buildBoxPlotSelectorsFromDom`,
  * `sortLinesByVisualOrder`). Works for both facet subplots (after
- * {@link stampFacetCells} has run) and repeat subplots (whose selectors
- * are class-scoped and need no stamping).
+ * {@link stampFacetCells} has run) and repeat / concat subplots (whose
+ * selectors are class-scoped and need no stamping).
  *
- * Returns an empty map for single-panel and concat charts, whose
- * subplots carry no selector.
+ * Returns an empty map for single-panel charts, whose subplots carry no
+ * selector.
  */
 export function buildCellDomMap(
   svg: SVGSVGElement,
@@ -481,9 +485,9 @@ export function buildCellDomMap(
         continue;
       // Subplot selectors point at the cell's background path
       // (`<scope> > path.background` for facets,
-      //  `<scope> > g > path.background` for repeats); the first segment
-      // is the cell scope and the background's parent <g> is the cell's
-      // content root in both shapes.
+      //  `<scope> > g > path.background` for repeats and concat); the
+      // first segment is the cell scope and the background's parent <g>
+      // is the cell's content root in both shapes.
       const scope = selector.split(' > ')[0];
       const background = svg.querySelector(selector);
       const root = background?.parentElement;
