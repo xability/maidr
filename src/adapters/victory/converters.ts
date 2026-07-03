@@ -577,10 +577,12 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
  *
  * With two or more top-level `<VictoryChart>` children, each chart becomes
  * one panel carrying its own layers (ids `'{panelIdx}_{layerIdx}'`, unique
- * across the whole figure), its own axis labels, and its `title` prop as the
- * panel display name. Charts without supported data components produce an
- * entry with empty `layers` so panel indices stay aligned with the rendered
- * SVGs; callers must drop those entries before emitting the MAIDR grid.
+ * across the whole figure), its own axis labels, its `title` prop as the
+ * panel display name, and the `svgIndex` ordinal of its rendered svg among
+ * all top-level Victory components. Charts without supported data components
+ * produce an entry with empty `layers` so panel indices stay aligned with the
+ * rendered SVGs; callers must drop those entries before emitting the MAIDR
+ * grid.
  *
  * With fewer than two charts the extraction falls back to the original
  * single-panel behavior (all supported data components flattened into one
@@ -591,14 +593,24 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
  * to a panel SVG.
  */
 export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[] {
-  const charts: ReactElement[] = [];
+  const charts: { element: ReactElement; svgIndex: number }[] = [];
   let hasStandaloneData = false;
+  let svgOrdinal = 0;
 
   Children.forEach(children, (child) => {
     if (!isValidElement(child))
       return;
-    if (getVictoryDisplayName(child.type) === 'VictoryChart') {
-      charts.push(child);
+    const name = getVictoryDisplayName(child.type);
+    if (!name)
+      return;
+    // Every top-level Victory component — chart, standalone data component,
+    // legend, or unsupported component — renders its own standalone
+    // VictoryContainer `<svg role="img">`, so each one occupies one svg slot
+    // in the container. Tracking the ordinal keeps panels bound to their own
+    // svg even when a non-chart Victory sibling precedes them in the DOM.
+    const svgIndex = svgOrdinal++;
+    if (name === 'VictoryChart') {
+      charts.push({ element: child, svgIndex });
     } else if (collectDataLayers(child, {}, String).length > 0) {
       hasStandaloneData = true;
     }
@@ -616,12 +628,13 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
     );
   }
 
-  return charts.map((chart, panelIndex) => {
-    const chartProps = chart.props as { children?: ReactNode; title?: string };
+  return charts.map(({ element, svgIndex }, panelIndex) => {
+    const chartProps = element.props as { children?: ReactNode; title?: string };
     const axisLabels = extractAxisLabels(chartProps.children);
     return {
       layers: collectDataLayers(chartProps.children, axisLabels, n => `${panelIndex}_${n}`),
       title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
+      svgIndex,
     };
   });
 }

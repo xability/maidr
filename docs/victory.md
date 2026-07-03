@@ -252,7 +252,8 @@ Notes and limitations:
 - Charts must be **direct children** of `<MaidrVictory>`; charts wrapped in your own components are not detected. Lay panels out visually with CSS on the surrounding page.
 - Charts rendered with `standalone={false}` into a shared parent SVG are not supported for multi-panel detection.
 - In multi-panel mode, standalone data components (e.g. a bare `<VictoryScatter>`) outside any `<VictoryChart>` are ignored with a console warning. With at most one `<VictoryChart>`, everything is flattened into a single panel exactly as before.
-- For multi-row grids (`rows` ≥ 2), the Up/Down arrow direction at panel level may feel inverted because Victory's SVG carries no panel-position metadata MAIDR can read; single-row layouts are unaffected.
+- A `<VictoryChart>` that contains no supported data components is omitted from subplot navigation (with a console warning). The remaining panels keep the grid cells of your `layout` — only the dropped chart's cell disappears from its row.
+- For multi-row grids (`rows` ≥ 2), MAIDR measures each panel's rendered position, so the Up/Down arrows follow the visual arrangement of your CSS layout. If panel positions cannot be measured (for example, panels that overlap at the same position), navigation conservatively falls back to children order, where Up/Down may not match the visual arrangement. Single-row layouts are unaffected.
 
 ## Using the Hook
 

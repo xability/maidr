@@ -15,23 +15,36 @@ const ATTR_PREFIX = 'data-maidr-victory';
  */
 export const PANEL_ATTR = `${ATTR_PREFIX}-panel`;
 
-/** Upper bound on enumerated layer tags per panel. */
-const MAX_TAGGED_LAYERS = 10;
-
-/** Upper bound on enumerated panels per figure. */
-const MAX_TAGGED_PANELS = 10;
+/**
+ * True when an element is (or lives inside) a MAIDR-created hidden clone.
+ *
+ * MAIDR's `Svg` helpers stamp every highlight clone with `data-maidr-owned`
+ * and insert it next to the original while a figure is focused. `cloneNode`
+ * preserves `role` and every `data-maidr-victory-*` attribute, so clones are
+ * otherwise indistinguishable from live Victory nodes — every DOM discovery
+ * in this module must skip them (`closest` matches the element itself).
+ */
+function isMaidrOwned(el: Element): boolean {
+  return el.closest('[data-maidr-owned]') !== null;
+}
 
 /**
- * CSS selector matching every layer tag: the flat single-panel names
- * (`data-maidr-victory-<layer>`) and the panel-scoped multi-panel names
- * (`data-maidr-victory-<panel>-<layer>`). Supports up to 10 layers per panel
- * and 10 panels per figure, well beyond any realistic Victory figure.
+ * Scans the container once for every element carrying a layer-tag attribute:
+ * the flat single-panel names (`data-maidr-victory-<layer>`), the panel-scoped
+ * multi-panel names (`data-maidr-victory-<panel>-<layer>`), and the named
+ * box/candlestick part attributes. CSS attribute selectors cannot express
+ * name-prefix matching, so an attribute-name scan (rather than an enumerated
+ * selector list) keeps discovery unbounded in panel and layer count.
+ *
+ * The panel stamp ({@link PANEL_ATTR}) shares the prefix but is index-stable
+ * and must never be treated as a layer tag, so it is excluded here.
  */
-const TAGGED_QUERY = [
-  ...Array.from({ length: MAX_TAGGED_LAYERS }, (_, layer) => `[${ATTR_PREFIX}-${layer}]`),
-  ...Array.from({ length: MAX_TAGGED_PANELS }, (_, panel) =>
-    Array.from({ length: MAX_TAGGED_LAYERS }, (_, layer) => `[${ATTR_PREFIX}-${panel}-${layer}]`).join(', ')),
-].join(', ');
+function findTaggedElements(container: HTMLElement): Element[] {
+  return Array.from(container.querySelectorAll('*')).filter(el =>
+    !isMaidrOwned(el)
+    && Array.from(el.attributes).some(attr =>
+      attr.name !== PANEL_ATTR && attr.name.startsWith(ATTR_PREFIX)));
+}
 
 /**
  * Builds a tag attribute name. In multi-panel mode the panel index is folded
@@ -54,9 +67,15 @@ function victoryAttr(panelIndex: number | null, suffix: string): string {
  * filter skips decorative user svgs (icons, etc.). If the filter yields fewer
  * svgs than expected (e.g. a Victory version drops the role), all svgs are
  * used as a fallback.
+ *
+ * MAIDR-owned hidden clones are excluded up front: while the figure is
+ * focused, the core inserts a `data-maidr-owned` clone right after each
+ * panel svg (with `role="img"` preserved), and counting those would bind
+ * every panel after the first to the previous panel's clone during a
+ * focused re-tag pass.
  */
 export function resolvePanelSvgs(container: HTMLElement, expectedCount: number): SVGElement[] {
-  const all = Array.from(container.querySelectorAll('svg'));
+  const all = Array.from(container.querySelectorAll('svg')).filter(svg => !isMaidrOwned(svg));
   const victorySvgs = all.filter(svg => svg.getAttribute('role') === 'img');
   return victorySvgs.length >= expectedCount ? victorySvgs : all;
 }
@@ -70,7 +89,7 @@ export function resolvePanelSvgs(container: HTMLElement, expectedCount: number):
  * live nodes.
  */
 export function getTaggedElements(container: HTMLElement): Element[] {
-  return Array.from(container.querySelectorAll(TAGGED_QUERY));
+  return findTaggedElements(container);
 }
 
 /**
@@ -80,11 +99,10 @@ export function getTaggedElements(container: HTMLElement): Element[] {
  * on the svg roots themselves are left intact — they are index-stable.
  */
 export function clearTaggedElements(container: HTMLElement): void {
-  const tagged = container.querySelectorAll(TAGGED_QUERY);
-  for (const el of tagged) {
+  for (const el of findTaggedElements(container)) {
     const attrs = Array.from(el.attributes);
     for (const attr of attrs) {
-      if (attr.name.startsWith(ATTR_PREFIX)) {
+      if (attr.name !== PANEL_ATTR && attr.name.startsWith(ATTR_PREFIX)) {
         el.removeAttribute(attr.name);
       }
     }
@@ -182,7 +200,7 @@ function tagDiscreteElements(
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   // Victory renders exactly one element per data point.
   // Take the first `dataCount` unclaimed elements.
@@ -242,7 +260,7 @@ function tagLineElements(
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   if (candidates.length === 0)
     return undefined;
@@ -293,7 +311,7 @@ function tagCandlestickElements(
 
   const bodies = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   if (bodies.length === 0) {
     return undefined;
@@ -307,6 +325,7 @@ function tagCandlestickElements(
       continue;
     }
     const wicks = Array.from(group.querySelectorAll('line[role="presentation"]'))
+      .filter(line => !isMaidrOwned(line))
       .map(line => ({ line, y: lineMidY(line) }))
       .filter((w): w is { line: Element; y: number } => w.y !== null)
       .sort((a, b) => a.y - b.y);
@@ -360,7 +379,7 @@ function tagBoxElements(
 
   const rects = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
-  ).filter(el => !claimed.has(el)) as SVGElement[];
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el)) as SVGElement[];
 
   // Each box is two rects (q1/q3 halves); bail if the shape is unexpected.
   if (rects.length === 0 || rects.length % 2 !== 0) {
@@ -387,7 +406,7 @@ function tagBoxElements(
   const boxCenters = Array.from(byX.keys()).sort((a, b) => a - b);
   const horizontalLines = Array.from(
     svg.querySelectorAll('line[role="presentation"]'),
-  ).filter(el => !claimed.has(el) && isHorizontalLine(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el) && isHorizontalLine(el));
 
   const selectors: BoxSelector[] = [];
 

@@ -118,4 +118,12 @@ export interface VictorySubplotInfo {
    * in subplot summaries.
    */
   title?: string;
+  /**
+   * Ordinal of this chart's `<svg>` among ALL top-level Victory components
+   * (each renders its own standalone `<svg role="img">`, including standalone
+   * data components, legends, and unsupported components). Used to bind the
+   * panel to the correct rendered svg even when non-chart Victory siblings
+   * precede it. Absent in single-panel mode.
+   */
+  svgIndex?: number;
 }

@@ -167,6 +167,7 @@ describe('extractVictorySubplots', () => {
     expect(subplots[1].layers.map(l => l.id)).toEqual(['1_0']);
     expect(subplots[1].layers[0].xAxisLabel).toBe('Month');
     expect(subplots[1].layers[0].yAxisLabel).toBeUndefined();
+    expect(subplots.map(s => s.svgIndex)).toEqual([0, 1]);
   });
 
   it('keeps empty-chart entries so panel indices stay svg-aligned', () => {
@@ -220,7 +221,31 @@ describe('extractVictorySubplots', () => {
       expect(subplots).toHaveLength(2);
       expect(subplots.flatMap(s => s.layers.map(l => l.victoryType)))
         .toEqual(['VictoryBar', 'VictoryLine']);
+      // The standalone sibling still renders its own svg, so the second
+      // chart's svg is the third one in the container.
+      expect(subplots.map(s => s.svgIndex)).toEqual([0, 2]);
       expect(warnSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('advances the svg ordinal for every Victory component but not plain elements', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const VictoryLegend = stub('VictoryLegend');
+      const children = [
+        createElement('div', { key: 'd' }), // renders no Victory svg
+        createElement(VictoryLegend, { key: 'l' }), // renders its own svg, no data
+        chart({ key: 'a' }, createElement(VictoryBar, { data: barData })),
+        chart({ key: 'b' }, createElement(VictoryLine, { data: lineData })),
+      ];
+
+      const subplots = extractVictorySubplots(children);
+
+      expect(subplots.map(s => s.svgIndex)).toEqual([1, 2]);
+      // A legend carries no data layers, so no standalone-data warning fires.
+      expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
     }

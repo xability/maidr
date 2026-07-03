@@ -89,14 +89,19 @@ function subplotFingerprint(subplots: VictorySubplotInfo[], layout?: VictoryPane
  * (`data-maidr-victory-<n>` attributes on the container's first svg) and the
  * original `[[{ layers, legend }]]` shape, byte-identical to previous output.
  *
- * Multi-panel figures resolve one svg per panel (index-aligned with the
- * VictoryChart children in document order), stamp each panel svg with
+ * Multi-panel figures resolve one svg per panel (bound via each panel's
+ * `svgIndex` ordinal among all top-level Victory components, so non-chart
+ * Victory siblings such as a standalone scatter or a shared legend cannot
+ * shift the binding), stamp each panel svg with
  * `data-maidr-victory-panel="<i>"`, and emit panel-scoped attribute names and
  * selectors so panels can never cross-highlight. Each panel gets its own
- * `claimed` element set so tagging never leaks across panels. Panels whose
- * charts contain no supported data are dropped (the core model cannot
- * represent an empty subplot inside a grid), while panel indices stay aligned
- * with the rendered svgs.
+ * `claimed` element set so tagging never leaks across panels.
+ *
+ * Panels whose charts contain no supported data are dropped (the core model
+ * cannot represent an empty subplot inside a grid), but only AFTER grid
+ * chunking: every remaining panel keeps the grid cell of the visual CSS
+ * arrangement, and only rows left entirely empty are removed (the core cannot
+ * represent empty rows; ragged rows navigate fine).
  */
 export function buildVictorySubplots(
   container: HTMLElement,
@@ -113,15 +118,27 @@ export function buildVictorySubplots(
     return [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]];
   }
 
-  const panelSvgs = resolvePanelSvgs(container, victorySubplots.length);
-  const subplots: MaidrSubplot[] = [];
+  // Standalone Victory siblings render their own svgs too, so the expected
+  // svg count is driven by the highest svg ordinal, not the panel count.
+  const expectedSvgCount = victorySubplots.reduce(
+    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
+    0,
+  );
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount);
 
-  victorySubplots.forEach((info, panelIndex) => {
+  // `null` entries keep an empty panel's grid cell during chunking; they are
+  // dropped per row afterwards.
+  const entries: (MaidrSubplot | null)[] = victorySubplots.map((info, panelIndex) => {
     // Never emit an empty subplot inside a grid — the core model throws on it.
-    if (info.layers.length === 0)
-      return;
+    if (info.layers.length === 0) {
+      console.warn(
+        `MAIDR: Victory panel ${panelIndex + 1} contains no supported data `
+        + 'components and is omitted from subplot navigation.',
+      );
+      return null;
+    }
 
-    const svg: SVGElement | undefined = panelSvgs[panelIndex];
+    const svg: SVGElement | undefined = panelSvgs[info.svgIndex ?? panelIndex];
     let panelSelector: string | undefined;
     if (svg) {
       svg.setAttribute(PANEL_ATTR, String(panelIndex));
@@ -139,14 +156,16 @@ export function buildVictorySubplots(
     // summaries (there is no subplot-level title field in the grammar).
     maidrLayers[0].title = info.title ?? `Panel ${panelIndex + 1}`;
 
-    subplots.push({
+    return {
       layers: maidrLayers,
       legend: collectLegend(info.layers),
       selector: panelSelector,
-    });
+    };
   });
 
-  return computeSubplotGrid(subplots, layout);
+  return computeSubplotGrid(entries, layout)
+    .map(row => row.filter((subplot): subplot is MaidrSubplot => subplot !== null))
+    .filter(row => row.length > 0);
 }
 
 /**

@@ -8,7 +8,7 @@ import {
   tagLayerElements,
 } from '@adapters/victory/selectors';
 import { buildVictorySubplots } from '@adapters/victory/useVictoryAdapter';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 // @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
 // no @types/jsdom installed. Tests only use the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
@@ -83,6 +83,40 @@ describe('resolvePanelSvgs', () => {
 
     expect(svgs).toHaveLength(2);
   });
+
+  it('excludes MAIDR-owned hidden clone svgs from panel resolution', () => {
+    const { container } = buildContainer([2, 3]);
+    // Simulate the core's focus-in behavior: a hidden clone of each panel svg
+    // (role and marks preserved by cloneNode) inserted right after the
+    // original, marked only with data-maidr-owned.
+    for (const svg of Array.from(container.querySelectorAll('svg'))) {
+      const clone = svg.cloneNode(true) as SVGElement;
+      clone.setAttribute('data-maidr-owned', 'true');
+      svg.after(clone);
+    }
+
+    const svgs = resolvePanelSvgs(container, 2);
+
+    expect(svgs).toHaveLength(2);
+    expect(svgs[0].querySelectorAll('path')).toHaveLength(2);
+    expect(svgs[1].querySelectorAll('path')).toHaveLength(3);
+    expect(svgs.every(svg => !svg.hasAttribute('data-maidr-owned'))).toBe(true);
+  });
+
+  it('excludes MAIDR-owned clones in the all-svgs fallback too', () => {
+    const { container } = buildContainer([2, 3]);
+    for (const svg of Array.from(container.querySelectorAll('svg'))) {
+      svg.removeAttribute('role');
+      const clone = svg.cloneNode(true) as SVGElement;
+      clone.setAttribute('data-maidr-owned', 'true');
+      svg.after(clone);
+    }
+
+    const svgs = resolvePanelSvgs(container, 2);
+
+    expect(svgs).toHaveLength(2);
+    expect(svgs.every(svg => !svg.hasAttribute('data-maidr-owned'))).toBe(true);
+  });
 });
 
 describe('tagLayerElements', () => {
@@ -123,6 +157,25 @@ describe('tagLayerElements', () => {
     expect(svgs[0].querySelectorAll('[data-maidr-victory-0-0]')).toHaveLength(3);
     expect(svgs[1].querySelectorAll('[data-maidr-victory-1-0]')).toHaveLength(3);
   });
+
+  it('never tags marks inside MAIDR-owned clones', () => {
+    const { container } = buildContainer([2]);
+    const svg = container.querySelector('svg') as SVGElement;
+    // Simulate the core's per-mark highlight clones inserted next to the
+    // originals inside the same svg during a focused re-tag pass.
+    for (const path of Array.from(svg.querySelectorAll('path'))) {
+      const clone = path.cloneNode(true) as Element;
+      clone.setAttribute('data-maidr-owned', 'true');
+      path.after(clone);
+    }
+
+    const selector = tagLayerElements(svg, barLayer('0', 2), 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    const tagged = Array.from(svg.querySelectorAll('[data-maidr-victory-0]'));
+    expect(tagged).toHaveLength(2);
+    expect(tagged.every(el => !el.hasAttribute('data-maidr-owned'))).toBe(true);
+  });
 });
 
 describe('getTaggedElements / clearTaggedElements', () => {
@@ -151,6 +204,40 @@ describe('getTaggedElements / clearTaggedElements', () => {
     clearTaggedElements(container);
 
     expect(svg.getAttribute(PANEL_ATTR)).toBe('0');
+  });
+
+  it('finds and clears tags for panel indices of 10 and above', () => {
+    const { container } = buildContainer([2]);
+    const svg = container.querySelector('svg') as SVGElement;
+
+    const selector = tagLayerElements(svg, barLayer('11_0', 2), 0, new Set(), 'a ', 11);
+
+    expect(selector).toBe('a [data-maidr-victory-11-0]');
+    expect(getTaggedElements(container)).toHaveLength(2);
+
+    clearTaggedElements(container);
+
+    expect(getTaggedElements(container)).toHaveLength(0);
+    expect(container.querySelectorAll('[data-maidr-victory-11-0]')).toHaveLength(0);
+  });
+
+  it('ignores tag attributes inside MAIDR-owned clones when finding and clearing', () => {
+    const { container } = buildContainer([2]);
+    const svg = container.querySelector('svg') as SVGElement;
+    tagLayerElements(svg, barLayer('0', 2), 0, new Set(), 'a ');
+    // Clone the tagged svg the way the core does on focus-in — cloneNode
+    // preserves the tag attributes on the clone's marks.
+    const clone = svg.cloneNode(true) as SVGElement;
+    clone.setAttribute('data-maidr-owned', 'true');
+    svg.after(clone);
+
+    expect(getTaggedElements(container)).toHaveLength(2);
+
+    clearTaggedElements(container);
+
+    expect(getTaggedElements(container)).toHaveLength(0);
+    // Owned clones are left untouched — the core disposes them itself.
+    expect(clone.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(2);
   });
 });
 
@@ -223,6 +310,38 @@ describe('buildVictorySubplots', () => {
     expect(svgs[2].getAttribute(PANEL_ATTR)).toBe('2');
   });
 
+  it('binds panels to their own svgs when a standalone Victory sibling precedes them', () => {
+    const { container, doc } = buildContainer([2, 3]);
+    // Simulate a standalone VictoryScatter sibling: its svg is document-first,
+    // also role="img", and its markers are path[role="presentation"] like bars.
+    const wrapper = doc.createElement('div');
+    const standalone = doc.createElementNS(SVG_NS, 'svg');
+    standalone.setAttribute('role', 'img');
+    for (let i = 0; i < 2; i++) {
+      const path = doc.createElementNS(SVG_NS, 'path');
+      path.setAttribute('role', 'presentation');
+      standalone.appendChild(path);
+    }
+    wrapper.appendChild(standalone);
+    container.insertBefore(wrapper, container.firstChild);
+
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 2)], svgIndex: 1 },
+      { layers: [barLayer('1_0', 3)], svgIndex: 2 },
+    ], scope);
+
+    const svgs = Array.from(container.querySelectorAll('svg'));
+    expect(svgs[0].hasAttribute(PANEL_ATTR)).toBe(false);
+    expect(svgs[1].getAttribute(PANEL_ATTR)).toBe('0');
+    expect(svgs[2].getAttribute(PANEL_ATTR)).toBe('1');
+
+    const ownerDoc = container.ownerDocument;
+    expect(ownerDoc.querySelectorAll(subplots[0][0].layers[0].selectors as string)).toHaveLength(2);
+    expect(ownerDoc.querySelectorAll(subplots[0][1].layers[0].selectors as string)).toHaveLength(3);
+    // The standalone component's marks stay untagged.
+    expect(standalone.querySelectorAll('[data-maidr-victory-0-0]')).toHaveLength(0);
+  });
+
   it('chunks panels row-major with an explicit layout', () => {
     const { container } = buildContainer([1, 1, 1, 1]);
     const subplots = buildVictorySubplots(container, [
@@ -236,6 +355,78 @@ describe('buildVictorySubplots', () => {
     expect(subplots[0]).toHaveLength(2);
     expect(subplots[1]).toHaveLength(2);
     expect(subplots[1][0].layers[0].id).toBe('2_0');
+  });
+
+  it('gives every cell of a multi-row grid a selector resolving to its own panel svg', () => {
+    // The core's resolveSubplotLayout measures each panel's rendered geometry
+    // through subplot.selector (via its hidden-clone highlight element) to
+    // compute visual ordering and vertical arrow direction for multi-row
+    // grids — so every emitted subplot must carry a selector matching exactly
+    // its own panel element.
+    const { container } = buildContainer([1, 1, 1, 1]);
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 1)] },
+      { layers: [barLayer('1_0', 1)] },
+      { layers: [barLayer('2_0', 1)] },
+      { layers: [barLayer('3_0', 1)] },
+    ], scope, { columns: 2 });
+
+    const svgs = Array.from(container.querySelectorAll('svg'));
+    const ownerDoc = container.ownerDocument;
+    let panel = 0;
+    for (const row of subplots) {
+      for (const subplot of row) {
+        expect(subplot.selector).toBe(`#mv-test [${PANEL_ATTR}="${panel}"]`);
+        const matched = ownerDoc.querySelectorAll(subplot.selector as string);
+        expect(matched).toHaveLength(1);
+        expect(matched[0]).toBe(svgs[panel]);
+        panel++;
+      }
+    }
+    expect(panel).toBe(4);
+  });
+
+  it('keeps grid cells aligned with the layout when a panel is empty', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { container } = buildContainer([1, 1, 1, 1]);
+      const subplots = buildVictorySubplots(container, [
+        { layers: [barLayer('0_0', 1)] },
+        { layers: [] }, // chart without supported data
+        { layers: [barLayer('2_0', 1)] },
+        { layers: [barLayer('3_0', 1)] },
+      ], scope, { columns: 2 });
+
+      // The empty panel's cell is dropped from its own row only — the
+      // remaining panels keep the rows/columns of the visual arrangement.
+      expect(subplots).toHaveLength(2);
+      expect(subplots[0].map(s => s.layers[0].id)).toEqual(['0_0']);
+      expect(subplots[1].map(s => s.layers[0].id)).toEqual(['2_0', '3_0']);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('removes rows left entirely empty after dropping empty panels', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { container } = buildContainer([1, 1, 1, 1]);
+      const subplots = buildVictorySubplots(container, [
+        { layers: [barLayer('0_0', 1)] },
+        { layers: [barLayer('1_0', 1)] },
+        { layers: [] },
+        { layers: [] },
+      ], scope, { columns: 2 });
+
+      expect(subplots).toEqual([[
+        expect.objectContaining({ selector: `#mv-test [${PANEL_ATTR}="0"]` }),
+        expect.objectContaining({ selector: `#mv-test [${PANEL_ATTR}="1"]` }),
+      ]]);
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('emits undefined selectors when a panel svg is missing', () => {
