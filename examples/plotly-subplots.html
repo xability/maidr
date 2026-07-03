@@ -27,6 +27,16 @@
 
     <div id="facet-chart" style="width: 900px; height: 450px"></div>
 
+    <h1>Plotly.js Facets (plotly.py-style paper-ref labels)</h1>
+    <p>
+      The same faceted figure, but labeled the way Python's Plotly Express
+      and <code>make_subplots</code> actually emit facet titles: annotations
+      with <code>xref/yref: 'paper'</code> positioned above each panel.
+      MAIDR resolves them geometrically against the panel axis domains.
+    </p>
+
+    <div id="paper-facet-chart" style="width: 900px; height: 450px"></div>
+
     <script>
       // --- 2x2 subplot grid (make_subplots-style manual axes) ------------
       var gridData = [
@@ -128,6 +138,46 @@
       };
 
       Plotly.newPlot('facet-chart', facetData, facetLayout);
+
+      // --- Faceted panels (plotly.py-style paper-ref labels) ---------------
+      // This is the annotation shape plotly.express and make_subplots emit:
+      // xref/yref are 'paper', and each label sits above its panel.
+      var paperFacetLayout = {
+        title: { text: 'Tips by Sex (paper-ref labels)' },
+        xaxis: { domain: [0, 0.48], title: { text: 'Total Bill ($)' } },
+        xaxis2: { domain: [0.52, 1], matches: 'x' },
+        yaxis: { domain: [0, 1], title: { text: 'Tip ($)' } },
+        yaxis2: { domain: [0, 1], matches: 'y', anchor: 'x2' },
+        annotations: [
+          {
+            text: 'sex=Female',
+            x: 0.24,
+            y: 1,
+            xref: 'paper',
+            yref: 'paper',
+            xanchor: 'center',
+            yanchor: 'bottom',
+            showarrow: false
+          },
+          {
+            text: 'sex=Male',
+            x: 0.76,
+            y: 1,
+            xref: 'paper',
+            yref: 'paper',
+            xanchor: 'center',
+            yanchor: 'bottom',
+            showarrow: false
+          }
+        ],
+        showlegend: false
+      };
+
+      Plotly.newPlot(
+        'paper-facet-chart',
+        JSON.parse(JSON.stringify(facetData)),
+        paperFacetLayout
+      );
     </script>
   </body>
 </html>

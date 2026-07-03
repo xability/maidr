@@ -24,6 +24,7 @@ import type {
   SegmentedPoint,
 } from '../../type/grammar';
 import type {
+  PlotlyAnnotation,
   PlotlyAxis,
   PlotlyCalcData,
   PlotlyFullLayout,
@@ -32,7 +33,6 @@ import type {
   PlotlyTrace,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
-import { collectUniqueBgRects } from './normalizer';
 import { generatePlotlySelectors, subplotCssPrefix } from './selectors';
 
 // Monotonic counter for generating unique IDs when the graph div has no id.
@@ -333,7 +333,7 @@ function buildSubplotGrid(
   }
 
   applyFacetTitles(grid, layout);
-  assignSubplotSelectors(grid, gd, maidrId);
+  assignSubplotSelectors(grid, maidrId);
   return grid.map(row => row.map(panel => panel.subplot));
 }
 
@@ -451,7 +451,7 @@ interface PositionedPanel extends PanelEntry {
 function arrangePanelsIntoGrid(
   panels: PanelEntry[],
   layout: PlotlyFullLayout,
-): PanelEntry[][] | null {
+): PositionedPanel[][] | null {
   const positioned: PositionedPanel[] = [];
   for (const panel of panels) {
     const xDomain = readAxisDomain(getAxis(layout, panel.group.xAxisId));
@@ -479,7 +479,7 @@ function arrangePanelsIntoGrid(
   if (gridConfig?.columns != null && colIntervals.length > gridConfig.columns)
     return null;
 
-  const cells: (PanelEntry | null)[][] = rowIntervals.map(
+  const cells: (PositionedPanel | null)[][] = rowIntervals.map(
     () => colIntervals.map(() => null),
   );
   for (const panel of positioned) {
@@ -493,7 +493,7 @@ function arrangePanelsIntoGrid(
   // Compact ragged rows. A row can never end up empty because every row
   // interval came from at least one panel.
   return cells
-    .map(row => row.filter((cell): cell is PanelEntry => cell !== null))
+    .map(row => row.filter((cell): cell is PositionedPanel => cell !== null))
     .filter(row => row.length > 0);
 }
 
@@ -520,11 +520,15 @@ function clusterIntervals(intervals: DomainInterval[]): DomainInterval[] | null 
 }
 
 function findIntervalIndex(intervals: DomainInterval[], target: DomainInterval): number {
-  return intervals.findIndex(
-    interval =>
-      Math.abs(interval[0] - target[0]) < DOMAIN_EPS
-      && Math.abs(interval[1] - target[1]) < DOMAIN_EPS,
-  );
+  return intervals.findIndex(interval => intervalsEqual(interval, target));
+}
+
+function intervalsEqual(a: DomainInterval, b: DomainInterval): boolean {
+  return Math.abs(a[0] - b[0]) < DOMAIN_EPS && Math.abs(a[1] - b[1]) < DOMAIN_EPS;
+}
+
+function containsValue(interval: DomainInterval, value: number): boolean {
+  return value >= interval[0] - DOMAIN_EPS && value <= interval[1] + DOMAIN_EPS;
 }
 
 function readAxisDomain(axis: PlotlyAxis | undefined): DomainInterval | null {
@@ -560,22 +564,58 @@ function resolveAxisLabel(layout: PlotlyFullLayout, axisId: string): string | un
 }
 
 /**
- * Applies Plotly Express facet labels (layout annotations with axis-domain
- * refs like `xref: 'x2 domain'`) as each panel's first-layer title — the
- * first layer's title is the panel's display name in MAIDR's subplot
- * summaries. Only annotations whose BOTH refs point at the panel's own axes
- * are used, so labels are never attributed to the wrong panel.
+ * Applies facet/subplot titles from layout annotations as each panel's
+ * first-layer title — the first layer's title is the panel's display name
+ * in MAIDR's subplot summaries.
+ *
+ * Two annotation shapes are recognised:
+ *
+ * 1. Axis-domain refs (`xref: 'x2 domain'`) — hand-authored facet labels.
+ *    Only annotations whose BOTH refs point at the panel's own axes are
+ *    used, so labels are never attributed to the wrong panel.
+ * 2. Paper refs (`xref: 'paper'` / `yref: 'paper'`) — what plotly.py emits
+ *    for Plotly Express facet labels and `make_subplots`
+ *    row/column/subplot titles. These carry no axis association, so they
+ *    are resolved geometrically against each panel's axis domains.
  */
-function applyFacetTitles(grid: PanelEntry[][], layout: PlotlyFullLayout): void {
+function applyFacetTitles(grid: PositionedPanel[][], layout: PlotlyFullLayout): void {
   const annotations = layout.annotations;
   if (!Array.isArray(annotations) || annotations.length === 0)
     return;
 
+  const labels = new Map<PositionedPanel, string[]>();
+  const addLabel = (panel: PositionedPanel, text: string): void => {
+    const existing = labels.get(panel);
+    if (existing) {
+      existing.push(text);
+    } else {
+      labels.set(panel, [text]);
+    }
+  };
+
+  applyDomainRefTitles(grid, annotations, addLabel);
+  applyPaperRefTitles(grid, annotations, addLabel);
+
+  for (const [panel, texts] of labels) {
+    panel.subplot.layers[0].title = texts.join(', ');
+  }
+}
+
+type AddLabel = (panel: PositionedPanel, text: string) => void;
+
+/**
+ * Matches annotations with axis-domain refs (`xref: 'x2 domain'`) to the
+ * panel owning those axes.
+ */
+function applyDomainRefTitles(
+  grid: PositionedPanel[][],
+  annotations: PlotlyAnnotation[],
+  addLabel: AddLabel,
+): void {
   for (const row of grid) {
     for (const panel of row) {
       const xRef = `${panel.group.xAxisId} domain`;
       const yRef = `${panel.group.yAxisId} domain`;
-      const labels: string[] = [];
       for (const annotation of annotations) {
         if (
           annotation
@@ -584,45 +624,197 @@ function applyFacetTitles(grid: PanelEntry[][], layout: PlotlyFullLayout): void 
           && annotation.xref === xRef
           && annotation.yref === yRef
         ) {
-          labels.push(annotation.text);
+          addLabel(panel, annotation.text);
         }
-      }
-      if (labels.length > 0) {
-        panel.subplot.layers[0].title = labels.join(', ');
       }
     }
   }
 }
 
 /**
- * Emits a per-panel `selector` (`g[id="axes_…"]`) in row-major visual order.
- * The normalizer's `wrapSubplotBackgrounds` wraps the `.bglayer` rects in
- * matching `<g>` groups, enabling MAIDR's subplot outline highlight.
- *
- * The rect↔panel association is positional, so selectors are only emitted
- * when the kept-panel count equals the unique background-rect count —
- * otherwise (e.g. a panel dropped for unsupported trace types) a wrong
- * panel could be highlighted. Ids are prefixed with the chart id to avoid
- * collisions between multiple charts on one page, while still matching the
- * core's `g[id^="axes_"]` detection.
+ * How far above a top-row panel's y-domain end a title annotation may sit
+ * (in paper units) and still be treated as that panel's title.
  */
-function assignSubplotSelectors(
-  grid: PanelEntry[][],
-  gd: PlotlyGraphDiv,
-  maidrId: string,
-): void {
-  const panelCount = grid.reduce((count, row) => count + row.length, 0);
+const TITLE_BAND = 0.25;
 
-  const bglayer = gd.querySelector('.bglayer');
-  if (!bglayer || collectUniqueBgRects(bglayer).length !== panelCount)
+/** A paper-ref annotation that is a candidate facet/subplot title. */
+interface PaperTitle {
+  text: string;
+  x: number;
+  y: number;
+  angle: number;
+}
+
+/**
+ * Extracts arrow-less paper-ref annotations with usable text and finite
+ * coordinates — the shape plotly.py uses for every facet and subplot title.
+ */
+function collectPaperTitles(annotations: PlotlyAnnotation[]): PaperTitle[] {
+  const titles: PaperTitle[] = [];
+  for (const annotation of annotations) {
+    if (
+      !annotation
+      || annotation.xref !== 'paper'
+      || annotation.yref !== 'paper'
+      || annotation.showarrow !== false
+      || typeof annotation.text !== 'string'
+      || annotation.text.length === 0
+    ) {
+      continue;
+    }
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y))
+      continue;
+    const angle = Number(annotation.textangle ?? 0);
+    titles.push({
+      text: annotation.text,
+      x,
+      y,
+      angle: Number.isFinite(angle) ? angle : 0,
+    });
+  }
+  return titles;
+}
+
+/**
+ * Resolves plotly.py-style paper-ref titles geometrically:
+ *
+ * - Row titles (px `facet_row`, `make_subplots` `row_titles`): rotated 90°,
+ *   at/right of the plot area, vertically inside a row's y-domain — applied
+ *   to every panel in that row.
+ * - Column titles (px `facet_col`, `column_titles`) and per-panel subplot
+ *   titles (px `facet_col_wrap`, `subplot_titles`): both sit just above a
+ *   panel's top edge, so each is attributed to the nearest panel top below
+ *   it. A title above the TOP row is promoted to a whole-column title only
+ *   when no lower panel in that column has its own title.
+ *
+ * Global x/y axis-title annotations (below or left of the plot area) match
+ * no panel and are skipped naturally.
+ */
+function applyPaperRefTitles(
+  grid: PositionedPanel[][],
+  annotations: PlotlyAnnotation[],
+  addLabel: AddLabel,
+): void {
+  const titles = collectPaperTitles(annotations);
+  if (titles.length === 0)
     return;
 
-  const tag = maidrId.replace(/[^\w-]/g, '_');
-  let index = 0;
+  const panels = grid.flat();
+  const maxXEnd = Math.max(...panels.map(panel => panel.xDomain[1]));
+  const maxYEnd = Math.max(...panels.map(panel => panel.yDomain[1]));
+
+  const rowMatches: { row: PositionedPanel[]; text: string }[] = [];
+  const remaining: PaperTitle[] = [];
+  for (const title of titles) {
+    const row = Math.abs(title.angle) === 90 && title.x >= maxXEnd - DOMAIN_EPS
+      ? grid.find(gridRow => containsValue(gridRow[0].yDomain, title.y))
+      : undefined;
+    if (row) {
+      rowMatches.push({ row, text: title.text });
+    } else {
+      remaining.push(title);
+    }
+  }
+
+  const pending: { title: PaperTitle; panel: PositionedPanel }[] = [];
+  for (const title of remaining) {
+    const panel = matchPanelBelowTitle(grid, title);
+    if (panel)
+      pending.push({ title, panel });
+  }
+
+  for (const { title, panel } of pending) {
+    const isTopRow = panel.yDomain[1] >= maxYEnd - DOMAIN_EPS;
+    const columnHasOwnTitles = pending.some(
+      other => other.panel !== panel && intervalsEqual(other.panel.xDomain, panel.xDomain),
+    );
+    if (isTopRow && !columnHasOwnTitles) {
+      for (const columnPanel of panels) {
+        if (intervalsEqual(columnPanel.xDomain, panel.xDomain))
+          addLabel(columnPanel, title.text);
+      }
+    } else {
+      addLabel(panel, title.text);
+    }
+  }
+
+  for (const { row, text } of rowMatches) {
+    for (const panel of row)
+      addLabel(panel, text);
+  }
+}
+
+/**
+ * Finds the panel whose top edge is nearest below a title annotation, with
+ * the annotation horizontally inside the panel's x-domain. Rejects
+ * annotations floating too far above the panel (e.g. mid-figure notes or
+ * `make_subplots`' global axis titles).
+ */
+function matchPanelBelowTitle(
+  grid: PositionedPanel[][],
+  title: PaperTitle,
+): PositionedPanel | null {
+  let best: PositionedPanel | null = null;
   for (const row of grid) {
     for (const panel of row) {
-      index += 1;
-      panel.subplot.selector = `g[id="axes_${tag}_${index}"]`;
+      if (!containsValue(panel.xDomain, title.x))
+        continue;
+      if (panel.yDomain[1] > title.y + DOMAIN_EPS)
+        continue;
+      if (!best || panel.yDomain[1] > best.yDomain[1])
+        best = panel;
+    }
+  }
+  if (!best)
+    return null;
+
+  const offset = title.y - best.yDomain[1];
+  return offset <= titleBandAbove(grid, best) + DOMAIN_EPS ? best : null;
+}
+
+/**
+ * Vertical space above a panel in which a title annotation may sit: half
+ * the gap to the row above in the same column, or a fixed band for top-row
+ * panels (titles sit between the panel top and the paper edge).
+ */
+function titleBandAbove(grid: PositionedPanel[][], panel: PositionedPanel): number {
+  let gap = Infinity;
+  for (const row of grid) {
+    for (const other of row) {
+      if (!intervalsEqual(other.xDomain, panel.xDomain))
+        continue;
+      if (other.yDomain[0] > panel.yDomain[1] + DOMAIN_EPS)
+        gap = Math.min(gap, other.yDomain[0] - panel.yDomain[1]);
+    }
+  }
+  return gap === Infinity ? TITLE_BAND : gap / 2;
+}
+
+/**
+ * Emits a per-panel `selector` (`g[id="axes_…"]`) carrying the panel's axis
+ * pair (e.g. `x2y2`) as the id suffix. The normalizer's
+ * `wrapSubplotBackgrounds` creates matching `<g>` groups around each
+ * panel's background rect — wrapping the rendered `.bglayer` rect when one
+ * exists, or injecting a transparent rect sized from the panel's computed
+ * axis offsets when plotly drew no per-panel backgrounds at all (its
+ * default styling: `paper_bgcolor === plot_bgcolor`). The axis pair in the
+ * id keys the panel↔DOM association, so it stays correct even when a panel
+ * is dropped for unsupported trace types. Ids are prefixed with the chart
+ * id to avoid collisions between multiple charts on one page, while still
+ * matching the core's `g[id^="axes_"]` detection.
+ *
+ * These groups also give the core real per-panel geometry, so visual
+ * ordering and vertical arrow-key direction are resolved correctly for
+ * multi-row grids (the grid rows are emitted top-first).
+ */
+function assignSubplotSelectors(grid: PanelEntry[][], maidrId: string): void {
+  const tag = maidrId.replace(/[^\w-]/g, '_');
+  for (const row of grid) {
+    for (const panel of row) {
+      const axisPair = `${panel.group.xAxisId}${panel.group.yAxisId}`;
+      panel.subplot.selector = `g[id="axes_${tag}_${axisPair}"]`;
     }
   }
 }

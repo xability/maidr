@@ -280,6 +280,11 @@ Faceted figures — shared `matches:` axes plus facet-label annotations, the pat
 - Facet labels (e.g. `"sex=Male"`) become the panel names announced during navigation.
 - Axis titles carried only by the outer (matched) axis are resolved for every inner panel.
 
+Both annotation shapes are recognized:
+
+- **Paper refs** (`xref: 'paper'`, `yref: 'paper'`) — what plotly.py actually emits for Plotly Express facet labels and `make_subplots` `row_titles`/`column_titles`/`subplot_titles`. These are matched to panels geometrically: column titles above the top row, rotated row titles at the right edge, and per-panel titles (e.g. `facet_col_wrap`) just above each panel.
+- **Axis-domain refs** (`xref: 'x2 domain'`) — hand-authored facet labels tied explicitly to a panel's axes, as in the example below.
+
 ```html
 <div id="facet-chart" style="width: 900px; height: 450px"></div>
 <script>

@@ -1,4 +1,5 @@
 import type { Maidr } from '../../type/grammar';
+import type { PlotlyAxis, PlotlyFullLayout, PlotlyGraphDiv } from './types';
 
 /**
  * Detects whether an SVG element lives inside a Plotly container.
@@ -62,6 +63,16 @@ export function normalizePlotlySvg(
  * the selected subplot by applying stroke to the first rect/path child.
  * We wrap the *original* Plotly rects (which have visible fill) so the
  * stroke border appears on the filled background.
+ *
+ * plotly draws NO per-panel background rects with its default styling
+ * (`paper_bgcolor === plot_bgcolor`, both opaque), and a panel dropped from
+ * the schema (unsupported trace types) leaves an extra rect behind. In both
+ * cases positional rect↔panel matching is unsafe, so the association falls
+ * back to each panel's axis pair (parsed from the selector id suffix): a
+ * transparent rect sized from the panel's computed axis offsets is injected
+ * into the `.bglayer` and wrapped instead. The resulting `g[id="axes_…"]`
+ * groups also give the core real per-panel geometry for visual ordering and
+ * vertical arrow-key direction.
  */
 function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
   const bglayer = svg.querySelector('.bglayer');
@@ -71,45 +82,145 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
   bglayer.setAttribute('data-maidr', '1');
 
   const unique = collectUniqueBgRects(bglayer);
+  const panelIds = collectPanelSelectorIds(schema);
 
-  // Extract selector IDs from schema (row-major order).
-  const selectorIds: string[] = [];
-  const subplots = schema.subplots ?? [];
-  for (const row of subplots) {
-    for (const cell of row) {
-      const sel = cell.selector;
-      if (sel) {
-        const m = sel.match(/id="([^"]+)"/);
-        if (m)
-          selectorIds.push(m[1]);
-      }
+  if (panelIds.length > 0) {
+    if (unique.length === panelIds.length) {
+      // One rendered background rect per panel: associate positionally
+      // (both sides are sorted row-major).
+      wrapRects(unique, panelIds.map(panel => panel.id));
+    } else {
+      injectPanelRects(svg, bglayer, panelIds);
     }
-  }
-
-  // The rect↔panel association is positional (both sides sorted row-major),
-  // so it is only safe when the counts agree exactly. A mismatch (e.g. a
-  // panel dropped from the schema while its background rect remains) would
-  // shift every later panel's highlight onto the wrong rect.
-  if (selectorIds.length > 0 && selectorIds.length !== unique.length) {
-    console.warn(
-      '[maidr] Plotly subplot backgrounds do not match schema panels; skipping subplot highlight wrapping.',
-    );
-    selectorIds.length = 0;
-  }
-
-  // Wrap each unique rect in a <g> with the subplot ID.
-  const ns = 'http://www.w3.org/2000/svg';
-  const count = Math.min(unique.length, selectorIds.length);
-  for (let i = 0; i < count; i++) {
-    const rect = unique[i];
-    const g = document.createElementNS(ns, 'g');
-    g.setAttribute('id', selectorIds[i]);
-    rect.parentNode!.insertBefore(g, rect);
-    g.appendChild(rect);
   }
 
   // Mirror stroke changes from hidden clones to visible originals.
   setupStrokeMirror(bglayer as SVGGElement);
+}
+
+/** A panel's `g[id="axes_…"]` id together with its parsed axis-pair key. */
+interface PanelSelectorId {
+  id: string;
+  /** Axis-pair key (e.g. `x2y2`) parsed from the id suffix, if present. */
+  axisPair: string | null;
+}
+
+/**
+ * Extracts the subplot selector ids from the schema (row-major order),
+ * parsing the trailing axis-pair key the extractor embeds in each id.
+ */
+function collectPanelSelectorIds(schema: Maidr): PanelSelectorId[] {
+  const ids: PanelSelectorId[] = [];
+  for (const row of schema.subplots ?? []) {
+    for (const cell of row) {
+      const sel = cell.selector;
+      if (!sel)
+        continue;
+      const idMatch = sel.match(/id="([^"]+)"/);
+      if (!idMatch)
+        continue;
+      const pairMatch = idMatch[1].match(/_(x\d*y\d*)$/);
+      ids.push({ id: idMatch[1], axisPair: pairMatch ? pairMatch[1] : null });
+    }
+  }
+  return ids;
+}
+
+/**
+ * Wraps each rect in a `<g>` carrying the panel id, in matching order.
+ */
+function wrapRects(rects: SVGRectElement[], ids: string[]): void {
+  const ns = 'http://www.w3.org/2000/svg';
+  const count = Math.min(rects.length, ids.length);
+  for (let i = 0; i < count; i++) {
+    const rect = rects[i];
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', ids[i]);
+    rect.parentNode!.insertBefore(g, rect);
+    g.appendChild(rect);
+  }
+}
+
+/**
+ * Injects one invisible rect per panel (sized from the panel's computed
+ * axis `_offset`/`_length`) into the `.bglayer` and wraps each in its
+ * `g[id="axes_…"]` group. Used when the rendered background rects cannot be
+ * matched to panels positionally.
+ */
+function injectPanelRects(
+  svg: SVGSVGElement,
+  bglayer: Element,
+  panelIds: PanelSelectorId[],
+): void {
+  const gd = svg.closest('.js-plotly-plot') as PlotlyGraphDiv | null;
+  const layout = gd?._fullLayout;
+  if (!layout) {
+    console.warn(
+      '[maidr] Plotly panel geometry unavailable; skipping subplot highlight wrapping.',
+    );
+    return;
+  }
+
+  const ns = 'http://www.w3.org/2000/svg';
+  for (const { id, axisPair } of panelIds) {
+    const frame = axisPair ? readPanelFrame(layout, axisPair) : null;
+    if (!frame) {
+      console.warn(
+        `[maidr] Could not resolve plotly panel geometry for "${id}"; skipping its subplot highlight.`,
+      );
+      continue;
+    }
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('x', String(frame.x));
+    rect.setAttribute('y', String(frame.y));
+    rect.setAttribute('width', String(frame.width));
+    rect.setAttribute('height', String(frame.height));
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('pointer-events', 'none');
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', id);
+    g.appendChild(rect);
+    bglayer.appendChild(g);
+  }
+}
+
+/** Splits an axis-pair key like `x2y2` into its x/y axis ids. */
+function splitAxisPair(axisPair: string): [string, string] | null {
+  const match = axisPair.match(/^(x\d*)(y\d*)$/);
+  return match ? [match[1], match[2]] : null;
+}
+
+/**
+ * Reads a panel's pixel frame from plotly's computed axis offsets
+ * (`xaxis2._offset` is the panel's left edge, `yaxis2._offset` its top).
+ */
+function readPanelFrame(
+  layout: PlotlyFullLayout,
+  axisPair: string,
+): { x: number; y: number; width: number; height: number } | null {
+  const pair = splitAxisPair(axisPair);
+  if (!pair)
+    return null;
+  const xAxis = getLayoutAxis(layout, pair[0]);
+  const yAxis = getLayoutAxis(layout, pair[1]);
+  if (
+    xAxis?._offset == null || xAxis._length == null
+    || yAxis?._offset == null || yAxis._length == null
+  ) {
+    return null;
+  }
+  return {
+    x: xAxis._offset,
+    y: yAxis._offset,
+    width: xAxis._length,
+    height: yAxis._length,
+  };
+}
+
+/** Resolves `'x2'` → `layout.xaxis2`, `'y'` → `layout.yaxis`, etc. */
+function getLayoutAxis(layout: PlotlyFullLayout, axisId: string): PlotlyAxis | undefined {
+  const name = `${axisId.charAt(0)}axis${axisId.slice(1)}`;
+  return layout[name] as PlotlyAxis | undefined;
 }
 
 /**

@@ -56,9 +56,11 @@ export interface PlotlyLayout {
 }
 
 /**
- * A layout annotation. Plotly Express emits facet labels (e.g. "sex=Male")
- * as annotations whose `xref`/`yref` are axis-domain references such as
- * `'x2 domain'`.
+ * A layout annotation. plotly.py (Plotly Express facets, `make_subplots`
+ * row/column/subplot titles) emits facet labels (e.g. "sex=Male") as
+ * annotations with `xref: 'paper'` / `yref: 'paper'` positioned via paper
+ * coordinates; hand-authored charts may instead use axis-domain references
+ * such as `'x2 domain'`. Both shapes are recognised by the extractor.
  */
 export interface PlotlyAnnotation {
   text?: string;
@@ -91,6 +93,10 @@ export interface PlotlyAxis {
   anchor?: string;
   /** Axis id whose range this axis mirrors (facet-style shared axes). */
   matches?: string;
+  /** Computed pixel offset of the axis within the SVG (plotly internal). */
+  _offset?: number;
+  /** Computed pixel length of the axis within the SVG (plotly internal). */
+  _length?: number;
 }
 
 export interface PlotlyCalcData {
