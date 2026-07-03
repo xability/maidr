@@ -56,7 +56,7 @@ Follow the architecture in [.github/copilot-instructions.md](.github/copilot-ins
 ### Adding a New UI Component
 1. Create React component in `src/ui/component/`
 2. Use `useViewModelState(key)` for state
-3. Use `useCommandExecutor()` for user actions
+3. Route user actions through the relevant ViewModel via `useViewModel(key)`
 4. Keep component "dumb" — render only
 5. Add to `App.tsx`
 6. Include ARIA attributes for accessibility

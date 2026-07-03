@@ -691,6 +691,21 @@ export class TextViewModel extends AbstractViewModel<TextState> {
 
 **Purpose:** Proper resource cleanup (timers, listeners, audio contexts, etc.)
 
+### Ownership-aware highlight disposal
+
+Trace `highlightValues` can hold two kinds of SVG elements: hidden clones and
+markers **created by MAIDR**, or the chart's **original live geometry**
+referenced for in-place highlighting (e.g. heatmap cells, library-rendered
+line dots). `AbstractTrace.dispose()` removes only elements stamped with the
+`data-maidr-owned` attribute, so disposal can never delete the visible chart.
+
+**Rule:** every code path that creates a highlight element must mark it. The
+`Svg` helpers (`selectAllElements`/`selectElement` with clone,
+`createEmptyElement`, `createCircleElement`, `createLineElement`,
+`createHighlightElement`) already do; if you clone or synthesize an element
+manually, wrap it in `Svg.markOwned(...)`. Elements selected with
+`shouldClone = false` are live chart geometry — never mark or remove them.
+
 ### Implementation
 
 **Disposable Interface:**
