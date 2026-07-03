@@ -172,13 +172,32 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   }
 
   /**
+   * Returns the commands currently visible in the palette after applying the
+   * active search filter. Mirrors the predicate used by CommandPalette.tsx so
+   * selection bounds and Enter-to-execute stay aligned with what is rendered.
+   * @returns {CommandItem[]} The filtered command list.
+   */
+  private getFilteredCommands(): CommandItem[] {
+    const { commands, search } = this.state;
+    if (!search.trim()) {
+      return commands;
+    }
+    const searchLower = search.toLowerCase();
+    return commands.filter(command =>
+      command.description.toLowerCase().includes(searchLower)
+      || command.key.toLowerCase().includes(searchLower),
+    );
+  }
+
+  /**
    * Selects and executes the currently highlighted command.
    */
   public selectCurrent(): void {
-    const currentState = this.state;
+    const filtered = this.getFilteredCommands();
+    const { selectedIndex } = this.state;
 
-    if (currentState.commands.length > 0 && currentState.selectedIndex >= 0) {
-      const command = currentState.commands[currentState.selectedIndex];
+    if (filtered.length > 0 && selectedIndex >= 0) {
+      const command = filtered[selectedIndex];
       if (command) {
         this.executeAndClose(command.commandKey);
       }
@@ -189,16 +208,16 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
    * Moves the selection up in the command list.
    */
   public moveUp(): void {
-    const currentState = this.state;
+    const filtered = this.getFilteredCommands();
 
-    if (currentState.commands.length > 0) {
+    if (filtered.length > 0) {
       // If we're on the first option (index 0), don't move up - let the component handle going back to search
-      if (currentState.selectedIndex === 0) {
+      if (this.state.selectedIndex === 0) {
         return; // Component will handle this case
       }
 
       // If no option is selected, start from the last option
-      const currentIndex = currentState.selectedIndex >= 0 ? currentState.selectedIndex : currentState.commands.length - 1;
+      const currentIndex = this.state.selectedIndex >= 0 ? this.state.selectedIndex : filtered.length - 1;
       const newIndex = Math.max(0, currentIndex - 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
@@ -208,12 +227,12 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
    * Moves the selection down in the command list.
    */
   public moveDown(): void {
-    const currentState = this.state;
+    const filtered = this.getFilteredCommands();
 
-    if (currentState.commands.length > 0) {
+    if (filtered.length > 0) {
       // If no option is selected, start from the first option
-      const currentIndex = currentState.selectedIndex >= 0 ? currentState.selectedIndex : -1;
-      const newIndex = Math.min(currentState.commands.length - 1, currentIndex + 1);
+      const currentIndex = this.state.selectedIndex >= 0 ? this.state.selectedIndex : -1;
+      const newIndex = Math.min(filtered.length - 1, currentIndex + 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
   }

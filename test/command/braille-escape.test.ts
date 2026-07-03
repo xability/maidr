@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ExitBrailleAndSubplotCommand, MoveToTraceContextCommand } from '@command/move';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
@@ -44,61 +45,106 @@ function createMockBrailleService(enabled: boolean): BrailleService {
   } as unknown as BrailleService;
 }
 
+/**
+ * Creates a mock BrailleViewModel with a toggle stub.
+ */
+function createMockBrailleViewModel(overrides: Record<string, unknown> = {}): BrailleViewModel {
+  return {
+    toggle: jest.fn(),
+    ...overrides,
+  } as unknown as BrailleViewModel;
+}
+
 describe('ExitBrailleAndSubplotCommand', () => {
-  test('executes the three-step sequence in correct order', () => {
-    const callOrder: string[] = [];
-    const context = createMockContext({
-      exitSubplot: jest.fn<() => void>().mockImplementation(() => {
-        callOrder.push('exitSubplot');
-      }),
+  describe('multi-panel figure', () => {
+    test('executes the three-step sequence in correct order', () => {
+      const callOrder: string[] = [];
+      const context = createMockContext({
+        isMultiPanel: true,
+        exitSubplot: jest.fn<() => void>().mockImplementation(() => {
+          callOrder.push('exitSubplot');
+        }),
+      });
+      const displayService = createMockDisplayService({
+        dismissModalScope: jest.fn<() => void>().mockImplementation(() => {
+          callOrder.push('dismissModalScope');
+        }),
+        notifyFocusChange: jest.fn<() => void>().mockImplementation(() => {
+          callOrder.push('notifyFocusChange');
+        }),
+      });
+      const brailleViewModel = createMockBrailleViewModel();
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
+
+      expect(callOrder).toEqual([
+        'dismissModalScope',
+        'exitSubplot',
+        'notifyFocusChange',
+      ]);
     });
-    const displayService = createMockDisplayService({
-      dismissModalScope: jest.fn<() => void>().mockImplementation(() => {
-        callOrder.push('dismissModalScope');
-      }),
-      notifyFocusChange: jest.fn<() => void>().mockImplementation(() => {
-        callOrder.push('notifyFocusChange');
-      }),
+
+    test('calls dismissModalScope with SUBPLOT as the target scope', () => {
+      const context = createMockContext({ isMultiPanel: true });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
+
+      expect(displayService.dismissModalScope).toHaveBeenCalledWith(Scope.SUBPLOT);
     });
 
-    const command = new ExitBrailleAndSubplotCommand(context, displayService);
-    command.execute();
+    test('calls notifyFocusChange with SUBPLOT', () => {
+      const context = createMockContext({ isMultiPanel: true });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
 
-    expect(callOrder).toEqual([
-      'dismissModalScope',
-      'exitSubplot',
-      'notifyFocusChange',
-    ]);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
+
+      expect(displayService.notifyFocusChange).toHaveBeenCalledWith(Scope.SUBPLOT);
+    });
+
+    test('calls context.exitSubplot()', () => {
+      const context = createMockContext({ isMultiPanel: true });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
+
+      expect(context.exitSubplot).toHaveBeenCalled();
+    });
+
+    test('does not toggle braille off', () => {
+      const context = createMockContext({ isMultiPanel: true });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
+
+      expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+    });
   });
 
-  test('calls dismissModalScope with SUBPLOT as the target scope', () => {
-    const context = createMockContext();
-    const displayService = createMockDisplayService();
+  describe('single-panel figure', () => {
+    test('toggles braille off instead of exiting the subplot', () => {
+      const traceState = { type: 'trace', empty: false };
+      const context = createMockContext({ isMultiPanel: false, state: traceState });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
 
-    const command = new ExitBrailleAndSubplotCommand(context, displayService);
-    command.execute();
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      command.execute();
 
-    expect(displayService.dismissModalScope).toHaveBeenCalledWith(Scope.SUBPLOT);
-  });
-
-  test('calls notifyFocusChange with SUBPLOT', () => {
-    const context = createMockContext();
-    const displayService = createMockDisplayService();
-
-    const command = new ExitBrailleAndSubplotCommand(context, displayService);
-    command.execute();
-
-    expect(displayService.notifyFocusChange).toHaveBeenCalledWith(Scope.SUBPLOT);
-  });
-
-  test('calls context.exitSubplot()', () => {
-    const context = createMockContext();
-    const displayService = createMockDisplayService();
-
-    const command = new ExitBrailleAndSubplotCommand(context, displayService);
-    command.execute();
-
-    expect(context.exitSubplot).toHaveBeenCalled();
+      expect(brailleViewModel.toggle).toHaveBeenCalledWith(traceState);
+      expect(context.exitSubplot).not.toHaveBeenCalled();
+      expect(displayService.dismissModalScope).not.toHaveBeenCalled();
+      expect(displayService.notifyFocusChange).not.toHaveBeenCalled();
+    });
   });
 });
 
