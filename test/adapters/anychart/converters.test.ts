@@ -491,6 +491,110 @@ describe('bindAnyCharts', () => {
     host?.remove();
   });
 
+  it('resolves every emitted subplot selector to its own panel SVG (visual-layout contract)', () => {
+    // The MAIDR core computes visual panel order and vertical arrow
+    // direction (resolveSubplotLayout's panel-geometry pass) by measuring
+    // the element matched by each subplot's `selector`. This asserts the
+    // adapter's multi-ROW output satisfies that contract: every subplot
+    // carries a selector that resolves to that panel's own, distinct SVG.
+    const wrapper = document.createElement('div');
+    document.body.appendChild(wrapper);
+    const containers = [
+      createContainerWithSvg('layout-p00', wrapper),
+      createContainerWithSvg('layout-p01', wrapper),
+      createContainerWithSvg('layout-p10', wrapper),
+      createContainerWithSvg('layout-p11', wrapper),
+    ];
+    const charts = containers.map(
+      (container, i) => createBarChart(`P${i}`, [['x', i + 1]], { container }),
+    );
+
+    const maidr = bindAnyCharts(
+      [[charts[0], charts[1]], [charts[2], charts[3]]],
+      { id: 'layout-fig' },
+    );
+
+    expect(maidr).not.toBeNull();
+    expect(maidr?.subplots).toHaveLength(2);
+
+    const resolved: Element[] = [];
+    maidr!.subplots.forEach((row, r) => {
+      row.forEach((subplot, c) => {
+        expect(subplot.selector).toBe(
+          `svg[data-maidr-anychart-panel="layout-fig-${r}-${c}"]`,
+        );
+        const el = document.querySelector(subplot.selector!);
+        expect(el).toBe(containers[r * 2 + c].querySelector('svg'));
+        resolved.push(el!);
+        // The first layer's selector is scoped inside the same panel, so the
+        // core's layer-selector fallback also stays within the panel.
+        expect(subplot.layers[0].selectors).toBe(
+          `[data-maidr-anychart-panel="layout-fig-${r}-${c}"] `
+          + `[data-maidr-anychart-bar^="layout-fig-${r}-${c}:0-"]`,
+        );
+      });
+    });
+    // Four panels, four DISTINCT elements to measure.
+    expect(new Set(resolved).size).toBe(4);
+
+    document.querySelector('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('preserves page order when other content is interleaved between panels', () => {
+    const wrapper = document.createElement('div');
+    document.body.appendChild(wrapper);
+    const container1 = createContainerWithSvg('inter-p1', wrapper);
+    const heading = document.createElement('h3');
+    heading.textContent = 'Q2 sales';
+    wrapper.appendChild(heading);
+    const container2 = createContainerWithSvg('inter-p2', wrapper);
+
+    const chartA = createBarChart('A', [['x', 1]], { container: container1 });
+    const chartB = createBarChart('B', [['x', 2]], { container: container2 });
+
+    const maidr = bindAnyCharts([[chartA, chartB]], { id: 'inter-fig' });
+
+    expect(maidr).not.toBeNull();
+
+    // Non-contiguous same-parent panels must NOT be pulled together past the
+    // heading; the shared parent is wrapped in place instead.
+    expect(Array.from(wrapper.children)).toEqual([container1, heading, container2]);
+    const host = wrapper.parentElement;
+    expect(host?.hasAttribute('data-maidr-anychart-host')).toBe(true);
+    expect(host?.contains(container1)).toBe(true);
+    expect(host?.contains(container2)).toBe(true);
+    expect(host?.getAttribute('maidr-data')).toBeTruthy();
+
+    host?.remove();
+  });
+
+  it('returns the originally bound Maidr on re-bind without an explicit id', () => {
+    const wrapper = document.createElement('div');
+    document.body.appendChild(wrapper);
+    const container1 = createContainerWithSvg('rebind-p1', wrapper);
+    const container2 = createContainerWithSvg('rebind-p2', wrapper);
+
+    const chartA = createBarChart('A', [['x', 1]], { container: container1 });
+    const chartB = createBarChart('B', [['x', 2]], { container: container2 });
+
+    const first = bindAnyCharts([[chartA, chartB]]);
+    expect(first).not.toBeNull();
+
+    // Second call without options.id would mint a fresh generated id whose
+    // panel tokens were never stamped; the reuse path must return the
+    // Maidr the DOM was actually bound with.
+    const again = bindAnyCharts([[chartA, chartB]]);
+    expect(again).toBe(first);
+
+    // The returned object's selectors resolve against the stamped DOM.
+    expect(document.querySelector(again!.subplots[0][0].selector!))
+      .toBe(container1.querySelector('svg'));
+    expect(document.querySelector(again!.subplots[0][1].selector!))
+      .toBe(container2.querySelector('svg'));
+
+    document.querySelector('[data-maidr-anychart-host]')?.remove();
+  });
+
   it('refuses charts sharing one container (shared-Stage dashboards)', () => {
     const container = createContainerWithSvg('bind-shared');
     const chartA = createBarChart('A', [['x', 1]], { container });

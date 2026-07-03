@@ -13,7 +13,12 @@
         gap: 1rem;
         margin-bottom: 1rem;
       }
-      #dashboard > div { width: 480px; height: 320px; }
+      /* Size panel containers via a class (or any descendant selector), NOT a
+         child combinator like `#dashboard > div`: binding moves the panels
+         into MAIDR's transparent host <div>, after which child-combinator
+         rules would stop matching and AnyChart re-layouts (window resize,
+         chart.draw() on data updates) would re-measure unstyled containers. */
+      #dashboard .panel { width: 480px; height: 320px; }
       p { max-width: 980px; }
     </style>
     <!-- 1. Load AnyChart (CDN). -->
@@ -79,10 +84,10 @@
       <kbd>S</kbd> to toggle sonification.
     </p>
     <div id="dashboard">
-      <div id="panel-q1"></div>
-      <div id="panel-q2"></div>
-      <div id="panel-q3"></div>
-      <div id="panel-q4"></div>
+      <div id="panel-q1" class="panel"></div>
+      <div id="panel-q2" class="panel"></div>
+      <div id="panel-q3" class="panel"></div>
+      <div id="panel-q4" class="panel"></div>
     </div>
   </body>
 </html>

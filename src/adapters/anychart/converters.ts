@@ -2364,6 +2364,16 @@ export function anyChartToMaidr(
 const boundElements = new WeakSet<Element>();
 
 /**
+ * The {@link Maidr} object each group host was bound with, so repeat
+ * {@link bindAnyCharts} calls can honor their documented contract and return
+ * the CURRENTLY BOUND object. Without this cache a re-bind without an
+ * explicit `options.id` would return a freshly built Maidr whose generated
+ * id — and therefore every panel-token selector — references attributes
+ * that were never stamped into the DOM (stamping only runs on first bind).
+ */
+const boundGroupData = new WeakMap<Element, Maidr>();
+
+/**
  * Bind an AnyChart chart to MAIDR for accessible interaction.
  *
  * This is the primary high-level API. It extracts data from a drawn
@@ -2878,8 +2888,12 @@ export function bindAnyCharts(
   const host = ensureGroupHostWrapper(containers);
   if (!host)
     return null;
-  if (boundElements.has(host))
-    return maidr;
+  if (boundElements.has(host)) {
+    // Reuse path: return the Maidr the host was actually bound with. The
+    // freshly built `maidr` above may carry a newly generated id whose
+    // panel-token selectors were never stamped into the DOM.
+    return boundGroupData.get(host) ?? maidr;
+  }
 
   const containerByChart = new Map<AnyChartInstance, HTMLElement>(
     flatCharts.map((chart, i) => [chart, containers[i]]),
@@ -2896,6 +2910,7 @@ export function bindAnyCharts(
     if (boundElements.has(host))
       return;
     boundElements.add(host);
+    boundGroupData.set(host, maidr);
     host.setAttribute('maidr-data', JSON.stringify(maidr));
     host.dispatchEvent(
       new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }),
@@ -2955,13 +2970,17 @@ function documentOrder(a: Node, b: Node): number {
  *
  * Strategy:
  * - If an existing host already contains every panel, reuse it.
- * - If all containers share one parent, insert a `display: contents` host
- *   before the first container (in document order) and move the containers
- *   into it — `display: contents` keeps them participating in the parent's
- *   flex/grid layout exactly as before.
- * - Otherwise wrap the containers' lowest common ancestor, unless that
- *   ancestor is `<body>` / `<html>` (which cannot be reparented) — in that
- *   case the bind fails with guidance to add a wrapper element.
+ * - If all containers are CONTIGUOUS siblings (same parent, nothing
+ *   interleaved between them), insert a `display: contents` host before the
+ *   first container (in document order) and move the containers into it —
+ *   `display: contents` keeps them participating in the parent's flex/grid
+ *   layout exactly as before, and contiguity guarantees the move cannot
+ *   reorder any other page content (captions, headings, ...).
+ * - Otherwise wrap the containers' lowest common ancestor (for
+ *   non-contiguous same-parent panels that is the shared parent itself,
+ *   wrapped in place), unless that ancestor is `<body>` / `<html>` (which
+ *   cannot be reparented) — in that case the bind fails with guidance to
+ *   add a wrapper element.
  *
  * The host carries the union bounding box of all panels via the
  * `data-maidr-host-width` / `-height` attributes consumed by
@@ -3001,10 +3020,22 @@ function ensureGroupHostWrapper(containers: HTMLElement[]): HTMLElement | null {
       && containers.every(c => c.parentElement === firstParent);
   if (sameParent) {
     const ordered = [...containers].sort(documentOrder);
-    firstParent.insertBefore(host, ordered[0]);
-    for (const container of ordered)
-      host.appendChild(container);
-    return host;
+    // Move the containers into the host ONLY when they are contiguous
+    // siblings. Pulling non-adjacent panels together would drag them past
+    // interleaved content (captions, headings, ...), visibly reordering the
+    // page — in that case fall through to the LCA path below, which wraps
+    // the shared parent in place and never changes internal order.
+    const contiguous = ordered.every(
+      (container, i) =>
+        i === ordered.length - 1
+        || container.nextElementSibling === ordered[i + 1],
+    );
+    if (contiguous) {
+      firstParent.insertBefore(host, ordered[0]);
+      for (const container of ordered)
+        host.appendChild(container);
+      return host;
+    }
   }
 
   const lca = lowestCommonAncestor(containers);
