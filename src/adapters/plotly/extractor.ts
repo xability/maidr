@@ -459,6 +459,10 @@ function extractScatterLayer(
   const len = Math.min(x.length, y.length);
   const data: ScatterPoint[] = [];
   for (let i = 0; i < len; i++) {
+    // Skip explicit null gaps up front: `Number(null)` is 0 and would slip past
+    // the NaN filter as a fabricated (0, 0) point.
+    if (x[i] == null || y[i] == null)
+      continue;
     const xVal = Number(x[i]);
     const yVal = Number(y[i]);
     if (Number.isNaN(xVal) || Number.isNaN(yVal))
@@ -527,27 +531,22 @@ function extractBarLayer(
   const data: BarPoint[] = [];
 
   for (let i = 0; i < len; i++) {
-    if (isHorizontal) {
-      data.push({ x: y[i], y: x[i] }); // Swap for horizontal bars.
-    } else {
-      data.push({ x: x[i], y: y[i] });
-    }
+    // Plotly stores the bar value on `x` for horizontal bars and on `y` for
+    // vertical, which already matches AbstractBarPlot's per-orientation reading
+    // (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap
+    // is needed — and the plotly x/y axes already line up with the layer axes.
+    data.push({ x: x[i], y: y[i] });
   }
 
   if (data.length === 0)
     return null;
-
-  // For horizontal bars, swap axis labels and set orientation.
-  const barAxes = isHorizontal
-    ? { ...axes, x: axes?.y, y: axes?.x }
-    : axes;
 
   return {
     id,
     type: TraceType.BAR,
     title,
     selectors,
-    axes: barAxes,
+    axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     data,
   };
@@ -577,6 +576,12 @@ function extractMultiLineLayer(
     const seriesName = trace.name ?? `Series ${data.length + 1}`;
 
     for (let i = 0; i < len; i++) {
+      // Plotly uses `null` for line gaps (`y: [1, null, 3]`). Skip them (rather
+      // than let `Number(null)` fabricate a `0` that gets announced/sonified),
+      // and skip non-finite entries so they cannot poison the line's min/max.
+      // Skipping keeps indices aligned with the DOM, which omits null points.
+      if (y[i] == null || !Number.isFinite(Number(y[i])))
+        continue;
       series.push({
         x: x[i] as number | string,
         y: Number(y[i]),
@@ -661,13 +666,22 @@ function extractMultiBoxLayer(
     const lowerCount = boxPoint.lowerOutliers.length;
     const upperCount = boxPoint.upperOutliers.length;
 
+    // The rendered `.points` group holds `pts2` in ascending order. With
+    // `boxpoints: 'all'` (or 'suspectedoutliers') it also contains inliers, so
+    // upper outliers are the LAST `upperCount` children — not the ones right
+    // after the lower outliers. Index them from the end of the rendered list.
+    // (With `boxpoints: 'outliers'` pts2 holds only outliers, so this reduces
+    // to the old `lowerCount + 1` start.)
+    const renderedCount = (cd.length > 0 ? cd[0]?.pts2?.length : undefined)
+      ?? (lowerCount + upperCount);
+
     // Build individual selectors for each outlier point (compatible with all browsers).
     const lowerOutliersSel: string[] = [];
     for (let oi = 1; oi <= lowerCount; oi++) {
       lowerOutliersSel.push(`${pointsBase} > path.point:nth-child(${oi})`);
     }
     const upperOutliersSel: string[] = [];
-    for (let oi = lowerCount + 1; oi <= lowerCount + upperCount; oi++) {
+    for (let oi = renderedCount - upperCount + 1; oi <= renderedCount; oi++) {
       upperOutliersSel.push(`${pointsBase} > path.point:nth-child(${oi})`);
     }
 
@@ -971,17 +985,14 @@ function extractSegmentedBarLayer(
     if (!x || !y)
       continue;
 
-    const horizontal = trace.orientation === 'h';
     const z = trace.name ?? `Series ${data.length + 1}`;
     const len = Math.min(x.length, y.length);
     const series: SegmentedPoint[] = [];
 
     for (let i = 0; i < len; i++) {
-      if (horizontal) {
-        series.push({ x: y[i], y: x[i], z });
-      } else {
-        series.push({ x: x[i], y: y[i], z });
-      }
+      // Plotly stores the value on `x` for horizontal bars and on `y` for
+      // vertical, matching AbstractBarPlot's per-orientation reading — no swap.
+      series.push({ x: x[i], y: y[i], z });
     }
 
     data.push(series);
@@ -990,19 +1001,13 @@ function extractSegmentedBarLayer(
   if (data.length === 0)
     return null;
 
-  // For horizontal bars, swap axis labels.
+  // The plotly x/y axes already line up with the layer axes for both
+  // orientations, so no label swap is needed.
   const axes: MaidrLayer['axes'] = {};
-  if (isHorizontal) {
-    if (yLabel)
-      axes.x = { label: yLabel };
-    if (xLabel)
-      axes.y = { label: xLabel };
-  } else {
-    if (xLabel)
-      axes.x = { label: xLabel };
-    if (yLabel)
-      axes.y = { label: yLabel };
-  }
+  if (xLabel)
+    axes.x = { label: xLabel };
+  if (yLabel)
+    axes.y = { label: yLabel };
 
   const selectors = generatePlotlySelectors(type, barTraces[0].globalIdx, gd);
 

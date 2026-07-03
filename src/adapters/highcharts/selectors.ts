@@ -26,13 +26,6 @@ import type { HighchartsChart } from './types';
 let selectorCounter = 0;
 
 /**
- * Resets the internal selector counter. Useful for deterministic output in tests.
- */
-export function resetSelectorCounter(): void {
-  selectorCounter = 0;
-}
-
-/**
  * Ensures the chart's render target has an `id` attribute so CSS selectors
  * can be scoped to this specific chart.
  *
@@ -101,17 +94,6 @@ export function lineSelectors(containerId: string, seriesIndices: number[]): str
  */
 export function scatterSelector(containerId: string, seriesIndex: number): string {
   return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not([visibility="hidden"])`;
-}
-
-/**
- * Generates a CSS selector for heatmap cell elements.
- *
- * Heatmap cells carry the `highcharts-point` class. They are typically rendered
- * as `<rect>`, but matching by class only is more robust to future Highcharts
- * changes (e.g., rounded-corner cells using `<path>`).
- */
-export function heatmapSelector(containerId: string, seriesIndex: number): string {
-  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
 }
 
 /**
