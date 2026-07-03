@@ -388,7 +388,12 @@ export type D3FacetsConfig = D3PanelChartSpec & {
    * Accessor for each panel's display title, resolved against the panel
    * element's D3-bound `__data__` (for `d3.groups` output, the `[key,
    * values]` tuple — pass `d => d[0]` or rely on the automatic key
-   * detection). Falls back to `Panel <n>` when unresolvable.
+   * detection). Function accessors receive `(datum, index)` and are invoked
+   * even when the panel has no bound datum (`datum` is then `undefined`),
+   * so index-only accessors like `(_d, i) => keys[i]` work for panels
+   * appended without a data join; string-key accessors and the automatic
+   * key detection require a bound datum. Falls back to `Panel <n>` when
+   * unresolvable.
    */
   panelTitle?: DataAccessor<string>;
   /** Explicit grid layout. When omitted, inferred from panel geometry. */

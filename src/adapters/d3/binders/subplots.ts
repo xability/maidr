@@ -34,8 +34,8 @@ import type {
   D3SubplotsConfig,
   DataAccessor,
 } from '../types';
-import { cssEscape, ensureContainerId, PANEL_ATTRIBUTE } from '../selectors';
-import { applyMaidrData, generateId, getD3Datum, resolveAccessorOptional } from '../util';
+import { ensureContainerId, PANEL_ATTRIBUTE } from '../selectors';
+import { applyMaidrData, generateId, getD3Datum, isMaidrOwned, resolveAccessorOptional } from '../util';
 import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
 import { buildCandlestickLayer } from './candlestick';
@@ -91,7 +91,11 @@ import { buildSmoothLayer } from './smooth';
 export function bindD3Facets(svg: Element, config: D3FacetsConfig): D3MultiPanelResult {
   const { panelSelector, panelTitle, layout } = config;
 
-  const panels = Array.from(svg.querySelectorAll(panelSelector));
+  // Skip MAIDR-owned hidden clones: while the chart is focused, the core
+  // keeps a hidden copy of highlighted geometry next to the originals, and
+  // those copies can match panelSelector on a live-data rebind.
+  const panels = Array.from(svg.querySelectorAll(panelSelector))
+    .filter(panel => !isMaidrOwned(panel));
   if (panels.length === 0) {
     throw new Error(
       `bindD3Facets: no panel elements found for panelSelector "${panelSelector}". `
@@ -203,11 +207,15 @@ function buildPanelGrid(
     built.layer.title = titleFor(cell.panelEl, index, built.layer.title);
     layers.push(built.layer);
 
+    // Deliberately NO subplot-level `selector`: the core deep-clones whatever
+    // it matches into a hidden copy, and for a stamped panel that clone would
+    // carry the copied `axes_*` id — the active-panel outline would then be
+    // drawn inside the invisible clone. With the selector absent, the core
+    // anchors axes lookup and panel geometry on the first layer selector's
+    // first match (an original mark inside the original panel), the same
+    // convention the known-good examples/facet_barplot.html uses.
     return {
       ...(built.legend && built.legend.length > 0 ? { legend: built.legend } : {}),
-      // The panel's own container element: used by the core for the
-      // subplot-level highlight and as the anchor for axes-group lookup.
-      selector: `#${cssEscape(containerId)} [${PANEL_ATTRIBUTE}="${index}"]`,
       layers: [built.layer],
     };
   }));
@@ -242,11 +250,14 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
 }
 
 /**
- * Resolves a facet panel's display title from its D3-bound datum.
+ * Resolves a facet panel's display title.
  *
- * Priority: the user's `panelTitle` accessor; then automatic detection of the
- * `d3.groups` tuple (`[key, values]`) or nest-style (`{ key, values }`)
- * shapes; finally the positional fallback `Panel <n>`.
+ * Priority: the user's `panelTitle` accessor — function accessors are always
+ * invoked (with an `undefined` datum when the panel was appended without a
+ * D3 data join, so index-only accessors like `(_d, i) => keys[i]` keep
+ * working), while string-key accessors require a bound datum; then automatic
+ * detection of the `d3.groups` tuple (`[key, values]`) or nest-style
+ * (`{ key, values }`) shapes; finally the positional fallback `Panel <n>`.
  */
 function resolvePanelTitle(
   panelEl: Element,
@@ -254,15 +265,17 @@ function resolvePanelTitle(
   index: number,
 ): string {
   const datum = getD3Datum(panelEl);
-  if (datum !== undefined && datum !== null) {
-    if (accessor !== undefined) {
-      const value = resolveAccessorOptional<string>(datum, accessor, index);
-      if (value !== undefined && value !== null) {
-        return String(value);
-      }
-    } else if (Array.isArray(datum) && datum.length === 2) {
+  const hasDatum = datum !== undefined && datum !== null;
+  if (accessor !== undefined && (typeof accessor === 'function' || hasDatum)) {
+    const value = resolveAccessorOptional<string>(datum, accessor, index);
+    if (value !== undefined && value !== null) {
+      return String(value);
+    }
+  } else if (hasDatum) {
+    if (Array.isArray(datum) && datum.length === 2) {
       return String(datum[0]);
-    } else if (typeof datum === 'object' && 'key' in (datum as Record<string, unknown>)) {
+    }
+    if (typeof datum === 'object' && 'key' in (datum as Record<string, unknown>)) {
       return String((datum as Record<string, unknown>).key);
     }
   }
@@ -283,9 +296,12 @@ function clearPanelStamps(container: Element): void {
  *
  * Applied only when it cannot clobber user state: every panel must be a
  * `<g>` element whose id is either absent or already an `axes_*` id (from a
- * previous bind, keeping rebinds stable). Skipping is safe — navigation,
- * text, and audio work without the ids; only the visual panel outline and
- * DOM-based ordering are lost.
+ * previous bind, keeping rebinds stable). When stamping is skipped only the
+ * visual active-panel outline is lost: the core still resolves visual
+ * ordering and vertical arrow direction by measuring each panel's rendered
+ * geometry through the first element matched by the subplot's first layer
+ * selector (`resolveSubplotLayout`'s panel-geometry fallback), which the
+ * emitted `#<svgId> [data-maidr-panel="<i>"] …` selectors satisfy.
  */
 function stampAxesIdsIfClean(panels: Element[], containerId: string): void {
   const clean = panels.every(
@@ -334,7 +350,7 @@ function arrangeEntries(
   if (Array.isArray(entries[0])) {
     // Explicit 2D grid: preserve the user's shape (ragged rows allowed).
     const rows = entries as D3SubplotEntry[][];
-    return rows.map((row, rowIndex) => {
+    const grid = rows.map((row, rowIndex) => {
       if (row.length === 0) {
         throw new Error(
           `bindD3Subplots: row ${rowIndex} of \`subplots\` is empty. `
@@ -343,12 +359,15 @@ function arrangeEntries(
       }
       return row.map(entry => ({ root: resolveRoot(container, entry.root), entry }));
     });
+    assertUniqueRoots(grid.flat());
+    return grid;
   }
 
   const flat = (entries as D3SubplotEntry[]).map(entry => ({
     root: resolveRoot(container, entry.root),
     entry,
   }));
+  assertUniqueRoots(flat);
 
   if (layout === 'row') {
     return [flat];
@@ -366,12 +385,41 @@ function arrangeEntries(
     .map(row => row.map(root => cellByRoot.get(root)!));
 }
 
-/** Resolves an entry's `root` (element or selector) against the container. */
+/**
+ * Rejects subplot entries whose `root` resolves to the same panel element.
+ *
+ * Without this guard duplicates degrade silently instead of erroring: the
+ * geometry-inference path deduplicates the shared element (dropping one
+ * entry's chart entirely), and on every layout path the second panel stamp
+ * overwrites the first, leaving the first subplot with dead selectors and no
+ * highlighting.
+ */
+function assertUniqueRoots(cells: { root: Element; entry: D3SubplotEntry }[]): void {
+  const firstIndexByRoot = new Map<Element, number>();
+  cells.forEach(({ root }, index) => {
+    const first = firstIndexByRoot.get(root);
+    if (first !== undefined) {
+      throw new Error(
+        `bindD3Subplots: subplot entries ${first} and ${index} resolve to the `
+        + `same panel root element. Each subplot must have its own container `
+        + `element — check for duplicate \`root\` selectors.`,
+      );
+    }
+    firstIndexByRoot.set(root, index);
+  });
+}
+
+/**
+ * Resolves an entry's `root` (element or selector) against the container.
+ * MAIDR-owned hidden clones are skipped so a live-data rebind can never
+ * mistake the core's highlight copies for a panel root.
+ */
 function resolveRoot(container: Element, root: Element | string): Element {
   if (typeof root !== 'string') {
     return root;
   }
-  const resolved = container.querySelector(root);
+  const resolved = Array.from(container.querySelectorAll(root))
+    .find(candidate => !isMaidrOwned(candidate));
   if (!resolved) {
     throw new Error(
       `bindD3Subplots: no element found for panel root selector "${root}" `

@@ -31,6 +31,31 @@ export function getD3Datum(element: Element): unknown {
 }
 
 /**
+ * Selector for elements created by the MAIDR core itself — hidden highlight
+ * clones and markers inserted next to the user's chart geometry. The
+ * attribute string mirrors the private `Svg.OWNED_ATTRIBUTE` constant in
+ * `src/util/svg.ts`; keep the two in sync.
+ */
+const MAIDR_OWNED_SELECTOR = '[data-maidr-owned]';
+
+/**
+ * Whether an element was created by the MAIDR core, or lives inside one that
+ * was. Only the ROOT of a cloned subtree carries the ownership stamp, so the
+ * `closest()` ancestor check is required to also exclude descendants of a
+ * cloned container.
+ *
+ * Binders must skip owned elements whenever they read the live DOM: while a
+ * chart is focused, the core keeps hidden `cloneNode` copies of marks (and
+ * potentially whole panels) right next to the originals. Those clones match
+ * the same user selectors but carry no D3 `__data__` (cloneNode does not copy
+ * JS expando properties), so a rebind that picks them up either doubles the
+ * element count or throws a "no D3-bound data" error.
+ */
+export function isMaidrOwned(element: Element): boolean {
+  return element.closest(MAIDR_OWNED_SELECTOR) !== null;
+}
+
+/**
  * Resolves a {@link DataAccessor} to extract a value from a datum.
  *
  * Two accessor shapes are supported:
@@ -177,6 +202,11 @@ export function resolveAccessorOptional<T>(
  * Queries all matching elements within a container and returns them with
  * their D3-bound data.
  *
+ * Elements created by the MAIDR core (hidden highlight clones, stamped with
+ * `data-maidr-owned`) are excluded, so rebinding while a chart is focused —
+ * when those clones are present in the live DOM — still sees only the user's
+ * real marks with contiguous indexes.
+ *
  * @param container - The root element (typically an SVG) to query within.
  * @param selector - CSS selector for the target elements.
  * @returns Array of `{ element, datum, index }` tuples.
@@ -189,7 +219,8 @@ export function queryD3Elements(
   if (!selector) {
     throw new Error('CSS selector must not be empty.');
   }
-  const elements = Array.from(container.querySelectorAll(selector));
+  const elements = Array.from(container.querySelectorAll(selector))
+    .filter(element => !isMaidrOwned(element));
   return elements.map((element, index) => ({
     element,
     datum: getD3Datum(element),
