@@ -63,7 +63,8 @@
     <p>
       One amCharts Root with a vertical layout and two stacked XYCharts. MAIDR
       exposes each chart as a subplot: use the arrow keys to move between
-      panels, Enter to drill into a panel, and Escape to return.
+      panels (Up moves to the visually upper panel; numbering starts at the
+      bottom panel), Enter to drill into a panel, and Escape to return.
     </p>
     <div id="multipanel-chart" class="chart" style="height: 560px"></div>
 
@@ -348,8 +349,9 @@
       // -------------------------------------------------------------------
       // Multi-panel: two XYCharts stacked vertically in ONE Root.
       // MAIDR converts each chart into its own subplot (arrow keys move
-      // between panels; Enter drills in, Escape returns). Each chart's Label
-      // child becomes the panel's display name.
+      // between panels — Up moves visually up, and "Subplot 1" is the bottom
+      // panel; Enter drills in, Escape returns). Each chart's Label child
+      // becomes the panel's display name.
       // -------------------------------------------------------------------
       (function () {
         var root = am5.Root.new("multipanel-chart");

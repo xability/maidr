@@ -4,7 +4,9 @@
  * Supports single charts and multi-panel roots: every `XYChart` found in the
  * root's container tree (including am5stock `StockPanel`s, which extend
  * `XYChart`) becomes one MAIDR subplot, arranged in a grid mirroring the
- * on-screen layout.
+ * on-screen layout with rows emitted bottom-first (see
+ * {@link computeChartGrid}) so the core's UPWARD = row+1 mapping moves
+ * visually up.
  *
  * @example
  * ```ts
@@ -81,13 +83,15 @@ export interface AmChartsConversion {
  * The function walks the root's container tree, collects every XY chart
  * (including am5stock `StockPanel`s), and converts each one into a MAIDR
  * subplot. A single chart produces a 1x1 grid; multiple charts are arranged
- * in a grid mirroring their on-screen layout.
+ * in a grid mirroring their on-screen layout, rows ordered bottom-first so
+ * that pressing Up moves to the visually upper panel.
  *
  * @param root    The amCharts 5 `Root` instance.
  * @param options Optional overrides for title, subtitle, and axis labels.
  * @returns       A {@link Maidr} object ready for `<Maidr data={...}>`.
  *
- * @throws If no supported chart is found inside the root.
+ * @throws If no supported chart is found inside the root, or if no chart
+ *         contains a supported series with data.
  */
 export function fromAmCharts(root: AmRoot, options?: AmChartsBinderOptions): Maidr {
   const charts = findXYCharts(root);
@@ -142,7 +146,11 @@ export function fromXYCharts(
  * Multiple charts: one subplot per chart, positioned via {@link computeChartGrid}
  * (falls back to one row in insertion order when geometry is unavailable).
  * Charts yielding no supported layers are dropped — the core model crashes on
- * empty subplots or empty grid rows.
+ * empty subplots or empty grid rows. When NO chart yields a layer, a
+ * descriptive error is thrown instead of emitting the `[[{ layers: [] }]]`
+ * shape, which would crash the core model at Controller construction.
+ *
+ * @throws If no chart contains a supported series with data.
  */
 export function convertCharts(
   charts: AmXYChart[],
@@ -160,6 +168,9 @@ export function convertCharts(
     const chart = charts[0];
     const title = options?.title ?? readChartTitle(chart);
     const layers = buildChartLayers(chart, containerEl, options);
+    if (layers.length === 0) {
+      throw noSupportedDataError();
+    }
     const subplot: MaidrSubplot = { layers };
 
     return {
@@ -196,8 +207,9 @@ export function convertCharts(
   }
 
   if (panels.length === 0) {
-    // No chart produced layers; keep the original single-chart output shape.
-    return convertCharts([charts[0]], containerEl, options);
+    // Never emit `[[{ layers: [] }]]` — it crashes the core model the moment
+    // the Controller is constructed. Fail with an actionable adapter error.
+    throw noSupportedDataError();
   }
 
   return {
@@ -426,15 +438,26 @@ function buildLineLayer(
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Error thrown when no chart yields a supported series with data. */
+function noSupportedDataError(): Error {
+  return new Error(
+    'maidr amCharts binder: no supported series with data found in any chart. '
+    + 'Ensure series data is set before calling fromAmCharts()/bindAmCharts().',
+  );
+}
+
 /**
  * Collect every XY chart in the root's container tree, in depth-first
  * (insertion) order.
  *
  * Recursion reaches charts nested inside intermediate containers — notably
  * am5stock `StockPanel`s (which extend `XYChart`) inside a `StockChart`'s
- * panels container. Found charts are not descended into, so a chart's own
- * `XYChartScrollbar` preview (which duck-types as an XYChart) never becomes a
- * phantom panel; a class-name guard covers scrollbars mounted elsewhere.
+ * panels container. `XYChartScrollbar` subtrees are pruned before recursion:
+ * a real scrollbar is a plain `Scrollbar` container (NOT chart-like itself)
+ * whose child is a preview `XYChart` — descending into it would surface that
+ * preview as a phantom panel (e.g. a scrollbar mounted in a StockChart's
+ * toolsContainer, the standard am5stock pattern). Found charts are also not
+ * descended into, so an in-chart scrollbar preview is never visited either.
  */
 export function findXYCharts(root: AmRoot): AmXYChart[] {
   const found: AmXYChart[] = [];
@@ -444,10 +467,13 @@ export function findXYCharts(root: AmRoot): AmXYChart[] {
 
 function collectXYCharts(node: unknown, found: AmXYChart[]): void {
   for (const child of childValues(node)) {
+    const cls = (child as { className?: string } | null)?.className;
+    if (cls === 'XYChartScrollbar') {
+      // Never a panel; its child preview XYChart must not be found either.
+      continue;
+    }
     if (isXYChartLike(child)) {
-      if (child.className !== 'XYChartScrollbar') {
-        found.push(child);
-      }
+      found.push(child);
       continue;
     }
     collectXYCharts(child, found);

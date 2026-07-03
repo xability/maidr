@@ -19,10 +19,24 @@ describe('computeChartGrid', () => {
     expect(computeChartGrid([chart])).toEqual([[chart]]);
   });
 
-  it('stacks vertically arranged charts into separate rows', () => {
+  it('stacks vertically arranged charts into separate rows, bottom row first', () => {
     const top = fakeChart({ bounds: { left: 0, top: 0, right: 600, bottom: 180 } });
     const bottom = fakeChart({ bounds: { left: 0, top: 200, right: 600, bottom: 380 } });
-    expect(computeChartGrid([bottom, top])).toEqual([[top], [bottom]]);
+    // Bottom-first (matplotlib convention): the core's MovableGrid maps UPWARD
+    // to row+1 and canvas charts get no DOM-based vertical inversion, so data
+    // row 0 must be the visually lowest panel for ArrowUp to move visually up.
+    expect(computeChartGrid([bottom, top])).toEqual([[bottom], [top]]);
+  });
+
+  it('orders a 2x2 grid bottom row first, left-to-right within rows', () => {
+    const topLeft = fakeChart({ bounds: { left: 0, top: 0, right: 280, bottom: 180 } });
+    const topRight = fakeChart({ bounds: { left: 320, top: 0, right: 600, bottom: 180 } });
+    const bottomLeft = fakeChart({ bounds: { left: 0, top: 220, right: 280, bottom: 400 } });
+    const bottomRight = fakeChart({ bounds: { left: 320, top: 220, right: 600, bottom: 400 } });
+    expect(computeChartGrid([topRight, bottomLeft, topLeft, bottomRight])).toEqual([
+      [bottomLeft, bottomRight],
+      [topLeft, topRight],
+    ]);
   });
 
   it('groups charts with nearly equal tops into one row, sorted by left', () => {

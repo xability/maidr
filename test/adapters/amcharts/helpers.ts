@@ -116,9 +116,14 @@ export function fakeChart(config: FakeChartConfig = {}): AmXYChart {
   return chart as unknown as AmXYChart;
 }
 
-/** A container-like node (e.g. a StockChart or panels container). */
-export function fakeContainer(children: unknown[]): unknown {
+/**
+ * A container-like node (e.g. a StockChart, a panels/tools container, or an
+ * `XYChartScrollbar` when given that `className` — a real scrollbar is a plain
+ * container, NOT chart-like, whose child is a preview `XYChart`).
+ */
+export function fakeContainer(children: unknown[], className?: string): unknown {
   return {
+    ...(className != null ? { className } : {}),
     get: () => undefined,
     children: { values: children },
   };

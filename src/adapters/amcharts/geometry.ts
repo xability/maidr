@@ -49,9 +49,16 @@ interface ChartCell {
  *
  * Charts are grouped into rows by root-relative top coordinate (tolerance:
  * half the smaller chart height, so slight offsets from titles or legends do
- * not split a row) and sorted left-to-right within each row — visual reading
- * order, top-left first. Handles vertical, horizontal, and Grid layouts
- * uniformly without depending on layout internals.
+ * not split a row) and sorted left-to-right within each row. Handles
+ * vertical, horizontal, and Grid layouts uniformly without depending on
+ * layout internals.
+ *
+ * Rows are emitted BOTTOM-first (the grammar's native matplotlib convention:
+ * the core's `MovableGrid` maps UPWARD to `row + 1`). amCharts renders to
+ * canvas, so the core's DOM layout pass cannot measure panel positions and
+ * always takes its no-inversion fallback — emitting the bottom row as data
+ * row 0 is the only way to make ArrowUp move visually up. The trade-off is
+ * that panel numbering ("Subplot 1") starts at the bottom-left panel.
  *
  * Falls back to a single row in insertion order when any chart's geometry is
  * unavailable (e.g. before layout, on the JSON `fromAmCharts` path).
@@ -93,7 +100,8 @@ export function computeChartGrid(charts: AmXYChart[]): AmXYChart[][] {
   }
   rows.push(currentRow);
 
-  return rows.map(row =>
-    [...row].sort((a, b) => a.left - b.left).map(cell => cell.chart),
-  );
+  // Bottom row first (see doc comment): reverse the top-sorted row order.
+  return rows
+    .reverse()
+    .map(row => [...row].sort((a, b) => a.left - b.left).map(cell => cell.chart));
 }

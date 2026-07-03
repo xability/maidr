@@ -70,7 +70,7 @@ There are two entry points:
 - **`bindAmCharts(root, options?)`** (recommended) — mounts the MAIDR UI over the chart and returns `{ maidr, dispose }`. Because it hands a live data object (not JSON) to MAIDR's React component, it can wire an `onNavigate` callback that drives the **canvas highlight overlay**. This is the only way to get visual highlighting (see below). `bindXYChart(chart, root, options?)` is the same when you already hold the chart reference.
 - **`fromAmCharts(root, options?)`** — returns plain MAIDR JSON for the `maidr` HTML attribute or `<Maidr data={...}>`. Enables audio, text, and braille, but **not** visual highlighting, because the highlight callback is a function and cannot survive JSON serialization.
 
-Both walk the chart's series, classify each one, and extract its data into MAIDR's [schema](SCHEMA.html). Each series becomes a layer; all line series merge into a single multi-line layer.
+Both walk the chart's series, classify each one, and extract its data into MAIDR's [schema](SCHEMA.html). Each series becomes a layer; all line series merge into a single multi-line layer. If no chart contains a supported series *with data*, both entry points throw a descriptive error — bind after your data has been set (see the `datavalidated` note in the Quick Start).
 
 Series are classified by their amCharts class name and field configuration:
 
@@ -114,7 +114,7 @@ maidrAmCharts.bindAmCharts(root); // one MAIDR figure, two subplots
 Details:
 
 - **Navigation:** a multi-panel figure starts in subplot mode — arrow keys move between panels, Enter drills into a panel, Escape returns. Inside a panel, the usual data-point navigation applies.
-- **Panel grid:** panels are arranged by their rendered position (rows clustered by top coordinate, sorted left-to-right), so vertical, horizontal, and grid layouts all map naturally. If geometry is not available yet (e.g. `fromAmCharts` called before layout), panels fall back to a single row in insertion order.
+- **Panel grid:** panels are arranged by their rendered position (rows clustered by top coordinate, sorted left-to-right), so vertical, horizontal, and grid layouts all map naturally. Rows are ordered **bottom-first** — amCharts renders to canvas, so MAIDR cannot measure panel positions in the DOM, and bottom-first row order is what makes ArrowUp move to the visually *upper* panel. Consequently panel numbering starts at the bottom-left panel ("Subplot 1" is the bottom row). If geometry is not available yet (e.g. `fromAmCharts` called before layout), panels fall back to a single row in insertion order.
 - **Panel names:** each chart's title (an `am5.Label` child of the chart) becomes the panel's display name in subplot summaries. Axis labels are read from each chart's own axes; the `axisLabels` option remains a figure-wide override.
 - **Highlighting:** one overlay covers the whole root; each highlight box is clipped to the owning panel's plot area.
 - `bindXYChart(chart, root)` / `fromXYChart(chart, containerEl)` still bind exactly one chart; `fromXYCharts(charts, containerEl)` converts a specific set of charts; `findXYCharts(root)` returns every chart the binder would find.

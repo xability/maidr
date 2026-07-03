@@ -258,7 +258,8 @@ function renderMaidr(maidrData: MaidrData, rootDom: HTMLElement): RenderResult |
  * container tree (including am5stock StockPanels); each chart becomes one
  * MAIDR subplot, navigable with the arrow keys.
  *
- * @throws If no supported XYChart is found in `root.container`.
+ * @throws If no supported XYChart is found in `root.container`, or if no
+ *         chart contains a supported series with data.
  */
 export function bindAmCharts(root: AmRoot, options?: AmChartsBindOptions): AmChartsBinding {
   const charts = findXYCharts(root);

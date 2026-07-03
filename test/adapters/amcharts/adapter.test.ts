@@ -35,15 +35,21 @@ describe('findXYCharts', () => {
     expect(findXYCharts(root)).toEqual([panelA, panelB]);
   });
 
-  it('excludes XYChartScrollbar preview charts', () => {
-    const chart = fakeChart({ series: [fakeBarSeries('A', BAR_DATA)] });
-    const scrollbar = fakeChart({
-      className: 'XYChartScrollbar',
-      series: [fakeBarSeries('A', BAR_DATA)],
-    });
-    const root = fakeRoot([scrollbar, chart]);
+  it('excludes XYChartScrollbar preview charts (am5stock toolsContainer pattern)', () => {
+    // A real XYChartScrollbar is NOT chart-like itself (no series/xAxes/yAxes);
+    // its preview is a plain XYChart child holding a copy of the main data.
+    const previewChart = fakeChart({ series: [fakeBarSeries('A', BAR_DATA)] });
+    const scrollbar = fakeContainer([previewChart], 'XYChartScrollbar');
 
-    expect(findXYCharts(root)).toEqual([chart]);
+    const mainPanel = fakeChart({ series: [fakeBarSeries('A', BAR_DATA)] });
+    const panelsContainer = fakeContainer([mainPanel]);
+    const toolsContainer = fakeContainer([scrollbar]);
+    // stockChart.toolsContainer.children.push(scrollbar) re-parents the
+    // scrollbar OUTSIDE any panel, so only pruning keeps the preview out.
+    const stockChartLike = fakeContainer([toolsContainer, panelsContainer]);
+    const root = fakeRoot([stockChartLike]);
+
+    expect(findXYCharts(root)).toEqual([mainPanel]);
   });
 
   it('does not descend into a found chart (its scrollbar never becomes a panel)', () => {
@@ -129,7 +135,7 @@ describe('fromAmCharts (single chart)', () => {
 });
 
 describe('fromAmCharts (multi-panel)', () => {
-  it('arranges vertically stacked charts as one subplot per row', () => {
+  it('arranges vertically stacked charts as one subplot per row, bottom row first', () => {
     const top = fakeChart({
       series: [fakeBarSeries('Sales', BAR_DATA)],
       title: 'Top Panel',
@@ -152,16 +158,19 @@ describe('fromAmCharts (multi-panel)', () => {
     expect(result.subplots[0]).toHaveLength(1);
     expect(result.subplots[1]).toHaveLength(1);
 
+    // Rows are emitted BOTTOM-first: the core's MovableGrid maps UPWARD to
+    // row+1 and canvas charts get no DOM-based inversion, so data row 0 must
+    // be the visually lowest panel for ArrowUp to move visually up.
     const [firstLayer] = result.subplots[0][0].layers;
     const [secondLayer] = result.subplots[1][0].layers;
     // Panel display name lives on the FIRST layer's title.
-    expect(firstLayer.title).toBe('Top Panel');
-    expect(secondLayer.title).toBe('Bottom Panel');
-    expect(firstLayer.type).toBe(TraceType.BAR);
-    expect(secondLayer.type).toBe(TraceType.LINE);
+    expect(firstLayer.title).toBe('Bottom Panel');
+    expect(secondLayer.title).toBe('Top Panel');
+    expect(firstLayer.type).toBe(TraceType.LINE);
+    expect(secondLayer.type).toBe(TraceType.BAR);
     // Per-chart axis labels, not first-chart labels everywhere.
-    expect(firstLayer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Sales' } });
-    expect(secondLayer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Trend' } });
+    expect(firstLayer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Trend' } });
+    expect(secondLayer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Sales' } });
   });
 
   it('arranges side-by-side charts as one row, sorted left to right', () => {
@@ -184,7 +193,7 @@ describe('fromAmCharts (multi-panel)', () => {
     expect(result.subplots[0][1].layers[0].title).toBe('Right Panel');
   });
 
-  it('clusters a 2x2 grid layout in visual reading order', () => {
+  it('clusters a 2x2 grid layout bottom row first, left-to-right within rows', () => {
     const bounds = {
       a: { left: 0, top: 0, right: 280, bottom: 180 },
       b: { left: 320, top: 8, right: 600, bottom: 188 }, // slight offset, same row
@@ -204,7 +213,8 @@ describe('fromAmCharts (multi-panel)', () => {
     const titles = result.subplots.map(row =>
       row.map(subplot => subplot.layers[0].title),
     );
-    expect(titles).toEqual([['A', 'B'], ['C', 'D']]);
+    // Bottom row (C, D) is data row 0 (matplotlib convention: UPWARD = row+1).
+    expect(titles).toEqual([['C', 'D'], ['A', 'B']]);
   });
 
   it('falls back to a single row in insertion order without geometry', () => {
@@ -244,13 +254,19 @@ describe('fromAmCharts (multi-panel)', () => {
     }
   });
 
-  it('keeps the single-chart output shape when every chart is empty', () => {
+  it('throws a descriptive error when every chart is empty (never emits layers: [])', () => {
     const emptyA = fakeChart({ series: [] });
     const emptyB = fakeChart({ series: [] });
 
-    const result = fromAmCharts(fakeRoot([emptyA, emptyB]));
+    expect(() => fromAmCharts(fakeRoot([emptyA, emptyB])))
+      .toThrow(/no supported series with data/);
+  });
 
-    expect(result.subplots).toEqual([[{ layers: [] }]]);
+  it('throws a descriptive error when a single chart has no data (never emits layers: [])', () => {
+    const empty = fakeChart({ series: [] });
+
+    expect(() => fromAmCharts(fakeRoot([empty])))
+      .toThrow(/no supported series with data/);
   });
 
   it('keeps layer ids unique across all panels', () => {
