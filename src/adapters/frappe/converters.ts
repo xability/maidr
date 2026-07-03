@@ -20,7 +20,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
 } from '@type/grammar';
-import type { FrappeChart, FrappeChartType, FrappeData } from './types';
+import type { FrappeChart, FrappeChartType, FrappeData, FrappePanel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import {
   barSelectorForDataset,
@@ -87,27 +87,212 @@ export function createMaidrFromFrappeChart(
   container: HTMLElement,
   options: FrappeChartAdapterOptions,
 ): Maidr {
-  const data = chart.data;
-
   // Assign a stable container id up-front (used for scoped CSS selectors).
   ensureContainerId(container);
 
   const id = options.id ?? container.id ?? nextId('maidr-frappe');
   const title = options.title ?? '';
 
-  const layers = buildLayers(data, container.id, options);
-
-  const isMultiLine = options.chartType === 'line' && data.datasets.length > 1;
-  const subplot: MaidrSubplot = {
-    ...(isMultiLine ? { legend: data.datasets.map((d, i) => d.name ?? `Series ${i + 1}`) } : {}),
-    layers,
-  };
+  const subplot = buildSubplot(chart, container, {
+    chartType: options.chartType,
+    axes: options.axes,
+  });
 
   return {
     id,
     ...(title ? { title } : {}),
     subplots: [[subplot]],
   };
+}
+
+/**
+ * Options accepted by {@link createMaidrFromFrappeCharts}.
+ */
+export interface FrappeChartsGridOptions {
+  /** Unique ID for the MAIDR instance. Defaults to the wrapper element's `id`. */
+  id?: string;
+  /** Figure title. */
+  title?: string;
+  /** Figure subtitle. */
+  subtitle?: string;
+  /** Figure caption. */
+  caption?: string;
+  /**
+   * When `panels` is a flat array, chunk it into rows of this many panels
+   * (row-major). Ignored for 2D input; omit to place all panels in one row.
+   */
+  columns?: number;
+}
+
+/**
+ * Creates a single MAIDR figure from a grid of independently rendered Frappe
+ * charts, enabling cross-panel arrow-key navigation (arrows move between
+ * panels, `Enter` drills into a panel, `Esc` returns).
+ *
+ * Frappe Charts has no native multi-panel concept, so panel grouping is
+ * explicit: lay the chart containers out inside one wrapper element (e.g. a
+ * CSS grid) and describe the grid here in visual reading order (row-major,
+ * top-left first).
+ *
+ * Call this **after every panel** has finished rendering (Frappe's entrance
+ * animation re-creates SVG nodes, so wait for all panels to settle), then set
+ * the `maidr` attribute on the **wrapper** element — not on the individual
+ * panel containers, which would create N separate MAIDR figures.
+ *
+ * @param panels  - The panel grid. A 2D array maps 1:1 to subplot rows; a flat
+ *                  array is chunked into rows of `options.columns` panels
+ *                  (row-major), or a single row when `columns` is omitted.
+ * @param wrapper - The element containing every panel's container. Its `id`
+ *                  (generated when missing) becomes the default figure id.
+ * @param options - Figure-level options.
+ * @returns A {@link Maidr} object ready to be set as the wrapper's `maidr`
+ *          attribute.
+ *
+ * @example
+ * ```js
+ * const maidr = maidrFrappe.createMaidrFromFrappeCharts(
+ *   [
+ *     [
+ *       { chart: barChart, container: barEl, chartType: 'bar', title: 'Sales' },
+ *       { chart: lineChart, container: lineEl, chartType: 'line', title: 'Trend' },
+ *     ],
+ *   ],
+ *   wrapper,
+ *   { title: 'Quarterly Dashboard' },
+ * );
+ * wrapper.setAttribute('maidr', JSON.stringify(maidr));
+ * ```
+ */
+export function createMaidrFromFrappeCharts(
+  panels: FrappePanel[][] | FrappePanel[],
+  wrapper: HTMLElement,
+  options: FrappeChartsGridOptions = {},
+): Maidr {
+  const grid = normalizePanelGrid(panels, options.columns);
+
+  // Assign a stable wrapper id up-front (used as the default figure id).
+  ensureContainerId(wrapper);
+  const id = options.id ?? wrapper.id;
+
+  const subplots = grid.map((row, rowIndex) =>
+    row.map((panel, colIndex) => {
+      if (panel.container === wrapper || !wrapper.contains(panel.container)) {
+        throw new Error(
+          `[maidr/frappe] Panel [${rowIndex}][${colIndex}]'s container must be a `
+          + 'descendant of the wrapper element passed to createMaidrFromFrappeCharts.',
+        );
+      }
+      return buildSubplot(panel.chart, panel.container, {
+        chartType: panel.chartType,
+        axes: panel.axes,
+        panelTitle: panel.title,
+        includePanelSelector: true,
+      });
+    }),
+  );
+
+  return {
+    id,
+    ...(options.title ? { title: options.title } : {}),
+    ...(options.subtitle ? { subtitle: options.subtitle } : {}),
+    ...(options.caption ? { caption: options.caption } : {}),
+    subplots,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Subplot builder — shared by the single-chart and grid APIs
+// ---------------------------------------------------------------------------
+
+/**
+ * Options for {@link buildSubplot}.
+ */
+interface BuildSubplotOptions {
+  /** The panel's Frappe chart type. */
+  chartType: FrappeChartType;
+  /** Axis labels for the panel's layers. */
+  axes?: { x?: string; y?: string };
+  /**
+   * Panel display name. MAIDR has no subplot-level title field — the FIRST
+   * layer's `title` is the panel's display name in subplot summaries, so this
+   * is stamped onto `layers[0]`.
+   */
+  panelTitle?: string;
+  /**
+   * When true, sets `MaidrSubplot.selector` to the panel's own SVG so the core
+   * can resolve per-panel highlight and axes elements. Only useful in
+   * multi-panel figures; omitted for single charts to keep their output
+   * unchanged.
+   */
+  includePanelSelector?: boolean;
+}
+
+/**
+ * Builds one {@link MaidrSubplot} from a rendered Frappe chart. All layer
+ * selectors are scoped to the container's `id`, so panels never match each
+ * other's SVG elements.
+ */
+function buildSubplot(
+  chart: FrappeChart,
+  container: HTMLElement,
+  options: BuildSubplotOptions,
+): MaidrSubplot {
+  const data = chart.data;
+
+  // Assign a stable container id (used for scoped CSS selectors).
+  ensureContainerId(container);
+
+  const layers = buildLayers(data, container.id, options);
+  if (options.panelTitle && layers.length > 0) {
+    layers[0] = { ...layers[0], title: options.panelTitle };
+  }
+
+  const isMultiLine = options.chartType === 'line' && data.datasets.length > 1;
+  return {
+    ...(isMultiLine ? { legend: data.datasets.map((d, i) => d.name ?? `Series ${i + 1}`) } : {}),
+    ...(options.includePanelSelector
+      ? { selector: `#${container.id} svg.frappe-chart` }
+      : {}),
+    layers,
+  };
+}
+
+/**
+ * Normalizes the panel input of {@link createMaidrFromFrappeCharts} into a 2D
+ * grid, validating that the grid has at least one panel and no empty rows
+ * (both crash the core figure model).
+ */
+function normalizePanelGrid(
+  panels: FrappePanel[][] | FrappePanel[],
+  columns?: number,
+): FrappePanel[][] {
+  if (panels.length === 0) {
+    throw new Error('[maidr/frappe] createMaidrFromFrappeCharts requires at least one panel.');
+  }
+
+  if (Array.isArray(panels[0])) {
+    const grid = panels as FrappePanel[][];
+    grid.forEach((row, rowIndex) => {
+      if (row.length === 0) {
+        throw new Error(`[maidr/frappe] Panel grid row ${rowIndex} is empty.`);
+      }
+    });
+    return grid;
+  }
+
+  const flat = panels as FrappePanel[];
+  if (columns === undefined) {
+    return [flat];
+  }
+  if (!Number.isInteger(columns) || columns < 1) {
+    throw new Error(`[maidr/frappe] \`columns\` must be a positive integer, got ${columns}.`);
+  }
+
+  const grid: FrappePanel[][] = [];
+  for (let i = 0; i < flat.length; i += columns) {
+    grid.push(flat.slice(i, i + columns));
+  }
+  return grid;
 }
 
 // ---------------------------------------------------------------------------
