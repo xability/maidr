@@ -74,7 +74,13 @@ export abstract class Api {
       const data = await response.json() as T;
       return { success: true, data };
     } catch (error) {
-      console.error(`Error in API ${method} request to ${url}:`, error);
+      // Redact any query string before logging. For direct-key LLM
+      // providers (e.g. Gemini) the API key is embedded as a `?key=...`
+      // query parameter, which must never reach the console or any
+      // log-collection tooling on the host page. Host + path are kept
+      // for debuggability.
+      const safeUrl = url.split('?')[0];
+      console.error(`Error in API ${method} request to ${safeUrl}:`, error);
       return {
         success: false,
         error: {

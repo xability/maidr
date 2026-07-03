@@ -484,6 +484,15 @@ export abstract class Svg {
         }
       }
       const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+      // Stash the element's original stroke attributes before overwriting
+      // so removeSubplotHighlightSvg can restore them instead of stripping
+      // any pre-existing attribute-based border. Guard against re-saving on
+      // repeated highlight calls, which would otherwise capture the
+      // highlight values as the "original".
+      if (!bg.hasAttribute('data-maidr-orig-stroke')) {
+        bg.setAttribute('data-maidr-orig-stroke', bg.getAttribute('stroke') ?? '');
+        bg.setAttribute('data-maidr-orig-stroke-width', bg.getAttribute('stroke-width') ?? '');
+      }
       bg.setAttribute('stroke', highlightColor);
       bg.setAttribute('stroke-width', '4');
     }
@@ -495,9 +504,31 @@ export abstract class Svg {
    */
   public static removeSubplotHighlightSvg(group: SVGElement): void {
     const bg = group.querySelector('rect, path') as SVGElement | null;
-    if (bg) {
-      bg.removeAttribute('stroke');
-      bg.removeAttribute('stroke-width');
+    if (!bg) {
+      return;
+    }
+    // Restore the original stroke attributes saved when the highlight was
+    // applied. Only elements we highlighted carry the data- markers; for
+    // those, re-apply the saved value if one existed, otherwise remove the
+    // attribute we added. Elements we never highlighted are left untouched
+    // so their own attribute-based borders survive.
+    if (bg.hasAttribute('data-maidr-orig-stroke')) {
+      const origStroke = bg.getAttribute('data-maidr-orig-stroke') ?? '';
+      if (origStroke === '') {
+        bg.removeAttribute('stroke');
+      } else {
+        bg.setAttribute('stroke', origStroke);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke');
+    }
+    if (bg.hasAttribute('data-maidr-orig-stroke-width')) {
+      const origStrokeWidth = bg.getAttribute('data-maidr-orig-stroke-width') ?? '';
+      if (origStrokeWidth === '') {
+        bg.removeAttribute('stroke-width');
+      } else {
+        bg.setAttribute('stroke-width', origStrokeWidth);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke-width');
     }
   }
 }
