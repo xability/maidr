@@ -409,7 +409,7 @@ The selector is used to scope that panel's highlight selectors, so it must match
 - The visual grid must match the `subplots` config shape. `<MaidrRecharts>` guarantees this by generating the layout; with `panelSelector` it is your responsibility.
 - Per-panel `selectorOverride` is applied verbatim (it is NOT combined with the panel scope and does not inherit the top-level `selectorOverride`) — provide an already panel-scoped selector.
 - The multi-series highlighting limitation applies per panel: a panel with multiple `yKeys` gets audio/text/braille but no visual highlighting unless it has a `selectorOverride`.
-- For grids with more than one row, the Up/Down arrow direction at the panel level may feel inverted (MAIDR detects visual row order from matplotlib-style SVG markers that Recharts does not emit). Single-row grids are unaffected.
+- For grids with more than one row, MAIDR measures each panel's on-screen position (via the per-panel container the adapter emits as the subplot `selector`) to determine the visual row order, so the Up/Down arrows match the visual layout. If that geometry cannot be measured — e.g. a `panelSelector` that matches nothing, or panels rendered without layout boxes — MAIDR falls back to data-array order and the Up/Down arrows are deterministically reversed (Up moves to the visually lower row). Single-row grids are unaffected either way.
 
 ## TypeScript Types
 
