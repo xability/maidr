@@ -29,7 +29,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
-import type { HighchartsAdapterOptions, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
+import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   barSelector,
@@ -62,6 +62,12 @@ let chartCounter = 0;
  * - Grouped (dodged) `column`/`bar` → {@link TraceType.DODGED}
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
  *
+ * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
+ * bands, e.g. the Highstock price + volume pattern) are detected from the
+ * rendered axis geometry and emitted as a MAIDR subplot grid — one subplot
+ * per pane, navigable with arrow keys. Ambiguous layouts (overlapping bands,
+ * dual-axis overlays) fall back to today's single-subplot output.
+ *
  * @param chart - A Highcharts chart instance (the return value of `Highcharts.chart()`).
  * @param options - Optional overrides for ID, title, or series filtering.
  * @returns A {@link Maidr} object ready for use with the MAIDR library.
@@ -77,8 +83,66 @@ export function highchartsToMaidr(
 
   const containerId = ensureContainerId(chart);
 
-  const seriesToConvert = filterSeries(chart, options?.seriesIndices);
+  const seriesToConvert = collectUsableSeries(chart, options?.seriesIndices);
 
+  return {
+    id,
+    title,
+    subtitle,
+    caption,
+    subplots: buildSubplotGrid(seriesToConvert, chart, containerId),
+  };
+}
+
+/**
+ * Builds the subplot grid for one chart: a multi-pane chart becomes one
+ * subplot per detected pane; everything else keeps the single-subplot path.
+ */
+function buildSubplotGrid(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrSubplot[][] {
+  const paneGrid = detectPaneGrid(seriesList);
+
+  if (paneGrid) {
+    // Never emit `{ layers: [] }` cells or empty rows — the MAIDR model
+    // crashes on both — so compact ragged rows instead.
+    const rows = paneGrid
+      .map(row => row
+        .map((group) => {
+          const subplot = buildSubplot(group, chart, containerId);
+          applyPaneTitleFallback(subplot, group);
+          return subplot;
+        })
+        .filter(subplot => subplot.layers.length > 0))
+      .filter(row => row.length > 0);
+
+    const total = rows.reduce((count, row) => count + row.length, 0);
+    if (total > 1) {
+      return rows;
+    }
+    // Fewer than two usable panes survived conversion — fall through to the
+    // single-subplot path so the output matches a plain chart exactly.
+  }
+
+  return [[buildSubplot(seriesList, chart, containerId)]];
+}
+
+/**
+ * Converts a list of Highcharts series into one MAIDR subplot.
+ *
+ * Bar/column series are grouped into a single stacked/dodged/normalized
+ * layer, line-like series merge into one multi-line layer, and every other
+ * supported series becomes its own layer.
+ *
+ * @internal
+ */
+export function buildSubplot(
+  seriesToConvert: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrSubplot {
   // Categorize series by how they need to be converted.
   const lineTypes = new Set(['line', 'spline', 'area', 'areaspline']);
   const barTypes = new Set(['bar', 'column']);
@@ -119,18 +183,34 @@ export function highchartsToMaidr(
     subplot.legend = layers.map(l => l.title ?? `Series ${l.id}`);
   }
 
-  return {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[subplot]],
-  };
+  return subplot;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Returns the chart's convertible series: visible (optionally restricted to
+ * `indices`) and not internal. Highstock injects internal helper series (the
+ * navigator preview, marked via `isInternal` / the `highcharts-navigator-series`
+ * class) that mirror real data and must never become their own layers.
+ *
+ * @internal
+ */
+export function collectUsableSeries(
+  chart: HighchartsChart,
+  indices?: number[],
+): HighchartsSeries[] {
+  return filterSeries(chart, indices).filter(series => !isInternalSeries(series));
+}
+
+function isInternalSeries(series: HighchartsSeries): boolean {
+  const { isInternal, className } = series.options;
+  return isInternal === true
+    || (typeof className === 'string' && className.includes('highcharts-navigator-series'))
+    || series.name === 'Navigator';
+}
 
 function filterSeries(
   chart: HighchartsChart,
@@ -189,6 +269,155 @@ function getStackingMode(series: HighchartsSeries, chart: HighchartsChart): stri
     return plotOptions.bar.stacking;
   }
   return plotOptions?.series?.stacking;
+}
+
+// ---------------------------------------------------------------------------
+// Pane detection (multi-axis charts → subplot grid)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pixel tolerance when clustering axis positions into pane bands. Axes whose
+ * `top` (or `left`) differ by no more than this are treated as the same band.
+ */
+const PANE_BAND_TOLERANCE_PX = 4;
+
+/**
+ * Detects a pane grid within a single chart from the rendered axis geometry.
+ *
+ * Highcharts expresses panes as multiple `yAxis` entries stacked via
+ * `top`/`height` (rows) and/or multiple `xAxis` entries split via
+ * `left`/`width` (columns); each series is pinned to one axis pair. There is
+ * no per-pane DOM group, so pane membership is derived purely from the
+ * series → axis assignment.
+ *
+ * Returns series grouped as `grid[row][col]` in visual reading order
+ * (top-left first), with empty cells/rows already compacted away, or `null`
+ * when the chart is single-pane or the layout is ambiguous (missing axis
+ * geometry, overlapping bands, or coinciding dual-axis overlays) — callers
+ * must then fall back to the single-subplot path.
+ */
+function detectPaneGrid(seriesList: HighchartsSeries[]): HighchartsSeries[][][] | null {
+  if (seriesList.length < 2) {
+    return null;
+  }
+  if (seriesList.some(series => !series.xAxis || !series.yAxis)) {
+    return null;
+  }
+
+  const yAxes = [...new Set(seriesList.map(series => series.yAxis))];
+  const xAxes = [...new Set(seriesList.map(series => series.xAxis))];
+  if (yAxes.length <= 1 && xAxes.length <= 1) {
+    return null;
+  }
+
+  const rowByAxis = yAxes.length > 1
+    ? assignAxisBands(yAxes, axis => axis.top, axis => axis.height)
+    : new Map<HighchartsAxis, number>(yAxes.map(axis => [axis, 0]));
+  const colByAxis = xAxes.length > 1
+    ? assignAxisBands(xAxes, axis => axis.left, axis => axis.width)
+    : new Map<HighchartsAxis, number>(xAxes.map(axis => [axis, 0]));
+  if (!rowByAxis || !colByAxis) {
+    return null;
+  }
+
+  const rowCount = Math.max(...rowByAxis.values()) + 1;
+  const colCount = Math.max(...colByAxis.values()) + 1;
+
+  // Group series by (row, col) cell, preserving series order within a cell.
+  const cells: (HighchartsSeries[] | undefined)[][] = Array.from(
+    { length: rowCount },
+    () => Array.from({ length: colCount }, () => undefined),
+  );
+  let cellCount = 0;
+  for (const series of seriesList) {
+    const row = rowByAxis.get(series.yAxis) ?? 0;
+    const col = colByAxis.get(series.xAxis) ?? 0;
+    if (!cells[row][col]) {
+      cells[row][col] = [];
+      cellCount++;
+    }
+    cells[row][col]?.push(series);
+  }
+
+  // A single occupied cell means every series shares one geometry band
+  // (e.g. a dual-axis overlay) — that is not a multi-pane chart.
+  if (cellCount <= 1) {
+    return null;
+  }
+
+  // Compact ragged rows: drop unoccupied cells and rows entirely.
+  const grid: HighchartsSeries[][][] = [];
+  for (const row of cells) {
+    const compacted = row.filter((cell): cell is HighchartsSeries[] => cell !== undefined);
+    if (compacted.length > 0) {
+      grid.push(compacted);
+    }
+  }
+  return grid;
+}
+
+/**
+ * Clusters axes into position bands along one dimension and assigns each
+ * axis its band index (0 = topmost/leftmost).
+ *
+ * Returns `null` when any axis lacks rendered geometry or when two distinct
+ * bands overlap beyond the tolerance — pane membership would be ambiguous
+ * and the caller must fall back to single-subplot output.
+ */
+function assignAxisBands(
+  axes: HighchartsAxis[],
+  getStart: (axis: HighchartsAxis) => number | undefined,
+  getLength: (axis: HighchartsAxis) => number | undefined,
+): Map<HighchartsAxis, number> | null {
+  const measured: { axis: HighchartsAxis; start: number; end: number }[] = [];
+  for (const axis of axes) {
+    const start = getStart(axis);
+    const length = getLength(axis);
+    if (typeof start !== 'number' || !Number.isFinite(start)
+      || typeof length !== 'number' || !Number.isFinite(length)) {
+      return null;
+    }
+    measured.push({ axis, start, end: start + length });
+  }
+  measured.sort((a, b) => a.start - b.start);
+
+  const bands: { start: number; end: number }[] = [];
+  const bandByAxis = new Map<HighchartsAxis, number>();
+  for (const { axis, start, end } of measured) {
+    const current = bands[bands.length - 1];
+    if (current && start - current.start <= PANE_BAND_TOLERANCE_PX) {
+      current.end = Math.max(current.end, end);
+    } else {
+      bands.push({ start, end });
+    }
+    bandByAxis.set(axis, bands.length - 1);
+  }
+
+  // Distinct bands that overlap (beyond tolerance) make membership ambiguous.
+  for (let i = 1; i < bands.length; i++) {
+    if (bands[i - 1].end > bands[i].start + PANE_BAND_TOLERANCE_PX) {
+      return null;
+    }
+  }
+
+  return bandByAxis;
+}
+
+/**
+ * MAIDR has no subplot-title field: the FIRST layer's `title` is the panel's
+ * display name in subplot summaries. Panes have no native titles either, so
+ * when the first layer ended up untitled (unnamed series), fall back to the
+ * pane's own y-axis title.
+ */
+function applyPaneTitleFallback(subplot: MaidrSubplot, group: HighchartsSeries[]): void {
+  const firstLayer = subplot.layers[0];
+  if (!firstLayer || firstLayer.title !== undefined) {
+    return;
+  }
+  const axisTitle = group[0]?.yAxis?.options?.title?.text;
+  if (axisTitle) {
+    firstLayer.title = axisTitle;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -433,7 +662,7 @@ function convertSeries(
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
-      return convertHeatmapSeries(series, chart, containerId);
+      return convertHeatmapSeries(series, containerId);
     case 'histogram':
       return convertHistogramSeries(series, containerId);
     case 'candlestick':
@@ -759,11 +988,12 @@ function subpathMidpoint(subpath: string): { x: number; y: number } | null {
 
 function convertHeatmapSeries(
   series: HighchartsSeries,
-  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const xCategories = chart.xAxis[0]?.categories ?? [];
-  const yCategories = chart.yAxis[0]?.categories ?? [];
+  // Read categories from the series' OWN axes (not chart.xAxis[0]/yAxis[0])
+  // so heatmaps bound to secondary/pane axes get the right labels.
+  const xCategories = series.xAxis?.categories ?? [];
+  const yCategories = series.yAxis?.categories ?? [];
 
   // Determine grid dimensions. If numeric axes are used, infer from data.
   let rows = yCategories.length;

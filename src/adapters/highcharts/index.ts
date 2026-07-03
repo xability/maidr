@@ -2,8 +2,11 @@
  * Public Highcharts adapter API for MAIDR.
  *
  * Provides the {@link highchartsToMaidr} function to convert Highcharts chart
- * instances into MAIDR-compatible data, and {@link createHighchartsSync} for
- * bidirectional visual synchronization (tooltip and point highlighting).
+ * instances into MAIDR-compatible data (including multi-pane charts, which
+ * become MAIDR subplot grids), {@link highchartsGridToMaidr} to combine
+ * several chart instances into one figure with subplot navigation, and
+ * {@link createHighchartsSync} for bidirectional visual synchronization
+ * (tooltip and point highlighting).
  *
  * @remarks
  * Highcharts is **not** bundled — users must provide their own Highcharts
@@ -30,12 +33,14 @@
  */
 
 export { highchartsToMaidr } from './adapter';
+export { highchartsGridToMaidr } from './grid';
 export { createHighchartsSync } from './sync';
 export type { HighchartsSync } from './sync';
 export type {
   HighchartsAdapterOptions,
   HighchartsAxis,
   HighchartsChart,
+  HighchartsGridOptions,
   HighchartsPoint,
   HighchartsSeries,
 } from './types';

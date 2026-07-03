@@ -19,6 +19,31 @@ export interface HighchartsAdapterOptions {
 }
 
 /**
+ * Options for customizing the {@link highchartsGridToMaidr} adapter output.
+ */
+export interface HighchartsGridOptions {
+  /** Override the generated figure ID. Defaults to `highcharts-grid-{n}`. */
+  id?: string;
+  /** Figure-level title announced for the whole grid. */
+  title?: string;
+  /** Figure-level subtitle. */
+  subtitle?: string;
+  /** Figure-level caption. */
+  caption?: string;
+  /**
+   * Chunks a flat chart list into a grid. Ignored when a 2D chart array is
+   * passed (2D input maps 1:1 to the subplot grid). When omitted, a flat
+   * list becomes a single row.
+   */
+  layout?: {
+    /** Number of grid rows (columns are derived when only rows is set). */
+    rows?: number;
+    /** Number of charts per row. Takes precedence over `rows`. */
+    columns?: number;
+  };
+}
+
+/**
  * Represents a Highcharts chart instance.
  * Passed to {@link highchartsToMaidr} to generate MAIDR-compatible data.
  */
@@ -61,6 +86,10 @@ export interface HighchartsSeries {
   options: {
     type?: string;
     stacking?: string;
+    /** Set by Highcharts on internal series (e.g. the Highstock navigator). */
+    isInternal?: boolean;
+    /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
+    className?: string;
   };
 }
 
@@ -103,6 +132,14 @@ export interface HighchartsAxis {
   categories?: string[];
   getExtremes: () => { min: number; max: number };
   isDatetimeAxis?: boolean;
+  /** Rendered distance from the chart top in px (present after render). */
+  top?: number;
+  /** Rendered distance from the chart left in px (present after render). */
+  left?: number;
+  /** Rendered axis height in px (present after render). */
+  height?: number;
+  /** Rendered axis width in px (present after render). */
+  width?: number;
   options: {
     title?: { text?: string };
     type?: string;
