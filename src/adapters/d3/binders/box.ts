@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible box plot interaction.
  */
 
-import type { BoxPoint, BoxSelector, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3BoxConfig } from '../types';
+import type { BoxPoint, BoxSelector, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BoxConfig, D3BuiltLayer } from '../types';
 import { Orientation, TraceType } from '../../../type/grammar';
-import { cssEscape, ensureContainerId } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+import { selectorPrefix } from '../selectors';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, getD3Datum, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js box plot to MAIDR, generating the accessible data representation.
@@ -58,11 +59,18 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildBoxLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for box plots. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildBoxLayer(root: Element, config: D3BoxConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
@@ -75,12 +83,11 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     lowerOutliers: lowerOutliersAccessor = 'lowerOutliers',
     upperOutliers: upperOutliersAccessor = 'upperOutliers',
     orientation = Orientation.VERTICAL,
-    autoApply,
   } = config;
 
-  const boxGroups = queryD3Elements(svg, selector);
+  const boxGroups = queryD3Elements(root, selector);
   if (boxGroups.length === 0) {
-    throw buildNoElementsError(svg, selector, 'box group');
+    throw buildNoElementsError(root, selector, 'box group');
   }
 
   const data: BoxPoint[] = boxGroups.map(({ element, datum, index }) => {
@@ -115,13 +122,12 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     };
   });
 
-  const layerId = generateId();
-
   // Ensure the SVG has a stable id so selectors can be absolutely scoped
   // (consumers resolve selectors via global `document.querySelector`, so they
-  // must be unique page-wide). `ensureContainerId` auto-assigns an id when
-  // the user-supplied SVG lacks one, mirroring `scopeSelector`'s behaviour.
-  const svgId = ensureContainerId(svg);
+  // must be unique page-wide). `selectorPrefix` auto-assigns an id when the
+  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
+  // the `data-maidr-panel` segment on multi-panel binds.
+  const prefix = selectorPrefix(root, panel);
 
   // BoxTrace.mapToSvgElements (src/model/box.ts) requires one BoxSelector
   // object per box (it bails when `selectors.length !== points.length`). A
@@ -220,7 +226,7 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
       (isLower ? lowerOutlierIndices : upperOutlierIndices).push(outlierIndex);
     });
 
-    const base = `#${cssEscape(svgId)} ${selector}[data-maidr-box-index="${boxIndex}"]`;
+    const base = `${prefix} ${selector}[data-maidr-box-index="${boxIndex}"]`;
     return {
       lowerOutliers: lowerOutlierIndices.map(
         i => `${base} [data-maidr-box-part="lower-outlier"][data-maidr-outlier-index="${i}"]`,
@@ -236,7 +242,7 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
   });
 
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.BOX,
     title,
     selectors: boxSelectors,
@@ -245,14 +251,5 @@ export function bindD3Box(svg: Element, config: D3BoxConfig): D3BinderResult {
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{ layers: [layer] }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer };
 }

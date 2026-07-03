@@ -164,5 +164,9 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'segmented', config: props.config };
     case 'smooth':
       return { chartType: 'smooth', config: props.config };
+    case 'facets':
+      return { chartType: 'facets', config: props.config };
+    case 'subplots':
+      return { chartType: 'subplots', config: props.config };
   }
 }

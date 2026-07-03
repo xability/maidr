@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible line chart interaction.
  */
 
-import type { LinePoint, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3LineConfig, DataAccessor } from '../types';
+import type { LinePoint, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor } from '../types';
 import { TraceType } from '../../../type/grammar';
-import { cssEscape, ensureContainerId, scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+import { scopeSelector, selectorPrefix } from '../selectors';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js line chart to MAIDR, generating the accessible data representation.
@@ -56,21 +57,27 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for line charts. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
     pointSelector,
-    autoApply,
   } = config;
 
-  const lineElements = queryD3Elements(svg, selector);
+  const lineElements = queryD3Elements(root, selector);
   if (lineElements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'line path');
+    throw buildNoElementsError(root, selector, 'line path');
   }
 
   // Infer accessors from a sample point-level datum when the user was silent.
@@ -78,7 +85,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   // the path's datum is typically an array of points — take its first item.
   let sampleDatum: unknown;
   if (pointSelector) {
-    const samplePointEl = svg.querySelector(pointSelector);
+    const samplePointEl = root.querySelector(pointSelector);
     sampleDatum = samplePointEl ? getD3Datum(samplePointEl) : undefined;
   } else {
     const pathDatum = lineElements[0].datum;
@@ -118,13 +125,13 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     // Pattern A: Each <path> lives in its own <g> with its <circle> points.
     // Pattern B: All <path>s and <circle>s share a single parent <g>.
     const parents = new Set(
-      lineElements.map(({ element }) => element.parentElement ?? svg),
+      lineElements.map(({ element }) => element.parentElement ?? root),
     );
 
     if (parents.size >= lineElements.length) {
       // Pattern A: distinct parents – scope point queries per parent
       for (const { element } of lineElements) {
-        const parent = element.parentElement ?? svg;
+        const parent = element.parentElement ?? root;
         const points = queryD3Elements(parent, pointSelector);
         const lineData = extractPointsFromElements(
           points,
@@ -142,7 +149,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
       }
     } else {
       // Pattern B: shared parent – query all points once and group by fill
-      const allPoints = queryD3Elements(svg, pointSelector);
+      const allPoints = queryD3Elements(root, pointSelector);
       if (allPoints.length === 0) {
         throw new Error(
           `No point elements found for selector "${pointSelector}" within the SVG.`,
@@ -227,13 +234,12 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     }
   }
 
-  const layerId = generateId();
-
   // Ensure the SVG has a stable id so we can emit absolutely-scoped selectors
   // (the model resolves selectors via global `document.querySelector`, so they
-  // MUST be unique page-wide). `ensureContainerId` auto-assigns an id when
-  // the user-supplied SVG lacks one, mirroring `scopeSelector`'s behaviour.
-  const svgId = ensureContainerId(svg);
+  // MUST be unique page-wide). `selectorPrefix` auto-assigns an id when the
+  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
+  // the `data-maidr-panel` segment on multi-panel binds.
+  const prefix = selectorPrefix(root, panel);
 
   // LineTrace's `mapToSvgElements` requires one selector per line (it uses
   // `Svg.selectElement(selectors[r])` to grab a single <path> per series for
@@ -270,17 +276,17 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
         // a clean, deterministic state.
         element!.removeAttribute('data-maidr-line-index');
         element!.setAttribute('data-maidr-line-index', String(rowIndex));
-        return `#${cssEscape(svgId)} ${selector}[data-maidr-line-index="${rowIndex}"]`;
+        return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
       });
     } else {
       selectorValue = undefined;
     }
   } else {
     // Exactly one path matched → a single scoped selector highlights it.
-    selectorValue = scopeSelector(svg, selector);
+    selectorValue = scopeSelector(root, selector, panel);
   }
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.LINE,
     title,
     selectors: selectorValue,
@@ -288,19 +294,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{
-      ...(legend.length > 0 ? { legend } : {}),
-      layers: [layer],
-    }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer, legend };
 }
 
 /**

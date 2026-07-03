@@ -8,7 +8,7 @@
  */
 
 import type { AxisConfig, AxisFormat, Maidr, MaidrLayer } from '../../type/grammar';
-import type { D3AxisInput, D3BinderConfig, DataAccessor } from './types';
+import type { D3AxisInput, D3BinderConfig, D3BinderResult, D3BuiltLayer, DataAccessor } from './types';
 
 /**
  * Interface for DOM elements with D3's `__data__` property.
@@ -360,4 +360,35 @@ export function applyMaidrData(
   if (typeof svg.setAttribute !== 'function')
     return;
   svg.setAttribute('maidr-data', JSON.stringify(maidr));
+}
+
+/**
+ * Wraps a built layer into the single-chart (1x1) {@link Maidr} structure and
+ * applies it to the SVG. This is the tail every single-chart binder shares;
+ * the multi-panel binders in `binders/subplots.ts` assemble their own grid
+ * instead and call `applyMaidrData` directly.
+ *
+ * @param svg   - The SVG the binder was invoked on.
+ * @param config - The user's binder config (source of figure-level fields).
+ * @param built - The layer (and optional legend) produced by the builder core.
+ * @returns The standard {@link D3BinderResult}.
+ */
+export function finalizeSingleChart(
+  svg: Element,
+  config: D3BinderConfig,
+  built: D3BuiltLayer,
+): D3BinderResult {
+  const { id = generateId(), title, subtitle, caption, autoApply } = config;
+  const maidr: Maidr = {
+    id,
+    title,
+    subtitle,
+    caption,
+    subplots: [[{
+      ...(built.legend && built.legend.length > 0 ? { legend: built.legend } : {}),
+      layers: [built.layer],
+    }]],
+  };
+  applyMaidrData(svg, maidr, autoApply);
+  return { maidr, layer: built.layer };
 }

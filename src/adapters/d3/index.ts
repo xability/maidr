@@ -21,6 +21,13 @@
  * - **Segmented bar charts** (stacked, dodged, normalized) via {@link bindD3Segmented}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
+ * ## Multi-Panel Charts
+ *
+ * - **Faceted small multiples** (one chart type repeated per panel inside a
+ *   single SVG) via {@link bindD3Facets}
+ * - **Heterogeneous subplot grids** (different chart types per panel) via
+ *   {@link bindD3Subplots}
+ *
  * ## How It Works
  *
  * D3.js binds data to DOM elements via the `__data__` property during `.data()`
@@ -94,6 +101,7 @@ export { bindD3Line } from './binders/line';
 export { bindD3Scatter } from './binders/scatter';
 export { bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
+export { bindD3Facets, bindD3Subplots } from './binders/subplots';
 
 // Types
 export type {
@@ -102,12 +110,18 @@ export type {
   D3BinderResult,
   D3BoxConfig,
   D3CandlestickConfig,
+  D3FacetsConfig,
   D3HeatmapConfig,
   D3HistogramConfig,
   D3LineConfig,
+  D3MultiPanelResult,
+  D3PanelChartSpec,
+  D3PanelLayout,
   D3ScatterConfig,
   D3SegmentedConfig,
   D3SmoothConfig,
+  D3SubplotEntry,
+  D3SubplotsConfig,
   DataAccessor,
   SegmentedTraceType,
 } from './types';
