@@ -70,7 +70,57 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
   }
   bglayer.setAttribute('data-maidr', '1');
 
-  // Deduplicate rects by position and sort row-major.
+  const unique = collectUniqueBgRects(bglayer);
+
+  // Extract selector IDs from schema (row-major order).
+  const selectorIds: string[] = [];
+  const subplots = schema.subplots ?? [];
+  for (const row of subplots) {
+    for (const cell of row) {
+      const sel = cell.selector;
+      if (sel) {
+        const m = sel.match(/id="([^"]+)"/);
+        if (m)
+          selectorIds.push(m[1]);
+      }
+    }
+  }
+
+  // The rect↔panel association is positional (both sides sorted row-major),
+  // so it is only safe when the counts agree exactly. A mismatch (e.g. a
+  // panel dropped from the schema while its background rect remains) would
+  // shift every later panel's highlight onto the wrong rect.
+  if (selectorIds.length > 0 && selectorIds.length !== unique.length) {
+    console.warn(
+      '[maidr] Plotly subplot backgrounds do not match schema panels; skipping subplot highlight wrapping.',
+    );
+    selectorIds.length = 0;
+  }
+
+  // Wrap each unique rect in a <g> with the subplot ID.
+  const ns = 'http://www.w3.org/2000/svg';
+  const count = Math.min(unique.length, selectorIds.length);
+  for (let i = 0; i < count; i++) {
+    const rect = unique[i];
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', selectorIds[i]);
+    rect.parentNode!.insertBefore(g, rect);
+    g.appendChild(rect);
+  }
+
+  // Mirror stroke changes from hidden clones to visible originals.
+  setupStrokeMirror(bglayer as SVGGElement);
+}
+
+/**
+ * Collects the panel background `<rect>` elements of a Plotly `.bglayer`,
+ * deduplicated by position and sorted row-major (top-left first).
+ *
+ * Shared by the normalizer (to wrap rects in `<g id="axes_…">` groups) and
+ * the extractor (to verify that the kept-panel count matches the rendered
+ * background count before emitting subplot selectors).
+ */
+export function collectUniqueBgRects(bglayer: Element): SVGRectElement[] {
   const bgRects = Array.from(bglayer.querySelectorAll<SVGRectElement>(':scope > rect'));
   const seen = new Set<string>();
   const unique: SVGRectElement[] = [];
@@ -91,34 +141,7 @@ function wrapSubplotBackgrounds(svg: SVGSVGElement, schema: Maidr): void {
       - Number.parseFloat(b.getAttribute('x') ?? '0')
     );
   });
-
-  // Extract selector IDs from schema (row-major order).
-  const selectorIds: string[] = [];
-  const subplots = schema.subplots ?? [];
-  for (const row of subplots) {
-    for (const cell of row) {
-      const sel = cell.selector;
-      if (sel) {
-        const m = sel.match(/id="([^"]+)"/);
-        if (m)
-          selectorIds.push(m[1]);
-      }
-    }
-  }
-
-  // Wrap each unique rect in a <g> with the subplot ID.
-  const ns = 'http://www.w3.org/2000/svg';
-  const count = Math.min(unique.length, selectorIds.length);
-  for (let i = 0; i < count; i++) {
-    const rect = unique[i];
-    const g = document.createElementNS(ns, 'g');
-    g.setAttribute('id', selectorIds[i]);
-    rect.parentNode!.insertBefore(g, rect);
-    g.appendChild(rect);
-  }
-
-  // Mirror stroke changes from hidden clones to visible originals.
-  setupStrokeMirror(bglayer as SVGGElement);
+  return unique;
 }
 
 /**

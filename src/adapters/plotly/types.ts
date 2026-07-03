@@ -45,8 +45,29 @@ export interface PlotlyLayout {
   title?: { text?: string } | string;
   xaxis?: PlotlyAxis;
   yaxis?: PlotlyAxis;
-  grid?: { rows?: number; columns?: number };
+  grid?: {
+    rows?: number;
+    columns?: number;
+    pattern?: string;
+    roworder?: string;
+  };
+  annotations?: PlotlyAnnotation[];
   [key: string]: unknown;
+}
+
+/**
+ * A layout annotation. Plotly Express emits facet labels (e.g. "sex=Male")
+ * as annotations whose `xref`/`yref` are axis-domain references such as
+ * `'x2 domain'`.
+ */
+export interface PlotlyAnnotation {
+  text?: string;
+  xref?: string;
+  yref?: string;
+  x?: number | string;
+  y?: number | string;
+  showarrow?: boolean;
+  textangle?: number | string;
 }
 
 export interface PlotlyFullLayout extends PlotlyLayout {
@@ -64,6 +85,12 @@ export interface PlotlyAxis {
   tickvals?: number[];
   type?: string;
   categories?: string[];
+  /** Fraction of the plot area this axis spans: `[start, end]` in [0, 1]. */
+  domain?: [number, number];
+  /** The axis this one is anchored to (e.g. `'y2'`). */
+  anchor?: string;
+  /** Axis id whose range this axis mirrors (facet-style shared axes). */
+  matches?: string;
 }
 
 export interface PlotlyCalcData {
