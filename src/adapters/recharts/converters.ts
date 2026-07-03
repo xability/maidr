@@ -23,9 +23,10 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
-import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig } from './types';
+import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
+import { cssEscape } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
-import { getRechartsSelector } from './selectors';
+import { getPanelClassSelector, getRechartsSelector } from './selectors';
 
 /**
  * Converts a Recharts adapter config into MAIDR's root data structure.
@@ -34,6 +35,10 @@ import { getRechartsSelector } from './selectors';
  * @returns MaidrData ready to pass to the `<Maidr>` component
  */
 export function convertRechartsToMaidr(config: RechartsAdapterConfig): Maidr {
+  if (config.subplots) {
+    return buildSubplotMaidr(config);
+  }
+
   const layers = buildLayers(config);
 
   const subplot: MaidrSubplot = {
@@ -50,26 +55,148 @@ export function convertRechartsToMaidr(config: RechartsAdapterConfig): Maidr {
 }
 
 /**
+ * Normalizes the `subplots` config into a 2D panel grid in row-major
+ * visual reading order.
+ *
+ * A flat array is chunked into rows of `columns` panels (a single row when
+ * `columns` is omitted). A 2D array is validated and returned as-is —
+ * ragged rows are allowed, empty rows and empty grids are not (the core
+ * navigation model cannot represent them).
+ */
+export function normalizeRechartsSubplotGrid(
+  subplots: RechartsSubplotConfig[] | RechartsSubplotConfig[][],
+  columns?: number,
+): RechartsSubplotConfig[][] {
+  if (subplots.length === 0) {
+    throw new Error('RechartsAdapter: subplots must contain at least one panel');
+  }
+
+  if (Array.isArray(subplots[0])) {
+    const grid = subplots as RechartsSubplotConfig[][];
+    for (const [rowIndex, row] of grid.entries()) {
+      if (!Array.isArray(row) || row.length === 0) {
+        throw new Error(`RechartsAdapter: subplots row ${rowIndex} must be a non-empty array of panels`);
+      }
+    }
+    return grid;
+  }
+
+  const flat = subplots as RechartsSubplotConfig[];
+  const cols = columns ?? flat.length;
+  if (!Number.isInteger(cols) || cols < 1) {
+    throw new Error('RechartsAdapter: columns must be a positive integer');
+  }
+
+  const grid: RechartsSubplotConfig[][] = [];
+  for (let i = 0; i < flat.length; i += cols) {
+    grid.push(flat.slice(i, i + cols));
+  }
+  return grid;
+}
+
+/**
+ * Builds a multi-panel (subplot mode) MAIDR figure: one MaidrSubplot per
+ * panel, arranged in the same grid shape as the config.
+ */
+function buildSubplotMaidr(config: RechartsAdapterConfig): Maidr {
+  if (config.chartType || config.layers) {
+    throw new Error('RechartsAdapter: subplots is mutually exclusive with top-level chartType/layers');
+  }
+
+  const grid = normalizeRechartsSubplotGrid(config.subplots ?? [], config.columns);
+  const subplots = grid.map((row, rowIndex) =>
+    row.map((panel, colIndex) => buildPanelSubplot(config, panel, rowIndex, colIndex)),
+  );
+
+  return {
+    id: config.id,
+    title: config.title,
+    subtitle: config.subtitle,
+    caption: config.caption,
+    subplots,
+  };
+}
+
+/**
+ * Builds one MaidrSubplot for a panel at grid position (row, col).
+ *
+ * Panel fields are merged over the top-level defaults, then the regular
+ * layer builders run with a panel scope so every generated selector matches
+ * only this panel's marks. Layer ids are prefixed with the grid position to
+ * stay unique across the whole figure, and the panel title (when provided)
+ * lands on the FIRST layer — the core uses it as the panel's display name
+ * in subplot summaries.
+ */
+function buildPanelSubplot(
+  config: RechartsAdapterConfig,
+  panel: RechartsSubplotConfig,
+  row: number,
+  col: number,
+): MaidrSubplot {
+  if (!panel.chartType && !panel.layers) {
+    throw new Error(
+      `RechartsAdapter: subplot panel [${row}][${col}] must define chartType + yKeys (simple mode) or layers (composed mode)`,
+    );
+  }
+
+  const merged: RechartsAdapterConfig = {
+    id: config.id,
+    data: panel.data ?? config.data,
+    chartType: panel.chartType,
+    xKey: panel.xKey ?? config.xKey,
+    yKeys: panel.yKeys ?? config.yKeys,
+    layers: panel.layers,
+    xLabel: panel.xLabel ?? config.xLabel,
+    yLabel: panel.yLabel ?? config.yLabel,
+    orientation: panel.orientation ?? config.orientation,
+    fillKeys: panel.fillKeys ?? config.fillKeys,
+    binConfig: panel.binConfig ?? config.binConfig,
+    selectorOverride: panel.selectorOverride,
+  };
+
+  const panelScope = panel.panelSelector ?? getPanelClassSelector(row, col);
+  const layers = buildLayers(merged, panelScope).map((layer, layerIndex) => ({
+    ...layer,
+    // Layer ids must be unique across the WHOLE figure, not per subplot.
+    id: `${row}_${col}_${layer.id}`,
+    // The first layer's title doubles as the panel display name.
+    title: layerIndex === 0 && panel.title !== undefined ? panel.title : layer.title,
+  }));
+
+  return {
+    layers,
+    selector: `#maidr-article-${cssEscape(config.id)} ${panelScope} svg.recharts-surface`,
+  };
+}
+
+/**
  * Builds MAIDR layers from the adapter config.
  * Handles both simple mode (chartType + yKeys) and composed mode (layers).
+ *
+ * @param config - Adapter (or merged per-panel) configuration
+ * @param panelScope - Optional selector scoping generated selectors to one
+ *                     panel's container (subplot mode only)
  */
-function buildLayers(config: RechartsAdapterConfig): MaidrLayer[] {
+function buildLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   if (config.layers) {
-    return buildComposedLayers(config);
+    return buildComposedLayers(config, panelScope);
   }
-  return buildSimpleLayers(config);
+  return buildSimpleLayers(config, panelScope);
 }
 
 /**
  * Builds layers for simple mode (single chart type, one or more yKeys).
  */
-function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
+function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   const { data, chartType, xKey, yKeys, xLabel, yLabel, orientation, fillKeys, selectorOverride } = config;
 
   if (!chartType || !yKeys || yKeys.length === 0) {
     throw new Error(
       'RechartsAdapter: either provide chartType + yKeys (simple mode) or layers (composed mode)',
     );
+  }
+  if (!data) {
+    throw new Error('RechartsAdapter: data is required (top-level or per subplot panel)');
   }
 
   const hasMultipleSeries = yKeys.length > 1;
@@ -78,12 +205,12 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
   // produce a single layer with SegmentedPoint[][] data.
   // With a single yKey, fall back to regular BAR.
   if (isSegmentedBarType(chartType) && hasMultipleSeries) {
-    return [buildSegmentedBarLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, fillKeys, selectorOverride, config.id)];
+    return [buildSegmentedBarLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, fillKeys, selectorOverride, config.id, panelScope)];
   }
 
   // Histogram: produce HistogramPoint[] data
   if (chartType === 'histogram') {
-    return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride, config.id)];
+    return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride, config.id, panelScope)];
   }
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
@@ -100,7 +227,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
   // Simple single-series or multiple separate layers
   return yKeys.map((yKey, index) => {
     const seriesIndex = hasMultipleSeries ? index : undefined;
-    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id);
+    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey);
 
     return {
@@ -137,6 +264,7 @@ function buildSegmentedBarLayer(
   fillKeys?: string[],
   selectorOverride?: string,
   chartId?: string,
+  panelScope?: string,
 ): MaidrLayer {
   // SegmentedTrace expects [group/segment][category]:
   //   outer array = series (one per yKey/fill)
@@ -149,7 +277,7 @@ function buildSegmentedBarLayer(
     }));
   });
 
-  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
 
   return {
     id: '0',
@@ -179,6 +307,7 @@ function buildHistogramLayer(
   binConfig?: RechartsAdapterConfig['binConfig'],
   selectorOverride?: string,
   chartId?: string,
+  panelScope?: string,
 ): MaidrLayer {
   const histData: HistogramPoint[] = data.map((item) => {
     const x = item[xKey] as string | number;
@@ -191,7 +320,7 @@ function buildHistogramLayer(
     return { x, y, xMin, xMax, yMin, yMax };
   });
 
-  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
 
   return {
     id: '0',
@@ -250,11 +379,14 @@ function buildMultiSeriesLineLayer(
 /**
  * Builds layers for composed mode (mixed chart types via layers config).
  */
-function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
+function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   const { data, xKey, xLabel, yLabel, orientation, layers, selectorOverride } = config;
 
   if (!layers || layers.length === 0) {
     throw new Error('RechartsAdapter: layers array must not be empty in composed mode');
+  }
+  if (!data) {
+    throw new Error('RechartsAdapter: data is required (top-level or per subplot panel)');
   }
 
   // Count how many layers use each chart type to decide multi-series indexing.
@@ -275,7 +407,7 @@ function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
     const seriesIndex = (typeTotals.get(chartType) ?? 0) > 1 ? currentIndex : undefined;
 
     const maidrType = toTraceType(chartType);
-    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id);
+    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey);
 
     return {

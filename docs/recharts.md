@@ -63,11 +63,13 @@ function AccessibleBarChart() {
 |------|------|----------|-------------|
 | `id` | `string` | Yes | Unique identifier for the chart (used for DOM IDs). |
 | `children` | `ReactNode` | Yes | Recharts chart component(s) to make accessible. |
-| `data` | `Record<string, unknown>[]` | Yes | Recharts data array. Each item is one data point with named fields. |
+| `data` | `Record<string, unknown>[]` | Simple/composed mode | Recharts data array. Each item is one data point with named fields. In subplot mode it is the default data for panels without their own `data`. |
 | `xKey` | `string` | Yes | Key in data objects for x-axis values. |
 | `chartType` | `RechartsChartType` | Simple mode | Chart type (see supported types below). |
 | `yKeys` | `string[]` | Simple mode | Keys in data objects for y-axis values. Each key is a data series. |
 | `layers` | `RechartsLayerConfig[]` | Composed mode | Layer configs for mixed chart types (see Composed Charts). |
+| `subplots` | `RechartsSubplotConfig[][]` or `RechartsSubplotConfig[]` | Subplot mode | Panel grid for multi-panel (faceted) figures (see Multi-Panel Charts). Mutually exclusive with `chartType`/`layers`. |
+| `columns` | `number` | No | Panels per row when `subplots` is a flat array. Ignored for 2D grids. |
 | `title` | `string` | No | Chart title displayed in text descriptions. |
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
@@ -117,6 +119,10 @@ Use `layers` when your chart mixes different chart types (e.g., bar + line):
   {/* Recharts ComposedChart component */}
 </MaidrRecharts>
 ```
+
+### Subplot Mode (Multi-Panel)
+
+Use `subplots` when your figure is a grid of small multiples (faceted charts). See [Multi-Panel (Faceted) Charts](#multi-panel-faceted-charts) below.
 
 ## Supported Chart Types
 
@@ -342,6 +348,69 @@ const data = [
 </MaidrRecharts>
 ```
 
+## Multi-Panel (Faceted) Charts
+
+Recharts has no native facet concept — multi-panel layouts are several sibling chart components. The adapter's **subplot mode** turns such a grid into ONE accessible MAIDR figure: arrow keys move between panels, ENTER drills into a panel, ESCAPE returns to panel navigation, and PageUp/PageDown steps through a panel's layers.
+
+Describe the grid with the `subplots` prop and pass **one Recharts chart per panel as children, in row-major order** (first child = top-left panel `[0][0]`, then across the row, then the next row). `<MaidrRecharts>` wraps each child in a generated `.maidr-panel-<row>-<col>` div and lays each grid row out as a flex row, so highlighting and announcements stay scoped to the correct panel — a mismatched children order narrates one panel while highlighting another.
+
+Top-level props (`data`, `xKey`, `yKeys`, `xLabel`, `yLabel`, `orientation`, `fillKeys`, `binConfig`) act as defaults that each panel may override. Every panel must define its own `chartType` + `yKeys` (or `layers` for a composed panel), and `subplots` is mutually exclusive with the top-level `chartType`/`layers`. A panel's `title` is its announced display name (e.g. the facet value).
+
+```tsx
+const east = [{ quarter: 'Q1', revenue: 4200 }, { quarter: 'Q2', revenue: 5800 }];
+const west = [{ quarter: 'Q1', revenue: 3100 }, { quarter: 'Q2', revenue: 4400 }];
+
+<MaidrRecharts
+  id="sales-by-region"
+  title="Quarterly Revenue by Region"
+  xKey="quarter"
+  yKeys={['revenue']}
+  xLabel="Quarter"
+  yLabel="Revenue ($)"
+  subplots={[[
+    { title: 'East', chartType: 'bar', data: east },
+    { title: 'West', chartType: 'bar', data: west },
+  ]]}
+>
+  {/* One chart per panel, in row-major grid order */}
+  <BarChart width={320} height={220} data={east}>
+    <XAxis dataKey="quarter" />
+    <YAxis />
+    <Bar dataKey="revenue" fill="#8884d8" />
+  </BarChart>
+  <BarChart width={320} height={220} data={west}>
+    <XAxis dataKey="quarter" />
+    <YAxis />
+    <Bar dataKey="revenue" fill="#82ca9d" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+### Grid Shapes
+
+- **2D array** — `subplots={[[a, b], [c, d]]}` is a 2x2 grid in visual reading order. Ragged rows (`[[a, b], [c]]`) are allowed; empty rows are not.
+- **Flat array + `columns`** — `subplots={[a, b, c]} columns={2}` chunks into `[[a, b], [c]]`. Without `columns`, a flat array becomes a single row.
+
+### Custom Panel DOM (`panelSelector`)
+
+If you render the panel containers yourself — for example with the `useRechartsAdapter` hook and `<Maidr>` directly, where no wrapper divs are generated — give each panel config a `panelSelector` that uniquely matches that panel's own container:
+
+```tsx
+subplots={[[
+  { title: 'East', chartType: 'bar', data: east, panelSelector: '.east-panel' },
+  { title: 'West', chartType: 'bar', data: west, panelSelector: '.west-panel' },
+]]}
+```
+
+The selector is used to scope that panel's highlight selectors, so it must match **only** that panel.
+
+### Notes and Limitations
+
+- The visual grid must match the `subplots` config shape. `<MaidrRecharts>` guarantees this by generating the layout; with `panelSelector` it is your responsibility.
+- Per-panel `selectorOverride` is applied verbatim (it is NOT combined with the panel scope and does not inherit the top-level `selectorOverride`) — provide an already panel-scoped selector.
+- The multi-series highlighting limitation applies per panel: a panel with multiple `yKeys` gets audio/text/braille but no visual highlighting unless it has a `selectorOverride`.
+- For grids with more than one row, the Up/Down arrow direction at the panel level may feel inverted (MAIDR detects visual row order from matplotlib-style SVG markers that Recharts does not emit). Single-row grids are unaffected.
+
 ## TypeScript Types
 
 All types are exported from `maidr/recharts`:
@@ -353,6 +422,7 @@ import {
   type RechartsAdapterConfig,  // Adapter configuration
   type RechartsChartType,      // Supported chart types
   type RechartsLayerConfig,    // Layer config for composed mode
+  type RechartsSubplotConfig,  // Panel config for subplot mode
   type HistogramBinConfig,     // Histogram bin configuration
 } from 'maidr/recharts';
 ```
@@ -377,6 +447,26 @@ interface RechartsLayerConfig {
   yKey: string;              // Key in data for this series' y-values
   chartType: RechartsChartType; // Chart type for this series
   name?: string;             // Display name (used in legends/descriptions)
+}
+```
+
+### `RechartsSubplotConfig`
+
+```typescript
+interface RechartsSubplotConfig {
+  title?: string;               // Panel display name (e.g. the facet value)
+  chartType?: RechartsChartType; // Panel chart type (simple mode)
+  yKeys?: string[];             // Panel series keys (simple mode)
+  layers?: RechartsLayerConfig[]; // Composed-mode layers for this panel
+  data?: Record<string, unknown>[]; // Panel data (defaults to top-level data)
+  xKey?: string;                // Defaults to top-level xKey
+  xLabel?: string;              // Defaults to top-level xLabel
+  yLabel?: string;              // Defaults to top-level yLabel
+  orientation?: Orientation;    // Defaults to top-level orientation
+  fillKeys?: string[];          // Defaults to top-level fillKeys
+  binConfig?: HistogramBinConfig; // Defaults to top-level binConfig
+  selectorOverride?: string;    // Panel-scoped highlight selector override
+  panelSelector?: string;       // Custom panel container selector (escape hatch)
 }
 ```
 

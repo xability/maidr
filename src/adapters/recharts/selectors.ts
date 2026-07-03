@@ -48,6 +48,22 @@ import type { RechartsChartType } from './types';
 import { cssEscape } from '@adapters/shared/selectorUtil';
 
 /**
+ * Returns the CSS class name of the generated wrapper div for one panel of
+ * a multi-panel (subplot mode) figure. `<MaidrRecharts>` stamps this class
+ * on each panel wrapper it renders.
+ */
+export function getPanelClassName(row: number, col: number): string {
+  return `maidr-panel-${row}-${col}`;
+}
+
+/**
+ * Returns the CSS selector matching one panel's generated wrapper div.
+ */
+export function getPanelClassSelector(row: number, col: number): string {
+  return `.${getPanelClassName(row, col)}`;
+}
+
+/**
  * Returns the CSS selector string for individual data point elements
  * of the given Recharts chart type.
  *
@@ -62,16 +78,24 @@ import { cssEscape } from '@adapters/shared/selectorUtil';
  * to scope every selector to that chart's own `#maidr-article-<id>` wrapper so
  * the charts cannot highlight one another's elements.
  *
+ * For multi-panel figures every panel lives inside the SAME article wrapper,
+ * so `chartId` alone is not enough: pass `panelScope` (a selector matching
+ * only that panel's container, e.g. `.maidr-panel-0-1`) to keep each panel's
+ * selectors from matching sibling panels' marks.
+ *
  * @param chartType - The Recharts chart type
  * @param seriesIndex - When set, indicates a multi-series chart — returns undefined
  * @param chartId - When set, scopes the selector to the chart's `<Maidr>`
  *                  article (`#maidr-article-<id>`) to avoid cross-chart matches
+ * @param panelScope - When set, additionally scopes the selector to one
+ *                     panel's container within the article (subplot mode)
  * @returns CSS selector string, or undefined for multi-series targeting
  */
 export function getRechartsSelector(
   chartType: RechartsChartType,
   seriesIndex?: number,
   chartId?: string,
+  panelScope?: string,
 ): string | undefined {
   // Multi-series positional targeting is unreliable with CSS alone.
   // Return undefined to gracefully disable highlighting.
@@ -80,12 +104,23 @@ export function getRechartsSelector(
   }
 
   const base = baseRechartsSelector(chartType);
-  if (base === undefined || chartId === undefined) {
+  if (base === undefined) {
     return base;
   }
   // Scope to the chart's own `<Maidr>` article so multiple Recharts charts on
-  // one page cannot cross-highlight under page-global selector resolution.
-  return `#maidr-article-${cssEscape(chartId)} ${base}`;
+  // one page cannot cross-highlight under page-global selector resolution,
+  // then to the panel's own container so sibling panels cannot either.
+  const scopes: string[] = [];
+  if (chartId !== undefined) {
+    scopes.push(`#maidr-article-${cssEscape(chartId)}`);
+  }
+  if (panelScope !== undefined) {
+    scopes.push(panelScope);
+  }
+  if (scopes.length === 0) {
+    return base;
+  }
+  return `${scopes.join(' ')} ${base}`;
 }
 
 /**
