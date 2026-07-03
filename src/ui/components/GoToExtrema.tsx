@@ -58,16 +58,15 @@ export const GoToExtrema: React.FC = () => {
 
   // Keep filtered options in sync
   useEffect(() => {
-    if (inputValue.trim() === '') {
-      setFilteredOptions(availableXValues);
-    } else {
-      const q = inputValue.toLowerCase();
-      setFilteredOptions(
-        availableXValues.filter(v => String(v).toLowerCase().includes(q)),
-      );
-    }
+    const next = inputValue.trim() === ''
+      ? availableXValues
+      : availableXValues.filter(v => String(v).toLowerCase().includes(inputValue.toLowerCase()));
+    setFilteredOptions(next);
     if (isDropdownOpen) {
-      setDropdownSelectedIndex(prev => (prev < 0 ? 0 : Math.min(prev, Math.max(0, availableXValues.length - 1))));
+      // Clamp against the freshly filtered list so the highlighted index never
+      // points past the end after typing a filter (which would blank out the
+      // highlight and the aria-activedescendant announcement).
+      setDropdownSelectedIndex(prev => (prev < 0 ? 0 : Math.min(prev, Math.max(0, next.length - 1))));
     }
   }, [inputValue, availableXValues, isDropdownOpen]);
 
@@ -211,7 +210,9 @@ export const GoToExtrema: React.FC = () => {
         goToExtremaViewModel.moveDown();
         // Announce the newly selected option
         const newOption = state.targets[state.selectedIndex + 1];
-        announceToScreenReader(`Selected: ${newOption.label}`);
+        if (newOption) {
+          announceToScreenReader(`Selected: ${newOption.label}`);
+        }
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
@@ -223,7 +224,9 @@ export const GoToExtrema: React.FC = () => {
         goToExtremaViewModel.moveUp();
         // Announce the newly selected option
         const newOption = state.targets[state.selectedIndex - 1];
-        announceToScreenReader(`Selected: ${newOption.label}`);
+        if (newOption) {
+          announceToScreenReader(`Selected: ${newOption.label}`);
+        }
       }
     } else if (event.key === 'Enter') {
       event.preventDefault();
@@ -264,9 +267,16 @@ export const GoToExtrema: React.FC = () => {
       if (dropdownSelectedIndex === 0) {
         setIsDropdownOpen(false);
         setDropdownSelectedIndex(-1);
-        // Get the last selected extrema option's label for announcement
+        // Get the last selected extrema option's label for announcement.
+        // selectedIndex can legitimately sit on the virtual search option
+        // (targets.length), so guard the dereference to avoid a TypeError that
+        // would abort the focus handoff below.
         const lastSelectedOption = state.targets[state.selectedIndex];
-        announceToScreenReader(`Returning to extrema options: ${lastSelectedOption.label}`);
+        announceToScreenReader(
+          lastSelectedOption
+            ? `Returning to extrema options: ${lastSelectedOption.label}`
+            : 'Returning to extrema options',
+        );
         // Focus back on the selected option
         if (selectedItemRef.current) {
           selectedItemRef.current.focus();

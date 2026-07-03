@@ -506,7 +506,10 @@ const Settings: React.FC = () => {
       brailleDisplayLines: clampBrailleLines(generalSettings.brailleDisplayLines),
     };
     viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
-    chatViewModel.refreshInitialMessage();
+    // Update the welcome bubble's model info in place instead of resetting the
+    // chat slice, so saving a setting (e.g. volume) never discards an ongoing
+    // conversation.
+    chatViewModel.updateWelcomeMessage();
   }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
