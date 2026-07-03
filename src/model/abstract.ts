@@ -95,14 +95,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
     this.movable.isInitialEntry = value;
   }
 
-  public get isOutOfBounds(): boolean {
-    return this.movable.isOutOfBounds;
-  }
-
-  public set isOutOfBounds(value: boolean) {
-    this.movable.isOutOfBounds = value;
-  }
-
   public get row(): number {
     return this.movable.row;
   }

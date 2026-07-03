@@ -26,10 +26,12 @@ export abstract class Svg {
 
   /**
    * Marks an element as created (and therefore owned) by MAIDR.
+   * Public so trace code that clones or synthesizes highlight elements
+   * outside this utility can participate in ownership-aware disposal.
    * @param element - The element to mark
    * @returns The same element, for chaining
    */
-  private static markOwned<T extends SVGElement>(element: T): T {
+  public static markOwned<T extends SVGElement>(element: T): T {
     element.setAttribute(this.OWNED_ATTRIBUTE, 'true');
     return element;
   }

@@ -15,9 +15,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
-  protected highlightCenters:
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null;
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -40,7 +37,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.min = this.barValues.map(row => MathUtil.safeMin(row));
     this.max = this.barValues.map(row => MathUtil.safeMax(row));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
-    this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<T>(this.points);
   }
 
@@ -59,9 +55,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected get audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
 
-    const value = isVertical
-      ? this.barValues[this.row][this.col]
-      : this.barValues[this.col][this.row];
+    // barValues is already orientation-normalized to [row][col], so the value
+    // is always read as [row][col]; only the visual pan coordinates swap.
+    const value = this.barValues[this.row][this.col];
 
     return {
       freq: {
@@ -72,10 +68,10 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       panning: {
         x: isVertical ? this.col : this.row,
         y: isVertical ? this.row : this.col,
-        rows: isVertical ? this.barValues.length : this.barValues[this.col].length,
+        rows: isVertical ? this.barValues.length : this.barValues[this.row].length,
         cols: isVertical ? this.barValues[this.row].length : this.barValues.length,
       },
-      group: isVertical ? this.row : this.col,
+      group: this.row,
     };
   }
 
@@ -164,6 +160,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     const svgElements = [queried];
 
     if (svgElements.length !== this.points.length) {
+      // Discard the just-inserted hidden clones so they don't leak into the
+      // DOM (dispose only removes elements reachable via highlightValues).
+      queried.forEach(el => el.remove());
       return null;
     }
 
@@ -191,51 +190,14 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
         }
         svgElements[row] = aligned;
       } else {
+        // Discard the just-inserted hidden clones so they don't leak into the
+        // DOM (dispose only removes elements reachable via highlightValues).
+        queried.forEach(el => el.remove());
         return null; // more SVG elements than data points — unexpected
       }
     }
 
     return svgElements;
-  }
-
-  /**
-   * Maps SVG elements to their center coordinates for proximity detection.
-   * @returns Array of center points with element references or null if no elements exist
-   */
-  protected mapSvgElementsToCenters():
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null {
-    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
-
-    if (!svgElements) {
-      return null;
-    }
-
-    const centers: {
-      x: number;
-      y: number;
-      row: number;
-      col: number;
-      element: SVGElement;
-    }[] = [];
-    for (let row = 0; row < svgElements.length; row++) {
-      for (let col = 0; col < svgElements[row].length; col++) {
-        const element = svgElements[row][col];
-        const targetElement = Array.isArray(element) ? element[0] : element;
-        const bbox = targetElement.getBoundingClientRect();
-        if (targetElement) {
-          centers.push({
-            x: bbox.x + bbox.width / 2,
-            y: bbox.y + bbox.height / 2,
-            row,
-            col,
-            element: targetElement,
-          });
-        }
-      }
-    }
-
-    return centers;
   }
 
   /**
@@ -305,6 +267,42 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     }
 
     return null;
+  }
+
+  /**
+   * Shared rotor compare-search across the bars in the current row.
+   * Steps through {@link barValues} from the current column in the given
+   * direction, moving to the first bar whose value satisfies the comparison.
+   * @param direction - The direction to search (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a matching bar was found, false otherwise
+   */
+  protected compareSearchInRow(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return false;
+    }
+
+    const groupValues = this.barValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+    this.notifyRotorBounds();
+    return false;
   }
 }
 
@@ -455,30 +453,6 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @returns True if a target was found, false otherwise
    */
   public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const currentGroup = this.row;
-    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
-      return false;
-    }
-
-    const groupValues = this.barValues[currentGroup];
-    if (!groupValues || groupValues.length === 0) {
-      return false;
-    }
-
-    const currentIndex = this.col;
-    const step = direction === 'right' ? 1 : -1;
-    let i = currentIndex + step;
-
-    while (i >= 0 && i < groupValues.length) {
-      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
-        this.col = i;
-        this.updateVisualPointPosition();
-        this.notifyStateUpdate();
-        return true;
-      }
-      i += step;
-    }
-    this.notifyRotorBounds();
-    return false;
+    return this.compareSearchInRow(direction, type);
   }
 }

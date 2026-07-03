@@ -9,14 +9,12 @@ interface MovableOptions {
 
 abstract class AbstractMovable implements Movable {
   public isInitialEntry: boolean;
-  public isOutOfBounds: boolean;
 
   public row: number;
   public col: number;
 
   protected constructor(options?: MovableOptions) {
     this.isInitialEntry = options?.isInitialEntry ?? true;
-    this.isOutOfBounds = false;
     this.row = options?.row ?? 0;
     this.col = options?.col ?? 0;
   }
@@ -71,6 +69,9 @@ export class MovableGrid<Element> extends AbstractMovable {
         this.col -= 1;
         break;
     }
+    // On ragged grids a row change can leave col past the new row's end;
+    // clamp it the same way handleInitialEntry does.
+    this.col = Math.max(0, Math.min(this.col, this.elements[this.row].length - 1));
     return true;
   }
 
@@ -96,6 +97,9 @@ export class MovableGrid<Element> extends AbstractMovable {
         this.col = 0;
         break;
     }
+    // On ragged grids a row change can leave col past the new row's end;
+    // clamp it the same way handleInitialEntry does.
+    this.col = Math.max(0, Math.min(this.col, this.elements[this.row].length - 1));
     return true;
   }
 
@@ -114,7 +118,7 @@ export class MovableGrid<Element> extends AbstractMovable {
     if (Array.isArray(target)) {
       const [row, col] = target;
       return row >= 0 && row < this.elements.length
-        && col >= 0 && col < this.elements[this.row].length;
+        && col >= 0 && col < this.elements[row].length;
     }
 
     switch (target) {
