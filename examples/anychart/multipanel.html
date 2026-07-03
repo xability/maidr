@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Multi-Panel Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      /* All panel containers live inside ONE wrapper element; bindAnyCharts
+         mounts MAIDR once over the whole group. */
+      #dashboard {
+        display: grid;
+        grid-template-columns: repeat(2, 480px);
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      #dashboard > div { width: 480px; height: 320px; }
+      p { max-width: 980px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // Four independent AnyChart instances, one per container — AnyChart's
+        // standard small-multiples idiom. Each chart's own title becomes its
+        // panel name in MAIDR's subplot navigation.
+        function quarterChart(title, containerId, data) {
+          const chart = anychart.column(data);
+          chart.title(title);
+          chart.xAxis().title('Product');
+          chart.yAxis().title('Units sold');
+          chart.container(containerId);
+          chart.draw();
+          return chart;
+        }
+
+        const q1 = quarterChart('Q1 Sales', 'panel-q1', [
+          ['Laptops', 42], ['Phones', 61], ['Tablets', 18],
+        ]);
+        const q2 = quarterChart('Q2 Sales', 'panel-q2', [
+          ['Laptops', 48], ['Phones', 55], ['Tablets', 24],
+        ]);
+        const q3 = quarterChart('Q3 Sales', 'panel-q3', [
+          ['Laptops', 39], ['Phones', 70], ['Tablets', 21],
+        ]);
+        const q4 = quarterChart('Q4 Sales', 'panel-q4', [
+          ['Laptops', 57], ['Phones', 66], ['Tablets', 30],
+        ]);
+
+        // Group the four charts into ONE multi-panel MAIDR figure. The 2D
+        // array maps 1:1 onto the subplot grid in visual reading order
+        // (top-left first). Alternatively pass a flat array with
+        // `layout: { columns: 2 }` or `layout: 'auto'`.
+        maidrAnyChart.bindAnyCharts(
+          [
+            [q1, q2],
+            [q3, q4],
+          ],
+          {
+            id: 'sales-by-quarter',
+            title: 'Sales by Quarter',
+          },
+        );
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Multi-Panel Figure</h1>
+    <p>
+      Four AnyChart column charts bound as ONE accessible multi-panel figure.
+      Click on (or Tab to) the figure: MAIDR starts in subplot navigation —
+      use arrow keys to move between the four panels, press
+      <kbd>Enter</kbd> to drill into a panel and explore its bars, and
+      <kbd>Esc</kbd> to return to panel navigation. Inside a panel press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="dashboard">
+      <div id="panel-q1"></div>
+      <div id="panel-q2"></div>
+      <div id="panel-q3"></div>
+      <div id="panel-q4"></div>
+    </div>
+  </body>
+</html>

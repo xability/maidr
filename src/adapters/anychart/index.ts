@@ -8,8 +8,16 @@
  * @packageDocumentation
  */
 
-export { anyChartToMaidr, bindAnyChart } from './converters';
+export {
+  anyChartsToMaidr,
+  anyChartToMaidr,
+  bindAnyChart,
+  bindAnyCharts,
+} from './converters';
 export type {
   AnyChartBinderOptions,
+  AnyChartGridInput,
   AnyChartInstance,
+  AnyChartsBinderOptions,
+  AnyChartsLayout,
 } from './types';

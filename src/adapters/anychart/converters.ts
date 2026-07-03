@@ -34,11 +34,14 @@ import type {
 } from '@type/grammar';
 import type {
   AnyChartBinderOptions,
+  AnyChartGridInput,
   AnyChartInstance,
   AnyChartIterator,
+  AnyChartsBinderOptions,
   AnyChartSeries,
   AnyChartTitle,
 } from './types';
+import { nextId } from '@adapters/shared/selectorUtil';
 import { TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
@@ -334,6 +337,59 @@ const HEATMAP_ATTR = 'data-maidr-anychart-heatmap-cell';
 const CANDLESTICK_ATTR = 'data-maidr-anychart-candlestick-cell';
 
 /**
+ * Attribute name stamped onto each panel's own `<svg>` root by
+ * {@link bindAnyCharts}. Its value is the panel token
+ * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
+ * within the page. Every layer selector emitted for a multi-panel figure is
+ * prefixed with `[data-maidr-anychart-panel="<token>"] ` so MAIDR's
+ * document-global selector resolution can never leak into another panel
+ * (or another figure).
+ */
+const PANEL_ATTR = 'data-maidr-anychart-panel';
+
+/**
+ * Identifies one panel (subplot cell) of a multi-panel AnyChart figure.
+ * `undefined` everywhere a panel context is accepted means "single-panel
+ * mode" — selectors and stamped attribute values then keep their original,
+ * un-prefixed shape so existing single-chart behavior is unchanged.
+ */
+interface PanelContext {
+  /** Page-unique token: `<sanitized figureId>-<row>-<col>`. */
+  token: string;
+  /** Subplot grid row (row-major, visual reading order). */
+  row: number;
+  /** Subplot grid column. */
+  col: number;
+}
+
+/**
+ * Descendant-combinator prefix scoping a selector to one panel's SVG.
+ * Empty string in single-panel mode.
+ */
+function panelScope(panel: PanelContext | undefined): string {
+  return panel ? `[${PANEL_ATTR}="${panel.token}"] ` : '';
+}
+
+/**
+ * Prefix baked into every stamped attribute VALUE for a panel (e.g.
+ * `data-maidr-anychart-bar="<token>:0-3"`). Scoping the values themselves —
+ * not just the selectors — also fixes cross-figure collisions between two
+ * independently bound charts whose bare `<series>-<point>` values would
+ * otherwise be identical. Empty string in single-panel mode.
+ */
+function panelStampPrefix(panel: PanelContext | undefined): string {
+  return panel ? `${panel.token}:` : '';
+}
+
+/**
+ * Sanitize a figure id for embedding in attribute values / CSS attribute
+ * selectors (quotes and other CSS-hostile characters become underscores).
+ */
+function sanitizePanelToken(value: string): string {
+  return value.replace(/[^\w-]/g, '_');
+}
+
+/**
  * Resolve the CSS selector for a specific series index.
  *
  * AnyChart's internal SVG structure does not use stable, predictable class
@@ -357,6 +413,7 @@ function resolveSelector(
   seriesIndex: number,
   traceType: TraceType,
   options?: AnyChartBinderOptions,
+  panel?: PanelContext,
 ): string | string[] | undefined {
   const userSelectors = options?.selectors;
   if (userSelectors && userSelectors.length > 0) {
@@ -372,17 +429,21 @@ function resolveSelector(
   // BAR uses `data-maidr-anychart-bar`; LINE uses
   // `data-maidr-anychart-line-point` (requires markers enabled on the series,
   // which {@link enableLineMarkersIfNeeded} handles).
+  // In multi-panel mode both the selector (descendant of the panel's SVG)
+  // and the attribute value (token prefix) are scoped to the panel.
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
   if (traceType === TraceType.BAR)
-    return `[${BAR_ATTR}^="${seriesIndex}-"]`;
+    return `${scope}[${BAR_ATTR}^="${stamp}${seriesIndex}-"]`;
   if (traceType === TraceType.LINE)
-    return `[${LINE_ATTR}^="${seriesIndex}-"]`;
+    return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
   if (traceType === TraceType.SCATTER)
-    return `[${POINT_ATTR}^="${seriesIndex}-"]`;
+    return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
   // Heatmaps are single-series (no series-index prefix); the chart-level
   // builder constructs the selector itself, so this branch only matters as
   // a defensive default when the heatmap path is bypassed.
   if (traceType === TraceType.HEATMAP)
-    return `[${HEATMAP_ATTR}]`;
+    return `${scope}[${HEATMAP_ATTR}]`;
 
   return undefined;
 }
@@ -451,6 +512,7 @@ function collectShapeCandidatesFromRoot(
 function stampBarAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   const seriesCount = chart.getSeriesCount();
   if (seriesCount === 0)
@@ -520,7 +582,7 @@ function stampBarAttributes(
     for (let p = 0; p < stampCount; p++) {
       const el = candidates[cursor++];
       if (!el.hasAttribute(BAR_ATTR))
-        el.setAttribute(BAR_ATTR, `${s}-${p}`);
+        el.setAttribute(BAR_ATTR, `${stampPrefix}${s}-${p}`);
     }
   }
 }
@@ -713,6 +775,7 @@ function collectLineMarkerCandidates(
 function stampLineAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   const seriesCount = chart.getSeriesCount();
   if (seriesCount === 0)
@@ -778,7 +841,7 @@ function stampLineAttributes(
     for (let i = stampStart; i < stampEnd; i++) {
       const el = candidates[i].el;
       if (!el.hasAttribute(LINE_ATTR))
-        el.setAttribute(LINE_ATTR, `${s}-${i - stampStart}`);
+        el.setAttribute(LINE_ATTR, `${stampPrefix}${s}-${i - stampStart}`);
     }
   }
 }
@@ -816,6 +879,7 @@ const SCATTER_LIKE_SERIES_TYPES = new Set([
 function stampScatterAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   const seriesCount = chart.getSeriesCount();
   if (seriesCount === 0)
@@ -921,7 +985,7 @@ function stampScatterAttributes(
       const c = candidates[i];
       if (c.el.hasAttribute(POINT_ATTR))
         continue;
-      c.el.setAttribute(POINT_ATTR, `${s}-${i - stampStart}`);
+      c.el.setAttribute(POINT_ATTR, `${stampPrefix}${s}-${i - stampStart}`);
       // Stamp the bbox-center as `cx` / `cy` so MAIDR's
       // `ScatterTrace.groupSvgElements` can extract coordinates from these
       // <path> elements directly. AnyChart scatter markers render as
@@ -1329,6 +1393,7 @@ function findWhiskerElements(
 function stampBoxAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   const seriesCount = chart.getSeriesCount();
   if (seriesCount === 0)
@@ -1387,13 +1452,13 @@ function stampBoxAttributes(
     for (let b = 0; b < end - start; b++) {
       const iq = allIqCandidates[start + b];
       if (!iq.el.hasAttribute(BOX_ATTR)) {
-        iq.el.setAttribute(BOX_ATTR, `${s}-${b}`);
+        iq.el.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         iq.el.setAttribute(BOX_PART_ATTR, 'iq');
       }
 
       const median = findMedianElement(svg, iq);
       if (median && !median.hasAttribute(BOX_ATTR)) {
-        median.setAttribute(BOX_ATTR, `${s}-${b}`);
+        median.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         median.setAttribute(BOX_PART_ATTR, 'q2');
       } else if (!median) {
         // DIAGNOSTIC (temporary, removed once box highlighting is verified):
@@ -1419,7 +1484,7 @@ function stampBoxAttributes(
       for (const { el, isUpper } of whiskers) {
         if (el.hasAttribute(BOX_ATTR))
           continue;
-        el.setAttribute(BOX_ATTR, `${s}-${b}`);
+        el.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         el.setAttribute(BOX_PART_ATTR, isUpper ? 'max' : 'min');
       }
     }
@@ -1428,16 +1493,16 @@ function stampBoxAttributes(
     // per-part stamps succeeded without browser DevTools. Remove once
     // box highlighting is confirmed working end-to-end.
     const stampedIq = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${s}-"][${BOX_PART_ATTR}="iq"]`,
+      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="iq"]`,
     ).length;
     const stampedQ2 = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${s}-"][${BOX_PART_ATTR}="q2"]`,
+      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="q2"]`,
     ).length;
     const stampedMin = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${s}-"][${BOX_PART_ATTR}="min"]`,
+      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="min"]`,
     ).length;
     const stampedMax = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${s}-"][${BOX_PART_ATTR}="max"]`,
+      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="max"]`,
     ).length;
     // Using console.warn (not console.log) so the diagnostic surfaces under
     // the repo's no-console ESLint rule. This whole block is temporary.
@@ -1450,7 +1515,7 @@ function stampBoxAttributes(
     // Per-box detail: report any box missing one or more parts so we can
     // pinpoint failures from a single console line. Temporary diagnostic.
     for (let b = 0; b < boxCount; b++) {
-      const base = `[${BOX_ATTR}="${s}-${b}"]`;
+      const base = `[${BOX_ATTR}="${stampPrefix}${s}-${b}"]`;
       const missing: string[] = [];
       if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="iq"]`))
         missing.push('iq');
@@ -1543,6 +1608,7 @@ function findHeatmapCellLayer(svg: SVGElement): Element {
 function stampHeatmapAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   let chartType: string | undefined;
   try {
@@ -1641,7 +1707,7 @@ function stampHeatmapAttributes(
     const c = i % cols;
     const el = cellCandidates[i];
     if (!el.hasAttribute(HEATMAP_ATTR))
-      el.setAttribute(HEATMAP_ATTR, `${r}-${c}`);
+      el.setAttribute(HEATMAP_ATTR, `${stampPrefix}${r}-${c}`);
   }
 }
 
@@ -1707,6 +1773,7 @@ function findCandlestickPathLayer(svg: SVGElement): Element {
 function stampCandlestickAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
+  stampPrefix = '',
 ): void {
   const seriesCount = chart.getSeriesCount?.() ?? 0;
   if (seriesCount === 0)
@@ -1773,7 +1840,7 @@ function stampCandlestickAttributes(
       continue;
     const rows = extractRawRows(series);
     for (let i = 0; i < rows.length && cursor < pathCandidates.length; i++, cursor++) {
-      pathCandidates[cursor].setAttribute(CANDLESTICK_ATTR, `${s}-${i}`);
+      pathCandidates[cursor].setAttribute(CANDLESTICK_ATTR, `${stampPrefix}${s}-${i}`);
     }
   }
 }
@@ -1853,6 +1920,7 @@ function buildBoxLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  panel?: PanelContext,
 ): MaidrLayer {
   const rows = extractRawRows(series);
   const data: BoxPoint[] = rows.map(r => ({
@@ -1876,8 +1944,10 @@ function buildBoxLayer(
   // them from the `iq` element's top/bottom edges via
   // `Svg.createLineElement(iq, 'top'|'bottom')`. Outlier arrays are empty
   // because AnyChart's iterator API does not expose outliers.
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
   const stampedBoxSelectors: BoxSelector[] = data.map((_, b) => {
-    const base = `[${BOX_ATTR}="${seriesIndex}-${b}"]`;
+    const base = `${scope}[${BOX_ATTR}="${stamp}${seriesIndex}-${b}"]`;
     return {
       lowerOutliers: [],
       min: `${base}[${BOX_PART_ATTR}="min"]`,
@@ -1962,6 +2032,7 @@ function buildHeatmapLayer(
 function buildHeatmapLayerFromChart(
   chart: AnyChartInstance,
   selectors: string | string[] | undefined,
+  panel?: PanelContext,
 ): MaidrLayer | null {
   const dataView = chart.data?.();
   if (!dataView)
@@ -2015,7 +2086,7 @@ function buildHeatmapLayerFromChart(
   }
 
   const data: HeatmapData = { x: xLabels, y: yLabels, points };
-  const defaultSelector = `[${HEATMAP_ATTR}]`;
+  const defaultSelector = `${panelScope(panel)}[${HEATMAP_ATTR}]`;
   return {
     id: '0',
     type: TraceType.HEATMAP,
@@ -2044,6 +2115,7 @@ function buildCandlestickLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  panel?: PanelContext,
 ): MaidrLayer {
   const rows = extractRawRows(series);
   const data: CandlestickPoint[] = rows.map((r) => {
@@ -2074,7 +2146,8 @@ function buildCandlestickLayer(
   // {@link stampCandlestickAttributes}, scoped to this series index. The
   // candlestick model duplicates the matched element across all OHLC
   // segments, so a single attribute per candle is sufficient.
-  const defaultSelector = `[${CANDLESTICK_ATTR}^="${seriesIndex}-"]`;
+  const defaultSelector
+    = `${panelScope(panel)}[${CANDLESTICK_ATTR}^="${panelStampPrefix(panel)}${seriesIndex}-"]`;
   return {
     id: String(seriesIndex),
     type: TraceType.CANDLESTICK,
@@ -2098,6 +2171,7 @@ function buildLayer(
   seriesIndex: number,
   traceType: AnyChartTraceType,
   selectors: string | string[] | undefined,
+  panel?: PanelContext,
 ): MaidrLayer {
   switch (traceType) {
     case TraceType.BAR:
@@ -2107,11 +2181,11 @@ function buildLayer(
     case TraceType.SCATTER:
       return buildScatterLayer(series, seriesIndex, selectors);
     case TraceType.BOX:
-      return buildBoxLayer(series, seriesIndex, selectors);
+      return buildBoxLayer(series, seriesIndex, selectors, panel);
     case TraceType.HEATMAP:
       return buildHeatmapLayer(series, seriesIndex, selectors);
     case TraceType.CANDLESTICK:
-      return buildCandlestickLayer(series, seriesIndex, selectors);
+      return buildCandlestickLayer(series, seriesIndex, selectors, panel);
   }
 }
 
@@ -2120,26 +2194,60 @@ function buildLayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Convert an AnyChart chart instance into a MAIDR data object.
+ * Build one {@link MaidrSubplot} from a single AnyChart chart instance.
  *
- * This function inspects the chart's series and metadata after it has been
- * drawn, then constructs a {@link Maidr} JSON structure that can be passed
- * to the `<Maidr>` React component or used with `bindAnyChart()`.
+ * This is the per-chart body shared by {@link anyChartToMaidr} (single
+ * panel, `panel === undefined`) and {@link anyChartsToMaidr} (one call per
+ * grid cell). Axis titles are extracted per chart, with `options.axes`
+ * acting as an override. In panel mode:
  *
- * @param chart - A drawn AnyChart chart instance.
- * @param options - Optional overrides for id, title, axes, and selectors.
- * @returns The MAIDR data object, or `null` if no convertible series found.
+ * - every default selector is scoped to the panel's SVG via
+ *   {@link PANEL_ATTR} and the token-prefixed stamp values,
+ * - layer ids are prefixed `<row>_<col>_` so they stay unique across the
+ *   whole figure,
+ * - the chart's own title is placed on the FIRST layer, which is what the
+ *   core uses as the panel's display name in subplot summaries,
+ * - `subplot.selector` points at the panel's SVG root so the core can
+ *   resolve the panel container.
+ *
+ * @returns The subplot, or `null` when the chart has no convertible series.
  */
-export function anyChartToMaidr(
+function buildSubplot(
   chart: AnyChartInstance,
+  panel: PanelContext | undefined,
   options?: AnyChartBinderOptions,
-): Maidr | null {
-  // Resolve chart metadata.
-  const container = resolveContainerElement(chart);
-  const id = options?.id ?? container?.id ?? 'anychart-maidr';
-  const title = options?.title ?? extractTitle(chart);
+): MaidrSubplot | null {
   const xAxisLabel = options?.axes?.x ?? extractAxisTitle(chart, 'x');
   const yAxisLabel = options?.axes?.y ?? extractAxisTitle(chart, 'y');
+
+  const attachAxes = (layer: MaidrLayer): void => {
+    if (xAxisLabel || yAxisLabel) {
+      layer.axes = {
+        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
+        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
+      };
+    }
+  };
+
+  const finalize = (layers: MaidrLayer[]): MaidrSubplot => {
+    if (panel) {
+      for (const layer of layers) {
+        // Layer ids must be unique across the WHOLE figure, not just within
+        // one panel; prefix with the grid position (vegalite convention).
+        layer.id = `${panel.row}_${panel.col}_${layer.id}`;
+      }
+      // The first layer's title is the panel's display name in the core's
+      // subplot summaries (there is no subplot-level title field).
+      const panelTitle = extractTitle(chart);
+      if (layers.length > 0 && panelTitle && !layers[0].title)
+        layers[0].title = panelTitle;
+      return {
+        layers,
+        selector: `svg[${PANEL_ATTR}="${panel.token}"]`,
+      };
+    }
+    return { layers };
+  };
 
   // Heatmap is a single-dataset chart and does NOT expose
   // getSeriesCount()/getSeriesAt(). Detect it first and route to the
@@ -2161,21 +2269,11 @@ export function anyChartToMaidr(
       | string
       | string[]
       | undefined;
-    const layer = buildHeatmapLayerFromChart(chart, userHeatmapSelector);
+    const layer = buildHeatmapLayerFromChart(chart, userHeatmapSelector, panel);
     if (!layer)
       return null;
-    if (xAxisLabel || yAxisLabel) {
-      layer.axes = {
-        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
-        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
-      };
-    }
-    const subplot: MaidrSubplot = { layers: [layer] };
-    return {
-      id,
-      ...(title ? { title } : {}),
-      subplots: [[subplot]],
-    };
+    attachAxes(layer);
+    return finalize([layer]);
   }
 
   // Defensive fallback: if getType is unavailable but getSeriesCount throws
@@ -2188,24 +2286,14 @@ export function anyChartToMaidr(
       | string
       | string[]
       | undefined;
-    const layer = buildHeatmapLayerFromChart(chart, userHeatmapSelector);
+    const layer = buildHeatmapLayerFromChart(chart, userHeatmapSelector, panel);
     if (!layer)
       return null;
     // Attach axis labels just like the primary heatmap path above, so
     // production heatmaps that reach this fallback (getType() unavailable)
     // still expose their axis titles.
-    if (xAxisLabel || yAxisLabel) {
-      layer.axes = {
-        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
-        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
-      };
-    }
-    const subplot: MaidrSubplot = { layers: [layer] };
-    return {
-      id,
-      ...(title ? { title } : {}),
-      subplots: [[subplot]],
-    };
+    attachAxes(layer);
+    return finalize([layer]);
   }
   if (seriesCount === 0)
     return null;
@@ -2226,16 +2314,11 @@ export function anyChartToMaidr(
       continue;
     }
 
-    const selectors = resolveSelector(i, traceType, options);
-    const layer = buildLayer(series, i, traceType, selectors);
+    const selectors = resolveSelector(i, traceType, options, panel);
+    const layer = buildLayer(series, i, traceType, selectors, panel);
 
     // Attach axis labels.
-    if (xAxisLabel || yAxisLabel) {
-      layer.axes = {
-        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
-        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
-      };
-    }
+    attachAxes(layer);
 
     layers.push(layer);
   }
@@ -2243,14 +2326,38 @@ export function anyChartToMaidr(
   if (layers.length === 0)
     return null;
 
-  const subplot: MaidrSubplot = { layers };
-  const maidr: Maidr = {
+  return finalize(layers);
+}
+
+/**
+ * Convert an AnyChart chart instance into a MAIDR data object.
+ *
+ * This function inspects the chart's series and metadata after it has been
+ * drawn, then constructs a {@link Maidr} JSON structure that can be passed
+ * to the `<Maidr>` React component or used with `bindAnyChart()`.
+ *
+ * @param chart - A drawn AnyChart chart instance.
+ * @param options - Optional overrides for id, title, axes, and selectors.
+ * @returns The MAIDR data object, or `null` if no convertible series found.
+ */
+export function anyChartToMaidr(
+  chart: AnyChartInstance,
+  options?: AnyChartBinderOptions,
+): Maidr | null {
+  // Resolve chart metadata.
+  const container = resolveContainerElement(chart);
+  const id = options?.id ?? container?.id ?? 'anychart-maidr';
+  const title = options?.title ?? extractTitle(chart);
+
+  const subplot = buildSubplot(chart, undefined, options);
+  if (!subplot)
+    return null;
+
+  return {
     id,
     ...(title ? { title } : {}),
     subplots: [[subplot]],
   };
-
-  return maidr;
 }
 
 /** Elements that have already been bound via {@link bindAnyChart}. */
@@ -2390,6 +2497,533 @@ export function bindAnyChart(
   });
 
   return maidr;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-panel public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Distance (in CSS pixels) two containers' tops may differ while still being
+ * clustered into the same visual row by `layout: 'auto'`.
+ */
+const AUTO_ROW_TOLERANCE_PX = 10;
+
+/** One chart entry with its on-page position, used by the auto layout. */
+interface AutoLayoutEntry {
+  chart: AnyChartInstance;
+  top: number;
+  left: number;
+}
+
+/**
+ * Derive a 2D grid from each chart container's on-page position: cluster
+ * containers into rows by bounding-rect top (within
+ * {@link AUTO_ROW_TOLERANCE_PX}), then sort each row left-to-right. The
+ * result is in visual reading order (top-left panel first), which is the
+ * order the MAIDR core expects.
+ */
+function autoLayoutGrid(charts: AnyChartInstance[]): AnyChartInstance[][] | null {
+  const entries: AutoLayoutEntry[] = [];
+  for (const chart of charts) {
+    const container = resolveContainerElement(chart);
+    if (!container) {
+      console.warn(
+        '[maidr/anychart] layout: "auto" requires every chart to have a '
+        + 'resolvable, attached container. Draw all charts before binding, '
+        + 'or pass an explicit 2D grid / { rows, columns } layout.',
+      );
+      return null;
+    }
+    const rect = container.getBoundingClientRect();
+    entries.push({ chart, top: rect.top, left: rect.left });
+  }
+
+  entries.sort((a, b) => (a.top - b.top) || (a.left - b.left));
+
+  const rows: Array<{ top: number; entries: AutoLayoutEntry[] }> = [];
+  for (const entry of entries) {
+    const current = rows[rows.length - 1];
+    if (current && Math.abs(entry.top - current.top) <= AUTO_ROW_TOLERANCE_PX)
+      current.entries.push(entry);
+    else
+      rows.push({ top: entry.top, entries: [entry] });
+  }
+
+  return rows.map(row =>
+    row.entries.sort((a, b) => a.left - b.left).map(e => e.chart),
+  );
+}
+
+/**
+ * Normalize the {@link AnyChartGridInput} into a validated 2D grid.
+ *
+ * - An explicit 2D array is used as-is (row-major, visual reading order);
+ *   empty rows and missing entries are rejected because they crash the MAIDR
+ *   core's Figure model.
+ * - A flat array is chunked row-major according to `layout`, arranged by
+ *   container position (`'auto'`), or kept as a single row when no layout is
+ *   given.
+ *
+ * @returns The grid, or `null` (with a console warning) on invalid input.
+ */
+function normalizeChartGrid(
+  charts: AnyChartGridInput,
+  layout: AnyChartsBinderOptions['layout'],
+): AnyChartInstance[][] | null {
+  if (!Array.isArray(charts) || charts.length === 0) {
+    console.warn(
+      '[maidr/anychart] Expected a non-empty array of AnyChart instances.',
+    );
+    return null;
+  }
+
+  const mixed = charts as Array<AnyChartInstance | AnyChartInstance[]>;
+  const rowCount = mixed.filter(entry => Array.isArray(entry)).length;
+
+  // Explicit 2D grid → subplots 1:1.
+  if (rowCount > 0) {
+    if (rowCount !== mixed.length) {
+      console.warn(
+        '[maidr/anychart] Chart grid mixes rows (arrays) and bare chart '
+        + 'instances. Pass either a flat array or a full 2D array.',
+      );
+      return null;
+    }
+    const grid = charts as AnyChartInstance[][];
+    for (const row of grid) {
+      if (row.length === 0) {
+        console.warn(
+          '[maidr/anychart] Chart grid contains an empty row. Empty rows '
+          + 'are not allowed (the MAIDR figure model cannot represent them).',
+        );
+        return null;
+      }
+      if (row.some(chart => !chart)) {
+        console.warn('[maidr/anychart] Chart grid contains a missing chart entry.');
+        return null;
+      }
+    }
+    return grid;
+  }
+
+  const flat = charts as AnyChartInstance[];
+  if (flat.some(chart => !chart)) {
+    console.warn('[maidr/anychart] Chart array contains a missing chart entry.');
+    return null;
+  }
+
+  if (layout === 'auto')
+    return autoLayoutGrid(flat);
+
+  const total = flat.length;
+  const columns
+    = layout?.columns
+      ?? (layout?.rows ? Math.ceil(total / layout.rows) : total);
+  if (!Number.isInteger(columns) || columns < 1) {
+    console.warn(
+      '[maidr/anychart] Invalid layout: `columns` (or `ceil(total / rows)`) '
+      + 'must be a positive integer.',
+    );
+    return null;
+  }
+
+  const grid: AnyChartInstance[][] = [];
+  for (let i = 0; i < total; i += columns)
+    grid.push(flat.slice(i, i + columns));
+  return grid;
+}
+
+/** One panel's chart + token, produced by {@link buildMaidrFromGrid}. */
+interface PanelBinding {
+  chart: AnyChartInstance;
+  token: string;
+}
+
+/**
+ * Build a multi-panel {@link Maidr} figure from a validated chart grid.
+ *
+ * Panels whose chart yields no convertible series are dropped (with a
+ * warning) rather than emitted as empty subplots, because a subplot with
+ * `layers: []` crashes the MAIDR core. Rows that end up empty are dropped
+ * entirely. Panel tokens are always derived from the ORIGINAL grid position
+ * so selector emission and DOM stamping stay in agreement even when panels
+ * are dropped.
+ */
+function buildMaidrFromGrid(
+  grid: AnyChartInstance[][],
+  options?: AnyChartsBinderOptions,
+): { maidr: Maidr | null; panels: PanelBinding[] } {
+  const id = options?.id ?? nextId('anychart-maidr');
+  const tokenBase = sanitizePanelToken(id);
+  const subplotOptions: AnyChartBinderOptions | undefined
+    = options?.axes ? { axes: options.axes } : undefined;
+
+  const panels: PanelBinding[] = [];
+  const subplots: MaidrSubplot[][] = [];
+
+  grid.forEach((row, r) => {
+    const subplotRow: MaidrSubplot[] = [];
+    row.forEach((chart, c) => {
+      const token = `${tokenBase}-${r}-${c}`;
+      const subplot = buildSubplot(chart, { token, row: r, col: c }, subplotOptions);
+      if (!subplot) {
+        console.warn(
+          `[maidr/anychart] Panel (${r}, ${c}) has no convertible series; `
+          + 'dropping it from the figure.',
+        );
+        return;
+      }
+      panels.push({ chart, token });
+      subplotRow.push(subplot);
+    });
+    if (subplotRow.length > 0)
+      subplots.push(subplotRow);
+  });
+
+  if (subplots.length === 0) {
+    console.warn('[maidr/anychart] No chart in the grid produced convertible data.');
+    return { maidr: null, panels: [] };
+  }
+
+  const maidr: Maidr = {
+    id,
+    ...(options?.title ? { title: options.title } : {}),
+    subplots,
+  };
+  return { maidr, panels };
+}
+
+/**
+ * Convert a group of AnyChart chart instances into ONE multi-panel MAIDR
+ * figure (a 2D subplot grid navigable with arrow keys + Enter).
+ *
+ * AnyChart has no native facet/small-multiples concept — the idiom is one
+ * chart instance per container — so the grouping here is explicit:
+ *
+ * - `charts` as a 2D array maps 1:1 onto the subplot grid, row-major in
+ *   visual reading order (top-left panel first).
+ * - `charts` as a flat array is arranged according to `options.layout`
+ *   (`{ rows?, columns? }` chunked row-major, `'auto'` derived from the
+ *   containers' on-page positions, or a single row when omitted).
+ *
+ * Each panel's display name is its own chart title; `options.title` names
+ * the whole figure and `options.axes` overrides every panel's axis labels.
+ *
+ * Prefer {@link bindAnyCharts}, which also stamps the per-panel highlight
+ * attributes this function's selectors refer to. Use this directly only for
+ * inspection or custom mounting flows. Pass a stable `options.id` if you
+ * need deterministic output across calls (the default id is generated).
+ *
+ * @param charts - Drawn AnyChart instances, each in its own container.
+ * @param options - Figure-level overrides and flat-array layout.
+ * @returns The MAIDR data object, or `null` if nothing was convertible.
+ */
+export function anyChartsToMaidr(
+  charts: AnyChartGridInput,
+  options?: AnyChartsBinderOptions,
+): Maidr | null {
+  const grid = normalizeChartGrid(charts, options?.layout);
+  if (!grid)
+    return null;
+  return buildMaidrFromGrid(grid, options).maidr;
+}
+
+/**
+ * Stamp one panel's SVG with the panel token and all per-point highlight
+ * attributes (token-prefixed so they are unique page-wide). Each stamp
+ * family is best-effort: a failure in one must not block the others or the
+ * bind itself.
+ */
+function stampPanelAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  token: string,
+): void {
+  if (!svg.hasAttribute(PANEL_ATTR))
+    svg.setAttribute(PANEL_ATTR, token);
+
+  const prefix = `${token}:`;
+  try {
+    stampBarAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp bar attributes:', err);
+  }
+  try {
+    stampLineAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp line attributes:', err);
+  }
+  try {
+    stampScatterAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp scatter attributes:', err);
+  }
+  try {
+    stampBoxAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp box attributes:', err);
+  }
+  try {
+    stampHeatmapAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp heatmap attributes:', err);
+  }
+  try {
+    stampCandlestickAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp candlestick attributes:', err);
+  }
+}
+
+/**
+ * Bind a group of AnyChart charts to MAIDR as ONE multi-panel figure.
+ *
+ * This is the multi-panel counterpart of {@link bindAnyChart}. It accepts
+ * the same chart-grid input as {@link anyChartsToMaidr}, then:
+ *
+ * 1. builds the combined {@link Maidr} object (one subplot per chart),
+ * 2. stamps `data-maidr-anychart-panel="<token>"` on each chart's own
+ *    `<svg>` and token-prefixed highlight attributes on its marks, so every
+ *    selector resolves ONLY inside its own panel,
+ * 3. wraps the panels' common ancestor in a transparent host `<div>`, sets
+ *    the combined `maidr-data` attribute on it, and dispatches a single
+ *    `maidr:bindchart` event once every panel's SVG has rendered.
+ *
+ * Requirements: every chart must be drawn into its OWN container element
+ * (the standard AnyChart idiom), and all panel containers should live under
+ * a common wrapper element — the host wraps that wrapper (or groups
+ * same-parent siblings) so MAIDR mounts once for the whole figure.
+ * Shared-Stage dashboards (multiple charts on one Stage/container) are not
+ * supported.
+ *
+ * Calling this again for the same group is safe: the existing binding is
+ * reused and the current {@link Maidr} object is returned.
+ *
+ * @param charts - Drawn AnyChart instances, each in its own container.
+ * @param options - Figure-level overrides and flat-array layout.
+ * @returns The generated {@link Maidr} object, or `null` on failure.
+ *
+ * @example
+ * ```ts
+ * const q1 = anychart.column([['A', 4], ['B', 2]]);
+ * q1.title('Q1'); q1.container('panel-1').draw();
+ * const q2 = anychart.column([['A', 6], ['B', 3]]);
+ * q2.title('Q2'); q2.container('panel-2').draw();
+ *
+ * bindAnyCharts([[q1, q2]], { id: 'sales', title: 'Sales by Quarter' });
+ * ```
+ */
+export function bindAnyCharts(
+  charts: AnyChartGridInput,
+  options?: AnyChartsBinderOptions,
+): Maidr | null {
+  const grid = normalizeChartGrid(charts, options?.layout);
+  if (!grid)
+    return null;
+
+  // Every panel needs its own resolvable container before anything else.
+  const flatCharts = grid.flat();
+  const containers: HTMLElement[] = [];
+  for (const chart of flatCharts) {
+    const container = resolveContainerElement(chart);
+    if (!container) {
+      console.warn(
+        '[maidr/anychart] Could not find a container element for one of the '
+        + 'charts. Make sure every chart has been drawn before calling '
+        + 'bindAnyCharts().',
+      );
+      return null;
+    }
+    containers.push(container);
+  }
+  if (new Set(containers).size !== containers.length) {
+    console.warn(
+      '[maidr/anychart] bindAnyCharts requires each chart to live in its own '
+      + 'container element. Shared-Stage dashboards (multiple charts drawn '
+      + 'on one Stage) are not supported.',
+    );
+    return null;
+  }
+
+  const { maidr, panels } = buildMaidrFromGrid(grid, options);
+  if (!maidr) {
+    console.warn('[maidr/anychart] Could not extract data from the AnyChart charts.');
+    return null;
+  }
+
+  // Enable line markers per chart (same best-effort flow as bindAnyChart).
+  for (const chart of flatCharts) {
+    let markersMutated = false;
+    try {
+      markersMutated = enableLineMarkersIfNeeded(chart);
+    } catch (err) {
+      console.warn(
+        '[maidr/anychart] enableLineMarkersIfNeeded failed; continuing without marker mutation:',
+        err,
+      );
+    }
+    if (markersMutated) {
+      try {
+        (chart as unknown as { draw?: () => void }).draw?.();
+      } catch (err) {
+        console.warn(
+          '[maidr/anychart] Failed to force re-draw after enabling markers:',
+          err,
+        );
+      }
+    }
+  }
+
+  const host = ensureGroupHostWrapper(containers);
+  if (!host)
+    return null;
+  if (boundElements.has(host))
+    return maidr;
+
+  const containerByChart = new Map<AnyChartInstance, HTMLElement>(
+    flatCharts.map((chart, i) => [chart, containers[i]]),
+  );
+
+  // Stamp each panel as its SVG becomes available; bind the whole figure
+  // once the LAST panel is stamped so `maidr-data` never references
+  // attributes that do not exist yet.
+  let pending = panels.length;
+  const finalize = (): void => {
+    pending -= 1;
+    if (pending > 0)
+      return;
+    if (boundElements.has(host))
+      return;
+    boundElements.add(host);
+    host.setAttribute('maidr-data', JSON.stringify(maidr));
+    host.dispatchEvent(
+      new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }),
+    );
+  };
+
+  for (const { chart, token } of panels) {
+    const container = containerByChart.get(chart);
+    if (!container) {
+      // Defensive: cannot happen (panels ⊆ flatCharts), but never stall the bind.
+      finalize();
+      continue;
+    }
+    whenChartRendered(chart, container, (svg) => {
+      stampPanelAttributes(chart, svg, token);
+      finalize();
+    });
+  }
+
+  return maidr;
+}
+
+/**
+ * Find the deepest element containing every given element.
+ */
+function lowestCommonAncestor(elements: HTMLElement[]): HTMLElement | null {
+  for (
+    let candidate: HTMLElement | null = elements[0];
+    candidate;
+    candidate = candidate.parentElement
+  ) {
+    const current = candidate;
+    if (elements.every(el => current.contains(el)))
+      return current;
+  }
+  return null;
+}
+
+/** Compare two nodes by document order (for stable panel ordering). */
+function documentOrder(a: Node, b: Node): number {
+  const pos = a.compareDocumentPosition(b);
+  if (pos & Node.DOCUMENT_POSITION_FOLLOWING)
+    return -1;
+  if (pos & Node.DOCUMENT_POSITION_PRECEDING)
+    return 1;
+  return 0;
+}
+
+/**
+ * Ensure ALL panel containers of a multi-panel figure live inside one
+ * transparent host `<div>` and return that host.
+ *
+ * Mirrors {@link ensureHostWrapper} but over a group: the combined
+ * `maidr-data` attribute must sit on a single wrapper element containing
+ * every panel container, because MAIDR mounts one React root per bound
+ * element.
+ *
+ * Strategy:
+ * - If an existing host already contains every panel, reuse it.
+ * - If all containers share one parent, insert a `display: contents` host
+ *   before the first container (in document order) and move the containers
+ *   into it — `display: contents` keeps them participating in the parent's
+ *   flex/grid layout exactly as before.
+ * - Otherwise wrap the containers' lowest common ancestor, unless that
+ *   ancestor is `<body>` / `<html>` (which cannot be reparented) — in that
+ *   case the bind fails with guidance to add a wrapper element.
+ *
+ * The host carries the union bounding box of all panels via the
+ * `data-maidr-host-width` / `-height` attributes consumed by
+ * `SizedDomNodeAdapter`, keeping MAIDR's focusable wrapper non-zero-sized.
+ */
+function ensureGroupHostWrapper(containers: HTMLElement[]): HTMLElement | null {
+  const existing = containers[0].parentElement?.closest<HTMLElement>(
+    '[data-maidr-anychart-host]',
+  );
+  if (existing && containers.every(c => existing.contains(c)))
+    return existing;
+
+  // Union bounding box of all panels for the sized-host data attributes.
+  let left = Number.POSITIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+  for (const container of containers) {
+    const rect = container.getBoundingClientRect();
+    left = Math.min(left, rect.left);
+    top = Math.min(top, rect.top);
+    right = Math.max(right, rect.right);
+    bottom = Math.max(bottom, rect.bottom);
+  }
+  const width = right - left > 0 ? right - left : 600;
+  const height = bottom - top > 0 ? bottom - top : 400;
+
+  const host = document.createElement('div');
+  host.setAttribute('data-maidr-anychart-host', '');
+  host.style.display = 'contents';
+  host.dataset.maidrHostWidth = String(width);
+  host.dataset.maidrHostHeight = String(height);
+
+  const firstParent = containers[0].parentElement;
+  const sameParent
+    = firstParent !== null
+      && containers.every(c => c.parentElement === firstParent);
+  if (sameParent) {
+    const ordered = [...containers].sort(documentOrder);
+    firstParent.insertBefore(host, ordered[0]);
+    for (const container of ordered)
+      host.appendChild(container);
+    return host;
+  }
+
+  const lca = lowestCommonAncestor(containers);
+  if (
+    !lca
+    || lca === document.body
+    || lca === document.documentElement
+    || !lca.parentNode
+  ) {
+    console.warn(
+      '[maidr/anychart] bindAnyCharts could not find a wrappable common '
+      + 'ancestor for the panel containers. Place all panel containers '
+      + 'inside one wrapper element and try again.',
+    );
+    return null;
+  }
+  lca.parentNode.insertBefore(host, lca);
+  host.appendChild(lca);
+  return host;
 }
 
 /**
