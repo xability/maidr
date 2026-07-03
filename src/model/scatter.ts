@@ -59,6 +59,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
+  // highlightCenters holds viewport coordinates from getBoundingClientRect(),
+  // which shift when the page scrolls or the window resizes. Rather than
+  // recompute every rect on each pointermove, mark the cache stale on
+  // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
+  private highlightCentersDirty = false;
+
+  private readonly invalidateHighlightCenters = (): void => {
+    this.highlightCentersDirty = true;
+  };
+
   private readonly minX: number;
   private readonly maxX: number;
   private readonly minY: number;
@@ -126,6 +136,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
 
+    // Invalidate the cached pointer-hover centers when the viewport moves.
+    // Capture phase catches scrolling of any ancestor container, not just window.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.addEventListener('resize', this.invalidateHighlightCenters);
+    }
+
     // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
     this.isInGridMode = false;
     this.gridRow = 0;
@@ -152,6 +169,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * Cleans up resources and removes all highlight elements from the DOM.
    */
   public dispose(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.removeEventListener('resize', this.invalidateHighlightCenters);
+    }
+
     this.movable.dispose();
 
     this.xPoints.length = 0;
@@ -645,9 +667,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   }
 
   public moveToIndex(row: number, col: number): boolean {
+    // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
+    // (ROW mode). NavigationService.moveToXValueInValues preserves X across
+    // layer switches by calling moveToIndex(0, xIndex), so COL mode must read
+    // the column argument (previously it read `row`, always landing on x=0).
     if (this.mode === NavMode.COL) {
-      if (row >= 0 && row < this.xPoints.length) {
-        this.col = row;
+      if (col >= 0 && col < this.xPoints.length) {
+        this.col = col;
         this.row = 0;
         this.notifyStateUpdate();
         return true;
@@ -656,9 +682,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
         return false;
       }
     } else {
-      if (col >= 0 && col < this.yPoints.length) {
-        this.col = col;
-        this.row = 0;
+      if (row >= 0 && row < this.yPoints.length) {
+        this.row = row;
         this.notifyStateUpdate();
         return true;
       } else {
@@ -1192,6 +1217,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     _x: number,
     _y: number,
   ): NearestPoint | null {
+    // Rebuild stale centers lazily: scroll/resize invalidated the cached
+    // viewport coordinates (see invalidateHighlightCenters).
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -1230,8 +1262,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * set via keyboard while exploring nearby.
    */
   protected override moveToNearest(
-    x: number,
-    y: number,
+    _x: number,
+    _y: number,
     nearest: NearestPoint,
     onCurve: boolean,
   ): void {
@@ -1239,6 +1271,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       return;
     }
     this.mode = NavMode.COL;
-    super.moveToNearest(x, y, nearest, onCurve);
+    // highlightCenters stores the x-group index in `row`; feed it as the
+    // column argument so moveToIndex (COL mode: col = x index) lands on the
+    // hovered x position. Calling moveToIndex directly rather than delegating
+    // to super avoids the base early-return guard, which compares against the
+    // wrong fields for scatter's (mode, row, col) coordinate system.
+    this.moveToIndex(0, nearest.row);
   }
 }

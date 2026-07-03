@@ -259,168 +259,43 @@ export class MovableGraph extends AbstractMovable {
   }
 }
 
+/**
+ * Minimal row/col cursor store for {@link ScatterTrace}.
+ *
+ * ScatterTrace overrides every public {@link Movable} entry point — moveOnce,
+ * moveToExtreme, moveToIndex, isMovable — and drives navigation itself, using
+ * this class purely as a position store (row / col / isInitialEntry) exposed
+ * through the AbstractPlot accessors. The navigation methods below are required
+ * by the Movable interface but are never invoked for scatter; they are inert
+ * stubs so that the previously duplicated (and already-diverged) plane
+ * navigation logic cannot be "fixed" here with no effect on runtime behavior.
+ */
 export class MovablePlane extends AbstractMovable implements Disposable {
-  public mode: 'row' | 'col';
-
-  private readonly xPoints: { x: number; y: number[] }[];
-  private readonly yPoints: { x: number[]; y: number }[];
-
-  private readonly xValues: number[];
-  private readonly yValues: number[];
-
-  public constructor(xPoints: { x: number; y: number[] }[], yPoints: { x: number[]; y: number }[]) {
+  /**
+   * @param _xPoints - Scatter points grouped by X. Unused; retained so the
+   *   existing ScatterTrace call signature stays unchanged.
+   * @param _yPoints - Scatter points grouped by Y. Unused.
+   */
+  public constructor(
+    _xPoints: { x: number; y: number[] }[],
+    _yPoints: { x: number[]; y: number }[],
+  ) {
     super();
-
-    this.mode = 'col';
-
-    this.xPoints = xPoints;
-    this.yPoints = yPoints;
-
-    this.xValues = xPoints.map(point => point.x);
-    this.yValues = yPoints.map(point => point.y);
   }
 
   public dispose(): void {
-    this.xValues.length = 0;
-    this.yValues.length = 0;
+    // No owned resources; ScatterTrace holds the underlying point data.
   }
 
-  public moveOnce(direction: MovableDirection): boolean {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-      return true;
-    }
-
-    if (!this.isMovable(direction)) {
-      return false;
-    }
-
-    if (this.mode === 'col') {
-      switch (direction) {
-        case 'FORWARD':
-          this.col++;
-          break;
-        case 'BACKWARD':
-          this.col--;
-          break;
-        case 'UPWARD':
-        case 'DOWNWARD': {
-          this.toggleNavigation();
-          break;
-        }
-      }
-    } else {
-      switch (direction) {
-        case 'UPWARD':
-          this.row++;
-          break;
-        case 'DOWNWARD':
-          this.row--;
-          break;
-        case 'FORWARD':
-        case 'BACKWARD': {
-          this.toggleNavigation();
-          break;
-        }
-      }
-    }
-    return true;
+  public moveOnce(_direction: MovableDirection): boolean {
+    return false;
   }
 
-  public moveToExtreme(direction: MovableDirection): boolean {
-    if (this.isInitialEntry) {
-      this.handleInitialEntry();
-    }
-
-    if (this.mode === 'col') {
-      switch (direction) {
-        case 'UPWARD':
-          this.toggleNavigation();
-          this.row = this.yPoints.length - 1;
-          break;
-        case 'DOWNWARD':
-          this.toggleNavigation();
-          this.row = 0;
-          break;
-        case 'FORWARD':
-          this.col = this.xPoints.length - 1;
-          break;
-        case 'BACKWARD':
-          this.col = 0;
-          break;
-      }
-    } else {
-      switch (direction) {
-        case 'UPWARD':
-          this.row = this.yPoints.length - 1;
-          break;
-        case 'DOWNWARD':
-          this.row = 0;
-          break;
-        case 'FORWARD':
-          this.toggleNavigation();
-          this.col = this.xPoints.length - 1;
-          break;
-        case 'BACKWARD':
-          this.toggleNavigation();
-          this.col = 0;
-          break;
-      }
-    }
-    return true;
+  public moveToExtreme(_direction: MovableDirection): boolean {
+    return false;
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
-    if (Array.isArray(target)) {
-      return false;
-    }
-
-    if (this.mode === 'col') {
-      switch (target) {
-        case 'FORWARD':
-          return this.col < this.xPoints.length - 1;
-        case 'BACKWARD':
-          return this.col > 0;
-        case 'UPWARD':
-        case 'DOWNWARD':
-          return true;
-      }
-    } else {
-      switch (target) {
-        case 'UPWARD':
-          return this.row < this.yPoints.length - 1;
-        case 'DOWNWARD':
-          return this.row > 0;
-        case 'FORWARD':
-        case 'BACKWARD':
-          return true;
-      }
-    }
-  }
-
-  private toggleNavigation(): void {
-    if (this.mode === 'col') {
-      const currentX = this.xPoints[this.col];
-      const midY = currentX.y[Math.floor(currentX.y.length / 2)];
-      this.row = this.yValues.indexOf(midY);
-      this.mode = 'row';
-    } else {
-      const currentY = this.yPoints[this.row];
-      const midX = currentY.x[Math.floor(currentY.x.length / 2)];
-      this.col = this.xValues.indexOf(midX);
-      this.mode = 'col';
-    }
-  }
-
-  private handleInitialEntry(): void {
-    this.isInitialEntry = false;
-
-    if (this.mode === 'col') {
-      this.col = Math.max(0, Math.min(this.col, this.xPoints.length - 1));
-      this.row = Math.max(0, Math.min(this.row, this.xPoints[this.col].y.length - 1));
-    } else {
-      this.row = Math.max(0, Math.min(this.row, this.yPoints.length - 1));
-      this.col = Math.max(0, Math.min(this.col, this.yPoints[this.row].x.length - 1));
-    }
+  public isMovable(_target: [number, number] | MovableDirection): boolean {
+    return false;
   }
 }

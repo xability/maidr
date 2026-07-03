@@ -60,6 +60,24 @@ export class LineTrace extends AbstractTrace {
     intersectionKind: 'point' | 'slope';
   }>> = new Map();
 
+  // Single-entry memo for findIntersections(), keyed by the active (row, col).
+  // moveOnce and the audio/text/state getters each request the intersections
+  // for the same position several times per notifyStateUpdate; caching the
+  // last position keeps the O(lines x points) exact-match scan to once per
+  // move. The trace is rebuilt on live-data updates, so instance-level caching
+  // stays correct across appends.
+  private currentIntersectionsCache: { key: string; value: AudioState[] } | null = null;
+
+  // highlightCenters holds viewport coordinates from getBoundingClientRect(),
+  // which shift when the page scrolls or the window resizes. Rather than
+  // recompute every rect on each pointermove, mark the cache stale on
+  // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
+  private highlightCentersDirty = false;
+
+  private readonly invalidateHighlightCenters = (): void => {
+    this.highlightCentersDirty = true;
+  };
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -82,6 +100,13 @@ export class LineTrace extends AbstractTrace {
     this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
+
+    // Invalidate the cached pointer-hover centers when the viewport moves.
+    // Capture phase catches scrolling of any ancestor container, not just window.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.addEventListener('resize', this.invalidateHighlightCenters);
+    }
   }
 
   /**
@@ -129,6 +154,11 @@ export class LineTrace extends AbstractTrace {
   }
 
   public dispose(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.removeEventListener('resize', this.invalidateHighlightCenters);
+    }
+
     this.points.length = 0;
 
     this.min.length = 0;
@@ -366,6 +396,20 @@ export class LineTrace extends AbstractTrace {
    * @returns Array of AudioState for all intersecting lines
    */
   private findIntersections(): AudioState[] {
+    // A crossing requires at least two lines; single-line charts can never
+    // produce one, so skip the O(points) scan entirely.
+    if (this.points.length < 2) {
+      return [];
+    }
+
+    // Reuse the last result while the cursor stays on the same point — the
+    // exact-match scan is deterministic for a fixed (row, col) and immutable
+    // data, so the value cannot change between the repeated calls per move.
+    const key = `${this.row},${this.col}`;
+    if (this.currentIntersectionsCache && this.currentIntersectionsCache.key === key) {
+      return this.currentIntersectionsCache.value;
+    }
+
     const currentX = this.points[this.row][this.col].x;
     const currentY = this.points[this.row][this.col].y;
     const intersections: AudioState[] = [];
@@ -394,6 +438,7 @@ export class LineTrace extends AbstractTrace {
       }
     }
 
+    this.currentIntersectionsCache = { key, value: intersections };
     return intersections;
   }
 
@@ -767,6 +812,13 @@ export class LineTrace extends AbstractTrace {
     x: number,
     y: number,
   ): NearestPoint | null {
+    // Rebuild stale centers lazily: scroll/resize invalidated the cached
+    // viewport coordinates (see invalidateHighlightCenters).
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -1226,16 +1278,6 @@ export class LineTrace extends AbstractTrace {
       i += step;
     }
     this.notifyRotorBounds();
-    return false;
-  }
-
-  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
-    if (type === 'lower') {
-      return a < b;
-    }
-    if (type === 'higher') {
-      return a > b;
-    }
     return false;
   }
 
