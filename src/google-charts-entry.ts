@@ -7,11 +7,19 @@
  *
  * @packageDocumentation
  */
-import { createMaidrFromGoogleChart } from './adapters/google-charts/converters';
+import {
+  createMaidrFromGoogleChart,
+  createMaidrFromGoogleCharts,
+  whenGoogleChartsReady,
+} from './adapters/google-charts/converters';
 
 export {
   createMaidrFromGoogleChart,
+  createMaidrFromGoogleCharts,
   type GoogleChartAdapterOptions,
+  type GoogleChartPanel,
+  type GoogleChartsGridOptions,
+  whenGoogleChartsReady,
 } from './adapters/google-charts/converters';
 
 // Expose Google Charts adapter globally for script-tag usage (UMD build)
@@ -20,6 +28,8 @@ declare global {
   interface Window {
     maidrGoogleCharts?: {
       createMaidrFromGoogleChart: typeof createMaidrFromGoogleChart;
+      createMaidrFromGoogleCharts: typeof createMaidrFromGoogleCharts;
+      whenGoogleChartsReady: typeof whenGoogleChartsReady;
     };
   }
 }
@@ -27,6 +37,8 @@ declare global {
 if (typeof window !== 'undefined') {
   window.maidrGoogleCharts = {
     createMaidrFromGoogleChart,
+    createMaidrFromGoogleCharts,
+    whenGoogleChartsReady,
   };
 }
 
