@@ -12,7 +12,13 @@ import type {
   SegmentedPoint,
 } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
-import type { VictoryComponentType, VictoryLayerData, VictoryLayerInfo } from './types';
+import type {
+  VictoryComponentType,
+  VictoryLayerData,
+  VictoryLayerInfo,
+  VictoryPanelLayout,
+  VictorySubplotInfo,
+} from './types';
 import { TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -384,7 +390,7 @@ function binByEdges(values: number[], rawEdges: unknown[]): HistogramBin[] | nul
  */
 function extractLayerFromElement(
   element: ReactElement,
-  layerId: number,
+  layerId: string,
   axisLabels: { x?: string; y?: string },
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
@@ -420,7 +426,7 @@ function extractLayerFromElement(
     return null;
 
   return {
-    id: String(layerId),
+    id: layerId,
     victoryType: name,
     data: extracted.data,
     xAxisLabel: axisLabels.x,
@@ -442,7 +448,7 @@ function extractLayerFromElement(
 function extractSegmentedLayer(
   containerElement: ReactElement,
   containerType: 'VictoryStack',
-  layerId: number,
+  layerId: string,
   axisLabels: { x?: string; y?: string },
 ): VictoryLayerInfo | null {
   const containerProps = containerElement.props as { children?: ReactNode };
@@ -483,7 +489,7 @@ function extractSegmentedLayer(
   const traceType: VictoryComponentType = containerType;
 
   return {
-    id: String(layerId),
+    id: layerId,
     victoryType: traceType,
     data: { kind: 'segmented', points: series },
     xAxisLabel: axisLabels.x,
@@ -498,7 +504,47 @@ function extractSegmentedLayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Walks the React element tree to extract Victory data layers.
+ * Collects the supported Victory data layers among `childNodes`.
+ *
+ * Handles individual data components (e.g. `<VictoryScatter>`) and
+ * `<VictoryStack>` for stacked bar charts. Layer ids are produced by
+ * `makeId`, called with the layer's local index among the collected layers.
+ */
+function collectDataLayers(
+  childNodes: ReactNode,
+  axisLabels: { x?: string; y?: string },
+  makeId: (localIndex: number) => string,
+): VictoryLayerInfo[] {
+  const layers: VictoryLayerInfo[] = [];
+
+  Children.forEach(childNodes, (child) => {
+    if (!isValidElement(child))
+      return;
+
+    const name = getVictoryDisplayName(child.type);
+    if (!name)
+      return;
+
+    // VictoryStack → stacked bar
+    if (name === 'VictoryStack') {
+      const segmented = extractSegmentedLayer(child, name, makeId(layers.length), axisLabels);
+      if (segmented)
+        layers.push(segmented);
+      return;
+    }
+
+    // Individual data components
+    const layer = extractLayerFromElement(child, makeId(layers.length), axisLabels);
+    if (layer)
+      layers.push(layer);
+  });
+
+  return layers;
+}
+
+/**
+ * Walks the React element tree to extract Victory data layers into one flat
+ * list (single-panel view).
  *
  * Handles:
  * - `<VictoryChart>` wrappers (processes children)
@@ -507,35 +553,6 @@ function extractSegmentedLayer(
  */
 export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
-  let layerId = 0;
-
-  function processChildren(childNodes: ReactNode, axisLabels: { x?: string; y?: string }): void {
-    Children.forEach(childNodes, (child) => {
-      if (!isValidElement(child))
-        return;
-
-      const name = getVictoryDisplayName(child.type);
-      if (!name)
-        return;
-
-      // VictoryStack → stacked bar
-      if (name === 'VictoryStack') {
-        const segmented = extractSegmentedLayer(child, name, layerId, axisLabels);
-        if (segmented) {
-          layers.push(segmented);
-          layerId++;
-        }
-        return;
-      }
-
-      // Individual data components
-      const layer = extractLayerFromElement(child, layerId, axisLabels);
-      if (layer) {
-        layers.push(layer);
-        layerId++;
-      }
-    });
-  }
 
   Children.forEach(children, (child) => {
     if (!isValidElement(child))
@@ -546,13 +563,94 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
     if (name === 'VictoryChart') {
       const chartProps = child.props as { children?: ReactNode };
       const axisLabels = extractAxisLabels(chartProps.children);
-      processChildren(chartProps.children, axisLabels);
+      layers.push(...collectDataLayers(chartProps.children, axisLabels, n => String(layers.length + n)));
     } else {
-      processChildren(child, {});
+      layers.push(...collectDataLayers(child, {}, n => String(layers.length + n)));
     }
   });
 
   return layers;
+}
+
+/**
+ * Groups Victory children into subplot panels.
+ *
+ * With two or more top-level `<VictoryChart>` children, each chart becomes
+ * one panel carrying its own layers (ids `'{panelIdx}_{layerIdx}'`, unique
+ * across the whole figure), its own axis labels, and its `title` prop as the
+ * panel display name. Charts without supported data components produce an
+ * entry with empty `layers` so panel indices stay aligned with the rendered
+ * SVGs; callers must drop those entries before emitting the MAIDR grid.
+ *
+ * With fewer than two charts the extraction falls back to the original
+ * single-panel behavior (all supported data components flattened into one
+ * subplot with monotonic ids), so existing single-chart output is unchanged.
+ *
+ * In multi-panel mode, standalone data components outside any VictoryChart
+ * are ignored (with a console warning) because they cannot be reliably bound
+ * to a panel SVG.
+ */
+export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[] {
+  const charts: ReactElement[] = [];
+  let hasStandaloneData = false;
+
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child))
+      return;
+    if (getVictoryDisplayName(child.type) === 'VictoryChart') {
+      charts.push(child);
+    } else if (collectDataLayers(child, {}, String).length > 0) {
+      hasStandaloneData = true;
+    }
+  });
+
+  if (charts.length < 2) {
+    // Single-panel: preserve the original flat extraction exactly.
+    return [{ layers: extractVictoryLayers(children) }];
+  }
+
+  if (hasStandaloneData) {
+    console.warn(
+      'MAIDR: standalone Victory data components outside a <VictoryChart> are '
+      + 'ignored when multiple <VictoryChart> panels are present.',
+    );
+  }
+
+  return charts.map((chart, panelIndex) => {
+    const chartProps = chart.props as { children?: ReactNode; title?: string };
+    const axisLabels = extractAxisLabels(chartProps.children);
+    return {
+      layers: collectDataLayers(chartProps.children, axisLabels, n => `${panelIndex}_${n}`),
+      title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
+    };
+  });
+}
+
+/**
+ * Chunks subplot panels into a row-major 2D grid.
+ *
+ * Defaults to a single row in children order. An explicit `layout` chunks the
+ * panels row-major: `columns` fixes the panels per row; otherwise `rows`
+ * derives the column count. Never produces empty rows (the MAIDR core cannot
+ * represent them); the last row may be shorter (ragged rows are supported).
+ */
+export function computeSubplotGrid<T>(panels: T[], layout?: VictoryPanelLayout): T[][] {
+  if (panels.length === 0)
+    return [];
+
+  const requestedColumns = Math.floor(layout?.columns ?? 0);
+  const requestedRows = Math.floor(layout?.rows ?? 0);
+
+  let columns = requestedColumns > 0 ? requestedColumns : 0;
+  if (columns === 0 && requestedRows > 0)
+    columns = Math.ceil(panels.length / requestedRows);
+  if (columns === 0)
+    columns = panels.length;
+
+  const grid: T[][] = [];
+  for (let i = 0; i < panels.length; i += columns)
+    grid.push(panels.slice(i, i + columns));
+  return grid;
 }
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,11 @@
  * - `VictoryBoxPlot` → box plot
  * - `VictoryCandlestick` → candlestick chart
  *
+ * Multi-panel figures: nesting two or more `<VictoryChart>` components makes
+ * each chart one navigable MAIDR subplot (arrow keys move between panels,
+ * Enter drills in, Escape returns). Name panels via each chart's `title` prop
+ * and control the grid with the `layout` prop.
+ *
  * @example Using the wrapper component
  * ```tsx
  * import { MaidrVictory } from 'maidr/victory';
@@ -73,7 +78,9 @@
  */
 
 export {
+  computeSubplotGrid,
   extractVictoryLayers,
+  extractVictorySubplots,
   MaidrVictory,
   toMaidrLayer,
   useVictoryAdapter,
@@ -85,6 +92,8 @@ export type {
   VictoryComponentType,
   VictoryLayerData,
   VictoryLayerInfo,
+  VictoryPanelLayout,
+  VictorySubplotInfo,
 } from './adapters/victory';
 
 // Re-export core types that consumers may need alongside the adapter.

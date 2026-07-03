@@ -10,6 +10,21 @@ import type {
 import type { ReactNode } from 'react';
 
 /**
+ * Row-major grid layout for multi-panel figures (two or more top-level
+ * `<VictoryChart>` children). When omitted, panels form a single row in
+ * children order.
+ */
+export interface VictoryPanelLayout {
+  /**
+   * Number of grid rows. Used to derive the panels-per-row count when
+   * `columns` is omitted.
+   */
+  rows?: number;
+  /** Number of panels per row. Takes precedence over `rows`. */
+  columns?: number;
+}
+
+/**
  * Configuration accepted by both the {@link MaidrVictory} wrapper component
  * and the `useVictoryAdapter` hook.
  */
@@ -24,6 +39,12 @@ export interface VictoryAdapterConfig {
   caption?: string;
   /** Victory chart components to make accessible. */
   children: ReactNode;
+  /**
+   * Grid layout for multi-panel figures. Only consulted when `children`
+   * contains two or more top-level `<VictoryChart>` components; single-chart
+   * figures are unaffected.
+   */
+  layout?: VictoryPanelLayout;
 }
 
 /**
@@ -81,4 +102,20 @@ export interface VictoryLayerInfo {
   dataCount: number;
   /** Legend labels for multi-series segmented charts. */
   legend?: string[];
+}
+
+/**
+ * Intermediate representation of one subplot panel (one top-level
+ * `<VictoryChart>` in multi-panel mode) before conversion to the MAIDR
+ * schema.
+ */
+export interface VictorySubplotInfo {
+  /** Extracted data layers belonging to this panel. */
+  layers: VictoryLayerInfo[];
+  /**
+   * Panel display name, read from the `<VictoryChart title="...">` prop.
+   * Emitted as the first layer's title, which MAIDR uses as the panel name
+   * in subplot summaries.
+   */
+  title?: string;
 }

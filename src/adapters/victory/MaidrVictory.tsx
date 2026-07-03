@@ -18,6 +18,11 @@ import { useVictoryAdapter } from './useVictoryAdapter';
  * - `VictoryBoxPlot` → box plot
  * - `VictoryCandlestick` → candlestick chart
  *
+ * Multi-panel figures: nest two or more `<VictoryChart>` components — each
+ * chart becomes one navigable MAIDR subplot. Give each chart a `title` prop
+ * to name its panel, and use the `layout` prop for row-major grid chunking
+ * (default is a single row in children order).
+ *
  * @example
  * ```tsx
  * import { MaidrVictory } from 'maidr/victory';
@@ -47,9 +52,10 @@ export function MaidrVictory({
   subtitle,
   caption,
   children,
+  layout,
 }: MaidrVictoryProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
-  const maidrData = useVictoryAdapter({ id, title, subtitle, caption, children }, containerRef);
+  const maidrData = useVictoryAdapter({ id, title, subtitle, caption, children, layout }, containerRef);
 
   return (
     <Maidr data={maidrData}>
