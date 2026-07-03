@@ -295,9 +295,9 @@ export function whenGoogleChartsReady(
   }
 
   for (const chart of charts) {
-    const listener = events.addListener(chart, 'ready', () => {
-      // One-shot per chart: redraws must not double-count.
-      listener.remove();
+    // One-shot per chart (redraws must not double-count): the real
+    // `google.visualization.events` API detaches one-time listeners itself.
+    events.addOneTimeListener(chart, 'ready', () => {
       remaining -= 1;
       if (remaining === 0) {
         callback();
@@ -393,8 +393,11 @@ function inferGridFromGeometry(flat: GoogleChartPanel[]): GoogleChartPanel[][] {
 
 /**
  * Ensures every panel container is a proper descendant of `root` (so the
- * `maidr` attribute on `root` covers all panels) and that no two panels
- * share a container (marking attributes would collide).
+ * `maidr` attribute on `root` covers all panels), that no two panels share a
+ * container (marking attributes would collide), and that no panel container
+ * is nested inside another panel's container (the id-scoped descendant
+ * selectors of the outer panel would also match the inner chart's elements,
+ * silently disabling the outer panel's highlighting).
  */
 function validatePanelContainers(grid: GoogleChartPanel[][], root: HTMLElement): void {
   const seen = new Set<HTMLElement>();
@@ -409,6 +412,15 @@ function validatePanelContainers(grid: GoogleChartPanel[][], root: HTMLElement):
       throw new Error(
         `createMaidrFromGoogleCharts: panel [${r}][${c}] reuses a container already used by another panel.`,
       );
+    }
+    for (const prev of seen) {
+      if (prev.contains(container) || container.contains(prev)) {
+        throw new Error(
+          `createMaidrFromGoogleCharts: panel [${r}][${c}] container is nested inside `
+          + '(or contains) another panel\'s container; id-scoped selectors would match '
+          + 'both charts\' elements.',
+        );
+      }
     }
     seen.add(container);
   }));

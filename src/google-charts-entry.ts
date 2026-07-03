@@ -47,6 +47,7 @@ export type {
   GoogleChartType,
   GoogleDataTable,
   GoogleEvents,
+  GoogleListenerHandle,
   GoogleSelectionItem,
 } from './adapters/google-charts/types';
 

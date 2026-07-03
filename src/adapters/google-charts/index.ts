@@ -57,5 +57,6 @@ export type {
   GoogleChartType,
   GoogleDataTable,
   GoogleEvents,
+  GoogleListenerHandle,
   GoogleSelectionItem,
 } from './types';

@@ -7,6 +7,7 @@ import type {
   GoogleChart,
   GoogleDataTable,
   GoogleEvents,
+  GoogleListenerHandle,
 } from '@adapters/google-charts/types';
 import type { BarPoint } from '@type/grammar';
 import {
@@ -302,6 +303,21 @@ describe('createMaidrFromGoogleCharts', () => {
       .toThrow('reuses a container');
   });
 
+  it('throws when one panel container is nested inside another panel container', () => {
+    // An outer wrapper (e.g. a card div) used as panel A's container that also
+    // contains panel B's chart div: A's id-scoped descendant selectors would
+    // match B's marked elements too, silently breaking A's highlighting.
+    const { doc, root } = makeRoot();
+    const outer = makeBarPanel(doc, root, ROWS_A, 'outer');
+    const inner = makeBarPanel(doc, outer.container, ROWS_B, 'inner');
+
+    expect(() => createMaidrFromGoogleCharts([[outer, inner]], { root }))
+      .toThrow('nested inside');
+    // Order-independent: the inner panel may be listed first.
+    expect(() => createMaidrFromGoogleCharts([[inner, outer]], { root }))
+      .toThrow('nested inside');
+  });
+
   it('throws for non-positive or fractional layout values', () => {
     const { doc, root } = makeRoot();
     const panels = [makeBarPanel(doc, root, ROWS_A)];
@@ -335,26 +351,62 @@ describe('createMaidrFromGoogleChart (single-panel API unchanged)', () => {
 });
 
 describe('whenGoogleChartsReady', () => {
-  /** Fake `google.visualization.events` capturing 'ready' handlers per chart. */
+  /**
+   * Fake `google.visualization.events` capturing 'ready' handlers per chart.
+   *
+   * Mirrors the REAL library shape: `addListener` returns an opaque handle
+   * exposing only `getKey()` (no `remove()` method!), detaching goes through
+   * `events.removeListener(handle)`, and `addOneTimeListener` self-detaches
+   * before invoking the handler — so a fake with extra convenience methods
+   * can never mask reliance on APIs the real library does not have.
+   */
   function makeEvents(): { events: GoogleEvents; fireReady: (chart: GoogleChart) => void } {
-    const handlers = new Map<GoogleChart, Set<(...args: unknown[]) => void>>();
-    const events: GoogleEvents = {
-      addListener: (chart, eventName, handler) => {
-        if (eventName === 'ready') {
-          const set = handlers.get(chart) ?? new Set();
-          set.add(handler);
-          handlers.set(chart, set);
+    const handlers = new Map<GoogleChart, Map<GoogleListenerHandle, (...args: unknown[]) => void>>();
+    let nextKey = 0;
+
+    const register = (
+      chart: GoogleChart,
+      eventName: string,
+      handler: (...args: unknown[]) => void,
+    ): GoogleListenerHandle => {
+      const key = nextKey++;
+      const handle: GoogleListenerHandle = { getKey: () => key };
+      if (eventName === 'ready') {
+        const map = handlers.get(chart) ?? new Map();
+        map.set(handle, handler);
+        handlers.set(chart, map);
+      }
+      return handle;
+    };
+
+    const removeListener = (handle: GoogleListenerHandle): boolean => {
+      for (const map of handlers.values()) {
+        if (map.delete(handle)) {
+          return true;
         }
-        return { remove: () => handlers.get(chart)?.delete(handler) };
+      }
+      return false;
+    };
+
+    const events: GoogleEvents = {
+      addListener: register,
+      addOneTimeListener: (chart, eventName, handler) => {
+        const handle = register(chart, eventName, (...args) => {
+          removeListener(handle);
+          handler(...args);
+        });
+        return handle;
       },
+      removeListener,
       removeAllListeners: (chart) => {
         handlers.delete(chart);
       },
     };
+
     const fireReady = (chart: GoogleChart): void => {
-      const set = handlers.get(chart);
-      if (set) {
-        [...set].forEach(handler => handler());
+      const map = handlers.get(chart);
+      if (map) {
+        [...map.values()].forEach(handler => handler());
       }
     };
     return { events, fireReady };

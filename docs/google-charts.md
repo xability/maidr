@@ -306,7 +306,7 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 
 Google Charts has no native facet/trellis concept — a "faceted" page is several chart instances drawn into separate containers. `createMaidrFromGoogleCharts` (plural) groups those instances into **one** MAIDR figure: arrow keys move between panels, `Enter` drills into a panel's data, and `Esc` returns to panel navigation.
 
-Each panel is the same `{ chart, dataTable, container, chartType }` tuple the single-chart API takes, plus an optional `title` announced during panel navigation. All panel containers must live inside a single wrapper element, passed as `options.root` — and the combined `maidr` attribute is set on that wrapper, **not** on the individual containers.
+Each panel is the same `{ chart, dataTable, container, chartType }` tuple the single-chart API takes, plus an optional `title` announced during panel navigation. All panel containers must live inside a single wrapper element, passed as `options.root` — and the combined `maidr` attribute is set on that wrapper, **not** on the individual containers. Panel containers must not be nested inside one another (e.g. don't pass a card `<div>` that wraps another panel's chart `<div>`): the adapter's container-scoped selectors would match both charts' elements, so nested containers are rejected with an error.
 
 Because every chart fires its `ready` event independently, use the `whenGoogleChartsReady` helper to build the figure only after all panels have rendered. Register the gate before calling `draw()` on any chart.
 
