@@ -119,11 +119,15 @@ export function createMaidrFromGoogleChart(
   container: HTMLElement,
   options: GoogleChartAdapterOptions,
 ): Maidr {
+  // Assign a stable container id up-front (used for scoped CSS selectors)
+  // BEFORE deriving the maidr id from it. `Element.id` is `''` (never
+  // nullish) when unset, so reading it before `ensureContainerId` — and with
+  // `??`, which does not treat `''` as missing — would leave `id` empty and
+  // make the `nextId` fallback dead. This mirrors the Frappe adapter.
+  ensureContainerId(container);
+
   const id = options.id ?? container.id ?? nextId('maidr-gc');
   const title = options.title ?? '';
-
-  // Assign a stable container id up-front (used for scoped CSS selectors).
-  ensureContainerId(container);
 
   const layer = buildLayer(chart, dataTable, container, options.chartType);
 

@@ -448,6 +448,34 @@ function determineDomMapping(
 // Data extraction per chart type
 // ---------------------------------------------------------------------------
 
+/**
+ * Read a channel's value from a compiled Vega row, accounting for the
+ * name-mangling Vega-Lite applies to aggregated fields.
+ *
+ * Vega-Lite compiles an aggregate encoding such as
+ * `{ aggregate: 'mean', field: 'b' }` into an output column named
+ * `<op>_<field>` (e.g. `mean_b`), so the raw field name (`b`) is absent
+ * from the aggregated dataset. Count aggregates without an explicit field
+ * instead emit the synthetic `__count` column.
+ *
+ * Lookup order: the explicit field FIRST (source of truth when present),
+ * then the `<aggregate>_<field>` compiled name, then `__count`.
+ *
+ * @returns The resolved value, or `undefined` when no candidate is present.
+ */
+function readEncodedValue(
+  row: Record<string, unknown>,
+  channel: VegaLiteChannelDef | undefined,
+  field: string,
+): unknown {
+  if (row[field] != null)
+    return row[field];
+  const aggregate = channel?.aggregate;
+  if (aggregate != null && row[`${aggregate}_${field}`] != null)
+    return row[`${aggregate}_${field}`];
+  return (row as Record<string, unknown>).__count;
+}
+
 function extractBarData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -479,13 +507,13 @@ function extractBarData(
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
       return {
-        x: Number(row[xField] ?? (row as Record<string, unknown>).__count ?? 0),
+        x: Number(readEncodedValue(row, encoding.x, xField) ?? 0),
         y: String(row[yField] ?? ''),
       };
     }
     return {
       x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
+      y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
     };
   });
 }
@@ -537,6 +565,16 @@ function extractSegmentedData(
   const yField = encoding.y?.field ?? 'y';
   const colorField = encoding.color?.field ?? encoding.fill?.field ?? 'group';
 
+  // Detect horizontal orientation the same way extractBarData does: when x
+  // is the quantitative channel and y is the category, the bars run
+  // horizontally (e.g. `y:{field:'variety',type:'nominal'}`,
+  // `x:{field:'yield',type:'quantitative'}`).
+  const xIsQuantitative = encoding.x?.type === 'quantitative'
+    || encoding.x?.aggregate != null;
+  const yIsQuantitative = encoding.y?.type === 'quantitative'
+    || encoding.y?.aggregate != null;
+  const isHorizontal = xIsQuantitative && !yIsQuantitative;
+
   // Group by fill value. Each group becomes a row in the 2D array.
   // Insertion order is preserved so navigation order follows Vega's
   // data-flow order. The MAIDR `SegmentedTrace.mapToSvgElements`
@@ -545,20 +583,27 @@ function extractSegmentedData(
   // or `{ order: 'column', groupDirection: 'forward' }` for dodged
   // (subject-major DOM).
   //
-  // Vega-Lite emits a synthetic `__count` field whenever the channel uses
-  // `aggregate: 'count'` without an explicit `field`. The same fallback
-  // is required here as in extractBarData / extractHistogramData.
+  // For horizontal charts the value lives on x and the category on y, so
+  // emit `{ x: value, y: category }` (mirroring extractBarData and the
+  // chartjs adapter's `indexAxis: 'y'` handling); the core AbstractBarPlot
+  // reads the value from `point.x` when `orientation` is HORIZONTAL.
   //
-  // Lookup order: explicit field FIRST, `__count` only as fallback. See
-  // the matching note in `extractBarData` for why explicit fields win.
+  // `readEncodedValue` resolves aggregate-mangled columns (e.g. `sum_yield`)
+  // and the synthetic `__count` field; the explicit field wins when present.
   const groups = new Map<string, SegmentedPoint[]>();
   for (const row of rows) {
     const fill = String(row[colorField] ?? '');
-    const pt: SegmentedPoint = {
-      x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
-      z: fill,
-    };
+    const pt: SegmentedPoint = isHorizontal
+      ? {
+          x: Number(readEncodedValue(row, encoding.x, xField) ?? 0),
+          y: String(row[yField] ?? ''),
+          z: fill,
+        }
+      : {
+          x: String(row[xField] ?? ''),
+          y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
+          z: fill,
+        };
     if (!groups.has(fill))
       groups.set(fill, []);
     groups.get(fill)!.push(pt);
@@ -585,7 +630,7 @@ function extractLineData(
       const key = String(row[colorField] ?? '');
       const pt: LinePoint = {
         x: (row[xField] ?? 0) as number | string,
-        y: Number(row[yField] ?? 0),
+        y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
         z: key,
       };
       if (!groups.has(key))
@@ -597,7 +642,7 @@ function extractLineData(
 
   const pts: LinePoint[] = rows.map(row => ({
     x: (row[xField] ?? 0) as number | string,
-    y: Number(row[yField] ?? 0),
+    y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
   }));
   return [pts];
 }
@@ -810,6 +855,7 @@ function convertLayerSpec(
   parentEncoding?: VegaLiteEncoding,
   isLayered?: boolean,
   domOrderOverride?: 'series-major' | 'subject-major',
+  selectorOverride?: { layerIndex: number; markGroupPrefix: string },
 ): MaidrLayer | null {
   const mark = getMarkType(spec);
   if (!mark)
@@ -835,6 +881,14 @@ function convertLayerSpec(
 
   const layered = isLayered ?? false;
 
+  // Concat children render their mark groups under Vega class tokens like
+  // `concat_<i>_marks` / `concat_<i>_layer_<j>_marks`, not the bare `marks`
+  // / `layer_<N>_marks` used by single-view and layered specs. When a
+  // selector override is supplied, use its local layer index and class
+  // prefix so highlight selectors match those concat mark groups.
+  const selectorLayerIndex = selectorOverride?.layerIndex ?? index;
+  const markGroupPrefix = selectorOverride?.markGroupPrefix ?? '';
+
   let data: MaidrLayer['data'];
   let selectors: MaidrLayer['selectors'];
   let orientation: Orientation | undefined;
@@ -843,7 +897,7 @@ function convertLayerSpec(
   switch (traceType) {
     case TraceType.BAR: {
       data = extractBarData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       const xIsQuant = encoding.x?.type === 'quantitative'
         || encoding.x?.aggregate != null;
       const yIsQuant = encoding.y?.type === 'quantitative'
@@ -855,14 +909,25 @@ function convertLayerSpec(
     }
     case TraceType.HISTOGRAM: {
       data = extractHistogramData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     }
     case TraceType.STACKED:
     case TraceType.DODGED:
     case TraceType.NORMALIZED: {
       data = extractSegmentedData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // Horizontal segmented bars (x=quantitative, y=nominal) carry the
+      // value on x and the category on y. The core SegmentedTrace reads
+      // the value from `point.x` only when `orientation` is HORIZONTAL,
+      // mirroring the BAR and BOX cases above.
+      const xIsQuant = encoding.x?.type === 'quantitative'
+        || encoding.x?.aggregate != null;
+      const yIsQuant = encoding.y?.type === 'quantitative'
+        || encoding.y?.aggregate != null;
+      if (xIsQuant && !yIsQuant) {
+        orientation = Orientation.HORIZONTAL;
+      }
       // Only populate `domMapping` when the caller has explicitly
       // requested an order via `options.domOrder`. When omitted, leave
       // it undefined so bind-time runtime detection (in
@@ -879,20 +944,20 @@ function convertLayerSpec(
       const lineData = extractLineData(rows, encoding);
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
-      selectors = buildLineSelectors(mark, lineData.length, index, layered);
+      selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
       break;
     }
     case TraceType.SCATTER:
       data = extractScatterData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     case TraceType.HEATMAP:
       data = extractHeatmapData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       // Vega-Lite boxplot orientation is implicit from encoding type:
       // x=quantitative + y=nominal/ordinal => HORIZONTAL.
       // Mirrors the BAR detection at lines 748-754. maidr core needs the
@@ -955,7 +1020,19 @@ function buildConcatMaidr(
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) => {
-        const layer = convertLayerSpec(layerSpec, globalLayerIndex, view, childSpec.encoding, true, domOrder);
+        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+        // (local layer index `j`, not the global data index), so drive the
+        // selector off those while keeping `globalLayerIndex` for the data
+        // lookup, which follows Vega's sequential dataset numbering.
+        const layer = convertLayerSpec(
+          layerSpec,
+          globalLayerIndex,
+          view,
+          childSpec.encoding,
+          true,
+          domOrder,
+          { layerIndex: j, markGroupPrefix: `concat_${i}_` },
+        );
         // Assign a unique ID that encodes both the concat index and the
         // layer index within the child to avoid duplicates across subplots.
         if (layer)
@@ -965,7 +1042,17 @@ function buildConcatMaidr(
       }).filter(Boolean) as MaidrLayer[];
       return { layers };
     }
-    const layer = convertLayerSpec(childSpec, globalLayerIndex, view, undefined, false, domOrder);
+    // A single-view concat child renders under `concat_<i>_marks` (or the
+    // sugar-expanded `concat_<i>_layer_0_marks`).
+    const layer = convertLayerSpec(
+      childSpec,
+      globalLayerIndex,
+      view,
+      undefined,
+      false,
+      domOrder,
+      { layerIndex: 0, markGroupPrefix: `concat_${i}_` },
+    );
     if (layer)
       layer.id = `${i}_0`;
     globalLayerIndex++;

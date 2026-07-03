@@ -32,7 +32,9 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.type).toBe(TraceType.BAR);
       expect(layer.axes?.x).toEqual({ label: 'Category' });
       expect(layer.axes?.y).toEqual({ label: 'Value' });
-      expect(layer.selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      // Selector is scoped to this chart's own article wrapper so multiple
+      // Recharts charts on one page cannot cross-highlight.
+      expect(layer.selectors).toBe('#maidr-article-test-bar .recharts-bar-rectangle .recharts-rectangle');
 
       const data = layer.data as BarPoint[];
       expect(data).toHaveLength(3);
@@ -430,9 +432,10 @@ describe('convertRechartsToMaidr', () => {
       const layers = result.subplots[0][0].layers;
 
       // Each type appears only once, so no seriesIndex is passed and
-      // getRechartsSelector returns the CSS selector for highlighting.
-      expect(layers[0].selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
-      expect(layers[1].selectors).toEqual(['.recharts-line-dots .recharts-line-dot']);
+      // getRechartsSelector returns the CSS selector for highlighting,
+      // scoped to this chart's own article wrapper.
+      expect(layers[0].selectors).toBe('#maidr-article-composed .recharts-bar-rectangle .recharts-rectangle');
+      expect(layers[1].selectors).toEqual(['#maidr-article-composed .recharts-line-dots .recharts-line-dot']);
     });
   });
 

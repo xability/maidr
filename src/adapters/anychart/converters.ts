@@ -26,14 +26,11 @@ import type {
   CandlestickPoint,
   CandlestickTrend,
   HeatmapData,
-  HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
   ScatterPoint,
-  SegmentedPoint,
-  SmoothPoint,
 } from '@type/grammar';
 import type {
   AnyChartBinderOptions,
@@ -57,6 +54,20 @@ import { TraceType } from '@type/grammar';
 const AREA_TYPES = new Set(['area', 'step-area', 'spline-area']);
 
 /**
+ * The subset of {@link TraceType}s the AnyChart adapter can produce from a
+ * chart series. AnyChart exposes no stacked/histogram/smooth series types,
+ * so {@link mapSeriesType} only ever yields these six. Narrowing here lets
+ * {@link buildLayer}'s switch be provably exhaustive at compile time.
+ */
+type AnyChartTraceType
+  = | TraceType.BAR
+    | TraceType.LINE
+    | TraceType.SCATTER
+    | TraceType.BOX
+    | TraceType.HEATMAP
+    | TraceType.CANDLESTICK;
+
+/**
  * Map AnyChart series type strings to MAIDR TraceType values.
  *
  * AnyChart uses lowercase type names such as "bar", "line", "column", etc.
@@ -71,9 +82,9 @@ const AREA_TYPES = new Set(['area', 'step-area', 'spline-area']);
  *   {@link TraceType.LINE}. The fill is lost in the conversion; a
  *   runtime warning is emitted so developers are aware.
  */
-export function mapSeriesType(anyChartType: string): TraceType | null {
+export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
   const normalized = anyChartType.toLowerCase().replace(/[_\s]/g, '-');
-  const mapping: Record<string, TraceType> = {
+  const mapping: Record<string, AnyChartTraceType> = {
     // Both horizontal bar and vertical column map to BAR.
     // MAIDR does not currently distinguish bar orientation at the trace level.
     'bar': TraceType.BAR,
@@ -538,7 +549,10 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
   } catch {
     chartType = undefined;
   }
-  if (chartType === 'heatmap' || chartType === 'heat')
+  // Production AnyChart builds return `'heat-map'` from getType(); dev builds
+  // may return `'heatmap'` / `'heat'`. Match by substring (as
+  // stampHeatmapAttributes does) so all three route correctly.
+  if (chartType?.includes('heat'))
     return false;
 
   const seriesCount = chart.getSeriesCount();
@@ -2069,91 +2083,20 @@ function buildCandlestickLayer(
   };
 }
 
-function buildHistogramLayer(
-  series: AnyChartSeries,
-  seriesIndex: number,
-  selectors: string | string[] | undefined,
-): MaidrLayer {
-  const rows = extractRawRows(series);
-  const data: HistogramPoint[] = rows.map((r) => {
-    const y = asNumber(r.value ?? r.y);
-    const x = asNumber(r.x);
-    return {
-      x,
-      y,
-      xMin: x - 0.5,
-      xMax: x + 0.5,
-      yMin: 0,
-      yMax: y,
-    };
-  });
-  return {
-    id: String(seriesIndex),
-    type: TraceType.HISTOGRAM,
-    ...(selectors ? { selectors } : {}),
-    data,
-  };
-}
-
-function buildSegmentedLayer(
-  series: AnyChartSeries,
-  seriesIndex: number,
-  selectors: string | string[] | undefined,
-  traceType: TraceType.STACKED | TraceType.DODGED | TraceType.NORMALIZED,
-): MaidrLayer {
-  const rows = extractRawRows(series);
-  // Group by fill/group value to form the 2D array.
-  const groups = new Map<string, SegmentedPoint[]>();
-  for (const r of rows) {
-    const fill = asString(r.fill ?? r.group ?? seriesIndex);
-    if (!groups.has(fill))
-      groups.set(fill, []);
-    groups.get(fill)!.push({
-      x: asString(r.x ?? r.name ?? r._index),
-      y: asNumber(r.value ?? r.y),
-      z: fill,
-    });
-  }
-  const data: SegmentedPoint[][] = [...groups.values()];
-  return {
-    id: String(seriesIndex),
-    type: traceType,
-    ...(selectors ? { selectors } : {}),
-    data,
-  };
-}
-
-function buildSmoothLayer(
-  series: AnyChartSeries,
-  seriesIndex: number,
-  selectors: string | string[] | undefined,
-): MaidrLayer {
-  const rows = extractRawRows(series);
-  // Smooth traces include SVG coordinates. Since we extract from AnyChart's
-  // data model rather than SVG DOM, svg_x/svg_y are set to 0 as placeholders.
-  const points: SmoothPoint[] = rows.map(r => ({
-    x: asNumber(r.x),
-    y: asNumber(r.value ?? r.y),
-    svg_x: 0,
-    svg_y: 0,
-  }));
-  const data: SmoothPoint[][] = [points];
-  return {
-    id: String(seriesIndex),
-    type: TraceType.SMOOTH,
-    ...(selectors ? { selectors } : {}),
-    data,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Layer builder dispatch
 // ---------------------------------------------------------------------------
 
+/**
+ * Dispatch to the per-type layer builder. The `traceType` union is limited
+ * to what {@link mapSeriesType} can return, so the switch is exhaustive and
+ * needs no `default` — adding a new AnyChart trace type is a compile error
+ * until a matching case is added here.
+ */
 function buildLayer(
   series: AnyChartSeries,
   seriesIndex: number,
-  traceType: TraceType,
+  traceType: AnyChartTraceType,
   selectors: string | string[] | undefined,
 ): MaidrLayer {
   switch (traceType) {
@@ -2169,16 +2112,6 @@ function buildLayer(
       return buildHeatmapLayer(series, seriesIndex, selectors);
     case TraceType.CANDLESTICK:
       return buildCandlestickLayer(series, seriesIndex, selectors);
-    case TraceType.HISTOGRAM:
-      return buildHistogramLayer(series, seriesIndex, selectors);
-    case TraceType.STACKED:
-    case TraceType.DODGED:
-    case TraceType.NORMALIZED:
-      return buildSegmentedLayer(series, seriesIndex, selectors, traceType);
-    case TraceType.SMOOTH:
-      return buildSmoothLayer(series, seriesIndex, selectors);
-    default:
-      return buildBarLayer(series, seriesIndex, selectors);
   }
 }
 
@@ -2218,7 +2151,12 @@ export function anyChartToMaidr(
   } catch {
     chartType = undefined;
   }
-  if (chartType === 'heatmap' || chartType === 'heat') {
+  // Production AnyChart builds return `'heat-map'` from getType(); dev builds
+  // may return `'heatmap'` / `'heat'`. Match by substring (as
+  // stampHeatmapAttributes does) so all three route to the heatmap builder
+  // rather than falling through to the series API (which heatmaps do not
+  // implement).
+  if (chartType?.includes('heat')) {
     const userHeatmapSelector = (options?.selectors?.[0] ?? undefined) as
       | string
       | string[]
@@ -2253,6 +2191,15 @@ export function anyChartToMaidr(
     const layer = buildHeatmapLayerFromChart(chart, userHeatmapSelector);
     if (!layer)
       return null;
+    // Attach axis labels just like the primary heatmap path above, so
+    // production heatmaps that reach this fallback (getType() unavailable)
+    // still expose their axis titles.
+    if (xAxisLabel || yAxisLabel) {
+      layer.axes = {
+        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
+        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
+      };
+    }
     const subplot: MaidrSubplot = { layers: [layer] };
     return {
       id,

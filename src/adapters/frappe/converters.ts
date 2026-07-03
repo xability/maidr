@@ -23,7 +23,7 @@ import type {
 import type { FrappeChart, FrappeChartType, FrappeData } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import {
-  barSelector,
+  barSelectorForDataset,
   ensureContainerId,
   lineSelector,
   lineSelectorForDataset,
@@ -141,6 +141,18 @@ function buildBarLayer(
   containerId: string,
   options: FrappeChartAdapterOptions,
 ): MaidrLayer {
+  // Only the first dataset is converted. Frappe renders one `.dataset-{i}`
+  // rect group per dataset, so scope the selector to `.dataset-0` — the
+  // broad `barSelector` would match every group's rects (2N elements for N
+  // data points on a 2-dataset chart) and the core bar trace drops all
+  // highlighting on that count mismatch.
+  if (data.datasets.length > 1) {
+    console.warn(
+      `[maidr/frappe] Bar chart has ${data.datasets.length} datasets; only the `
+      + 'first is converted. Multi-series bar charts are not yet supported.',
+    );
+  }
+
   const dataset = data.datasets[0];
   const points: BarPoint[] = data.labels.map((label, i) => ({
     x: label,
@@ -151,7 +163,7 @@ function buildBarLayer(
     id: nextId('layer'),
     type: TraceType.BAR,
     orientation: Orientation.VERTICAL,
-    selectors: barSelector(containerId),
+    selectors: barSelectorForDataset(containerId, 0),
     axes: buildAxes(options),
     data: points,
   };
@@ -219,7 +231,11 @@ function buildMixedLayers(
   containerId: string,
   options: FrappeChartAdapterOptions,
 ): MaidrLayer[] {
-  return data.datasets.map((dataset) => {
+  // `datasetIndex` is the dataset's position in `data.datasets`, which is
+  // the `{i}` in the rendered `.dataset-{i}` group. Scope each layer's
+  // selector to its own group so highlight elements stay aligned with the
+  // layer's data points.
+  return data.datasets.map((dataset, datasetIndex) => {
     const kind = dataset.chartType ?? 'bar';
 
     if (kind === 'line') {
@@ -234,7 +250,7 @@ function buildMixedLayers(
         id: nextId('layer'),
         type: TraceType.LINE,
         ...(dataset.name ? { title: dataset.name } : {}),
-        selectors: [lineSelector(containerId)],
+        selectors: [lineSelectorForDataset(containerId, datasetIndex)],
         axes: buildAxes(options),
         data: line,
       } satisfies MaidrLayer;
@@ -249,7 +265,7 @@ function buildMixedLayers(
       type: TraceType.BAR,
       ...(dataset.name ? { title: dataset.name } : {}),
       orientation: Orientation.VERTICAL,
-      selectors: barSelector(containerId),
+      selectors: barSelectorForDataset(containerId, datasetIndex),
       axes: buildAxes(options),
       data: points,
     } satisfies MaidrLayer;

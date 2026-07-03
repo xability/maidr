@@ -191,7 +191,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
    * @returns The complete figure state
    */
   public get state(): FigureState {
-
     // Use the visual order map to determine the correct display index.
     // This is data-ordering-agnostic: always shows top-left as "Subplot 1".
     const key = `${this.row},${this.col}`;

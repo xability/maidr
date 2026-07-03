@@ -34,6 +34,7 @@
 import type { Maidr as MaidrData, MaidrLayer } from '@type/grammar';
 import type { RefObject } from 'react';
 import type { VictoryAdapterConfig, VictoryLayerInfo } from './types';
+import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from './converters';
 import { clearTaggedElements, getTaggedElements, tagLayerElements } from './selectors';
@@ -80,6 +81,12 @@ export function useVictoryAdapter(
 ): MaidrData {
   const { id, title, subtitle, caption, children } = config;
   const prevFingerprintRef = useRef<string>('');
+  // Elements tagged by the most recent full pass. Hoisted to a component-level
+  // ref so it survives effect re-runs (an unrelated parent re-render recreates
+  // `children` and re-runs the effect). It lets `applyTags` and the observer
+  // distinguish a Victory node swap (previously-tagged node now detached →
+  // re-tag) from unrelated DOM changes such as highlight clones (no re-tag).
+  const taggedElementsRef = useRef<Element[]>([]);
   const [maidrData, setMaidrData] = useState<MaidrData>(() => ({
     id,
     title,
@@ -102,11 +109,12 @@ export function useVictoryAdapter(
     if (!container)
       return;
 
+    // Scope every emitted selector to this chart's own container so two or more
+    // MaidrVictory charts on one page cannot cross-highlight (the model resolves
+    // selectors via page-global document.querySelector). Idempotent per chart.
+    const scope = `#${cssEscape(ensureContainerId(container, 'mv'))} `;
+
     let frameId = 0;
-    // Elements tagged by the most recent pass. Used to distinguish Victory
-    // detaching a tagged node (re-tag needed) from unrelated DOM changes such
-    // as highlight clones being inserted during navigation (no re-tag).
-    let taggedElements: Element[] = [];
 
     const applyTags = (): void => {
       frameId = 0;
@@ -114,18 +122,32 @@ export function useVictoryAdapter(
       // Extract data from Victory component props via React children
       // introspection (pure computation, does not require the DOM).
       const victoryLayers = extractVictoryLayers(children);
+      const fp = layerFingerprint(victoryLayers);
 
-      // Re-apply tags to the current Victory nodes. Selector strings are stable
-      // (`[data-maidr-victory-N]`), so the store update is dispatched only when
-      // the underlying layer data actually changes — re-tagging the DOM alone
-      // needs no state update and must never trigger a render loop.
+      // Fast path: when the layer data is unchanged AND every previously-tagged
+      // node is still connected, the existing data-maidr-victory-* attributes
+      // (and thus the selectors) remain valid — skip the O(n) DOM clear and
+      // re-tag entirely. This prevents a parent re-render (which recreates the
+      // `children` reference and re-runs this effect) from churning the DOM.
+      if (
+        fp === prevFingerprintRef.current
+        && taggedElementsRef.current.length > 0
+        && taggedElementsRef.current.every(el => el.isConnected)
+      ) {
+        return;
+      }
+
+      // Full pass: (re)apply tags to the current Victory nodes.
       clearTaggedElements(container);
       const claimed = new Set<Element>();
       const maidrLayers: MaidrLayer[] = victoryLayers.map((layer, index) =>
-        toMaidrLayer(layer, tagLayerElements(container, layer, index, claimed)));
-      taggedElements = getTaggedElements(container);
+        toMaidrLayer(layer, tagLayerElements(container, layer, index, claimed, scope)));
+      taggedElementsRef.current = getTaggedElements(container);
 
-      const fp = layerFingerprint(victoryLayers);
+      // Selector strings are stable (`#<id> [data-maidr-victory-N]`), so update
+      // React state only when the underlying layer data actually changes —
+      // re-tagging live nodes after a Victory node swap needs no re-render and
+      // must never trigger a render loop.
       if (fp === prevFingerprintRef.current)
         return;
       prevFingerprintRef.current = fp;
@@ -153,7 +175,7 @@ export function useVictoryAdapter(
     const observer = new MutationObserver(() => {
       if (frameId)
         return;
-      if (taggedElements.length === 0 || taggedElements.every(el => el.isConnected))
+      if (taggedElementsRef.current.length === 0 || taggedElementsRef.current.every(el => el.isConnected))
         return;
       frameId = requestAnimationFrame(applyTags);
     });
