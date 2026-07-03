@@ -167,7 +167,7 @@ const maidrData = maidrHighcharts.highchartsGridToMaidr(charts, {
 document.getElementById('wrapper').setAttribute('maidr-data', JSON.stringify(maidrData));
 ```
 
-Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. See [highcharts-grid.html](highcharts-grid.html) for a full example.
+Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](highcharts-grid.html) for a full example.
 
 ## API Reference
 
@@ -197,7 +197,7 @@ Combines multiple rendered chart instances into one `Maidr` figure with subplot 
 | `options.caption` | `string?` | Figure-level caption. |
 | `options.layout` | `{ rows?: number; columns?: number }?` | Chunks a flat chart list into a grid (`columns` = charts per row). Ignored for 2D input. |
 
-Charts with no convertible series are skipped with a console warning. Attach the returned JSON as `maidr-data` on a wrapper element that encloses all the chart containers.
+Charts with no convertible series are skipped with a console warning; if **no** chart in the grid produces any convertible series, an `Error` is thrown (attaching an empty figure would break MAIDR on focus). A member chart with multiple panes contributes one cell per pane, flattened into its row. Attach the returned JSON as `maidr-data` on a wrapper element that encloses all the chart containers.
 
 ### `createHighchartsSync(chart)`
 

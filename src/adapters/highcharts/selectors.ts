@@ -45,6 +45,23 @@ export function ensureContainerId(chart: HighchartsChart): string {
 }
 
 /**
+ * Generates a CSS selector for a series' rendered group element — the
+ * `<g class="highcharts-series highcharts-series-N">` wrapping all of the
+ * series' marks inside `.highcharts-series-group`.
+ *
+ * Used as the per-panel `MaidrSubplot.selector`: MAIDR's subplot-layout pass
+ * measures this element's bounding box to derive the panels' visual order and
+ * the vertical arrow-key direction (Highcharts SVG has no `g[id^="axes_"]`
+ * groups, so without a measurable per-panel element the core falls back to
+ * data order and Up/Down are inverted for multi-row grids). The first layer's
+ * selectors are not a reliable substitute — box, candlestick, and heatmap
+ * layers carry structured selector objects the layout pass cannot query.
+ */
+export function seriesGroupSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+}
+
+/**
  * Generates a CSS selector for all point elements in a bar/column series.
  *
  * Highcharts renders bar/column points with the `highcharts-point` class. The

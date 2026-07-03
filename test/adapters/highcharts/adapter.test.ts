@@ -133,6 +133,28 @@ describe('highchartsToMaidr', () => {
       expect((layer.data as LinePoint[][])).toHaveLength(1);
       expect(layer.title).toBe('Price');
     });
+
+    it('converts a user series literally named "Navigator" in a plain chart', () => {
+      // Regression: the navigator filter must key off `isInternal` / the
+      // `highcharts-navigator-series` class, never the series name — a chart
+      // comparing SUV models legitimately has a series named "Navigator".
+      const chart = fakeChart({
+        type: 'column',
+        series: [
+          fakeSeries({ index: 0, name: 'Navigator', data: categoryPoints([1, 2], ['a', 'b']) }),
+          fakeSeries({ index: 1, name: 'Escalade', data: categoryPoints([3, 4], ['a', 'b']) }),
+        ],
+      });
+
+      const result = highchartsToMaidr(chart);
+      const layer = result.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.DODGED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0][0].z).toBe('Navigator');
+      expect(data[1][0].z).toBe('Escalade');
+    });
   });
 
   describe('pane detection (stacked yAxis bands)', () => {
@@ -228,6 +250,68 @@ describe('highchartsToMaidr', () => {
       expect(allLayers[1].selectors).toBe(
         '#stock-chart .highcharts-series-group .highcharts-series-1 .highcharts-point',
       );
+    });
+
+    it('emits a per-pane subplot selector for the layout pass to measure', () => {
+      // Highcharts SVG has no `g[id^="axes_"]` groups, so MAIDR's subplot
+      // layout pass measures `subplot.selector` (falling back to the first
+      // layer's first selector string) to compute visual order and the
+      // vertical arrow-key direction. Every pane must therefore point at a
+      // real per-pane element — its first series' rendered group.
+      const result = highchartsToMaidr(stockStyleChart());
+
+      expect(result.subplots[0][0].selector).toBe(
+        '#stock-chart .highcharts-series-group .highcharts-series-0',
+      );
+      expect(result.subplots[1][0].selector).toBe(
+        '#stock-chart .highcharts-series-group .highcharts-series-1',
+      );
+    });
+
+    it('emits a subplot selector even when the first layer has structured selectors', () => {
+      // Candlestick layers carry a CandlestickSelector object, from which the
+      // core cannot derive a measurable selector string — the subplot-level
+      // selector is the only geometry hook for such panes (the classic
+      // Highstock candlestick + volume layout).
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const xAxis = fakeAxis({ left: 60, width: 600 });
+        const chart = fakeChart({
+          type: 'candlestick',
+          renderToId: 'candle-pane-chart',
+          series: [
+            fakeSeries({
+              index: 0,
+              type: 'candlestick',
+              name: 'Price',
+              xAxis,
+              yAxis: fakeAxis({ top: 40, height: 250 }),
+              data: [{ x: 0, open: 1, close: 2, high: 3, low: 0.5 }],
+            }),
+            fakeSeries({
+              index: 1,
+              type: 'column',
+              name: 'Volume',
+              xAxis,
+              yAxis: fakeAxis({ top: 310, height: 100 }),
+              data: categoryPoints([1000], ['a']),
+            }),
+          ],
+        });
+
+        const result = highchartsToMaidr(chart);
+
+        expect(result.subplots).toHaveLength(2);
+        expect(result.subplots[0][0].layers[0].type).toBe(TraceType.CANDLESTICK);
+        expect(result.subplots[0][0].selector).toBe(
+          '#candle-pane-chart .highcharts-series-group .highcharts-series-0',
+        );
+        expect(result.subplots[1][0].selector).toBe(
+          '#candle-pane-chart .highcharts-series-group .highcharts-series-1',
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it('does not fuse bar series from different panes into one dodged layer', () => {

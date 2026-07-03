@@ -23,7 +23,7 @@
 
 import type { Maidr, MaidrSubplot } from '../../type/grammar';
 import type { HighchartsChart, HighchartsGridOptions } from './types';
-import { buildSubplot, collectUsableSeries } from './adapter';
+import { buildSubplotGrid, collectUsableSeries } from './adapter';
 import { ensureContainerId } from './selectors';
 
 let gridCounter = 0;
@@ -41,10 +41,16 @@ let gridCounter = 0;
  * (written into the first layer's `title`); the figure title comes from
  * `options.title`. Charts with no convertible series are skipped (with a
  * warning) and their row compacted, because MAIDR crashes on empty subplots.
+ * A member chart that itself contains multiple panes (stacked `yAxis` bands)
+ * is expanded with the same pane detection as {@link highchartsToMaidr}: each
+ * pane becomes its own cell, flattened into that chart's grid row.
  *
  * @param charts - Rendered chart instances in visual reading order (top-left first).
  * @param options - Optional figure metadata and flat-list layout.
  * @returns A {@link Maidr} object ready for use with the MAIDR library.
+ * @throws When no chart in the grid produces any convertible series — the
+ *         resulting figure would have no navigable data, and attaching it
+ *         would crash MAIDR on focus.
  */
 export function highchartsGridToMaidr(
   charts: HighchartsChart[] | HighchartsChart[][],
@@ -58,30 +64,48 @@ export function highchartsGridToMaidr(
     const row: MaidrSubplot[] = [];
     for (const chart of chartRow) {
       const containerId = ensureContainerId(chart);
-      const subplot = buildSubplot(collectUsableSeries(chart), chart, containerId);
 
-      if (subplot.layers.length === 0) {
+      // Reuse the single-chart pane detection so a multi-pane member chart
+      // (e.g. a Highstock price + volume chart) is never fused into one
+      // subplot — cross-pane bar series would otherwise merge into a single
+      // dodged/stacked layer mixing unrelated scales. The pane path already
+      // drops empty-layer cells; the single-subplot path may still yield one.
+      const paneSubplots = buildSubplotGrid(collectUsableSeries(chart), chart, containerId)
+        .flat()
+        .filter(subplot => subplot.layers.length > 0);
+
+      if (paneSubplots.length === 0) {
         console.warn(
           `[MAIDR Highcharts] Grid chart "${containerId}" has no convertible series; skipping panel.`,
         );
         continue;
       }
 
-      // Series indices restart at 0 in every chart, but MAIDR requires layer
-      // ids to be unique across the WHOLE figure — prefix with the panel index.
-      for (const layer of subplot.layers) {
-        layer.id = `${subplotIndex}_${layer.id}`;
+      if (paneSubplots.length > 1) {
+        console.warn(
+          `[MAIDR Highcharts] Grid chart "${containerId}" contains ${paneSubplots.length} panes; `
+          + `flattening them into adjacent cells of the same grid row.`,
+        );
       }
 
       // The chart's own title is the panel's display name; MAIDR reads it
-      // from the first layer's title (there is no subplot-title field).
+      // from the first layer's title (there is no subplot-title field). For a
+      // multi-pane chart it names the first pane only — the remaining panes
+      // keep their pane-level names (series name or y-axis title fallback).
       const paneTitle = chart.title?.textStr;
       if (paneTitle) {
-        subplot.layers[0].title = paneTitle;
+        paneSubplots[0].layers[0].title = paneTitle;
       }
 
-      row.push(subplot);
-      subplotIndex++;
+      for (const subplot of paneSubplots) {
+        // Series indices restart at 0 in every chart, but MAIDR requires layer
+        // ids to be unique across the WHOLE figure — prefix with the cell index.
+        for (const layer of subplot.layers) {
+          layer.id = `${subplotIndex}_${layer.id}`;
+        }
+        row.push(subplot);
+        subplotIndex++;
+      }
     }
     if (row.length > 0) {
       subplots.push(row);
@@ -89,10 +113,12 @@ export function highchartsGridToMaidr(
   }
 
   if (subplots.length === 0) {
-    // Mirror highchartsToMaidr's degenerate no-series shape rather than
-    // emitting an empty grid (which the MAIDR model cannot represent).
-    console.warn('[MAIDR Highcharts] No grid chart produced any layers.');
-    subplots.push([{ layers: [] }]);
+    // Fail loudly at conversion time (where the developer can see it) instead
+    // of emitting an empty-layers subplot whose JSON would crash MAIDR with an
+    // uncaught TypeError inside Context construction on first focus.
+    throw new Error(
+      '[MAIDR Highcharts] highchartsGridToMaidr: no chart in the grid produced any convertible series.',
+    );
   }
 
   return {

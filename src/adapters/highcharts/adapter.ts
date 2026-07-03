@@ -40,6 +40,7 @@ import {
   histogramSelector,
   lineSelectors,
   scatterSelector,
+  seriesGroupSelector,
 } from './selectors';
 
 let chartCounter = 0;
@@ -97,8 +98,10 @@ export function highchartsToMaidr(
 /**
  * Builds the subplot grid for one chart: a multi-pane chart becomes one
  * subplot per detected pane; everything else keeps the single-subplot path.
+ *
+ * @internal
  */
-function buildSubplotGrid(
+export function buildSubplotGrid(
   seriesList: HighchartsSeries[],
   chart: HighchartsChart,
   containerId: string,
@@ -178,6 +181,16 @@ export function buildSubplot(
 
   const subplot: MaidrSubplot = { layers };
 
+  // Point the subplot at its own panel geometry (the first series' rendered
+  // group). Highcharts SVG has no `g[id^="axes_"]` groups, so MAIDR's layout
+  // pass relies on this element to compute the panels' visual order and the
+  // vertical arrow-key direction for multi-row grids. The first layer's
+  // selectors cannot serve as a fallback for every trace type (box,
+  // candlestick, and heatmap layers carry structured selector objects).
+  if (layers.length > 0 && seriesToConvert.length > 0) {
+    subplot.selector = seriesGroupSelector(containerId, seriesToConvert[0].index);
+  }
+
   // Add legend labels when multiple layers are present, aligned to layers.
   if (layers.length > 1) {
     subplot.legend = layers.map(l => l.title ?? `Series ${l.id}`);
@@ -206,10 +219,12 @@ export function collectUsableSeries(
 }
 
 function isInternalSeries(series: HighchartsSeries): boolean {
+  // Highcharts reliably marks the real Highstock navigator series with both
+  // `isInternal` and the `highcharts-navigator-series` class. Do NOT match on
+  // the series name — a legitimate user series named "Navigator" must convert.
   const { isInternal, className } = series.options;
   return isInternal === true
-    || (typeof className === 'string' && className.includes('highcharts-navigator-series'))
-    || series.name === 'Navigator';
+    || (typeof className === 'string' && className.includes('highcharts-navigator-series'));
 }
 
 function filterSeries(

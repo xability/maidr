@@ -2,7 +2,7 @@ import type { HighchartsChart } from '@adapters/highcharts/types';
 import type { LinePoint } from '@type/grammar';
 import { highchartsGridToMaidr } from '@adapters/highcharts/grid';
 import { TraceType } from '@type/grammar';
-import { categoryPoints, fakeChart, fakeSeries } from './helpers';
+import { categoryPoints, fakeAxis, fakeChart, fakeSeries } from './helpers';
 
 function barChart(name: string, renderToId: string, title?: string): HighchartsChart {
   return fakeChart({
@@ -136,7 +136,98 @@ describe('highchartsGridToMaidr', () => {
     expect((lineSubplot.layers[0].data as LinePoint[][])[0]).toHaveLength(3);
   });
 
+  it('emits a container-scoped subplot selector per panel', () => {
+    // Each panel's selector lets MAIDR's layout pass measure the chart's own
+    // geometry (visual ordering + vertical arrow-key direction for multi-row
+    // grids) — Highcharts SVG has no `g[id^="axes_"]` groups to measure.
+    const result = highchartsGridToMaidr([
+      barChart('A', 'grid-sel-a'),
+      barChart('B', 'grid-sel-b'),
+    ]);
+
+    expect(result.subplots[0][0].selector).toBe(
+      '#grid-sel-a .highcharts-series-group .highcharts-series-0',
+    );
+    expect(result.subplots[0][1].selector).toBe(
+      '#grid-sel-b .highcharts-series-group .highcharts-series-0',
+    );
+  });
+
+  it('expands a multi-pane member chart into adjacent cells instead of fusing panes', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const xAxis = fakeAxis({ left: 60, width: 600 });
+      const paneChart = fakeChart({
+        title: 'Metrics',
+        type: 'column',
+        renderToId: 'grid-panes',
+        series: [
+          fakeSeries({
+            index: 0,
+            name: 'Revenue',
+            xAxis,
+            yAxis: fakeAxis({ top: 40, height: 200 }),
+            data: categoryPoints([1, 2], ['a', 'b']),
+          }),
+          fakeSeries({
+            index: 1,
+            name: 'Headcount',
+            xAxis,
+            yAxis: fakeAxis({ top: 260, height: 200 }),
+            data: categoryPoints([3, 4], ['a', 'b']),
+          }),
+        ],
+      });
+
+      const result = highchartsGridToMaidr([barChart('A', 'grid-pane-a', 'A'), paneChart]);
+
+      // One row: plain chart cell + one cell per pane of the member chart.
+      expect(result.subplots).toHaveLength(1);
+      expect(result.subplots[0]).toHaveLength(3);
+
+      const [plainCell, topPane, bottomPane] = result.subplots[0];
+      expect(plainCell.layers[0].type).toBe(TraceType.BAR);
+      // Cross-pane bar series must stay separate BAR cells, never one DODGED
+      // layer mixing unrelated scales.
+      expect(topPane.layers[0].type).toBe(TraceType.BAR);
+      expect(bottomPane.layers[0].type).toBe(TraceType.BAR);
+
+      // Chart title names the first pane only; other panes keep their names.
+      expect(topPane.layers[0].title).toBe('Metrics');
+      expect(bottomPane.layers[0].title).toBe('Headcount');
+
+      // Layer ids stay unique across the whole figure.
+      const ids = result.subplots.flat().flatMap(subplot => subplot.layers).map(l => l.id);
+      expect(new Set(ids).size).toBe(ids.length);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('flattening them into adjacent cells'),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it('throws on empty input', () => {
     expect(() => highchartsGridToMaidr([])).toThrow(/at least one chart/);
+  });
+
+  it('throws when no chart in the grid produces any convertible series', () => {
+    // An all-skipped grid must fail loudly at conversion time — an
+    // empty-layers subplot would crash MAIDR's Context on first focus.
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const noSeries = fakeChart({ type: 'column', renderToId: 'grid-none-1', series: [] });
+      const unsupported = fakeChart({
+        type: 'pie',
+        renderToId: 'grid-none-2',
+        series: [fakeSeries({ index: 0, type: 'pie', name: 'Share', data: categoryPoints([1], ['a']) })],
+      });
+
+      expect(() => highchartsGridToMaidr([noSeries, unsupported]))
+        .toThrow(/no chart in the grid produced any convertible series/);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
