@@ -1,3 +1,4 @@
+import type { Figure } from '@model/plot';
 import type { Disposable } from '@type/disposable';
 import type {
   BarPoint,
@@ -425,6 +426,41 @@ export class LiveDataManager {
     );
     return null;
   }
+}
+
+/**
+ * Whether an appended point targets what the user is currently focused on:
+ * the active subplot, the active layer, and — for nested multi-series
+ * layers, where each series streams its own point per tick — the active
+ * series. Used to scope monitor announcements and sliding-window cursor
+ * shifts to the focused data, so multi-layer/multi-series ticks never
+ * produce overlapping output.
+ *
+ * Flat layers ignore the appended `row`: there it is an announce
+ * coordinate (e.g. a candlestick OHLC section), not a series index.
+ * `col` is never checked — it is the new point's position, not a focus
+ * requirement; monitoring means hearing new points on the focused
+ * layer/series wherever the user's cursor sits along it.
+ *
+ * @param figure - The figure whose focus state to check
+ * @param appended - Location of the appended point
+ * @returns True when the append targets the focused subplot/layer/series
+ */
+export function isAppendedPointFocused(
+  figure: Figure,
+  appended: AppendedPointInfo,
+): boolean {
+  if (figure.row !== appended.subplotRow || figure.col !== appended.subplotCol) {
+    return false;
+  }
+  const activeSubplot = figure.activeSubplot;
+  if (activeSubplot.activeLayerIndex !== appended.layerIndex) {
+    return false;
+  }
+  if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
+    return false;
+  }
+  return true;
 }
 
 /**

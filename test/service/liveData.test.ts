@@ -1,6 +1,8 @@
+import type { AppendedPointInfo } from '@service/liveData';
 import type { BarPoint, CandlestickPoint, LinePoint, Maidr } from '@type/grammar';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { appendPointToMaidr, cloneMaidrData, LiveDataManager } from '@service/liveData';
+import { Figure } from '@model/plot';
+import { appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -230,6 +232,26 @@ describe('appendPointToMaidr', () => {
     expect(result!.appended.col).toBe(0);
   });
 
+  test('a new group never reports a trim, even at maxWidth', () => {
+    // Pins the invariant that lets resolveActiveColShift evaluate the focus
+    // predicate against the OLD figure: the sliding window applies per group,
+    // and a brand-new group holds exactly one point, so a new-group append
+    // always has trimmed === 0 and short-circuits before the predicate ever
+    // sees a group index that does not exist in the old figure.
+    const maidr = createLineMaidr();
+    maidr.maxWidth = 2;
+    const result = appendPointToMaidr(maidr, { x: 1, y: 99 }, { groupIndex: 2 });
+
+    expect(result).not.toBeNull();
+    expect(result!.appended.trimmed).toBe(0);
+    expect(result!.appended.row).toBe(2);
+    const data = result!.maidr.subplots[0][0].layers[0].data as LinePoint[][];
+    expect(data[2]).toEqual([{ x: 1, y: 99 }]);
+    // Existing groups are untouched by the new group's window.
+    expect(data[0]).toHaveLength(2);
+    expect(data[1]).toHaveLength(1);
+  });
+
   test('returns null for an unknown layerId', () => {
     const maidr = createBarMaidr();
     const result = appendPointToMaidr(maidr, { x: 'C', y: 3 }, { layerId: 'missing' });
@@ -419,5 +441,123 @@ describe('liveDataManager', () => {
 
     expect(manager.getData(initial.id)).toBe(replacement);
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Builds AppendedPointInfo for focus-gating tests.
+ * @param overrides - Fields to override on the default flat append
+ * @returns An AppendedPointInfo value
+ */
+function createAppended(overrides: Partial<AppendedPointInfo> = {}): AppendedPointInfo {
+  return {
+    subplotRow: 0,
+    subplotCol: 0,
+    layerIndex: 0,
+    layerId: 'layer-0',
+    row: 0,
+    col: 1,
+    trimmed: 0,
+    nested: false,
+    trimShift: 'col',
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a figure with a candlestick + bar + multiline subplot for
+ * focus-gating tests (mirrors the py-maidr multilayer ticker).
+ * @returns The constructed figure
+ */
+function createMultiLayerFigure(): Figure {
+  return new Figure({
+    id: 'focus-test',
+    subplots: [[{
+      layers: [
+        {
+          id: 'candle',
+          type: TraceType.CANDLESTICK,
+          axes: { x: { label: 'Time' }, y: { label: 'Price' } },
+          data: [
+            { value: 't0', open: 10, high: 12, low: 9, close: 11, trend: 'Bull', volatility: 3 },
+            { value: 't1', open: 11, high: 13, low: 10, close: 12, trend: 'Bull', volatility: 3 },
+          ],
+        },
+        {
+          id: 'volume',
+          type: TraceType.BAR,
+          axes: { x: { label: 'Time' }, y: { label: 'Volume' } },
+          data: [{ x: 't0', y: 100 }, { x: 't1', y: 120 }],
+        },
+        {
+          id: 'lines',
+          type: TraceType.LINE,
+          axes: { x: { label: 'Time' }, y: { label: 'MA' } },
+          data: [
+            [{ x: 0, y: 10.5 }, { x: 1, y: 11.5 }],
+            [{ x: 0, y: 10.0 }, { x: 1, y: 11.0 }],
+          ],
+        },
+      ],
+    }]],
+  });
+}
+
+describe('isAppendedPointFocused', () => {
+  test('append to the focused layer is focused', () => {
+    const figure = createMultiLayerFigure();
+    figure.subplots[0][0].row = 1; // user on the volume layer
+
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 1 }))).toBe(true);
+  });
+
+  test('append to a different layer is not focused', () => {
+    const figure = createMultiLayerFigure();
+    figure.subplots[0][0].row = 1; // user on the volume layer
+
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 0 }))).toBe(false);
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 2, nested: true }))).toBe(false);
+  });
+
+  test('switching layers changes which append is focused', () => {
+    const figure = createMultiLayerFigure();
+    const subplot = figure.subplots[0][0];
+
+    subplot.row = 0;
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 0, row: 4 }))).toBe(true);
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 1 }))).toBe(false);
+
+    subplot.row = 1;
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 0, row: 4 }))).toBe(false);
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 1 }))).toBe(true);
+  });
+
+  test('nested layers are gated by the focused series (row)', () => {
+    const figure = createMultiLayerFigure();
+    const subplot = figure.subplots[0][0];
+    subplot.row = 2; // user on the multiline layer
+    subplot.activeTrace.isInitialEntry = false;
+    subplot.activeTrace.row = 0; // user on series 0
+
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 2, nested: true, row: 0 }))).toBe(true);
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 2, nested: true, row: 1 }))).toBe(false);
+  });
+
+  test('flat layers ignore the row (candlestick rows are OHLC sections)', () => {
+    const figure = createMultiLayerFigure();
+    const subplot = figure.subplots[0][0];
+    subplot.row = 0; // user on the candle layer
+    subplot.activeTrace.isInitialEntry = false;
+    subplot.activeTrace.row = 2; // user on the "high" section
+
+    // Announce coordinates target the close section (row 4) — still focused.
+    expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 0, row: 4 }))).toBe(true);
+  });
+
+  test('appends to another subplot are not focused', () => {
+    const figure = createMultiLayerFigure();
+
+    expect(isAppendedPointFocused(figure, createAppended({ subplotCol: 1 }))).toBe(false);
+    expect(isAppendedPointFocused(figure, createAppended({ subplotRow: 2 }))).toBe(false);
   });
 });

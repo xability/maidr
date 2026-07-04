@@ -20,6 +20,7 @@ import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
@@ -333,6 +334,9 @@ export class Controller implements Disposable {
    * @param appended - Location of the newly appended point, for appendData updates
    */
   public updateData(maidr: Maidr, appended?: AppendedPointInfo): void {
+    // Ordering is load-bearing: the sliding-window shift must be resolved
+    // against the OLD figure (the user's current position) before the swap,
+    // while announceAppendedPoint below runs against the NEW figure.
     const activeColShift = this.resolveActiveColShift(appended);
 
     this.figure = this.context.replaceFigure(() => {
@@ -368,22 +372,12 @@ export class Controller implements Disposable {
       return 0;
     }
     try {
-      const onAppendedSubplot
-        = this.figure.row === appended.subplotRow
-          && this.figure.col === appended.subplotCol;
-      const activeSubplot = this.figure.activeSubplot;
-      const onAppendedTrace
-        = onAppendedSubplot && activeSubplot.activeLayerIndex === appended.layerIndex;
-      if (!onAppendedTrace) {
-        return 0;
-      }
-      // For nested layers only the appended series shifted, so the cursor
-      // moves only when the user is on that series. Flat layers (bar,
-      // vertical candlestick...) shift every row's columns equally.
-      if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
-        return 0;
-      }
-      return appended.trimmed;
+      // The cursor follows trimmed data only on the focused layer/series —
+      // the same focus rule that scopes monitor announcements. Evaluating the
+      // predicate against the OLD figure is safe even for appends that start
+      // a new series: the window trims per group, so a brand-new group (one
+      // point) always has trimmed === 0 and returns above.
+      return isAppendedPointFocused(this.figure, appended) ? appended.trimmed : 0;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);
       return 0;
@@ -394,23 +388,28 @@ export class Controller implements Disposable {
    * Sonifies and announces a newly appended data point through the monitor
    * service, computing its state without moving the user's cursor.
    *
+   * Only appends to the layer the user is currently focused on are
+   * announced: multi-layer charts stream one point per layer per tick, and
+   * sonifying every layer would bury the focused signal in overlapping
+   * tones. Switching layers (PageUp/PageDown) switches what is monitored.
+   *
    * @param appended - Location of the appended point in the new figure
    */
   private announceAppendedPoint(appended: AppendedPointInfo): void {
     if (!this.monitorService.isEnabled) {
       return;
     }
-    const subplot = this.figure.subplots[appended.subplotRow]?.[appended.subplotCol];
-    // Subplots hold one single-trace row per layer (see Subplot.activeLayerIndex),
-    // so the appended layer's trace lives at traces[layerIndex][0].
-    const trace = subplot?.traces[appended.layerIndex]?.[0];
-    if (!trace) {
-      return;
-    }
     try {
-      // Compute the new point's state without moving the user's cursor;
-      // observers are only notified via MonitorService.
-      const state = trace.getStateAt(appended.row, appended.col);
+      if (!isAppendedPointFocused(this.figure, appended)) {
+        return;
+      }
+      // The focused layer's trace IS the active trace (one single-trace row
+      // per layer; see Subplot.activeLayerIndex) — the focus predicate above
+      // guarantees the indices are in range, so no null guard is needed;
+      // any residual access failure lands in the catch below. Compute the
+      // new point's state without moving the user's cursor; observers are
+      // only notified via MonitorService.
+      const state = this.figure.activeSubplot.activeTrace.getStateAt(appended.row, appended.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);
