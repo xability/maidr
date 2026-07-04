@@ -20,15 +20,26 @@
  * elsewhere on the same page are never matched.
  */
 
+let idCounter = 0;
+
 /**
- * Generates a unique ID with the given prefix using `crypto.randomUUID()`.
+ * Generates a unique ID with the given prefix.
+ *
+ * Uses a module-level counter combined with a short random suffix. Avoids
+ * `crypto.randomUUID()`, which is only defined in secure contexts
+ * (https/localhost) and throws on plain-HTTP pages — the exact CDN
+ * script-tag scenario this adapter targets.
+ *
+ * NOTE: this helper is duplicated in `google-charts/selectors.ts`; a shared
+ * adapter utility module is a good follow-up once one exists.
  *
  * @param prefix - The prefix for the generated ID.
- * @returns A unique string ID (e.g. `"maidr-frappe-a1b2c3d4"`).
+ * @returns A unique string ID (e.g. `"maidr-frappe-1-a1b2c3"`).
  */
 export function nextId(prefix: string): string {
-  const uuid = crypto.randomUUID().slice(0, 8);
-  return `${prefix}-${uuid}`;
+  idCounter += 1;
+  const random = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-${idCounter}-${random}`;
 }
 
 /**
@@ -46,6 +57,17 @@ export function ensureContainerId(container: HTMLElement): void {
 /** Scoped selector for all bar rects (single or stacked bar groups). */
 export function barSelector(containerId: string): string {
   return `#${containerId} svg.frappe-chart .dataset-units.dataset-bars rect.bar`;
+}
+
+/**
+ * Scoped selector for the bar rects of one dataset group (multi-dataset
+ * charts). Frappe renders each dataset in its own `.dataset-{index}` group,
+ * so scoping to that group keeps the SVG element count aligned with the
+ * converted dataset's data points (otherwise a multi-dataset chart matches
+ * every group's rects and highlighting is dropped on the count mismatch).
+ */
+export function barSelectorForDataset(containerId: string, index: number): string {
+  return `#${containerId} svg.frappe-chart .dataset-units.dataset-bars.dataset-${index} rect.bar`;
 }
 
 /**

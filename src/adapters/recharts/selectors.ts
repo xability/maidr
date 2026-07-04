@@ -45,6 +45,7 @@
  */
 
 import type { RechartsChartType } from './types';
+import { cssEscape } from '@adapters/shared/selectorUtil';
 
 /**
  * Returns the CSS selector string for individual data point elements
@@ -54,13 +55,23 @@ import type { RechartsChartType } from './types';
  * cannot reliably target a specific series in Recharts' SVG structure.
  * See the module-level documentation for details.
  *
+ * The generated selectors are bare page-global class selectors (e.g.
+ * `.recharts-bar-rectangle .recharts-rectangle`). MAIDR resolves them via
+ * page-global `document.querySelectorAll`, so with two or more Recharts charts
+ * on one page they would cross-match. Pass `chartId` (the `<Maidr>` config id)
+ * to scope every selector to that chart's own `#maidr-article-<id>` wrapper so
+ * the charts cannot highlight one another's elements.
+ *
  * @param chartType - The Recharts chart type
  * @param seriesIndex - When set, indicates a multi-series chart — returns undefined
+ * @param chartId - When set, scopes the selector to the chart's `<Maidr>`
+ *                  article (`#maidr-article-<id>`) to avoid cross-chart matches
  * @returns CSS selector string, or undefined for multi-series targeting
  */
 export function getRechartsSelector(
   chartType: RechartsChartType,
   seriesIndex?: number,
+  chartId?: string,
 ): string | undefined {
   // Multi-series positional targeting is unreliable with CSS alone.
   // Return undefined to gracefully disable highlighting.
@@ -68,6 +79,19 @@ export function getRechartsSelector(
     return undefined;
   }
 
+  const base = baseRechartsSelector(chartType);
+  if (base === undefined || chartId === undefined) {
+    return base;
+  }
+  // Scope to the chart's own `<Maidr>` article so multiple Recharts charts on
+  // one page cannot cross-highlight under page-global selector resolution.
+  return `#maidr-article-${cssEscape(chartId)} ${base}`;
+}
+
+/**
+ * Returns the unscoped, page-global leaf selector for a Recharts chart type.
+ */
+function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {
     case 'bar':
     case 'stacked_bar':

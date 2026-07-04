@@ -403,12 +403,14 @@ export function bindXYChart(
 
 /**
  * Restore `root.dom` to its original parent and unmount the React tree.
+ *
+ * Unmount FIRST: `AmHost`'s ref cleanup detaches `rootDom` from the
+ * React-owned host. THEN restore `rootDom` to its original parent, and finally
+ * remove the now-empty container. Doing this in the other order lets the ref
+ * cleanup remove the just-restored chart DOM from the page.
  */
 function teardownMount(rendered: RenderResult, rootDom: HTMLElement): void {
-  const parent = rendered.container.parentElement;
-  if (parent) {
-    parent.insertBefore(rootDom, rendered.container);
-  }
   rendered.root.unmount();
+  rendered.container.parentElement?.insertBefore(rootDom, rendered.container);
   rendered.container.remove();
 }

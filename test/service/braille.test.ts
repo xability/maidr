@@ -481,6 +481,40 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
+  test('single-line: exact-multiple row width keeps later rows in sync', () => {
+    // Regression: when a row's width is an exact multiple of displaySize, the
+    // in-loop wrap used to emit the trailing newline AND the sentinel block
+    // pushed an extra indexToCell entry with no character, shifting every
+    // subsequent row's cursor/click mapping by +1.
+    const { service, contextMoveToIndex } = createBrailleService(4);
+    // 2 rows x 4 cols, displaySize 4 → each row is an exact multiple.
+    const state = createLineTraceState([[1, 2, 3, 4], [5, 6, 7, 8]], 1, 1);
+
+    let emitted = '';
+    let cursorIndex = -1;
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+      cursorIndex = event.index;
+    });
+
+    service.toggle(state);
+
+    // "1234\n5678\n" — 8 data chars + 2 newlines, no double newline.
+    expect(emitted.length).toBe(10);
+    expect(emitted.includes('\n\n')).toBe(false);
+
+    // Cursor at row 1, col 1 must resolve to (1, 1), not a shifted position.
+    service.moveToIndex(cursorIndex);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(1, 1);
+
+    // The first character of row 1 (string index 5) maps to (1, 0).
+    service.moveToIndex(5);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(1, 0);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
   test('preserves index-to-cell mapping after mid-row wrap newlines', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
     const state = createLineTraceState([[1, 2, 3, 4, 5]], 0, 3);
@@ -813,6 +847,73 @@ describe('BrailleService display-size encoding', () => {
     disposable.dispose();
     service.dispose();
   });
+
+  test('degenerate box (all summary values equal) terminates without hanging', () => {
+    // Regression: a box whose five-number summary is constant and equals the
+    // global min/max makes every section length 0, so the char-count
+    // adjustment loop had no adjustable section and spun forever, freezing the
+    // tab when braille was toggled. The encode must now complete and emit.
+    const { service } = createBrailleService(32);
+    const degenerateBox = {
+      lowerOutliers: [] as number[],
+      min: 5,
+      q1: 5,
+      q2: 5,
+      q3: 5,
+      max: 5,
+      upperOutliers: [] as number[],
+    };
+    // Single box sitting at the trace global min/max (globalMin == globalMax).
+    const state = createBoxTraceState([degenerateBox], 5, 5, 0, 0);
+
+    let emitted = '';
+    let emitCount = 0;
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+      emitCount++;
+    });
+
+    service.toggle(state);
+
+    // If the loop hung, this line would never be reached (jest would time out).
+    expect(emitCount).toBe(1);
+    // Single-line box output ends with a newline separator.
+    expect(emitted.endsWith('\n')).toBe(true);
+
+    disposable.dispose();
+    service.dispose();
+  }, 5000);
+
+  test('degenerate box terminates in multiline mode and pads to displaySize', () => {
+    // Same degenerate box in multiline mode: the loop must terminate and the
+    // row is space-padded to a displaySize boundary.
+    const { service } = createMultilineBrailleService(32, 2);
+    const degenerateBox = {
+      lowerOutliers: [] as number[],
+      min: 7,
+      q1: 7,
+      q2: 7,
+      q3: 7,
+      max: 7,
+      upperOutliers: [] as number[],
+    };
+    const state = createBoxTraceState([degenerateBox, degenerateBox], 7, 7, 0, 0);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    // No newlines in multiline mode, and each row padded to a 32-cell boundary.
+    expect(emitted.includes('\n')).toBe(false);
+    expect(emitted.length % 32).toBe(0);
+    expect(emitted.length).toBe(64);
+
+    disposable.dispose();
+    service.dispose();
+  }, 5000);
 
   test('horizontal windowing: multi-row plot with cols > displaySize produces displaySize chars per row', () => {
     const { service } = createMultilineBrailleService(3, 2);
@@ -1161,6 +1262,50 @@ describe('BrailleService display-size encoding', () => {
     for (const index of indices) {
       expect(index).toBeGreaterThanOrEqual(0);
     }
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('re-encodes when data changes even though the layer id is unchanged', () => {
+    // Regression: the encode cache was keyed only by layer id, which live
+    // setData/appendData preserves across model rebuilds. A same-id state that
+    // carries a fresh values array (new data) must invalidate the cache so the
+    // braille output reflects the new data rather than a stale encoding.
+    const { service } = createBrailleService(10);
+
+    // Both states share the same generated id ("line-braille-3-0-0") but expose
+    // different values arrays with clearly different braille encodings.
+    const ascending = createLineTraceState([[1, 2, 3]], 0, 0);
+    const descending = createLineTraceState([[3, 2, 1]], 0, 0);
+    expect(ascending.empty).toBe(false);
+    expect(descending.empty).toBe(false);
+    if (ascending.empty || descending.empty) {
+      throw new Error('expected non-empty trace states');
+    }
+    // Sanity-check the shared cache key (layer id) so the test truly exercises
+    // the values-based invalidation rather than an id mismatch.
+    expect(descending.braille.empty).toBe(false);
+    expect(ascending.braille.empty).toBe(false);
+    if (ascending.braille.empty || descending.braille.empty) {
+      throw new Error('expected non-empty braille states');
+    }
+    expect(descending.braille.id).toBe(ascending.braille.id);
+
+    const emissions: string[] = [];
+    const disposable = service.onChange((event) => {
+      emissions.push(event.value);
+    });
+
+    service.toggle(ascending);
+    const beforeChange = emissions[emissions.length - 1];
+
+    // Simulate a live data swap: same id, new values array reference/content.
+    service.update(descending);
+    const afterChange = emissions[emissions.length - 1];
+
+    expect(emissions.length).toBeGreaterThanOrEqual(2);
+    expect(afterChange).not.toEqual(beforeChange);
 
     disposable.dispose();
     service.dispose();

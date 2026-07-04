@@ -70,10 +70,18 @@ export function clearTaggedElements(container: HTMLElement): void {
  * degrade and highlighting will stop working (audio/text/braille are
  * unaffected).
  *
+ * The emitted selectors are prefixed with `scope` (e.g. `#<containerId> `) so
+ * that MAIDR — which resolves selectors via page-global `document.querySelector`
+ * — cannot match another Victory chart's identically-indexed tags. The
+ * per-element `data-maidr-victory-<layerIndex>` attributes only need to be
+ * unique within their own container, which `scope` guarantees.
+ *
  * @param container  - The DOM node wrapping the Victory chart
  * @param layer      - The extracted layer info
  * @param layerIndex - Numeric index for generating unique attribute names
  * @param claimed    - Set of elements already claimed by prior layers
+ * @param scope      - Per-chart CSS scope prefix (e.g. `#<containerId> `) that
+ *                     disambiguates this chart's selectors page-wide
  * @returns A CSS selector string, or `undefined` if elements could not be
  *          matched (highlighting will gracefully degrade).
  */
@@ -82,6 +90,7 @@ export function tagLayerElements(
   layer: VictoryLayerInfo,
   layerIndex: number,
   claimed: Set<Element>,
+  scope: string,
 ): string | BoxSelector[] | CandlestickSelector | undefined {
   const svg = container.querySelector('svg');
   if (!svg)
@@ -92,27 +101,27 @@ export function tagLayerElements(
 
   // Line charts: single <path> representing the full series.
   if (victoryType === 'VictoryLine') {
-    return tagLineElements(svg, layer, attrName, claimed);
+    return tagLineElements(svg, layer, attrName, claimed, scope);
   }
 
   // Candlestick: each candle is a <g> with one body <rect> and two wick
   // <line>s — tag them as a structured CandlestickSelector.
   if (victoryType === 'VictoryCandlestick') {
-    return tagCandlestickElements(svg, attrName, claimed);
+    return tagCandlestickElements(svg, attrName, claimed, scope);
   }
 
   // Box plot: component-grouped rects (q1/q3 halves), median lines, and
   // whisker line-pairs with no semantic classes — classify by geometry and
   // tag as a per-box BoxSelector[].
   if (victoryType === 'VictoryBoxPlot') {
-    return tagBoxElements(svg, attrName, claimed);
+    return tagBoxElements(svg, attrName, claimed, scope);
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
   // VictoryBar, VictoryHistogram, VictoryScatter, and VictoryStack all render
   // their data points as <path> elements — Victory's Bar primitive renders a
   // <path> (with arc commands for corner radius), never a <rect>.
-  return tagDiscreteElements(svg, layer, attrName, claimed);
+  return tagDiscreteElements(svg, layer, attrName, claimed, scope);
 }
 
 /**
@@ -124,6 +133,7 @@ function tagDiscreteElements(
   layer: VictoryLayerInfo,
   attrName: string,
   claimed: Set<Element>,
+  scope: string,
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
@@ -149,7 +159,7 @@ function tagDiscreteElements(
     }
   }
 
-  return `[${attrName}]`;
+  return `${scope}[${attrName}]`;
 }
 
 /**
@@ -183,6 +193,7 @@ function tagLineElements(
   layer: VictoryLayerInfo,
   attrName: string,
   claimed: Set<Element>,
+  scope: string,
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
@@ -199,7 +210,7 @@ function tagLineElements(
     if (commandCount >= layer.dataCount) {
       candidate.setAttribute(attrName, '');
       claimed.add(candidate);
-      return `[${attrName}]`;
+      return `${scope}[${attrName}]`;
     }
   }
 
@@ -207,7 +218,7 @@ function tagLineElements(
   const fallback = candidates[0];
   fallback.setAttribute(attrName, '');
   claimed.add(fallback);
-  return `[${attrName}]`;
+  return `${scope}[${attrName}]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +244,7 @@ function tagCandlestickElements(
   svg: SVGElement,
   attrName: string,
   claimed: Set<Element>,
+  scope: string,
 ): CandlestickSelector | undefined {
   const bodies = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
@@ -264,9 +276,9 @@ function tagCandlestickElements(
   }
 
   return {
-    body: `[${CANDLE_BODY}]`,
-    wickHigh: `[${CANDLE_HIGH}]`,
-    wickLow: `[${CANDLE_LOW}]`,
+    body: `${scope}[${CANDLE_BODY}]`,
+    wickHigh: `${scope}[${CANDLE_HIGH}]`,
+    wickLow: `${scope}[${CANDLE_LOW}]`,
   };
 }
 
@@ -299,6 +311,7 @@ function tagBoxElements(
   svg: SVGElement,
   attrName: string,
   claimed: Set<Element>,
+  scope: string,
 ): BoxSelector[] | undefined {
   const rects = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
@@ -364,7 +377,7 @@ function tagBoxElements(
       }
     }
 
-    const sel = (part: string): string => `[${BOX_INDEX}="${i}"][${BOX_PART}="${part}"]`;
+    const sel = (part: string): string => `${scope}[${BOX_INDEX}="${i}"][${BOX_PART}="${part}"]`;
     selectors.push({
       lowerOutliers: [],
       upperOutliers: [],

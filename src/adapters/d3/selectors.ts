@@ -6,26 +6,23 @@
  * These helpers therefore do not assume any particular class structure —
  * they take user-provided selectors and derive per-element CSS paths
  * that MAIDR can use for visual highlighting.
+ *
+ * The primitives (`cssEscape`, id generation, `ensureContainerId`) live in the
+ * shared `@adapters/shared/selectorUtil` module so every adapter escapes and
+ * scopes selectors identically. This module only layers the D3-specific id
+ * prefix and the `scopeSelector` convenience on top.
  */
 
-import { generateId } from './util';
+import { cssEscape, ensureContainerId as ensureSharedContainerId } from '@adapters/shared/selectorUtil';
+
+/** Prefix used for auto-generated D3 container ids. */
+const D3_ID_PREFIX = 'd3';
+
+export { cssEscape };
 
 /**
- * Escapes a string for use in CSS selectors.
- * Uses the native `CSS.escape` when available (browsers), and falls
- * back to a basic escape for Node.js / SSR environments.
- */
-export function cssEscape(value: string): string {
-  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
-    return CSS.escape(value);
-  }
-  // Fallback: escape characters that are special in CSS identifiers
-  return value.replace(/([^\w-])/g, '\\$1');
-}
-
-/**
- * Ensures a container element has an `id` attribute, generating one when
- * missing. Returns the (possibly newly assigned) id.
+ * Ensures a container element has an `id` attribute, generating one (with the
+ * D3 prefix) when missing. Returns the (possibly newly assigned) id.
  *
  * MAIDR resolves layer selectors via `document.querySelector`, which is
  * page-global — a bare selector like `"rect.bar"` would collide with any
@@ -39,10 +36,7 @@ export function cssEscape(value: string): string {
  * @returns The container's id (existing or newly generated).
  */
 export function ensureContainerId(container: Element): string {
-  if (!container.id) {
-    container.id = generateId();
-  }
-  return container.id;
+  return ensureSharedContainerId(container, D3_ID_PREFIX);
 }
 
 /**

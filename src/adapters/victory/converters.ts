@@ -266,8 +266,17 @@ function extractCandlestickData(
  * Extracts data from a VictoryHistogram element.
  *
  * VictoryHistogram accepts raw values and a `bins` prop. Since Victory
- * computes bins internally during render, we derive equal-width bins
- * ourselves from the raw data to produce MAIDR's `HistogramPoint[]`.
+ * computes bins internally during render, we derive the bins ourselves to
+ * produce MAIDR's `HistogramPoint[]`. The `bins` prop is honored in both
+ * supported forms:
+ *   - a **number** → that many equal-width bins over `[min, max]`;
+ *   - an **array of edges** (e.g. `[0, 25, 50, 100]`) → the explicit, possibly
+ *     unequal-width bins Victory actually renders.
+ * When `bins` is absent, an equal-width count is derived via the sqrt heuristic.
+ *
+ * Non-numeric values (e.g. date strings) are filtered out so binning never
+ * indexes `bins[NaN]`, which would throw inside the caller's `useLayoutEffect`
+ * and crash the React tree.
  */
 function extractHistogramData(
   props: Record<string, unknown>,
@@ -277,35 +286,17 @@ function extractHistogramData(
     return null;
 
   const getX = resolveAccessor(props.x, 'x');
-  const values = rawData.map(d => Number(getX(d)));
+  // Drop non-finite values (NaN/Infinity) so downstream bin indexing is safe.
+  const values = rawData.map(d => Number(getX(d))).filter(v => Number.isFinite(v));
+  if (values.length === 0)
+    return null;
 
-  const binCount = typeof props.bins === 'number'
-    ? (props.bins as number)
-    : Math.ceil(Math.sqrt(values.length));
+  const bins = Array.isArray(props.bins)
+    ? binByEdges(values, props.bins)
+    : binByCount(values, typeof props.bins === 'number' ? props.bins : undefined);
 
-  // Use reduce instead of Math.min/max(...values) to avoid stack overflow
-  // on large datasets (spread arguments hit the engine's call stack limit
-  // at ~100k elements).
-  const min = values.reduce((a, b) => (a < b ? a : b), values[0]);
-  const max = values.reduce((a, b) => (a > b ? a : b), values[0]);
-  const binWidth = (max - min) / binCount || 1;
-
-  // Build histogram bins
-  const bins = Array.from<unknown, { count: number; xMin: number; xMax: number }>(
-    { length: binCount },
-    (_, i) => ({
-      count: 0,
-      xMin: min + i * binWidth,
-      xMax: min + (i + 1) * binWidth,
-    }),
-  );
-
-  for (const v of values) {
-    let idx = Math.floor((v - min) / binWidth);
-    if (idx >= binCount)
-      idx = binCount - 1;
-    bins[idx].count++;
-  }
+  if (bins === null || bins.length === 0)
+    return null;
 
   const points: HistogramPoint[] = bins.map(b => ({
     x: `${b.xMin.toFixed(1)}-${b.xMax.toFixed(1)}`,
@@ -317,6 +308,75 @@ function extractHistogramData(
   }));
 
   return { data: { kind: 'histogram', points }, count: points.length };
+}
+
+/** A single histogram bin with its counted total and `[xMin, xMax]` range. */
+interface HistogramBin { count: number; xMin: number; xMax: number }
+
+/**
+ * Bins `values` into `binCount` equal-width bins over `[min, max]`. When
+ * `binCount` is omitted, the sqrt heuristic is used. Values are pre-filtered to
+ * finite numbers by the caller.
+ */
+function binByCount(values: number[], binCount?: number): HistogramBin[] {
+  const count = binCount && binCount > 0
+    ? Math.floor(binCount)
+    : Math.ceil(Math.sqrt(values.length));
+
+  // Use reduce instead of Math.min/max(...values) to avoid stack overflow
+  // on large datasets (spread arguments hit the engine's call stack limit
+  // at ~100k elements).
+  const min = values.reduce((a, b) => (a < b ? a : b), values[0]);
+  const max = values.reduce((a, b) => (a > b ? a : b), values[0]);
+  const binWidth = (max - min) / count || 1;
+
+  const bins: HistogramBin[] = Array.from({ length: count }, (_, i) => ({
+    count: 0,
+    xMin: min + i * binWidth,
+    xMax: min + (i + 1) * binWidth,
+  }));
+
+  for (const v of values) {
+    let idx = Math.floor((v - min) / binWidth);
+    if (idx >= count)
+      idx = count - 1;
+    if (idx >= 0 && idx < bins.length)
+      bins[idx].count++;
+  }
+
+  return bins;
+}
+
+/**
+ * Bins `values` into the explicit `[edge_i, edge_{i+1})` intervals defined by
+ * an array-form `bins` prop (the last interval is inclusive of its upper edge),
+ * matching what Victory renders. Returns `null` when the edges are unusable.
+ */
+function binByEdges(values: number[], rawEdges: unknown[]): HistogramBin[] | null {
+  if (!rawEdges.every(e => typeof e === 'number' && Number.isFinite(e)))
+    return null;
+
+  const edges = [...(rawEdges as number[])].sort((a, b) => a - b);
+  if (edges.length < 2)
+    return null;
+
+  const bins: HistogramBin[] = [];
+  for (let i = 0; i < edges.length - 1; i++) {
+    bins.push({ count: 0, xMin: edges[i], xMax: edges[i + 1] });
+  }
+
+  for (const v of values) {
+    for (let i = 0; i < bins.length; i++) {
+      const isLast = i === bins.length - 1;
+      const inRange = v >= bins[i].xMin && (isLast ? v <= bins[i].xMax : v < bins[i].xMax);
+      if (inRange) {
+        bins[i].count++;
+        break;
+      }
+    }
+  }
+
+  return bins;
 }
 
 /**

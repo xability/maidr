@@ -7,6 +7,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -52,9 +53,17 @@ abstract class AnnounceCommand implements Command {
    * Uses DisplayService to properly manage the focus stack and restore
    * the correct scope (TRACE, BRAILLE, etc.) regardless of which scope
    * was active before entering label mode.
+   *
+   * Only exits when a label scope is actually active. These announce
+   * commands are also bound outside label mode (e.g. 't' at subplot/figure
+   * level); exiting unconditionally would flip navigation into TRACE scope
+   * via the stale focus stack and break subplot activation.
    */
   protected restoreScope(): void {
-    this.displayService.exitLabelScope();
+    const scope = this.context.scope;
+    if (scope === Scope.TRACE_LABEL || scope === Scope.FIGURE_LABEL) {
+      this.displayService.exitLabelScope();
+    }
   }
 }
 

@@ -78,20 +78,31 @@ function getAxisLabel(
 // Data value helpers
 // ---------------------------------------------------------------------------
 
-/** Safely extract a numeric value from heterogeneous Chart.js dataset entries. */
-function toNumber(value: ChartJsDataValue): number {
+/**
+ * Extract a finite numeric value from a heterogeneous Chart.js dataset entry.
+ *
+ * Chart.js uses `null` (and `NaN`, via the `spanGaps` feature) as the
+ * documented missing-data marker. Rather than fabricate a `0` (which would be
+ * announced and sonified as real data) or pass `NaN` through (which poisons the
+ * model's min/max and silences audio for the whole trace), gaps are reported as
+ * `null` so callers can skip them and keep the accessible channels truthful.
+ *
+ * @param value - A raw Chart.js dataset value.
+ * @returns The finite number, or `null` when the entry is a gap/non-numeric.
+ */
+export function toFiniteNumber(value: ChartJsDataValue): number | null {
   if (typeof value === 'number')
-    return value;
+    return Number.isFinite(value) ? value : null;
   if (value != null && typeof value === 'object') {
     if ('y' in value && typeof value.y === 'number')
-      return value.y;
+      return Number.isFinite(value.y) ? value.y : null;
     if ('v' in value && typeof value.v === 'number')
-      return value.v;
+      return Number.isFinite(value.v) ? value.v : null;
   }
-  return 0;
+  return null;
 }
 
-function isPointValue(v: ChartJsDataValue): v is { x: number; y: number; r?: number } {
+export function isPointValue(v: ChartJsDataValue): v is { x: number; y: number; r?: number } {
   return v != null && typeof v === 'object' && 'x' in v && 'y' in v && !('o' in v) && !('v' in v) && !('median' in v);
 }
 
@@ -116,7 +127,7 @@ function formatCandlestickValue(value: unknown): string {
   return String(value);
 }
 
-function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y: string | number; v: number } {
+export function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y: string | number; v: number } {
   return v != null && typeof v === 'object' && 'v' in v;
 }
 
@@ -187,16 +198,26 @@ function singleDatasetToBarLayer(
   pluginOptions?: MaidrPluginOptions,
   id: number = 0,
 ): MaidrLayer {
-  const points: BarPoint[] = dataset.data.map((value, i) => ({
-    x: labels[i] ?? i,
-    y: toNumber(value),
-  }));
+  // Horizontal bars (`indexAxis: 'y'`) carry the value on X and the category on
+  // Y, matching how `AbstractBarPlot` reads `barValues` for HORIZONTAL. Gap
+  // markers (`null` / `NaN`) are skipped so they are never announced or
+  // sonified as fabricated zeros.
+  const isHorizontal = chart.options.indexAxis === 'y';
+  const points: BarPoint[] = [];
+  dataset.data.forEach((value, i) => {
+    const num = toFiniteNumber(value);
+    if (num === null)
+      return;
+    points.push(isHorizontal
+      ? { x: num, y: labels[i] ?? i }
+      : { x: labels[i] ?? i, y: num });
+  });
 
   return {
     id: String(id),
     type: TraceType.BAR,
     title: dataset.label,
-    ...(chart.options.indexAxis === 'y' ? { orientation: Orientation.HORIZONTAL } : {}),
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
       y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -217,15 +238,19 @@ function extractSegmentedBarLayers(
   // MAIDR's `SegmentedTrace` indexes its 2-D data as `points[row][col]` where
   // `row` is the group (z) and `col` is the category (x). Iterate by dataset
   // (group) first, then categories within each group, to match that shape.
+  // Horizontal bars (`indexAxis: 'y'`) swap value/category between X and Y.
+  const isHorizontal = chart.options.indexAxis === 'y';
   const points: SegmentedPoint[][] = [];
   for (const dataset of data.datasets) {
     const groupPoints: SegmentedPoint[] = [];
     for (let j = 0; j < numCategories; j++) {
-      groupPoints.push({
-        x: labels[j] ?? j,
-        y: toNumber(dataset.data[j]),
-        z: dataset.label ?? '',
-      });
+      // The grid must stay rectangular (the model's stacked-summary row sums
+      // across equal-length groups), so gaps collapse to 0 — a missing segment
+      // contributes nothing — while still guarding against NaN poisoning.
+      const num = toFiniteNumber(dataset.data[j]) ?? 0;
+      groupPoints.push(isHorizontal
+        ? { x: num, y: labels[j] ?? j, z: dataset.label ?? '' }
+        : { x: labels[j] ?? j, y: num, z: dataset.label ?? '' });
     }
     points.push(groupPoints);
   }
@@ -234,7 +259,7 @@ function extractSegmentedBarLayers(
     {
       id: '0',
       type: traceType,
-      ...(chart.options.indexAxis === 'y' ? { orientation: Orientation.HORIZONTAL } : {}),
+      ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -256,13 +281,22 @@ function extractLineLayers(
   const data = chart.data;
   const labels = data.labels ?? [];
 
-  const lineData: LinePoint[][] = data.datasets.map((dataset, dsIdx) =>
-    dataset.data.map((value, i) => ({
-      x: labels[i] ?? i,
-      y: toNumber(value),
-      z: dataset.label ?? `Line ${dsIdx + 1}`,
-    })),
-  );
+  // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
+  // the plugin re-derives the original Chart.js indices for highlight alignment.
+  const lineData: LinePoint[][] = data.datasets.map((dataset, dsIdx) => {
+    const linePoints: LinePoint[] = [];
+    dataset.data.forEach((value, i) => {
+      const num = toFiniteNumber(value);
+      if (num === null)
+        return;
+      linePoints.push({
+        x: labels[i] ?? i,
+        y: num,
+        z: dataset.label ?? `Line ${dsIdx + 1}`,
+      });
+    });
+    return linePoints;
+  });
 
   return [
     {

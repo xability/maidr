@@ -14,7 +14,6 @@ import type {
 import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
-import { Constant } from '@util/constant';
 import { Svg } from '@util/svg';
 import { AbstractPlot } from './abstract';
 import { TraceFactory } from './factory';
@@ -135,6 +134,15 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   /**
+   * Overrides movability checks with the same directional adjustment, so the
+   * check-then-move idiom (`if (isMovable(d)) moveOnce(d)`) stays consistent
+   * with moveOnce/moveToExtreme on inverted layouts.
+   */
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
+    return super.isMovable(Array.isArray(target) ? target : this.adjustDirection(target));
+  }
+
+  /**
    * Adjusts the navigation direction based on the data-to-visual mapping.
    * Inverts UPWARD/DOWNWARD when the data array is ordered top-to-bottom
    * (since MovableGrid maps UPWARD to row+1, but we need it to go to a lower row).
@@ -183,13 +191,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
    * @returns The complete figure state
    */
   public get state(): FigureState {
-    if (this.isOutOfBounds) {
-      return {
-        empty: true,
-        type: 'figure',
-      };
-    }
-
     // Use the visual order map to determine the correct display index.
     // This is data-ordering-agnostic: always shows top-left as "Subplot 1".
     const key = `${this.row},${this.col}`;
@@ -343,10 +344,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     this.traces = layers.map(layer => [
       TraceFactory.create(layer),
     ]);
-    this.traceTypes = this.traces.flat().map((trace) => {
-      const state = trace.state;
-      return state.empty ? Constant.EMPTY : state.traceType;
-    });
+    // Read the lightweight traceType accessor rather than trace.state, which
+    // would eagerly compute full audio/braille/text/highlight state per trace
+    // on every construction (including every live-data rebuild).
+    this.traceTypes = this.traces.flat().map(trace => trace.traceType);
 
     this.highlightValue = this.mapToSvgElement(subplot.selector);
     this.movable = new MovableGrid<Trace>(this.traces);
@@ -520,6 +521,11 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns The trace ID
    */
   getId: () => string;
+
+  /**
+   * The trace's chart type, exposed without computing the full state.
+   */
+  readonly traceType: TraceType;
 
   /**
    * Gets the current X value from the trace

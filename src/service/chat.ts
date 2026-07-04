@@ -1,4 +1,5 @@
 import type { DisplayService } from '@service/display';
+import type { ApiResponse } from '@type/api';
 import type { Maidr } from '@type/grammar';
 import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
@@ -33,6 +34,11 @@ export class ChatService {
   private readonly textService: TextService;
   private readonly models: Record<Llm, LlmModel>;
 
+  // In-flight LLM request controllers, aborted by dispose() so a slow or hung
+  // provider cannot keep a request continuation (and its waiting tone) alive
+  // after the plot loses focus and the Controller is disposed.
+  private readonly pendingRequests: Set<AbortController>;
+
   // Mutable: replaced on live data updates; serialized lazily so
   // high-frequency streaming never pays for JSON.stringify.
   private data: Maidr;
@@ -47,6 +53,7 @@ export class ChatService {
   public constructor(display: DisplayService, textService: TextService, maidr: Maidr) {
     this.display = display;
     this.textService = textService;
+    this.pendingRequests = new Set();
     this.data = maidr;
     this.cachedJson = null;
 
@@ -69,7 +76,13 @@ export class ChatService {
    * @returns {Promise<LlmResponse>} The response from the LLM
    */
   public async sendMessage(model: Llm, request: LlmRequest): Promise<LlmResponse> {
-    return this.models[model].getLlmResponse(request);
+    const controller = new AbortController();
+    this.pendingRequests.add(controller);
+    try {
+      return await this.models[model].getLlmResponse(request, controller.signal);
+    } finally {
+      this.pendingRequests.delete(controller);
+    }
   }
 
   /**
@@ -104,13 +117,26 @@ export class ChatService {
   public toggle(): void {
     this.display.toggleFocus(Scope.CHAT);
   }
+
+  /**
+   * Aborts any in-flight LLM requests and releases their resources. Invoked
+   * from Controller.dispose() when the plot loses focus, so a slow provider
+   * cannot keep the request continuation (and its waiting tone) alive for the
+   * full request timeout after disposal.
+   */
+  public dispose(): void {
+    for (const controller of this.pendingRequests) {
+      controller.abort();
+    }
+    this.pendingRequests.clear();
+  }
 }
 
 /**
  * Interface for LLM model implementations.
  */
 interface LlmModel {
-  getLlmResponse: (request: LlmRequest) => Promise<LlmResponse>;
+  getLlmResponse: (request: LlmRequest, signal?: AbortSignal) => Promise<LlmResponse>;
 }
 
 /**
@@ -136,13 +162,15 @@ interface ClaudeResponse {
 }
 
 /**
- * Response structure from Google Gemini API.
+ * Response structure from Google Gemini API. Gemini omits `candidates` for
+ * blocked prompts, and a candidate finishing with SAFETY or MAX_TOKENS has
+ * `content` without `parts`, so every level is optional and read defensively.
  */
 interface GeminiResponse {
-  candidates: {
-    content: {
-      parts: {
-        text: string;
+  candidates?: {
+    content?: {
+      parts?: {
+        text?: string;
       }[];
     };
   }[];
@@ -187,9 +215,10 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Sends a request to the LLM and returns the formatted response.
    * @param {LlmRequest} request - The request containing the message and configuration
+   * @param {AbortSignal} [signal] - Aborts the in-flight request on disposal
    * @returns {Promise<LlmResponse>} The formatted response from the LLM
    */
-  public async getLlmResponse(request: LlmRequest): Promise<LlmResponse> {
+  public async getLlmResponse(request: LlmRequest, signal?: AbortSignal): Promise<LlmResponse> {
     try {
       const image = await Svg.toBase64(this.svg);
       // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
@@ -212,7 +241,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         : this.getApiUrl(request.apiKey, request.version);
 
       const headers = this.getHeaders(request);
-      const response = await Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS);
+      const response = await this.post(url, payload, headers, signal);
       if (!response.success) {
         return {
           success: false,
@@ -232,6 +261,45 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * Posts the request through {@link Api.post}, resolving as soon as `signal`
+   * aborts (Controller disposal). Api.post owns its own timeout signal and
+   * exposes no external abort hook, so the underlying fetch is still bounded
+   * by LLM_REQUEST_TIMEOUT_MS; racing the abort releases this request's
+   * continuation — and the chat's waiting tone — immediately rather than after
+   * the full timeout.
+   * @param {string} url - The request URL
+   * @param {string} payload - The serialized request body
+   * @param {Record<string, string>} headers - The request headers
+   * @param {AbortSignal} [signal] - Aborts the pending request on disposal
+   * @returns {Promise<ApiResponse<T>>} The provider response
+   */
+  private async post(
+    url: string,
+    payload: string,
+    headers: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<ApiResponse<T>> {
+    const request = Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS);
+    if (!signal) {
+      return request;
+    }
+
+    const aborted = new Promise<never>((_, reject) => {
+      if (signal.aborted) {
+        reject(new Error('Chat request aborted'));
+        return;
+      }
+      signal.addEventListener(
+        'abort',
+        () => reject(new Error('Chat request aborted')),
+        { once: true },
+      );
+    });
+
+    return Promise.race([request, aborted]);
   }
 
   /**
@@ -369,7 +437,9 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 
     return JSON.stringify({
       model: version ?? this.version,
-      max_tokens: GPT_MAX_TOKENS,
+      // GPT-5-family and o-series models reject the legacy `max_tokens`;
+      // `max_completion_tokens` is accepted by every current OpenAI chat model.
+      max_completion_tokens: GPT_MAX_TOKENS,
       messages: [
         {
           role: 'system',
@@ -382,12 +452,16 @@ class Gpt extends AbstractLlmModel<GptResponse> {
               type: 'text',
               text: formatUserPrompt(context),
             },
-            {
-              type: 'image_url',
-              image_url: {
-                url: image,
-              },
-            },
+            // Omit the image when SVG conversion produced nothing; OpenAI
+            // rejects an empty image URL, unlike the other providers.
+            ...(image
+              ? [{
+                  type: 'image_url',
+                  image_url: {
+                    url: image,
+                  },
+                }]
+              : []),
           ],
         },
       ],
@@ -411,16 +485,6 @@ class Gpt extends AbstractLlmModel<GptResponse> {
       success: true,
       data: response.choices[0].message.content,
     };
-  }
-
-  /**
-   * Builds HTTP headers for GPT requests.
-   * @param {LlmRequest} request - The request containing authentication details
-   * @returns {Record<string, string>} The HTTP headers
-   */
-  protected getHeaders(request: LlmRequest): Record<string, string> {
-    const headers = super.getHeaders(request);
-    return headers;
   }
 }
 
@@ -673,7 +737,11 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
    * @returns {LlmResponse} The formatted response
    */
   protected formatResponse(response: GeminiResponse): LlmResponse {
-    if (response.candidates.length === 0) {
+    // Blocked prompts (no candidates) and SAFETY/MAX_TOKENS finishes (a
+    // candidate without parts) must degrade to a clear error rather than a
+    // raw TypeError from a missing dereference.
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
       return {
         success: false,
         error: 'Invalid response format',
@@ -682,7 +750,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
 
     return {
       success: true,
-      data: response.candidates[0].content.parts[0].text,
+      data: text,
     };
   }
 
@@ -710,7 +778,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
   /**
    * Creates a new Ollama model instance.
    * @param {HTMLElement} svg - The SVG element representing the plot
-   * @param {Maidr} maidr - The MAIDR data structure
+   * @param {() => string} getJson - Returns the serialized MAIDR data structure
    * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {OllamaVersion} version - The default Ollama model to use when none is selected
    */

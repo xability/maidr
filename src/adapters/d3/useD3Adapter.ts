@@ -6,18 +6,27 @@
  * has rendered into it. This hook runs the appropriate binder inside a
  * `useEffect`, so it executes once the referenced SVG is committed to the DOM.
  *
+ * **Draw D3 in a ref callback, not a `useEffect`.** This hook's bind effect
+ * runs after the SVG is committed, but *before* the owner component's own
+ * `useEffect`s — so a `useEffect(..., [data])` draw would run after the bind
+ * on the empty SVG and throw "No elements found …". A ref callback draws
+ * during the commit phase (before the bind) and re-fires on remount. Prefer
+ * {@link MaidrD3}, which wires the `<Maidr>` swap for you.
+ *
  * @example
  * ```tsx
- * import { useRef, useEffect } from 'react';
+ * import { useCallback, useRef } from 'react';
  * import { Maidr } from 'maidr/react';
  * import { useD3Adapter } from 'maidr/react';
  *
  * function AccessibleBarChart({ data }) {
  *   const svgRef = useRef<SVGSVGElement>(null);
  *
- *   // 1. Draw the D3 chart into svgRef.current
- *   useEffect(() => {
- *     // ... d3 drawing code using svgRef.current ...
+ *   // 1. Draw the D3 chart in a ref callback (commit phase, before the bind).
+ *   const attachSvg = useCallback((node: SVGSVGElement | null) => {
+ *     svgRef.current = node;
+ *     if (!node) return;
+ *     // ... d3 drawing code using `node` ...
  *   }, [data]);
  *
  *   // 2. Bind the rendered SVG to a MAIDR data structure
@@ -34,10 +43,10 @@
  *     [data], // re-bind whenever the D3 chart changes
  *   );
  *
- *   if (!maidrData) return <svg ref={svgRef} />;
+ *   if (!maidrData) return <svg ref={attachSvg} />;
  *   return (
  *     <Maidr data={maidrData}>
- *       <svg ref={svgRef} />
+ *       <svg ref={attachSvg} />
  *     </Maidr>
  *   );
  * }

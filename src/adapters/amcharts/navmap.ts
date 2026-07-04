@@ -45,9 +45,83 @@ export interface SeriesGroups {
 
 type Resolver = (row: number, col: number) => NavTarget[];
 
-function columnTarget(series: AmXYSeries | undefined, col: number): NavTarget[] {
-  const dataItem = series?.dataItems[col];
-  return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+/** A live series paired with its extractor-filtered (gap-free) data items. */
+interface FilteredSeries {
+  series: AmXYSeries;
+  items: AmDataItem[];
+}
+
+function isHorizontalColumn(series: AmXYSeries): boolean {
+  return typeof series.get('categoryYField') === 'string';
+}
+
+/**
+ * Mirror `extractBarPoints` / `extractSegmentedPoints`: keep only items with a
+ * non-null category and a finite value on the series' orientation field pair.
+ * The extractor skips the rest, so MAIDR `col` indexes this filtered list — not
+ * the raw `series.dataItems` (which retains a slot per null/gap record).
+ */
+function filterColumnItems(series: AmXYSeries): AmDataItem[] {
+  const horizontal = isHorizontalColumn(series);
+  const categoryField = horizontal ? 'categoryY' : 'categoryX';
+  const valueField = horizontal ? 'valueX' : 'valueY';
+  const kept: AmDataItem[] = [];
+  for (const item of series.dataItems) {
+    const category = item.get(categoryField);
+    const value = item.get(valueField);
+    if (category == null || value == null)
+      continue;
+    if (!Number.isFinite(Number(value)))
+      continue;
+    kept.push(item);
+  }
+  return kept;
+}
+
+/** Mirror `readXValue`: whether an item has any usable X (category/value/date). */
+function hasLineX(item: AmDataItem, series: AmXYSeries): boolean {
+  if (item.get('categoryX') != null)
+    return true;
+  if (item.get('valueX') != null)
+    return true;
+  if (item.get('dateX') instanceof Date)
+    return true;
+  const fieldName = series.get('categoryXField');
+  return typeof fieldName === 'string' && item.get(fieldName) != null;
+}
+
+/** Mirror `extractLinePoints`: keep items with a present X and a finite valueY. */
+function filterLineItems(series: AmXYSeries): AmDataItem[] {
+  const kept: AmDataItem[] = [];
+  for (const item of series.dataItems) {
+    const y = item.get('valueY');
+    if (!hasLineX(item, series) || y == null)
+      continue;
+    if (!Number.isFinite(Number(y)))
+      continue;
+    kept.push(item);
+  }
+  return kept;
+}
+
+/** Mirror `extractHistogramPoints`: keep items with finite valueX and valueY. */
+function filterHistogramItems(series: AmXYSeries): AmDataItem[] {
+  const kept: AmDataItem[] = [];
+  for (const item of series.dataItems) {
+    const valueX = item.get('valueX');
+    const valueY = item.get('valueY');
+    if (valueX == null || valueY == null)
+      continue;
+    if (!Number.isFinite(Number(valueX)) || !Number.isFinite(Number(valueY)))
+      continue;
+    kept.push(item);
+  }
+  return kept;
+}
+
+function columnTargetFrom(entry: FilteredSeries | undefined, col: number): NavTarget[] {
+  const dataItem = entry?.items[col];
+  return entry && dataItem ? [{ series: entry.series, dataItem, kind: 'column' }] : [];
 }
 
 /**
@@ -88,33 +162,52 @@ export function buildNavigationMap(
   groups: SeriesGroups,
 ): NavMap {
   const resolvers = new Map<string, Resolver>();
+
+  // Precompute gap-filtered items per series, then drop empty series exactly as
+  // the adapter does when building layers (`buildSegmentedLayer` / `fromXYChart`
+  // skip series that yield no points). This keeps MAIDR row/col indices aligned
+  // with the live dataItems even when a series contains null/gap records.
+  const barItems: FilteredSeries[] = groups.barSeriesList.map(series => ({
+    series,
+    items: filterColumnItems(series),
+  }));
+  const segmentedBars = barItems.filter(entry => entry.items.length > 0);
+  const lineSeries = groups.lineSeriesList
+    .map(series => ({ series, items: filterLineItems(series) }))
+    .filter(entry => entry.items.length > 0);
+  const histogramSeries = groups.histogramSeries
+    .map(series => ({ series, items: filterHistogramItems(series) }))
+    .filter(entry => entry.items.length > 0);
+
   let histIdx = 0;
   let heatIdx = 0;
 
   for (const layer of layers) {
     switch (layer.type) {
       case TraceType.BAR: {
-        const series = groups.barSeriesList[0];
-        resolvers.set(layer.id, (_row, col) => columnTarget(series, col));
+        const entry = barItems[0];
+        resolvers.set(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
       case TraceType.STACKED:
       case TraceType.DODGED:
       case TraceType.NORMALIZED: {
-        resolvers.set(layer.id, (row, col) => columnTarget(groups.barSeriesList[row], col));
+        resolvers.set(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
         break;
       }
       case TraceType.LINE: {
         resolvers.set(layer.id, (row, col) => {
-          const series = groups.lineSeriesList[row];
-          const dataItem = series?.dataItems[col];
-          return series && dataItem ? [{ series, dataItem, kind: 'point' }] : [];
+          const entry = lineSeries[row];
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'point' }]
+            : [];
         });
         break;
       }
       case TraceType.HISTOGRAM: {
-        const series = groups.histogramSeries[histIdx++];
-        resolvers.set(layer.id, (_row, col) => columnTarget(series, col));
+        const entry = histogramSeries[histIdx++];
+        resolvers.set(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
       case TraceType.HEATMAP: {

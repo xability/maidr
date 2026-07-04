@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
-import type { TraceState } from '@type/state';
+import type { AutoplayState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
@@ -55,6 +55,7 @@ export class AutoplayService implements Disposable {
   private autoplayRate: number;
   private readonly interval: number;
   private totalDuration: number;
+  private lastAutoplay: AutoplayState | null;
 
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
@@ -80,8 +81,8 @@ export class AutoplayService implements Disposable {
 
     this.interval = DEFAULT_INTERVAL;
     this.autoplayRate = this.defaultSpeed;
-    this.interval = DEFAULT_INTERVAL;
     this.totalDuration = settings.get<number>(AutoplaySettings.DURATION);
+    this.lastAutoplay = null;
     settings.onChange((event) => {
       if (event.affectsSetting(AutoplaySettings.DURATION)) {
         this.totalDuration = event.get<number>(AutoplaySettings.DURATION);
@@ -114,6 +115,13 @@ export class AutoplayService implements Disposable {
     this.currentDirection = direction;
 
     this.autoplayId = setInterval(() => {
+      // Autoplay is a trace-level operation. If the active context has been
+      // popped out of the trace (e.g. Esc escalates to the subplot), stop
+      // instead of blindly auto-navigating the parent element.
+      if (this.context.state.type !== 'trace') {
+        this.stop();
+        return;
+      }
       if (this.context.isMovable(direction)) {
         this.context.moveOnce(direction);
       } else {
@@ -126,10 +134,16 @@ export class AutoplayService implements Disposable {
    * Stops any active autoplay and clears the interval.
    */
   public stop(): void {
-    if (this.autoplayId) {
-      clearInterval(this.autoplayId);
+    // When autoplay is not running, skip the emitter fire. STOP_AUTOPLAY is
+    // bound to the plain arrow keys, so this runs on every navigation keypress;
+    // firing 'stop' when idle triggers a needless Redux dispatch on the hottest
+    // path. Genuine stops (boundary, arrow during playback, dispose) still fire.
+    if (this.autoplayId === null) {
+      this.currentDirection = null;
+      return;
     }
 
+    clearInterval(this.autoplayId);
     this.autoplayId = null;
     this.currentDirection = null;
     this.onChangeEmitter.fire({ type: 'stop' });
@@ -195,14 +209,20 @@ export class AutoplayService implements Disposable {
    * @returns Autoplay rate in milliseconds
    */
   private getAutoplayRate(direction: MovableDirection, state?: TraceState): number {
+    // Remember the point counts so restart() — which passes no state — can
+    // recompute the rate from the current totalDuration after a mid-playback
+    // duration change, instead of reusing the stale defaultSpeed.
+    if (state && !state.empty) {
+      this.lastAutoplay = state.autoplay;
+    }
+
     if (this.userSpeed !== null) {
       return this.userSpeed;
     }
 
-    if (state && !state.empty) {
-      const calculatedRate = Math.ceil(
-        this.totalDuration / state.autoplay[direction],
-      );
+    const pointCount = this.lastAutoplay?.[direction];
+    if (pointCount !== undefined) {
+      const calculatedRate = Math.ceil(this.totalDuration / pointCount);
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);
       return calculatedRate;

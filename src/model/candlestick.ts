@@ -63,6 +63,13 @@ export class Candlestick extends AbstractTrace {
   private readonly min: number;
   private readonly max: number;
 
+  // Pre-computed braille data. Candles are immutable after construction, so
+  // per-row min/max and trends are computed once here instead of on every
+  // state emission (every keypress / autoplay tick).
+  private readonly perRowMin: number[];
+  private readonly perRowMax: number[];
+  private readonly trends: CandlestickTrend[];
+
   protected readonly highlightValues: HighlightValue[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
@@ -109,6 +116,14 @@ export class Candlestick extends AbstractTrace {
 
     this.min = MathUtil.minFrom2D(this.candleValues);
     this.max = MathUtil.maxFrom2D(this.candleValues);
+
+    // Pre-compute per-row min/max and trends once; the braille getter returns
+    // these cached references (see get braille) rather than rebuilding them
+    // per keypress. safeMin/safeMax avoid the spread-argument RangeError that
+    // Math.min(...row) hits on very large rows.
+    this.perRowMin = this.candleValues.map(row => MathUtil.safeMin(row));
+    this.perRowMax = this.candleValues.map(row => MathUtil.safeMax(row));
+    this.trends = this.candles.map(candle => candle.trend);
 
     // Pre-compute sorted segments and position maps for performance
     this.sortedSegmentsByPoint = this.precomputeSortedSegments();
@@ -509,6 +524,8 @@ export class Candlestick extends AbstractTrace {
   protected get audio(): AudioState {
     let value: number;
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const candleCount = this.candles.length;
+    const sectionCount = this.candleValues.length;
     if (this.currentSegmentType === 'volatility') {
       value = this.candles[this.currentPointIndex].volatility;
     } else if (this.currentSegmentType) {
@@ -524,41 +541,39 @@ export class Candlestick extends AbstractTrace {
         raw: value,
       },
       panning: {
+        // x is the candle index in both orientations (this.col vertical,
+        // this.row horizontal); rows/cols describe the grid shape
+        // (sections x candles) independent of orientation, so panning pans by
+        // candle position regardless of how many candles the chart holds.
         x: isHorizontal ? this.row : this.col,
         y: isHorizontal ? this.col : this.row,
-        rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
-        cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+        rows: sectionCount,
+        cols: candleCount,
       },
       trend: this.candles[this.currentPointIndex].trend,
     };
   }
 
   protected get braille(): BrailleState {
-    // Return the braille state with the current candle values and segment type
-
-    // get an array for bear or bull
-    const bearOrBull = this.candles.map(candle => candle.trend);
-
-    // Set row to the position in navigation order (volatility first, then value-sorted OHLC) for the current segment of the current candle
-    const valueSortedRow = this.getSegmentPositionInSortedOrder(
-      this.currentPointIndex,
-      this.currentSegmentType ?? this.sections[0],
-    );
-    this.row = valueSortedRow;
-
-    // Compute per-row min/max for all segments (including volatility)
-    const perRowMin = this.candleValues.map(row => Math.min(...row));
-    const perRowMax = this.candleValues.map(row => Math.max(...row));
-
+    // Braille cells index into candleValues, which is in static SECTIONS
+    // order ['volatility','open','high','low','close']. The braille row must
+    // therefore be the static section index of the current segment (not its
+    // value-sorted navigation position), and the col is the candle index.
+    //
+    // This getter must stay side-effect free: it runs on every state emission
+    // (AbstractTrace.state) and during getStateAt, so mutating this.row/col
+    // here would corrupt the highlight computed alongside it (and, for
+    // horizontal charts, clobber the candle index this.row holds). All heavy
+    // data (per-row min/max, trends) is precomputed in the constructor.
     return {
       empty: false,
       id: this.id,
       values: this.candleValues, // includes volatility and OHLC
-      min: perRowMin,
-      max: perRowMax,
-      row: this.row,
-      col: this.col,
-      custom: bearOrBull,
+      min: this.perRowMin,
+      max: this.perRowMax,
+      row: this.sections.indexOf(this.currentSegmentType ?? this.sections[0]),
+      col: this.currentPointIndex,
+      custom: this.trends,
     };
   }
 
@@ -1077,11 +1092,55 @@ export class Candlestick extends AbstractTrace {
     };
   }
 
+  /**
+   * Moves the trace to the nearest highlight point for a pointer/hover event.
+   *
+   * The highlight grid is [sortedSegmentPosition][pointIndex] in BOTH
+   * orientations (see mapToSvgElements), so `nearest.col` is always the candle
+   * index and `nearest.row` is the value-sorted segment position. Those sorted
+   * coordinates are translated straight into the candle/segment model state
+   * here, rather than delegating to moveToIndex, which interprets rows in
+   * static CANDLESTICK_SECTIONS order — an interpretation the braille path
+   * relies on and must keep.
+   *
+   * @param _x - Screen-space x position of the pointer
+   * @param _y - Screen-space y position of the pointer
+   * @param nearest - The nearest highlight point in sorted grid coordinates
+   * @param onCurve - Whether the pointer is within the point's bounds
+   */
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
+    }
+    if (this.row === nearest.row && this.col === nearest.col) {
+      return;
+    }
+    const pointIndex = nearest.col;
+    this.currentPointIndex = pointIndex;
+    this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
+      pointIndex,
+      nearest.row,
+    );
+    this.isInitialEntry = false;
+    // Syncs both the candle position and the segment position for highlight.
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // Orientation-independent: candlestick maps UPWARD/DOWNWARD to the 5
+    // sections and FORWARD/BACKWARD to the N candles in BOTH orientations
+    // (see moveOnce), and AutoplayState is keyed by direction, so rows must
+    // always be the section count and cols the candle count. Conditioning on
+    // orientation here mis-paces autoplay and mis-clamps isMovable bounds.
     return {
-      rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
-      cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+      rows: this.candleValues.length,
+      cols: this.candles.length,
     };
   }
 }

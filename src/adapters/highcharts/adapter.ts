@@ -245,12 +245,16 @@ function convertSingleBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
+  // Highcharts always stores the bar value in `p.y` (even for horizontal 'bar'
+  // charts, where `p.x` is the category). AbstractBarPlot reads the value from
+  // `point.x` when HORIZONTAL, so emit the value in `x` and category in `y`,
+  // and swap the axis labels so `axes.x` names the value axis.
+  const isHorizontal = orientation === Orientation.HORIZONTAL;
   const data: BarPoint[] = series.data
     .filter(p => p.y !== null)
-    .map(p => ({
-      x: pointLabel(p),
-      y: p.y as number,
-    }));
+    .map(p => (isHorizontal
+      ? { x: p.y as number, y: pointLabel(p) }
+      : { x: pointLabel(p), y: p.y as number }));
 
   return {
     id: String(series.index),
@@ -258,12 +262,96 @@ function convertSingleBar(
     title: series.name || undefined,
     orientation,
     selectors: barSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
+}
+
+/**
+ * Resolves the `{ x, y }` axis labels for a bar layer. For horizontal bars the
+ * Highcharts value axis is `yAxis` and the category axis is `xAxis`, so they are
+ * swapped to keep `axes.x` on the value axis (matching AbstractBarPlot).
+ */
+function barAxes(
+  series: HighchartsSeries,
+  isHorizontal: boolean,
+): { x: AxisConfig; y: AxisConfig } {
+  return isHorizontal
+    ? { x: getAxisLabel(series, 'y'), y: getAxisLabel(series, 'x') }
+    : { x: getAxisLabel(series, 'x'), y: getAxisLabel(series, 'y') };
+}
+
+/**
+ * Builds aligned `SegmentedPoint[][]` rows for stacked/dodged/normalized bar
+ * groups. Each row (one per series/group) is padded to a fixed length keyed by
+ * category index so all rows share equal length — `SegmentedTrace` sums across
+ * rows and would produce `NaN` on ragged input. `null`/missing cells become `0`
+ * (never dropped), which keeps DOM alignment via the model's `skipZeros` path
+ * since Highcharts renders no `.highcharts-point` graphic for null points.
+ */
+function buildSegmentedRows(
+  seriesList: HighchartsSeries[],
+  orientation: Orientation,
+  traceType: TraceType,
+): SegmentedPoint[][] {
+  const isHorizontal = orientation === Orientation.HORIZONTAL;
+  const isNormalized = traceType === TraceType.NORMALIZED;
+
+  // Build the shared category-label list (index → label), preferring the axis
+  // categories, then per-point category/name, then the x value itself.
+  const axisCategories = seriesList[0]?.xAxis?.categories;
+
+  // Category axes index points 0..n-1, so x doubles as the row index. Numeric
+  // axes carry raw x values (e.g. years); map those to dense indices instead —
+  // indexing rows by Math.round(1990) would fabricate ~2000 zero cells.
+  const xToIndex = new Map<number, number>();
+  if (!axisCategories) {
+    const uniqueXs = [...new Set(
+      seriesList.flatMap(series => series.data.map(p => Math.round(p.x))),
+    )].sort((a, b) => a - b);
+    uniqueXs.forEach((x, i) => xToIndex.set(x, i));
+  }
+  const indexForX = (x: number): number =>
+    axisCategories ? Math.round(x) : (xToIndex.get(Math.round(x)) ?? -1);
+
+  const categoryLabels: (string | number)[] = [];
+  for (const series of seriesList) {
+    for (const p of series.data) {
+      const index = indexForX(p.x);
+      if (index < 0)
+        continue;
+      if (categoryLabels[index] === undefined) {
+        categoryLabels[index] = axisCategories?.[index] ?? p.category ?? p.name ?? Math.round(p.x);
+      }
+    }
+  }
+  const categoryCount = Math.max(axisCategories?.length ?? 0, categoryLabels.length);
+  for (let j = 0; j < categoryCount; j++) {
+    if (categoryLabels[j] === undefined) {
+      categoryLabels[j] = axisCategories?.[j] ?? j;
+    }
+  }
+
+  return seriesList.map((series) => {
+    // Initialize a full-length row of zero-valued cells keyed by category index.
+    const row: SegmentedPoint[] = Array.from({ length: categoryCount }, (_, j) =>
+      (isHorizontal
+        ? { x: 0, y: categoryLabels[j], z: series.name }
+        : { x: categoryLabels[j], y: 0, z: series.name }));
+
+    // Overlay each rendered point at its category index.
+    for (const p of series.data) {
+      const index = indexForX(p.x);
+      if (index < 0 || index >= categoryCount)
+        continue;
+      const value = isNormalized ? (p.percentage ?? p.y ?? 0) : (p.y ?? 0);
+      row[index] = isHorizontal
+        ? { x: value, y: categoryLabels[index], z: series.name }
+        : { x: categoryLabels[index], y: value, z: series.name };
+    }
+
+    return row;
+  });
 }
 
 /**
@@ -280,15 +368,7 @@ function convertStackedBar(
   traceType: TraceType.STACKED | TraceType.NORMALIZED,
 ): MaidrLayer {
   // Each series is one "group" (fill level). Points within share x-categories.
-  const data: SegmentedPoint[][] = seriesList.map(series =>
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({
-        x: pointLabel(p),
-        y: traceType === TraceType.NORMALIZED ? (p.percentage ?? (p.y as number)) : (p.y as number),
-        z: series.name,
-      })),
-  );
+  const data = buildSegmentedRows(seriesList, orientation, traceType);
 
   const first = seriesList[0];
   // Combine selectors for all series — MAIDR's SegmentedTrace expects a single selector string.
@@ -302,10 +382,7 @@ function convertStackedBar(
     title: first.name || undefined,
     orientation,
     selectors,
-    axes: {
-      x: getAxisLabel(first, 'x'),
-      y: getAxisLabel(first, 'y'),
-    },
+    axes: barAxes(first, orientation === Orientation.HORIZONTAL),
     data,
   };
 }
@@ -321,15 +398,7 @@ function convertDodgedBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
-  const data: SegmentedPoint[][] = seriesList.map(series =>
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({
-        x: pointLabel(p),
-        y: p.y as number,
-        z: series.name,
-      })),
-  );
+  const data = buildSegmentedRows(seriesList, orientation, TraceType.DODGED);
 
   const first = seriesList[0];
   const selectors = seriesList
@@ -342,10 +411,7 @@ function convertDodgedBar(
     title: first.name || undefined,
     orientation,
     selectors,
-    axes: {
-      x: getAxisLabel(first, 'x'),
-      y: getAxisLabel(first, 'y'),
-    },
+    axes: barAxes(first, orientation === Orientation.HORIZONTAL),
     data,
   };
 }
@@ -393,7 +459,7 @@ function convertLineSeries(
       .map(p => ({
         x: pointLabel(p),
         y: p.y as number,
-        fill: series.name || undefined,
+        z: series.name || undefined,
       })),
   );
 
@@ -572,21 +638,72 @@ function splitWhiskerPath(group: SVGGElement, boxIndex: number): void {
     return;
   }
 
+  const parts = computeWhiskerParts(d);
+  if (!parts) {
+    console.warn(
+      `[MAIDR Highcharts] Whisker path in box ${boxIndex} could not be split `
+      + `(expected 2 subpaths with valid midpoints); skipping split.`,
+    );
+    return;
+  }
+
+  const upperPath = original.cloneNode(true) as SVGPathElement;
+  upperPath.setAttribute('d', parts.upper);
+  upperPath.setAttribute('data-maidr-box-part', 'upper-whisker');
+  // Strip the identifying class from the clone so re-running `splitWhiskerPath`
+  // never matches it (keeping stamping idempotent); the attribute selector still
+  // targets it via `data-maidr-box-part`.
+  upperPath.classList.remove('highcharts-boxplot-whisker');
+
+  const lowerPath = original.cloneNode(true) as SVGPathElement;
+  lowerPath.setAttribute('d', parts.lower);
+  lowerPath.setAttribute('data-maidr-box-part', 'lower-whisker');
+  lowerPath.classList.remove('highcharts-boxplot-whisker');
+
+  // Insert after original so the visual stacking order is preserved. Note:
+  // afterend insertions go in reverse, so insert lower first then upper to
+  // end up with [original, upper, lower] which keeps the natural order.
+  original.insertAdjacentElement('afterend', lowerPath);
+  original.insertAdjacentElement('afterend', upperPath);
+
+  // Strip the original's identifying class so attribute-only selectors (and
+  // any future `.highcharts-boxplot-whisker` queries) skip it. We keep it in
+  // the DOM rather than hiding so Highcharts' own internal references stay
+  // valid; the new paths render the same caps on top.
+  original.classList.remove('highcharts-boxplot-whisker');
+  original.setAttribute('data-maidr-split-original', 'true');
+
+  // Highcharts redraws (resize/reflow/update) rewrite the ORIGINAL path's `d`
+  // in place but never touch our clones, leaving them stale. Mirror the
+  // original's `d` back onto the clones whenever it changes.
+  observeSplitRedraw(original, () => {
+    const currentD = original.getAttribute('d');
+    if (!currentD)
+      return;
+    const next = computeWhiskerParts(currentD);
+    if (!next)
+      return;
+    upperPath.setAttribute('d', next.upper);
+    lowerPath.setAttribute('d', next.lower);
+  });
+}
+
+/**
+ * Classifies a Highcharts whisker path's two cap subpaths into `upper` and
+ * `lower` cap `d` strings. Returns `null` when the path does not contain
+ * exactly two subpaths with computable midpoints.
+ */
+function computeWhiskerParts(d: string): { upper: string; lower: string } | null {
   // Highcharts uses uppercase commands; each cap starts with a fresh M.
   const subpaths = d.match(/M[^M]*/g);
   if (!subpaths || subpaths.length !== 2) {
-    console.warn(
-      `[MAIDR Highcharts] Whisker path in box ${boxIndex} has `
-      + `${subpaths?.length ?? 0} subpaths (expected 2); skipping split.`,
-    );
-    return;
+    return null;
   }
 
   const m0 = subpathMidpoint(subpaths[0]);
   const m1 = subpathMidpoint(subpaths[1]);
   if (!m0 || !m1) {
-    console.warn(`[MAIDR Highcharts] Could not compute whisker midpoints for box ${boxIndex}; skipping split.`);
-    return;
+    return null;
   }
 
   // Pick the dominant axis to classify: whichever differs more between
@@ -604,26 +721,19 @@ function splitWhiskerPath(group: SVGGElement, boxIndex: number): void {
   }
   const lowerIdx = 1 - upperIdx;
 
-  const upperPath = original.cloneNode(true) as SVGPathElement;
-  upperPath.setAttribute('d', subpaths[upperIdx].trim());
-  upperPath.setAttribute('data-maidr-box-part', 'upper-whisker');
+  return { upper: subpaths[upperIdx].trim(), lower: subpaths[lowerIdx].trim() };
+}
 
-  const lowerPath = original.cloneNode(true) as SVGPathElement;
-  lowerPath.setAttribute('d', subpaths[lowerIdx].trim());
-  lowerPath.setAttribute('data-maidr-box-part', 'lower-whisker');
-
-  // Insert after original so the visual stacking order is preserved. Note:
-  // afterend insertions go in reverse, so insert lower first then upper to
-  // end up with [original, upper, lower] which keeps the natural order.
-  original.insertAdjacentElement('afterend', lowerPath);
-  original.insertAdjacentElement('afterend', upperPath);
-
-  // Strip the original's identifying class so attribute-only selectors (and
-  // any future `.highcharts-boxplot-whisker` queries) skip it. We keep it in
-  // the DOM rather than hiding so Highcharts' own internal references stay
-  // valid; the new paths render the same caps on top.
-  original.classList.remove('highcharts-boxplot-whisker');
-  original.setAttribute('data-maidr-split-original', 'true');
+/**
+ * Watches a split-original `<path>` for `d` attribute changes and invokes
+ * `resync` so its cloned sub-part siblings can be kept in sync on Highcharts
+ * redraws. The observer is captured only by the observed node (and its
+ * callback closure), so it is garbage-collected together with the chart DOM;
+ * it does not need explicit teardown.
+ */
+function observeSplitRedraw(original: SVGPathElement, resync: () => void): void {
+  const observer = new MutationObserver(resync);
+  observer.observe(original, { attributes: true, attributeFilter: ['d'] });
 }
 
 /**
@@ -920,45 +1030,29 @@ function splitCandlestickPath(original: SVGPathElement, candleIndex: number): vo
     return;
   }
 
-  // Highcharts uses uppercase commands; each subpath starts with a fresh M.
-  const subpaths = d.match(/M[^M]*/g);
-  if (!subpaths || subpaths.length !== 3) {
+  const parts = computeCandlestickParts(d);
+  if (!parts) {
     console.warn(
-      `[MAIDR Highcharts] Candlestick path ${candleIndex} has `
-      + `${subpaths?.length ?? 0} subpaths (expected 3); skipping split.`,
+      `[MAIDR Highcharts] Candlestick path ${candleIndex} could not be split `
+      + `(expected 3 subpaths with a body and computable wick midpoints); skipping split.`,
     );
     return;
   }
 
-  // The body is the only subpath with a closepath command.
-  const bodyIdx = subpaths.findIndex(sp => /z/i.test(sp));
-  if (bodyIdx === -1) {
-    console.warn(`[MAIDR Highcharts] Candlestick path ${candleIndex}: no body subpath found; skipping split.`);
-    return;
-  }
-
-  const wickIndices = [0, 1, 2].filter(i => i !== bodyIdx);
-  const m0 = subpathMidpoint(subpaths[wickIndices[0]]);
-  const m1 = subpathMidpoint(subpaths[wickIndices[1]]);
-  if (!m0 || !m1) {
-    console.warn(`[MAIDR Highcharts] Could not compute wick midpoints for candle ${candleIndex}; skipping split.`);
-    return;
-  }
-
-  // SVG y grows downward → smaller y is visually upper.
-  const upperWickIdx = m0.y < m1.y ? wickIndices[0] : wickIndices[1];
-  const lowerWickIdx = upperWickIdx === wickIndices[0] ? wickIndices[1] : wickIndices[0];
-
-  const cloneSubpath = (subpathIdx: number, part: 'body' | 'upper-wick' | 'lower-wick'): SVGPathElement => {
+  const cloneSubpath = (dValue: string, part: 'body' | 'upper-wick' | 'lower-wick'): SVGPathElement => {
     const clone = original.cloneNode(true) as SVGPathElement;
-    clone.setAttribute('d', subpaths[subpathIdx].trim());
+    clone.setAttribute('d', dValue);
     clone.setAttribute('data-maidr-candle-part', part);
+    // Strip the identifying class from the clone so re-running
+    // `stampCandlestickIndices` never matches or renumbers it; the attribute
+    // selector still targets it via `data-maidr-candle-part`.
+    clone.classList.remove('highcharts-point');
     return clone;
   };
 
-  const bodyPath = cloneSubpath(bodyIdx, 'body');
-  const upperPath = cloneSubpath(upperWickIdx, 'upper-wick');
-  const lowerPath = cloneSubpath(lowerWickIdx, 'lower-wick');
+  const bodyPath = cloneSubpath(parts.body, 'body');
+  const upperPath = cloneSubpath(parts.upper, 'upper-wick');
+  const lowerPath = cloneSubpath(parts.lower, 'lower-wick');
 
   // afterend inserts in reverse, so insert lower → upper → body to end with
   // [original, body, upper, lower] (visual stacking preserved).
@@ -972,4 +1066,58 @@ function splitCandlestickPath(original: SVGPathElement, candleIndex: number): vo
   // same shapes on top.
   original.classList.remove('highcharts-point');
   original.setAttribute('data-maidr-split-original', 'true');
+
+  // Keep the cloned sections in sync when Highcharts rewrites the original's
+  // `d` on redraw (resize/reflow/update), otherwise the clones go stale.
+  observeSplitRedraw(original, () => {
+    const currentD = original.getAttribute('d');
+    if (!currentD)
+      return;
+    const next = computeCandlestickParts(currentD);
+    if (!next)
+      return;
+    bodyPath.setAttribute('d', next.body);
+    upperPath.setAttribute('d', next.upper);
+    lowerPath.setAttribute('d', next.lower);
+  });
+}
+
+/**
+ * Classifies a Highcharts candlestick path's three subpaths into `body`,
+ * `upper` wick, and `lower` wick `d` strings. The body is the only subpath with
+ * a closepath (`Z`) command; the remaining two are ordered by midpoint Y
+ * (smaller Y = upper, since SVG Y grows downward). Returns `null` when the path
+ * does not contain exactly three subpaths with a body and computable midpoints.
+ */
+function computeCandlestickParts(
+  d: string,
+): { body: string; upper: string; lower: string } | null {
+  // Highcharts uses uppercase commands; each subpath starts with a fresh M.
+  const subpaths = d.match(/M[^M]*/g);
+  if (!subpaths || subpaths.length !== 3) {
+    return null;
+  }
+
+  // The body is the only subpath with a closepath command.
+  const bodyIdx = subpaths.findIndex(sp => /z/i.test(sp));
+  if (bodyIdx === -1) {
+    return null;
+  }
+
+  const wickIndices = [0, 1, 2].filter(i => i !== bodyIdx);
+  const m0 = subpathMidpoint(subpaths[wickIndices[0]]);
+  const m1 = subpathMidpoint(subpaths[wickIndices[1]]);
+  if (!m0 || !m1) {
+    return null;
+  }
+
+  // SVG y grows downward → smaller y is visually upper.
+  const upperWickIdx = m0.y < m1.y ? wickIndices[0] : wickIndices[1];
+  const lowerWickIdx = upperWickIdx === wickIndices[0] ? wickIndices[1] : wickIndices[0];
+
+  return {
+    body: subpaths[bodyIdx].trim(),
+    upper: subpaths[upperWickIdx].trim(),
+    lower: subpaths[lowerWickIdx].trim(),
+  };
 }

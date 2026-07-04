@@ -78,12 +78,12 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
   // produce a single layer with SegmentedPoint[][] data.
   // With a single yKey, fall back to regular BAR.
   if (isSegmentedBarType(chartType) && hasMultipleSeries) {
-    return [buildSegmentedBarLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, fillKeys, selectorOverride)];
+    return [buildSegmentedBarLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, fillKeys, selectorOverride, config.id)];
   }
 
   // Histogram: produce HistogramPoint[] data
   if (chartType === 'histogram') {
-    return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride)];
+    return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride, config.id)];
   }
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
@@ -100,7 +100,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig): MaidrLayer[] {
   // Simple single-series or multiple separate layers
   return yKeys.map((yKey, index) => {
     const seriesIndex = hasMultipleSeries ? index : undefined;
-    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex);
+    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id);
     const layerData = convertData(chartType, data, xKey, yKey);
 
     return {
@@ -136,6 +136,7 @@ function buildSegmentedBarLayer(
   orientation?: Orientation,
   fillKeys?: string[],
   selectorOverride?: string,
+  chartId?: string,
 ): MaidrLayer {
   // SegmentedTrace expects [group/segment][category]:
   //   outer array = series (one per yKey/fill)
@@ -148,7 +149,7 @@ function buildSegmentedBarLayer(
     }));
   });
 
-  const selector = selectorOverride ?? getRechartsSelector(chartType);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId);
 
   return {
     id: '0',
@@ -177,6 +178,7 @@ function buildHistogramLayer(
   orientation?: Orientation,
   binConfig?: RechartsAdapterConfig['binConfig'],
   selectorOverride?: string,
+  chartId?: string,
 ): MaidrLayer {
   const histData: HistogramPoint[] = data.map((item) => {
     const x = item[xKey] as string | number;
@@ -189,7 +191,7 @@ function buildHistogramLayer(
     return { x, y, xMin, xMax, yMin, yMax };
   });
 
-  const selector = selectorOverride ?? getRechartsSelector(chartType);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId);
 
   return {
     id: '0',
@@ -273,7 +275,7 @@ function buildComposedLayers(config: RechartsAdapterConfig): MaidrLayer[] {
     const seriesIndex = (typeTotals.get(chartType) ?? 0) > 1 ? currentIndex : undefined;
 
     const maidrType = toTraceType(chartType);
-    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex);
+    const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id);
     const layerData = convertData(chartType, data, xKey, yKey);
 
     return {

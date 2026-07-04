@@ -61,6 +61,39 @@ function debugLog(...args: unknown[]): void {
 }
 
 /**
+ * Re-append the given elements to the DOM in array order.
+ *
+ * Several visual-order passes need `querySelectorAll` to return elements
+ * in a new order without cloning (which would drop listeners / refs).
+ * `appendChild` moves a node in place, so re-appending in the desired
+ * order achieves that. Elements are grouped by parent first so
+ * cross-parent ordering is never disturbed — only siblings within the
+ * same parent are reordered.
+ *
+ * @param elements - Elements to re-append, in the desired final order.
+ */
+function reappendInOrder(elements: SVGGraphicsElement[]): void {
+  const byParent = new Map<Element, SVGGraphicsElement[]>();
+  for (const el of elements) {
+    const parent = el.parentElement;
+    if (!parent) {
+      continue;
+    }
+    const arr = byParent.get(parent);
+    if (arr) {
+      arr.push(el);
+    } else {
+      byParent.set(parent, [el]);
+    }
+  }
+  for (const [parent, group] of byParent) {
+    for (const el of group) {
+      parent.appendChild(el);
+    }
+  }
+}
+
+/**
  * For simple bar charts Vega-Lite emits the bars in **data order**, but
  * lays them out visually in **scale-domain order** (alphabetical by
  * default for nominal axes). MAIDR's `BarTrace` highlights the i-th
@@ -154,21 +187,7 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
     // 2. Re-append elements in sorted order. appendChild moves the node
     //    in place; it doesn't clone, so listeners/refs are preserved.
     //    Group by parent first so cross-group ordering isn't disturbed.
-    const byParent = new Map<Element, SVGGraphicsElement[]>();
-    for (const { element } of pairs) {
-      const parent = element.parentElement;
-      if (!parent)
-        continue;
-      const arr = byParent.get(parent);
-      if (arr)
-        arr.push(element);
-      else
-        byParent.set(parent, [element]);
-    }
-    for (const [parent, group] of byParent) {
-      for (const el of group)
-        parent.appendChild(el);
-    }
+    reappendInOrder(pairs.map(p => p.element));
   }
 }
 
@@ -391,18 +410,46 @@ function reorderSegmentedSeriesByVisualBottom(
       }
     }
 
-    // Find which DOM-series-index corresponds to the visual bottom by
-    // largest screen-space `bottom` (`y + height`).
+    // Resolve each series' first-category rect once, then pick the
+    // baseline (data[0]) series from geometry.
+    //
+    // Vertical stack: segments sit on top of each other, so their visual
+    // `bottom` (`y + height`) differs; the baseline is the one with the
+    // largest bottom (closest to the x-axis baseline).
+    //
+    // Horizontal stack: every segment of the first category shares the
+    // same bar row, so all bottoms tie within a sub-pixel epsilon. In
+    // that case fall back to the smallest `x` (closest to the left
+    // baseline). Both branches share the existing non-negative-values
+    // assumption ("largest bottom / smallest x = baseline").
+    const firstCatRects = firstCatDomIndices.map(
+      domIdx => elements[domIdx].getBoundingClientRect(),
+    );
+    const bottoms = firstCatRects.map(r => r.y + r.height);
+    const bottomSpread = Math.max(...bottoms) - Math.min(...bottoms);
+    const HORIZONTAL_TIE_EPSILON = 0.5;
+
     let bottomDomSeries = 0;
-    let maxBottom = -Infinity;
-    firstCatDomIndices.forEach((domIdx, dataDomSeries) => {
-      const rect = elements[domIdx].getBoundingClientRect();
-      const bottom = rect.y + rect.height;
-      if (bottom > maxBottom) {
-        maxBottom = bottom;
-        bottomDomSeries = dataDomSeries;
-      }
-    });
+    if (bottomSpread < HORIZONTAL_TIE_EPSILON) {
+      // Horizontal stack: baseline series is the leftmost (smallest x).
+      let minX = Infinity;
+      firstCatRects.forEach((rect, dataDomSeries) => {
+        if (rect.x < minX) {
+          minX = rect.x;
+          bottomDomSeries = dataDomSeries;
+        }
+      });
+    } else {
+      // Vertical stack: baseline series is the bottom-most (largest bottom).
+      let maxBottom = -Infinity;
+      firstCatRects.forEach((rect, dataDomSeries) => {
+        const bottom = rect.y + rect.height;
+        if (bottom > maxBottom) {
+          maxBottom = bottom;
+          bottomDomSeries = dataDomSeries;
+        }
+      });
+    }
 
     if (bottomDomSeries === 0) {
       continue;
@@ -446,24 +493,7 @@ function reorderSegmentedSeriesByVisualBottom(
     // appendChild moves a node in place (no clone), so listeners /
     // refs survive. Group by parent to avoid disturbing cross-group
     // ordering.
-    const byParent = new Map<Element, SVGGraphicsElement[]>();
-    for (const el of newElements) {
-      const parent = el.parentElement;
-      if (!parent) {
-        continue;
-      }
-      const arr = byParent.get(parent);
-      if (arr) {
-        arr.push(el);
-      } else {
-        byParent.set(parent, [el]);
-      }
-    }
-    for (const [parent, group] of byParent) {
-      for (const el of group) {
-        parent.appendChild(el);
-      }
-    }
+    reappendInOrder(newElements);
   }
 }
 
@@ -593,24 +623,7 @@ function reorderDodgedBarsByVisualPosition(
 
       // Re-append nodes in `newElements` order, grouped by parent so we
       // don't disturb cross-group ordering.
-      const byParent = new Map<Element, SVGGraphicsElement[]>();
-      for (const el of newElements) {
-        const parent = el.parentElement;
-        if (!parent) {
-          continue;
-        }
-        const arr = byParent.get(parent);
-        if (arr) {
-          arr.push(el);
-        } else {
-          byParent.set(parent, [el]);
-        }
-      }
-      for (const [parent, group] of byParent) {
-        for (const el of group) {
-          parent.appendChild(el);
-        }
-      }
+      reappendInOrder(newElements);
     }
   } catch (err) {
     console.error('[maidr/vegalite] dodged reorder failed:', err);
@@ -694,24 +707,7 @@ function sortHistogramBinsByVisualOrder(
 
     // 2. Re-append DOM elements in sorted order so `querySelectorAll`
     //    later returns them in the same sequence as `layer.data`.
-    const byParent = new Map<Element, SVGGraphicsElement[]>();
-    for (const { element } of pairs) {
-      const parent = element.parentElement;
-      if (!parent) {
-        continue;
-      }
-      const arr = byParent.get(parent);
-      if (arr) {
-        arr.push(element);
-      } else {
-        byParent.set(parent, [element]);
-      }
-    }
-    for (const [parent, group] of byParent) {
-      for (const el of group) {
-        parent.appendChild(el);
-      }
-    }
+    reappendInOrder(pairs.map(p => p.element));
   }
 }
 
@@ -782,7 +778,9 @@ function sortHeatmapCellsByVisualOrder(
     const ny = data.y.length;
     const nx = data.x.length;
     const expected = nx * ny;
-    if (expected === 0) {
+    // A 0- or 1-cell heatmap needs no visual reordering; bail early so
+    // the single-cell case never dereferences elements[1] below.
+    if (expected < 2) {
       continue;
     }
 
@@ -879,24 +877,7 @@ function sortHeatmapCellsByVisualOrder(
     // 6. Re-append DOM elements in visual row-major order so
     //    Heatmap.mapToSvgElements's path branch (flatIndex =
     //    (numRows-1-r)*numCols + c) lands on the right cell.
-    const byParent = new Map<Element, SVGGraphicsElement[]>();
-    for (const cell of flatVisual) {
-      const parent = cell.element.parentElement;
-      if (!parent) {
-        continue;
-      }
-      const arr = byParent.get(parent);
-      if (arr) {
-        arr.push(cell.element);
-      } else {
-        byParent.set(parent, [cell.element]);
-      }
-    }
-    for (const [parent, group] of byParent) {
-      for (const el of group) {
-        parent.appendChild(el);
-      }
-    }
+    reappendInOrder(flatVisual.map(c => c.element));
   }
 }
 

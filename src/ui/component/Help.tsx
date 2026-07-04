@@ -8,7 +8,7 @@ import {
   Grid,
   Typography,
 } from '@mui/material';
-import { useViewModel } from '@state/hook/useViewModel';
+import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId } from 'react';
 
 interface HelpRowProps {
@@ -39,7 +39,7 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 const Help: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('help');
-  const { items } = viewModel.state;
+  const { items } = useViewModelState('help');
 
   const handleClose = (): void => {
     viewModel.toggle();

@@ -51,7 +51,7 @@ You are an expert implementer for the MAIDR accessibility library. You build fea
 ### Adding a new UI component
 1. Create React component in `src/ui/component/`
 2. Use `useViewModelState(key)` hook for state
-3. Use `useCommandExecutor()` for user actions
+3. Route user actions through the relevant ViewModel via `useViewModel(key)`
 4. Keep component "dumb" — render only
 5. Add to `App.tsx` rendering logic
 6. Ensure ARIA attributes for accessibility

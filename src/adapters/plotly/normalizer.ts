@@ -227,6 +227,15 @@ function injectPlotlyStyles(): void {
 function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null): void {
   const scope = plotlyDiv ?? document;
 
+  // Guard: install the layout observer at most once per chart. `normalizePlotlySvg`
+  // re-runs on every maidr-attribute change; without this each re-init would spawn
+  // another rAF polling loop and article MutationObserver that never get cleaned up.
+  const guardEl = plotlyDiv ?? svg;
+  if (guardEl.hasAttribute('data-maidr-layout-observer')) {
+    return;
+  }
+  guardEl.setAttribute('data-maidr-layout-observer', '1');
+
   function fix(): void {
     const rc = scope.querySelector<HTMLElement>(
       'div[id^="react-container-"]',
@@ -249,6 +258,12 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
   }
 
   function observe(): void {
+    // Bail if the chart SVG has left the document — otherwise the rAF loop would
+    // spin forever (retaining svg/plotlyDiv via closure) when the article that
+    // it polls for never appears.
+    if (!svg.isConnected) {
+      return;
+    }
     const article = scope.querySelector(
       'article[id^="maidr-article"]',
     );
@@ -315,6 +330,13 @@ function setupClickToFocus(plotlyDiv: HTMLElement | null): void {
   if (!container)
     return;
 
+  // Guard: install the capture click listener at most once per container.
+  // `normalizePlotlySvg` re-runs on every maidr-attribute change; the anonymous
+  // listener below cannot be removed, so without this it would accumulate.
+  if (container.hasAttribute('data-maidr-click-focus'))
+    return;
+  container.setAttribute('data-maidr-click-focus', '1');
+
   container.addEventListener(
     'click',
     () => {
@@ -351,10 +373,34 @@ const trackedElements = new Set<Element>();
  * disconnected later (e.g. when the Controller disposes).
  */
 function storeMutationObserver(el: Element, observer: MutationObserver): void {
+  // Release observers whose element has left the DOM so the strong
+  // `trackedElements` Set doesn't pin detached nodes against GC across SPA
+  // re-renders (these observers are page-lifetime, not per-focus-session).
+  pruneDisconnectedObservers();
+
   const stored = observerRegistry.get(el) ?? [];
   stored.push(observer);
   observerRegistry.set(el, stored);
   trackedElements.add(el);
+}
+
+/**
+ * Disconnects and forgets observers whose host element is no longer attached to
+ * the document, keeping {@link trackedElements} bounded over the page lifetime.
+ */
+function pruneDisconnectedObservers(): void {
+  for (const el of trackedElements) {
+    if (el.isConnected)
+      continue;
+    const observers = observerRegistry.get(el);
+    if (observers) {
+      for (const observer of observers) {
+        observer.disconnect();
+      }
+      observerRegistry.delete(el);
+    }
+    trackedElements.delete(el);
+  }
 }
 
 /**

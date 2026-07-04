@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
+import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
 import { Scope } from '@type/event';
 
@@ -240,40 +241,11 @@ export class MoveToTraceContextCommand implements Command {
  */
 export class MoveToSubplotContextCommand implements Command {
   private readonly context: Context;
+  private readonly displayService: DisplayService;
 
   /**
    * Creates an instance of MoveToSubplotContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
-   */
-  public constructor(context: Context) {
-    this.context = context;
-  }
-
-  /**
-   * Executes the move operation to exit the trace context and return to subplot.
-   */
-  public execute(): void {
-    this.context.exitSubplot();
-  }
-}
-
-/**
- * Command to dismiss braille focus and exit the subplot context in a single
- * action. Used when Escape is pressed while braille mode is active.
- *
- * The ordering is important for screen reader compatibility:
- * 1. dismissModalScope moves focus to the plot and clears the focus stack,
- * 2. exitSubplot transitions the navigation context to the subplot level,
- * 3. notifyFocusChange defers the UI update (textarea removal) so NVDA/JAWS
- *    process the focus change before the braille textarea unmounts.
- */
-export class ExitBrailleAndSubplotCommand implements Command {
-  private readonly context: Context;
-  private readonly displayService: DisplayService;
-
-  /**
-   * Creates an instance of ExitBrailleAndSubplotCommand.
-   * @param {Context} context - The navigation context.
    * @param {DisplayService} displayService - The display service for focus management.
    */
   public constructor(context: Context, displayService: DisplayService) {
@@ -282,12 +254,74 @@ export class ExitBrailleAndSubplotCommand implements Command {
   }
 
   /**
-   * Dismisses braille focus and exits the subplot in a screen-reader-safe sequence.
+   * Executes the move operation to exit the trace context and return to subplot.
    */
   public execute(): void {
-    this.displayService.dismissModalScope(Scope.SUBPLOT);
     this.context.exitSubplot();
-    this.displayService.notifyFocusChange(Scope.SUBPLOT);
+    // Mirror the enter path: keep the focus stack in sync with the scope, but
+    // only when the exit actually happened. On a single-subplot chart
+    // exitSubplot() is a no-op and the scope stays TRACE, so syncing to
+    // SUBPLOT here would introduce the opposite desync.
+    if (this.context.scope === Scope.SUBPLOT) {
+      this.displayService.syncFocusStack(Scope.SUBPLOT);
+    }
+  }
+}
+
+/**
+ * Command to dismiss braille focus when Escape is pressed while braille mode
+ * is active. The exit path depends on whether the figure has multiple panels.
+ *
+ * Multi-panel figures reach braille from TRACE scope (plotContext depth 3), so
+ * exitSubplot() succeeds and we return to the subplot level via a
+ * screen-reader-safe sequence:
+ * 1. dismissModalScope moves focus to the plot and clears the focus stack,
+ * 2. exitSubplot transitions the navigation context to the subplot level,
+ * 3. notifyFocusChange defers the UI update (textarea removal) so NVDA/JAWS
+ *    process the focus change before the braille textarea unmounts.
+ *
+ * Single-panel figures have no subplot level to return to (exitSubplot() would
+ * be a no-op that leaves the scope stuck in BRAILLE), so we instead replay the
+ * 'b' key path: toggling braille off pops BRAILLE off the focus stack and
+ * restores TRACE scope, focus stack, and UI consistently.
+ */
+export class ExitBrailleAndSubplotCommand implements Command {
+  private readonly context: Context;
+  private readonly displayService: DisplayService;
+  private readonly brailleViewModel: BrailleViewModel;
+
+  /**
+   * Creates an instance of ExitBrailleAndSubplotCommand.
+   * @param {Context} context - The navigation context.
+   * @param {DisplayService} displayService - The display service for focus management.
+   * @param {BrailleViewModel} brailleViewModel - The braille view model for the single-panel fallback.
+   */
+  public constructor(
+    context: Context,
+    displayService: DisplayService,
+    brailleViewModel: BrailleViewModel,
+  ) {
+    this.context = context;
+    this.displayService = displayService;
+    this.brailleViewModel = brailleViewModel;
+  }
+
+  /**
+   * Dismisses braille focus in a way that keeps scope, focus stack, and UI
+   * consistent for both multi-panel and single-panel figures.
+   */
+  public execute(): void {
+    if (this.context.isMultiPanel) {
+      this.displayService.dismissModalScope(Scope.SUBPLOT);
+      this.context.exitSubplot();
+      this.displayService.notifyFocusChange(Scope.SUBPLOT);
+      return;
+    }
+
+    const state = this.context.state;
+    if (state.type === 'trace') {
+      this.brailleViewModel.toggle(state);
+    }
   }
 }
 

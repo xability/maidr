@@ -11,9 +11,6 @@ export interface Movable {
   get isInitialEntry(): boolean;
   set isInitialEntry(value: boolean);
 
-  get isOutOfBounds(): boolean;
-  set isOutOfBounds(value: boolean);
-
   get row(): number;
   set row(value: number);
 

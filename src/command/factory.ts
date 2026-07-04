@@ -207,9 +207,9 @@ export class CommandFactory {
       case 'MOVE_TO_TRACE_CONTEXT':
         return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context);
+        return new MoveToSubplotContextCommand(this.context, this.displayService);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
-        return new ExitBrailleAndSubplotCommand(this.context, this.displayService);
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel);
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context);
       case 'MOVE_TO_PREV_TRACE':
@@ -294,7 +294,7 @@ export class CommandFactory {
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL, this.textViewModel, this.displayService);
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.SUBPLOT);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL, this.textViewModel, this.displayService);
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
