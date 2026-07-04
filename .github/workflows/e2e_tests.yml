@@ -88,8 +88,10 @@ jobs:
               `[View Workflow Run](${run_url})`
             ].join('\n');
 
-            // Determine issue title and labels based on test status
-            const isFailure = process.env.TEST_STATUS === 'failure';
+            // Determine issue title and labels based on test status. Anything
+            // other than success (failure, cancelled — e.g. the job timeout
+            // interrupting a hung run) must be filed as a failure.
+            const isFailure = process.env.TEST_STATUS !== 'success';
             const title = isFailure
               ? `test: Some e2e tests failed - ${new Date().toISOString()}`
               : `Test Report - ${new Date().toISOString()}`;

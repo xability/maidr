@@ -90,6 +90,17 @@ jobs:
         env:
           CI: true
 
+      # The smoke specs are kept green, so a failure here is a real
+      # regression — ship the report and screenshots with the PR run.
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+
   build:
     name: Build Project
     runs-on: ubuntu-latest
