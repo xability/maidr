@@ -68,6 +68,35 @@ test.describe('live data: monitor mode focus', () => {
     expect(text).not.toContain('64.5');
   });
 
+  test('sliding-window trim keeps the cursor on the same data point', async ({ page }) => {
+    await page.goto('examples/live-line.html');
+    await page.click('#live-sensor');
+    await waitForAriaText(page, 'maidr plot'); // focus-in shows the instruction
+    await page.keyboard.press('ArrowRight'); // first point (x=0, y=50)
+    await waitForAriaText(page, '50');
+    await page.keyboard.press('ArrowRight'); // second point (x=1, y=52)
+    await waitForAriaText(page, '52');
+
+    // The layer starts with 3 points and maxWidth 20: 18 appends overflow the
+    // window by one, trimming x=0 off the front. The cursor must shift left
+    // with its data so it stays on x=1 (y=52) rather than sliding to x=2.
+    await page.evaluate(() => {
+      for (let i = 0; i < 18; i++) {
+        (window as any).maidrLive.appendData(
+          { x: 3 + i, y: 100 + i },
+          { id: 'live-sensor' },
+        );
+      }
+    });
+
+    // From x=1, the next point right is x=2 (y=49). Without the shift the
+    // cursor would already sit on x=2 and step onto the first appended
+    // point (y=100) instead.
+    await page.keyboard.press('ArrowRight');
+    await waitForAriaText(page, '49');
+    expect(await ariaText(page)).not.toContain('100');
+  });
+
   test('nested layers: only the focused series is announced', async ({ page }) => {
     await page.goto('examples/live-line.html');
     await page.click('#live-sensor');
