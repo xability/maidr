@@ -53,32 +53,42 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-  # test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #   needs: [commitlint, lint]
+  # Fast Playwright smoke on every PR: chromium only, core bundle only, and
+  # only the live-data spec (kept deliberately green). The full 3-browser
+  # suite stays on the scheduled e2e workflows; extend the spec list here as
+  # more specs are verified healthy.
+  e2e-smoke:
+    name: E2E Smoke (chromium)
+    runs-on: ubuntu-latest
+    needs: [commitlint, lint]
+    timeout-minutes: 15
 
-  #   permissions:
-  #     contents: read
+    permissions:
+      contents: read
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/*'
-  #         cache: npm
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
 
-  #     - name: Install dependencies
-  #       run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-  #     - name: Install Playwright browsers
-  #       run: npm run e2e:install
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
 
-  #     - name: Run unit tests
-  #       run: npm run e2e
+      - name: Build core bundle
+        run: node scripts/build.js core
+
+      - name: Run smoke specs
+        run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium liveData.spec.ts
+        env:
+          CI: true
 
   build:
     name: Build Project
