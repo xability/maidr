@@ -77,7 +77,7 @@ Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 
 The Vega-Lite adapter:
 
-1. **Inspects the spec** — reads the `mark`, `encoding`, and any composite blocks (`layer`, `hconcat`, `vconcat`, `concat`).
+1. **Inspects the spec** — reads the `mark`, `encoding`, and any composite blocks (`layer`, `hconcat`, `vconcat`, `concat`, `facet`, `repeat`).
 2. **Resolves the data** — queries the compiled Vega `View` for runtime datasets (so transforms such as `bin` and `aggregate` are honoured), and falls back to inline `data.values` when the view isn't available.
 3. **Maps the mark to a MAIDR trace type** — see the table below.
 4. **Builds CSS selectors** for visual highlighting against the SVG that Vega renders inside the embed container.
@@ -376,6 +376,48 @@ const spec = {
 ```
 
 Both **vertical** (categorical x, quantitative y) and **horizontal** (categorical y, quantitative x) box plots are supported. See [`examples/vegalite-bindbox.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) for a runnable version.
+
+## Multi-panel charts (facet, repeat, concat)
+
+Vega-Lite's view-composition operators all convert to a multi-subplot MAIDR figure — one accessible panel per chart cell. Multi-panel figures start in **subplot navigation**: arrow keys move between panels (each announces its facet value or repeated field), <kbd>Enter</kbd> drills into a panel's data points, <kbd>Escape</kbd> returns to panel navigation, and <kbd>PageUp</kbd>/<kbd>PageDown</kbd> switch layers inside a panel.
+
+Supported compositions:
+
+| Composition | Spec shape | Panel grid |
+|---|---|---|
+| Row/column facet | `facet: { row?, column? }` + `spec` | facet values → grid rows × columns (missing row×column combinations are skipped, matching the rendered chart) |
+| Facet shorthand | `row` / `column` channels inside `encoding` | same as the facet operator |
+| Wrapped facet | `facet: { field }` + `columns: N` | values wrap into rows of N panels |
+| Repeat | `repeat: { row?, column? }` or `repeat: [...]` + `columns` | one panel per repeated field (the child's `{ repeat: ... }` field references are substituted per panel) |
+| Concatenation | `hconcat` / `vconcat` / `concat` + `columns` | one panel per child spec; `concat` wraps into rows of `columns` panels |
+
+```js
+const spec = {
+  $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+  title: 'Barley Yield by Site',
+  data: { values: barleyYields },
+  facet: { column: { field: 'site', type: 'nominal' } },
+  spec: {
+    mark: 'bar',
+    encoding: {
+      x: { field: 'variety', type: 'nominal' },
+      y: { field: 'yield', type: 'quantitative' },
+    },
+  },
+};
+
+maidrVegaLite.embed('#chart', spec, { id: 'barley-facet' });
+```
+
+Each panel announces its facet value (e.g. "site: Crookston") or repeated field name as its title, and highlighting is scoped per panel — the adapter stamps each rendered facet cell with a `data-maidr-cell` attribute at bind time so selectors only ever match their own panel's marks. All selectors are additionally prefixed with the chart container's id (one is generated if the container has none), so several charts on one page — even two copies of the same spec — never highlight each other's elements.
+
+Notes and current limitations:
+
+- Custom facet `sort` orders are honoured when the chart is bound with a compiled view (the normal `embed()` / `bindVegaLite()` paths); converting a spec standalone with `vegaLiteToMaidr(spec)` falls back to ascending value order.
+- Panels with **independent scales** (`resolve: { scale: independent }`) navigate fine, but visual-order corrections for line charts assume shared axes.
+- For multi-**row** panel grids, MAIDR core measures each panel's rendered geometry (via the per-panel background selectors the adapter emits) to order panels visually and keep Up/Down arrows matching screen direction. If the chart is not laid out when it receives focus (e.g. inside a `display: none` tab), panel navigation falls back to data order.
+
+See [`examples/vegalite-facet-bar.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-facet-bar.html) (facet operator, wrapped facet, shorthand, and repeat) and [`examples/vegalite-hconcat-box.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-hconcat-box.html) (concatenation) for runnable versions.
 
 ## API Reference
 

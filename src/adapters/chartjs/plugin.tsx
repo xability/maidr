@@ -24,13 +24,14 @@
 
 import type { JSX } from 'react';
 import type { Root } from 'react-dom/client';
-import type { HeatmapData, Maidr as MaidrData, MaidrLayer, NavigateCallback } from '../../type/grammar';
+import type { Maidr as MaidrData, MaidrLayer, NavigateCallback } from '../../type/grammar';
+import type { LayerDatasetIndices, TargetMaps } from './highlightTargets';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsPlugin, MaidrPluginOptions } from './types';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
-import { TraceType } from '../../type/grammar';
-import { extractMaidrData } from './extractor';
+import { extractChartData } from './extractor';
+import { computeTargetMaps, resolveActiveTargets } from './highlightTargets';
 import { elementToOverlayRect, HighlightOverlay } from './overlay';
 
 // ---------------------------------------------------------------------------
@@ -48,14 +49,12 @@ interface MaidrChartBinding {
   maidrData: MaidrData;
   root: Root;
   container: HTMLElement;
-  /** Layers as extracted; needed to resolve targets on resize replay. */
+  /** All layers across all subplots; needed to resolve targets on resize replay. */
   layers: MaidrLayer[];
-  /**
-   * Per-layer X-bucket lookup that mirrors `ScatterTrace`'s X-grouping.
-   * For each scatter layer, `xBuckets[colIndex]` lists the Chart.js
-   * dataset indices that share that X coordinate.
-   */
-  xBucketsByLayer: Map<string, number[][]>;
+  /** Layer id → original Chart.js dataset indices, from `extractChartData`. */
+  layerDatasetIndices: LayerDatasetIndices;
+  /** Per-layer lookups mapping MAIDR positions back to Chart.js element indices. */
+  targetMaps: TargetMaps;
   /** Resolved once the React tree mounts and provides the host wrapper. */
   overlayPromise: Promise<HighlightOverlay | null>;
   /** Latest MAIDR navigation event, replayed on resize. */
@@ -117,96 +116,6 @@ function CanvasHost({ node, width, height, onHost }: CanvasHostProps): JSX.Eleme
 // Chart.js highlight bridge
 // ---------------------------------------------------------------------------
 
-function isSegmentedType(type: string): boolean {
-  return type === TraceType.STACKED || type === TraceType.DODGED || type === TraceType.NORMALIZED;
-}
-
-/**
- * Mirror `ScatterTrace`'s X-bucket construction (`src/model/scatter.ts:86-100`)
- * to map MAIDR's `col` (an X-bucket index) back to one or more original
- * Chart.js dataset indices. Points are sorted by X, then Y; consecutive
- * points sharing an X form a bucket.
- *
- * Returns, for each scatter layer, an array where `result[col]` is the list
- * of Chart.js dataset-relative indices that should be highlighted together.
- */
-function computeScatterBuckets(layers: MaidrLayer[]): Map<string, number[][]> {
-  const out = new Map<string, number[][]>();
-  for (const layer of layers) {
-    if (layer.type !== TraceType.SCATTER)
-      continue;
-    const data = layer.data as ReadonlyArray<{ x: number; y: number }>;
-    if (!Array.isArray(data))
-      continue;
-    // Track original indices through the sort so we can hand them to Chart.js.
-    const indexed = data.map((p, i) => ({ p, i }));
-    indexed.sort((a, b) => a.p.x - b.p.x || a.p.y - b.p.y);
-    const buckets: number[][] = [];
-    let currentX: number | null = null;
-    for (const { p, i } of indexed) {
-      if (currentX === null || currentX !== p.x) {
-        currentX = p.x;
-        buckets.push([]);
-      }
-      buckets[buckets.length - 1].push(i);
-    }
-    out.set(layer.id, buckets);
-  }
-  return out;
-}
-
-/**
- * Resolve a MAIDR navigation event into the Chart.js active elements that
- * should be highlighted. Returns an array because scatter X-buckets can
- * contain multiple points that share an X coordinate.
- */
-function resolveActiveTargets(
-  layers: MaidrLayer[],
-  xBucketsByLayer: Map<string, number[][]>,
-  layerId: string,
-  row: number,
-  col: number,
-): ChartJsActiveElement[] {
-  const layer = layers.find(l => l.id === layerId);
-  if (!layer)
-    return [];
-
-  // Segmented bars: MAIDR row = group (dataset), col = category (index).
-  // This matches Chart.js's native (datasetIndex, index) addressing.
-  if (isSegmentedType(layer.type))
-    return [{ datasetIndex: row, index: col }];
-
-  // Scatter: col is an X-bucket; expand to all points sharing that X.
-  if (layer.type === TraceType.SCATTER) {
-    const buckets = xBucketsByLayer.get(layer.id);
-    if (!buckets || col < 0 || col >= buckets.length)
-      return [];
-    // The extractor assigns `layer.id = String(datasetIndex)` for scatter.
-    const datasetIndex = Number.parseInt(layer.id, 10) || 0;
-    return buckets[col].map(index => ({ datasetIndex, index }));
-  }
-
-  // Candlestick / OHLC: a single dataset of candles. MAIDR `col` selects the
-  // candle; MAIDR `row` picks the OHLC field (volatility/open/high/low/close)
-  // for audio/text and does NOT change which element to highlight.
-  if (layer.type === TraceType.CANDLESTICK)
-    return [{ datasetIndex: 0, index: col }];
-
-  // Heatmap / Matrix: a single dataset with flat indexing. MAIDR's Heatmap
-  // model reverses the Y axis (row 0 = bottom), so un-reverse to recover the
-  // original yLabel index before computing the flat element index.
-  if (layer.type === TraceType.HEATMAP) {
-    const hd = layer.data as HeatmapData;
-    const numY = hd.y.length;
-    const numX = hd.x.length;
-    const originalYi = (numY - 1) - row;
-    return [{ datasetIndex: 0, index: originalYi * numX + col }];
-  }
-
-  // Bar / line / others: MAIDR row = dataset, col = point.
-  return [{ datasetIndex: row, index: col }];
-}
-
 /**
  * Drive both Chart.js's native active state (for canvas redraw + tooltip)
  * and the MAIDR DOM overlay (for accessible visual highlight). Supports
@@ -260,7 +169,8 @@ function applyHighlight(
 function createHighlightCallback(
   chart: ChartJsChart,
   layers: MaidrLayer[],
-  xBucketsByLayer: Map<string, number[][]>,
+  maps: TargetMaps,
+  layerDatasetIndices: LayerDatasetIndices,
   getOverlay: () => HighlightOverlay | null,
   recordActive: (event: NavEvent) => void,
 ): NavigateCallback {
@@ -269,7 +179,8 @@ function createHighlightCallback(
       recordActive(event);
       const targets = resolveActiveTargets(
         layers,
-        xBucketsByLayer,
+        maps,
+        layerDatasetIndices,
         event.layerId,
         event.row,
         event.col,
@@ -375,13 +286,29 @@ function initMaidrForChart(chart: ChartJsChart): void {
   if (pluginOptions.enabled === false)
     return;
 
-  // Extract data first, then create a layer-aware highlight callback
-  const extracted = extractMaidrData(chart, pluginOptions);
-  const layers = extracted.subplots[0][0].layers;
+  // Extract data first, then create a layer-aware highlight callback. When the
+  // plugin is registered globally, unsupported chart types (pie, doughnut,
+  // radar, polarArea, ...) reach this hook too; extraction throws for them, so
+  // catch it and leave the chart untouched rather than breaking construction.
+  let extracted: MaidrData;
+  let layerDatasetIndices: LayerDatasetIndices;
+  try {
+    ({ maidr: extracted, layerDatasetIndices } = extractChartData(chart, pluginOptions));
+  } catch (error) {
+    console.warn(
+      `MAIDR Chart.js plugin: skipping chart. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return;
+  }
+  // Axis-stacked panels produce a multi-subplot grid; flatten every panel's
+  // layers (layer ids are figure-unique) for target resolution.
+  const layers = extracted.subplots.flat().flatMap(subplot => subplot.layers);
 
-  // Precompute scatter X-buckets so navigation can be mapped to one or
-  // more Chart.js indices in O(1) at highlight time.
-  const xBucketsByLayer = computeScatterBuckets(layers);
+  // Precompute per-layer position→index lookups so navigation can be mapped to
+  // one or more Chart.js indices in O(1) at highlight time.
+  const targetMaps = computeTargetMaps(chart, layers, layerDatasetIndices);
 
   // The overlay is created asynchronously once the React tree mounts.
   // The highlight callback closes over a getter so it always reads the
@@ -401,7 +328,8 @@ function initMaidrForChart(chart: ChartJsChart): void {
     onNavigate: createHighlightCallback(
       chart,
       layers,
-      xBucketsByLayer,
+      targetMaps,
+      layerDatasetIndices,
       () => overlay,
       recordActive,
     ),
@@ -425,7 +353,8 @@ function initMaidrForChart(chart: ChartJsChart): void {
     root: result.root,
     container: result.container,
     layers,
-    xBucketsByLayer,
+    layerDatasetIndices,
+    targetMaps,
     overlayPromise,
     lastActive: null,
   });
@@ -449,7 +378,8 @@ function handleResize(chart: ChartJsChart): void {
       // geometry (post-layout) is used for the overlay rects.
       const targets = resolveActiveTargets(
         binding.layers,
-        binding.xBucketsByLayer,
+        binding.targetMaps,
+        binding.layerDatasetIndices,
         active.layerId,
         active.row,
         active.col,
@@ -473,14 +403,13 @@ function destroyMaidrForChart(chart: ChartJsChart): void {
     overlay?.dispose();
   });
 
-  // Restore canvas to its original parent position before removing container
+  // Unmount React FIRST: the CanvasHost ref cleanup detaches the canvas from
+  // the React-owned host. THEN restore the canvas to its original parent, and
+  // finally remove the now-empty container. Doing this in the other order lets
+  // the ref cleanup remove the just-restored canvas from the page.
   const canvas = chart.canvas;
-  const parent = binding.container.parentElement;
-  if (parent) {
-    parent.insertBefore(canvas, binding.container);
-  }
-
   binding.root.unmount();
+  binding.container.parentElement?.insertBefore(canvas, binding.container);
   binding.container.remove();
   chartBindings.delete(chart);
 }

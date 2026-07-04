@@ -8,7 +8,7 @@
  */
 
 import type { AxisConfig, AxisFormat, Maidr, MaidrLayer } from '../../type/grammar';
-import type { D3AxisInput, D3BinderConfig, DataAccessor } from './types';
+import type { D3AxisInput, D3BinderConfig, D3BinderResult, D3BuiltLayer, DataAccessor } from './types';
 
 /**
  * Interface for DOM elements with D3's `__data__` property.
@@ -28,6 +28,31 @@ interface D3BoundElement extends Element {
  */
 export function getD3Datum(element: Element): unknown {
   return (element as D3BoundElement).__data__;
+}
+
+/**
+ * Selector for elements created by the MAIDR core itself — hidden highlight
+ * clones and markers inserted next to the user's chart geometry. The
+ * attribute string mirrors the private `Svg.OWNED_ATTRIBUTE` constant in
+ * `src/util/svg.ts`; keep the two in sync.
+ */
+const MAIDR_OWNED_SELECTOR = '[data-maidr-owned]';
+
+/**
+ * Whether an element was created by the MAIDR core, or lives inside one that
+ * was. Only the ROOT of a cloned subtree carries the ownership stamp, so the
+ * `closest()` ancestor check is required to also exclude descendants of a
+ * cloned container.
+ *
+ * Binders must skip owned elements whenever they read the live DOM: while a
+ * chart is focused, the core keeps hidden `cloneNode` copies of marks (and
+ * potentially whole panels) right next to the originals. Those clones match
+ * the same user selectors but carry no D3 `__data__` (cloneNode does not copy
+ * JS expando properties), so a rebind that picks them up either doubles the
+ * element count or throws a "no D3-bound data" error.
+ */
+export function isMaidrOwned(element: Element): boolean {
+  return element.closest(MAIDR_OWNED_SELECTOR) !== null;
 }
 
 /**
@@ -177,6 +202,11 @@ export function resolveAccessorOptional<T>(
  * Queries all matching elements within a container and returns them with
  * their D3-bound data.
  *
+ * Elements created by the MAIDR core (hidden highlight clones, stamped with
+ * `data-maidr-owned`) are excluded, so rebinding while a chart is focused —
+ * when those clones are present in the live DOM — still sees only the user's
+ * real marks with contiguous indexes.
+ *
  * @param container - The root element (typically an SVG) to query within.
  * @param selector - CSS selector for the target elements.
  * @returns Array of `{ element, datum, index }` tuples.
@@ -189,7 +219,8 @@ export function queryD3Elements(
   if (!selector) {
     throw new Error('CSS selector must not be empty.');
   }
-  const elements = Array.from(container.querySelectorAll(selector));
+  const elements = Array.from(container.querySelectorAll(selector))
+    .filter(element => !isMaidrOwned(element));
   return elements.map((element, index) => ({
     element,
     datum: getD3Datum(element),
@@ -360,4 +391,35 @@ export function applyMaidrData(
   if (typeof svg.setAttribute !== 'function')
     return;
   svg.setAttribute('maidr-data', JSON.stringify(maidr));
+}
+
+/**
+ * Wraps a built layer into the single-chart (1x1) {@link Maidr} structure and
+ * applies it to the SVG. This is the tail every single-chart binder shares;
+ * the multi-panel binders in `binders/subplots.ts` assemble their own grid
+ * instead and call `applyMaidrData` directly.
+ *
+ * @param svg   - The SVG the binder was invoked on.
+ * @param config - The user's binder config (source of figure-level fields).
+ * @param built - The layer (and optional legend) produced by the builder core.
+ * @returns The standard {@link D3BinderResult}.
+ */
+export function finalizeSingleChart(
+  svg: Element,
+  config: D3BinderConfig,
+  built: D3BuiltLayer,
+): D3BinderResult {
+  const { id = generateId(), title, subtitle, caption, autoApply } = config;
+  const maidr: Maidr = {
+    id,
+    title,
+    subtitle,
+    caption,
+    subplots: [[{
+      ...(built.legend && built.legend.length > 0 ? { legend: built.legend } : {}),
+      layers: [built.layer],
+    }]],
+  };
+  applyMaidrData(svg, maidr, autoApply);
+  return { maidr, layer: built.layer };
 }

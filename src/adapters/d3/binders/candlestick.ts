@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible candlestick chart interaction.
  */
 
-import type { CandlestickPoint, CandlestickTrend, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3CandlestickConfig } from '../types';
+import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3CandlestickConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js candlestick chart to MAIDR.
@@ -55,11 +56,18 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildCandlestickLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for candlestick charts. See {@link buildBarLayer} for
+ * the single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildCandlestickLayer(root: Element, config: D3CandlestickConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
@@ -70,12 +78,11 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
     close: closeAccessor = 'close',
     volume: volumeAccessor = 'volume',
     trend: trendAccessor,
-    autoApply,
   } = config;
 
-  const elements = queryD3Elements(svg, selector);
+  const elements = queryD3Elements(root, selector);
   if (elements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'candlestick');
+    throw buildNoElementsError(root, selector, 'candlestick');
   }
 
   const data: CandlestickPoint[] = elements.map(({ datum, index }) => {
@@ -114,24 +121,14 @@ export function bindD3Candlestick(svg: Element, config: D3CandlestickConfig): D3
     };
   });
 
-  const layerId = generateId();
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.CANDLESTICK,
     title,
-    selectors: scopeSelector(svg, selector),
+    selectors: scopeSelector(root, selector, panel),
     axes: buildAxes(axes, format),
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{ layers: [layer] }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer };
 }

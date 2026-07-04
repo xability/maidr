@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Faceted &amp; Repeated Charts Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <!--
+      Smoke test for multi-panel (faceted / repeated) Vega-Lite support.
+      Each chart converts to a multi-subplot MAIDR figure: arrow keys move
+      between panels, Enter drills into a panel, Escape returns to the
+      panel level, PageUp / PageDown switch layers inside a panel.
+    -->
+    <h1>MAIDR + Vega-Lite Faceted &amp; Repeated Charts</h1>
+    <p>
+      Click (or Tab to) each chart. Arrow keys navigate between panels;
+      press Enter to explore a panel's data points; Escape returns to
+      panel navigation. Press 'b' for braille, 't' for text descriptions.
+    </p>
+
+    <h2>1. Column facet (facet operator)</h2>
+    <div id="facet-column-chart" aria-label="Faceted bar chart loading" style="min-height: 300px"></div>
+
+    <h2>2. Wrapped facet (facet.field + columns)</h2>
+    <div id="facet-wrap-chart" aria-label="Wrapped facet chart loading" style="min-height: 500px"></div>
+
+    <h2>3. Facet shorthand (encoding.column)</h2>
+    <div id="facet-shorthand-chart" aria-label="Facet shorthand chart loading" style="min-height: 300px"></div>
+
+    <h2>4. Repeated rows (repeat.row)</h2>
+    <div id="repeat-row-chart" aria-label="Repeated scatter chart loading" style="min-height: 500px"></div>
+
+    <script>
+      const barleyYields = [
+        { site: 'Crookston', variety: 'Manchuria', yield: 32.9, year: 1931 },
+        { site: 'Crookston', variety: 'Velvet', yield: 38.5, year: 1931 },
+        { site: 'Crookston', variety: 'Peatland', yield: 34.5, year: 1931 },
+        { site: 'Duluth', variety: 'Manchuria', yield: 28.9, year: 1931 },
+        { site: 'Duluth', variety: 'Velvet', yield: 25.1, year: 1931 },
+        { site: 'Duluth', variety: 'Peatland', yield: 31.2, year: 1931 },
+        { site: 'Morris', variety: 'Manchuria', yield: 26.9, year: 1931 },
+        { site: 'Morris', variety: 'Velvet', yield: 23.8, year: 1931 },
+        { site: 'Morris', variety: 'Peatland', yield: 30.1, year: 1931 },
+      ];
+
+      // 1. The `facet` operator: one panel per site, shared child template.
+      const facetColumnSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Barley Yield by Site (column facet)',
+        data: { values: barleyYields },
+        facet: { column: { field: 'site', type: 'nominal', title: 'Site' } },
+        spec: {
+          width: 160,
+          height: 220,
+          mark: 'bar',
+          encoding: {
+            x: { field: 'variety', type: 'nominal', title: 'Variety' },
+            y: { field: 'yield', type: 'quantitative', title: 'Yield (bu/acre)' },
+          },
+        },
+      };
+
+      // 2. Wrapped facet: a single facet field chunked into rows of 2.
+      const facetWrapSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Barley Yield by Site (wrapped facet, 2 columns)',
+        data: { values: barleyYields },
+        facet: { field: 'site', type: 'nominal', title: 'Site' },
+        columns: 2,
+        spec: {
+          width: 160,
+          height: 180,
+          mark: 'bar',
+          encoding: {
+            x: { field: 'variety', type: 'nominal', title: 'Variety' },
+            y: { field: 'yield', type: 'quantitative', title: 'Yield (bu/acre)' },
+          },
+        },
+      };
+
+      // 3. Facet shorthand: row/column channels directly in the encoding.
+      const facetShorthandSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Barley Yield by Site (encoding.column shorthand)',
+        width: 160,
+        height: 220,
+        data: { values: barleyYields },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'variety', type: 'nominal', title: 'Variety' },
+          y: { field: 'yield', type: 'quantitative', title: 'Yield (bu/acre)' },
+          column: { field: 'site', type: 'nominal', title: 'Site' },
+        },
+      };
+
+      // 4. Repeat: same template plotted once per repeated field.
+      const repeatRowSpec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Yield and Year vs Variety (repeat rows)',
+        data: { values: barleyYields },
+        repeat: { row: ['yield', 'year'] },
+        spec: {
+          width: 420,
+          height: 180,
+          mark: 'point',
+          encoding: {
+            x: { field: 'variety', type: 'nominal', title: 'Variety' },
+            y: { field: { repeat: 'row' }, type: 'quantitative' },
+          },
+        },
+      };
+
+      // === MAIDR Integration ===
+      maidrVegaLite
+        .embed('#facet-column-chart', facetColumnSpec, { id: 'facet-column-demo' })
+        .catch((err) => console.error('[vegalite-facet-bar]', err));
+      maidrVegaLite
+        .embed('#facet-wrap-chart', facetWrapSpec, { id: 'facet-wrap-demo' })
+        .catch((err) => console.error('[vegalite-facet-bar]', err));
+      maidrVegaLite
+        .embed('#facet-shorthand-chart', facetShorthandSpec, { id: 'facet-shorthand-demo' })
+        .catch((err) => console.error('[vegalite-facet-bar]', err));
+      maidrVegaLite
+        .embed('#repeat-row-chart', repeatRowSpec, { id: 'repeat-row-demo' })
+        .catch((err) => console.error('[vegalite-facet-bar]', err));
+    </script>
+  </body>
+</html>

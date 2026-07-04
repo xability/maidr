@@ -26,13 +26,6 @@ import type { HighchartsChart } from './types';
 let selectorCounter = 0;
 
 /**
- * Resets the internal selector counter. Useful for deterministic output in tests.
- */
-export function resetSelectorCounter(): void {
-  selectorCounter = 0;
-}
-
-/**
  * Ensures the chart's render target has an `id` attribute so CSS selectors
  * can be scoped to this specific chart.
  *
@@ -49,6 +42,23 @@ export function ensureContainerId(chart: HighchartsChart): string {
     target.id = `maidr-hc-${selectorCounter++}`;
   }
   return target.id;
+}
+
+/**
+ * Generates a CSS selector for a series' rendered group element — the
+ * `<g class="highcharts-series highcharts-series-N">` wrapping all of the
+ * series' marks inside `.highcharts-series-group`.
+ *
+ * Used as the per-panel `MaidrSubplot.selector`: MAIDR's subplot-layout pass
+ * measures this element's bounding box to derive the panels' visual order and
+ * the vertical arrow-key direction (Highcharts SVG has no `g[id^="axes_"]`
+ * groups, so without a measurable per-panel element the core falls back to
+ * data order and Up/Down are inverted for multi-row grids). The first layer's
+ * selectors are not a reliable substitute — box, candlestick, and heatmap
+ * layers carry structured selector objects the layout pass cannot query.
+ */
+export function seriesGroupSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
 }
 
 /**
@@ -101,17 +111,6 @@ export function lineSelectors(containerId: string, seriesIndices: number[]): str
  */
 export function scatterSelector(containerId: string, seriesIndex: number): string {
   return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not([visibility="hidden"])`;
-}
-
-/**
- * Generates a CSS selector for heatmap cell elements.
- *
- * Heatmap cells carry the `highcharts-point` class. They are typically rendered
- * as `<rect>`, but matching by class only is more robust to future Highcharts
- * changes (e.g., rounded-corner cells using `<path>`).
- */
-export function heatmapSelector(containerId: string, seriesIndex: number): string {
-  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
 }
 
 /**

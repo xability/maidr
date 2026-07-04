@@ -23,6 +23,7 @@ const rootDir = path.resolve(__dirname, '..');
 
 // Common path aliases
 const baseAliases = {
+  '@adapters': path.resolve(rootDir, 'src/adapters'),
   '@command': path.resolve(rootDir, 'src/command'),
   '@model': path.resolve(rootDir, 'src/model'),
   '@state': path.resolve(rootDir, 'src/state'),

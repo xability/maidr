@@ -41,7 +41,6 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   private mode: TextMode;
   private currentState: PlotState | null = null;
-  private currentSubplotIndex: number | null = null;
   private currentLayerId: string | null = null;
   private hasHadFirstNavigation: boolean = false;
 
@@ -108,14 +107,6 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Get the current state that was last processed by the TextService
-   * This provides access to state information without violating dependency flow
-   */
-  public getCurrentState(): PlotState | null {
-    return this.currentState;
-  }
-
-  /**
    * Get coordinate information from the current state
    * Returns null if no valid state is available
    */
@@ -132,47 +123,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     return null;
-  }
-
-  /**
-   * Check if the current state represents a layer switch
-   * Returns true if the subplot index has changed
-   */
-  public isLayerSwitch(): boolean {
-    if (!this.currentState || this.currentState.empty || this.currentState.type !== 'subplot') {
-      return false;
-    }
-
-    const newSubplotIndex = this.currentState.index;
-
-    if (this.currentSubplotIndex !== null && this.currentSubplotIndex !== newSubplotIndex) {
-      // Layer switch detected - subplot index changed
-      this.currentSubplotIndex = newSubplotIndex;
-      return true;
-    } else if (this.currentSubplotIndex === null) {
-      // First time setting the subplot index
-      this.currentSubplotIndex = newSubplotIndex;
-      // If this is not the first layer (index 0), treat it as a layer switch
-      return newSubplotIndex !== 0;
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if the first navigation has occurred
-   * Returns true if the user has navigated at least once
-   */
-  public getHasHadFirstNavigation(): boolean {
-    return this.hasHadFirstNavigation;
-  }
-
-  /**
-   * Enable announcements after first navigation
-   * This method can be called externally to enable announcements
-   */
-  public enableAnnouncements(): void {
-    this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
   /**
@@ -476,31 +426,15 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for cross axis values.
-    // For candlestick plots, we show section (type) first, then cross.value (price)
-    // For box plots, we also show section (type) first, then cross.value
-    if (state.section !== undefined && state.z !== undefined) {
-      // For candlestick: show section (type) first, then cross.value (price)
-      terse.push(state.section!, Constant.SPACE);
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
-    } else if (state.section !== undefined && state.z === undefined) {
-      // For box plots: show section (type) first, then cross.value
-      terse.push(state.section!, Constant.SPACE);
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
+    // For candlestick and box plots, show section (type) first, then cross.value
+    // (price/value); other plots show cross.value normally.
+    if (state.section !== undefined) {
+      terse.push(state.section, Constant.SPACE);
+    }
+    if (!Array.isArray(state.cross.value)) {
+      terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else {
-      // For other plots: show cross.value normally
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
+      terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
     // Format for heatmap and segmented plots.
@@ -513,12 +447,8 @@ export class TextService implements Observer<PlotState>, Disposable {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
 
-      // For candlestick plots, add comma before trend value to show "open 100, bear"
-      if (state.section !== undefined) {
-        terse.push(Constant.COMMA_SPACE, zValue);
-      } else {
-        terse.push(Constant.COMMA_SPACE, zValue);
-      }
+      // For candlestick plots this reads e.g. "open 100, bear"
+      terse.push(Constant.COMMA_SPACE, zValue);
     }
 
     return terse.join(Constant.EMPTY);
@@ -620,10 +550,6 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param state - The new plot state to process
    */
   public update(state: PlotState): void {
-    if (this.mode === TextMode.OFF) {
-      return;
-    }
-
     // Pure out-of-bounds events (empty trace state with no `warning` field) are
     // fired by AbstractTrace.notifyOutOfBounds() when navigation hits a boundary.
     // These should NOT overwrite the previously-shown valid text or emit a
@@ -638,7 +564,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    // Store the current state for access by ViewModels
+    // Store the current state for access by ViewModels. This bookkeeping runs
+    // regardless of text mode so the AI chat's "current position" stays fresh
+    // even after the user toggles text mode OFF and keeps navigating.
     this.currentState = state;
 
     // Track current layer ID for formatting
@@ -646,6 +574,12 @@ export class TextService implements Observer<PlotState>, Disposable {
       this.currentLayerId = state.layerId;
     } else if (state.type === 'subplot' && !state.empty && !state.trace.empty) {
       this.currentLayerId = state.trace.layerId;
+    }
+
+    // In OFF mode, skip all text emission and notification below; the state
+    // bookkeeping above has already been applied.
+    if (this.mode === TextMode.OFF) {
+      return;
     }
 
     // Use the type guard and formatter for layer switches

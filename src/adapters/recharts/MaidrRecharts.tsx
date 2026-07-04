@@ -38,11 +38,61 @@
  * ```
  */
 
-import type { JSX } from 'react';
-import type { MaidrRechartsProps } from './types';
-import { useMemo } from 'react';
+import type { JSX, ReactNode } from 'react';
+import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
+import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
-import { convertRechartsToMaidr } from './converters';
+import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
+import { getPanelClassName } from './selectors';
+
+/**
+ * Renders the multi-panel grid for subplot mode.
+ *
+ * Children-order contract: pass exactly one Recharts chart per panel, in
+ * ROW-MAJOR order matching the `subplots` grid — the 1st child is panel
+ * [0][0] (top-left), the 2nd is [0][1], and so on row by row. Each child is
+ * wrapped in a generated `div.maidr-panel-<row>-<col>`; the adapter's
+ * highlight selectors are scoped to that class, so a mismatched order means
+ * a panel's narration would highlight a different panel's marks.
+ *
+ * Each grid row renders as a flex row so the visual layout matches the
+ * config grid shape (MAIDR announces panels in visual reading order).
+ */
+function renderPanelGrid(
+  subplots: RechartsSubplotConfig[] | RechartsSubplotConfig[][],
+  columns: number | undefined,
+  children: ReactNode,
+): JSX.Element {
+  const grid = normalizeRechartsSubplotGrid(subplots, columns);
+  const childArray = Children.toArray(children);
+  const panelCount = grid.reduce((count, row) => count + row.length, 0);
+  if (childArray.length !== panelCount) {
+    console.warn(
+      `MaidrRecharts: expected ${panelCount} children (one chart per subplot panel, in row-major order), got ${childArray.length}`,
+    );
+  }
+
+  // Flat child index of each row's first panel (row-major order).
+  const rowOffsets: number[] = [];
+  grid.reduce((offset, row) => {
+    rowOffsets.push(offset);
+    return offset + row.length;
+  }, 0);
+
+  return (
+    <>
+      {grid.map((row, rowIndex) => (
+        <div key={rowIndex} style={{ display: 'flex' }}>
+          {row.map((_, colIndex) => (
+            <div key={colIndex} className={getPanelClassName(rowIndex, colIndex)}>
+              {childArray[rowOffsets[rowIndex] + colIndex]}
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
 
 /**
  * Wrapper component that makes Recharts charts accessible via MAIDR.
@@ -51,6 +101,11 @@ import { convertRechartsToMaidr } from './converters';
  * MAIDR's data format, and renders the Recharts children inside a `<Maidr>`
  * component for audio sonification, text descriptions, braille output,
  * and keyboard navigation.
+ *
+ * In subplot mode (`subplots` prop set) the children must be one Recharts
+ * chart per panel in row-major grid order; each is wrapped in a generated
+ * `.maidr-panel-<row>-<col>` div used to scope highlighting to that panel.
+ * See {@link renderPanelGrid} for the full children-order contract.
  */
 export function MaidrRecharts({
   id,
@@ -62,6 +117,8 @@ export function MaidrRecharts({
   xKey,
   yKeys,
   layers,
+  subplots,
+  columns,
   xLabel,
   yLabel,
   orientation,
@@ -81,6 +138,8 @@ export function MaidrRecharts({
       xKey,
       yKeys,
       layers,
+      subplots,
+      columns,
       xLabel,
       yLabel,
       orientation,
@@ -88,12 +147,12 @@ export function MaidrRecharts({
       binConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
   );
 
   return (
     <Maidr data={maidrData}>
-      {children}
+      {subplots ? renderPanelGrid(subplots, columns, children) : children}
     </Maidr>
   );
 }

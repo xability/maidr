@@ -185,3 +185,63 @@ export interface AnyChartBinderOptions {
    */
   selectors?: Array<string | string[] | undefined>;
 }
+
+/**
+ * Chart input accepted by {@link anyChartsToMaidr} / {@link bindAnyCharts}.
+ *
+ * - A 2D array maps 1:1 onto the MAIDR subplot grid (`charts[row][col]`),
+ *   in visual reading order (top-left panel first). Ragged rows are allowed;
+ *   empty rows are not.
+ * - A flat array is arranged into a grid according to
+ *   {@link AnyChartsBinderOptions.layout}.
+ */
+export type AnyChartGridInput = AnyChartInstance[] | AnyChartInstance[][];
+
+/**
+ * Grid arrangement for a flat array of charts passed to
+ * {@link anyChartsToMaidr} / {@link bindAnyCharts}.
+ *
+ * Charts are chunked row-major: with `columns: 2` and five charts, the grid
+ * becomes `[[a, b], [c, d], [e]]`. When only `rows` is given, `columns`
+ * defaults to `ceil(total / rows)`.
+ */
+export interface AnyChartsLayout {
+  rows?: number;
+  columns?: number;
+}
+
+/**
+ * Options the consumer can pass when binding a multi-panel group of AnyChart
+ * charts to MAIDR.
+ *
+ * Unlike {@link AnyChartBinderOptions}, `title` and `axes` here are
+ * figure-level overrides: `title` becomes the whole figure's title, and
+ * `axes` (when set) replaces the per-panel axis titles extracted from each
+ * chart. Each panel's display name always comes from its own chart title.
+ */
+export interface AnyChartsBinderOptions {
+  /** Override the figure ID used in the MAIDR schema. */
+  id?: string;
+
+  /** Figure-level title. Panel names come from each chart's own title. */
+  title?: string;
+
+  /** Figure-level axis-label overrides applied to every panel's layers. */
+  axes?: {
+    x?: string;
+    y?: string;
+  };
+
+  /**
+   * How to arrange a FLAT chart array into a grid. Ignored when `charts`
+   * is already a 2D array.
+   *
+   * - `{ rows?, columns? }` — chunk row-major (see {@link AnyChartsLayout}).
+   * - `'auto'` — derive the grid from each chart container's on-page
+   *   position: containers are clustered into rows by their bounding-rect
+   *   top and sorted left-to-right within each row. Requires every chart
+   *   to have a resolvable, attached container.
+   * - Omitted — a flat array becomes a single row.
+   */
+  layout?: AnyChartsLayout | 'auto';
+}

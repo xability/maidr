@@ -82,6 +82,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "type-check": "tsc --noEmit",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
     "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",

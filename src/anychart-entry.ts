@@ -1,8 +1,9 @@
 /**
  * Public API for the MAIDR AnyChart adapter.
  *
- * Provides {@link bindAnyChart} and {@link anyChartToMaidr} for integrating
- * AnyChart charts with MAIDR's accessible visualisation features.
+ * Provides {@link bindAnyChart} / {@link anyChartToMaidr} for single charts
+ * and {@link bindAnyCharts} / {@link anyChartsToMaidr} for grouping multiple
+ * charts into one multi-panel MAIDR figure.
  *
  * @remarks
  * AnyChart must be loaded separately – this module does not bundle the
@@ -11,23 +12,37 @@
  *
  * @example
  * ```ts
- * import { bindAnyChart } from 'maidr/anychart';
+ * import { bindAnyChart, bindAnyCharts } from 'maidr/anychart';
  *
  * const chart = anychart.bar([4, 2, 7, 1]);
  * chart.container('container').draw();
  *
  * // One-liner: extracts data, sets maidr-data attribute, fires event.
  * bindAnyChart(chart);
+ *
+ * // Multi-panel: group several charts into one accessible figure.
+ * bindAnyCharts([[chartA, chartB], [chartC, chartD]], { title: 'Dashboard' });
  * ```
  *
  * @packageDocumentation
  */
-export { anyChartToMaidr, bindAnyChart } from './adapters/anychart';
+export {
+  anyChartsToMaidr,
+  anyChartToMaidr,
+  bindAnyChart,
+  bindAnyCharts,
+} from './adapters/anychart';
 
 /**
  * Re-exported types for configuring the AnyChart adapter.
  */
-export type { AnyChartBinderOptions, AnyChartInstance } from './adapters/anychart';
+export type {
+  AnyChartBinderOptions,
+  AnyChartGridInput,
+  AnyChartInstance,
+  AnyChartsBinderOptions,
+  AnyChartsLayout,
+} from './adapters/anychart';
 
 /**
  * Re-exported core MAIDR types so consumers can type the output.

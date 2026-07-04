@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-export { extractVictoryLayers, toMaidrLayer } from './converters';
+export { computeSubplotGrid, extractVictoryLayers, extractVictorySubplots, toMaidrLayer } from './converters';
 export { MaidrVictory } from './MaidrVictory';
 export type {
   MaidrVictoryProps,
@@ -17,5 +17,7 @@ export type {
   VictoryComponentType,
   VictoryLayerData,
   VictoryLayerInfo,
+  VictoryPanelLayout,
+  VictorySubplotInfo,
 } from './types';
 export { useVictoryAdapter } from './useVictoryAdapter';

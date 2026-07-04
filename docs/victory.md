@@ -55,6 +55,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `title` | `string` | No | Chart title displayed in text descriptions. |
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
+| `layout` | `{ rows?: number; columns?: number }` | No | Row-major grid for [multi-panel figures](#multi-panel-figures). Only consulted with two or more `<VictoryChart>` children. |
 
 ## Supported Chart Types
 
@@ -209,6 +210,51 @@ Provide pre-computed quartile statistics. The adapter reads these directly and d
 </MaidrVictory>
 ```
 
+## Multi-Panel Figures
+
+Nest two or more `<VictoryChart>` components inside one `<MaidrVictory>` to build a multi-panel (small-multiples) figure. Each chart becomes one MAIDR subplot: arrow keys move between panels, `Enter` drills into the focused panel, and `Escape` returns to panel navigation. Give each chart a `title` prop — it becomes the panel's name in subplot announcements.
+
+```tsx
+<MaidrVictory
+  id="regional-sales"
+  title="Quarterly Sales by Region"
+  layout={{ columns: 2 }}
+>
+  <VictoryChart title="North Region" domainPadding={24}>
+    <VictoryAxis label="Quarter" />
+    <VictoryAxis dependentAxis label="Revenue ($)" />
+    <VictoryBar data={northData} />
+  </VictoryChart>
+  <VictoryChart title="South Region" domainPadding={24}>
+    <VictoryAxis label="Quarter" />
+    <VictoryAxis dependentAxis label="Revenue ($)" />
+    <VictoryBar data={southData} />
+  </VictoryChart>
+  <VictoryChart title="East Region" domainPadding={24}>
+    <VictoryAxis label="Quarter" />
+    <VictoryAxis dependentAxis label="Revenue ($)" />
+    <VictoryBar data={eastData} />
+  </VictoryChart>
+  <VictoryChart title="West Region" domainPadding={24}>
+    <VictoryAxis label="Quarter" />
+    <VictoryAxis dependentAxis label="Revenue ($)" />
+    <VictoryBar data={westData} />
+  </VictoryChart>
+</MaidrVictory>
+```
+
+By default the panels form a single navigable row in children order. The `layout` prop chunks them row-major into a grid: `columns` fixes the panels per row (the last row may be shorter), or `rows` derives the column count when `columns` is omitted. Match `layout` to how you visually arrange the charts with CSS.
+
+Each panel keeps its own axis labels (from its own `<VictoryAxis>` children), its own layers (a chart with several data components stays a multi-layer panel, switchable with `Page Up`/`Page Down` after drilling in), and its own highlight scope — one panel's highlighting can never bleed into another.
+
+Notes and limitations:
+
+- Charts must be **direct children** of `<MaidrVictory>`; charts wrapped in your own components are not detected. Lay panels out visually with CSS on the surrounding page.
+- Charts rendered with `standalone={false}` into a shared parent SVG are not supported for multi-panel detection.
+- In multi-panel mode, standalone data components (e.g. a bare `<VictoryScatter>`) outside any `<VictoryChart>` are ignored with a console warning. With at most one `<VictoryChart>`, everything is flattened into a single panel exactly as before.
+- A `<VictoryChart>` that contains no supported data components is omitted from subplot navigation (with a console warning). The remaining panels keep the grid cells of your `layout` — only the dropped chart's cell disappears from its row.
+- For multi-row grids (`rows` ≥ 2), MAIDR measures each panel's rendered position, so the Up/Down arrows follow the visual arrangement of your CSS layout. If panel positions cannot be measured (for example, panels that overlap at the same position), navigation conservatively falls back to children order, where Up/Down may not match the visual arrangement. Single-row layouts are unaffected.
+
 ## Using the Hook
 
 For full control over rendering, use the `useVictoryAdapter` hook with the low-level `<Maidr>` component. Provide a container ref so the adapter can tag the rendered SVG elements.
@@ -247,13 +293,17 @@ All types are exported from `maidr/victory`:
 import {
   MaidrVictory, // The wrapper component
   useVictoryAdapter, // The conversion hook
-  extractVictoryLayers, // Lower-level: children → layer info
+  extractVictoryLayers, // Lower-level: children → flat layer info
+  extractVictorySubplots, // Lower-level: children → per-panel subplot info
+  computeSubplotGrid, // Lower-level: panels + layout → row-major grid
   toMaidrLayer, // Lower-level: layer info → MAIDR layer
   type MaidrVictoryProps, // Props for MaidrVictory
   type VictoryAdapterConfig, // Config accepted by the hook
   type VictoryComponentType, // Supported Victory component names
   type VictoryLayerData, // Extracted layer data union
   type VictoryLayerInfo, // Intermediate layer representation
+  type VictoryPanelLayout, // Multi-panel grid layout ({ rows?, columns? })
+  type VictorySubplotInfo, // Intermediate panel representation
 } from 'maidr/victory';
 ```
 
@@ -276,8 +326,8 @@ type VictoryComponentType =
 
 `<MaidrVictory>` is a convenience wrapper that:
 
-1. Introspects the Victory components passed as `children` to extract their data and axis labels (`extractVictoryLayers`).
-2. Tags the rendered Victory SVG elements with `data-maidr-victory-*` attributes so MAIDR can highlight them by CSS selector.
+1. Introspects the Victory components passed as `children` to extract their data and axis labels, grouping top-level `<VictoryChart>` components into panels (`extractVictorySubplots`).
+2. Tags the rendered Victory SVG elements with `data-maidr-victory-*` attributes so MAIDR can highlight them by CSS selector. In multi-panel mode, each panel's `<svg>` is stamped with `data-maidr-victory-panel="<i>"` and all selectors are scoped to it, so panels never cross-highlight.
 3. Converts each layer into MAIDR's internal format (`toMaidrLayer`) and renders the children inside the `<Maidr>` component.
 
 Selector tagging relies on Victory's `role="presentation"` attribute on data elements (a stable Victory convention, tested with v37). If that convention changes, highlighting degrades gracefully — audio, text, and braille are unaffected.

@@ -267,6 +267,7 @@ export class Heatmap extends AbstractTrace {
         rect.setAttribute('fill', 'transparent');
         rect.setAttribute('stroke', 'none');
         rect.setAttribute('pointer-events', 'none');
+        Svg.markOwned(rect);
         parent.appendChild(rect);
         row.push(rect);
       }
@@ -313,7 +314,7 @@ export class Heatmap extends AbstractTrace {
    * @returns True if a matching value was found
    */
   public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const cols = this.y.length;
+    const cols = this.heatmapValues[this.row].length;
     const current_col = this.col;
 
     const step = direction === 'left' ? -1 : 1;
@@ -338,7 +339,7 @@ export class Heatmap extends AbstractTrace {
    * @returns True if a matching value was found
    */
   public search_in_col(direction: 'up' | 'down', type: 'lower' | 'higher'): boolean {
-    const rows = this.x.length;
+    const rows = this.heatmapValues.length;
     const current_row = this.row;
 
     const step = direction === 'up' ? 1 : -1;
@@ -352,6 +353,7 @@ export class Heatmap extends AbstractTrace {
       }
       i += step;
     }
+    this.notifyRotorBounds();
     return false;
   }
 

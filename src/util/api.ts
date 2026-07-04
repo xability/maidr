@@ -74,12 +74,22 @@ export abstract class Api {
       const data = await response.json() as T;
       return { success: true, data };
     } catch (error) {
-      console.error(`Error in API ${method} request to ${url}:`, error);
+      // Redact any query string before logging. For direct-key LLM
+      // providers (e.g. Gemini) the API key is embedded as a `?key=...`
+      // query parameter, which must never reach the console or any
+      // log-collection tooling on the host page. Host + path are kept
+      // for debuggability. The error message gets the same treatment:
+      // some runtimes embed the full request URL in fetch failure text.
+      const redactQuery = (text: string): string => text.replace(/\?\S*/g, '');
+      const safeUrl = redactQuery(url);
+      const rawMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const safeMessage = redactQuery(rawMessage);
+      console.error(`Error in API ${method} request to ${safeUrl}: ${safeMessage}`);
       return {
         success: false,
         error: {
           statusCode: HttpStatus.SERVER_ERROR,
-          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          message: safeMessage,
         },
       };
     }

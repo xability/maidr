@@ -25,9 +25,12 @@ const rotorNavigationSlice = createSlice({
     setValue(state, action: PayloadAction<string | null>) {
       state.rotor_value = action.payload;
     },
+    reset(): RotorState {
+      return initialState;
+    },
   },
 });
-export const { setValue } = rotorNavigationSlice.actions;
+export const { setValue, reset } = rotorNavigationSlice.actions;
 /**
  * ViewModel for managing rotor-based navigation through plot elements.
  */
@@ -45,6 +48,16 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
   ) {
     super(store);
     this.rotorService = rotorService;
+  }
+
+  /**
+   * Disposes the view model and resets rotor state to its initial value.
+   * Prevents a stale rotor value from surviving controller disposal and being
+   * re-announced in the live region on the next focus-in.
+   */
+  public dispose(): void {
+    super.dispose();
+    this.store.dispatch(reset());
   }
 
   /**

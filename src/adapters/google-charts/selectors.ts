@@ -25,19 +25,26 @@
  * from other charts on the same page.
  */
 
+let idCounter = 0;
+
 /**
- * Generates a unique ID with the given prefix using crypto.randomUUID().
+ * Generates a unique ID with the given prefix.
  *
- * Uses the browser's cryptographically-secure random UUID generator to ensure
- * truly unique IDs without module-level mutable state.
+ * Uses a module-level counter combined with a short random suffix. Avoids
+ * `crypto.randomUUID()`, which is only defined in secure contexts
+ * (https/localhost) and throws on plain-HTTP pages — the exact CDN
+ * script-tag scenario this adapter targets.
+ *
+ * NOTE: this helper is duplicated in `frappe/selectors.ts`; a shared
+ * adapter utility module is a good follow-up once one exists.
  *
  * @param prefix - The prefix for the generated ID
- * @returns A unique string ID (e.g., "maidr-gc-a1b2c3d4-...")
+ * @returns A unique string ID (e.g., "maidr-gc-1-a1b2c3")
  */
 export function nextId(prefix: string): string {
-  // Use first 8 chars of UUID for shorter, readable IDs
-  const uuid = crypto.randomUUID().slice(0, 8);
-  return `${prefix}-${uuid}`;
+  idCounter += 1;
+  const random = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-${idCounter}-${random}`;
 }
 
 /**

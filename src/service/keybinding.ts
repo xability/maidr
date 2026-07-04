@@ -377,7 +377,7 @@ export class KeybindingService {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
+          hotkeys('*', scope, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);

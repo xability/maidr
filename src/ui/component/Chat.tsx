@@ -11,7 +11,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
 import { Suggestions } from '../components/Suggestions';
 
@@ -30,9 +30,27 @@ const Chat: React.FC = () => {
   const lastScrollHeightRef = useRef<number>(0);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
 
-  const handleOpenSettings = (): void => {
+  const handleOpenSettings = useCallback((): void => {
     settingsViewModel.toggle();
-  };
+  }, [settingsViewModel]);
+
+  // Stable callback so memoized message bubbles do not re-render on every
+  // keystroke in the input. Only touches the container ref, so no deps.
+  const handleTypingUpdate = useCallback((): void => {
+    // Auto-scroll during typing animation
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
+      if (isNearBottom) {
+        requestAnimationFrame(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'auto',
+          });
+        });
+      }
+    }
+  }, []);
 
   const scrollToBottom = (force = false): void => {
     if (!messagesContainerRef.current)
@@ -257,21 +275,7 @@ const Chat: React.FC = () => {
                 message={message}
                 disabled={disabled}
                 _onOpenSettings={handleOpenSettings}
-                onTypingUpdate={() => {
-                  // Auto-scroll during typing animation
-                  if (messagesContainerRef.current) {
-                    const container = messagesContainerRef.current;
-                    const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
-                    if (isNearBottom) {
-                      requestAnimationFrame(() => {
-                        container.scrollTo({
-                          top: container.scrollHeight,
-                          behavior: 'auto',
-                        });
-                      });
-                    }
-                  }
-                }}
+                onTypingUpdate={handleTypingUpdate}
               />
             ))}
             <div ref={messagesEndRef} />

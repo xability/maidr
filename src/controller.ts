@@ -276,7 +276,6 @@ export class Controller implements Disposable {
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
       },
-      this.context.scope,
     );
 
     // Inject command execution callback into CommandPaletteViewModel (deferred due to circular dependency)
@@ -291,25 +290,6 @@ export class Controller implements Disposable {
     }
     this.keybinding.register(this.context.scope);
     this.mousebinding.registerEvents();
-  }
-
-  /**
-   * Announces the initial instruction to screen readers using a live region.
-   */
-  public announceInitialInstruction(): void {
-    const instruction = this.displayService.getInstruction(false);
-    // Use textViewModel.update() so the revision counter is bumped,
-    // which forces the View to re-mount the role="alert" element and
-    // triggers a screen-reader announcement.
-    this.textViewModel.update(instruction);
-  }
-
-  /**
-   * Retrieves the initial instruction text for the plot.
-   * @returns The initial instruction text
-   */
-  public getInitialInstruction(): string {
-    return this.displayService.getInstruction(false);
   }
 
   /**
@@ -459,6 +439,7 @@ export class Controller implements Disposable {
     this.autoplayService.dispose();
     this.monitorService.dispose();
 
+    this.chatService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();

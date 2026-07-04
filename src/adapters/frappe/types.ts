@@ -48,3 +48,25 @@ export interface FrappeChart {
  * supported by this adapter.
  */
 export type FrappeChartType = 'axis-mixed' | 'bar' | 'line' | 'scatter';
+
+/**
+ * One panel of a multi-panel (small-multiples) figure built from several
+ * independently rendered Frappe charts.
+ *
+ * Frappe Charts has no native facet/subplot concept — a "multi-panel" chart is
+ * simply N `new frappe.Chart(...)` instances laid out by the host page's CSS.
+ * A `FrappePanel` pairs one such instance with its container and the adapter
+ * options that would otherwise be passed to `createMaidrFromFrappeChart`.
+ */
+export interface FrappePanel {
+  /** The rendered Frappe chart instance for this panel (only `data` is read). */
+  chart: FrappeChart;
+  /** The element the chart was drawn into. Must be inside the wrapper element. */
+  container: HTMLElement;
+  /** The Frappe chart type of this panel. */
+  chartType: FrappeChartType;
+  /** Panel display name, announced when navigating between subplots. */
+  title?: string;
+  /** Axis labels for this panel. */
+  axes?: { x?: string; y?: string };
+}

@@ -56,9 +56,21 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     if (!plotElement)
       return null;
 
+    // A subplot with zero layers crashes the model the moment Figure.state
+    // is read (Subplot.activeTrace is undefined), which happens inside the
+    // Controller constructor. Adapters emit such placeholder data before
+    // their chart introspection completes or when no supported components
+    // are found — treat it as "not ready" rather than constructing.
+    const maidrData = latestDataRef.current;
+    const hasLayers = maidrData.subplots?.some(
+      row => row.some(subplot => subplot.layers.length > 0),
+    );
+    if (!hasLayers)
+      return null;
+
     // Create a deep copy to prevent mutations on the original data object
     // (the model layer takes ownership of, and may mutate, the data arrays).
-    const ctrl = new Controller(cloneMaidrData(latestDataRef.current), plotElement, store);
+    const ctrl = new Controller(cloneMaidrData(maidrData), plotElement, store);
     return ctrl;
   }, [store]);
 

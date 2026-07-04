@@ -114,6 +114,61 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](highcharts-dodged.html) |
 | Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](highcharts-normalized.html) |
 
+## Multi-Panel Charts
+
+MAIDR supports two multi-panel patterns. In both cases the panels become a MAIDR subplot grid: arrow keys move between panels, `Enter` drills into a panel, and `Escape` returns to panel navigation.
+
+### Panes within one chart
+
+A single Highcharts chart can stack multiple panes via `yAxis` `top`/`height` (and side-by-side via `xAxis` `left`/`width`) — the classic Highstock price + volume layout. `highchartsToMaidr()` detects panes automatically from the rendered axis geometry and emits one subplot per pane. No new API is needed:
+
+```js
+const chart = Highcharts.chart('panes-chart', {
+  title: { text: 'ACME Stock — Price and Volume' },
+  xAxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  yAxis: [
+    { title: { text: 'Price ($)' }, height: '60%' },
+    { title: { text: 'Volume' }, top: '70%', height: '30%', offset: 0 },
+  ],
+  series: [
+    { type: 'line', name: 'Price', data: [150, 152, 149, 153, 155], yAxis: 0 },
+    { type: 'column', name: 'Volume', data: [1200, 1450, 980, 1610, 1330], yAxis: 1 },
+  ],
+});
+
+const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'panes-chart' });
+```
+
+Notes:
+
+- Each pane's panel name comes from its first series' name, falling back to the pane's y-axis title.
+- Highstock's internal navigator series is excluded automatically.
+- Ambiguous layouts (overlapping axis bands, dual-axis overlays sharing the same plot area) safely fall back to today's single-panel output.
+
+See [highcharts-panes.html](highcharts-panes.html) for a full example.
+
+### Multiple chart instances (small multiples)
+
+Highcharts has no native faceting API — small multiples are built as separate chart instances in separate divs. `highchartsGridToMaidr()` combines them into one MAIDR figure (one subplot per chart). Attach the result to a wrapper element enclosing all the chart divs:
+
+```js
+const charts = [
+  Highcharts.chart('region-north', { title: { text: 'North' }, /* ... */ }),
+  Highcharts.chart('region-east', { title: { text: 'East' }, /* ... */ }),
+  Highcharts.chart('region-south', { title: { text: 'South' }, /* ... */ }),
+  Highcharts.chart('region-west', { title: { text: 'West' }, /* ... */ }),
+];
+
+const maidrData = maidrHighcharts.highchartsGridToMaidr(charts, {
+  title: 'Quarterly Sales by Region',
+  layout: { columns: 2 }, // chunk the flat list into a 2x2 grid
+});
+
+document.getElementById('wrapper').setAttribute('maidr-data', JSON.stringify(maidrData));
+```
+
+Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](highcharts-grid.html) for a full example.
+
 ## API Reference
 
 ### `highchartsToMaidr(chart, options?)`
@@ -127,7 +182,22 @@ Converts a rendered Highcharts chart into a `Maidr` data object.
 | `options.title` | `string?` | Override the chart title. Defaults to `chart.title.textStr`. |
 | `options.seriesIndices` | `number[]?` | Convert only specific series by index. Default: all visible series. |
 
-Returns a `Maidr` object ready to assign to a `maidr-data` attribute, pass to the `<Maidr>` React component, or serialize for downstream tooling.
+Returns a `Maidr` object ready to assign to a `maidr-data` attribute, pass to the `<Maidr>` React component, or serialize for downstream tooling. Multi-pane charts produce a subplot grid (see [Multi-Panel Charts](#multi-panel-charts)).
+
+### `highchartsGridToMaidr(charts, options?)`
+
+Combines multiple rendered chart instances into one `Maidr` figure with subplot navigation.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `charts` | `HighchartsChart[]` or `HighchartsChart[][]` | Rendered chart instances in visual reading order. A 2D array maps 1:1 to the subplot grid (ragged rows OK). |
+| `options.id` | `string?` | Override the generated figure ID. Defaults to `highcharts-grid-{n}`. |
+| `options.title` | `string?` | Figure-level title announced for the whole grid. |
+| `options.subtitle` | `string?` | Figure-level subtitle. |
+| `options.caption` | `string?` | Figure-level caption. |
+| `options.layout` | `{ rows?: number; columns?: number }?` | Chunks a flat chart list into a grid (`columns` = charts per row). Ignored for 2D input. |
+
+Charts with no convertible series are skipped with a console warning; if **no** chart in the grid produces any convertible series, an `Error` is thrown (attaching an empty figure would break MAIDR on focus). A member chart with multiple panes contributes one cell per pane, flattened into its row. Attach the returned JSON as `maidr-data` on a wrapper element that encloses all the chart containers.
 
 ### `createHighchartsSync(chart)`
 
@@ -146,6 +216,7 @@ import type {
   HighchartsAdapterOptions,
   HighchartsAxis,
   HighchartsChart,
+  HighchartsGridOptions,
   HighchartsPoint,
   HighchartsSeries,
   HighchartsSync,

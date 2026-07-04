@@ -324,6 +324,137 @@ export interface D3BinderResult {
 }
 
 /**
+ * Output of a per-type layer builder (the pure extraction core each binder
+ * shares between its single-chart export and the multi-panel binders).
+ */
+export interface D3BuiltLayer {
+  /** The extracted MAIDR layer. */
+  layer: MaidrLayer;
+  /** Legend labels (line / segmented charts only). */
+  legend?: string[];
+}
+
+/**
+ * Discriminated union pairing a chart type with its binder-specific config.
+ * This is the per-panel unit consumed by the multi-panel binders and the
+ * base of the React adapter's {@link D3AdapterSpec}.
+ */
+export type D3PanelChartSpec
+  = | { chartType: 'bar'; config: D3BarConfig }
+    | { chartType: 'box'; config: D3BoxConfig }
+    | { chartType: 'candlestick'; config: D3CandlestickConfig }
+    | { chartType: 'heatmap'; config: D3HeatmapConfig }
+    | { chartType: 'histogram'; config: D3HistogramConfig }
+    | { chartType: 'line'; config: D3LineConfig }
+    | { chartType: 'scatter'; config: D3ScatterConfig }
+    | { chartType: 'segmented'; config: D3SegmentedConfig }
+    | { chartType: 'smooth'; config: D3SmoothConfig };
+
+/**
+ * Grid layout hint for multi-panel binds.
+ *
+ * - `'row'` — all panels in a single row (side by side).
+ * - `'column'` — all panels in a single column (stacked).
+ * - `{ rows?, columns? }` — chunk panels into a grid with the given number of
+ *   columns (or `ceil(count / rows)` columns when only `rows` is set). The
+ *   last row may be shorter (ragged grids are supported).
+ *
+ * When omitted, the binders infer the grid from panel geometry: panel
+ * bounding-box centers are clustered by y (rows) and sorted by x within each
+ * row, falling back to parsing `transform="translate(x,y)"` when bounding
+ * boxes are unavailable (e.g. jsdom), and finally to a single row in DOM
+ * order. An explicit `layout` always wins over geometry.
+ */
+export type D3PanelLayout = 'row' | 'column' | { rows?: number; columns?: number };
+
+/**
+ * Configuration for {@link bindD3Facets} — homogeneous small multiples
+ * (one chart type repeated across panels inside a single SVG).
+ *
+ * The `chartType` / `config` pair selects the per-panel binder; the inner
+ * `config` also carries the figure-level fields (`id`, `title`, `subtitle`,
+ * `caption`, `autoApply`). Each matched panel element becomes the extraction
+ * root for the per-type binder, so `config.selector` is resolved *within*
+ * each panel.
+ */
+export type D3FacetsConfig = D3PanelChartSpec & {
+  /**
+   * CSS selector for the panel container elements inside the SVG — the
+   * canonical D3 facet idiom is one translated `<g>` per panel (e.g.
+   * `'g.panel'`). Each match becomes one MAIDR subplot.
+   */
+  panelSelector: string;
+  /**
+   * Accessor for each panel's display title, resolved against the panel
+   * element's D3-bound `__data__` (for `d3.groups` output, the `[key,
+   * values]` tuple — pass `d => d[0]` or rely on the automatic key
+   * detection). Function accessors receive `(datum, index)` and are invoked
+   * even when the panel has no bound datum (`datum` is then `undefined`),
+   * so index-only accessors like `(_d, i) => keys[i]` work for panels
+   * appended without a data join; string-key accessors and the automatic
+   * key detection require a bound datum. Falls back to `Panel <n>` when
+   * unresolvable.
+   */
+  panelTitle?: DataAccessor<string>;
+  /** Explicit grid layout. When omitted, inferred from panel geometry. */
+  layout?: D3PanelLayout;
+};
+
+/**
+ * One panel of a {@link bindD3Subplots} composition: which binder to run,
+ * its config, and the DOM subtree to extract from. The entry config's
+ * `title` becomes the panel's display name in subplot navigation summaries;
+ * its `id`, `subtitle`, `caption`, and `autoApply` are ignored (figure-level
+ * fields live on {@link D3SubplotsConfig}).
+ */
+export type D3SubplotEntry = D3PanelChartSpec & {
+  /**
+   * The panel's root element, or a CSS selector resolved against the outer
+   * container passed to `bindD3Subplots`.
+   */
+  root: Element | string;
+};
+
+/**
+ * Configuration for {@link bindD3Subplots} — a heterogeneous grid of
+ * independently-drawn charts inside one SVG (or container).
+ */
+export interface D3SubplotsConfig {
+  /**
+   * The panels, either as an explicit 2D grid (row-major, ragged rows
+   * allowed, empty rows not) or as a flat array arranged via `layout` /
+   * geometry inference.
+   */
+  subplots: D3SubplotEntry[][] | D3SubplotEntry[];
+  /** Grid layout for a flat `subplots` array. Ignored for 2D arrays. */
+  layout?: D3PanelLayout;
+  /** Unique identifier for the figure. Auto-generated when omitted. */
+  id?: string;
+  /** Figure title displayed in text descriptions. */
+  title?: string;
+  /** Figure subtitle. */
+  subtitle?: string;
+  /** Figure caption. */
+  caption?: string;
+  /**
+   * When `true` (the default), writes the generated MAIDR schema to the
+   * container as a `maidr-data` attribute. See {@link D3BinderConfig.autoApply}.
+   */
+  autoApply?: boolean;
+}
+
+/**
+ * Result of a multi-panel D3 binder ({@link bindD3Facets},
+ * {@link bindD3Subplots}).
+ */
+export interface D3MultiPanelResult {
+  /** Complete multi-subplot MAIDR JSON data. */
+  maidr: Maidr;
+  /** One generated layer per panel, in row-major (visual reading) order. */
+  layers: MaidrLayer[];
+}
+
+/**
  * Union of all supported data point types extracted by the D3 binder.
  */
 export type D3ExtractedData

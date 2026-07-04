@@ -236,6 +236,68 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 </script>
 ```
 
+## Multi-Panel Figures
+
+Frappe Charts has no native facet/subplot concept — a "multi-panel" chart is simply several `new frappe.Chart(...)` instances laid out with CSS. `createMaidrFromFrappeCharts` groups such charts into **one** MAIDR figure with cross-panel navigation: arrow keys move between panels, <kbd>Enter</kbd> drills into a panel, <kbd>Esc</kbd> returns to panel navigation.
+
+```html
+<div id="dashboard" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+  <div id="panel-bar"></div>
+  <div id="panel-line"></div>
+</div>
+
+<script>
+  const barChart = new frappe.Chart('#panel-bar', { type: 'bar', height: 300, data: barData });
+  const lineChart = new frappe.Chart('#panel-line', {
+    type: 'line',
+    height: 300,
+    lineOptions: { dotSize: 5 },
+    data: lineData,
+  });
+
+  // The panel grid, in visual reading order (row-major, top-left first),
+  // matching your CSS layout. A flat array + `columns` also works:
+  // createMaidrFromFrappeCharts(flatPanels, wrapper, { columns: 2 }).
+  const panels = [
+    [
+      {
+        chart: barChart,
+        container: document.querySelector('#panel-bar'),
+        chartType: 'bar',
+        title: 'Weekly Visitors',
+        axes: { x: 'Day', y: 'Visitors' },
+      },
+      {
+        chart: lineChart,
+        container: document.querySelector('#panel-line'),
+        chartType: 'line',
+        title: 'Annual Revenue',
+        axes: { x: 'Year', y: 'Revenue' },
+      },
+    ],
+  ];
+
+  // Wait until EVERY panel has settled (see "Wait for the chart to settle"),
+  // then set the `maidr` attribute on the WRAPPER element.
+  const wrapper = document.querySelector('#dashboard');
+  Promise.all(panels.flat().map(p => whenChartSettled(p.container))).then(() => {
+    const maidr = maidrFrappe.createMaidrFromFrappeCharts(panels, wrapper, {
+      title: 'Store Performance Dashboard',
+    });
+    wrapper.setAttribute('maidr', JSON.stringify(maidr));
+  });
+</script>
+```
+
+Key points:
+
+- **Each panel** is a `FrappePanel`: `{ chart, container, chartType, title?, axes? }` — the same per-chart options as the single-chart API, plus the panel's `title`, which MAIDR announces when navigating between panels.
+- **Grid shape**: a 2D array maps 1:1 to subplot rows (ragged rows are fine); a flat array is chunked into rows of `options.columns` panels, or placed in a single row when `columns` is omitted. Order panels in visual reading order (row-major, top-left first) to match your CSS layout.
+- **Set the `maidr` attribute on the wrapper**, not on individual panel containers — a per-panel attribute would create N separate MAIDR figures instead of one grid. Every panel container must be a descendant of the wrapper (the adapter throws otherwise).
+- **Wait for all panels to settle** before calling the adapter — Frappe's entrance animation re-creates SVG nodes per chart, so wrap the per-container settle wait in `Promise.all` (see [`examples/frappe-multipanel.html`](https://github.com/xability/maidr/blob/main/examples/frappe-multipanel.html) for a complete 2x2 example, including a promise-based `whenChartSettled` helper).
+- **Figure-level options** (`FrappeChartsGridOptions`): `id` (defaults to the wrapper's `id`), `title`, `subtitle`, `caption`, and `columns` (flat input only).
+- **Live updates are not supported** for grouped charts: calling `chart.update(...)` on a panel after binding re-creates its SVG nodes and invalidates the captured highlight elements. Rebuild and re-set the `maidr` attribute if panel data changes.
+
 ## Configuration Options
 
 The adapter accepts a `FrappeChartAdapterOptions` object:
@@ -252,7 +314,7 @@ The adapter accepts a `FrappeChartAdapterOptions` object:
 For bundled projects, import the adapter directly:
 
 ```typescript
-import { createMaidrFromFrappeChart } from 'maidr/frappe';
+import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from 'maidr/frappe';
 
 // Use after the chart has rendered
 const maidr = createMaidrFromFrappeChart(chart, container, {

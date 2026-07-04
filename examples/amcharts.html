@@ -59,6 +59,15 @@
     <h2>Heatmap</h2>
     <div id="heatmap-chart" class="chart"></div>
 
+    <h2>Multi-Panel (two XYCharts in one Root)</h2>
+    <p>
+      One amCharts Root with a vertical layout and two stacked XYCharts. MAIDR
+      exposes each chart as a subplot: use the arrow keys to move between
+      panels (Up moves to the visually upper panel; numbering starts at the
+      bottom panel), Enter to drill into a panel, and Escape to return.
+    </p>
+    <div id="multipanel-chart" class="chart" style="height: 560px"></div>
+
     <script>
       // Collects { el, root, options } for each chart so the ES-module block
       // below can convert them to MAIDR data once amCharts finishes rendering.
@@ -335,6 +344,74 @@
           heatLegend.set("endValue", series.getPrivate("valueHigh"));
         });
         register("heatmap-chart", root, { title: "Activity by Weekday and Hour", axisLabels: { x: "Weekday", y: "Hour" } });
+      })();
+
+      // -------------------------------------------------------------------
+      // Multi-panel: two XYCharts stacked vertically in ONE Root.
+      // MAIDR converts each chart into its own subplot (arrow keys move
+      // between panels — Up moves visually up, and "Subplot 1" is the bottom
+      // panel; Enter drills in, Escape returns). Each chart's Label child
+      // becomes the panel's display name.
+      // -------------------------------------------------------------------
+      (function () {
+        var root = am5.Root.new("multipanel-chart");
+        root.container.set("layout", root.verticalLayout);
+
+        var data = [
+          { month: "Jan", revenue: 120, growth: 4.1 },
+          { month: "Feb", revenue: 132, growth: 5.2 },
+          { month: "Mar", revenue: 101, growth: -2.3 },
+          { month: "Apr", revenue: 134, growth: 6.1 },
+          { month: "May", revenue: 190, growth: 8.4 },
+        ];
+
+        // Top panel: revenue columns.
+        var topChart = root.container.children.push(
+          am5xy.XYChart.new(root, {
+            height: am5.percent(50),
+            panX: false, panY: false, wheelX: "none", wheelY: "none",
+          })
+        );
+        topChart.children.unshift(am5.Label.new(root, { text: "Monthly Revenue", fontSize: 16, x: am5.p50, centerX: am5.p50 }));
+        var topX = topChart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "month", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var topY = topChart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        var revenueSeries = topChart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Revenue", xAxis: topX, yAxis: topY,
+            valueYField: "revenue", categoryXField: "month",
+          })
+        );
+        topX.data.setAll(data);
+        revenueSeries.data.setAll(data);
+
+        // Bottom panel: growth line.
+        var bottomChart = root.container.children.push(
+          am5xy.XYChart.new(root, {
+            height: am5.percent(50),
+            panX: false, panY: false, wheelX: "none", wheelY: "none",
+          })
+        );
+        bottomChart.children.unshift(am5.Label.new(root, { text: "Growth Rate", fontSize: 16, x: am5.p50, centerX: am5.p50 }));
+        var bottomX = bottomChart.xAxes.push(
+          am5xy.CategoryAxis.new(root, { categoryField: "month", renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var bottomY = bottomChart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        var growthSeries = bottomChart.series.push(
+          am5xy.LineSeries.new(root, {
+            name: "Growth", xAxis: bottomX, yAxis: bottomY,
+            valueYField: "growth", categoryXField: "month",
+          })
+        );
+        bottomX.data.setAll(data);
+        growthSeries.data.setAll(data);
+
+        register("multipanel-chart", root, { title: "Revenue and Growth by Month" });
       })();
     </script>
 

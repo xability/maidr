@@ -37,11 +37,35 @@ export interface VegaView {
 }
 
 /**
+ * Top-level `facet` operator definition.
+ *
+ * Two shapes exist in Vega-Lite:
+ *   - Row/column faceting: `{ row?: {field}, column?: {field} }`.
+ *   - Wrapped faceting: a single field definition (`{ field, type }`)
+ *     combined with the top-level `columns` property.
+ */
+export interface VegaLiteFacetDef {
+  row?: VegaLiteChannelDef;
+  column?: VegaLiteChannelDef;
+  field?: string;
+  type?: string;
+  title?: string;
+}
+
+/**
+ * Top-level `repeat` operator definition.
+ *
+ * Either a plain field array (wrapped layout, combined with `columns`)
+ * or `{ row?: string[], column?: string[] }` for a repeat grid.
+ */
+export type VegaLiteRepeatDef = string[] | { row?: string[]; column?: string[] };
+
+/**
  * Minimal Vega-Lite top-level specification shape.
  *
- * Covers single-view, layered (`layer`), and composite (`hconcat` / `vconcat`
- * / `concat`) specs. Faceted (`facet`) and repeated (`repeat`) specs are
- * recognised but not yet supported by the adapter.
+ * Covers single-view, layered (`layer`), composite (`hconcat` / `vconcat`
+ * / `concat`), faceted (`facet` operator or `encoding.row` /
+ * `encoding.column` shorthand), and repeated (`repeat`) specs.
  */
 export interface VegaLiteSpec {
   $schema?: string;
@@ -54,9 +78,15 @@ export interface VegaLiteSpec {
   hconcat?: VegaLiteSpec[];
   vconcat?: VegaLiteSpec[];
   concat?: VegaLiteSpec[];
-  facet?: unknown;
+  facet?: VegaLiteFacetDef;
   spec?: VegaLiteSpec;
-  repeat?: unknown;
+  repeat?: VegaLiteRepeatDef;
+  /**
+   * Wrap column count for `concat`, wrapped `facet` (single-field form),
+   * and wrapped `repeat` (array form). Vega-Lite's default when omitted
+   * is an unbounded number of columns (a single row).
+   */
+  columns?: number;
 }
 
 /**
@@ -83,6 +113,12 @@ export interface VegaLiteEncoding {
 
 /**
  * Subset of a Vega-Lite channel definition fields read by the adapter.
+ *
+ * Note on `field`: inside a `repeat` spec's child, Vega-Lite allows a
+ * repeat reference object (`{ repeat: 'row' | 'column' | 'repeat' }`)
+ * instead of a field name. The adapter substitutes those references with
+ * concrete field names (per repeated cell) *before* any conversion runs,
+ * so every code path past `substituteRepeatFields` only ever sees strings.
  */
 export interface VegaLiteChannelDef {
   field?: string;

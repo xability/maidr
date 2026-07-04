@@ -18,6 +18,35 @@ export abstract class Svg {
   private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
   /**
+   * Attribute stamped on every element MAIDR creates (hidden clones, markers,
+   * overlay shapes). Distinguishes MAIDR-owned elements from the chart's own
+   * live geometry so disposal can remove the former without deleting the latter.
+   */
+  private static readonly OWNED_ATTRIBUTE = 'data-maidr-owned';
+
+  /**
+   * Marks an element as created (and therefore owned) by MAIDR.
+   * Public so trace code that clones or synthesizes highlight elements
+   * outside this utility can participate in ownership-aware disposal.
+   * @param element - The element to mark
+   * @returns The same element, for chaining
+   */
+  public static markOwned<T extends SVGElement>(element: T): T {
+    element.setAttribute(this.OWNED_ATTRIBUTE, 'true');
+    return element;
+  }
+
+  /**
+   * Returns true if the element was created by MAIDR (safe to remove on
+   * disposal). Original chart elements referenced for in-place highlighting
+   * are not owned and must never be removed.
+   * @param element - The element to check
+   */
+  public static isOwned(element: Element): boolean {
+    return element.hasAttribute(this.OWNED_ATTRIBUTE);
+  }
+
+  /**
    * Converts an SVG element to a Base64-encoded JPEG data URL.
    * @param svg - The SVG element to convert
    * @returns A promise resolving to the Base64 data URL, or empty string on error
@@ -82,6 +111,7 @@ export abstract class Svg {
 
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        this.markOwned(clone);
         element.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
@@ -102,6 +132,9 @@ export abstract class Svg {
 
     const clone = element?.cloneNode(true) as T;
     clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    if (clone) {
+      this.markOwned(clone);
+    }
 
     element?.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
@@ -143,7 +176,7 @@ export abstract class Svg {
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
     element.setAttribute(Constant.STROKE, Constant.TRANSPARENT);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    return element;
+    return this.markOwned(element);
   }
 
   /**
@@ -167,6 +200,7 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE, color);
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(element);
 
     parent.parentElement?.appendChild(element);
     return element;
@@ -242,6 +276,7 @@ export abstract class Svg {
     line.setAttribute(Constant.STROKE, style.stroke);
     line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
     line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(line);
 
     box.insertAdjacentElement(Constant.AFTER_END, line);
     return line;
@@ -302,6 +337,7 @@ export abstract class Svg {
         circle.setAttribute(Constant.STROKE, fallbackColor);
         circle.setAttribute(Constant.STROKE_WIDTH, '2');
         circle.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+        this.markOwned(circle);
         element.insertAdjacentElement(Constant.AFTER_END, circle);
         return circle;
       }
@@ -309,7 +345,7 @@ export abstract class Svg {
       // getBBox may fail for elements not in the DOM; fall through to normal path.
     }
 
-    const clone = element.cloneNode(true) as SVGElement;
+    const clone = this.markOwned(element.cloneNode(true) as SVGElement);
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
 
@@ -448,6 +484,15 @@ export abstract class Svg {
         }
       }
       const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+      // Stash the element's original stroke attributes before overwriting
+      // so removeSubplotHighlightSvg can restore them instead of stripping
+      // any pre-existing attribute-based border. Guard against re-saving on
+      // repeated highlight calls, which would otherwise capture the
+      // highlight values as the "original".
+      if (!bg.hasAttribute('data-maidr-orig-stroke')) {
+        bg.setAttribute('data-maidr-orig-stroke', bg.getAttribute('stroke') ?? '');
+        bg.setAttribute('data-maidr-orig-stroke-width', bg.getAttribute('stroke-width') ?? '');
+      }
       bg.setAttribute('stroke', highlightColor);
       bg.setAttribute('stroke-width', '4');
     }
@@ -459,9 +504,31 @@ export abstract class Svg {
    */
   public static removeSubplotHighlightSvg(group: SVGElement): void {
     const bg = group.querySelector('rect, path') as SVGElement | null;
-    if (bg) {
-      bg.removeAttribute('stroke');
-      bg.removeAttribute('stroke-width');
+    if (!bg) {
+      return;
+    }
+    // Restore the original stroke attributes saved when the highlight was
+    // applied. Only elements we highlighted carry the data- markers; for
+    // those, re-apply the saved value if one existed, otherwise remove the
+    // attribute we added. Elements we never highlighted are left untouched
+    // so their own attribute-based borders survive.
+    if (bg.hasAttribute('data-maidr-orig-stroke')) {
+      const origStroke = bg.getAttribute('data-maidr-orig-stroke') ?? '';
+      if (origStroke === '') {
+        bg.removeAttribute('stroke');
+      } else {
+        bg.setAttribute('stroke', origStroke);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke');
+    }
+    if (bg.hasAttribute('data-maidr-orig-stroke-width')) {
+      const origStrokeWidth = bg.getAttribute('data-maidr-orig-stroke-width') ?? '';
+      if (origStrokeWidth === '') {
+        bg.removeAttribute('stroke-width');
+      } else {
+        bg.setAttribute('stroke-width', origStrokeWidth);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke-width');
     }
   }
 }

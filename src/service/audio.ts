@@ -280,7 +280,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
             },
             paletteEntry,
           );
-          activeIds.push(setTimeout(playNext, playRate));
+          // Register the chain timer so stopAll()/dispose() can cancel a
+          // pending step; otherwise a queued tone fires against a closed
+          // AudioContext after disposal. The timer removes itself when it runs.
+          const chainId = setTimeout(() => {
+            this.activeAudioIds.delete(chainId);
+            playNext();
+          }, playRate);
+          this.activeAudioIds.set(chainId, []);
+          activeIds.push(chainId);
         } else {
           this.stop(activeIds);
         }
@@ -531,6 +539,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * @returns AudioId for the played tone
    */
   private playEmptyTone(panning: Panning): AudioId {
+    // At volume 0 every exponential ramp target below collapses to 0, which
+    // the Web Audio spec rejects with a RangeError. The tone would be silent
+    // anyway, so skip scheduling and return a harmless, self-clearing id.
+    if (this.volume <= 0) {
+      const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
+      this.activeAudioIds.set(audioId, []);
+      return audioId;
+    }
+
     const xPos = MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1);
 
     const ctx = this.audioContext;
@@ -586,20 +603,24 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playOneWarningBeep(freq: number, startTime: number): void {
+    // Scale by the user volume and route through the shared compressor chain
+    // so boundary beeps match the loudness of data tones. A volume of 0 would
+    // also make the exponential ramp target collapse to 0 (a RangeError).
+    if (this.volume <= 0) {
+      return;
+    }
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
     osc.frequency.value = freq;
-    let vol = 1;
-    if (osc.type !== 'sine')
-      vol = 0.5;
 
-    gain.gain.setValueAtTime(vol, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + WARNING_DURATION);
+    gain.gain.setValueAtTime(this.volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, startTime + WARNING_DURATION);
 
     osc.connect(gain);
-    gain.connect(this.audioContext.destination);
+    gain.connect(this.compressor);
 
     osc.start(startTime);
     osc.stop(startTime + WARNING_DURATION);
@@ -759,10 +780,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   public playWaitingTone(): AudioId {
     const paletteEntry = this.audioPalette.getPaletteEntry(DEFAULT_PALETTE_INDEX);
-    return setInterval(
+    const audioId = setInterval(
       () => this.playOscillator(WAITING_FREQUENCY, { x: 0, y: 0 }, paletteEntry),
       1000,
     );
+    // Track the interval so stopAll()/dispose() can clear it; otherwise it
+    // keeps firing against a closed AudioContext after disposal.
+    this.activeAudioIds.set(audioId, []);
+    return audioId;
   }
 
   /**
@@ -781,6 +806,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * Each intersecting line gets a distinct timbre from the audio palette.
    */
   private playSimultaneousTones(tones: AudioState[]): void {
+    // At volume 0 the exponential ramp target below collapses to 0, which the
+    // Web Audio spec rejects with a RangeError. Nothing would be audible, so
+    // skip playback entirely.
+    if (this.volume <= 0) {
+      return;
+    }
+
     const duration = DEFAULT_DURATION;
     const ctx = this.audioContext;
     const now = ctx.currentTime;

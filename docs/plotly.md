@@ -69,6 +69,7 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Candlestick | `type: 'candlestick'` | [Candlestick](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
+| Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 ## Code Examples
 
@@ -250,6 +251,60 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   });
 </script>
 ```
+
+### Subplots (2x2 Grid)
+
+Figures with multiple panels — whether built with manual axis pairs, `layout.grid`, or Python's `make_subplots` — become a navigable 2D grid. MAIDR reads each panel's axis domains to recover the visual layout (including ragged grids), so arrow keys move between panels in reading order, `Enter` drills into a panel, and `Escape` returns to panel navigation. The selected panel is outlined visually.
+
+```html
+<div id="subplot-chart" style="width: 900px; height: 600px"></div>
+<script>
+  Plotly.newPlot('subplot-chart', [
+    { x: ['Mon', 'Tue'], y: [20, 14], type: 'bar', name: 'Tips' },
+    { x: [1, 2, 3], y: [10, 15, 13], type: 'scatter', mode: 'lines+markers', name: 'Sales', xaxis: 'x2', yaxis: 'y2' },
+    { x: [5.1, 4.9, 4.7], y: [1.4, 1.4, 1.3], type: 'scatter', mode: 'markers', name: 'Iris', xaxis: 'x3', yaxis: 'y3' },
+    { x: [1.2, 1.9, 2.1, 2.4, 3.0], type: 'histogram', name: 'Distribution', xaxis: 'x4', yaxis: 'y4' }
+  ], {
+    title: { text: 'Four Views of the Data' },
+    grid: { rows: 2, columns: 2, pattern: 'independent' }
+  });
+</script>
+```
+
+Each panel announces its trace name (e.g. "Subplot 1 of 4") while navigating; inset plots and overlaid dual-axis charts are kept as a flat panel list rather than forced into a grid.
+
+### Facets (Plotly Express style)
+
+Faceted figures — shared `matches:` axes plus facet-label annotations, the pattern Plotly Express emits for `facet_row`/`facet_col` — are fully supported:
+
+- Facet labels (e.g. `"sex=Male"`) become the panel names announced during navigation.
+- Axis titles carried only by the outer (matched) axis are resolved for every inner panel.
+
+Both annotation shapes are recognized:
+
+- **Paper refs** (`xref: 'paper'`, `yref: 'paper'`) — what plotly.py actually emits for Plotly Express facet labels and `make_subplots` `row_titles`/`column_titles`/`subplot_titles`. These are matched to panels geometrically: column titles above the top row, rotated row titles at the right edge, and per-panel titles (e.g. `facet_col_wrap`) just above each panel.
+- **Axis-domain refs** (`xref: 'x2 domain'`) — hand-authored facet labels tied explicitly to a panel's axes, as in the example below.
+
+```html
+<div id="facet-chart" style="width: 900px; height: 450px"></div>
+<script>
+  Plotly.newPlot('facet-chart', [
+    { x: [16.99, 10.34, 21.01], y: [1.01, 1.66, 3.5], type: 'scatter', mode: 'markers' },
+    { x: [8.77, 26.88, 15.04], y: [2.0, 3.12, 1.96], type: 'scatter', mode: 'markers', xaxis: 'x2', yaxis: 'y2' }
+  ], {
+    xaxis: { domain: [0, 0.48], title: { text: 'Total Bill ($)' } },
+    xaxis2: { domain: [0.52, 1], matches: 'x' },
+    yaxis: { title: { text: 'Tip ($)' } },
+    yaxis2: { matches: 'y', anchor: 'x2' },
+    annotations: [
+      { text: 'sex=Female', xref: 'x domain', yref: 'y domain', x: 0.5, y: 1.05, showarrow: false },
+      { text: 'sex=Male', xref: 'x2 domain', yref: 'y2 domain', x: 0.5, y: 1.05, showarrow: false }
+    ]
+  });
+</script>
+```
+
+Charts generated from Python (`plotly.express` facets, `make_subplots`) work the same way — the adapter reads the rendered figure, so no extra configuration is needed.
 
 ## Dynamic Charts
 

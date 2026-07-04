@@ -26,7 +26,6 @@ import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { NavMap } from './navmap';
 import type {
-  AmBounds,
   AmChartsBinderOptions,
   AmRoot,
   AmXYChart,
@@ -35,8 +34,9 @@ import type {
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
-import { fromXYChart } from './adapter';
+import { convertCharts, findXYCharts } from './adapter';
 import { classifySeriesKind } from './extractor';
+import { readPlotBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
@@ -111,36 +111,9 @@ function AmHost({ node, width, height, onHost }: AmHostProps): JSX.Element {
 // Highlight bridge
 // ---------------------------------------------------------------------------
 
-/**
- * Read the plot-area bounds (CSS px, root-relative) used to clip highlights.
- * Tries `globalBounds()`, then `toGlobal()` + `width()/height()`; returns
- * `null` if neither is available (the overlay's `overflow:hidden` still clips
- * to the chart box).
- */
-function readPlotBounds(chart: AmXYChart): AmBounds | null {
-  const pc = chart.plotContainer;
-  if (!pc) {
-    return null;
-  }
-  try {
-    const bounds = pc.globalBounds?.();
-    if (bounds && Number.isFinite(bounds.left) && Number.isFinite(bounds.bottom)) {
-      return bounds;
-    }
-    if (pc.toGlobal && pc.width && pc.height) {
-      const tl = pc.toGlobal({ x: 0, y: 0 });
-      return { left: tl.x, top: tl.y, right: tl.x + pc.width(), bottom: tl.y + pc.height() };
-    }
-  } catch {
-    // Fall through; overlay overflow:hidden still clips to the chart box.
-  }
-  return null;
-}
-
 function applyHighlight(
   overlay: HighlightOverlay,
   navMap: NavMap,
-  chart: AmXYChart,
   event: NavEvent,
 ): void {
   const targets = navMap.resolve(event.layerId, event.row, event.col);
@@ -149,9 +122,20 @@ function applyHighlight(
     return;
   }
 
-  // Clip the highlight to the visible plot area; a column's geometry can
-  // extend to the value=0 baseline beyond a clipped (min > 0) axis.
-  const plotBounds = readPlotBounds(chart);
+  // Clip the highlight to the OWNING panel's visible plot area; a column's
+  // geometry can extend to the value=0 baseline beyond a clipped (min > 0)
+  // axis, and in multi-panel roots it must not bleed into sibling panels.
+  const chart = navMap.chartFor(event.layerId);
+  const plotBounds = chart ? readPlotBounds(chart) : null;
+
+  // Without readable panel bounds an unclipped rect could bleed into a
+  // sibling panel (all panels share one overlay canvas), so suppress the
+  // highlight in multi-panel roots. Single charts keep the unclipped
+  // fallback: there is no neighbor to bleed into.
+  if (!plotBounds && navMap.chartCount > 1) {
+    overlay.clear();
+    return;
+  }
 
   const rects = [];
   for (const target of targets) {
@@ -168,7 +152,6 @@ function applyHighlight(
 
 function createHighlightCallback(
   navMap: NavMap,
-  chart: AmXYChart,
   getOverlay: () => HighlightOverlay | null,
   recordActive: (event: NavEvent) => void,
 ): NavigateCallback {
@@ -178,7 +161,7 @@ function createHighlightCallback(
       const overlay = getOverlay();
       if (!overlay)
         return;
-      applyHighlight(overlay, navMap, chart, event);
+      applyHighlight(overlay, navMap, event);
     } catch {
       // Ignore highlight errors (e.g., during teardown or before layout).
     }
@@ -220,16 +203,6 @@ function groupSeries(chart: AmXYChart): {
   }
 
   return { barSeriesList, lineSeriesList, histogramSeries, heatmapSeries };
-}
-
-function findXYChart(root: AmRoot): AmXYChart | undefined {
-  for (const child of root.container.children.values) {
-    const candidate = child as Partial<AmXYChart>;
-    if (candidate.series && candidate.xAxes && candidate.yAxes) {
-      return candidate as AmXYChart;
-    }
-  }
-  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -290,19 +263,22 @@ function renderMaidr(maidrData: MaidrData, rootDom: HTMLElement): RenderResult |
 
 /**
  * Bind MAIDR to an amCharts 5 {@link AmRoot}, mounting the accessible UI and
- * (by default) a canvas highlight overlay. Finds the first XYChart in the root.
+ * (by default) a canvas highlight overlay. Finds every XYChart in the root's
+ * container tree (including am5stock StockPanels); each chart becomes one
+ * MAIDR subplot, navigable with the arrow keys.
  *
- * @throws If no supported XYChart is found in `root.container`.
+ * @throws If no supported XYChart is found in `root.container`, or if no
+ *         chart contains a supported series with data.
  */
 export function bindAmCharts(root: AmRoot, options?: AmChartsBindOptions): AmChartsBinding {
-  const chart = findXYChart(root);
-  if (!chart) {
+  const charts = findXYCharts(root);
+  if (charts.length === 0) {
     throw new Error(
       'maidr amCharts binder: no XYChart found in root.container. '
       + 'Ensure the chart is fully initialized before calling bindAmCharts().',
     );
   }
-  return bindXYChart(chart, root, options);
+  return bindCharts(charts, root, options);
 }
 
 /**
@@ -314,7 +290,22 @@ export function bindXYChart(
   root: AmRoot,
   options?: AmChartsBindOptions,
 ): AmChartsBinding {
-  const data = fromXYChart(chart, root.dom, options);
+  return bindCharts([chart], root, options);
+}
+
+/**
+ * Shared binding path: converts the charts (one subplot each), mounts MAIDR
+ * over `root.dom`, and wires one highlight overlay for the whole root — all
+ * panels of one root render into the same canvases, and highlight geometry is
+ * already root-relative. Each highlight clips against its own panel's plot
+ * bounds via the navigation map's owning-chart record.
+ */
+function bindCharts(
+  charts: AmXYChart[],
+  root: AmRoot,
+  options?: AmChartsBindOptions,
+): AmChartsBinding {
+  const { maidr: data, panels } = convertCharts(charts, root.dom, options);
   const highlightEnabled = options?.highlight !== false;
 
   let overlay: HighlightOverlay | null = null;
@@ -322,13 +313,15 @@ export function bindXYChart(
 
   let maidrData: MaidrData = data;
   if (highlightEnabled) {
-    const groups = groupSeries(chart);
-    const navMap = buildNavigationMap(data.subplots[0][0].layers, groups);
+    const navMap = buildNavigationMap(panels.map(panel => ({
+      layers: panel.layers,
+      groups: groupSeries(panel.chart),
+      chart: panel.chart,
+    })));
     maidrData = {
       ...data,
       onNavigate: createHighlightCallback(
         navMap,
-        chart,
         () => overlay,
         (event) => {
           lastActive = event;
@@ -348,7 +341,7 @@ export function bindXYChart(
       overlay = new HighlightOverlay(host, root.dom, getColor);
       // Paint the initial position if navigation already happened.
       if (lastActive)
-        applyHighlight(overlay, navMap, chart, lastActive);
+        applyHighlight(overlay, navMap, lastActive);
       return overlay;
     });
 
@@ -357,7 +350,7 @@ export function bindXYChart(
         if (!ov || !lastActive)
           return;
         try {
-          applyHighlight(ov, navMap, chart, lastActive);
+          applyHighlight(ov, navMap, lastActive);
         } catch {
           // Ignore; chart may be mid-teardown.
         }
@@ -403,12 +396,14 @@ export function bindXYChart(
 
 /**
  * Restore `root.dom` to its original parent and unmount the React tree.
+ *
+ * Unmount FIRST: `AmHost`'s ref cleanup detaches `rootDom` from the
+ * React-owned host. THEN restore `rootDom` to its original parent, and finally
+ * remove the now-empty container. Doing this in the other order lets the ref
+ * cleanup remove the just-restored chart DOM from the page.
  */
 function teardownMount(rendered: RenderResult, rootDom: HTMLElement): void {
-  const parent = rendered.container.parentElement;
-  if (parent) {
-    parent.insertBefore(rootDom, rendered.container);
-  }
   rendered.root.unmount();
+  rendered.container.parentElement?.insertBefore(rootDom, rendered.container);
   rendered.container.remove();
 }

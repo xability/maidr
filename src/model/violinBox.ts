@@ -197,10 +197,11 @@ export class ViolinBoxTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // boxValues is orientation-normalized (row = navigation row, col =
+    // navigation col), so rows/cols map directly to its shape.
     return {
-      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row]?.length ?? 0,
-      cols: isHorizontal ? this.boxValues[this.row]?.length ?? 0 : this.boxValues.length,
+      rows: this.boxValues.length,
+      cols: this.boxValues[this.row]?.length ?? 0,
     };
   }
 
@@ -622,7 +623,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     if (!original) {
       return Svg.createEmptyElement();
     }
-    const clone = original.cloneNode(true) as SVGElement;
+    const clone = Svg.markOwned(original.cloneNode(true) as SVGElement);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     original.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;

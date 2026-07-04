@@ -29,7 +29,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
-import type { HighchartsAdapterOptions, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
+import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   barSelector,
@@ -40,6 +40,7 @@ import {
   histogramSelector,
   lineSelectors,
   scatterSelector,
+  seriesGroupSelector,
 } from './selectors';
 
 let chartCounter = 0;
@@ -62,6 +63,12 @@ let chartCounter = 0;
  * - Grouped (dodged) `column`/`bar` → {@link TraceType.DODGED}
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
  *
+ * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
+ * bands, e.g. the Highstock price + volume pattern) are detected from the
+ * rendered axis geometry and emitted as a MAIDR subplot grid — one subplot
+ * per pane, navigable with arrow keys. Ambiguous layouts (overlapping bands,
+ * dual-axis overlays) fall back to today's single-subplot output.
+ *
  * @param chart - A Highcharts chart instance (the return value of `Highcharts.chart()`).
  * @param options - Optional overrides for ID, title, or series filtering.
  * @returns A {@link Maidr} object ready for use with the MAIDR library.
@@ -77,8 +84,68 @@ export function highchartsToMaidr(
 
   const containerId = ensureContainerId(chart);
 
-  const seriesToConvert = filterSeries(chart, options?.seriesIndices);
+  const seriesToConvert = collectUsableSeries(chart, options?.seriesIndices);
 
+  return {
+    id,
+    title,
+    subtitle,
+    caption,
+    subplots: buildSubplotGrid(seriesToConvert, chart, containerId),
+  };
+}
+
+/**
+ * Builds the subplot grid for one chart: a multi-pane chart becomes one
+ * subplot per detected pane; everything else keeps the single-subplot path.
+ *
+ * @internal
+ */
+export function buildSubplotGrid(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrSubplot[][] {
+  const paneGrid = detectPaneGrid(seriesList);
+
+  if (paneGrid) {
+    // Never emit `{ layers: [] }` cells or empty rows — the MAIDR model
+    // crashes on both — so compact ragged rows instead.
+    const rows = paneGrid
+      .map(row => row
+        .map((group) => {
+          const subplot = buildSubplot(group, chart, containerId);
+          applyPaneTitleFallback(subplot, group);
+          return subplot;
+        })
+        .filter(subplot => subplot.layers.length > 0))
+      .filter(row => row.length > 0);
+
+    const total = rows.reduce((count, row) => count + row.length, 0);
+    if (total > 1) {
+      return rows;
+    }
+    // Fewer than two usable panes survived conversion — fall through to the
+    // single-subplot path so the output matches a plain chart exactly.
+  }
+
+  return [[buildSubplot(seriesList, chart, containerId)]];
+}
+
+/**
+ * Converts a list of Highcharts series into one MAIDR subplot.
+ *
+ * Bar/column series are grouped into a single stacked/dodged/normalized
+ * layer, line-like series merge into one multi-line layer, and every other
+ * supported series becomes its own layer.
+ *
+ * @internal
+ */
+export function buildSubplot(
+  seriesToConvert: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrSubplot {
   // Categorize series by how they need to be converted.
   const lineTypes = new Set(['line', 'spline', 'area', 'areaspline']);
   const barTypes = new Set(['bar', 'column']);
@@ -114,23 +181,51 @@ export function highchartsToMaidr(
 
   const subplot: MaidrSubplot = { layers };
 
+  // Point the subplot at its own panel geometry (the first series' rendered
+  // group). Highcharts SVG has no `g[id^="axes_"]` groups, so MAIDR's layout
+  // pass relies on this element to compute the panels' visual order and the
+  // vertical arrow-key direction for multi-row grids. The first layer's
+  // selectors cannot serve as a fallback for every trace type (box,
+  // candlestick, and heatmap layers carry structured selector objects).
+  if (layers.length > 0 && seriesToConvert.length > 0) {
+    subplot.selector = seriesGroupSelector(containerId, seriesToConvert[0].index);
+  }
+
   // Add legend labels when multiple layers are present, aligned to layers.
   if (layers.length > 1) {
     subplot.legend = layers.map(l => l.title ?? `Series ${l.id}`);
   }
 
-  return {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[subplot]],
-  };
+  return subplot;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Returns the chart's convertible series: visible (optionally restricted to
+ * `indices`) and not internal. Highstock injects internal helper series (the
+ * navigator preview, marked via `isInternal` / the `highcharts-navigator-series`
+ * class) that mirror real data and must never become their own layers.
+ *
+ * @internal
+ */
+export function collectUsableSeries(
+  chart: HighchartsChart,
+  indices?: number[],
+): HighchartsSeries[] {
+  return filterSeries(chart, indices).filter(series => !isInternalSeries(series));
+}
+
+function isInternalSeries(series: HighchartsSeries): boolean {
+  // Highcharts reliably marks the real Highstock navigator series with both
+  // `isInternal` and the `highcharts-navigator-series` class. Do NOT match on
+  // the series name — a legitimate user series named "Navigator" must convert.
+  const { isInternal, className } = series.options;
+  return isInternal === true
+    || (typeof className === 'string' && className.includes('highcharts-navigator-series'));
+}
 
 function filterSeries(
   chart: HighchartsChart,
@@ -192,6 +287,155 @@ function getStackingMode(series: HighchartsSeries, chart: HighchartsChart): stri
 }
 
 // ---------------------------------------------------------------------------
+// Pane detection (multi-axis charts → subplot grid)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pixel tolerance when clustering axis positions into pane bands. Axes whose
+ * `top` (or `left`) differ by no more than this are treated as the same band.
+ */
+const PANE_BAND_TOLERANCE_PX = 4;
+
+/**
+ * Detects a pane grid within a single chart from the rendered axis geometry.
+ *
+ * Highcharts expresses panes as multiple `yAxis` entries stacked via
+ * `top`/`height` (rows) and/or multiple `xAxis` entries split via
+ * `left`/`width` (columns); each series is pinned to one axis pair. There is
+ * no per-pane DOM group, so pane membership is derived purely from the
+ * series → axis assignment.
+ *
+ * Returns series grouped as `grid[row][col]` in visual reading order
+ * (top-left first), with empty cells/rows already compacted away, or `null`
+ * when the chart is single-pane or the layout is ambiguous (missing axis
+ * geometry, overlapping bands, or coinciding dual-axis overlays) — callers
+ * must then fall back to the single-subplot path.
+ */
+function detectPaneGrid(seriesList: HighchartsSeries[]): HighchartsSeries[][][] | null {
+  if (seriesList.length < 2) {
+    return null;
+  }
+  if (seriesList.some(series => !series.xAxis || !series.yAxis)) {
+    return null;
+  }
+
+  const yAxes = [...new Set(seriesList.map(series => series.yAxis))];
+  const xAxes = [...new Set(seriesList.map(series => series.xAxis))];
+  if (yAxes.length <= 1 && xAxes.length <= 1) {
+    return null;
+  }
+
+  const rowByAxis = yAxes.length > 1
+    ? assignAxisBands(yAxes, axis => axis.top, axis => axis.height)
+    : new Map<HighchartsAxis, number>(yAxes.map(axis => [axis, 0]));
+  const colByAxis = xAxes.length > 1
+    ? assignAxisBands(xAxes, axis => axis.left, axis => axis.width)
+    : new Map<HighchartsAxis, number>(xAxes.map(axis => [axis, 0]));
+  if (!rowByAxis || !colByAxis) {
+    return null;
+  }
+
+  const rowCount = Math.max(...rowByAxis.values()) + 1;
+  const colCount = Math.max(...colByAxis.values()) + 1;
+
+  // Group series by (row, col) cell, preserving series order within a cell.
+  const cells: (HighchartsSeries[] | undefined)[][] = Array.from(
+    { length: rowCount },
+    () => Array.from({ length: colCount }, () => undefined),
+  );
+  let cellCount = 0;
+  for (const series of seriesList) {
+    const row = rowByAxis.get(series.yAxis) ?? 0;
+    const col = colByAxis.get(series.xAxis) ?? 0;
+    if (!cells[row][col]) {
+      cells[row][col] = [];
+      cellCount++;
+    }
+    cells[row][col]?.push(series);
+  }
+
+  // A single occupied cell means every series shares one geometry band
+  // (e.g. a dual-axis overlay) — that is not a multi-pane chart.
+  if (cellCount <= 1) {
+    return null;
+  }
+
+  // Compact ragged rows: drop unoccupied cells and rows entirely.
+  const grid: HighchartsSeries[][][] = [];
+  for (const row of cells) {
+    const compacted = row.filter((cell): cell is HighchartsSeries[] => cell !== undefined);
+    if (compacted.length > 0) {
+      grid.push(compacted);
+    }
+  }
+  return grid;
+}
+
+/**
+ * Clusters axes into position bands along one dimension and assigns each
+ * axis its band index (0 = topmost/leftmost).
+ *
+ * Returns `null` when any axis lacks rendered geometry or when two distinct
+ * bands overlap beyond the tolerance — pane membership would be ambiguous
+ * and the caller must fall back to single-subplot output.
+ */
+function assignAxisBands(
+  axes: HighchartsAxis[],
+  getStart: (axis: HighchartsAxis) => number | undefined,
+  getLength: (axis: HighchartsAxis) => number | undefined,
+): Map<HighchartsAxis, number> | null {
+  const measured: { axis: HighchartsAxis; start: number; end: number }[] = [];
+  for (const axis of axes) {
+    const start = getStart(axis);
+    const length = getLength(axis);
+    if (typeof start !== 'number' || !Number.isFinite(start)
+      || typeof length !== 'number' || !Number.isFinite(length)) {
+      return null;
+    }
+    measured.push({ axis, start, end: start + length });
+  }
+  measured.sort((a, b) => a.start - b.start);
+
+  const bands: { start: number; end: number }[] = [];
+  const bandByAxis = new Map<HighchartsAxis, number>();
+  for (const { axis, start, end } of measured) {
+    const current = bands[bands.length - 1];
+    if (current && start - current.start <= PANE_BAND_TOLERANCE_PX) {
+      current.end = Math.max(current.end, end);
+    } else {
+      bands.push({ start, end });
+    }
+    bandByAxis.set(axis, bands.length - 1);
+  }
+
+  // Distinct bands that overlap (beyond tolerance) make membership ambiguous.
+  for (let i = 1; i < bands.length; i++) {
+    if (bands[i - 1].end > bands[i].start + PANE_BAND_TOLERANCE_PX) {
+      return null;
+    }
+  }
+
+  return bandByAxis;
+}
+
+/**
+ * MAIDR has no subplot-title field: the FIRST layer's `title` is the panel's
+ * display name in subplot summaries. Panes have no native titles either, so
+ * when the first layer ended up untitled (unnamed series), fall back to the
+ * pane's own y-axis title.
+ */
+function applyPaneTitleFallback(subplot: MaidrSubplot, group: HighchartsSeries[]): void {
+  const firstLayer = subplot.layers[0];
+  if (!firstLayer || firstLayer.title !== undefined) {
+    return;
+  }
+  const axisTitle = group[0]?.yAxis?.options?.title?.text;
+  if (axisTitle) {
+    firstLayer.title = axisTitle;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bar / Column group handler (stacked, dodged, normalized)
 // ---------------------------------------------------------------------------
 
@@ -245,12 +489,16 @@ function convertSingleBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
+  // Highcharts always stores the bar value in `p.y` (even for horizontal 'bar'
+  // charts, where `p.x` is the category). AbstractBarPlot reads the value from
+  // `point.x` when HORIZONTAL, so emit the value in `x` and category in `y`,
+  // and swap the axis labels so `axes.x` names the value axis.
+  const isHorizontal = orientation === Orientation.HORIZONTAL;
   const data: BarPoint[] = series.data
     .filter(p => p.y !== null)
-    .map(p => ({
-      x: pointLabel(p),
-      y: p.y as number,
-    }));
+    .map(p => (isHorizontal
+      ? { x: p.y as number, y: pointLabel(p) }
+      : { x: pointLabel(p), y: p.y as number }));
 
   return {
     id: String(series.index),
@@ -258,12 +506,96 @@ function convertSingleBar(
     title: series.name || undefined,
     orientation,
     selectors: barSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
+}
+
+/**
+ * Resolves the `{ x, y }` axis labels for a bar layer. For horizontal bars the
+ * Highcharts value axis is `yAxis` and the category axis is `xAxis`, so they are
+ * swapped to keep `axes.x` on the value axis (matching AbstractBarPlot).
+ */
+function barAxes(
+  series: HighchartsSeries,
+  isHorizontal: boolean,
+): { x: AxisConfig; y: AxisConfig } {
+  return isHorizontal
+    ? { x: getAxisLabel(series, 'y'), y: getAxisLabel(series, 'x') }
+    : { x: getAxisLabel(series, 'x'), y: getAxisLabel(series, 'y') };
+}
+
+/**
+ * Builds aligned `SegmentedPoint[][]` rows for stacked/dodged/normalized bar
+ * groups. Each row (one per series/group) is padded to a fixed length keyed by
+ * category index so all rows share equal length — `SegmentedTrace` sums across
+ * rows and would produce `NaN` on ragged input. `null`/missing cells become `0`
+ * (never dropped), which keeps DOM alignment via the model's `skipZeros` path
+ * since Highcharts renders no `.highcharts-point` graphic for null points.
+ */
+function buildSegmentedRows(
+  seriesList: HighchartsSeries[],
+  orientation: Orientation,
+  traceType: TraceType,
+): SegmentedPoint[][] {
+  const isHorizontal = orientation === Orientation.HORIZONTAL;
+  const isNormalized = traceType === TraceType.NORMALIZED;
+
+  // Build the shared category-label list (index → label), preferring the axis
+  // categories, then per-point category/name, then the x value itself.
+  const axisCategories = seriesList[0]?.xAxis?.categories;
+
+  // Category axes index points 0..n-1, so x doubles as the row index. Numeric
+  // axes carry raw x values (e.g. years); map those to dense indices instead —
+  // indexing rows by Math.round(1990) would fabricate ~2000 zero cells.
+  const xToIndex = new Map<number, number>();
+  if (!axisCategories) {
+    const uniqueXs = [...new Set(
+      seriesList.flatMap(series => series.data.map(p => Math.round(p.x))),
+    )].sort((a, b) => a - b);
+    uniqueXs.forEach((x, i) => xToIndex.set(x, i));
+  }
+  const indexForX = (x: number): number =>
+    axisCategories ? Math.round(x) : (xToIndex.get(Math.round(x)) ?? -1);
+
+  const categoryLabels: (string | number)[] = [];
+  for (const series of seriesList) {
+    for (const p of series.data) {
+      const index = indexForX(p.x);
+      if (index < 0)
+        continue;
+      if (categoryLabels[index] === undefined) {
+        categoryLabels[index] = axisCategories?.[index] ?? p.category ?? p.name ?? Math.round(p.x);
+      }
+    }
+  }
+  const categoryCount = Math.max(axisCategories?.length ?? 0, categoryLabels.length);
+  for (let j = 0; j < categoryCount; j++) {
+    if (categoryLabels[j] === undefined) {
+      categoryLabels[j] = axisCategories?.[j] ?? j;
+    }
+  }
+
+  return seriesList.map((series) => {
+    // Initialize a full-length row of zero-valued cells keyed by category index.
+    const row: SegmentedPoint[] = Array.from({ length: categoryCount }, (_, j) =>
+      (isHorizontal
+        ? { x: 0, y: categoryLabels[j], z: series.name }
+        : { x: categoryLabels[j], y: 0, z: series.name }));
+
+    // Overlay each rendered point at its category index.
+    for (const p of series.data) {
+      const index = indexForX(p.x);
+      if (index < 0 || index >= categoryCount)
+        continue;
+      const value = isNormalized ? (p.percentage ?? p.y ?? 0) : (p.y ?? 0);
+      row[index] = isHorizontal
+        ? { x: value, y: categoryLabels[index], z: series.name }
+        : { x: categoryLabels[index], y: value, z: series.name };
+    }
+
+    return row;
+  });
 }
 
 /**
@@ -280,15 +612,7 @@ function convertStackedBar(
   traceType: TraceType.STACKED | TraceType.NORMALIZED,
 ): MaidrLayer {
   // Each series is one "group" (fill level). Points within share x-categories.
-  const data: SegmentedPoint[][] = seriesList.map(series =>
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({
-        x: pointLabel(p),
-        y: traceType === TraceType.NORMALIZED ? (p.percentage ?? (p.y as number)) : (p.y as number),
-        z: series.name,
-      })),
-  );
+  const data = buildSegmentedRows(seriesList, orientation, traceType);
 
   const first = seriesList[0];
   // Combine selectors for all series — MAIDR's SegmentedTrace expects a single selector string.
@@ -302,10 +626,7 @@ function convertStackedBar(
     title: first.name || undefined,
     orientation,
     selectors,
-    axes: {
-      x: getAxisLabel(first, 'x'),
-      y: getAxisLabel(first, 'y'),
-    },
+    axes: barAxes(first, orientation === Orientation.HORIZONTAL),
     data,
   };
 }
@@ -321,15 +642,7 @@ function convertDodgedBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
-  const data: SegmentedPoint[][] = seriesList.map(series =>
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({
-        x: pointLabel(p),
-        y: p.y as number,
-        z: series.name,
-      })),
-  );
+  const data = buildSegmentedRows(seriesList, orientation, TraceType.DODGED);
 
   const first = seriesList[0];
   const selectors = seriesList
@@ -342,10 +655,7 @@ function convertDodgedBar(
     title: first.name || undefined,
     orientation,
     selectors,
-    axes: {
-      x: getAxisLabel(first, 'x'),
-      y: getAxisLabel(first, 'y'),
-    },
+    axes: barAxes(first, orientation === Orientation.HORIZONTAL),
     data,
   };
 }
@@ -367,7 +677,7 @@ function convertSeries(
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
-      return convertHeatmapSeries(series, chart, containerId);
+      return convertHeatmapSeries(series, containerId);
     case 'histogram':
       return convertHistogramSeries(series, containerId);
     case 'candlestick':
@@ -393,7 +703,7 @@ function convertLineSeries(
       .map(p => ({
         x: pointLabel(p),
         y: p.y as number,
-        fill: series.name || undefined,
+        z: series.name || undefined,
       })),
   );
 
@@ -572,21 +882,72 @@ function splitWhiskerPath(group: SVGGElement, boxIndex: number): void {
     return;
   }
 
+  const parts = computeWhiskerParts(d);
+  if (!parts) {
+    console.warn(
+      `[MAIDR Highcharts] Whisker path in box ${boxIndex} could not be split `
+      + `(expected 2 subpaths with valid midpoints); skipping split.`,
+    );
+    return;
+  }
+
+  const upperPath = original.cloneNode(true) as SVGPathElement;
+  upperPath.setAttribute('d', parts.upper);
+  upperPath.setAttribute('data-maidr-box-part', 'upper-whisker');
+  // Strip the identifying class from the clone so re-running `splitWhiskerPath`
+  // never matches it (keeping stamping idempotent); the attribute selector still
+  // targets it via `data-maidr-box-part`.
+  upperPath.classList.remove('highcharts-boxplot-whisker');
+
+  const lowerPath = original.cloneNode(true) as SVGPathElement;
+  lowerPath.setAttribute('d', parts.lower);
+  lowerPath.setAttribute('data-maidr-box-part', 'lower-whisker');
+  lowerPath.classList.remove('highcharts-boxplot-whisker');
+
+  // Insert after original so the visual stacking order is preserved. Note:
+  // afterend insertions go in reverse, so insert lower first then upper to
+  // end up with [original, upper, lower] which keeps the natural order.
+  original.insertAdjacentElement('afterend', lowerPath);
+  original.insertAdjacentElement('afterend', upperPath);
+
+  // Strip the original's identifying class so attribute-only selectors (and
+  // any future `.highcharts-boxplot-whisker` queries) skip it. We keep it in
+  // the DOM rather than hiding so Highcharts' own internal references stay
+  // valid; the new paths render the same caps on top.
+  original.classList.remove('highcharts-boxplot-whisker');
+  original.setAttribute('data-maidr-split-original', 'true');
+
+  // Highcharts redraws (resize/reflow/update) rewrite the ORIGINAL path's `d`
+  // in place but never touch our clones, leaving them stale. Mirror the
+  // original's `d` back onto the clones whenever it changes.
+  observeSplitRedraw(original, () => {
+    const currentD = original.getAttribute('d');
+    if (!currentD)
+      return;
+    const next = computeWhiskerParts(currentD);
+    if (!next)
+      return;
+    upperPath.setAttribute('d', next.upper);
+    lowerPath.setAttribute('d', next.lower);
+  });
+}
+
+/**
+ * Classifies a Highcharts whisker path's two cap subpaths into `upper` and
+ * `lower` cap `d` strings. Returns `null` when the path does not contain
+ * exactly two subpaths with computable midpoints.
+ */
+function computeWhiskerParts(d: string): { upper: string; lower: string } | null {
   // Highcharts uses uppercase commands; each cap starts with a fresh M.
   const subpaths = d.match(/M[^M]*/g);
   if (!subpaths || subpaths.length !== 2) {
-    console.warn(
-      `[MAIDR Highcharts] Whisker path in box ${boxIndex} has `
-      + `${subpaths?.length ?? 0} subpaths (expected 2); skipping split.`,
-    );
-    return;
+    return null;
   }
 
   const m0 = subpathMidpoint(subpaths[0]);
   const m1 = subpathMidpoint(subpaths[1]);
   if (!m0 || !m1) {
-    console.warn(`[MAIDR Highcharts] Could not compute whisker midpoints for box ${boxIndex}; skipping split.`);
-    return;
+    return null;
   }
 
   // Pick the dominant axis to classify: whichever differs more between
@@ -604,26 +965,19 @@ function splitWhiskerPath(group: SVGGElement, boxIndex: number): void {
   }
   const lowerIdx = 1 - upperIdx;
 
-  const upperPath = original.cloneNode(true) as SVGPathElement;
-  upperPath.setAttribute('d', subpaths[upperIdx].trim());
-  upperPath.setAttribute('data-maidr-box-part', 'upper-whisker');
+  return { upper: subpaths[upperIdx].trim(), lower: subpaths[lowerIdx].trim() };
+}
 
-  const lowerPath = original.cloneNode(true) as SVGPathElement;
-  lowerPath.setAttribute('d', subpaths[lowerIdx].trim());
-  lowerPath.setAttribute('data-maidr-box-part', 'lower-whisker');
-
-  // Insert after original so the visual stacking order is preserved. Note:
-  // afterend insertions go in reverse, so insert lower first then upper to
-  // end up with [original, upper, lower] which keeps the natural order.
-  original.insertAdjacentElement('afterend', lowerPath);
-  original.insertAdjacentElement('afterend', upperPath);
-
-  // Strip the original's identifying class so attribute-only selectors (and
-  // any future `.highcharts-boxplot-whisker` queries) skip it. We keep it in
-  // the DOM rather than hiding so Highcharts' own internal references stay
-  // valid; the new paths render the same caps on top.
-  original.classList.remove('highcharts-boxplot-whisker');
-  original.setAttribute('data-maidr-split-original', 'true');
+/**
+ * Watches a split-original `<path>` for `d` attribute changes and invokes
+ * `resync` so its cloned sub-part siblings can be kept in sync on Highcharts
+ * redraws. The observer is captured only by the observed node (and its
+ * callback closure), so it is garbage-collected together with the chart DOM;
+ * it does not need explicit teardown.
+ */
+function observeSplitRedraw(original: SVGPathElement, resync: () => void): void {
+  const observer = new MutationObserver(resync);
+  observer.observe(original, { attributes: true, attributeFilter: ['d'] });
 }
 
 /**
@@ -649,11 +1003,12 @@ function subpathMidpoint(subpath: string): { x: number; y: number } | null {
 
 function convertHeatmapSeries(
   series: HighchartsSeries,
-  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const xCategories = chart.xAxis[0]?.categories ?? [];
-  const yCategories = chart.yAxis[0]?.categories ?? [];
+  // Read categories from the series' OWN axes (not chart.xAxis[0]/yAxis[0])
+  // so heatmaps bound to secondary/pane axes get the right labels.
+  const xCategories = series.xAxis?.categories ?? [];
+  const yCategories = series.yAxis?.categories ?? [];
 
   // Determine grid dimensions. If numeric axes are used, infer from data.
   let rows = yCategories.length;
@@ -920,45 +1275,29 @@ function splitCandlestickPath(original: SVGPathElement, candleIndex: number): vo
     return;
   }
 
-  // Highcharts uses uppercase commands; each subpath starts with a fresh M.
-  const subpaths = d.match(/M[^M]*/g);
-  if (!subpaths || subpaths.length !== 3) {
+  const parts = computeCandlestickParts(d);
+  if (!parts) {
     console.warn(
-      `[MAIDR Highcharts] Candlestick path ${candleIndex} has `
-      + `${subpaths?.length ?? 0} subpaths (expected 3); skipping split.`,
+      `[MAIDR Highcharts] Candlestick path ${candleIndex} could not be split `
+      + `(expected 3 subpaths with a body and computable wick midpoints); skipping split.`,
     );
     return;
   }
 
-  // The body is the only subpath with a closepath command.
-  const bodyIdx = subpaths.findIndex(sp => /z/i.test(sp));
-  if (bodyIdx === -1) {
-    console.warn(`[MAIDR Highcharts] Candlestick path ${candleIndex}: no body subpath found; skipping split.`);
-    return;
-  }
-
-  const wickIndices = [0, 1, 2].filter(i => i !== bodyIdx);
-  const m0 = subpathMidpoint(subpaths[wickIndices[0]]);
-  const m1 = subpathMidpoint(subpaths[wickIndices[1]]);
-  if (!m0 || !m1) {
-    console.warn(`[MAIDR Highcharts] Could not compute wick midpoints for candle ${candleIndex}; skipping split.`);
-    return;
-  }
-
-  // SVG y grows downward → smaller y is visually upper.
-  const upperWickIdx = m0.y < m1.y ? wickIndices[0] : wickIndices[1];
-  const lowerWickIdx = upperWickIdx === wickIndices[0] ? wickIndices[1] : wickIndices[0];
-
-  const cloneSubpath = (subpathIdx: number, part: 'body' | 'upper-wick' | 'lower-wick'): SVGPathElement => {
+  const cloneSubpath = (dValue: string, part: 'body' | 'upper-wick' | 'lower-wick'): SVGPathElement => {
     const clone = original.cloneNode(true) as SVGPathElement;
-    clone.setAttribute('d', subpaths[subpathIdx].trim());
+    clone.setAttribute('d', dValue);
     clone.setAttribute('data-maidr-candle-part', part);
+    // Strip the identifying class from the clone so re-running
+    // `stampCandlestickIndices` never matches or renumbers it; the attribute
+    // selector still targets it via `data-maidr-candle-part`.
+    clone.classList.remove('highcharts-point');
     return clone;
   };
 
-  const bodyPath = cloneSubpath(bodyIdx, 'body');
-  const upperPath = cloneSubpath(upperWickIdx, 'upper-wick');
-  const lowerPath = cloneSubpath(lowerWickIdx, 'lower-wick');
+  const bodyPath = cloneSubpath(parts.body, 'body');
+  const upperPath = cloneSubpath(parts.upper, 'upper-wick');
+  const lowerPath = cloneSubpath(parts.lower, 'lower-wick');
 
   // afterend inserts in reverse, so insert lower → upper → body to end with
   // [original, body, upper, lower] (visual stacking preserved).
@@ -972,4 +1311,58 @@ function splitCandlestickPath(original: SVGPathElement, candleIndex: number): vo
   // same shapes on top.
   original.classList.remove('highcharts-point');
   original.setAttribute('data-maidr-split-original', 'true');
+
+  // Keep the cloned sections in sync when Highcharts rewrites the original's
+  // `d` on redraw (resize/reflow/update), otherwise the clones go stale.
+  observeSplitRedraw(original, () => {
+    const currentD = original.getAttribute('d');
+    if (!currentD)
+      return;
+    const next = computeCandlestickParts(currentD);
+    if (!next)
+      return;
+    bodyPath.setAttribute('d', next.body);
+    upperPath.setAttribute('d', next.upper);
+    lowerPath.setAttribute('d', next.lower);
+  });
+}
+
+/**
+ * Classifies a Highcharts candlestick path's three subpaths into `body`,
+ * `upper` wick, and `lower` wick `d` strings. The body is the only subpath with
+ * a closepath (`Z`) command; the remaining two are ordered by midpoint Y
+ * (smaller Y = upper, since SVG Y grows downward). Returns `null` when the path
+ * does not contain exactly three subpaths with a body and computable midpoints.
+ */
+function computeCandlestickParts(
+  d: string,
+): { body: string; upper: string; lower: string } | null {
+  // Highcharts uses uppercase commands; each subpath starts with a fresh M.
+  const subpaths = d.match(/M[^M]*/g);
+  if (!subpaths || subpaths.length !== 3) {
+    return null;
+  }
+
+  // The body is the only subpath with a closepath command.
+  const bodyIdx = subpaths.findIndex(sp => /z/i.test(sp));
+  if (bodyIdx === -1) {
+    return null;
+  }
+
+  const wickIndices = [0, 1, 2].filter(i => i !== bodyIdx);
+  const m0 = subpathMidpoint(subpaths[wickIndices[0]]);
+  const m1 = subpathMidpoint(subpaths[wickIndices[1]]);
+  if (!m0 || !m1) {
+    return null;
+  }
+
+  // SVG y grows downward → smaller y is visually upper.
+  const upperWickIdx = m0.y < m1.y ? wickIndices[0] : wickIndices[1];
+  const lowerWickIdx = upperWickIdx === wickIndices[0] ? wickIndices[1] : wickIndices[0];
+
+  return {
+    body: subpaths[bodyIdx].trim(),
+    upper: subpaths[upperWickIdx].trim(),
+    lower: subpaths[lowerWickIdx].trim(),
+  };
 }

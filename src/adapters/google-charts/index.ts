@@ -45,7 +45,11 @@
 
 export {
   createMaidrFromGoogleChart,
+  createMaidrFromGoogleCharts,
   type GoogleChartAdapterOptions,
+  type GoogleChartPanel,
+  type GoogleChartsGridOptions,
+  whenGoogleChartsReady,
 } from './converters';
 
 export type {
@@ -53,5 +57,6 @@ export type {
   GoogleChartType,
   GoogleDataTable,
   GoogleEvents,
+  GoogleListenerHandle,
   GoogleSelectionItem,
 } from './types';

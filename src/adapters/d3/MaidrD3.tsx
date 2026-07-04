@@ -12,23 +12,34 @@
  * re-rendered inside `<Maidr>` to enable audio sonification, text
  * descriptions, braille output, and keyboard navigation.
  *
- * **Important — remount behavior:** swapping from the bare render to the
- * `<Maidr>`-wrapped render causes the children (including your SVG) to
- * unmount and remount. Make sure your D3 drawing effect re-runs on mount —
- * the typical pattern of running it in `useEffect` with `[data]` deps is
- * sufficient, because a fresh mount triggers all mount effects.
+ * **Important — draw D3 in a ref callback, not a `useEffect`.** `MaidrD3` is
+ * the *parent* of your `<svg>`, so its binder effect (inside `useD3Adapter`)
+ * runs *before* any `useEffect` in the component that owns the ref. A
+ * `useEffect(..., [data])` draw would therefore run *after* the binder, which
+ * sees an empty SVG and throws "No elements found …". Additionally, the swap
+ * from the bare render to the `<Maidr>`-wrapped render remounts the `<svg>`,
+ * and a still-mounted owner component's `useEffect` does **not** re-fire on a
+ * host-element remount — so the redraw never happens and the chart blanks.
+ *
+ * Draw inside a **ref callback** instead: it runs during React's commit phase
+ * (before any effect, so the binder sees a populated SVG) *and* re-fires when
+ * the SVG remounts (so the chart survives the `<Maidr>` swap). See
+ * `examples/react-app/D3BarExample.tsx` for a complete example.
  *
  * @example
  * ```tsx
- * import { useRef, useEffect } from 'react';
+ * import { useCallback, useRef } from 'react';
  * import { MaidrD3 } from 'maidr/react';
  *
  * function AccessibleBarChart({ data }) {
  *   const svgRef = useRef<SVGSVGElement>(null);
  *
- *   useEffect(() => {
- *     if (!svgRef.current) return;
- *     // ... D3 drawing code into svgRef.current ...
+ *   // Draw in a ref callback: it runs in the commit phase (before MaidrD3's
+ *   // binder effect) and re-runs when the SVG remounts on the <Maidr> swap.
+ *   const attachSvg = useCallback((node: SVGSVGElement | null) => {
+ *     svgRef.current = node;
+ *     if (!node) return;
+ *     // ... D3 drawing code into `node` ...
  *   }, [data]);
  *
  *   return (
@@ -42,7 +53,7 @@
  *       }}
  *       deps={[data]}
  *     >
- *       <svg ref={svgRef} width={600} height={400} />
+ *       <svg ref={attachSvg} width={600} height={400} />
  *     </MaidrD3>
  *   );
  * }
@@ -51,7 +62,7 @@
 
 import type { JSX, ReactNode, RefObject } from 'react';
 import type { D3AdapterSpec } from './useD3Adapter';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Maidr } from '../../maidr-component';
 import { useD3Adapter } from './useD3Adapter';
 
@@ -101,14 +112,20 @@ export function MaidrD3(props: MaidrD3Props): JSX.Element {
 
   const { maidrData, error } = useD3Adapter(svgRef, spec, deps);
 
-  // Forward binder errors to the consumer once per failure. Effect deps are
-  // [error, onError] so the callback fires on the render that surfaces a new
-  // error, and not again until the error reference changes.
+  // Keep the latest `onError` in a ref so the effect can call it without
+  // depending on its identity. With a common inline-arrow prop, `onError`
+  // changes every parent render; listing it as a dependency would re-fire the
+  // callback while `error` stays non-null (and risk a render loop). Depending
+  // only on `error` — a stable React-state reference until the next bind —
+  // preserves the documented "fires once per failed bind" contract.
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   useEffect(() => {
-    if (error && onError) {
-      onError(error);
+    if (error) {
+      onErrorRef.current?.(error);
     }
-  }, [error, onError]);
+  }, [error]);
 
   // Render children bare until the first successful bind. This lets D3
   // draw into `svgRef.current` before we wrap with <Maidr>.
@@ -147,5 +164,9 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'segmented', config: props.config };
     case 'smooth':
       return { chartType: 'smooth', config: props.config };
+    case 'facets':
+      return { chartType: 'facets', config: props.config };
+    case 'subplots':
+      return { chartType: 'subplots', config: props.config };
   }
 }

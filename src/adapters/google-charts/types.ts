@@ -92,14 +92,33 @@ export interface GoogleChart {
 }
 
 /**
- * Google Charts event helper namespace.
+ * Opaque listener handle returned by the Google Charts event helpers.
+ *
+ * The real handle exposes only `getKey()`; listeners are detached by passing
+ * the handle back to {@link GoogleEvents.removeListener} (there is no
+ * `remove()` method on the handle itself).
+ */
+export interface GoogleListenerHandle {
+  getKey: () => unknown;
+}
+
+/**
+ * Google Charts event helper namespace (`google.visualization.events`).
+ *
+ * @see https://developers.google.com/chart/interactive/docs/reference#events
  */
 export interface GoogleEvents {
   addListener: (
     chart: GoogleChart,
     eventName: string,
     handler: (...args: unknown[]) => void,
-  ) => { remove: () => void };
+  ) => GoogleListenerHandle;
+  addOneTimeListener: (
+    chart: GoogleChart,
+    eventName: string,
+    handler: (...args: unknown[]) => void,
+  ) => GoogleListenerHandle;
+  removeListener: (handle: GoogleListenerHandle) => boolean;
   removeAllListeners: (chart: GoogleChart) => void;
 }
 

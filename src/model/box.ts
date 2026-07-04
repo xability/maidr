@@ -230,10 +230,11 @@ export class BoxTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // boxValues is orientation-normalized (row = navigation row, col =
+    // navigation col), so rows/cols map directly to its shape.
     return {
-      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
-      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
+      rows: this.boxValues.length,
+      cols: this.boxValues[this.row].length,
     };
   }
 
@@ -297,13 +298,13 @@ export class BoxTrace extends AbstractTrace {
     // Phase 2: Clone and create elements from originals (DOM queries complete)
     originals.forEach((original, boxIdx) => {
       const lowerOutliers = original.lowerOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
+        const clone = Svg.markOwned(el.cloneNode(true) as SVGElement);
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         el.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
       const upperOutliers = original.upperOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
+        const clone = Svg.markOwned(el.cloneNode(true) as SVGElement);
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         el.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
@@ -364,7 +365,7 @@ export class BoxTrace extends AbstractTrace {
     if (!original) {
       return Svg.createEmptyElement();
     }
-    const clone = original.cloneNode(true) as SVGElement;
+    const clone = Svg.markOwned(original.cloneNode(true) as SVGElement);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     original.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
@@ -399,7 +400,10 @@ export class BoxTrace extends AbstractTrace {
       const current_value = values[currentIndex];
       const next_value = values[i];
       if (Array.isArray(next_value) || Array.isArray(current_value)) {
-        return true;
+        // Outlier sections hold arrays, not scalar section values; skip them
+        // instead of falsely reporting a successful move.
+        i += step;
+        continue;
       }
 
       if (this.compare(next_value, current_value, type)) {

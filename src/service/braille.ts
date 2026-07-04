@@ -283,7 +283,13 @@ function encodeWithWrapping(
       cellToIndex[row].push(indexToCell.length);
       indexToCell.push({ row, col });
 
-      if (!multiline && (col + 1) % displaySize === 0) {
+      // Emit a wrap newline only MID-row, never after the final column. The
+      // row's trailing newline is emitted exactly once by the single-line
+      // sentinel block below. Skipping the last column here keeps `values` and
+      // `indexToCell` in lockstep even when a row's width is an exact multiple
+      // of `displaySize` (otherwise the trailing wrap would add a character
+      // without a matching sentinel entry, shifting every subsequent row).
+      if (!multiline && (col + 1) % displaySize === 0 && col + 1 !== cols) {
         values.push(Constant.NEW_LINE);
         indexToCell.push({ row, col });
       }
@@ -309,11 +315,15 @@ function encodeWithWrapping(
       // feeds the on-screen textarea (or a one-line braille display that
       // only ever shows one row at a time). Multi-line physical braille
       // displays are never in this branch — they always set multiline=true.
+      //
+      // Always emit BOTH the sentinel index entry and its NEW_LINE character
+      // so `indexToCell.length` stays equal to `values.length` for every row.
+      // The mid-row wrap above deliberately skips the final column, so this is
+      // the single source of each row's trailing newline regardless of whether
+      // the row width is an exact multiple of `displaySize`.
       const sentinelIdx = indexToCell.length;
       indexToCell.push({ row, col: cols });
-      if (cols === 0 || cols % displaySize !== 0) {
-        values.push(Constant.NEW_LINE);
-      }
+      values.push(Constant.NEW_LINE);
       cellToIndex[row].push(sentinelIdx);
     }
   }
@@ -390,10 +400,14 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
         const high = medium + range;
         const value = state.values[row][col];
 
+        // Four distinct height levels per docs/BRAILLE.md: ⣀ (0-25%),
+        // ⠤ (25-50%), ⠒ (50-75%), ⠉ (75-100%). The lowest band uses the
+        // dots-7-8 bottom glyph so it is distinguishable on a braille display
+        // from the second band rather than collapsing into three levels.
         if (value === 0)
           return ' ';
         if (value <= low)
-          return '⠤';
+          return '⣀';
         if (value <= medium)
           return '⠤';
         if (value <= high)
@@ -578,19 +592,37 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       }
 
       const totalChars = lenData.reduce((sum, l) => sum + l.numChars, 0);
-      let diff = displaySize - totalChars;
-      let adjustIndex = 0;
-      while (diff !== 0) {
-        const section = lenData[adjustIndex % lenData.length];
-        if (
+      // Only sections that are neither BLANK nor Q2 and have positive length
+      // can absorb the ±1 character-count adjustment below. For a degenerate
+      // box whose five-number summary is constant (min == q1 == q2 == q3 ==
+      // max, sitting at the trace's global min/max), every section length is
+      // 0, so none is adjustable and the loop could never drive `diff` to 0.
+      // Only enter the loop when an adjustable section exists — that guarantees
+      // each full pass over `lenData` reduces `|diff|` by at least 1, so the
+      // loop always terminates. In the degenerate case the row is space-padded
+      // to `displaySize` afterwards in multiline mode, and simply renders
+      // shorter than a full line in single-line mode.
+      const hasAdjustable = lenData.some(
+        section =>
           section.type !== this.BLANK
           && section.type !== this.Q2
-          && section.length > 0
-        ) {
-          section.numChars += diff > 0 ? 1 : -1;
-          diff += diff > 0 ? -1 : 1;
+          && section.length > 0,
+      );
+      if (hasAdjustable) {
+        let diff = displaySize - totalChars;
+        let adjustIndex = 0;
+        while (diff !== 0) {
+          const section = lenData[adjustIndex % lenData.length];
+          if (
+            section.type !== this.BLANK
+            && section.type !== this.Q2
+            && section.length > 0
+          ) {
+            section.numChars += diff > 0 ? 1 : -1;
+            diff += diff > 0 ? -1 : 1;
+          }
+          adjustIndex++;
         }
-        adjustIndex++;
       }
 
       let col = -1;
@@ -1012,6 +1044,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private colOffset: number;
   private cacheId: string;
   private cache: EncodedBraille | null;
+  private cacheValues: unknown;
   private readonly disposables: Disposable[];
 
   private readonly encoders: Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>;
@@ -1044,6 +1077,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.colOffset = 0;
     this.cacheId = Constant.EMPTY;
     this.cache = null;
+    this.cacheValues = null;
     this.disposables = [];
 
     // Encoders are heterogeneous: each one accepts only its own concrete
@@ -1096,6 +1130,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
       this.cache = null;
       this.cacheId = Constant.EMPTY;
+      this.cacheValues = null;
       this.colOffset = 0;
 
       if (!this.enabled) {
@@ -1118,6 +1153,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.disposables.length = 0;
 
     this.cache = null;
+    this.cacheValues = null;
     this.encoders.clear();
   }
 
@@ -1178,8 +1214,20 @@ implements Observer<SubplotState | TraceState>, Disposable {
       ? Math.max(0, Math.floor(braille.col / this.displaySize) * this.displaySize)
       : 0;
     const cacheKey = willWindow ? `${braille.id}|${targetOffset}` : braille.id;
+    // `braille.values` is a stable reference to the active trace's underlying
+    // data array: it survives cursor navigation (same trace, same array) but is
+    // replaced whenever the model is rebuilt — live setData/appendData creates
+    // fresh trace instances with new arrays while preserving the layer id.
+    // Comparing it by identity invalidates the cache on data changes that an
+    // id-only key would miss, and stays an O(1) check so normal navigation
+    // remains a cache hit.
+    const cacheValues = braille.values;
 
-    if (this.cache === null || this.cacheId !== cacheKey) {
+    if (
+      this.cache === null
+      || this.cacheId !== cacheKey
+      || this.cacheValues !== cacheValues
+    ) {
       const encoder = this.encoders.get(trace.traceType)!;
       this.colOffset = targetOffset;
       this.cache = encoder.encode(
@@ -1189,6 +1237,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
         this.colOffset,
       );
       this.cacheId = cacheKey;
+      this.cacheValues = cacheValues;
     }
 
     this.onChangeEmitter.fire({

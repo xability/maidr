@@ -74,12 +74,51 @@
  * }
  * ```
  *
+ * @example Multi-panel (faceted) figure
+ * ```tsx
+ * import { MaidrRecharts } from 'maidr/recharts';
+ * import { Bar, BarChart, XAxis, YAxis } from 'recharts';
+ *
+ * const east = [{ quarter: 'Q1', revenue: 100 }, { quarter: 'Q2', revenue: 200 }];
+ * const west = [{ quarter: 'Q1', revenue: 80 }, { quarter: 'Q2', revenue: 140 }];
+ *
+ * function AccessibleFacetedChart() {
+ *   return (
+ *     <MaidrRecharts
+ *       id="sales-by-region"
+ *       title="Sales by Region"
+ *       xKey="quarter"
+ *       yKeys={['revenue']}
+ *       xLabel="Quarter"
+ *       yLabel="Revenue"
+ *       subplots={[[
+ *         { title: 'East', chartType: 'bar', data: east },
+ *         { title: 'West', chartType: 'bar', data: west },
+ *       ]]}
+ *     >
+ *       <BarChart width={300} height={250} data={east}>
+ *         <XAxis dataKey="quarter" />
+ *         <YAxis />
+ *         <Bar dataKey="revenue" />
+ *       </BarChart>
+ *       <BarChart width={300} height={250} data={west}>
+ *         <XAxis dataKey="quarter" />
+ *         <YAxis />
+ *         <Bar dataKey="revenue" />
+ *       </BarChart>
+ *     </MaidrRecharts>
+ *   );
+ * }
+ * ```
+ *
  * @packageDocumentation
  */
 export {
   convertRechartsToMaidr,
+  getPanelClassName,
   getRechartsSelector,
   MaidrRecharts,
+  normalizeRechartsSubplotGrid,
   useRechartsAdapter,
 } from './adapters/recharts';
 
@@ -89,6 +128,7 @@ export type {
   RechartsAdapterConfig,
   RechartsChartType,
   RechartsLayerConfig,
+  RechartsSubplotConfig,
 } from './adapters/recharts';
 
 // Re-export core types that consumers may need alongside the adapter
