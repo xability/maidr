@@ -116,21 +116,27 @@ test.describe('live data: monitor mode focus', () => {
     await page.waitForTimeout(600); // settle: silence cannot be polled
     expect(await ariaText(page)).not.toContain('103.5');
 
-    // A full tick announces only the focused (MA) layer's point.
+    // A full tick announces only the focused (MA) layer's point. The focused
+    // layer's append lands FIRST so the unfocused appends come after it:
+    // without the gate they would overwrite the announcement (last write
+    // wins), which is what makes the negative assertions regression-sensitive.
+    await append(page, { x: '09:35', y: 101.5 }, { id: 'live-ticker', layerId: 'ma-layer' });
+    await waitForAriaText(page, '101.5');
     await append(
       page,
       { value: '09:35', open: 103.5, high: 106, low: 103, close: 105.25 },
       { id: 'live-ticker', layerId: 'candle-layer' },
     );
     await append(page, { x: '09:35', y: 1700 }, { id: 'live-ticker', layerId: 'volume-layer' });
-    await append(page, { x: '09:35', y: 101.5 }, { id: 'live-ticker', layerId: 'ma-layer' });
-    await waitForAriaText(page, '101.5');
+    await page.waitForTimeout(600); // settle: silence cannot be polled
     let text = await ariaText(page);
+    expect(text).toContain('101.5');
     expect(text).not.toContain('105.25');
     expect(text).not.toContain('1,700');
 
     // Switch focus back to the candle layer: the next tick announces the
-    // close price and nothing else.
+    // close price and nothing else. Same ordering trick: focused layer first,
+    // then the unfocused appends, so a broken gate would overwrite the text.
     await page.keyboard.press('PageDown');
     await waitForAriaText(page, 'Layer 2 of 3');
     await page.keyboard.press('PageDown');
@@ -140,10 +146,12 @@ test.describe('live data: monitor mode focus', () => {
       { value: '09:36', open: 105.25, high: 108, low: 105, close: 107.75 },
       { id: 'live-ticker', layerId: 'candle-layer' },
     );
+    await waitForAriaText(page, '107.75');
     await append(page, { x: '09:36', y: 1400 }, { id: 'live-ticker', layerId: 'volume-layer' });
     await append(page, { x: '09:36', y: 104.25 }, { id: 'live-ticker', layerId: 'ma-layer' });
-    await waitForAriaText(page, '107.75');
+    await page.waitForTimeout(600); // settle: silence cannot be polled
     text = await ariaText(page);
+    expect(text).toContain('107.75');
     expect(text).not.toContain('104.25');
     expect(text).not.toContain('1,400');
   });
