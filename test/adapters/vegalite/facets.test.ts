@@ -275,6 +275,73 @@ describe('vega-Lite faceted conversion', () => {
     }
   });
 
+  it('enumerates facet panels from all layers, not just the first non-empty one', () => {
+    // The sparse annotation layer is declared FIRST and covers only site A;
+    // panel keys must still come from the union of all layers' rows, so the
+    // bar layer's full dataset produces panels for B and C too.
+    const spec: VegaLiteSpec = {
+      data: { values: siteValues },
+      facet: { column: { field: 'site', type: 'nominal' } },
+      spec: {
+        layer: [
+          {
+            mark: 'point',
+            data: { values: [{ site: 'A', variety: 'v1', yield: 11 }] },
+            encoding: {
+              x: { field: 'variety', type: 'nominal' },
+              y: { field: 'yield', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'bar',
+            encoding: {
+              x: { field: 'variety', type: 'nominal' },
+              y: { field: 'yield', type: 'quantitative' },
+            },
+          },
+        ],
+      },
+    };
+    const result = vegaLiteToMaidr(spec);
+
+    expect(result.subplots).toHaveLength(1);
+    expect(result.subplots[0]).toHaveLength(3);
+    expect(result.subplots[0].map(s => s.layers[0].title)).toEqual([
+      'site: A',
+      'site: B',
+      'site: C',
+    ]);
+    expect(result.subplots[0][0].layers.map(l => l.type))
+      .toEqual([TraceType.SCATTER, TraceType.BAR]);
+    expect(result.subplots[0][1].layers.map(l => l.type)).toEqual([TraceType.BAR]);
+  });
+
+  it('does not confuse facet combos whose space-joined keys would collide', () => {
+    // With a bare-space combo delimiter, the phantom combo (r="X", c="Y W")
+    // would serialize identically to the real combo (r="X Y", c="W"),
+    // fabricating an empty panel that collapses the whole chart.
+    const values = [
+      { r: 'X', c: 'Q', variety: 'v1', yield: 1 },
+      { r: 'X Y', c: 'W', variety: 'v1', yield: 2 },
+      { r: 'Z', c: 'Y W', variety: 'v1', yield: 3 },
+    ];
+    const spec: VegaLiteSpec = {
+      data: { values },
+      facet: {
+        row: { field: 'r', type: 'nominal' },
+        column: { field: 'c', type: 'nominal' },
+      },
+      spec: barChild,
+    };
+    const result = vegaLiteToMaidr(spec);
+
+    expect(result.subplots.map(row => row.map(s => s.layers[0].title))).toEqual([
+      ['r: X, c: Q'],
+      ['r: X Y, c: W'],
+      ['r: Z, c: Y W'],
+    ]);
+  });
+
   it('converts the encoding.column shorthand like the facet operator', () => {
     const spec: VegaLiteSpec = {
       data: { values: siteValues },

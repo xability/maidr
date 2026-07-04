@@ -1257,7 +1257,10 @@ function buildFacetMaidr(
     }
     return rows;
   });
-  const allRows = layerRows.find(rows => rows.length > 0) ?? [];
+  // Union across ALL layers: a sparse layer declared first (e.g. an
+  // annotation layer covering a subset of facet values) must not hide
+  // panels that a fuller layer's data would produce.
+  const allRows = layerRows.flat();
 
   // Build the grid of cell definitions in visual reading order.
   const grid: FacetCellDef[][] = [];
@@ -1280,18 +1283,22 @@ function buildFacetMaidr(
       : [null];
 
     // Cross facets are sparse: Vega only renders cells for (row, column)
-    // combinations present in the data.
+    // combinations present in the data. The combo key is joined with NUL
+    // (which cannot appear in field values) - a bare space would make
+    // row="East Coast"/col="City" collide with row="East"/col="Coast City".
+    const comboKey = (rowValue: unknown, colValue: unknown): string =>
+      `${String(rowValue)}\u0000${String(colValue)}`;
     const combos = new Set<string>();
     if (rowField && colField) {
       for (const row of allRows) {
-        combos.add(`${String(row[rowField])} ${String(row[colField])}`);
+        combos.add(comboKey(row[rowField], row[colField]));
       }
     }
 
     for (const rowKey of rowKeys) {
       const cellsInRow: FacetCellDef[] = [];
       for (const colKey of colKeys) {
-        if (rowField && colField && !combos.has(`${rowKey} ${colKey}`)) {
+        if (rowField && colField && !combos.has(comboKey(rowKey, colKey))) {
           continue;
         }
         const filters: FacetCellDef['filters'] = [];

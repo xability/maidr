@@ -128,6 +128,15 @@ function applyHighlight(
   const chart = navMap.chartFor(event.layerId);
   const plotBounds = chart ? readPlotBounds(chart) : null;
 
+  // Without readable panel bounds an unclipped rect could bleed into a
+  // sibling panel (all panels share one overlay canvas), so suppress the
+  // highlight in multi-panel roots. Single charts keep the unclipped
+  // fallback: there is no neighbor to bleed into.
+  if (!plotBounds && navMap.chartCount > 1) {
+    overlay.clear();
+    return;
+  }
+
   const rects = [];
   for (const target of targets) {
     const rect = dataItemToOverlayRect(target, plotBounds);

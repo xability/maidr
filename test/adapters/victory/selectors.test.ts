@@ -103,6 +103,25 @@ describe('resolvePanelSvgs', () => {
     expect(svgs.every(svg => !svg.hasAttribute('data-maidr-owned'))).toBe(true);
   });
 
+  it('ignores a user role="img" svg between panels when VictoryContainer wrappers are present', () => {
+    const { container, doc } = buildContainer([2, 3]);
+    // Real Victory stamps its wrapper divs with the VictoryContainer class.
+    for (const wrapper of Array.from(container.children)) {
+      wrapper.classList.add('VictoryContainer');
+    }
+    // A user-supplied accessible illustration between the two panels: passes
+    // the role="img" filter but is not a Victory chart svg.
+    const interloper = doc.createElementNS(SVG_NS, 'svg');
+    interloper.setAttribute('role', 'img');
+    container.insertBefore(interloper, container.children[1]);
+
+    const svgs = resolvePanelSvgs(container, 2);
+
+    expect(svgs).toHaveLength(2);
+    expect(svgs[0].querySelectorAll('path')).toHaveLength(2);
+    expect(svgs[1].querySelectorAll('path')).toHaveLength(3);
+  });
+
   it('excludes MAIDR-owned clones in the all-svgs fallback too', () => {
     const { container } = buildContainer([2, 3]);
     for (const svg of Array.from(container.querySelectorAll('svg'))) {

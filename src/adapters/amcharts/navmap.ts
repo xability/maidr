@@ -34,6 +34,8 @@ export interface NavMap {
    * disambiguates the panel.
    */
   chartFor: (layerId: string) => AmXYChart | undefined;
+  /** Number of distinct charts (panels) in the map. */
+  chartCount: number;
 }
 
 /**
@@ -188,6 +190,7 @@ export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
   return {
     resolve: (layerId, row, col) => resolvers.get(layerId)?.(row, col) ?? [],
     chartFor: layerId => owners.get(layerId),
+    chartCount: new Set(entries.map(entry => entry.chart)).size,
   };
 }
 

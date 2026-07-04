@@ -50,6 +50,10 @@ describe('buildNavigationMap (multi-panel)', () => {
   const panelB = barPanel('layer-b', seriesB);
   const navMap = buildNavigationMap([panelA, panelB]);
 
+  it('reports the number of distinct panel charts', () => {
+    expect(navMap.chartCount).toBe(2);
+  });
+
   it('resolves each layer against its own panel series', () => {
     const targetsA = navMap.resolve('layer-a', 0, 1);
     expect(targetsA).toHaveLength(1);

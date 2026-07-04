@@ -76,8 +76,21 @@ function victoryAttr(panelIndex: number | null, suffix: string): string {
  */
 export function resolvePanelSvgs(container: HTMLElement, expectedCount: number): SVGElement[] {
   const all = Array.from(container.querySelectorAll('svg')).filter(svg => !isMaidrOwned(svg));
-  const victorySvgs = all.filter(svg => svg.getAttribute('role') === 'img');
-  return victorySvgs.length >= expectedCount ? victorySvgs : all;
+
+  // Victory renders each chart svg inside a `div.VictoryContainer` wrapper —
+  // the most precise signal, immune to user-supplied `role="img"` svgs
+  // (icons, illustrations) sitting between panels.
+  const containerSvgs = all.filter(
+    svg => svg.parentElement?.classList.contains('VictoryContainer') ?? false,
+  );
+  if (containerSvgs.length === expectedCount)
+    return containerSvgs;
+
+  const roleImgSvgs = all.filter(svg => svg.getAttribute('role') === 'img');
+  if (roleImgSvgs.length === expectedCount)
+    return roleImgSvgs;
+
+  return roleImgSvgs.length >= expectedCount ? roleImgSvgs : all;
 }
 
 /**
