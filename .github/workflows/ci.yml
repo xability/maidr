@@ -86,20 +86,24 @@ jobs:
         run: node scripts/build.js core
 
       - name: Run smoke specs
+        id: smoke
         run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium liveData.spec.ts
         env:
           CI: true
 
       # The smoke specs are kept green, so a failure here is a real
       # regression — ship the report and screenshots with the PR run.
+      # Scoped to the test step so an earlier failure (npm ci, browser
+      # install) doesn't trigger an upload with nothing to upload.
       - name: Upload Playwright report on failure
-        if: failure()
+        if: failure() && steps.smoke.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-smoke-report
           path: |
             playwright-report/
             test-results/
+          if-no-files-found: ignore
 
   build:
     name: Build Project

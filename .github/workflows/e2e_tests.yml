@@ -105,9 +105,12 @@ jobs:
               state: 'open'
             });
 
+            // Match on the stable title prefix only: the body always embeds
+            // the CURRENT run's URL, so matching on it could never find an
+            // issue from a previous run — each scheduled failure would file
+            // a brand-new issue instead of updating the rolling one.
             const existingIssue = issues.data.find(issue =>
-              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report') &&
-              issue.body.includes(run_url)
+              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report')
             );
 
             if (existingIssue) {
