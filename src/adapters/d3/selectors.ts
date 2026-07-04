@@ -39,6 +39,43 @@ export function ensureContainerId(container: Element): string {
   return ensureSharedContainerId(container, D3_ID_PREFIX);
 }
 
+/** Attribute stamped on each panel element by the multi-panel binders. */
+export const PANEL_ATTRIBUTE = 'data-maidr-panel';
+
+/**
+ * Panel scope for multi-panel (faceted / composed) binds.
+ *
+ * When a binder extracts one panel of a multi-panel figure, its extraction
+ * root is the panel element — not the outer SVG. Emitted selectors must still
+ * be anchored to the OUTER SVG's page-unique id (MAIDR resolves selectors via
+ * `document.querySelector`) and additionally narrowed to the panel via the
+ * `data-maidr-panel` attribute, so panel A's selector can never match panel
+ * B's marks.
+ */
+export interface D3PanelScope {
+  /** The outer SVG (or container) whose id anchors all emitted selectors. */
+  container: Element;
+  /** The index stamped on the panel element as `data-maidr-panel`. */
+  panelIndex: number;
+}
+
+/**
+ * Returns the absolute selector prefix for a container — `#<id>` for
+ * single-panel binds, `#<id> [data-maidr-panel="<i>"]` when a panel scope is
+ * given. Binders that build custom selector strings (line, box) concatenate
+ * this prefix with their own per-element attribute selectors.
+ *
+ * @param container - The extraction root (the SVG, or a panel element).
+ * @param panel - Optional panel scope; when present, its `container` (the
+ *                outer SVG) supplies the id and the panel segment is appended.
+ * @returns The selector prefix, without a trailing space.
+ */
+export function selectorPrefix(container: Element, panel?: D3PanelScope): string {
+  const id = ensureContainerId(panel?.container ?? container);
+  const base = `#${cssEscape(id)}`;
+  return panel ? `${base} [${PANEL_ATTRIBUTE}="${panel.panelIndex}"]` : base;
+}
+
 /**
  * Scopes a user-provided selector to a container, prefixing the result with
  * the container's id so it resolves uniquely under page-global lookups
@@ -46,11 +83,14 @@ export function ensureContainerId(container: Element): string {
  * auto-assigned via {@link ensureContainerId} so every binder emits an
  * absolutely-scoped selector without per-binder boilerplate.
  *
- * @param container - The root SVG container.
+ * With a {@link D3PanelScope}, the emitted selector is additionally narrowed
+ * to the panel: `#<svgId> [data-maidr-panel="<i>"] <selector>`.
+ *
+ * @param container - The root SVG container (or panel extraction root).
  * @param selector - The user-provided CSS selector.
+ * @param panel - Optional panel scope for multi-panel binds.
  * @returns The id-scoped selector string, e.g. `#<svgId> <selector>`.
  */
-export function scopeSelector(container: Element, selector: string): string {
-  const id = ensureContainerId(container);
-  return `#${cssEscape(id)} ${selector}`;
+export function scopeSelector(container: Element, selector: string, panel?: D3PanelScope): string {
+  return `${selectorPrefix(container, panel)} ${selector}`;
 }

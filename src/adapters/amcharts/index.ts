@@ -21,6 +21,11 @@
  *    attribute or `<Maidr data={...}>`. Enables audio/text/braille but NOT
  *    visual highlighting (the highlight callback cannot survive JSON).
  *
+ * Multi-panel roots are supported by both paths: every `XYChart` in the
+ * root's container tree (including am5stock `StockPanel`s) becomes one MAIDR
+ * subplot, arranged in a grid matching the rendered layout. Arrow keys move
+ * between panels; Enter drills into a panel and Escape returns.
+ *
  * @example
  * ```ts
  * import { bindAmCharts } from 'maidr/amcharts';
@@ -34,7 +39,7 @@
  * @packageDocumentation
  */
 
-export { fromAmCharts, fromXYChart } from './adapter';
+export { findXYCharts, fromAmCharts, fromXYChart, fromXYCharts } from './adapter';
 export { bindAmCharts, bindXYChart } from './binder';
 export type { AmChartsBinding, AmChartsBindOptions } from './binder';
 export type { AmChartsBinderOptions, AmRoot, AmXYChart, AmXYSeries } from './types';

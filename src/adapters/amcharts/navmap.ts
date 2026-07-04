@@ -4,11 +4,13 @@
  * MAIDR navigation fires `{ layerId, row, col }`. To highlight the active data
  * point we must map that back to the live amCharts series + dataItem so the
  * overlay can read its pixel geometry. The grouping mirrors how the adapter
- * builds layers in `adapter.ts` (`fromXYChart`).
+ * builds layers in `adapter.ts` (`convertCharts`). Multi-panel figures pass
+ * one entry per subplot; the merged map also records each layer's owning
+ * chart so highlights clip against the correct panel's plot area.
  */
 
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
-import type { AmDataItem, AmXYSeries } from './types';
+import type { AmDataItem, AmXYChart, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -26,6 +28,25 @@ export interface NavTarget {
  */
 export interface NavMap {
   resolve: (layerId: string, row: number, col: number) => NavTarget[];
+  /**
+   * The chart owning a layer, so highlights can be clipped against the owning
+   * panel's plot bounds. Layer ids are unique figure-wide, so the id alone
+   * disambiguates the panel.
+   */
+  chartFor: (layerId: string) => AmXYChart | undefined;
+  /** Number of distinct charts (panels) in the map. */
+  chartCount: number;
+}
+
+/**
+ * One subplot's worth of navigation-map input: the MAIDR layers built from a
+ * chart, the live series grouped as the adapter grouped them, and the owning
+ * chart itself.
+ */
+export interface NavMapEntry {
+  layers: MaidrLayer[];
+  groups: SeriesGroups;
+  chart: AmXYChart;
 }
 
 /**
@@ -153,16 +174,32 @@ function buildHeatmapResolver(series: AmXYSeries, data: HeatmapData): Resolver {
 }
 
 /**
- * Build the navigation map from the MAIDR layers (for IDs + types) and the
- * grouped live series. Layers are matched to series by type and order, which
- * avoids depending on the exact generated ID strings.
+ * Build the navigation map from one entry per subplot. Each entry's layers
+ * are matched to its grouped live series by type and order (avoiding any
+ * dependence on the exact generated ID strings), and all resolvers merge into
+ * one layerId-keyed map — layer ids are unique across the whole figure.
  */
-export function buildNavigationMap(
-  layers: MaidrLayer[],
-  groups: SeriesGroups,
-): NavMap {
+export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
   const resolvers = new Map<string, Resolver>();
+  const owners = new Map<string, AmXYChart>();
 
+  for (const entry of entries) {
+    addEntryResolvers(entry, resolvers, owners);
+  }
+
+  return {
+    resolve: (layerId, row, col) => resolvers.get(layerId)?.(row, col) ?? [],
+    chartFor: layerId => owners.get(layerId),
+    chartCount: new Set(entries.map(entry => entry.chart)).size,
+  };
+}
+
+/** Register the resolvers (and owning chart) for one subplot's layers. */
+function addEntryResolvers(
+  { layers, groups, chart }: NavMapEntry,
+  resolvers: Map<string, Resolver>,
+  owners: Map<string, AmXYChart>,
+): void {
   // Precompute gap-filtered items per series, then drop empty series exactly as
   // the adapter does when building layers (`buildSegmentedLayer` / `fromXYChart`
   // skip series that yield no points). This keeps MAIDR row/col indices aligned
@@ -182,21 +219,26 @@ export function buildNavigationMap(
   let histIdx = 0;
   let heatIdx = 0;
 
+  const register = (layerId: string, resolver: Resolver): void => {
+    resolvers.set(layerId, resolver);
+    owners.set(layerId, chart);
+  };
+
   for (const layer of layers) {
     switch (layer.type) {
       case TraceType.BAR: {
         const entry = barItems[0];
-        resolvers.set(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
       case TraceType.STACKED:
       case TraceType.DODGED:
       case TraceType.NORMALIZED: {
-        resolvers.set(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
+        register(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
         break;
       }
       case TraceType.LINE: {
-        resolvers.set(layer.id, (row, col) => {
+        register(layer.id, (row, col) => {
           const entry = lineSeries[row];
           const dataItem = entry?.items[col];
           return entry && dataItem
@@ -207,13 +249,13 @@ export function buildNavigationMap(
       }
       case TraceType.HISTOGRAM: {
         const entry = histogramSeries[histIdx++];
-        resolvers.set(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
       case TraceType.HEATMAP: {
         const series = groups.heatmapSeries[heatIdx++];
         if (series) {
-          resolvers.set(layer.id, buildHeatmapResolver(series, layer.data as HeatmapData));
+          register(layer.id, buildHeatmapResolver(series, layer.data as HeatmapData));
         }
         break;
       }
@@ -221,8 +263,4 @@ export function buildNavigationMap(
         break;
     }
   }
-
-  return {
-    resolve: (layerId, row, col) => resolvers.get(layerId)?.(row, col) ?? [],
-  };
 }

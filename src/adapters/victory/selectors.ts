@@ -8,40 +8,114 @@ import type { VictoryLayerInfo } from './types';
 const ATTR_PREFIX = 'data-maidr-victory';
 
 /**
- * CSS selector matching every `data-maidr-victory-<n>` tag (supports up to 10
- * layers per subplot, which is well beyond any realistic Victory chart).
+ * Attribute stamped on each panel's root `<svg>` in multi-panel mode; its
+ * value is the panel index. Emitted selectors use it as an ancestor segment
+ * so one panel's selectors can never match another panel's marks, and
+ * `MaidrSubplot.selector` targets it for subplot-level highlighting.
  */
-const TAGGED_QUERY = Array.from({ length: 10 }, (_, i) => `[${ATTR_PREFIX}-${i}]`).join(', ');
+export const PANEL_ATTR = `${ATTR_PREFIX}-panel`;
 
 /**
- * Returns all currently-tagged elements inside the container's SVG.
+ * True when an element is (or lives inside) a MAIDR-created hidden clone.
+ *
+ * MAIDR's `Svg` helpers stamp every highlight clone with `data-maidr-owned`
+ * and insert it next to the original while a figure is focused. `cloneNode`
+ * preserves `role` and every `data-maidr-victory-*` attribute, so clones are
+ * otherwise indistinguishable from live Victory nodes — every DOM discovery
+ * in this module must skip them (`closest` matches the element itself).
+ */
+function isMaidrOwned(el: Element): boolean {
+  return el.closest('[data-maidr-owned]') !== null;
+}
+
+/**
+ * Scans the container once for every element carrying a layer-tag attribute:
+ * the flat single-panel names (`data-maidr-victory-<layer>`), the panel-scoped
+ * multi-panel names (`data-maidr-victory-<panel>-<layer>`), and the named
+ * box/candlestick part attributes. CSS attribute selectors cannot express
+ * name-prefix matching, so an attribute-name scan (rather than an enumerated
+ * selector list) keeps discovery unbounded in panel and layer count.
+ *
+ * The panel stamp ({@link PANEL_ATTR}) shares the prefix but is index-stable
+ * and must never be treated as a layer tag, so it is excluded here.
+ */
+function findTaggedElements(container: HTMLElement): Element[] {
+  return Array.from(container.querySelectorAll('*')).filter(el =>
+    !isMaidrOwned(el)
+    && Array.from(el.attributes).some(attr =>
+      attr.name !== PANEL_ATTR && attr.name.startsWith(ATTR_PREFIX)));
+}
+
+/**
+ * Builds a tag attribute name. In multi-panel mode the panel index is folded
+ * into the name (`data-maidr-victory-<panel>-<suffix>`) so names stay unique
+ * per panel; single-panel names keep the original flat form
+ * (`data-maidr-victory-<suffix>`) for backward compatibility.
+ */
+function victoryAttr(panelIndex: number | null, suffix: string): string {
+  return panelIndex === null
+    ? `${ATTR_PREFIX}-${suffix}`
+    : `${ATTR_PREFIX}-${panelIndex}-${suffix}`;
+}
+
+/**
+ * Resolves the per-panel `<svg>` roots inside the container, in document
+ * order (which matches the top-level `<VictoryChart>` children order, since
+ * each standalone VictoryChart renders exactly one svg).
+ *
+ * Victory's `VictoryContainer` renders its svg with `role="img"`, so the
+ * filter skips decorative user svgs (icons, etc.). If the filter yields fewer
+ * svgs than expected (e.g. a Victory version drops the role), all svgs are
+ * used as a fallback.
+ *
+ * MAIDR-owned hidden clones are excluded up front: while the figure is
+ * focused, the core inserts a `data-maidr-owned` clone right after each
+ * panel svg (with `role="img"` preserved), and counting those would bind
+ * every panel after the first to the previous panel's clone during a
+ * focused re-tag pass.
+ */
+export function resolvePanelSvgs(container: HTMLElement, expectedCount: number): SVGElement[] {
+  const all = Array.from(container.querySelectorAll('svg')).filter(svg => !isMaidrOwned(svg));
+
+  // Victory renders each chart svg inside a `div.VictoryContainer` wrapper —
+  // the most precise signal, immune to user-supplied `role="img"` svgs
+  // (icons, illustrations) sitting between panels.
+  const containerSvgs = all.filter(
+    svg => svg.parentElement?.classList.contains('VictoryContainer') ?? false,
+  );
+  if (containerSvgs.length === expectedCount)
+    return containerSvgs;
+
+  const roleImgSvgs = all.filter(svg => svg.getAttribute('role') === 'img');
+  if (roleImgSvgs.length === expectedCount)
+    return roleImgSvgs;
+
+  return roleImgSvgs.length >= expectedCount ? roleImgSvgs : all;
+}
+
+/**
+ * Returns all currently-tagged elements inside the container (across every
+ * panel svg).
  *
  * Used by the adapter to detect when Victory has detached a tagged node (it
  * re-renders some marks after mount), so the tags can be re-applied to the
  * live nodes.
  */
 export function getTaggedElements(container: HTMLElement): Element[] {
-  const svg = container.querySelector('svg');
-  if (!svg)
-    return [];
-  return Array.from(svg.querySelectorAll(TAGGED_QUERY));
+  return findTaggedElements(container);
 }
 
 /**
- * Removes all `data-maidr-victory-*` attributes from elements inside the
- * container. Must be called before re-tagging to prevent stale attributes
- * from accumulating across re-renders.
+ * Removes all `data-maidr-victory-*` attributes from tagged elements inside
+ * the container (across every panel svg). Must be called before re-tagging to
+ * prevent stale attributes from accumulating across re-renders. Panel stamps
+ * on the svg roots themselves are left intact — they are index-stable.
  */
 export function clearTaggedElements(container: HTMLElement): void {
-  const svg = container.querySelector('svg');
-  if (!svg)
-    return;
-
-  const tagged = svg.querySelectorAll(TAGGED_QUERY);
-  for (const el of tagged) {
+  for (const el of findTaggedElements(container)) {
     const attrs = Array.from(el.attributes);
     for (const attr of attrs) {
-      if (attr.name.startsWith(ATTR_PREFIX)) {
+      if (attr.name !== PANEL_ATTR && attr.name.startsWith(ATTR_PREFIX)) {
         el.removeAttribute(attr.name);
       }
     }
@@ -70,33 +144,35 @@ export function clearTaggedElements(container: HTMLElement): void {
  * degrade and highlighting will stop working (audio/text/braille are
  * unaffected).
  *
- * The emitted selectors are prefixed with `scope` (e.g. `#<containerId> `) so
+ * The emitted selectors are prefixed with `scope` (e.g. `#<containerId> `, or
+ * `#<containerId> [data-maidr-victory-panel="i"] ` in multi-panel mode) so
  * that MAIDR — which resolves selectors via page-global `document.querySelector`
- * — cannot match another Victory chart's identically-indexed tags. The
- * per-element `data-maidr-victory-<layerIndex>` attributes only need to be
- * unique within their own container, which `scope` guarantees.
+ * — cannot match another Victory chart's (or panel's) identically-indexed
+ * tags. The per-element tag attributes only need to be unique within their
+ * own container, which `scope` plus the panel-folded names guarantee.
  *
- * @param container  - The DOM node wrapping the Victory chart
+ * @param svg        - The panel's root svg element
  * @param layer      - The extracted layer info
  * @param layerIndex - Numeric index for generating unique attribute names
- * @param claimed    - Set of elements already claimed by prior layers
- * @param scope      - Per-chart CSS scope prefix (e.g. `#<containerId> `) that
- *                     disambiguates this chart's selectors page-wide
+ * @param claimed    - Set of elements already claimed by prior layers of the
+ *                     same panel (must not be shared across panels)
+ * @param scope      - Per-chart (and, in multi-panel mode, per-panel) CSS
+ *                     scope prefix that disambiguates this panel's selectors
+ *                     page-wide
+ * @param panelIndex - Panel index in multi-panel mode; `null` keeps the
+ *                     original single-panel attribute naming
  * @returns A CSS selector string, or `undefined` if elements could not be
  *          matched (highlighting will gracefully degrade).
  */
 export function tagLayerElements(
-  container: HTMLElement,
+  svg: SVGElement,
   layer: VictoryLayerInfo,
   layerIndex: number,
   claimed: Set<Element>,
   scope: string,
+  panelIndex: number | null = null,
 ): string | BoxSelector[] | CandlestickSelector | undefined {
-  const svg = container.querySelector('svg');
-  if (!svg)
-    return undefined;
-
-  const attrName = `${ATTR_PREFIX}-${layerIndex}`;
+  const attrName = victoryAttr(panelIndex, String(layerIndex));
   const { victoryType } = layer;
 
   // Line charts: single <path> representing the full series.
@@ -107,14 +183,14 @@ export function tagLayerElements(
   // Candlestick: each candle is a <g> with one body <rect> and two wick
   // <line>s — tag them as a structured CandlestickSelector.
   if (victoryType === 'VictoryCandlestick') {
-    return tagCandlestickElements(svg, attrName, claimed, scope);
+    return tagCandlestickElements(svg, attrName, claimed, scope, panelIndex);
   }
 
   // Box plot: component-grouped rects (q1/q3 halves), median lines, and
   // whisker line-pairs with no semantic classes — classify by geometry and
   // tag as a per-box BoxSelector[].
   if (victoryType === 'VictoryBoxPlot') {
-    return tagBoxElements(svg, attrName, claimed, scope);
+    return tagBoxElements(svg, attrName, claimed, scope, panelIndex);
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
@@ -137,7 +213,7 @@ function tagDiscreteElements(
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   // Victory renders exactly one element per data point.
   // Take the first `dataCount` unclaimed elements.
@@ -197,7 +273,7 @@ function tagLineElements(
 ): string | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   if (candidates.length === 0)
     return undefined;
@@ -225,11 +301,6 @@ function tagLineElements(
 // Candlestick
 // ---------------------------------------------------------------------------
 
-/** Part attributes used to target candlestick sections. */
-const CANDLE_BODY = `${ATTR_PREFIX}-cbody`;
-const CANDLE_HIGH = `${ATTR_PREFIX}-chigh`;
-const CANDLE_LOW = `${ATTR_PREFIX}-clow`;
-
 /**
  * Tags the elements of a VictoryCandlestick layer.
  *
@@ -245,50 +316,52 @@ function tagCandlestickElements(
   attrName: string,
   claimed: Set<Element>,
   scope: string,
+  panelIndex: number | null,
 ): CandlestickSelector | undefined {
+  const bodyAttr = victoryAttr(panelIndex, 'cbody');
+  const highAttr = victoryAttr(panelIndex, 'chigh');
+  const lowAttr = victoryAttr(panelIndex, 'clow');
+
   const bodies = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
-  ).filter(el => !claimed.has(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   if (bodies.length === 0) {
     return undefined;
   }
 
   for (const body of bodies) {
-    tag(body, attrName, CANDLE_BODY, claimed);
+    tag(body, attrName, bodyAttr, claimed);
 
     const group = body.parentElement;
     if (!group) {
       continue;
     }
     const wicks = Array.from(group.querySelectorAll('line[role="presentation"]'))
+      .filter(line => !isMaidrOwned(line))
       .map(line => ({ line, y: lineMidY(line) }))
       .filter((w): w is { line: Element; y: number } => w.y !== null)
       .sort((a, b) => a.y - b.y);
 
     // Smaller mid-y = high (upper) wick; larger = low (lower) wick.
     if (wicks.length >= 1) {
-      tag(wicks[0].line, attrName, CANDLE_HIGH, claimed);
+      tag(wicks[0].line, attrName, highAttr, claimed);
     }
     if (wicks.length >= 2) {
-      tag(wicks[wicks.length - 1].line, attrName, CANDLE_LOW, claimed);
+      tag(wicks[wicks.length - 1].line, attrName, lowAttr, claimed);
     }
   }
 
   return {
-    body: `${scope}[${CANDLE_BODY}]`,
-    wickHigh: `${scope}[${CANDLE_HIGH}]`,
-    wickLow: `${scope}[${CANDLE_LOW}]`,
+    body: `${scope}[${bodyAttr}]`,
+    wickHigh: `${scope}[${highAttr}]`,
+    wickLow: `${scope}[${lowAttr}]`,
   };
 }
 
 // ---------------------------------------------------------------------------
 // Box plot
 // ---------------------------------------------------------------------------
-
-/** Part attributes used to target box-plot sections per box. */
-const BOX_INDEX = `${ATTR_PREFIX}-bidx`;
-const BOX_PART = `${ATTR_PREFIX}-bpart`;
 
 /**
  * Tags the elements of a VictoryBoxPlot layer.
@@ -312,10 +385,14 @@ function tagBoxElements(
   attrName: string,
   claimed: Set<Element>,
   scope: string,
+  panelIndex: number | null,
 ): BoxSelector[] | undefined {
+  const boxIndexAttr = victoryAttr(panelIndex, 'bidx');
+  const boxPartAttr = victoryAttr(panelIndex, 'bpart');
+
   const rects = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
-  ).filter(el => !claimed.has(el)) as SVGElement[];
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el)) as SVGElement[];
 
   // Each box is two rects (q1/q3 halves); bail if the shape is unexpected.
   if (rects.length === 0 || rects.length % 2 !== 0) {
@@ -342,7 +419,7 @@ function tagBoxElements(
   const boxCenters = Array.from(byX.keys()).sort((a, b) => a - b);
   const horizontalLines = Array.from(
     svg.querySelectorAll('line[role="presentation"]'),
-  ).filter(el => !claimed.has(el) && isHorizontalLine(el));
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el) && isHorizontalLine(el));
 
   const selectors: BoxSelector[] = [];
 
@@ -360,8 +437,8 @@ function tagBoxElements(
     const xMin = num(q1Rect.getAttribute('x'))!;
     const xMax = xMin + num(q1Rect.getAttribute('width'))!;
 
-    tagBoxPart(q1Rect, attrName, i, 'q1', claimed);
-    tagBoxPart(q3Rect, attrName, i, 'q3', claimed);
+    tagBoxPart(q1Rect, attrName, boxIndexAttr, boxPartAttr, i, 'q1', claimed);
+    tagBoxPart(q3Rect, attrName, boxIndexAttr, boxPartAttr, i, 'q3', claimed);
 
     for (const line of horizontalLines) {
       const geom = horizontalLineGeom(line);
@@ -369,15 +446,15 @@ function tagBoxElements(
         continue;
       }
       if (geom.y >= boxTop - 1 && geom.y <= boxBottom + 1) {
-        tagBoxPart(line, attrName, i, 'q2', claimed); // median, inside the box
+        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'q2', claimed); // median, inside the box
       } else if (geom.y < boxTop) {
-        tagBoxPart(line, attrName, i, 'max', claimed); // cap above the box
+        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'max', claimed); // cap above the box
       } else if (geom.y > boxBottom) {
-        tagBoxPart(line, attrName, i, 'min', claimed); // cap below the box
+        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'min', claimed); // cap below the box
       }
     }
 
-    const sel = (part: string): string => `${scope}[${BOX_INDEX}="${i}"][${BOX_PART}="${part}"]`;
+    const sel = (part: string): string => `${scope}[${boxIndexAttr}="${i}"][${boxPartAttr}="${part}"]`;
     selectors.push({
       lowerOutliers: [],
       upperOutliers: [],
@@ -414,10 +491,18 @@ function tag(el: Element, attrName: string, partAttr: string, claimed: Set<Eleme
 }
 
 /** Stamps a box element with its box index and section part. */
-function tagBoxPart(el: Element, attrName: string, boxIndex: number, part: string, claimed: Set<Element>): void {
+function tagBoxPart(
+  el: Element,
+  attrName: string,
+  boxIndexAttr: string,
+  boxPartAttr: string,
+  boxIndex: number,
+  part: string,
+  claimed: Set<Element>,
+): void {
   el.setAttribute(attrName, '');
-  el.setAttribute(BOX_INDEX, String(boxIndex));
-  el.setAttribute(BOX_PART, part);
+  el.setAttribute(boxIndexAttr, String(boxIndex));
+  el.setAttribute(boxPartAttr, part);
   claimed.add(el);
 }
 

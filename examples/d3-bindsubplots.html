@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Heterogeneous Subplots Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Heterogeneous Subplots (bar + line)</h1>
+    <p>
+      Click on the chart and use arrow keys to move between panels. Press 'ENTER' to
+      drill into a panel, then arrow keys to navigate its data and 'ESC' to return
+      to panel navigation.
+    </p>
+    <div id="chart"></div>
+
+    <script>
+      const revenue = [
+        { quarter: 'Q1', value: 120 }, { quarter: 'Q2', value: 180 },
+        { quarter: 'Q3', value: 150 }, { quarter: 'Q4', value: 210 },
+      ];
+      const growth = [
+        { quarter: 'Q1', value: 4 }, { quarter: 'Q2', value: 9 },
+        { quarter: 'Q3', value: 6 }, { quarter: 'Q4', value: 12 },
+      ];
+
+      const panelWidth = 320;
+      const panelHeight = 240;
+      const margin = { top: 30, right: 15, bottom: 35, left: 45 };
+      const innerW = panelWidth - margin.left - margin.right;
+      const innerH = panelHeight - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-subplots-chart')
+        .attr('width', panelWidth * 2)
+        .attr('height', panelHeight);
+
+      // --- Left panel: revenue bar chart ---
+      const barPanel = svg.append('g')
+        .attr('class', 'revenue')
+        .attr('transform', `translate(${margin.left}, ${margin.top})`);
+      const xBar = d3.scaleBand()
+        .domain(revenue.map(d => d.quarter))
+        .range([0, innerW])
+        .padding(0.2);
+      const yBar = d3.scaleLinear()
+        .domain([0, d3.max(revenue, d => d.value)])
+        .nice()
+        .range([innerH, 0]);
+      barPanel.selectAll('rect.bar')
+        .data(revenue)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xBar(d.quarter))
+        .attr('y', d => yBar(d.value))
+        .attr('width', xBar.bandwidth())
+        .attr('height', d => innerH - yBar(d.value))
+        .attr('fill', '#4682b4');
+      barPanel.append('g').attr('transform', `translate(0, ${innerH})`).call(d3.axisBottom(xBar));
+      barPanel.append('g').call(d3.axisLeft(yBar).ticks(4));
+
+      // --- Right panel: growth line chart ---
+      const linePanel = svg.append('g')
+        .attr('class', 'growth')
+        .attr('transform', `translate(${panelWidth + margin.left}, ${margin.top})`);
+      const xLine = d3.scalePoint()
+        .domain(growth.map(d => d.quarter))
+        .range([0, innerW])
+        .padding(0.5);
+      const yLine = d3.scaleLinear()
+        .domain([0, d3.max(growth, d => d.value)])
+        .nice()
+        .range([innerH, 0]);
+      linePanel.selectAll('path.line')
+        .data([growth])
+        .join('path')
+        .attr('class', 'line')
+        .attr('fill', 'none')
+        .attr('stroke', '#e4572e')
+        .attr('stroke-width', 2)
+        .attr('d', d3.line()
+          .x(d => xLine(d.quarter))
+          .y(d => yLine(d.value)));
+      linePanel.append('g').attr('transform', `translate(0, ${innerH})`).call(d3.axisBottom(xLine));
+      linePanel.append('g').call(d3.axisLeft(yLine).ticks(4));
+
+      // === MAIDR Integration ===
+      // Compose the two independently drawn charts into one navigable figure:
+      // each entry runs its usual per-type binder against its own panel root.
+      const svgElement = document.getElementById('d3-subplots-chart');
+      const result = maidrD3.bindD3Subplots(svgElement, {
+        title: 'Quarterly Performance',
+        subplots: [[
+          {
+            chartType: 'bar',
+            root: 'g.revenue',
+            config: {
+              selector: 'rect.bar',
+              title: 'Revenue ($K)',
+              axes: { x: 'Quarter', y: 'Revenue ($K)' },
+              x: 'quarter',
+              y: 'value',
+            },
+          },
+          {
+            chartType: 'line',
+            root: 'g.growth',
+            config: {
+              selector: 'path.line',
+              title: 'Growth (%)',
+              axes: { x: 'Quarter', y: 'Growth (%)' },
+              x: 'quarter',
+              y: 'value',
+            },
+          },
+        ]],
+      });
+      // The binder auto-applies `maidr-data` to the SVG. Pass `autoApply: false`
+      // if you want to handle the attribute yourself.
+      void result;
+    </script>
+  </body>
+</html>

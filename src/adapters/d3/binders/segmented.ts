@@ -5,11 +5,12 @@
  * and generates the MAIDR JSON schema for accessible interaction.
  */
 
-import type { Maidr, MaidrLayer, SegmentedPoint } from '../../../type/grammar';
-import type { D3BinderResult, D3SegmentedConfig } from '../types';
+import type { MaidrLayer, SegmentedPoint } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3SegmentedConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
 
 /**
  * Binds a D3.js segmented bar chart (stacked, dodged, or normalized) to MAIDR.
@@ -65,18 +66,24 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildSegmentedLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for segmented bar charts. See {@link buildBarLayer}
+ * for the single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
     groupSelector,
     type = TraceType.STACKED,
     domOrder: domOrderOverride,
-    autoApply,
   } = config;
 
   const groupOrder: string[] = [];
@@ -96,9 +103,9 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     // then all of group 1, …) ⇒ series-major DOM order.
     detectedDomOrder = 'series-major';
 
-    const groupElements = queryD3Elements(svg, groupSelector);
+    const groupElements = queryD3Elements(root, groupSelector);
     if (groupElements.length === 0) {
-      throw buildNoElementsError(svg, groupSelector, 'segmented-bar group');
+      throw buildNoElementsError(root, groupSelector, 'segmented-bar group');
     }
 
     // Sample the first group's first segment for accessor inference.
@@ -153,9 +160,9 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     }
   } else {
     // Flat structure: all segments in one container, grouped by fill value
-    const elements = queryD3Elements(svg, selector);
+    const elements = queryD3Elements(root, selector);
     if (elements.length === 0) {
-      throw buildNoElementsError(svg, selector, 'segmented bar');
+      throw buildNoElementsError(root, selector, 'segmented bar');
     }
 
     // Pattern detection: if the datum looks like a d3.stack() tuple
@@ -258,10 +265,9 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     }
   }
 
-  const layerId = generateId();
   const selectorValue = groupSelector
-    ? scopeSelector(svg, `${groupSelector} ${selector}`)
-    : scopeSelector(svg, selector);
+    ? scopeSelector(root, `${groupSelector} ${selector}`, panel)
+    : scopeSelector(root, selector, panel);
 
   // Resolve final DOM order: explicit user override wins; else detected value;
   // else fall back to the chart type (stacked/normalized render series-major,
@@ -280,7 +286,7 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     : { order: 'column' as const, groupDirection: 'forward' as const };
 
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type,
     title,
     selectors: selectorValue,
@@ -289,17 +295,5 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
     domMapping,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{
-      legend: groupOrder,
-      layers: [layer],
-    }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer, legend: groupOrder };
 }

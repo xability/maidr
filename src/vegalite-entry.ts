@@ -36,13 +36,16 @@
  * @packageDocumentation
  */
 
+import type { CellDomInfo } from './adapters/vegalite/facets';
 import type {
   VegaLiteSpec,
   VegaLiteToMaidrOptions,
   VegaView,
 } from './adapters/vegalite/types';
 import type { BoxPoint, BoxSelector, HeatmapData, LinePoint, Maidr, MaidrLayer } from './type/grammar';
+import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
 import { vegaLiteToMaidr } from './adapters/vegalite/converters';
+import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
 import { Orientation, TraceType } from './type/grammar';
 import { initMaidrOnElement } from './util/initMaidr';
 
@@ -892,9 +895,13 @@ function sortHeatmapCellsByVisualOrder(
  *
  * Used by {@link sortLinesByVisualOrder} to align line-chart data with
  * the visual order Vega-Lite renders for nominal/ordinal X scales.
+ *
+ * `root` is the element to search under — the whole SVG for single-panel
+ * charts, or one panel's cell group for multi-panel charts whose cells
+ * carry their own axes (repeat).
  */
-function readXAxisLabelsInVisualOrder(svg: SVGSVGElement): string[] {
-  const axisGroups = Array.from(svg.querySelectorAll<SVGGElement>('g.role-axis'));
+function readXAxisLabelsInVisualOrder(root: Element): string[] {
+  const axisGroups = Array.from(root.querySelectorAll<SVGGElement>('g.role-axis'));
   let bestLabels: string[] = [];
   let bestVariance = -1;
 
@@ -956,9 +963,19 @@ function readXAxisLabelsInVisualOrder(svg: SVGSVGElement): string[] {
  * array. Skipped for numeric/temporal axes (where natural ordering
  * matches insertion order) and for layers whose data labels can't be
  * matched against axis ticks.
+ *
+ * Multi-panel awareness: when `cellDomMap` provides a per-panel root for
+ * a layer, axis labels are read from that panel first (repeat cells have
+ * their own axes, possibly with different domains per cell) and only
+ * fall back to the whole SVG when the panel has no labelled axis of its
+ * own (facet cells share axes rendered in the header/footer groups).
  */
-function sortLinesByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void {
-  let axisLabels: string[] | null = null;
+function sortLinesByVisualOrder(
+  svg: SVGSVGElement,
+  layers: MaidrLayer[],
+  cellDomMap?: Map<MaidrLayer, CellDomInfo>,
+): void {
+  let svgAxisLabels: string[] | null = null;
 
   for (const layer of layers) {
     if (layer.type !== TraceType.LINE)
@@ -981,9 +998,18 @@ function sortLinesByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void 
     if (!hasStringX)
       continue;
 
-    // Lazily resolve axis labels once per call.
-    if (axisLabels === null) {
-      axisLabels = readXAxisLabelsInVisualOrder(svg);
+    // Resolve axis labels: the layer's own panel first, then the SVG-wide
+    // labels (lazily resolved once per call).
+    let axisLabels: string[] = [];
+    const cellRoot = cellDomMap?.get(layer)?.root;
+    if (cellRoot) {
+      axisLabels = readXAxisLabelsInVisualOrder(cellRoot);
+    }
+    if (axisLabels.length === 0) {
+      if (svgAxisLabels === null) {
+        svgAxisLabels = readXAxisLabelsInVisualOrder(svg);
+      }
+      axisLabels = svgAxisLabels;
     }
     if (axisLabels.length === 0) {
       debugLog(`line layer "${layer.id}": no X-axis labels found, skipping visual-order sort`);
@@ -1092,6 +1118,8 @@ function sortLinesByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void 
 function buildBoxPlotSelectorsFromDom(
   svg: SVGSVGElement,
   layers: MaidrLayer[],
+  cellDomMap?: Map<MaidrLayer, CellDomInfo>,
+  containerScope?: string,
 ): void {
   for (const layer of layers) {
     if (layer.type !== TraceType.BOX) {
@@ -1108,6 +1136,21 @@ function buildBoxPlotSelectorsFromDom(
     if (N === 0) {
       continue;
     }
+
+    // Multi-panel awareness: scope the group discovery to the layer's own
+    // panel so sibling panels' boxes don't contaminate the pairing, and
+    // prefix the attribute selectors built in step 9 with the panel scope
+    // — every panel numbers its boxes from 0, so the bare attribute
+    // selector would match all panels at document level. Single-panel
+    // layers fall back to the chart's container scope for the same
+    // reason: every CHART numbers its boxes from 0 too, so a bare
+    // attribute selector would match another chart's boxes when several
+    // box plots share the page.
+    const cellInfo = cellDomMap?.get(layer);
+    const root: Element = cellInfo?.root ?? svg;
+    const scopePrefix = cellInfo
+      ? `${cellInfo.scope} `
+      : (containerScope ? `${containerScope} ` : '');
 
     // 0. Discover sub-mark groups in the rendered DOM.
     //
@@ -1128,13 +1171,13 @@ function buildBoxPlotSelectorsFromDom(
     //    scanning the DOM and disambiguating IQ vs median (by aria-label
     //    presence) and lower vs upper whisker (by geometric position).
     const allRectGroups = Array.from(
-      svg.querySelectorAll<SVGGElement>('g.mark-rect.role-mark'),
+      root.querySelectorAll<SVGGElement>('g.mark-rect.role-mark'),
     );
     const allRuleGroups = Array.from(
-      svg.querySelectorAll<SVGGElement>('g.mark-rule.role-mark'),
+      root.querySelectorAll<SVGGElement>('g.mark-rule.role-mark'),
     );
     const allSymbolGroups = Array.from(
-      svg.querySelectorAll<SVGGElement>('g.mark-symbol.role-mark'),
+      root.querySelectorAll<SVGGElement>('g.mark-symbol.role-mark'),
     );
 
     // IQ rect group's first path has a non-empty aria-label; the
@@ -1459,17 +1502,17 @@ function buildBoxPlotSelectorsFromDom(
     const boxSelectors: BoxSelector[] = groups.map((g, i) => {
       const idxAttr = `[data-maidr-box-index="${i}"]`;
       const lowerSels = g.lowerOutliers.map((_, k) =>
-        `path${idxAttr}[data-maidr-box-part="lower-outlier"][data-maidr-outlier-index="${k}"]`,
+        `${scopePrefix}path${idxAttr}[data-maidr-box-part="lower-outlier"][data-maidr-outlier-index="${k}"]`,
       );
       const upperSels = g.upperOutliers.map((_, k) =>
-        `path${idxAttr}[data-maidr-box-part="upper-outlier"][data-maidr-outlier-index="${k}"]`,
+        `${scopePrefix}path${idxAttr}[data-maidr-box-part="upper-outlier"][data-maidr-outlier-index="${k}"]`,
       );
       return {
         lowerOutliers: lowerSels,
-        min: `line${idxAttr}[data-maidr-box-part="min"]`,
-        max: `line${idxAttr}[data-maidr-box-part="max"]`,
-        iq: `path${idxAttr}[data-maidr-box-part="iq"]`,
-        q2: `path${idxAttr}[data-maidr-box-part="q2"]`,
+        min: `${scopePrefix}line${idxAttr}[data-maidr-box-part="min"]`,
+        max: `${scopePrefix}line${idxAttr}[data-maidr-box-part="max"]`,
+        iq: `${scopePrefix}path${idxAttr}[data-maidr-box-part="iq"]`,
+        q2: `${scopePrefix}path${idxAttr}[data-maidr-box-part="q2"]`,
         upperOutliers: upperSels,
       };
     });
@@ -1493,6 +1536,42 @@ function collectLayers(maidr: Maidr): MaidrLayer[] {
     }
   }
   return layers;
+}
+
+/**
+ * Prefix every selector in the schema with the chart container's scope
+ * (`#<containerId>`) so several charts on one page never resolve each
+ * other's DOM elements — MAIDR resolves all selectors document-globally.
+ *
+ * Applies to subplot selectors and to string / string[] layer selectors.
+ * BOX layers still carry their placeholder string selector at this point;
+ * the `BoxSelector[]` structures built later by
+ * {@link buildBoxPlotSelectorsFromDom} receive the same scope through its
+ * `containerScope` / cell-scope prefixes.
+ */
+function scopeSelectorsToContainer(
+  maidr: Maidr,
+  layers: MaidrLayer[],
+  containerScope: string,
+): void {
+  for (const row of maidr.subplots) {
+    for (const subplot of row) {
+      if (typeof subplot.selector === 'string') {
+        subplot.selector = scopeSelector(subplot.selector, containerScope);
+      }
+    }
+  }
+  for (const layer of layers) {
+    const selectors = layer.selectors;
+    if (typeof selectors === 'string') {
+      layer.selectors = scopeSelector(selectors, containerScope);
+    } else if (
+      Array.isArray(selectors)
+      && selectors.every(sel => typeof sel === 'string')
+    ) {
+      layer.selectors = (selectors as string[]).map(sel => scopeSelector(sel, containerScope));
+    }
+  }
 }
 
 export { vegaLiteToMaidr } from './adapters/vegalite/converters';
@@ -1555,14 +1634,49 @@ export function bindVegaLite(
     return;
   }
 
-  // Derive an id from the options, the container, or a timestamp fallback.
-  // Use || for container.id since empty string is falsy but not nullish.
-  const id = options?.id
-    || container.id
-    || `vl-${Date.now()}`;
+  // Ensure the container carries an id: every selector emitted below is
+  // prefixed with `#<containerId>` because MAIDR resolves selectors
+  // against the whole document — without the prefix, two charts compiled
+  // from the same spec (identical Vega class names) would resolve each
+  // other's elements. The chart id defaults to the container id so the
+  // two stay aligned. (Use || since an empty options.id is falsy.)
+  const containerId = ensureContainerId(container, 'vl');
+  const id = options?.id || containerId;
 
   const maidr: Maidr = vegaLiteToMaidr(spec, view, { ...options, id });
   const layers = collectLayers(maidr);
+
+  // A schema with no usable layer at all is the converter's fallback for
+  // unsupported specs (a lone `{ layers: [] }` subplot). That shape
+  // crashes MAIDR core the moment the chart receives focus
+  // (`Subplot.activeTrace` on an empty traces array), so skip binding
+  // entirely — the chart still renders, it just isn't navigable.
+  if (layers.length === 0) {
+    console.warn(
+      '[maidr/vegalite] Spec produced no accessible layers; skipping MAIDR '
+      + 'binding. The chart renders normally but will not be keyboard-navigable.',
+    );
+    return;
+  }
+
+  // Prefix every selector with the container id (page-global uniqueness).
+  // Facet selectors already bake the chart id into their `data-maidr-cell`
+  // attribute values, where the prefix is harmless; it is essential for
+  // repeat / concat / single-view selectors, which are class-only and
+  // identical across charts built from the same spec.
+  const containerScope = `#${cssEscape(containerId)}`;
+  scopeSelectorsToContainer(maidr, layers, containerScope);
+
+  // For faceted specs, stamp each rendered cell with the `data-maidr-cell`
+  // attribute the converter baked into that panel's selectors. Must run
+  // BEFORE any pass (or MAIDR trace construction) resolves those
+  // selectors — until the stamp exists they match nothing.
+  stampFacetCells(svg as SVGSVGElement, maidr);
+
+  // Per-layer cell roots for the passes that would otherwise query the
+  // whole SVG and cross-contaminate panels (box-plot selector rebuild,
+  // per-cell axis label reads). Empty for single-panel and concat charts.
+  const cellDomMap = buildCellDomMap(svg as SVGSVGElement, maidr);
 
   // Align the simple-bar SVG DOM order with the visual order so MAIDR's
   // index-based highlight lands on the right bar. Segmented layers are
@@ -1605,14 +1719,14 @@ export function bindVegaLite(
   // tick order. Fixes "highlight column != announced x-value" when
   // Vega-Lite renders nominal/ordinal X scales alphabetically while
   // the dataset is in insertion (e.g. calendar) order.
-  sortLinesByVisualOrder(svg as SVGSVGElement, layers);
+  sortLinesByVisualOrder(svg as SVGSVGElement, layers, cellDomMap);
 
   // For BOX layers, build the per-group BoxSelector[] from the
   // rendered DOM and populate outlier values. Fixes "highlight
   // doesn't appear at all" caused by `buildSelector` returning a
   // single string instead of the per-group structure
   // BoxTrace.mapToSvgElements expects.
-  buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers);
+  buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers, cellDomMap, containerScope);
 
   // SVGSVGElement is not an HTMLElement, but initMaidrOnElement only
   // needs basic DOM node capabilities (parentNode, attributes).

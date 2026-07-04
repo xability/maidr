@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Multi-Pane Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Multi-Pane Chart (Price + Volume)</h1>
+    <p>
+      A single Highcharts chart with two stacked panes (a price line on the top y-axis and a
+      volume column series on the bottom y-axis), made accessible by the MAIDR Highcharts adapter.
+      The adapter detects the panes from the axis layout and emits one MAIDR subplot per pane:
+      click on the chart, use Up/Down arrows to move between panes, press Enter to drill into a
+      pane, and Escape to return to pane navigation.
+    </p>
+
+    <div id="panes-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('panes-chart', {
+        title: { text: 'ACME Stock — Price and Volume' },
+        xAxis: {
+          categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+          title: { text: 'Day' },
+        },
+        // Two stacked panes: price occupies the top 60%, volume the bottom 30%.
+        yAxis: [
+          { title: { text: 'Price ($)' }, height: '60%' },
+          { title: { text: 'Volume' }, top: '70%', height: '30%', offset: 0 },
+        ],
+        series: [
+          { type: 'line', name: 'Price', data: [150, 152, 149, 153, 155], yAxis: 0 },
+          { type: 'column', name: 'Volume', data: [1200, 1450, 980, 1610, 1330], yAxis: 1 },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'panes-chart' });
+      document.getElementById('panes-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

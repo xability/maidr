@@ -13,6 +13,10 @@
  * The selectors target Frappe Charts **v1.6.2**; verify SVG class names if you
  * upgrade Frappe.
  *
+ * Multiple charts laid out in one wrapper element can be grouped into a single
+ * multi-panel MAIDR figure with {@link createMaidrFromFrappeCharts} — set the
+ * `maidr` attribute on the wrapper, not the individual panel containers.
+ *
  * @example
  * ```html
  * <script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"></script>
@@ -46,7 +50,9 @@
 
 export {
   createMaidrFromFrappeChart,
+  createMaidrFromFrappeCharts,
   type FrappeChartAdapterOptions,
+  type FrappeChartsGridOptions,
 } from './converters';
 
 export type {
@@ -54,4 +60,5 @@ export type {
   FrappeChartType,
   FrappeData,
   FrappeDataset,
+  FrappePanel,
 } from './types';

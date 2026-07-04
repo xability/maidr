@@ -5,6 +5,7 @@ import { BoxPlotExample } from './examples/BoxPlotExample';
 import { CandlestickExample } from './examples/CandlestickExample';
 import { HistogramExample } from './examples/HistogramExample';
 import { LineChartExample } from './examples/LineChartExample';
+import { MultiPanelExample } from './examples/MultiPanelExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
 import { StackedBarExample } from './examples/StackedBarExample';
 
@@ -16,6 +17,7 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Histogram', component: HistogramExample },
   { name: 'Box Plot', component: BoxPlotExample },
   { name: 'Candlestick', component: CandlestickExample },
+  { name: 'Multi-Panel', component: MultiPanelExample },
 ];
 
 export function App(): JSX.Element {

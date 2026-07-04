@@ -24,6 +24,7 @@ import type {
   SegmentedPoint,
 } from '../../type/grammar';
 import type {
+  PlotlyAnnotation,
   PlotlyAxis,
   PlotlyCalcData,
   PlotlyFullLayout,
@@ -68,7 +69,7 @@ export function extractPlotlyData(element: HTMLElement): Maidr | null {
   const subplotMap = groupTracesBySubplot(fullData, gd.calcdata);
 
   // Build 2D subplot grid.
-  const subplotGrid = buildSubplotGrid(subplotMap, fullLayout, gd);
+  const subplotGrid = buildSubplotGrid(subplotMap, fullLayout, gd, id);
 
   if (subplotGrid.length === 0) {
     console.warn('[maidr] No supported traces found in plotly chart.');
@@ -288,111 +289,534 @@ function groupTracesBySubplot(
     const group = map.get(key)!;
     group.traces.push(trace);
     group.traceIndices.push(i);
-    if (calcdata && calcdata[i]) {
-      group.calcdata.push(calcdata[i]);
+    if (calcdata) {
+      // Push a placeholder for traces without calcdata so `calcIdx` stays
+      // aligned with the group's trace order.
+      group.calcdata.push(calcdata[i] ?? []);
     }
   }
 
   return map;
 }
 
+/** A kept subplot together with the trace group it was built from. */
+interface PanelEntry {
+  group: SubplotGroup;
+  subplot: MaidrSubplot;
+}
+
 function buildSubplotGrid(
   subplotMap: Map<string, SubplotGroup>,
   layout: PlotlyFullLayout,
   gd: PlotlyGraphDiv,
+  maidrId: string,
 ): MaidrSubplot[][] {
-  // For now, treat all subplots as a single row.
-  // TODO: Use layout.grid to arrange into proper 2D grid.
-  const subplots: MaidrSubplot[] = [];
+  const panels: PanelEntry[] = [];
 
   for (const [, group] of subplotMap) {
-    const xAxis = getAxis(layout, group.xAxisId);
-    const yAxis = getAxis(layout, group.yAxisId);
-    const xLabel = extractAxisLabel(xAxis);
-    const yLabel = extractAxisLabel(yAxis);
-
-    const layers: MaidrLayer[] = [];
-
-    // Group traces that need multi-trace handling.
-    const lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-    const boxTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-    const barTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-    const otherTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-
-    for (let i = 0; i < group.traces.length; i++) {
-      const trace = group.traces[i];
-      const maidrType = mapTraceType(trace);
-      if (maidrType === TraceType.LINE) {
-        lineTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-      } else if (maidrType === TraceType.BOX) {
-        boxTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-      } else if (maidrType === TraceType.BAR) {
-        barTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-      } else {
-        otherTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-      }
-    }
-
-    // Build multi-line layer if applicable.
-    if (lineTraces.length > 0) {
-      const layer = extractMultiLineLayer(lineTraces, xLabel, yLabel, gd);
-      if (layer)
-        layers.push(layer);
-    }
-
-    // Build multi-box layer: all box traces in one layer.
-    if (boxTraces.length > 0) {
-      const layer = extractMultiBoxLayer(boxTraces, group, xLabel, yLabel, gd);
-      if (layer)
-        layers.push(layer);
-    }
-
-    // Build bar layers: grouped/stacked/normalized for multiple bar traces.
-    if (barTraces.length > 1) {
-      const barmode = layout.barmode ?? 'group';
-      const barnorm = layout.barnorm ?? '';
-
-      if (barmode === 'group') {
-        const layer = extractSegmentedBarLayer(barTraces, TraceType.DODGED, xLabel, yLabel, gd);
-        if (layer)
-          layers.push(layer);
-      } else if (barmode === 'stack' || barmode === 'relative') {
-        const type = barnorm === 'percent' || barnorm === 'fraction'
-          ? TraceType.NORMALIZED
-          : TraceType.STACKED;
-        const layer = extractSegmentedBarLayer(barTraces, type, xLabel, yLabel, gd);
-        if (layer)
-          layers.push(layer);
-      } else {
-        // 'overlay' or unknown: treat as individual bars.
-        for (const bt of barTraces) {
-          otherTraces.push(bt);
-        }
-      }
-    } else if (barTraces.length === 1) {
-      otherTraces.push(barTraces[0]);
-    }
-
-    // Build individual layers for remaining traces.
-    for (const { trace, calcIdx, globalIdx } of otherTraces) {
-      const maidrType = mapTraceType(trace);
-      if (!maidrType)
-        continue;
-
-      const cd = group.calcdata[calcIdx] ?? [];
-      const layer = extractLayer(trace, maidrType, cd, globalIdx, xLabel, yLabel, gd);
-      if (layer)
-        layers.push(layer);
-    }
-
+    const layers = buildSubplotLayers(group, layout, gd);
     if (layers.length > 0) {
-      subplots.push({ layers });
+      panels.push({ group, subplot: { layers } });
     }
   }
 
-  if (subplots.length === 0)
+  if (panels.length === 0)
     return [];
-  return [subplots]; // Single row for now.
+  if (panels.length === 1)
+    return [[panels[0].subplot]];
+
+  const grid = arrangePanelsIntoGrid(panels, layout);
+  if (!grid) {
+    // Overlapping axis domains (inset/overlaid axes) or missing domain
+    // info: not a grid — keep the flat single-row arrangement.
+    return [panels.map(panel => panel.subplot)];
+  }
+
+  applyFacetTitles(grid, layout);
+  assignSubplotSelectors(grid, maidrId);
+  return grid.map(row => row.map(panel => panel.subplot));
+}
+
+/**
+ * Builds all MAIDR layers for one subplot (one x/y axis-pair group).
+ */
+function buildSubplotLayers(
+  group: SubplotGroup,
+  layout: PlotlyFullLayout,
+  gd: PlotlyGraphDiv,
+): MaidrLayer[] {
+  const xLabel = resolveAxisLabel(layout, group.xAxisId);
+  const yLabel = resolveAxisLabel(layout, group.yAxisId);
+
+  const layers: MaidrLayer[] = [];
+
+  // Group traces that need multi-trace handling.
+  const lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+  const boxTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+  const barTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+  const otherTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+
+  for (let i = 0; i < group.traces.length; i++) {
+    const trace = group.traces[i];
+    const maidrType = mapTraceType(trace);
+    if (maidrType === TraceType.LINE) {
+      lineTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    } else if (maidrType === TraceType.BOX) {
+      boxTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    } else if (maidrType === TraceType.BAR) {
+      barTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    } else {
+      otherTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    }
+  }
+
+  // Build multi-line layer if applicable.
+  if (lineTraces.length > 0) {
+    const layer = extractMultiLineLayer(lineTraces, xLabel, yLabel, gd);
+    if (layer)
+      layers.push(layer);
+  }
+
+  // Build multi-box layer: all box traces in one layer.
+  if (boxTraces.length > 0) {
+    const layer = extractMultiBoxLayer(boxTraces, group, xLabel, yLabel, gd);
+    if (layer)
+      layers.push(layer);
+  }
+
+  // Build bar layers: grouped/stacked/normalized for multiple bar traces.
+  if (barTraces.length > 1) {
+    const barmode = layout.barmode ?? 'group';
+    const barnorm = layout.barnorm ?? '';
+
+    if (barmode === 'group') {
+      const layer = extractSegmentedBarLayer(barTraces, TraceType.DODGED, xLabel, yLabel, gd);
+      if (layer)
+        layers.push(layer);
+    } else if (barmode === 'stack' || barmode === 'relative') {
+      const type = barnorm === 'percent' || barnorm === 'fraction'
+        ? TraceType.NORMALIZED
+        : TraceType.STACKED;
+      const layer = extractSegmentedBarLayer(barTraces, type, xLabel, yLabel, gd);
+      if (layer)
+        layers.push(layer);
+    } else {
+      // 'overlay' or unknown: treat as individual bars.
+      for (const bt of barTraces) {
+        otherTraces.push(bt);
+      }
+    }
+  } else if (barTraces.length === 1) {
+    otherTraces.push(barTraces[0]);
+  }
+
+  // Build individual layers for remaining traces.
+  for (const { trace, calcIdx, globalIdx } of otherTraces) {
+    const maidrType = mapTraceType(trace);
+    if (!maidrType)
+      continue;
+
+    const cd = group.calcdata[calcIdx] ?? [];
+    const layer = extractLayer(trace, maidrType, cd, globalIdx, xLabel, yLabel, gd);
+    if (layer)
+      layers.push(layer);
+  }
+
+  return layers;
+}
+
+// ---------------------------------------------------------------------------
+// Grid arrangement from axis domains
+// ---------------------------------------------------------------------------
+
+/** Tolerance when comparing axis-domain fractions (which lie in [0, 1]). */
+const DOMAIN_EPS = 1e-3;
+
+type DomainInterval = [number, number];
+
+interface PositionedPanel extends PanelEntry {
+  xDomain: DomainInterval;
+  yDomain: DomainInterval;
+}
+
+/**
+ * Arranges panels into a 2D grid (row-major, visual reading order) by
+ * clustering their axis domains: distinct y-domain intervals become rows
+ * (top first) and distinct x-domain intervals become columns (left first).
+ *
+ * Returns `null` when the panels do not form a grid — missing domain info,
+ * overlapping domains (inset plots), or two panels sharing one cell
+ * (overlaid axes) — so the caller can fall back to a flat single row.
+ */
+function arrangePanelsIntoGrid(
+  panels: PanelEntry[],
+  layout: PlotlyFullLayout,
+): PositionedPanel[][] | null {
+  const positioned: PositionedPanel[] = [];
+  for (const panel of panels) {
+    const xDomain = readAxisDomain(getAxis(layout, panel.group.xAxisId));
+    const yDomain = readAxisDomain(getAxis(layout, panel.group.yAxisId));
+    if (!xDomain || !yDomain)
+      return null;
+    positioned.push({ ...panel, xDomain, yDomain });
+  }
+
+  const rowIntervals = clusterIntervals(positioned.map(panel => panel.yDomain));
+  const colIntervals = clusterIntervals(positioned.map(panel => panel.xDomain));
+  if (!rowIntervals || !colIntervals)
+    return null;
+
+  // Visual reading order: y-domain 0 is the BOTTOM of the plot area, so a
+  // larger domain start renders higher on screen — sort rows descending
+  // (top row first) and columns ascending (left column first).
+  rowIntervals.sort((a, b) => b[0] - a[0]);
+  colIntervals.sort((a, b) => a[0] - b[0]);
+
+  // Validate against layout.grid when present.
+  const gridConfig = layout.grid;
+  if (gridConfig?.rows != null && rowIntervals.length > gridConfig.rows)
+    return null;
+  if (gridConfig?.columns != null && colIntervals.length > gridConfig.columns)
+    return null;
+
+  const cells: (PositionedPanel | null)[][] = rowIntervals.map(
+    () => colIntervals.map(() => null),
+  );
+  for (const panel of positioned) {
+    const row = findIntervalIndex(rowIntervals, panel.yDomain);
+    const col = findIntervalIndex(colIntervals, panel.xDomain);
+    if (row < 0 || col < 0 || cells[row][col])
+      return null; // Two panels in one cell: overlaid axes, not a grid.
+    cells[row][col] = panel;
+  }
+
+  // Compact ragged rows. A row can never end up empty because every row
+  // interval came from at least one panel.
+  return cells
+    .map(row => row.filter((cell): cell is PositionedPanel => cell !== null))
+    .filter(row => row.length > 0);
+}
+
+/**
+ * Deduplicates domain intervals (within {@link DOMAIN_EPS}) into the
+ * distinct grid bands. Returns `null` when two DISTINCT intervals overlap,
+ * which means the panels are inset/overlaid rather than gridded.
+ */
+function clusterIntervals(intervals: DomainInterval[]): DomainInterval[] | null {
+  const unique: DomainInterval[] = [];
+  for (const interval of intervals) {
+    if (findIntervalIndex(unique, interval) === -1)
+      unique.push(interval);
+  }
+  for (let i = 0; i < unique.length; i++) {
+    for (let j = i + 1; j < unique.length; j++) {
+      const overlap = Math.min(unique[i][1], unique[j][1])
+        - Math.max(unique[i][0], unique[j][0]);
+      if (overlap > DOMAIN_EPS)
+        return null;
+    }
+  }
+  return unique;
+}
+
+function findIntervalIndex(intervals: DomainInterval[], target: DomainInterval): number {
+  return intervals.findIndex(interval => intervalsEqual(interval, target));
+}
+
+function intervalsEqual(a: DomainInterval, b: DomainInterval): boolean {
+  return Math.abs(a[0] - b[0]) < DOMAIN_EPS && Math.abs(a[1] - b[1]) < DOMAIN_EPS;
+}
+
+function containsValue(interval: DomainInterval, value: number): boolean {
+  return value >= interval[0] - DOMAIN_EPS && value <= interval[1] + DOMAIN_EPS;
+}
+
+function readAxisDomain(axis: PlotlyAxis | undefined): DomainInterval | null {
+  const domain = axis?.domain;
+  if (!domain || domain.length < 2)
+    return null;
+  const start = Number(domain[0]);
+  const end = Number(domain[1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    return null;
+  return [start, end];
+}
+
+/**
+ * Resolves an axis label, following facet-style `matches:` chains: Plotly
+ * Express facets keep the title only on the matched outer axis, so inner
+ * axes inherit the label from the axis they match.
+ */
+function resolveAxisLabel(layout: PlotlyFullLayout, axisId: string): string | undefined {
+  let currentId = axisId;
+  for (let hop = 0; hop < 8; hop++) {
+    const axis = getAxis(layout, currentId);
+    if (!axis)
+      return undefined;
+    const label = extractAxisLabel(axis);
+    if (label)
+      return label;
+    if (!axis.matches || axis.matches === currentId)
+      return undefined;
+    currentId = axis.matches;
+  }
+  return undefined;
+}
+
+/**
+ * Applies facet/subplot titles from layout annotations as each panel's
+ * first-layer title — the first layer's title is the panel's display name
+ * in MAIDR's subplot summaries.
+ *
+ * Two annotation shapes are recognised:
+ *
+ * 1. Axis-domain refs (`xref: 'x2 domain'`) — hand-authored facet labels.
+ *    Only annotations whose BOTH refs point at the panel's own axes are
+ *    used, so labels are never attributed to the wrong panel.
+ * 2. Paper refs (`xref: 'paper'` / `yref: 'paper'`) — what plotly.py emits
+ *    for Plotly Express facet labels and `make_subplots`
+ *    row/column/subplot titles. These carry no axis association, so they
+ *    are resolved geometrically against each panel's axis domains.
+ */
+function applyFacetTitles(grid: PositionedPanel[][], layout: PlotlyFullLayout): void {
+  const annotations = layout.annotations;
+  if (!Array.isArray(annotations) || annotations.length === 0)
+    return;
+
+  const labels = new Map<PositionedPanel, string[]>();
+  const addLabel = (panel: PositionedPanel, text: string): void => {
+    const existing = labels.get(panel);
+    if (existing) {
+      existing.push(text);
+    } else {
+      labels.set(panel, [text]);
+    }
+  };
+
+  applyDomainRefTitles(grid, annotations, addLabel);
+  applyPaperRefTitles(grid, annotations, addLabel);
+
+  for (const [panel, texts] of labels) {
+    panel.subplot.layers[0].title = texts.join(', ');
+  }
+}
+
+type AddLabel = (panel: PositionedPanel, text: string) => void;
+
+/**
+ * Matches annotations with axis-domain refs (`xref: 'x2 domain'`) to the
+ * panel owning those axes.
+ */
+function applyDomainRefTitles(
+  grid: PositionedPanel[][],
+  annotations: PlotlyAnnotation[],
+  addLabel: AddLabel,
+): void {
+  for (const row of grid) {
+    for (const panel of row) {
+      const xRef = `${panel.group.xAxisId} domain`;
+      const yRef = `${panel.group.yAxisId} domain`;
+      for (const annotation of annotations) {
+        if (
+          annotation
+          && typeof annotation.text === 'string'
+          && annotation.text.length > 0
+          && annotation.xref === xRef
+          && annotation.yref === yRef
+        ) {
+          addLabel(panel, annotation.text);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * How far above a top-row panel's y-domain end a title annotation may sit
+ * (in paper units) and still be treated as that panel's title.
+ */
+const TITLE_BAND = 0.25;
+
+/** A paper-ref annotation that is a candidate facet/subplot title. */
+interface PaperTitle {
+  text: string;
+  x: number;
+  y: number;
+  angle: number;
+}
+
+/**
+ * Extracts arrow-less paper-ref annotations with usable text and finite
+ * coordinates — the shape plotly.py uses for every facet and subplot title.
+ */
+function collectPaperTitles(annotations: PlotlyAnnotation[]): PaperTitle[] {
+  const titles: PaperTitle[] = [];
+  for (const annotation of annotations) {
+    if (
+      !annotation
+      || annotation.xref !== 'paper'
+      || annotation.yref !== 'paper'
+      || annotation.showarrow !== false
+      || typeof annotation.text !== 'string'
+      || annotation.text.length === 0
+    ) {
+      continue;
+    }
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y))
+      continue;
+    const angle = Number(annotation.textangle ?? 0);
+    titles.push({
+      text: annotation.text,
+      x,
+      y,
+      angle: Number.isFinite(angle) ? angle : 0,
+    });
+  }
+  return titles;
+}
+
+/**
+ * Resolves plotly.py-style paper-ref titles geometrically:
+ *
+ * - Row titles (px `facet_row`, `make_subplots` `row_titles`): rotated 90°,
+ *   at/right of the plot area, vertically inside a row's y-domain — applied
+ *   to every panel in that row.
+ * - Column titles (px `facet_col`, `column_titles`) and per-panel subplot
+ *   titles (px `facet_col_wrap`, `subplot_titles`): both sit just above a
+ *   panel's top edge, so each is attributed to the nearest panel top below
+ *   it. A title above the TOP row is promoted to a whole-column title only
+ *   when no lower panel in that column has its own title.
+ *
+ * Global x/y axis-title annotations (below or left of the plot area) match
+ * no panel and are skipped naturally.
+ */
+function applyPaperRefTitles(
+  grid: PositionedPanel[][],
+  annotations: PlotlyAnnotation[],
+  addLabel: AddLabel,
+): void {
+  const titles = collectPaperTitles(annotations);
+  if (titles.length === 0)
+    return;
+
+  const panels = grid.flat();
+  const maxXEnd = Math.max(...panels.map(panel => panel.xDomain[1]));
+  const maxYEnd = Math.max(...panels.map(panel => panel.yDomain[1]));
+
+  const rowMatches: { row: PositionedPanel[]; text: string }[] = [];
+  const remaining: PaperTitle[] = [];
+  for (const title of titles) {
+    const row = Math.abs(title.angle) === 90 && title.x >= maxXEnd - DOMAIN_EPS
+      ? grid.find(gridRow => containsValue(gridRow[0].yDomain, title.y))
+      : undefined;
+    if (row) {
+      rowMatches.push({ row, text: title.text });
+    } else {
+      remaining.push(title);
+    }
+  }
+
+  const pending: { title: PaperTitle; panel: PositionedPanel }[] = [];
+  for (const title of remaining) {
+    const panel = matchPanelBelowTitle(grid, title);
+    if (panel)
+      pending.push({ title, panel });
+  }
+
+  for (const { title, panel } of pending) {
+    const isTopRow = panel.yDomain[1] >= maxYEnd - DOMAIN_EPS;
+    const columnHasOwnTitles = pending.some(
+      other => other.panel !== panel && intervalsEqual(other.panel.xDomain, panel.xDomain),
+    );
+    if (isTopRow && !columnHasOwnTitles) {
+      for (const columnPanel of panels) {
+        if (intervalsEqual(columnPanel.xDomain, panel.xDomain))
+          addLabel(columnPanel, title.text);
+      }
+    } else {
+      addLabel(panel, title.text);
+    }
+  }
+
+  for (const { row, text } of rowMatches) {
+    for (const panel of row)
+      addLabel(panel, text);
+  }
+}
+
+/**
+ * Finds the panel whose top edge is nearest below a title annotation, with
+ * the annotation horizontally inside the panel's x-domain. Rejects
+ * annotations floating too far above the panel (e.g. mid-figure notes or
+ * `make_subplots`' global axis titles).
+ */
+function matchPanelBelowTitle(
+  grid: PositionedPanel[][],
+  title: PaperTitle,
+): PositionedPanel | null {
+  let best: PositionedPanel | null = null;
+  for (const row of grid) {
+    for (const panel of row) {
+      if (!containsValue(panel.xDomain, title.x))
+        continue;
+      if (panel.yDomain[1] > title.y + DOMAIN_EPS)
+        continue;
+      if (!best || panel.yDomain[1] > best.yDomain[1])
+        best = panel;
+    }
+  }
+  if (!best)
+    return null;
+
+  const offset = title.y - best.yDomain[1];
+  return offset <= titleBandAbove(grid, best) + DOMAIN_EPS ? best : null;
+}
+
+/**
+ * Vertical space above a panel in which a title annotation may sit: half
+ * the gap to the row above in the same column, or a fixed band for top-row
+ * panels (titles sit between the panel top and the paper edge).
+ */
+function titleBandAbove(grid: PositionedPanel[][], panel: PositionedPanel): number {
+  let gap = Infinity;
+  for (const row of grid) {
+    for (const other of row) {
+      if (!intervalsEqual(other.xDomain, panel.xDomain))
+        continue;
+      if (other.yDomain[0] > panel.yDomain[1] + DOMAIN_EPS)
+        gap = Math.min(gap, other.yDomain[0] - panel.yDomain[1]);
+    }
+  }
+  return gap === Infinity ? TITLE_BAND : gap / 2;
+}
+
+/**
+ * Emits a per-panel `selector` (`g[id="axes_…"]`) carrying the panel's axis
+ * pair (e.g. `x2y2`) as the id suffix. The normalizer's
+ * `wrapSubplotBackgrounds` creates matching `<g>` groups around each
+ * panel's background rect — wrapping the rendered `.bglayer` rect when one
+ * exists, or injecting a transparent rect sized from the panel's computed
+ * axis offsets when plotly drew no per-panel backgrounds at all (its
+ * default styling: `paper_bgcolor === plot_bgcolor`). The axis pair in the
+ * id keys the panel↔DOM association, so it stays correct even when a panel
+ * is dropped for unsupported trace types. Ids are prefixed with the chart
+ * id to avoid collisions between multiple charts on one page, while still
+ * matching the core's `g[id^="axes_"]` detection.
+ *
+ * These groups also give the core real per-panel geometry, so visual
+ * ordering and vertical arrow-key direction are resolved correctly for
+ * multi-row grids (the grid rows are emitted top-first).
+ */
+function assignSubplotSelectors(grid: PanelEntry[][], maidrId: string): void {
+  const tag = maidrId.replace(/[^\w-]/g, '_');
+  for (const row of grid) {
+    for (const panel of row) {
+      const axisPair = `${panel.group.xAxisId}${panel.group.yAxisId}`;
+      panel.subplot.selector = `g[id="axes_${tag}_${axisPair}"]`;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

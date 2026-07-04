@@ -6,6 +6,12 @@
  * rendered SVG elements (via a container ref) inside a `useLayoutEffect`. It
  * returns the MaidrData ready to pass to the `<Maidr>` component's `data` prop.
  *
+ * Multi-panel figures: when `children` contains two or more top-level
+ * `<VictoryChart>` components, each chart becomes one MAIDR subplot (arrow
+ * keys navigate panels; Enter drills into a panel). By default the panels
+ * form a single row in children order; pass `layout: { rows, columns }` for
+ * row-major grid chunking.
+ *
  * @example
  * ```tsx
  * import { useRef } from 'react';
@@ -31,13 +37,13 @@
  * ```
  */
 
-import type { Maidr as MaidrData, MaidrLayer } from '@type/grammar';
+import type { Maidr as MaidrData, MaidrSubplot } from '@type/grammar';
 import type { RefObject } from 'react';
-import type { VictoryAdapterConfig, VictoryLayerInfo } from './types';
+import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelLayout, VictorySubplotInfo } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { extractVictoryLayers, toMaidrLayer } from './converters';
-import { clearTaggedElements, getTaggedElements, tagLayerElements } from './selectors';
+import { computeSubplotGrid, extractVictorySubplots, toMaidrLayer } from './converters';
+import { clearTaggedElements, getTaggedElements, PANEL_ATTR, resolvePanelSvgs, tagLayerElements } from './selectors';
 
 /**
  * Collects all legend labels across layers that define them.
@@ -52,34 +58,134 @@ function collectLegend(layers: VictoryLayerInfo[]): string[] | undefined {
 }
 
 /**
- * Produces a stable, serialisable fingerprint from extracted Victory layers.
+ * Produces a stable, serialisable fingerprint from the extracted Victory
+ * subplot structure.
  *
  * React `children` creates a new object reference on every render, which
  * makes it an unstable dependency for hooks. Instead we compare the
- * JSON-serialisable layer data: if the actual chart data hasn't changed
- * the effect can skip DOM re-tagging.
+ * JSON-serialisable panel/layer data (plus the grid layout): if the actual
+ * chart structure hasn't changed the effect can skip DOM re-tagging.
  */
-function layerFingerprint(layers: VictoryLayerInfo[]): string {
-  return JSON.stringify(layers.map(l => ({
-    t: l.victoryType,
-    d: l.data,
-    n: l.dataCount,
-  })));
+function subplotFingerprint(subplots: VictorySubplotInfo[], layout?: VictoryPanelLayout): string {
+  return JSON.stringify({
+    r: layout?.rows ?? null,
+    c: layout?.columns ?? null,
+    p: subplots.map(s => ({
+      title: s.title ?? null,
+      layers: s.layers.map(l => ({
+        t: l.victoryType,
+        d: l.data,
+        n: l.dataCount,
+      })),
+    })),
+  });
+}
+
+/**
+ * Tags the rendered Victory SVG(s) inside `container` and builds the MAIDR
+ * subplot grid.
+ *
+ * Single-panel figures keep the original flat tagging
+ * (`data-maidr-victory-<n>` attributes on the container's first svg) and the
+ * original `[[{ layers, legend }]]` shape, byte-identical to previous output.
+ *
+ * Multi-panel figures resolve one svg per panel (bound via each panel's
+ * `svgIndex` ordinal among all top-level Victory components, so non-chart
+ * Victory siblings such as a standalone scatter or a shared legend cannot
+ * shift the binding), stamp each panel svg with
+ * `data-maidr-victory-panel="<i>"`, and emit panel-scoped attribute names and
+ * selectors so panels can never cross-highlight. Each panel gets its own
+ * `claimed` element set so tagging never leaks across panels.
+ *
+ * Panels whose charts contain no supported data are dropped (the core model
+ * cannot represent an empty subplot inside a grid), but only AFTER grid
+ * chunking: every remaining panel keeps the grid cell of the visual CSS
+ * arrangement, and only rows left entirely empty are removed (the core cannot
+ * represent empty rows; ragged rows navigate fine).
+ */
+export function buildVictorySubplots(
+  container: HTMLElement,
+  victorySubplots: VictorySubplotInfo[],
+  scope: string,
+  layout?: VictoryPanelLayout,
+): MaidrSubplot[][] {
+  if (victorySubplots.length === 1) {
+    const victoryLayers = victorySubplots[0].layers;
+    const svg = container.querySelector('svg');
+    const claimed = new Set<Element>();
+    const maidrLayers = victoryLayers.map((layer, index) =>
+      toMaidrLayer(layer, svg ? tagLayerElements(svg, layer, index, claimed, scope) : undefined));
+    return [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]];
+  }
+
+  // Standalone Victory siblings render their own svgs too, so the expected
+  // svg count is driven by the highest svg ordinal, not the panel count.
+  const expectedSvgCount = victorySubplots.reduce(
+    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
+    0,
+  );
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount);
+
+  // `null` entries keep an empty panel's grid cell during chunking; they are
+  // dropped per row afterwards.
+  const entries: (MaidrSubplot | null)[] = victorySubplots.map((info, panelIndex) => {
+    // Never emit an empty subplot inside a grid — the core model throws on it.
+    if (info.layers.length === 0) {
+      console.warn(
+        `MAIDR: Victory panel ${panelIndex + 1} contains no supported data `
+        + 'components and is omitted from subplot navigation.',
+      );
+      return null;
+    }
+
+    const svg: SVGElement | undefined = panelSvgs[info.svgIndex ?? panelIndex];
+    let panelSelector: string | undefined;
+    if (svg) {
+      svg.setAttribute(PANEL_ATTR, String(panelIndex));
+      panelSelector = `${scope}[${PANEL_ATTR}="${panelIndex}"]`;
+    }
+
+    const panelScope = panelSelector ? `${panelSelector} ` : undefined;
+    const claimed = new Set<Element>();
+    const maidrLayers = info.layers.map((layer, layerIndex) =>
+      toMaidrLayer(layer, svg && panelScope
+        ? tagLayerElements(svg, layer, layerIndex, claimed, panelScope, panelIndex)
+        : undefined));
+
+    // The first layer's title is the panel's display name in MAIDR's subplot
+    // summaries (there is no subplot-level title field in the grammar).
+    maidrLayers[0].title = info.title ?? `Panel ${panelIndex + 1}`;
+
+    return {
+      layers: maidrLayers,
+      legend: collectLegend(info.layers),
+      selector: panelSelector,
+    };
+  });
+
+  return computeSubplotGrid(entries, layout)
+    .map(row => row.filter((subplot): subplot is MaidrSubplot => subplot !== null))
+    .filter(row => row.length > 0);
 }
 
 /**
  * Converts Victory chart children into MAIDR data, tagging the rendered SVG
  * elements inside `containerRef` for highlight integration.
  *
- * @param config       - Chart metadata and the Victory children to introspect
- * @param containerRef - Ref to the DOM node wrapping the rendered Victory SVG
+ * @param config       - Chart metadata, optional multi-panel layout, and the
+ *                       Victory children to introspect
+ * @param containerRef - Ref to the DOM node wrapping the rendered Victory SVG(s)
  * @returns MaidrData ready to pass to `<Maidr data={...}>`
  */
 export function useVictoryAdapter(
   config: VictoryAdapterConfig,
   containerRef: RefObject<HTMLDivElement | null>,
 ): MaidrData {
-  const { id, title, subtitle, caption, children } = config;
+  const { id, title, subtitle, caption, children, layout } = config;
+  // Primitive layout deps: an inline `layout` object literal would re-run the
+  // effect on every render.
+  const layoutRows = layout?.rows;
+  const layoutColumns = layout?.columns;
   const prevFingerprintRef = useRef<string>('');
   // Elements tagged by the most recent full pass. Hoisted to a component-level
   // ref so it survives effect re-runs (an unrelated parent re-render recreates
@@ -113,6 +219,10 @@ export function useVictoryAdapter(
     // MaidrVictory charts on one page cannot cross-highlight (the model resolves
     // selectors via page-global document.querySelector). Idempotent per chart.
     const scope = `#${cssEscape(ensureContainerId(container, 'mv'))} `;
+    const panelLayout: VictoryPanelLayout | undefined
+      = layoutRows !== undefined || layoutColumns !== undefined
+        ? { rows: layoutRows, columns: layoutColumns }
+        : undefined;
 
     let frameId = 0;
 
@@ -121,8 +231,8 @@ export function useVictoryAdapter(
 
       // Extract data from Victory component props via React children
       // introspection (pure computation, does not require the DOM).
-      const victoryLayers = extractVictoryLayers(children);
-      const fp = layerFingerprint(victoryLayers);
+      const victorySubplots = extractVictorySubplots(children);
+      const fp = subplotFingerprint(victorySubplots, panelLayout);
 
       // Fast path: when the layer data is unchanged AND every previously-tagged
       // node is still connected, the existing data-maidr-victory-* attributes
@@ -139,9 +249,7 @@ export function useVictoryAdapter(
 
       // Full pass: (re)apply tags to the current Victory nodes.
       clearTaggedElements(container);
-      const claimed = new Set<Element>();
-      const maidrLayers: MaidrLayer[] = victoryLayers.map((layer, index) =>
-        toMaidrLayer(layer, tagLayerElements(container, layer, index, claimed, scope)));
+      const subplots = buildVictorySubplots(container, victorySubplots, scope, panelLayout);
       taggedElementsRef.current = getTaggedElements(container);
 
       // Selector strings are stable (`#<id> [data-maidr-victory-N]`), so update
@@ -152,16 +260,11 @@ export function useVictoryAdapter(
         return;
       prevFingerprintRef.current = fp;
 
-      setMaidrData(victoryLayers.length === 0
+      const hasLayers = subplots.some(row => row.some(subplot => subplot.layers.length > 0));
+      setMaidrData(hasLayers
+        ? { id, title, subtitle, caption, subplots }
         // Preserve metadata even when no supported Victory components are found.
-        ? { id, title, subtitle, caption, subplots: [[{ layers: [] }]] }
-        : {
-            id,
-            title,
-            subtitle,
-            caption,
-            subplots: [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]],
-          });
+        : { id, title, subtitle, caption, subplots: [[{ layers: [] }]] });
     };
 
     // Initial synchronous tag pass.
@@ -186,7 +289,7 @@ export function useVictoryAdapter(
       if (frameId)
         cancelAnimationFrame(frameId);
     };
-  }, [children, id, title, subtitle, caption]);
+  }, [children, id, title, subtitle, caption, layoutRows, layoutColumns]);
 
   return maidrData;
 }

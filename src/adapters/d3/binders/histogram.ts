@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible histogram interaction.
  */
 
-import type { HistogramPoint, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3HistogramConfig } from '../types';
+import type { HistogramPoint, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3HistogramConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js histogram to MAIDR, generating the accessible data representation.
@@ -56,11 +57,18 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildHistogramLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for histograms. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildHistogramLayer(root: Element, config: D3HistogramConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
@@ -70,12 +78,11 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
     xMax: xMaxAccessor = 'x1',
     yMin: yMinAccessor = (_d: unknown, _i: number) => 0,
     yMax: yMaxAccessor,
-    autoApply,
   } = config;
 
-  const elements = queryD3Elements(svg, selector);
+  const elements = queryD3Elements(root, selector);
   if (elements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'histogram bar');
+    throw buildNoElementsError(root, selector, 'histogram bar');
   }
 
   // Fallback: when the user did NOT specify xMin/xMax accessors AND the
@@ -117,24 +124,14 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
     };
   });
 
-  const layerId = generateId();
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.HISTOGRAM,
     title,
-    selectors: scopeSelector(svg, selector),
+    selectors: scopeSelector(root, selector, panel),
     axes: buildAxes(axes, format),
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{ layers: [layer] }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer };
 }

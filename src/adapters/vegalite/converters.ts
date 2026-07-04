@@ -5,11 +5,15 @@
  * The converter handles:
  *   - Single-view specs (`mark` + `encoding`)
  *   - Layered specs (`layer`)
- *   - Composite specs (`hconcat`, `vconcat`, `concat`)
+ *   - Composite specs (`hconcat`, `vconcat`, `concat` + `columns`)
+ *   - Faceted specs (`facet` operator, `encoding.row` / `encoding.column`
+ *     shorthand, and wrapped facets via `facet.field` + `columns`)
+ *   - Repeated specs (`repeat` row/column arrays or wrapped `repeat: [...]`)
  *
- * Faceted (`facet`) and repeated (`repeat`) specs are not yet supported;
- * the converter logs a warning and returns an empty MAIDR schema in
- * those cases.
+ * Multi-panel specs produce a `Maidr.subplots` grid (one subplot per
+ * panel, in visual reading order); MAIDR core then starts in SUBPLOT
+ * navigation scope where arrow keys move between panels and Enter drills
+ * into one.
  */
 
 import type {
@@ -24,6 +28,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
+import type { FacetDescriptor, RepeatCellMapping, RepeatDescriptor } from './facets';
 import type {
   VegaLiteChannelDef,
   VegaLiteEncoding,
@@ -32,6 +37,17 @@ import type {
   VegaView,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import {
+  chunkIntoRows,
+  describeFacet,
+  describeRepeat,
+  facetCellAttrValue,
+  facetCellScope,
+  repeatChildName,
+  resolveDomainKeys,
+  scopeSelector,
+  substituteRepeatFields,
+} from './facets';
 import { buildLineSelectors, buildSelector } from './selectors';
 
 // ---------------------------------------------------------------------------
@@ -67,20 +83,26 @@ export function vegaLiteToMaidr(
     return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns);
   }
 
-  // Unsupported composite spec types — warn and return an empty chart.
-  if (spec.facet) {
-    console.warn('[maidr/vegalite] Faceted specs are not yet supported.');
-    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  // Faceted specs — the `facet` operator (row/column or wrapped) and the
+  // `encoding.row` / `encoding.column` shorthand both normalise to the
+  // same descriptor.
+  const facetDescriptor = describeFacet(spec);
+  if (facetDescriptor) {
+    return buildFacetMaidr(id, title, subtitle, caption, spec, facetDescriptor, view, domOrder);
   }
-  if (spec.repeat) {
-    console.warn('[maidr/vegalite] Repeat specs are not yet supported.');
-    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+
+  // Repeated specs.
+  const repeatDescriptor = describeRepeat(spec);
+  if (repeatDescriptor) {
+    return buildRepeatMaidr(id, title, subtitle, caption, spec, repeatDescriptor, view, domOrder);
   }
-  if (spec.spec && !spec.mark && !spec.layer) {
-    console.warn('[maidr/vegalite] Wrapped "spec" compositions are not yet supported.');
+
+  // Unsupported composite spec shapes — warn and return an empty chart.
+  if (spec.facet || spec.repeat || (spec.spec && !spec.mark && !spec.layer)) {
+    console.warn('[maidr/vegalite] Unsupported composition shape (facet/repeat without a child "spec", or a bare wrapped "spec").');
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
 
@@ -316,6 +338,33 @@ function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
 }
 
 /**
+ * True for compiled-Vega dataset names that hold layout / legend / header
+ * internals rather than chart data. Facet compilations register
+ * `row_domain` / `column_domain` / `facet_domain*`, header / footer group
+ * datasets, and the `cell` scenegraph dataset; repeat compilations
+ * register one `<childName>_group` dataset per cell.
+ */
+function isInternalDatasetName(name: string): boolean {
+  return name === 'root'
+    || name === 'cell'
+    || name.endsWith('_domain')
+    || name.includes('_domain_')
+    || name.endsWith('_group')
+    || name.endsWith('_header')
+    || name.endsWith('_footer')
+    || name.includes('-title');
+}
+
+/**
+ * True when a dataset row is a Vega scenegraph item (group mark instance)
+ * rather than a plain data record. Scenegraph items carry `mark` /
+ * `bounds` bookkeeping fields that no user dataset would have together.
+ */
+function isSceneGraphRow(row: Record<string, unknown>): boolean {
+  return 'mark' in row && 'bounds' in row && 'items' in row;
+}
+
+/**
  * Resolve the data array for a layer.
  *
  * Tries the compiled Vega view first (more accurate since it includes
@@ -384,8 +433,17 @@ function resolveData(
             // Skip the names we already tried above.
             if (datasetNames.includes(name))
               continue;
+            // Faceted / repeated compilations register layout-internal
+            // datasets (facet/row/column domains, headers, footers, and
+            // per-group scenegraph items like `cell` or `child__*_group`)
+            // that hold no chart data. Skip them by name pattern, and skip
+            // any dataset whose rows are scenegraph items rather than
+            // data records.
+            if (isInternalDatasetName(name))
+              continue;
             if (Array.isArray(rows) && rows.length > 0
-              && typeof rows[0] === 'object' && rows[0] !== null) {
+              && typeof rows[0] === 'object' && rows[0] !== null
+              && !isSceneGraphRow(rows[0] as Record<string, unknown>)) {
               return rows as Record<string, unknown>[];
             }
           }
@@ -855,7 +913,8 @@ function convertLayerSpec(
   parentEncoding?: VegaLiteEncoding,
   isLayered?: boolean,
   domOrderOverride?: 'series-major' | 'subject-major',
-  selectorOverride?: { layerIndex: number; markGroupPrefix: string },
+  selectorOverride?: { layerIndex: number; markGroupPrefix: string; cellScope?: string },
+  rowsOverride?: Record<string, unknown>[],
 ): MaidrLayer | null {
   const mark = getMarkType(spec);
   if (!mark)
@@ -872,7 +931,9 @@ function convertLayerSpec(
   if (!traceType)
     return null;
 
-  const rows = resolveData(spec, index, view);
+  // Faceted callers pre-filter the resolved dataset down to one panel's
+  // rows and pass them here, bypassing dataset-name resolution.
+  const rows = rowsOverride ?? resolveData(spec, index, view);
 
   const axes: MaidrLayer['axes'] = {
     x: getAxisConfig(encoding.x),
@@ -980,6 +1041,19 @@ function convertLayerSpec(
       return null;
   }
 
+  // Scope selectors to one facet cell. All facet cells share identical
+  // mark-group classes (`child_marks` / `child_layer_<j>_marks`), so the
+  // only way to address one panel's marks is via the `data-maidr-cell`
+  // attribute stamped on the cell's item <g> at bind time.
+  const cellScope = selectorOverride?.cellScope;
+  if (cellScope) {
+    if (typeof selectors === 'string') {
+      selectors = scopeSelector(selectors, cellScope);
+    } else if (Array.isArray(selectors)) {
+      selectors = (selectors as string[]).map(sel => scopeSelector(sel, cellScope));
+    }
+  }
+
   const layer: MaidrLayer = {
     id: String(index),
     type: traceType,
@@ -1011,6 +1085,7 @@ function buildConcatMaidr(
   direction: 'horizontal' | 'vertical' | 'wrap',
   view?: VegaView,
   domOrder?: 'series-major' | 'subject-major',
+  columns?: number,
 ): Maidr {
   // Track a global layer counter so that each concat child resolves
   // dataset names independently (Vega names datasets sequentially
@@ -1018,6 +1093,13 @@ function buildConcatMaidr(
   let globalLayerIndex = 0;
 
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
+    // Each concat child compiles to a per-cell Vega scope group
+    // (`concat_<i>_group`) wrapping the panel's background path. Pointing
+    // the subplot selector at that background gives MAIDR core a real
+    // per-panel element to measure, which is what lets it compute the
+    // visual panel order (and vertical arrow direction) for multi-row
+    // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
+    const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) => {
         // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
@@ -1040,7 +1122,7 @@ function buildConcatMaidr(
         globalLayerIndex++;
         return layer;
       }).filter(Boolean) as MaidrLayer[];
-      return { layers };
+      return { layers, selector };
     }
     // A single-view concat child renders under `concat_<i>_marks` (or the
     // sugar-expanded `concat_<i>_layer_0_marks`).
@@ -1056,16 +1138,368 @@ function buildConcatMaidr(
     if (layer)
       layer.id = `${i}_0`;
     globalLayerIndex++;
-    return { layers: layer ? [layer] : [] };
+    return { layers: layer ? [layer] : [], selector };
   });
 
+  // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
+  // model on focus; collapse to the same single empty figure other
+  // unsupported specs produce (bindVegaLite skips mounting that shape).
+  if (subplotEntries.some(entry => entry.layers.length === 0)) {
+    console.warn('[maidr/vegalite] Concat spec contains a child with an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
   // vconcat produces one subplot per row (column layout).
-  // hconcat / concat produce all subplots in a single row.
+  // hconcat produces all subplots in a single row.
+  // General `concat` wraps into rows of `columns` panels (Vega-Lite's
+  // default when `columns` is omitted is a single unbounded row).
   let subplots: MaidrSubplot[][];
   if (direction === 'vertical') {
     subplots = subplotEntries.map(s => [s]);
+  } else if (direction === 'wrap') {
+    subplots = chunkIntoRows(subplotEntries, columns);
   } else {
     subplots = [subplotEntries];
+  }
+
+  return buildMaidr(id, title, subtitle, caption, subplots);
+}
+
+// ---------------------------------------------------------------------------
+// Faceted views (facet operator / encoding shorthand / wrapped facet)
+// ---------------------------------------------------------------------------
+
+/** One facet panel: dataset row filters plus the announced panel title. */
+interface FacetCellDef {
+  filters: Array<[field: string, key: string]>;
+  title: string;
+}
+
+/**
+ * Resolve the raw source dataset (pre-transform rows carrying the facet
+ * fields). Used when the layer's own dataset resolution lands on a table
+ * that lost the facet fields.
+ */
+function resolveSourceRows(
+  spec: VegaLiteSpec,
+  view?: VegaView,
+): Record<string, unknown>[] {
+  if (view) {
+    try {
+      const rows = view.data('source_0');
+      if (Array.isArray(rows) && rows.length > 0)
+        return rows;
+    } catch {
+      // No source dataset — fall through to inline data.
+    }
+  }
+  const data = spec.data as { values?: Record<string, unknown>[] } | undefined;
+  if (data && typeof data === 'object' && Array.isArray(data.values))
+    return data.values;
+  return [];
+}
+
+/**
+ * Build a multi-subplot Maidr for a faceted spec.
+ *
+ * Grid construction: row facet values become grid rows and column facet
+ * values become grid columns, in Vega's layout order (the compiled
+ * `row_domain` / `column_domain` / `facet_domain` datasets when a view is
+ * available, ascending value order otherwise). Wrapped facets chunk the
+ * single facet field's values into rows of `columns` panels. Cross facets
+ * are sparse: Vega only renders a cell for (row, column) combinations
+ * present in the data, so the grid emits exactly those combinations
+ * (rows may be ragged), keeping the subplot order aligned with the
+ * rendered cell order.
+ *
+ * Every panel's layers are converted from the shared child spec with the
+ * resolved dataset pre-filtered down to that panel's facet value(s), and
+ * the panel's first layer title carries the facet value (e.g. `site: A`)
+ * — MAIDR core uses that as the panel display name in subplot summaries.
+ *
+ * Selectors are scoped per panel with a `data-maidr-cell` attribute that
+ * `stampFacetCells` (see `facets.ts`) writes onto each rendered cell at
+ * bind time, because all facet cells share identical Vega mark classes.
+ */
+function buildFacetMaidr(
+  id: string,
+  title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
+  spec: VegaLiteSpec,
+  descriptor: FacetDescriptor,
+  view?: VegaView,
+  domOrder?: 'series-major' | 'subject-major',
+): Maidr {
+  const childSpec = descriptor.childSpec;
+  const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
+  const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
+  const facetFields = [
+    descriptor.rowChannel?.field,
+    descriptor.columnChannel?.field,
+    descriptor.wrapChannel?.field,
+  ].filter((field): field is string => field != null);
+
+  // Resolve each layer's full dataset once; cells filter it below. When a
+  // layer's dataset resolution lands on a table without the facet fields
+  // (they are always groupby keys, so this signals a wrong dataset), fall
+  // back to the raw source rows.
+  const layerRows = layerSpecs.map((layerSpec, j) => {
+    const specForData: VegaLiteSpec = layerSpec.data != null
+      ? layerSpec
+      : { ...layerSpec, data: childSpec.data ?? spec.data };
+    let rows = resolveData(specForData, j, view);
+    if (rows.length > 0 && !facetFields.every(field => field in rows[0])) {
+      const source = resolveSourceRows(spec, view);
+      if (source.length > 0 && facetFields.every(field => field in source[0])) {
+        rows = source;
+      }
+    }
+    return rows;
+  });
+  // Union across ALL layers: a sparse layer declared first (e.g. an
+  // annotation layer covering a subset of facet values) must not hide
+  // panels that a fuller layer's data would produce.
+  const allRows = layerRows.flat();
+
+  // Build the grid of cell definitions in visual reading order.
+  const grid: FacetCellDef[][] = [];
+  if (descriptor.wrapChannel?.field) {
+    const field = descriptor.wrapChannel.field;
+    const keys = resolveDomainKeys(field, allRows, view, 'facet_domain');
+    const cells = keys.map(key => ({
+      filters: [[field, key]] as FacetCellDef['filters'],
+      title: `${field}: ${key}`,
+    }));
+    grid.push(...chunkIntoRows(cells, descriptor.columns));
+  } else {
+    const rowField = descriptor.rowChannel?.field;
+    const colField = descriptor.columnChannel?.field;
+    const rowKeys: (string | null)[] = rowField
+      ? resolveDomainKeys(rowField, allRows, view, 'row_domain')
+      : [null];
+    const colKeys: (string | null)[] = colField
+      ? resolveDomainKeys(colField, allRows, view, 'column_domain')
+      : [null];
+
+    // Cross facets are sparse: Vega only renders cells for (row, column)
+    // combinations present in the data. The combo key is joined with NUL
+    // (which cannot appear in field values) - a bare space would make
+    // row="East Coast"/col="City" collide with row="East"/col="Coast City".
+    const comboKey = (rowValue: unknown, colValue: unknown): string =>
+      `${String(rowValue)}\u0000${String(colValue)}`;
+    const combos = new Set<string>();
+    if (rowField && colField) {
+      for (const row of allRows) {
+        combos.add(comboKey(row[rowField], row[colField]));
+      }
+    }
+
+    for (const rowKey of rowKeys) {
+      const cellsInRow: FacetCellDef[] = [];
+      for (const colKey of colKeys) {
+        if (rowField && colField && !combos.has(comboKey(rowKey, colKey))) {
+          continue;
+        }
+        const filters: FacetCellDef['filters'] = [];
+        const titleParts: string[] = [];
+        if (rowField && rowKey !== null) {
+          filters.push([rowField, rowKey]);
+          titleParts.push(`${rowField}: ${rowKey}`);
+        }
+        if (colField && colKey !== null) {
+          filters.push([colField, colKey]);
+          titleParts.push(`${colField}: ${colKey}`);
+        }
+        cellsInRow.push({ filters, title: titleParts.join(', ') });
+      }
+      if (cellsInRow.length > 0) {
+        grid.push(cellsInRow);
+      }
+    }
+  }
+
+  if (grid.length === 0) {
+    console.warn('[maidr/vegalite] Faceted spec produced no panels (empty data?).');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  const parentEncoding = isLayered ? childSpec.encoding : undefined;
+  const subplots: MaidrSubplot[][] = [];
+  let flatIndex = 0;
+  let hasEmptyPanel = false;
+  for (let r = 0; r < grid.length; r++) {
+    const subplotRow: MaidrSubplot[] = [];
+    for (let c = 0; c < grid[r].length; c++) {
+      const cell = grid[r][c];
+      const scope = facetCellScope(facetCellAttrValue(id, r, c));
+      const rawLayers = layerSpecs.map((layerSpec, j) => {
+        const cellRows = layerRows[j].filter(row =>
+          cell.filters.every(([field, key]) => String(row[field]) === key),
+        );
+        // Skip layers whose rows don't cover this facet value (e.g. an
+        // annotation layer with its own dataset covering only some cells).
+        // convertLayerSpec would happily emit a layer with `data: []`,
+        // and a zero-point trace crashes MAIDR core's state getters the
+        // moment the user PageUp/PageDown's onto it.
+        if (cellRows.length === 0) {
+          return null;
+        }
+        return convertLayerSpec(
+          layerSpec,
+          j,
+          view,
+          parentEncoding,
+          isLayered,
+          domOrder,
+          { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope },
+          cellRows,
+        );
+      }).filter(Boolean) as MaidrLayer[];
+      const layers = coalesceSiblingLineLayers(rawLayers);
+      layers.forEach((layer, j) => {
+        layer.id = `${flatIndex}_${j}`;
+      });
+      if (layers.length === 0) {
+        hasEmptyPanel = true;
+      } else {
+        // The FIRST layer's title is the panel display name in MAIDR's
+        // subplot summaries — announce the facet value(s) there.
+        layers[0].title = cell.title;
+      }
+      subplotRow.push({ layers, selector: `${scope} > path.background` });
+      flatIndex++;
+    }
+    subplots.push(subplotRow);
+  }
+
+  // A panel with zero layers crashes MAIDR core's Subplot model; fall back
+  // to the same single empty figure other unsupported specs produce.
+  if (hasEmptyPanel) {
+    console.warn('[maidr/vegalite] Faceted spec uses an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  return buildMaidr(id, title, subtitle, caption, subplots);
+}
+
+// ---------------------------------------------------------------------------
+// Repeated views (repeat operator)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a multi-subplot Maidr for a `repeat` spec.
+ *
+ * The grid comes straight from the repeat definition: `repeat.row` fields
+ * become grid rows and `repeat.column` fields become grid columns
+ * (row-major); the wrapped array form (`repeat: [...]` + `columns`) is
+ * chunked into rows. Each cell converts the shared child spec with its
+ * `{repeat: ...}` field references substituted for that cell's fields.
+ *
+ * Unlike facets, repeat cells compile to per-cell Vega child views whose
+ * mark classes are already unique *within one chart*
+ * (`child__row_<rf>column_<cf>_marks` etc.), so selectors are class-scoped
+ * and no bind-time stamping is needed. Cross-chart uniqueness (two charts
+ * built from the same repeated fields compile to identical class names) is
+ * handled at bind time, where `bindVegaLite` prefixes every selector with
+ * the chart container's id.
+ */
+function buildRepeatMaidr(
+  id: string,
+  title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
+  spec: VegaLiteSpec,
+  descriptor: RepeatDescriptor,
+  view?: VegaView,
+  domOrder?: 'series-major' | 'subject-major',
+): Maidr {
+  const childSpec = descriptor.childSpec;
+
+  // Grid of per-cell field mappings in reading order.
+  interface RepeatCellDef { mapping: RepeatCellMapping; title: string }
+  let grid: RepeatCellDef[][];
+  if (descriptor.wrapFields) {
+    const cells = descriptor.wrapFields.map(field => ({
+      mapping: { repeat: field },
+      title: field,
+    }));
+    grid = chunkIntoRows(cells, descriptor.columns);
+  } else {
+    const rowFields: (string | undefined)[] = descriptor.rowFields ?? [undefined];
+    const colFields: (string | undefined)[] = descriptor.columnFields ?? [undefined];
+    grid = rowFields.map(rowField => colFields.map((colField) => {
+      const mapping: RepeatCellMapping = {};
+      if (rowField !== undefined) {
+        mapping.row = rowField;
+      }
+      if (colField !== undefined) {
+        mapping.column = colField;
+      }
+      const cellTitle = rowField !== undefined && colField !== undefined
+        ? `${rowField} vs ${colField}`
+        : rowField ?? colField ?? '';
+      return { mapping, title: cellTitle };
+    }));
+  }
+
+  if (grid.length === 0) {
+    console.warn('[maidr/vegalite] Repeat spec produced no panels.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  // Track a global layer counter for dataset-name guessing, mirroring
+  // buildConcatMaidr: Vega numbers `data_<k>` datasets sequentially across
+  // the whole compiled spec, not per repeated child.
+  let globalLayerIndex = 0;
+  let flatIndex = 0;
+  let hasEmptyPanel = false;
+
+  const subplots: MaidrSubplot[][] = grid.map(rowCells => rowCells.map((cell) => {
+    const cellSpec = substituteRepeatFields(childSpec, cell.mapping);
+    if (cellSpec.data == null) {
+      cellSpec.data = spec.data;
+    }
+    const childName = repeatChildName(cell.mapping);
+    const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
+    const layerSpecs = isLayered ? cellSpec.layer! : [cellSpec];
+    const parentEncoding = isLayered ? cellSpec.encoding : undefined;
+
+    const rawLayers = layerSpecs.map((layerSpec, j) => {
+      const specForData: VegaLiteSpec = layerSpec.data != null
+        ? layerSpec
+        : { ...layerSpec, data: cellSpec.data };
+      const layer = convertLayerSpec(
+        specForData,
+        globalLayerIndex,
+        view,
+        parentEncoding,
+        isLayered,
+        domOrder,
+        { layerIndex: j, markGroupPrefix: `${childName}_` },
+      );
+      globalLayerIndex++;
+      return layer;
+    }).filter(Boolean) as MaidrLayer[];
+    const layers = coalesceSiblingLineLayers(rawLayers);
+    layers.forEach((layer, j) => {
+      layer.id = `${flatIndex}_${j}`;
+    });
+    if (layers.length === 0) {
+      hasEmptyPanel = true;
+    } else {
+      layers[0].title = cell.title;
+    }
+    flatIndex++;
+    return {
+      layers,
+      selector: `g.mark-group.role-scope.${childName}_group > g > path.background`,
+    };
+  }));
+
+  if (hasEmptyPanel) {
+    console.warn('[maidr/vegalite] Repeat spec uses an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
 
   return buildMaidr(id, title, subtitle, caption, subplots);

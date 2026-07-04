@@ -7,11 +7,13 @@
  *
  * @packageDocumentation
  */
-import { createMaidrFromFrappeChart } from './adapters/frappe/converters';
+import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from './adapters/frappe/converters';
 
 export {
   createMaidrFromFrappeChart,
+  createMaidrFromFrappeCharts,
   type FrappeChartAdapterOptions,
+  type FrappeChartsGridOptions,
 } from './adapters/frappe/converters';
 
 // Expose Frappe adapter globally for script-tag usage (UMD build).
@@ -20,6 +22,7 @@ declare global {
   interface Window {
     maidrFrappe?: {
       createMaidrFromFrappeChart: typeof createMaidrFromFrappeChart;
+      createMaidrFromFrappeCharts: typeof createMaidrFromFrappeCharts;
     };
   }
 }
@@ -27,6 +30,7 @@ declare global {
 if (typeof window !== 'undefined') {
   window.maidrFrappe = {
     createMaidrFromFrappeChart,
+    createMaidrFromFrappeCharts,
   };
 }
 
@@ -35,6 +39,7 @@ export type {
   FrappeChartType,
   FrappeData,
   FrappeDataset,
+  FrappePanel,
 } from './adapters/frappe/types';
 
 // Re-export core types that consumers may need alongside the adapter.

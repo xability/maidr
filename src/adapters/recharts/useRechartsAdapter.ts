@@ -48,9 +48,15 @@ import { convertRechartsToMaidr } from './converters';
  * fields change. You do **not** need to stabilize the config object
  * reference itself — the hook destructures it and tracks each field
  * independently. However, fields that are arrays or objects (`data`,
- * `yKeys`, `layers`, `fillKeys`, `binConfig`) are compared by
- * reference. Define them outside the component or wrap them in
+ * `yKeys`, `layers`, `subplots`, `fillKeys`, `binConfig`) are compared
+ * by reference. Define them outside the component or wrap them in
  * `useMemo` to avoid unnecessary recomputation on every render.
+ *
+ * In subplot mode (`subplots` set), the hook — unlike `<MaidrRecharts>` —
+ * does NOT wrap your charts in panel container divs. You must render each
+ * panel's chart inside a container matching the generated panel scope
+ * (`<div className="maidr-panel-<row>-<col>">`, row-major grid positions)
+ * or set `panelSelector` on each panel config to your own unique selector.
  *
  * @param config - Recharts adapter configuration
  * @returns MaidrData ready to pass to `<Maidr data={...}>`
@@ -66,6 +72,8 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     xKey,
     yKeys,
     layers,
+    subplots,
+    columns,
     xLabel,
     yLabel,
     orientation,
@@ -85,6 +93,8 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       xKey,
       yKeys,
       layers,
+      subplots,
+      columns,
       xLabel,
       yLabel,
       orientation,
@@ -92,6 +102,6 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       binConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
   );
 }

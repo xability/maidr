@@ -298,6 +298,61 @@ bindAnyChart(chart, {
 
 Selectors are resolved against the chart container, so they may be scoped relatively (e.g. `'.series-0 rect'` rather than `'#container .series-0 rect'`).
 
+## Multi-Panel Figures
+
+AnyChart has no native facet/small-multiples concept — the idiom is one chart instance per container. `bindAnyCharts()` groups several drawn charts into ONE multi-panel MAIDR figure: users navigate between panels with arrow keys, press <kbd>Enter</kbd> to drill into a panel, and <kbd>Esc</kbd> to return to panel navigation.
+
+```html
+<!-- Keep all panel containers inside ONE wrapper element. -->
+<div id="dashboard">
+  <div id="panel-q1"></div>
+  <div id="panel-q2"></div>
+  <div id="panel-q3"></div>
+  <div id="panel-q4"></div>
+</div>
+<script type="module">
+  import { bindAnyCharts } from 'https://cdn.jsdelivr.net/npm/maidr/dist/anychart.mjs';
+
+  // q1…q4 are ordinary drawn AnyChart instances, one per container.
+  // A 2D array maps 1:1 onto the subplot grid (visual reading order,
+  // top-left panel first). Ragged rows are fine; empty rows are not.
+  bindAnyCharts(
+    [
+      [q1, q2],
+      [q3, q4],
+    ],
+    { id: 'sales-by-quarter', title: 'Sales by Quarter' },
+  );
+</script>
+```
+
+A flat array works too — arrange it with `options.layout`:
+
+```js
+// Chunk row-major into 2 columns → [[q1, q2], [q3, q4]].
+bindAnyCharts([q1, q2, q3, q4], { layout: { columns: 2 } });
+
+// Or derive the grid from each container's on-page position:
+// containers are clustered into rows by their top edge and sorted
+// left-to-right within each row.
+bindAnyCharts([q1, q2, q3, q4], { layout: 'auto' });
+```
+
+How it fits together:
+
+- **Panel names** — each chart's own `title()` becomes its panel's display name in MAIDR's subplot summaries. `options.title` names the whole figure, and `options.axes` (when set) overrides every panel's axis labels; otherwise axis titles are extracted per chart.
+- **Per-panel highlighting** — the adapter stamps `data-maidr-anychart-panel="<figureId>-<row>-<col>"` on each chart's own `<svg>` and scopes every highlight selector to that panel, so highlighting can never leak between panels (or between figures on the same page).
+- **Visual navigation order** — MAIDR resolves each panel's on-screen position by measuring the element matched by that same per-panel `svg[data-maidr-anychart-panel="…"]` selector, so panel numbering follows visual reading order (top-left is "Subplot 1") and the Up/Down arrows on multi-ROW grids move visually up/down.
+- **One mount point** — the combined `maidr-data` attribute goes on a transparent host `<div>` wrapping the panels' common ancestor, so place all panel containers inside one wrapper element (or under one common parent). Charts drawn onto a shared Stage/container are **not** supported — give each chart its own container.
+- **Panel CSS** — binding may move contiguous panel containers into MAIDR's transparent host `<div>`, so they are no longer direct children of your wrapper. Size panel containers with a class or descendant selector (e.g. `#dashboard .panel { … }`), **not** a child combinator like `#dashboard > div`, which stops matching after binding and breaks later AnyChart re-layouts (window resize, `chart.draw()` on data updates). Panels with other content interleaved between them (headings, captions) are fine: the adapter then wraps their shared ancestor in place instead of moving them, preserving page order.
+- **Options** — `bindAnyCharts(charts, { id?, title?, axes?, layout? })`. The per-series `selectors` override is not available in grouped mode.
+
+`anyChartsToMaidr(charts, options)` is the matching data-only converter (same relationship as `anyChartToMaidr()` to `bindAnyChart()`): it returns the combined `Maidr | null` without touching the DOM. Note that its default selectors refer to panel attributes that only `bindAnyCharts()` stamps, and that you should pass a stable `id` if you need deterministic output.
+
+Known limitation: because AnyChart SVGs contain no per-panel `g[id^="axes_"]` groups, there is no visual panel-outline highlight while navigating between panels (panel navigation, text, audio, and per-point highlighting inside each panel are unaffected).
+
+See [`examples/anychart/multipanel.html`](https://github.com/xability/maidr/blob/main/examples/anychart/multipanel.html) for a complete 2×2 dashboard.
+
 ## How Highlighting Works (Advanced)
 
 AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_rect_*`, `ac_layer_*`) and does not expose stable CSS classes. To still provide reliable per-point highlighting without forcing every consumer to write selectors, `bindAnyChart()` stamps stable `data-maidr-anychart-*` attributes onto the relevant SVG elements after the chart renders:

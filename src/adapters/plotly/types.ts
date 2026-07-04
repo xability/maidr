@@ -45,8 +45,31 @@ export interface PlotlyLayout {
   title?: { text?: string } | string;
   xaxis?: PlotlyAxis;
   yaxis?: PlotlyAxis;
-  grid?: { rows?: number; columns?: number };
+  grid?: {
+    rows?: number;
+    columns?: number;
+    pattern?: string;
+    roworder?: string;
+  };
+  annotations?: PlotlyAnnotation[];
   [key: string]: unknown;
+}
+
+/**
+ * A layout annotation. plotly.py (Plotly Express facets, `make_subplots`
+ * row/column/subplot titles) emits facet labels (e.g. "sex=Male") as
+ * annotations with `xref: 'paper'` / `yref: 'paper'` positioned via paper
+ * coordinates; hand-authored charts may instead use axis-domain references
+ * such as `'x2 domain'`. Both shapes are recognised by the extractor.
+ */
+export interface PlotlyAnnotation {
+  text?: string;
+  xref?: string;
+  yref?: string;
+  x?: number | string;
+  y?: number | string;
+  showarrow?: boolean;
+  textangle?: number | string;
 }
 
 export interface PlotlyFullLayout extends PlotlyLayout {
@@ -64,6 +87,16 @@ export interface PlotlyAxis {
   tickvals?: number[];
   type?: string;
   categories?: string[];
+  /** Fraction of the plot area this axis spans: `[start, end]` in [0, 1]. */
+  domain?: [number, number];
+  /** The axis this one is anchored to (e.g. `'y2'`). */
+  anchor?: string;
+  /** Axis id whose range this axis mirrors (facet-style shared axes). */
+  matches?: string;
+  /** Computed pixel offset of the axis within the SVG (plotly internal). */
+  _offset?: number;
+  /** Computed pixel length of the axis within the SVG (plotly internal). */
+  _length?: number;
 }
 
 export interface PlotlyCalcData {
