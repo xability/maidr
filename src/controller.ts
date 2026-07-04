@@ -373,7 +373,10 @@ export class Controller implements Disposable {
     }
     try {
       // The cursor follows trimmed data only on the focused layer/series —
-      // the same focus rule that scopes monitor announcements.
+      // the same focus rule that scopes monitor announcements. Evaluating the
+      // predicate against the OLD figure is safe even for appends that start
+      // a new series: the window trims per group, so a brand-new group (one
+      // point) always has trimmed === 0 and returns above.
       return isAppendedPointFocused(this.figure, appended) ? appended.trimmed : 0;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);

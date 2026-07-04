@@ -232,6 +232,26 @@ describe('appendPointToMaidr', () => {
     expect(result!.appended.col).toBe(0);
   });
 
+  test('a new group never reports a trim, even at maxWidth', () => {
+    // Pins the invariant that lets resolveActiveColShift evaluate the focus
+    // predicate against the OLD figure: the sliding window applies per group,
+    // and a brand-new group holds exactly one point, so a new-group append
+    // always has trimmed === 0 and short-circuits before the predicate ever
+    // sees a group index that does not exist in the old figure.
+    const maidr = createLineMaidr();
+    maidr.maxWidth = 2;
+    const result = appendPointToMaidr(maidr, { x: 1, y: 99 }, { groupIndex: 2 });
+
+    expect(result).not.toBeNull();
+    expect(result!.appended.trimmed).toBe(0);
+    expect(result!.appended.row).toBe(2);
+    const data = result!.maidr.subplots[0][0].layers[0].data as LinePoint[][];
+    expect(data[2]).toEqual([{ x: 1, y: 99 }]);
+    // Existing groups are untouched by the new group's window.
+    expect(data[0]).toHaveLength(2);
+    expect(data[1]).toHaveLength(1);
+  });
+
   test('returns null for an unknown layerId', () => {
     const maidr = createBarMaidr();
     const result = appendPointToMaidr(maidr, { x: 'C', y: 3 }, { layerId: 'missing' });
