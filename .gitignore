@@ -163,6 +163,7 @@ out
 
 # Playwright
 test-results/
+test-results.txt
 playwright-report/
 
 # VSCode

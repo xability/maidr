@@ -6,6 +6,10 @@ on:
     - cron: '0 2 */2 * *'
   workflow_dispatch: # Allow manual triggering
 
+permissions:
+  contents: read
+  issues: write # the report step files/updates a test-report issue
+
 jobs:
   test:
     name: Run Playwright Tests
@@ -27,20 +31,46 @@ jobs:
       - name: Install Playwright browsers
         run: npm run e2e:install
 
+      # The specs drive the example pages against the built bundles via
+      # file://, and dist/ is gitignored — without this step every test
+      # fails on a fresh checkout.
+      - name: Build library
+        run: npm run build
+
+      # continue-on-error so the report step below always gets the output;
+      # the final step re-raises the failure. tee captures the list-reporter
+      # output into the file the report step reads — outside playwright-report/,
+      # which the html reporter wipes when it writes.
       - name: Run Playwright tests
-        run: npm run e2e
+        id: e2e
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee test-results.txt
         env:
           CI: true
 
       - name: Create or update test report issue
         if: always()
         uses: actions/github-script@v7
+        env:
+          TEST_STATUS: ${{ steps.e2e.outcome }}
         with:
           script: |
             const fs = require('fs');
             const { repo, owner } = context.repo;
             const run_id = context.runId;
             const run_url = `https://github.com/${owner}/${repo}/actions/runs/${run_id}`;
+
+            // The summary is at the end of the reporter output; keep the tail
+            // so the report always fits the issue-body size limit.
+            const resultsPath = 'test-results.txt';
+            const rawResults = fs.existsSync(resultsPath)
+              ? fs.readFileSync(resultsPath, 'utf8')
+              : 'No test output was captured (the test step did not run).';
+            const results = rawResults.length > 60000
+              ? `… (truncated, full output in the workflow run)\n${rawResults.slice(-60000)}`
+              : rawResults;
 
             // Generate report content
             const reportContent = [
@@ -52,14 +82,16 @@ jobs:
               '',
               '### Test Results',
               '```',
-              fs.readFileSync('playwright-report/test-results.txt', 'utf8'),
+              results,
               '```',
               '',
               `[View Workflow Run](${run_url})`
             ].join('\n');
 
-            // Determine issue title and labels based on test status
-            const isFailure = process.env.TEST_STATUS === 'failure';
+            // Determine issue title and labels based on test status. Anything
+            // other than success (failure, cancelled — e.g. the job timeout
+            // interrupting a hung run) must be filed as a failure.
+            const isFailure = process.env.TEST_STATUS !== 'success';
             const title = isFailure
               ? `test: Some e2e tests failed - ${new Date().toISOString()}`
               : `Test Report - ${new Date().toISOString()}`;
@@ -73,9 +105,12 @@ jobs:
               state: 'open'
             });
 
+            // Match on the stable title prefix only: the body always embeds
+            // the CURRENT run's URL, so matching on it could never find an
+            // issue from a previous run — each scheduled failure would file
+            // a brand-new issue instead of updating the rolling one.
             const existingIssue = issues.data.find(issue =>
-              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report') &&
-              issue.body.includes(run_url)
+              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report')
             );
 
             if (existingIssue) {
@@ -97,3 +132,9 @@ jobs:
                 labels
               });
             }
+
+      # The test step ran with continue-on-error so the report above always
+      # publishes; surface the real outcome as the workflow conclusion.
+      - name: Propagate test outcome
+        if: steps.e2e.outcome != 'success'
+        run: exit 1

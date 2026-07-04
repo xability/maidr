@@ -30,6 +30,12 @@ jobs:
       - name: Install Playwright browsers
         run: npm run e2e:install
 
+      # The specs drive the example pages against the built bundles via
+      # file://, and dist/ is gitignored — without this step every test
+      # fails on a fresh checkout.
+      - name: Build library
+        run: npm run build
+
       - name: Run Playwright tests
         run: npm run e2e
         env:
