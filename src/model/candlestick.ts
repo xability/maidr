@@ -992,6 +992,13 @@ export class Candlestick extends AbstractTrace {
    * @returns True if a matching value was found and moved to
    */
   public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors moveOnce/moveToExtreme).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.candles.length) {
       return false;
@@ -1048,7 +1055,7 @@ export class Candlestick extends AbstractTrace {
    * @returns The trend-filter rotor units in cycle order
    */
   public override getRotorFilterUnits(): RotorFilterUnit[] {
-    return TREND_ROTOR_UNITS.map(unit => ({ ...unit }));
+    return [...TREND_ROTOR_UNITS];
   }
 
   /**
@@ -1066,6 +1073,13 @@ export class Candlestick extends AbstractTrace {
     if (direction !== 'left' && direction !== 'right') {
       this.notifyRotorBounds();
       return false;
+    }
+
+    // Establish the entry position on the first move so this jump highlights
+    // and the initial-entry branch of moveOnce doesn't later swallow a
+    // keypress (mirrors moveOnce/moveToExtreme/moveToIndex).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
     }
 
     const step = direction === 'right' ? 1 : -1;

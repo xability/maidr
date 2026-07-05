@@ -187,6 +187,8 @@ describe('candlestick rotor service integration', () => {
     const result = service.moveUp();
 
     expect(result).not.toBeNull();
+    // Distinct "unavailable in this mode" phrasing, not a positional boundary.
+    expect(result).toMatch(/not available|unavailable/i);
     expect(result).toMatch(/bullish point/i);
     expect(trace.col).toBe(0);
   });

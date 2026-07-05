@@ -169,7 +169,7 @@ export class RotorNavigationService {
       return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
     }
 
-    const filterUnit = this.getActiveFilterUnit();
+    const filterUnit = this.getActiveFilterUnit(mode);
     if (filterUnit) {
       return this.moveFilter(filterUnit, 'up');
     }
@@ -207,7 +207,7 @@ export class RotorNavigationService {
       return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
     }
 
-    const filterUnit = this.getActiveFilterUnit();
+    const filterUnit = this.getActiveFilterUnit(mode);
     if (filterUnit) {
       return this.moveFilter(filterUnit, 'down');
     }
@@ -243,7 +243,7 @@ export class RotorNavigationService {
       return this.moveIntersection('left');
     }
 
-    const filterUnit = this.getActiveFilterUnit();
+    const filterUnit = this.getActiveFilterUnit(mode);
     if (filterUnit) {
       return this.moveFilter(filterUnit, 'left');
     }
@@ -279,7 +279,7 @@ export class RotorNavigationService {
       return this.moveIntersection('right');
     }
 
-    const filterUnit = this.getActiveFilterUnit();
+    const filterUnit = this.getActiveFilterUnit(mode);
     if (filterUnit) {
       return this.moveFilter(filterUnit, 'right');
     }
@@ -438,12 +438,11 @@ export class RotorNavigationService {
    * unit.
    * @returns The active filter unit, or null
    */
-  private getActiveFilterUnit(): RotorFilterUnit | null {
+  private getActiveFilterUnit(mode: string): RotorFilterUnit | null {
     const activeTrace = this.context.active;
     if (!(activeTrace instanceof AbstractTrace)) {
       return null;
     }
-    const mode = this.getMode();
     return activeTrace.getRotorFilterUnits().find(unit => unit.label === mode) ?? null;
   }
 
@@ -454,33 +453,53 @@ export class RotorNavigationService {
    * Return convention matches the sibling move methods: null on success
    * (nothing to announce), a message string when bounded/unavailable.
    *
-   * Boundary messages are routed through notification.notify so the text
-   * alert region re-mounts (it is keyed by a revision counter) and screen
-   * readers re-announce on every repeat key press — trend filters bound
-   * frequently (e.g. few bullish candles), so silent repeats would strand a
-   * screen-reader user at a boundary with no feedback. This mirrors the
-   * intersection-mode path rather than the compare-mode path, which returns
-   * the message to the rotor area only.
+   * Filter units navigate along one axis only (e.g. candles left/right), so
+   * up/down are announced as unavailable-in-this-mode — phrasing distinct
+   * from a real positional boundary, mirroring intersection mode — without
+   * touching the model.
+   *
+   * All messages route through notification.notify so the text alert region
+   * re-mounts (it is keyed by a revision counter) and screen readers
+   * re-announce on every repeat key press — trend filters bound frequently
+   * (e.g. few bullish candles), so silent repeats would strand a
+   * screen-reader user at a boundary with no feedback.
    * @param unit - The active filter unit
    * @param direction - The direction to move
-   * @returns Boundary message on failure, null on success
+   * @returns Boundary/unavailable message on failure, null on success
    */
   private moveFilter(
     unit: RotorFilterUnit,
     direction: 'up' | 'down' | 'left' | 'right',
   ): string | null {
+    if (direction === 'up' || direction === 'down') {
+      return this.announceRotorMessage(this.getFilterVerticalUnavailableMessage(unit));
+    }
+
     const activeTrace = this.context.active;
-    const word = direction === 'up'
-      ? 'above'
-      : direction === 'down' ? 'below' : direction;
     if (!(activeTrace instanceof AbstractTrace)) {
-      return this.announceRotorMessage(this.getMessage(unit.noun, word));
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
     }
     const moved = activeTrace.moveToRotorFilter(unit.key, direction);
     if (!moved) {
-      return this.announceRotorMessage(this.getMessage(unit.noun, word));
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
     }
     return null;
+  }
+
+  /**
+   * User-facing message when Up/Down is pressed inside a filter unit. Trend
+   * filtering is horizontal-only, so vertical directions are announced as
+   * unavailable rather than reusing the generic boundary message (which would
+   * read as "No bullish point found above ..." and imply a real vertical
+   * bound exists). Mirrors {@link getIntersectionVerticalUnavailableMessage}.
+   * @param unit - The active filter unit, used to name the mode
+   * @returns The terse/verbose/off message
+   */
+  private getFilterVerticalUnavailableMessage(unit: RotorFilterUnit): string {
+    return this.buildMessage(
+      `Up/down unavailable in ${unit.noun} mode`,
+      `Up and down navigation is not available in ${unit.noun} mode.`,
+    );
   }
 
   /**

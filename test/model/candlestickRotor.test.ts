@@ -106,6 +106,22 @@ describe('candlestick rotor filter units', () => {
     }
   });
 
+  test('first filtered move clears initial entry so it is not swallowed later', () => {
+    const trace = new Candlestick(createLayer());
+    expect(trace.isInitialEntry).toBe(true);
+
+    // Reaching a trend unit and pressing a direction is a valid first move —
+    // no plain arrow press is required first.
+    expect(trace.moveToRotorFilter('Bull', 'right')).toBe(true);
+    expect(trace.isInitialEntry).toBe(false);
+    expect(trace.col).toBe(3);
+
+    // Because initial entry was consumed, a following ordinary move navigates
+    // instead of being absorbed by the initial-entry branch of moveOnce.
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(trace.col).toBe(4);
+  });
+
   test('vertical movement is out of bounds and warns without moving', () => {
     const trace = new Candlestick(createLayer());
     const observer = { update: jest.fn() };
