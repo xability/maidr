@@ -88,6 +88,12 @@ export class Candlestick extends AbstractTrace {
   private readonly perRowMax: number[];
   private readonly trends: CandlestickTrend[];
 
+  // Rotor trend-filter units present in the data, computed once. Candles are
+  // immutable after construction, so this avoids rebuilding the present-trend
+  // Set on every getRotorFilterUnits() call (twice per keystroke via the
+  // rotor service).
+  private readonly rotorFilterUnits: RotorFilterUnit[];
+
   protected readonly highlightValues: HighlightValue[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
@@ -142,6 +148,11 @@ export class Candlestick extends AbstractTrace {
     this.perRowMin = this.candleValues.map(row => MathUtil.safeMin(row));
     this.perRowMax = this.candleValues.map(row => MathUtil.safeMax(row));
     this.trends = this.candles.map(candle => candle.trend);
+
+    const presentTrends = new Set<CandlestickTrend>(this.trends);
+    this.rotorFilterUnits = TREND_ROTOR_UNITS.filter(unit =>
+      presentTrends.has(unit.key),
+    );
 
     // Pre-compute sorted segments and position maps for performance
     this.sortedSegmentsByPoint = this.precomputeSortedSegments();
@@ -1055,12 +1066,13 @@ export class Candlestick extends AbstractTrace {
    *
    * A trend with no candles is omitted so the rotor cycle carries no
    * dead-end modes (where every move would just report "no point found"),
-   * mirroring how GRID_MODE / INTERSECTION_MODE are gated on capability.
+   * mirroring how GRID_MODE / INTERSECTION_MODE are gated on capability. The
+   * list is precomputed in the constructor (candles are immutable), so this
+   * returns the cached reference — callers must treat it as read-only.
    * @returns The present trend-filter rotor units in cycle order
    */
   public override getRotorFilterUnits(): RotorFilterUnit[] {
-    const present = new Set<CandlestickTrend>(this.trends);
-    return TREND_ROTOR_UNITS.filter(unit => present.has(unit.key));
+    return this.rotorFilterUnits;
   }
 
   /**
