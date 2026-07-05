@@ -1,3 +1,4 @@
+import type { CompareModeInfo } from '@model/abstract';
 import type { Context } from '@model/context';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
@@ -132,7 +133,7 @@ export class RotorNavigationService {
       if (xValue !== null) {
         const moved = activeTrace.moveToNextCompareValue(direction, compareType);
         if (!moved) {
-          const msg = this.getMessage(compareType, direction);
+          const msg = this.getMessage(this.getCompareNoun(compareType), direction);
           console.warn(msg);
           return msg;
         }
@@ -173,7 +174,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveUpRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'above');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'above');
           console.warn(msg);
           return msg;
         }
@@ -206,7 +207,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveDownRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'below');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'below');
           console.warn(msg);
           return msg;
         }
@@ -237,7 +238,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'left');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'left');
           console.warn(msg);
           return msg;
         }
@@ -268,7 +269,7 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'right');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'right');
           console.warn(msg);
           return msg;
         }
@@ -314,26 +315,54 @@ export class RotorNavigationService {
   }
 
   /**
+   * Gets the compare-mode labels and message nouns for the active trace.
+   * Traces can rename the two compare units (e.g., the candlestick delta
+   * layer exposes them as "above line" / "below line"); everything else
+   * falls back to the classic lower/higher value modes.
+   */
+  private getCompareInfo(): CompareModeInfo {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      return activeTrace.compareModeInfo();
+    }
+    return {
+      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
+      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+    };
+  }
+
+  /**
    * Gets the comparison type for the current rotor mode.
    * @returns 'lower' or 'higher' based on the current mode
    */
   public getCompareType(): 'lower' | 'higher' {
+    const info = this.getCompareInfo();
     const currMode = this.getMode();
-    if (currMode === Constant.HIGHER_VALUE_MODE) {
+    if (currMode === info.higher.label) {
       return 'higher';
-    } else if (currMode === Constant.LOWER_VALUE_MODE) {
+    } else if (currMode === info.lower.label) {
       return 'lower';
     }
     return 'lower'; // fallback
   }
 
-  public getMessage(navType: string, direction: string): string {
+  /**
+   * Gets the noun used in boundary messages for a compare type, honoring
+   * trace-specific renames (e.g., "point above the line").
+   * @param type - The compare type to describe
+   * @returns The noun for "No {noun} found ..." messages
+   */
+  private getCompareNoun(type: 'lower' | 'higher'): string {
+    return this.getCompareInfo()[type].noun;
+  }
+
+  public getMessage(noun: string, direction: string): string {
     const isVertical = direction === 'above' || direction === 'below';
     const preposition = isVertical ? '' : 'on the ';
     const position = isVertical ? `${direction} ` : `to the ${direction} of `;
     return this.buildMessage(
-      `No ${navType} value found ${preposition}${direction}`,
-      `No ${navType} value found ${position}the current value.`,
+      `No ${noun} found ${preposition}${direction}`,
+      `No ${noun} found ${position}the current value.`,
     );
   }
 
@@ -357,8 +386,9 @@ export class RotorNavigationService {
       modes.push(activeTrace.dataModeName());
 
       if (activeTrace.supportsCompareMode()) {
-        modes.push(Constant.LOWER_VALUE_MODE);
-        modes.push(Constant.HIGHER_VALUE_MODE);
+        const compareInfo = activeTrace.compareModeInfo();
+        modes.push(compareInfo.lower.label);
+        modes.push(compareInfo.higher.label);
       }
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
@@ -376,10 +406,27 @@ export class RotorNavigationService {
   }
 
   /**
-   * Checks if the given mode name is a data mode (either DATA_MODE or ROW_COL_MODE).
+   * Checks if the given mode name is a data mode. Besides the two classic
+   * names, the active trace's own dataModeName() counts — traces like the
+   * candlestick delta layer rename their default unit.
    */
   private isDataMode(mode: string): boolean {
-    return mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE;
+    if (mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE) {
+      return true;
+    }
+    const activeTrace = this.context.active;
+    return activeTrace instanceof AbstractTrace && mode === activeTrace.dataModeName();
+  }
+
+  /**
+   * Resets the rotor to the default data mode. Called when the navigation
+   * target changes wholesale (e.g., the candlestick delta layer activates or
+   * deactivates) so a compare mode from the previous trace cannot silently
+   * map onto a different unit of the new one.
+   */
+  public resetToDataMode(): void {
+    this.rotorIndex = 0;
+    this.setMode();
   }
 
   /**
@@ -492,7 +539,7 @@ export class RotorNavigationService {
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!isGridNavigable(activeTrace) || !activeTrace.supportsGridMode()) {
-      return this.getMessage('grid', direction);
+      return this.getMessage('grid value', direction);
     }
 
     // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text

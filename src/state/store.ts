@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import brailleReducer from './viewModel/brailleViewModel';
+import candlestickDeltaReducer from './viewModel/candlestickDeltaViewModel';
 import chatReducer from './viewModel/chatViewModel';
 import commandPaletteReducer from './viewModel/commandPaletteViewModel';
 import descriptionReducer from './viewModel/descriptionViewModel';
@@ -13,6 +14,7 @@ import textReducer from './viewModel/textViewModel';
 
 const reducers = {
   braille: brailleReducer,
+  candlestickDelta: candlestickDeltaReducer,
   chat: chatReducer,
   commandPalette: commandPaletteReducer,
   description: descriptionReducer,

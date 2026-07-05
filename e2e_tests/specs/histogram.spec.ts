@@ -185,7 +185,7 @@ test.describe('Histogram', () => {
       await histogramPage.toggleXAxisTitle();
 
       const xAxisTitle = await histogramPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(histogramLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(histogramLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -193,7 +193,7 @@ test.describe('Histogram', () => {
       await histogramPage.toggleYAxisTitle();
 
       const yAxisTitle = await histogramPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(histogramLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(histogramLayer?.axes?.y?.label ?? '');
     });
   });
 

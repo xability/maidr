@@ -251,7 +251,7 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await dodgedBarplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -259,7 +259,7 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await dodgedBarplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y?.label ?? '');
     });
   });
 

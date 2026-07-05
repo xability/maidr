@@ -166,6 +166,13 @@ export interface AudioState {
    */
   trend?: CandlestickTrend;
   /**
+   * When true, a raw value of exactly 0 plays a percussive click instead of
+   * the default low "null" tone. Used by the candlestick delta layer, where
+   * zero means "exactly on the reference line" — a meaningful data point,
+   * not missing data.
+   */
+  zeroClick?: boolean;
+  /**
    * Volume multiplier for dynamic volume control.
    * Used to scale audio volume based on data characteristics (e.g., violin plot width).
    * If undefined, defaults to 1.0 (no volume scaling).

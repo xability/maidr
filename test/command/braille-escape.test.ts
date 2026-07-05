@@ -1,10 +1,23 @@
 import type { Context } from '@model/context';
 import type { BrailleService } from '@service/braille';
+import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ExitBrailleAndSubplotCommand, MoveToTraceContextCommand } from '@command/move';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
+
+/**
+ * Creates a mock CandlestickDeltaService with a discardActiveLayer stub.
+ * @param overrides - Optional property overrides
+ * @returns A mock service
+ */
+function createMockCandlestickDeltaService(overrides: Record<string, unknown> = {}): CandlestickDeltaService {
+  return {
+    discardActiveLayer: jest.fn(),
+    ...overrides,
+  } as unknown as CandlestickDeltaService;
+}
 
 /**
  * Creates a mock Context with enterSubplot and exitSubplot stubs.
@@ -75,7 +88,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       });
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(callOrder).toEqual([
@@ -90,7 +103,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(displayService.dismissModalScope).toHaveBeenCalledWith(Scope.SUBPLOT);
@@ -101,7 +114,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(displayService.notifyFocusChange).toHaveBeenCalledWith(Scope.SUBPLOT);
@@ -112,7 +125,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(context.exitSubplot).toHaveBeenCalled();
@@ -123,10 +136,34 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+    });
+
+    test('discards the virtual delta layer before exiting the subplot', () => {
+      const callOrder: string[] = [];
+      const context = createMockContext({
+        isMultiPanel: true,
+        exitSubplot: jest.fn<() => void>().mockImplementation(() => {
+          callOrder.push('exitSubplot');
+        }),
+      });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+      const candlestickDeltaService = createMockCandlestickDeltaService({
+        discardActiveLayer: jest.fn<() => void>().mockImplementation(() => {
+          callOrder.push('discardActiveLayer');
+        }),
+      });
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService);
+      command.execute();
+
+      expect(candlestickDeltaService.discardActiveLayer).toHaveBeenCalled();
+      // The delta layer must be torn down before exitSubplot pops it.
+      expect(callOrder.indexOf('discardActiveLayer')).toBeLessThan(callOrder.indexOf('exitSubplot'));
     });
   });
 
@@ -137,13 +174,25 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
       command.execute();
 
       expect(brailleViewModel.toggle).toHaveBeenCalledWith(traceState);
       expect(context.exitSubplot).not.toHaveBeenCalled();
       expect(displayService.dismissModalScope).not.toHaveBeenCalled();
       expect(displayService.notifyFocusChange).not.toHaveBeenCalled();
+    });
+
+    test('leaves the virtual delta layer untouched (user stays in it)', () => {
+      const context = createMockContext({ isMultiPanel: false });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+      const candlestickDeltaService = createMockCandlestickDeltaService();
+
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService);
+      command.execute();
+
+      expect(candlestickDeltaService.discardActiveLayer).not.toHaveBeenCalled();
     });
   });
 });

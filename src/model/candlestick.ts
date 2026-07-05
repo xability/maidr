@@ -793,6 +793,15 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * Gets the candle data points. Used by the candlestick delta feature to
+   * derive a virtual comparison layer against a reference line.
+   * @returns The candle points in x order
+   */
+  public getCandles(): readonly CandlestickPoint[] {
+    return this.candles;
+  }
+
+  /**
    * Gets the current X value from the candlestick trace
    * @returns The current X value or null if not available
    */

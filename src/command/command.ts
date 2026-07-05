@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
@@ -11,6 +12,7 @@ import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
@@ -45,6 +47,8 @@ export interface CommandContext {
   autoplayService: AutoplayService;
   /** Braille service for managing braille display. */
   brailleService: BrailleService;
+  /** Candlestick delta service for the virtual reference-comparison layer. */
+  candlestickDeltaService: CandlestickDeltaService;
   /** Display service for managing display state. */
   displayService: DisplayService;
   /** High contrast service for accessibility. */
@@ -63,6 +67,8 @@ export interface CommandContext {
 
   /** Braille view model for braille display. */
   brailleViewModel: BrailleViewModel;
+  /** Candlestick delta view model for the reference-comparison dialog. */
+  candlestickDeltaViewModel: CandlestickDeltaViewModel;
   /** Chat view model for chat interface. */
   chatViewModel: ChatViewModel;
   /** Command palette view model for command selection. */

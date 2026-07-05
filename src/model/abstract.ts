@@ -34,6 +34,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.BAR]: 'Bar Chart',
   [TraceType.BOX]: 'Box Plot',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
+  [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
   [TraceType.DODGED]: 'Dodged Bar Chart',
   [TraceType.HEATMAP]: 'Heatmap',
   [TraceType.HISTOGRAM]: 'Histogram',
@@ -49,6 +50,16 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
 export interface Dimension {
   rows: number;
   cols: number;
+}
+
+/**
+ * Display metadata for the rotor's two compare modes. `label` is the rotor
+ * unit name announced when cycling modes; `noun` is the phrase used in
+ * "No {noun} found ..." boundary messages.
+ */
+export interface CompareModeInfo {
+  lower: { label: string; noun: string };
+  higher: { label: string; noun: string };
 }
 
 export interface NearestPoint {
@@ -292,6 +303,18 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public dataModeName(): string {
     return Constant.DATA_MODE;
+  }
+
+  /**
+   * Returns the rotor's compare-mode labels and boundary-message nouns.
+   * Override to rename the two compare units for a trace-specific semantic
+   * (e.g., the candlestick delta layer uses "above line" / "below line").
+   */
+  public compareModeInfo(): CompareModeInfo {
+    return {
+      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
+      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+    };
   }
 
   /**

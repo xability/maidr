@@ -4,6 +4,8 @@
  * Contains selectors, element IDs, keyboard keys, instruction text,
  * and other constants needed for testing MAIDR functionality
  */
+import process from 'node:process';
+
 export abstract class TestConstants {
   /**
    * HTML element selectors
@@ -69,7 +71,15 @@ export abstract class TestConstants {
   static readonly PERIOD_KEY = '.';
   static readonly COMMA_KEY = ',';
   static readonly SLASH_KEY = '/';
-  static readonly META_KEY = 'Meta';
+  /**
+   * Modifier for MAIDR's "control/command" shortcuts (extreme navigation,
+   * autoplay, help, settings). MAIDR binds Cmd on macOS and Ctrl elsewhere
+   * (see src/util/platform.ts `Platform.ctrl`), so the e2e modifier must
+   * track the OS running the browser. On the Linux CI runner sending 'Meta'
+   * (the Super key) is a no-op, which silently breaks every Ctrl-combination
+   * test. Mirror the app's own platform logic here.
+   */
+  static readonly META_KEY = process.platform === 'darwin' ? 'Meta' : 'Control';
   static readonly SHIFT_KEY = 'Shift';
   static readonly HOME_KEY = 'Home';
   static readonly END_KEY = 'End';
@@ -80,7 +90,10 @@ export abstract class TestConstants {
   static readonly LABEL_KEY = 'l';
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
-  static readonly COMMAND_KEY = 'Meta';
+  // Same control/command modifier as META_KEY (see its note): MAIDR binds Cmd
+  // on macOS and Ctrl elsewhere, so help/settings shortcuts need the OS-correct
+  // modifier or they silently no-op on the Linux CI runner.
+  static readonly COMMAND_KEY = process.platform === 'darwin' ? 'Meta' : 'Control';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';

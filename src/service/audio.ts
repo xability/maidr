@@ -298,7 +298,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else {
       const value = audio.freq.raw as number;
       if (value === 0) {
-        this.playZeroTone(audio.panning);
+        // A trace can opt into a percussive click for exact zeros (e.g. the
+        // candlestick delta layer, where zero means "on the reference line").
+        if (audio.zeroClick) {
+          this.playClickTone(audio.panning);
+        } else {
+          this.playZeroTone(audio.panning);
+        }
       } else {
         this.playTone(audio.freq, audio.panning, paletteEntry);
       }
@@ -764,6 +770,83 @@ export class AudioService implements Observer<PlotState>, Disposable {
     }, POINTER_GUIDANCE_BEEP_DURATION * 1000 * 2);
     this.activeAudioIds.set(audioId, nodes);
     return true;
+  }
+
+  /**
+   * Plays a short percussive click, spatialized by x-position. Used for
+   * zero-delta points in the candlestick delta layer, where "exactly on the
+   * reference line" needs a sound clearly distinct from both the pitched
+   * data tones and the low "null value" tone.
+   *
+   * The click is a ~40 ms band-passed noise burst with a quadratic decay —
+   * a tick rather than a tone, so it cannot be confused with a pitch.
+   *
+   * @param panning - Position information for stereo placement
+   * @returns AudioId for the played click
+   */
+  private playClickTone(panning: Panning): AudioId {
+    // Silent at volume 0; return a harmless self-clearing id (see playEmptyTone).
+    if (this.volume <= 0) {
+      const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
+      this.activeAudioIds.set(audioId, []);
+      return audioId;
+    }
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    const duration = 0.04;
+
+    const frameCount = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, frameCount, ctx.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) {
+      channel[i] = (Math.random() * 2 - 1) * (1 - i / frameCount) ** 2;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 2500;
+    bandpass.Q.value = 1;
+
+    const gain = ctx.createGain();
+    gain.gain.value = this.volume;
+
+    const xPos = MathUtil.clamp(
+      MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1),
+      -1,
+      1,
+    );
+    // createStereoPanner is unavailable on Safari < 14.5; degrade to mono.
+    const stereoPanner = typeof ctx.createStereoPanner === 'function'
+      ? ctx.createStereoPanner()
+      : null;
+    if (stereoPanner) {
+      stereoPanner.pan.value = xPos;
+    }
+
+    source.connect(bandpass);
+    bandpass.connect(gain);
+    if (stereoPanner) {
+      gain.connect(stereoPanner);
+      stereoPanner.connect(this.compressor);
+    } else {
+      gain.connect(this.compressor);
+    }
+
+    source.start(now);
+
+    const nodes: AudioNode[] = stereoPanner
+      ? [source, bandpass, gain, stereoPanner]
+      : [source, bandpass, gain];
+    const audioId = setTimeout(() => {
+      nodes.forEach(node => node.disconnect());
+      this.activeAudioIds.delete(audioId);
+    }, duration * 1e3 * 2);
+    this.activeAudioIds.set(audioId, [source]);
+    return audioId;
   }
 
   private playZeroTone(panning: Panning): AudioId {

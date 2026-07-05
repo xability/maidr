@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
+import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
@@ -10,6 +11,7 @@ import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
@@ -32,6 +34,10 @@ import {
   SpeedUpAutoplayCommand,
   StopAutoplayCommand,
 } from './autoplay';
+import {
+  ExitCandlestickDeltaCommand,
+  ToggleCandlestickDeltaCommand,
+} from './candlestickDelta';
 import {
   AnnounceCaptionCommand,
   AnnouncePointCommand,
@@ -111,6 +117,7 @@ export class CommandFactory {
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
   private readonly brailleService: BrailleService;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly displayService: DisplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
@@ -120,6 +127,7 @@ export class CommandFactory {
   private readonly textService: TextService;
 
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly candlestickDeltaViewModel: CandlestickDeltaViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
   private readonly descriptionViewModel: DescriptionViewModel;
@@ -140,6 +148,7 @@ export class CommandFactory {
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
     this.brailleService = commandContext.brailleService;
+    this.candlestickDeltaService = commandContext.candlestickDeltaService;
     this.displayService = commandContext.displayService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
@@ -149,6 +158,7 @@ export class CommandFactory {
     this.textService = commandContext.textService;
 
     this.brailleViewModel = commandContext.brailleViewModel;
+    this.candlestickDeltaViewModel = commandContext.candlestickDeltaViewModel;
     this.chatViewModel = commandContext.chatViewModel;
     this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
     this.descriptionViewModel = commandContext.descriptionViewModel;
@@ -209,11 +219,11 @@ export class CommandFactory {
       case 'MOVE_TO_SUBPLOT_CONTEXT':
         return new MoveToSubplotContextCommand(this.context, this.displayService);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
-        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel);
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService);
       case 'MOVE_TO_NEXT_TRACE':
-        return new MoveToNextTraceCommand(this.context);
+        return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService);
       case 'MOVE_TO_PREV_TRACE':
-        return new MoveToPrevTraceCommand(this.context);
+        return new MoveToPrevTraceCommand(this.context, this.candlestickDeltaService);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
@@ -238,6 +248,10 @@ export class CommandFactory {
         return new ToggleDescriptionCommand(this.descriptionViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
+      case 'TOGGLE_CANDLESTICK_DELTA':
+        return new ToggleCandlestickDeltaCommand(this.candlestickDeltaViewModel);
+      case 'EXIT_CANDLESTICK_DELTA':
+        return new ExitCandlestickDeltaCommand(this.candlestickDeltaService);
 
       case 'GO_TO_EXTREMA_MOVE_UP':
         return new GoToExtremaMoveUpCommand(this.goToExtremaViewModel);

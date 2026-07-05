@@ -1094,6 +1094,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
       [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],
+      // The virtual delta layer reuses the candlestick encoding: height maps
+      // |delta| and the 'Bear' trend adds dot 8 for below-line points.
+      [TraceType.CANDLESTICK_DELTA, asGeneric(new CandlestickBrailleEncoder())],
       [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
       [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],

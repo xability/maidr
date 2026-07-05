@@ -201,7 +201,7 @@ test.describe('Bar Plot', () => {
       await barPlotPage.toggleXAxisTitle();
 
       const xAxisTitle = await barPlotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(barLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(barLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -209,7 +209,7 @@ test.describe('Bar Plot', () => {
       await barPlotPage.toggleYAxisTitle();
 
       const yAxisTitle = await barPlotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(barLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(barLayer?.axes?.y?.label ?? '');
     });
   });
 

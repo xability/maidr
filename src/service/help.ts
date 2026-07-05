@@ -134,6 +134,7 @@ export class HelpService {
     // Auto-generate help menus from keymaps including nested scopes
     const traceHelpMenu = generateCompleteHelpMenu(Scope.TRACE);
     const subplotHelpMenu = generateCompleteHelpMenu(Scope.SUBPLOT);
+    const candlestickDeltaHelpMenu = generateCompleteHelpMenu(Scope.CANDLESTICK_DELTA);
 
     this.scopedMenuItems = {
       [Scope.TRACE]: traceHelpMenu,
@@ -141,6 +142,7 @@ export class HelpService {
       [Scope.BRAILLE]: traceHelpMenu,
       [Scope.SUBPLOT]: subplotHelpMenu,
       [Scope.FIGURE_LABEL]: subplotHelpMenu,
+      [Scope.CANDLESTICK_DELTA]: candlestickDeltaHelpMenu,
     };
   }
 

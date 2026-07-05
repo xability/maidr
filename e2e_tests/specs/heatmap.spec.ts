@@ -164,7 +164,7 @@ test.describe('Heatmap', () => {
 
       await heatmapPage.toggleXAxisTitle();
       const xAxisTitle = await heatmapPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(heatmapLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(heatmapLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -172,7 +172,7 @@ test.describe('Heatmap', () => {
 
       await heatmapPage.toggleYAxisTitle();
       const yAxisTitle = await heatmapPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(heatmapLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(heatmapLayer?.axes?.y?.label ?? '');
     });
   });
 
