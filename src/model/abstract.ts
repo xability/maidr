@@ -62,6 +62,23 @@ export interface CompareModeInfo {
   higher: { label: string; noun: string };
 }
 
+/**
+ * Display metadata for a trace-specific rotor "filter" unit — a navigation
+ * mode that walks only the points matching some predicate (e.g. only bullish
+ * candlesticks). Unlike the two built-in compare units (lower/higher value),
+ * a trace can expose any number of filter units.
+ *
+ * - `key`: stable identifier the trace uses to recognise the unit when the
+ *   rotor asks it to move (see {@link AbstractTrace.moveToRotorFilter}).
+ * - `label`: the rotor unit name announced when cycling with Alt+Shift+Up/Down.
+ * - `noun`: the phrase used in "No {noun} found ..." boundary messages.
+ */
+export interface RotorFilterUnit {
+  key: string;
+  label: string;
+  noun: string;
+}
+
 export interface NearestPoint {
   element: SVGElement;
   row: number;
@@ -682,6 +699,41 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * {@link supportsIntersectionMode} must override to provide real behavior.
    */
   public moveToPrevIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Trace-specific rotor filter units appended to the rotor cycle after the
+   * built-in data/compare/grid/intersection modes. Each unit restricts
+   * navigation to points matching a predicate (e.g. only bullish candles).
+   * Default: none. Override to opt in (e.g. {@link Candlestick} exposes
+   * bullish/bearish/neutral units).
+   */
+  public getRotorFilterUnits(): RotorFilterUnit[] {
+    return [];
+  }
+
+  /**
+   * Moves within an active rotor filter unit in the given direction.
+   *
+   * Called by {@link RotorNavigationService} when the current rotor mode is
+   * one of this trace's {@link getRotorFilterUnits}. Implementations should
+   * move to the nearest point matching the unit identified by `key` and
+   * notify observers, returning true; when no such point exists in that
+   * direction they should call {@link notifyRotorBounds} and return false.
+   *
+   * Default is a no-op that reports bounds, so a trace advertising a filter
+   * unit but forgetting to implement movement fails safe (announces "no
+   * point found") rather than moving unexpectedly.
+   * @param _key - The {@link RotorFilterUnit.key} of the active unit
+   * @param _direction - The direction to search
+   * @returns True if the cursor moved, false otherwise
+   */
+  public moveToRotorFilter(
+    _key: string,
+    _direction: 'left' | 'right' | 'up' | 'down',
+  ): boolean {
+    this.notifyRotorBounds();
     return false;
   }
 

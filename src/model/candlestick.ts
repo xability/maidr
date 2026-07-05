@@ -1,4 +1,4 @@
-import type { Dimension, NearestPoint } from '@model/abstract';
+import type { Dimension, NearestPoint, RotorFilterUnit } from '@model/abstract';
 import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
@@ -23,6 +23,24 @@ type HighlightValue = SVGElement | SVGElement[];
 
 const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
+
+/** Rotor unit that walks only bullish (close > open) candles. */
+export const BULLISH_POINT_MODE = 'BULLISH POINT NAVIGATION';
+/** Rotor unit that walks only bearish (close < open) candles. */
+export const BEARISH_POINT_MODE = 'BEARISH POINT NAVIGATION';
+/** Rotor unit that walks only neutral (close === open) candles. */
+export const NEUTRAL_POINT_MODE = 'NEUTRAL POINT NAVIGATION';
+
+/**
+ * Trend-filter rotor units for the candlestick trace, in cycle order. The
+ * `key` is the {@link CandlestickTrend} each unit navigates; the default
+ * "all data point" unit is the built-in data mode and is not listed here.
+ */
+const TREND_ROTOR_UNITS: readonly (RotorFilterUnit & { key: CandlestickTrend })[] = [
+  { key: 'Bull', label: BULLISH_POINT_MODE, noun: 'bullish point' },
+  { key: 'Bear', label: BEARISH_POINT_MODE, noun: 'bearish point' },
+  { key: 'Neutral', label: NEUTRAL_POINT_MODE, noun: 'neutral point' },
+];
 
 /**
  * Segment types for candlestick data (open, high, low, close)
@@ -1019,6 +1037,60 @@ export class Candlestick extends AbstractTrace {
   public moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
     return true;
+  }
+
+  /**
+   * The candlestick rotor replaces the generic lower/higher value compare
+   * units with the trend-filter units below, so cycling the rotor offers
+   * exactly: all data point (default), bullish, bearish, and neutral.
+   * @returns False — compare-mode navigation is not exposed for candlesticks
+   */
+  public override supportsCompareMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Exposes the bullish/bearish/neutral rotor filter units. The default
+   * "all data point" unit is provided by the built-in data mode.
+   * @returns The trend-filter rotor units in cycle order
+   */
+  public override getRotorFilterUnits(): RotorFilterUnit[] {
+    return TREND_ROTOR_UNITS.map(unit => ({ ...unit }));
+  }
+
+  /**
+   * Jumps to the previous/next candle whose trend matches the active filter
+   * unit, preserving the current segment. Trend filtering is horizontal only
+   * (candles are the filtered axis), so up/down report bounds.
+   * @param key - The trend to navigate ('Bull', 'Bear', or 'Neutral')
+   * @param direction - The direction to search
+   * @returns True if a matching candle was found and moved to
+   */
+  public override moveToRotorFilter(
+    key: string,
+    direction: 'left' | 'right' | 'up' | 'down',
+  ): boolean {
+    if (direction !== 'left' && direction !== 'right') {
+      this.notifyRotorBounds();
+      return false;
+    }
+
+    const step = direction === 'right' ? 1 : -1;
+    for (
+      let i = this.currentPointIndex + step;
+      i >= 0 && i < this.candles.length;
+      i += step
+    ) {
+      if (this.candles[i].trend === key) {
+        this.currentPointIndex = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+
+    this.notifyRotorBounds();
+    return false;
   }
 
   /**
