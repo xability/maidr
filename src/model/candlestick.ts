@@ -92,7 +92,7 @@ export class Candlestick extends AbstractTrace {
   // immutable after construction, so this avoids rebuilding the present-trend
   // Set on every getRotorFilterUnits() call (twice per keystroke via the
   // rotor service).
-  private readonly rotorFilterUnits: RotorFilterUnit[];
+  private readonly rotorFilterUnits: readonly RotorFilterUnit[];
 
   protected readonly highlightValues: HighlightValue[][] | null;
   protected highlightCenters:
@@ -1071,27 +1071,23 @@ export class Candlestick extends AbstractTrace {
    * returns the cached reference — callers must treat it as read-only.
    * @returns The present trend-filter rotor units in cycle order
    */
-  public override getRotorFilterUnits(): RotorFilterUnit[] {
+  public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     return this.rotorFilterUnits;
   }
 
   /**
    * Jumps to the previous/next candle whose trend matches the active filter
-   * unit, preserving the current segment. Trend filtering is horizontal only
-   * (candles are the filtered axis), so up/down report bounds.
+   * unit, preserving the current segment. Trend filtering runs along the
+   * candle axis; the rotor service handles up/down (announcing them as
+   * unavailable) and only dispatches left/right here.
    * @param key - The trend to navigate ('Bull', 'Bear', or 'Neutral')
    * @param direction - The direction to search
    * @returns True if a matching candle was found and moved to
    */
   public override moveToRotorFilter(
     key: string,
-    direction: 'left' | 'right' | 'up' | 'down',
+    direction: 'left' | 'right',
   ): boolean {
-    if (direction !== 'left' && direction !== 'right') {
-      this.notifyRotorBounds();
-      return false;
-    }
-
     // Establish the entry position on the first move so this jump highlights
     // and the initial-entry branch of moveOnce doesn't later swallow a
     // keypress (mirrors moveOnce/moveToExtreme/moveToIndex).

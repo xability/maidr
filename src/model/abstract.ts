@@ -707,20 +707,24 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * built-in data/compare/grid/intersection modes. Each unit restricts
    * navigation to points matching a predicate (e.g. only bullish candles).
    * Default: none. Override to opt in (e.g. {@link Candlestick} exposes
-   * bullish/bearish/neutral units).
+   * bullish/bearish/neutral units). The returned list is treated as
+   * read-only by the rotor service.
    */
-  public getRotorFilterUnits(): RotorFilterUnit[] {
+  public getRotorFilterUnits(): readonly RotorFilterUnit[] {
     return [];
   }
 
   /**
-   * Moves within an active rotor filter unit in the given direction.
+   * Moves within an active rotor filter unit along the filtered axis.
    *
    * Called by {@link RotorNavigationService} when the current rotor mode is
-   * one of this trace's {@link getRotorFilterUnits}. Implementations should
-   * move to the nearest point matching the unit identified by `key` and
-   * notify observers, returning true; when no such point exists in that
-   * direction they should call {@link notifyRotorBounds} and return false.
+   * one of this trace's {@link getRotorFilterUnits}. Filter units navigate a
+   * single axis, so only `left`/`right` are dispatched here — the service
+   * announces `up`/`down` as unavailable without calling the model (matching
+   * intersection mode). Implementations should move to the nearest point
+   * matching the unit identified by `key` and notify observers, returning
+   * true; when no such point exists they should call {@link notifyRotorBounds}
+   * and return false.
    *
    * Default is a no-op that reports bounds, so a trace advertising a filter
    * unit but forgetting to implement movement fails safe (announces "no
@@ -731,7 +735,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public moveToRotorFilter(
     _key: string,
-    _direction: 'left' | 'right' | 'up' | 'down',
+    _direction: 'left' | 'right',
   ): boolean {
     this.notifyRotorBounds();
     return false;

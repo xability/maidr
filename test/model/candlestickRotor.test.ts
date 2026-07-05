@@ -1,5 +1,5 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import {
   BEARISH_POINT_MODE,
   BULLISH_POINT_MODE,
@@ -140,17 +140,5 @@ describe('candlestick rotor filter units', () => {
     // instead of being absorbed by the initial-entry branch of moveOnce.
     expect(trace.moveOnce('FORWARD')).toBe(true);
     expect(trace.col).toBe(4);
-  });
-
-  test('vertical movement is out of bounds and warns without moving', () => {
-    const trace = new Candlestick(createLayer());
-    const observer = { update: jest.fn() };
-    trace.addObserver(observer);
-
-    expect(trace.moveToRotorFilter('Bull', 'up')).toBe(false);
-    expect(trace.moveToRotorFilter('Bull', 'down')).toBe(false);
-    expect(trace.col).toBe(0);
-    // notifyRotorBounds fires an update carrying the warning flag.
-    expect(observer.update).toHaveBeenCalled();
   });
 });
