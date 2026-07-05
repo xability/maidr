@@ -272,3 +272,64 @@ describe('RotorNavigationService intersection dispatch', () => {
     expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
   });
 });
+
+describe('RotorNavigationService compare-mode boundary re-announcement', () => {
+  /**
+   * Single ascending line so that, sitting on the maximum, HIGHER_VALUE_MODE
+   * has no further higher value to the right — a reliable compare boundary.
+   * @returns A single-line LineTrace with values [1, 2, 3]
+   */
+  function createAscendingLine(): LineTrace {
+    return new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 2 },
+        { x: 2, y: 3 },
+      ],
+    ]));
+  }
+
+  test('compare-mode boundary routes through notification.notify and re-announces each press', () => {
+    // Regression: the intersection path already re-announces on repeat presses
+    // by routing through notification.notify (the alert region is keyed by a
+    // revision counter). The compare-mode boundary path historically returned
+    // the message to the rotor area only, so repeated identical hits went
+    // silent for screen readers. This asserts compare mode now re-announces
+    // the same way.
+    const trace = createAscendingLine();
+    trace.col = 2; // sit on the maximum (value 3)
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    const result = service.moveRight();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/higher value/i),
+    );
+    expect(trace.col).toBe(2); // did not move
+
+    // Each repeat hit must call notify so the alert region re-mounts.
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveRight();
+    service.moveRight();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('text-off mode still suppresses the compare boundary message', () => {
+    const trace = createAscendingLine();
+    trace.col = 2;
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService({ off: true }),
+      createMockNotificationService(),
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    expect(service.moveRight()).toBe('');
+  });
+});

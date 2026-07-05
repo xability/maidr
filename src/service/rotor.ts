@@ -50,11 +50,12 @@ export class RotorNavigationService {
    * Creates a new RotorNavigationService instance.
    * @param context - The context providing access to the active trace
    * @param text - Provides terse/verbose/off mode for message formatting
-   * @param notification - Used to push intersection-mode messages through the
-   *   text alert region. The alert region re-mounts on every dispatch (keyed
-   *   by a revision counter), which is what causes screen readers to
-   *   re-announce on repeat key presses. Without this, identical messages
-   *   dispatched only to the rotor area do not re-announce.
+   * @param notification - Used to push rotor boundary messages (intersection
+   *   and compare mode) through the text alert region. The alert region
+   *   re-mounts on every dispatch (keyed by a revision counter), which is what
+   *   causes screen readers to re-announce on repeat key presses. Without
+   *   this, identical messages dispatched only to the rotor area do not
+   *   re-announce.
    */
   public constructor(context: Context, text: TextService, notification: NotificationService) {
     this.context = context;
@@ -135,7 +136,7 @@ export class RotorNavigationService {
         if (!moved) {
           const msg = this.getMessage(this.getCompareNoun(compareType), direction);
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -181,7 +182,7 @@ export class RotorNavigationService {
         if (!moved) {
           const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'above');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -219,7 +220,7 @@ export class RotorNavigationService {
         if (!moved) {
           const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'below');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -255,7 +256,7 @@ export class RotorNavigationService {
         if (!moved) {
           const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'left');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -291,7 +292,7 @@ export class RotorNavigationService {
         if (!moved) {
           const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'right');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -571,8 +572,8 @@ export class RotorNavigationService {
    * alert region re-mounts (it is keyed by a revision counter), forcing
    * screen readers to re-announce on every keystroke. Without this, repeated
    * identical messages dispatched only to the rotor area announce once and
-   * then stay silent. Used by the intersection and filter-unit boundary
-   * paths. Returns the message unchanged so callers can chain. Empty strings
+   * then stay silent. Used by the intersection, compare-mode, and filter-unit
+   * boundary paths. Returns the message unchanged so callers can chain. Empty strings
    * (text-off mode) are passed through; NotificationService already no-ops on
    * empty input.
    * @param message The text to announce; returned unchanged.
