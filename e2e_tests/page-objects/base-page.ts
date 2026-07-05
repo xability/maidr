@@ -557,17 +557,50 @@ export class BasePage {
   }
 
   /**
-   * Verifies if the SVG element is focused
-   * @throws Error if SVG is not focused
+   * Verifies that MAIDR's plot is the active (focused) element.
+   *
+   * MAIDR wraps the chart's SVG in a focusable `<div role="img"/"application"
+   * tabindex="0">` inside `#maidr-figure-*`; Tab/click activation focuses that
+   * wrapper, not the raw `<svg>`. Some SVG-native adapters instead focus the
+   * `<svg>` directly. Accept either so the check reflects "MAIDR is active"
+   * rather than an outdated assumption about which node holds focus.
+   * @throws Error if neither the SVG nor MAIDR's focusable wrapper is focused
    */
   protected async verifySvgFocused(): Promise<void> {
-    const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg') {
+    const isPlotFocused = await this.isMaidrPlotFocused();
+    if (!isPlotFocused) {
+      const activeElementInfo = await this.getActiveElementInfo();
       throw new Error(
-        `Expected SVG element to be focused, `
+        `Expected MAIDR plot to be focused, `
         + `but found ${activeElementInfo.tagName}`,
       );
     }
+  }
+
+  /**
+   * Returns whether MAIDR's plot is currently focused — either the raw SVG or
+   * the focusable wrapper MAIDR renders around it.
+   * @returns Promise resolving to true when the plot (or its wrapper) is focused
+   */
+  protected async isMaidrPlotFocused(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const active = document.activeElement;
+      if (!active) {
+        return false;
+      }
+      if (active.tagName?.toLowerCase() === 'svg') {
+        return true;
+      }
+      // MAIDR's focusable wrapper: a tabbable node that wraps the plot SVG
+      // inside the maidr figure. Role flips img -> application on activation.
+      const role = active.getAttribute('role');
+      return (
+        active.getAttribute('tabindex') === '0'
+        && (role === 'img' || role === 'application')
+        && active.querySelector('svg') !== null
+        && active.closest('[id^="maidr-figure"]') !== null
+      );
+    });
   }
 
   /**

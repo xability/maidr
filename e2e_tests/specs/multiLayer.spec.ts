@@ -193,14 +193,14 @@ test.describe('Multi Layer Plot', () => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
         await multiLayerPlotPage.toggleXAxisTitle();
         const xAxisTitle = await multiLayerPlotPage.getXAxisTitle();
-        expect(xAxisTitle).toContain(multiLayerPlotLayer?.axes?.x ?? '');
+        expect(xAxisTitle).toContain(multiLayerPlotLayer?.axes?.x?.label ?? '');
       });
 
       test('should display Y-Axis Title', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
         await multiLayerPlotPage.toggleYAxisTitle();
         const yAxisTitle = await multiLayerPlotPage.getYAxisTitle();
-        expect(yAxisTitle).toContain(multiLayerPlotLayer?.axes?.y ?? '');
+        expect(yAxisTitle).toContain(multiLayerPlotLayer?.axes?.y?.label ?? '');
       });
     });
 
@@ -464,7 +464,7 @@ test.describe('Multi Layer Plot', () => {
         const multiLayerPlotPage = await setupSecondLayerTest(page);
         await multiLayerPlotPage.toggleXAxisTitle();
         const xAxisTitle = await multiLayerPlotPage.getXAxisTitle();
-        expect(xAxisTitle).toContain(multiLayerPlotLayer?.axes?.x ?? '');
+        expect(xAxisTitle).toContain(multiLayerPlotLayer?.axes?.x?.label ?? '');
       });
 
       test('should display Y-axis Title', async ({ page }) => {
@@ -472,7 +472,7 @@ test.describe('Multi Layer Plot', () => {
         const secondLayer = maidrData.subplots[0][0].layers[1];
         await multiLayerPlotPage.toggleYAxisTitle();
         const yAxisTitle = await multiLayerPlotPage.getYAxisTitle();
-        expect(yAxisTitle).toContain(secondLayer?.axes?.y ?? '');
+        expect(yAxisTitle).toContain(secondLayer?.axes?.y?.label ?? '');
       });
     });
 

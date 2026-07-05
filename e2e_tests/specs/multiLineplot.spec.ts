@@ -214,7 +214,7 @@ test.describe('Multi Lineplot', () => {
       await multiLineplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await multiLineplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(multiLineplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(multiLineplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -222,7 +222,7 @@ test.describe('Multi Lineplot', () => {
       await multiLineplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await multiLineplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(multiLineplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(multiLineplotLayer?.axes?.y?.label ?? '');
     });
   });
 

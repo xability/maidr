@@ -223,7 +223,7 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await stackedBarplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -231,7 +231,7 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await stackedBarplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y?.label ?? '');
     });
   });
 

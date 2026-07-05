@@ -213,7 +213,7 @@ test.describe('Boxplot Horizontal', () => {
       await boxplotHorizontalPage.toggleXAxisTitle();
 
       const xAxisTitle = await boxplotHorizontalPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(boxplotHorizontalLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(boxplotHorizontalLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -221,7 +221,7 @@ test.describe('Boxplot Horizontal', () => {
       await boxplotHorizontalPage.toggleYAxisTitle();
 
       const yAxisTitle = await boxplotHorizontalPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(boxplotHorizontalLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(boxplotHorizontalLayer?.axes?.y?.label ?? '');
     });
   });
 

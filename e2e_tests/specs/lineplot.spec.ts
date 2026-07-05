@@ -198,14 +198,14 @@ test.describe('Line Plot', () => {
       const linePlotPage = await setupLinePlotPage(page);
       await linePlotPage.toggleXAxisTitle();
       const xAxisTitle = await linePlotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(linePlotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(linePlotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
       const linePlotPage = await setupLinePlotPage(page);
       await linePlotPage.toggleYAxisTitle();
       const yAxisTitle = await linePlotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(linePlotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(linePlotLayer?.axes?.y?.label ?? '');
     });
   });
 

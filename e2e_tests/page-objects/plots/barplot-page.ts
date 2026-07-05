@@ -126,20 +126,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Verifies that the SVG element is focused
-   * @throws Error if SVG element is not focused
-   */
-  protected async verifySvgFocused(): Promise<void> {
-    const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg') {
-      throw new Error(
-        `Expected SVG element to be focused, `
-        + `but found ${activeElementInfo.tagName} instead"`,
-      );
-    }
-  }
-
-  /**
    * Activates MAIDR by focusing the plot
    * @returns Promise resolving when MAIDR is activated
    * @throws BarPlotError if MAIDR cannot be activated
