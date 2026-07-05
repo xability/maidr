@@ -1,4 +1,4 @@
-import type { CompareModeInfo } from '@model/abstract';
+import type { CompareModeInfo, RotorFilterUnit } from '@model/abstract';
 import type { Context } from '@model/context';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
@@ -166,7 +166,12 @@ export class RotorNavigationService {
       // screen readers re-announce on repeat key presses; returning the
       // message only to the rotor area would announce once and stay silent
       // for subsequent identical hits.
-      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
+      return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
+    }
+
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'up');
     }
 
     const activeTrace = this.context.active;
@@ -199,7 +204,12 @@ export class RotorNavigationService {
     if (mode === Constant.INTERSECTION_MODE) {
       // See moveUp() — model not moved; route through notification so the
       // alert region re-mounts and the SR re-announces on repeat presses.
-      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
+      return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
+    }
+
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'down');
     }
 
     const activeTrace = this.context.active;
@@ -233,6 +243,11 @@ export class RotorNavigationService {
       return this.moveIntersection('left');
     }
 
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'left');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
@@ -262,6 +277,11 @@ export class RotorNavigationService {
     }
     if (mode === Constant.INTERSECTION_MODE) {
       return this.moveIntersection('right');
+    }
+
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'right');
     }
 
     const activeTrace = this.context.active;
@@ -377,6 +397,7 @@ export class RotorNavigationService {
    *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
    *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
    *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
+   *   6. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
@@ -398,11 +419,87 @@ export class RotorNavigationService {
       if (activeTrace.supportsIntersectionMode()) {
         modes.push(Constant.INTERSECTION_MODE);
       }
+
+      for (const unit of activeTrace.getRotorFilterUnits()) {
+        modes.push(unit.label);
+      }
     } else {
       modes.push(Constant.DATA_MODE);
     }
 
     return modes;
+  }
+
+  /**
+   * Resolves the trace's rotor filter unit matching the current mode, or null
+   * when the current mode is a built-in (data/compare/grid/intersection) mode.
+   * Filter units are matched by label, the same string cycled through the
+   * rotor, so a stale index from a previous trace cannot resolve to the wrong
+   * unit.
+   * @returns The active filter unit, or null
+   */
+  private getActiveFilterUnit(mode: string): RotorFilterUnit | null {
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      return null;
+    }
+    return activeTrace.getRotorFilterUnits().find(unit => unit.label === mode) ?? null;
+  }
+
+  /**
+   * Delegates movement within a rotor filter unit to the active trace and maps
+   * a failed move to a user-facing boundary message.
+   *
+   * Return convention matches the sibling move methods: null on success
+   * (nothing to announce), a message string when bounded/unavailable.
+   *
+   * Filter units navigate along one axis only (e.g. candles left/right), so
+   * up/down are announced as unavailable-in-this-mode — phrasing distinct
+   * from a real positional boundary, mirroring intersection mode — without
+   * touching the model.
+   *
+   * All messages route through notification.notify so the text alert region
+   * re-mounts (it is keyed by a revision counter) and screen readers
+   * re-announce on every repeat key press — trend filters bound frequently
+   * (e.g. few bullish candles), so silent repeats would strand a
+   * screen-reader user at a boundary with no feedback.
+   * @param unit - The active filter unit
+   * @param direction - The direction to move
+   * @returns Boundary/unavailable message on failure, null on success
+   */
+  private moveFilter(
+    unit: RotorFilterUnit,
+    direction: 'up' | 'down' | 'left' | 'right',
+  ): string | null {
+    if (direction === 'up' || direction === 'down') {
+      return this.announceRotorMessage(this.getFilterVerticalUnavailableMessage(unit));
+    }
+
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
+    }
+    const moved = activeTrace.moveToRotorFilter(unit.key, direction);
+    if (!moved) {
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
+    }
+    return null;
+  }
+
+  /**
+   * User-facing message when Up/Down is pressed inside a filter unit. Trend
+   * filtering is horizontal-only, so vertical directions are announced as
+   * unavailable rather than reusing the generic boundary message (which would
+   * read as "No bullish point found above ..." and imply a real vertical
+   * bound exists). Mirrors {@link getIntersectionVerticalUnavailableMessage}.
+   * @param unit - The active filter unit, used to name the mode
+   * @returns The terse/verbose/off message
+   */
+  private getFilterVerticalUnavailableMessage(unit: RotorFilterUnit): string {
+    return this.buildMessage(
+      `Up/down unavailable in ${unit.noun} mode`,
+      `Up and down navigation is not available in ${unit.noun} mode.`,
+    );
   }
 
   /**
@@ -455,7 +552,7 @@ export class RotorNavigationService {
       // mode list build and the key press. Return an unavailable message
       // (not null — null means "move succeeded" to callers) so the user is
       // told their key press had no effect.
-      return this.announceIntersectionMessage(this.buildMessage(
+      return this.announceRotorMessage(this.buildMessage(
         'Intersection mode unavailable',
         'Intersection navigation is not available in the current context.',
       ));
@@ -466,20 +563,21 @@ export class RotorNavigationService {
     if (moved) {
       return null;
     }
-    return this.announceIntersectionMessage(this.getIntersectionBoundMessage(direction));
+    return this.announceRotorMessage(this.getIntersectionBoundMessage(direction));
   }
 
   /**
-   * Push an intersection-mode message through the notification service so the
-   * text alert region re-mounts (it is keyed by a revision counter), forcing
+   * Push a rotor-area message through the notification service so the text
+   * alert region re-mounts (it is keyed by a revision counter), forcing
    * screen readers to re-announce on every keystroke. Without this, repeated
    * identical messages dispatched only to the rotor area announce once and
-   * then stay silent. Returns the message unchanged so callers can chain.
-   * Empty strings (text-off mode) are passed through; NotificationService
-   * already no-ops on empty input.
+   * then stay silent. Used by the intersection and filter-unit boundary
+   * paths. Returns the message unchanged so callers can chain. Empty strings
+   * (text-off mode) are passed through; NotificationService already no-ops on
+   * empty input.
    * @param message The text to announce; returned unchanged.
    */
-  private announceIntersectionMessage(message: string): string {
+  private announceRotorMessage(message: string): string {
     this.notification.notify(message);
     return message;
   }

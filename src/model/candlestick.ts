@@ -1,4 +1,4 @@
-import type { Dimension, NearestPoint } from '@model/abstract';
+import type { Dimension, NearestPoint, RotorFilterUnit } from '@model/abstract';
 import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
@@ -23,6 +23,24 @@ type HighlightValue = SVGElement | SVGElement[];
 
 const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
+
+/** Rotor unit that walks only bullish (close > open) candles. */
+export const BULLISH_POINT_MODE = 'BULLISH POINT NAVIGATION';
+/** Rotor unit that walks only bearish (close < open) candles. */
+export const BEARISH_POINT_MODE = 'BEARISH POINT NAVIGATION';
+/** Rotor unit that walks only neutral (close === open) candles. */
+export const NEUTRAL_POINT_MODE = 'NEUTRAL POINT NAVIGATION';
+
+/**
+ * Trend-filter rotor units for the candlestick trace, in cycle order. The
+ * `key` is the {@link CandlestickTrend} each unit navigates; the default
+ * "all data point" unit is the built-in data mode and is not listed here.
+ */
+const TREND_ROTOR_UNITS: readonly (RotorFilterUnit & { key: CandlestickTrend })[] = [
+  { key: 'Bull', label: BULLISH_POINT_MODE, noun: 'bullish point' },
+  { key: 'Bear', label: BEARISH_POINT_MODE, noun: 'bearish point' },
+  { key: 'Neutral', label: NEUTRAL_POINT_MODE, noun: 'neutral point' },
+];
 
 /**
  * Segment types for candlestick data (open, high, low, close)
@@ -69,6 +87,12 @@ export class Candlestick extends AbstractTrace {
   private readonly perRowMin: number[];
   private readonly perRowMax: number[];
   private readonly trends: CandlestickTrend[];
+
+  // Rotor trend-filter units present in the data, computed once. Candles are
+  // immutable after construction, so this avoids rebuilding the present-trend
+  // Set on every getRotorFilterUnits() call (twice per keystroke via the
+  // rotor service).
+  private readonly rotorFilterUnits: readonly RotorFilterUnit[];
 
   protected readonly highlightValues: HighlightValue[][] | null;
   protected highlightCenters:
@@ -124,6 +148,11 @@ export class Candlestick extends AbstractTrace {
     this.perRowMin = this.candleValues.map(row => MathUtil.safeMin(row));
     this.perRowMax = this.candleValues.map(row => MathUtil.safeMax(row));
     this.trends = this.candles.map(candle => candle.trend);
+
+    const presentTrends = new Set<CandlestickTrend>(this.trends);
+    this.rotorFilterUnits = TREND_ROTOR_UNITS.filter(unit =>
+      presentTrends.has(unit.key),
+    );
 
     // Pre-compute sorted segments and position maps for performance
     this.sortedSegmentsByPoint = this.precomputeSortedSegments();
@@ -974,6 +1003,13 @@ export class Candlestick extends AbstractTrace {
    * @returns True if a matching value was found and moved to
    */
   public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors moveOnce/moveToExtreme).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.candles.length) {
       return false;
@@ -1019,6 +1055,62 @@ export class Candlestick extends AbstractTrace {
   public moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
     return true;
+  }
+
+  /**
+   * Exposes the bullish/bearish/neutral rotor filter units. These are
+   * appended after the built-in lower/higher value compare units, so cycling
+   * the rotor offers: all data point (default), lower value, higher value,
+   * and one unit per trend that actually occurs in the data. The default
+   * "all data point" unit is provided by the built-in data mode.
+   *
+   * A trend with no candles is omitted so the rotor cycle carries no
+   * dead-end modes (where every move would just report "no point found"),
+   * mirroring how GRID_MODE / INTERSECTION_MODE are gated on capability. The
+   * list is precomputed in the constructor (candles are immutable), so this
+   * returns the cached reference — callers must treat it as read-only.
+   * @returns The present trend-filter rotor units in cycle order
+   */
+  public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
+    return this.rotorFilterUnits;
+  }
+
+  /**
+   * Jumps to the previous/next candle whose trend matches the active filter
+   * unit, preserving the current segment. Trend filtering runs along the
+   * candle axis; the rotor service handles up/down (announcing them as
+   * unavailable) and only dispatches left/right here.
+   * @param key - The trend to navigate ('Bull', 'Bear', or 'Neutral')
+   * @param direction - The direction to search
+   * @returns True if a matching candle was found and moved to
+   */
+  public override moveToRotorFilter(
+    key: string,
+    direction: 'left' | 'right',
+  ): boolean {
+    // Establish the entry position on the first move so this jump highlights
+    // and the initial-entry branch of moveOnce doesn't later swallow a
+    // keypress (mirrors moveOnce/moveToExtreme/moveToIndex).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    const step = direction === 'right' ? 1 : -1;
+    for (
+      let i = this.currentPointIndex + step;
+      i >= 0 && i < this.candles.length;
+      i += step
+    ) {
+      if (this.candles[i].trend === key) {
+        this.currentPointIndex = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+
+    this.notifyRotorBounds();
+    return false;
   }
 
   /**
