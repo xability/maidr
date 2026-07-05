@@ -110,6 +110,21 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * Gets the line series with human-readable labels. Used by the candlestick
+   * delta feature to list reference-line candidates (e.g., moving averages).
+   * @returns One entry per series with its label and points
+   */
+  public getSeries(): { label: string; points: readonly LinePoint[] }[] {
+    return this.points.map((line, index) => ({
+      label: String(
+        line[0]?.z
+        ?? (this.points.length > 1 ? `Line ${index + 1}` : this.title),
+      ),
+      points: line,
+    }));
+  }
+
+  /**
    * Gets the description state for the line trace.
    * @returns The description state containing chart metadata and data table
    */

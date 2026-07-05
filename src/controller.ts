@@ -9,6 +9,7 @@ import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
+import { CandlestickDeltaService } from '@service/candlestickDelta';
 import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
@@ -29,6 +30,7 @@ import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
@@ -57,6 +59,7 @@ export class Controller implements Disposable {
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
@@ -72,6 +75,7 @@ export class Controller implements Disposable {
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly candlestickDeltaViewModel: CandlestickDeltaViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly descriptionViewModel: DescriptionViewModel;
@@ -177,6 +181,26 @@ export class Controller implements Disposable {
       store,
       this.rotorNavigationService,
     );
+    this.candlestickDeltaService = new CandlestickDeltaService(
+      this.context,
+      this.notificationService,
+      this.displayService,
+      this.rotorNavigationService,
+    );
+    // Runtime-created virtual traces are not covered by registerObservers(),
+    // so the delta service wires the same observer set itself on creation.
+    this.candlestickDeltaService.setObserverWirer((trace) => {
+      trace.addObserver(this.audioService);
+      trace.addObserver(this.brailleService);
+      trace.addObserver(this.textService);
+      trace.addObserver(this.reviewService);
+      trace.addObserver(this.highlightService);
+    });
+    this.candlestickDeltaViewModel = new CandlestickDeltaViewModel(
+      store,
+      this.candlestickDeltaService,
+      this.notificationService,
+    );
     this.chatViewModel = new ChatViewModel(
       store,
       this.chatService,
@@ -198,6 +222,7 @@ export class Controller implements Disposable {
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       brailleService: this.brailleService,
+      candlestickDeltaService: this.candlestickDeltaService,
       displayService: this.displayService,
       highContrastService: this.highContrastService,
       highlightService: this.highlightService,
@@ -208,6 +233,7 @@ export class Controller implements Disposable {
       textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
+      candlestickDeltaViewModel: this.candlestickDeltaViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
       descriptionViewModel: this.descriptionViewModel,
@@ -225,6 +251,7 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         brailleService: this.brailleService,
+        candlestickDeltaService: this.candlestickDeltaService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
@@ -235,6 +262,7 @@ export class Controller implements Disposable {
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
+        candlestickDeltaViewModel: this.candlestickDeltaViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
@@ -256,6 +284,7 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         brailleService: this.brailleService,
+        candlestickDeltaService: this.candlestickDeltaService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
@@ -266,6 +295,7 @@ export class Controller implements Disposable {
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
+        candlestickDeltaViewModel: this.candlestickDeltaViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
@@ -334,6 +364,14 @@ export class Controller implements Disposable {
    * @param appended - Location of the newly appended point, for appendData updates
    */
   public updateData(maidr: Maidr, appended?: AppendedPointInfo): void {
+    // The virtual delta layer is derived from the current model; a data
+    // update rebuilds the figure underneath it, so close it first to keep
+    // the navigation stack and keyboard scope consistent.
+    if (this.candlestickDeltaService.isActive) {
+      this.candlestickDeltaService.deactivate({ silent: true });
+      this.notificationService.notify('Reference comparison closed by a data update.');
+    }
+
     // Ordering is load-bearing: the sliding-window shift must be resolved
     // against the OLD figure (the user's current position) before the swap,
     // while announceAppendedPoint below runs against the NEW figure.
@@ -432,6 +470,7 @@ export class Controller implements Disposable {
     this.displayViewModel.dispose();
     this.goToExtremaViewModel.dispose();
     this.reviewViewModel.dispose();
+    this.candlestickDeltaViewModel.dispose();
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
@@ -443,6 +482,7 @@ export class Controller implements Disposable {
     this.monitorService.dispose();
 
     this.chatService.dispose();
+    this.candlestickDeltaService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
@@ -473,6 +513,7 @@ export class Controller implements Disposable {
   private registerViewModels(): void {
     this.viewModelRegistry.register('text', this.textViewModel);
     this.viewModelRegistry.register('braille', this.brailleViewModel);
+    this.viewModelRegistry.register('candlestickDelta', this.candlestickDeltaViewModel);
     this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
     this.viewModelRegistry.register('review', this.reviewViewModel);
     this.viewModelRegistry.register('description', this.descriptionViewModel);

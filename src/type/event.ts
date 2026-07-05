@@ -43,6 +43,10 @@ export type Status
  */
 export enum Scope {
   BRAILLE = 'BRAILLE',
+  /** Navigating the virtual candlestick-vs-reference-line delta layer. */
+  CANDLESTICK_DELTA = 'CANDLESTICK_DELTA',
+  /** The F7 dialog for configuring the candlestick delta layer. */
+  CANDLESTICK_DELTA_SETTINGS = 'CANDLESTICK_DELTA_SETTINGS',
   CHAT = 'CHAT',
   COMMAND_PALETTE = 'COMMAND_PALETTE',
   DESCRIPTION = 'DESCRIPTION',

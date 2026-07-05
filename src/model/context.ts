@@ -431,6 +431,35 @@ export class Context implements Disposable {
     return this.active.moveToPointAndGetPointerGuidance(x, y);
   }
 
+  /**
+   * Replaces the active trace at the top of the plot context with another
+   * trace, leaving the rest of the stack (and its depth) untouched. Used by
+   * the candlestick delta feature to activate its virtual layer and to
+   * restore the real layer on exit.
+   *
+   * @param trace - The trace to make active
+   * @returns The trace that was active before the swap, or null when the
+   *   current context is not at trace level (nothing is swapped then)
+   */
+  public swapActiveTrace(trace: Trace): Trace | null {
+    const current = this.plotContext.peek();
+    if (!current || current.state.type !== 'trace') {
+      return null;
+    }
+    this.plotContext.pop();
+    this.plotContext.push(trace);
+    return current as Trace;
+  }
+
+  /**
+   * Returns the traces of the subplot the user is currently in, flattened in
+   * layer order. Used to discover sibling layers (e.g., reference lines for
+   * the candlestick delta feature).
+   */
+  public getActiveSubplotTraces(): Trace[] {
+    return this.figure.activeSubplot.traces.flat();
+  }
+
   public stepTrace(direction: MovableDirection): void {
     if (this.plotContext.size() > 1) {
       const previousTrace = this.active as Trace;

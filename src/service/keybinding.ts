@@ -81,6 +81,73 @@ const BRAILLE_KEYMAP = {
 } as const;
 
 /**
+ * Keymap configuration for the virtual candlestick delta layer. Mirrors the
+ * trace scope minus layer switching (the delta layer is not a subplot layer)
+ * and with ESC bound to exiting back to the real chart layer.
+ */
+const CANDLESTICK_DELTA_KEYMAP = {
+  EXIT_CANDLESTICK_DELTA: key(`esc`, 'Exit Comparison and Return to Chart'),
+  TOGGLE_CANDLESTICK_DELTA: key(`f7`, 'Change Reference Comparison', { helpKey: 'F7' }),
+
+  // Label scope ('l') is intentionally NOT bound here: TRACE_LABEL's Escape
+  // (DEACTIVATE_TRACE_LABEL_SCOPE) hard-returns to Scope.TRACE, which would
+  // desync the keyboard scope from the still-active virtual delta layer. The
+  // delta layer's own announcements already spell out the axes, so the
+  // separate label mode is redundant here.
+
+  // Autoplay
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpKey: `${Platform.ctrl} + shift + left` }),
+
+  STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
+  SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
+  SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
+  RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
+
+  // Navigation
+  MOVE_UP: key(`up`, 'Navigate Up'),
+  MOVE_DOWN: key(`down`, 'Navigate Down'),
+  MOVE_RIGHT: key(`right`, 'Navigate Right'),
+  MOVE_LEFT: key(`left`, 'Navigate Left'),
+
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
+
+  // Modes
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
+
+  // Misc
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
+
+  // Description
+  ANNOUNCE_POINT: key(`space`, 'Replay Current Point'),
+  ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
+
+  // Go To functionality
+  GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
+
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
+  ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
+} as const;
+
+/**
+ * Keymap configuration for the candlestick delta settings dialog (F7).
+ */
+const CANDLESTICK_DELTA_SETTINGS_KEYMAP = {
+  // Misc
+  TOGGLE_CANDLESTICK_DELTA: key(`esc`, 'Close Reference Comparison Dialog', { showInHelp: false }),
+} as const;
+
+/**
  * Keymap configuration for chat interface interactions.
  */
 const CHAT_KEYMAP = {
@@ -242,6 +309,9 @@ const TRACE_KEYMAP = {
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
+  // Candlestick reference comparison (virtual delta layer)
+  TOGGLE_CANDLESTICK_DELTA: key(`f7`, 'Compare Candlestick to Reference Line', { helpKey: 'F7' }),
+
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
@@ -295,6 +365,8 @@ const GRID_CELL_KEYMAP = {
  */
 export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
+  [Scope.CANDLESTICK_DELTA]: CANDLESTICK_DELTA_KEYMAP,
+  [Scope.CANDLESTICK_DELTA_SETTINGS]: CANDLESTICK_DELTA_SETTINGS_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
   [Scope.DESCRIPTION]: DESCRIPTION_KEYMAP,

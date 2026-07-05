@@ -205,7 +205,8 @@ export class DisplayService implements Disposable {
         || focus === 'DESCRIPTION'
         || focus === 'SETTINGS'
         || focus === 'CHAT'
-        || focus === 'HELP';
+        || focus === 'HELP'
+        || focus === 'CANDLESTICK_DELTA_SETTINGS';
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {
@@ -283,7 +284,9 @@ export class DisplayService implements Disposable {
    * @param {Focus} newScope - The new focus scope
    */
   private updateFocus(newScope: Focus): void {
-    if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
+    // CANDLESTICK_DELTA is plot navigation (like TRACE), so the plot element
+    // must (re)take DOM focus when the virtual delta layer becomes active.
+    if (newScope === 'TRACE' || newScope === 'SUBPLOT' || newScope === 'CANDLESTICK_DELTA') {
       this.plot.tabIndex = 0;
       setTimeout((): void => {
         // Only run first-entry init when NOT returning from a modal

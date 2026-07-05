@@ -1,5 +1,6 @@
 import type { CommandExecutor } from '@service/commandExecutor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
@@ -17,6 +18,7 @@ import type { TextViewModel } from './textViewModel';
  */
 export interface ViewModelMap {
   braille: BrailleViewModel;
+  candlestickDelta: CandlestickDeltaViewModel;
   chat: ChatViewModel;
   commandExecutor: CommandExecutor;
   commandPalette: CommandPaletteViewModel;

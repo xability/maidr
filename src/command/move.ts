@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { BrailleService } from '@service/braille';
+import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
@@ -289,21 +290,25 @@ export class ExitBrailleAndSubplotCommand implements Command {
   private readonly context: Context;
   private readonly displayService: DisplayService;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
 
   /**
    * Creates an instance of ExitBrailleAndSubplotCommand.
    * @param {Context} context - The navigation context.
    * @param {DisplayService} displayService - The display service for focus management.
    * @param {BrailleViewModel} brailleViewModel - The braille view model for the single-panel fallback.
+   * @param {CandlestickDeltaService} candlestickDeltaService - Releases the virtual delta layer on the multi-panel exit path.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
     brailleViewModel: BrailleViewModel,
+    candlestickDeltaService: CandlestickDeltaService,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.brailleViewModel = brailleViewModel;
+    this.candlestickDeltaService = candlestickDeltaService;
   }
 
   /**
@@ -312,6 +317,12 @@ export class ExitBrailleAndSubplotCommand implements Command {
    */
   public execute(): void {
     if (this.context.isMultiPanel) {
+      // The multi-panel exit pops the active trace off the stack via
+      // exitSubplot(). If that trace is the virtual delta layer, tear down
+      // the delta service's own state (and reset the rotor sign-filter)
+      // first, so it does not survive on the real chart layer. This command
+      // manages the stack and focus itself, so discardActiveLayer() must not.
+      this.candlestickDeltaService.discardActiveLayer();
       this.displayService.dismissModalScope(Scope.SUBPLOT);
       this.context.exitSubplot();
       this.displayService.notifyFocusChange(Scope.SUBPLOT);
@@ -330,19 +341,25 @@ export class ExitBrailleAndSubplotCommand implements Command {
  */
 export class MoveToNextTraceCommand implements Command {
   private readonly context: Context;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
 
   /**
    * Creates an instance of MoveToNextTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
+   * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
    */
-  public constructor(context: Context) {
+  public constructor(context: Context, candlestickDeltaService: CandlestickDeltaService) {
     this.context = context;
+    this.candlestickDeltaService = candlestickDeltaService;
   }
 
   /**
    * Executes the move operation to step to the next trace upward.
+   * The virtual delta layer is not a subplot layer, so it must be released
+   * first (reachable from braille mode, where PageUp stays bound).
    */
   public execute(): void {
+    this.candlestickDeltaService.deactivateIfActive();
     this.context.stepTrace('UPWARD');
   }
 }
@@ -352,19 +369,25 @@ export class MoveToNextTraceCommand implements Command {
  */
 export class MoveToPrevTraceCommand implements Command {
   private readonly context: Context;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
 
   /**
    * Creates an instance of MoveToPrevTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
+   * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
    */
-  public constructor(context: Context) {
+  public constructor(context: Context, candlestickDeltaService: CandlestickDeltaService) {
     this.context = context;
+    this.candlestickDeltaService = candlestickDeltaService;
   }
 
   /**
    * Executes the move operation to step to the previous trace downward.
+   * The virtual delta layer is not a subplot layer, so it must be released
+   * first (reachable from braille mode, where PageDown stays bound).
    */
   public execute(): void {
+    this.candlestickDeltaService.deactivateIfActive();
     this.context.stepTrace('DOWNWARD');
   }
 }
