@@ -1,8 +1,9 @@
 import type { Context } from '@model/context';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
-import type { MaidrLayer } from '@type/grammar';
+import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
+import { Heatmap } from '@model/heatmap';
 import { LineTrace } from '@model/line';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
@@ -317,6 +318,72 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
     const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
     service.moveRight();
     service.moveRight();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('the left/lower fallback path also re-announces the boundary', () => {
+    // moveLeft in LOWER_VALUE_MODE exercises a different message branch than
+    // the moveRight/higher case above: LineTrace does not override
+    // moveLeftRotor, so moveLeft throws and falls back to
+    // callMoveToNextCompareMethod('left'), which is the fifth wrapped site.
+    const trace = createAscendingLine();
+    trace.col = 0; // leftmost — no lower value further left
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.LOWER_VALUE_MODE);
+
+    const result = service.moveLeft();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/lower value/i),
+    );
+    expect(trace.col).toBe(0);
+
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveLeft();
+    service.moveLeft();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('the inline vertical compare branch (heatmap moveUp) re-announces too', () => {
+    // Heatmap overrides moveUpRotor to delegate to a compare search that can
+    // return false, so its boundary flows through the INLINE moveUp branch
+    // rather than the callMoveToNextCompareMethod fallback the line cases hit.
+    // No selectors → no DOM needed (highlightValues stays null).
+    const data: HeatmapData = { x: ['a', 'b'], y: ['p', 'q'], points: [[1, 2], [3, 4]] };
+    const layer: MaidrLayer = {
+      id: 'hm',
+      type: TraceType.HEATMAP,
+      title: 'rotor heatmap',
+      axes: { x: { label: 'X' }, y: { label: 'Y' } },
+      data,
+    };
+    const trace = new Heatmap(layer);
+    // The model reverses rows, so trace row 0 = points row 1 = [3, 4]; sitting
+    // on col 0 (value 3) there is no higher value further up its column.
+    trace.row = 0;
+    trace.col = 0;
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    const result = service.moveUp();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/higher value/i),
+    );
+
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveUp();
+    service.moveUp();
     expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
   });
 
