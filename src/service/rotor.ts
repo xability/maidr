@@ -573,9 +573,9 @@ export class RotorNavigationService {
    * screen readers to re-announce on every keystroke. Without this, repeated
    * identical messages dispatched only to the rotor area announce once and
    * then stay silent. Used by the intersection, compare-mode, and filter-unit
-   * boundary paths. Returns the message unchanged so callers can chain. Empty strings
-   * (text-off mode) are passed through; NotificationService already no-ops on
-   * empty input.
+   * boundary paths. Returns the message unchanged so callers can chain. Empty
+   * strings (text-off mode) are passed through; NotificationService already
+   * no-ops on empty input.
    * @param message The text to announce; returned unchanged.
    */
   private announceRotorMessage(message: string): string {
