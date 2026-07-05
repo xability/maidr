@@ -97,8 +97,24 @@ function collectModes(service: RotorNavigationService): string[] {
   return modes;
 }
 
+/**
+ * Cycle the rotor forward until it reaches the target mode. Keeps tests
+ * robust against where a unit sits in the cycle.
+ * @param service - The rotor service to cycle
+ * @param target - The mode name to stop at
+ */
+function cycleTo(service: RotorNavigationService, target: string): void {
+  for (let i = 0; i < 10; i++) {
+    if (service.getMode() === target) {
+      return;
+    }
+    service.moveToNextRotorUnit();
+  }
+  throw new Error(`Rotor did not reach mode "${target}"`);
+}
+
 describe('candlestick rotor service integration', () => {
-  test('cycle offers data plus the three trend units and no compare units', () => {
+  test('cycle offers data, the compare units, and the three trend units', () => {
     const service = new RotorNavigationService(
       createMockContext(createTrace()),
       createMockTextService(),
@@ -108,12 +124,12 @@ describe('candlestick rotor service integration', () => {
     const modes = collectModes(service);
     expect(modes).toEqual([
       Constant.DATA_MODE,
+      Constant.LOWER_VALUE_MODE,
+      Constant.HIGHER_VALUE_MODE,
       BULLISH_POINT_MODE,
       BEARISH_POINT_MODE,
       NEUTRAL_POINT_MODE,
     ]);
-    expect(modes).not.toContain(Constant.LOWER_VALUE_MODE);
-    expect(modes).not.toContain(Constant.HIGHER_VALUE_MODE);
   });
 
   test('moveRight in the bullish unit jumps the trace to the next bullish candle', () => {
@@ -124,7 +140,7 @@ describe('candlestick rotor service integration', () => {
       createMockNotificationService(),
     );
 
-    service.moveToNextRotorUnit(); // -> bullish unit
+    cycleTo(service, BULLISH_POINT_MODE);
     expect(service.getMode()).toBe(BULLISH_POINT_MODE);
 
     expect(service.moveRight()).toBeNull();
@@ -141,9 +157,7 @@ describe('candlestick rotor service integration', () => {
     );
 
     // Neutral unit: only candle index 2 is neutral.
-    service.moveToNextRotorUnit();
-    service.moveToNextRotorUnit();
-    service.moveToNextRotorUnit();
+    cycleTo(service, NEUTRAL_POINT_MODE);
     expect(service.getMode()).toBe(NEUTRAL_POINT_MODE);
 
     expect(service.moveRight()).toBeNull();
@@ -169,7 +183,7 @@ describe('candlestick rotor service integration', () => {
       createMockNotificationService(),
     );
 
-    service.moveToNextRotorUnit(); // bullish unit
+    cycleTo(service, BULLISH_POINT_MODE);
     const result = service.moveUp();
 
     expect(result).not.toBeNull();

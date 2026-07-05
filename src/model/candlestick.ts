@@ -1040,18 +1040,11 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
-   * The candlestick rotor replaces the generic lower/higher value compare
-   * units with the trend-filter units below, so cycling the rotor offers
-   * exactly: all data point (default), bullish, bearish, and neutral.
-   * @returns False — compare-mode navigation is not exposed for candlesticks
-   */
-  public override supportsCompareMode(): boolean {
-    return false;
-  }
-
-  /**
-   * Exposes the bullish/bearish/neutral rotor filter units. The default
-   * "all data point" unit is provided by the built-in data mode.
+   * Exposes the bullish/bearish/neutral rotor filter units. These are
+   * appended after the built-in lower/higher value compare units, so cycling
+   * the rotor offers: all data point (default), lower value, higher value,
+   * bullish, bearish, and neutral. The default "all data point" unit is
+   * provided by the built-in data mode.
    * @returns The trend-filter rotor units in cycle order
    */
   public override getRotorFilterUnits(): RotorFilterUnit[] {

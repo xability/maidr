@@ -46,10 +46,12 @@ function createLayer(): MaidrLayer {
 }
 
 describe('candlestick rotor filter units', () => {
-  test('exposes bullish, bearish, and neutral units and hides compare mode', () => {
+  test('exposes bullish, bearish, and neutral units alongside compare mode', () => {
     const trace = new Candlestick(createLayer());
 
-    expect(trace.supportsCompareMode()).toBe(false);
+    // Trend units are additive: the built-in lower/higher value compare
+    // units remain available too.
+    expect(trace.supportsCompareMode()).toBe(true);
 
     const units = trace.getRotorFilterUnits();
     expect(units.map(u => u.label)).toEqual([
