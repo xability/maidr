@@ -1050,12 +1050,17 @@ export class Candlestick extends AbstractTrace {
    * Exposes the bullish/bearish/neutral rotor filter units. These are
    * appended after the built-in lower/higher value compare units, so cycling
    * the rotor offers: all data point (default), lower value, higher value,
-   * bullish, bearish, and neutral. The default "all data point" unit is
-   * provided by the built-in data mode.
-   * @returns The trend-filter rotor units in cycle order
+   * and one unit per trend that actually occurs in the data. The default
+   * "all data point" unit is provided by the built-in data mode.
+   *
+   * A trend with no candles is omitted so the rotor cycle carries no
+   * dead-end modes (where every move would just report "no point found"),
+   * mirroring how GRID_MODE / INTERSECTION_MODE are gated on capability.
+   * @returns The present trend-filter rotor units in cycle order
    */
   public override getRotorFilterUnits(): RotorFilterUnit[] {
-    return [...TREND_ROTOR_UNITS];
+    const present = new Set<CandlestickTrend>(this.trends);
+    return TREND_ROTOR_UNITS.filter(unit => present.has(unit.key));
   }
 
   /**

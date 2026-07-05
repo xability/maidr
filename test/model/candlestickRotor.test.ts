@@ -62,6 +62,26 @@ describe('candlestick rotor filter units', () => {
     expect(units.map(u => u.key)).toEqual(['Bull', 'Bear', 'Neutral']);
   });
 
+  test('omits trend units with no matching candles', () => {
+    // An all-bullish chart should advertise only the bullish unit, so the
+    // rotor never cycles into a dead-end bearish/neutral mode.
+    const allBull: CandlestickPoint[] = [
+      candle('2026-01-01', 10, 12),
+      candle('2026-01-02', 12, 15),
+      candle('2026-01-03', 15, 18),
+    ];
+    const trace = new Candlestick({
+      id: 'candle-layer',
+      type: TraceType.CANDLESTICK,
+      axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+      data: allBull,
+    });
+
+    expect(trace.getRotorFilterUnits().map(u => u.label)).toEqual([
+      BULLISH_POINT_MODE,
+    ]);
+  });
+
   test('bullish unit skips to the next bullish candle to the right', () => {
     const trace = new Candlestick(createLayer());
     // Cursor starts on candle 0 (Bull); the next bullish candle is index 3.
