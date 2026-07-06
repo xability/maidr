@@ -556,20 +556,17 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param state - The new plot state to process
    */
   public update(state: PlotState): void {
-    // Pure out-of-bounds events (empty trace state with no `warning` field) are
-    // fired by AbstractTrace.notifyOutOfBounds() when navigation hits a boundary
-    // (far left/right/top/bottom of a trace). The user stays located at the last
-    // valid data point, so we must NOT overwrite `currentState` (used by the AI
-    // chat) below — hence the early return before that bookkeeping.
+    // Out-of-bounds events (empty trace state, no `warning`) are fired by
+    // AbstractTrace.notifyOutOfBounds() when navigation hits a boundary. The
+    // user stays at the last valid data point, so we must NOT overwrite
+    // `currentState` (used by the AI chat) — hence the early return before that
+    // bookkeeping below.
     //
-    // We DO, however, announce a boundary alert so reaching an edge is not
-    // silent. Respect the text mode: OFF stays silent, while TERSE ("No info")
-    // and VERBOSE ("No plot info to display") get mode-appropriate wording from
+    // We still announce a boundary alert so reaching an edge is not silent,
+    // respecting text mode: OFF stays silent, while TERSE ("No info") and
+    // VERBOSE ("No plot info to display") get mode-appropriate wording from
     // format(). Returning early also avoids firing `first_navigation` for an
     // empty state, keeping announce-gating intact.
-    //
-    // (A regression from #557 turned this into a bare `return`, silencing the
-    // edge alert entirely — this restores it without clobbering `currentState`.)
     if (
       state
       && state.empty
