@@ -226,7 +226,13 @@ export class TextService implements Observer<PlotState>, Disposable {
       if (state.type === 'subplot') {
         return 'No additional layer';
       }
-      return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
+      if (state.type === 'trace') {
+        // Boundary / out-of-bounds cue shown when navigation hits a trace edge.
+        // Terse trims the phrasing the same way terse navigation text trims its
+        // scaffolding; verbose keeps the full sentence.
+        return this.mode === TextMode.TERSE ? 'No info' : 'No plot info to display';
+      }
+      return `No ${state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
@@ -556,11 +562,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     // valid data point, so we must NOT overwrite `currentState` (used by the AI
     // chat) below — hence the early return before that bookkeeping.
     //
-    // We DO, however, announce a boundary alert ("No plot info to display") so
-    // reaching an edge is not silent. Respect the text mode: OFF stays silent;
-    // TERSE and VERBOSE both surface the placeholder (format() yields the same
-    // string for empty states). Returning early also avoids firing
-    // `first_navigation` for an empty state, keeping announce-gating intact.
+    // We DO, however, announce a boundary alert so reaching an edge is not
+    // silent. Respect the text mode: OFF stays silent, while TERSE ("No info")
+    // and VERBOSE ("No plot info to display") get mode-appropriate wording from
+    // format(). Returning early also avoids firing `first_navigation` for an
+    // empty state, keeping announce-gating intact.
     //
     // (A regression from #557 turned this into a bare `return`, silencing the
     // edge alert entirely — this restores it without clobbering `currentState`.)

@@ -184,9 +184,10 @@ describe('textService first-navigation announcement gate', () => {
 /**
  * Regression coverage for the "no text alert at plot edges" bug. A guard added
  * in #557 turned the out-of-bounds branch of TextService.update() into a bare
- * `return`, silently swallowing the "No plot info to display" boundary alert.
- * These tests lock in that the alert is emitted again (respecting text mode)
- * while `currentState` (used by the AI chat) is still preserved.
+ * `return`, silently swallowing the boundary alert. These tests lock in that
+ * the alert is emitted again with mode-appropriate wording (verbose: "No plot
+ * info to display"; terse: "No info"; off: silent) while `currentState` (used
+ * by the AI chat) is still preserved.
  */
 describe('textService out-of-bounds edge alert', () => {
   test('emits "No plot info to display" on out-of-bounds in verbose mode', () => {
@@ -202,7 +203,7 @@ describe('textService out-of-bounds edge alert', () => {
     expect(changeListener).toHaveBeenCalledWith({ value: 'No plot info to display' });
   });
 
-  test('emits "No plot info to display" on out-of-bounds in terse mode', () => {
+  test('emits the terser "No info" on out-of-bounds in terse mode', () => {
     const text = new TextService(createMockNotificationService());
     text.toggle(); // VERBOSE -> TERSE
     expect(text.isTerse()).toBe(true);
@@ -212,9 +213,9 @@ describe('textService out-of-bounds edge alert', () => {
 
     text.update(createOutOfBoundsState());
 
-    // Terse and verbose share the same placeholder for empty states.
+    // Terse gets its own shorter wording, distinct from verbose.
     expect(changeListener).toHaveBeenCalledTimes(1);
-    expect(changeListener).toHaveBeenCalledWith({ value: 'No plot info to display' });
+    expect(changeListener).toHaveBeenCalledWith({ value: 'No info' });
   });
 
   test('stays silent on out-of-bounds while text mode is off', () => {
