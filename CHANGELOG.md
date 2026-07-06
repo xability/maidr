@@ -1,3 +1,21 @@
+# [3.72.0](https://github.com/xability/maidr/compare/v3.71.0...v3.72.0) (2026-07-06)
+
+
+### Bug Fixes
+
+* capture title from the json ([#616](https://github.com/xability/maidr/issues/616)) ([e347ddd](https://github.com/xability/maidr/commit/e347ddda5a47a2e03fb1ed47495cbbc319c06ec8))
+* monitor only the focused layer and stop live-region chatter in live demo ([#622](https://github.com/xability/maidr/issues/622)) ([5a22453](https://github.com/xability/maidr/commit/5a22453a38e778a160dd5d822301c603f094bb0f))
+* **rotor:** address orientation-independent candlestick compare + grid-mode re-announce ([#630](https://github.com/xability/maidr/issues/630) items 1–2) ([#631](https://github.com/xability/maidr/issues/631)) ([a112a9f](https://github.com/xability/maidr/commit/a112a9fc9df1b08bcbc33e00a82e5e4182dda2af))
+* **rotor:** re-announce compare-mode boundary messages to screen readers ([#629](https://github.com/xability/maidr/issues/629)) ([d734ff4](https://github.com/xability/maidr/commit/d734ff49a45e14f1346f9e5e5fea3a4fffaae602))
+* **rotor:** use single-announce rotor boundary messages ([#630](https://github.com/xability/maidr/issues/630) item 3) ([#632](https://github.com/xability/maidr/issues/632)) ([5ff131c](https://github.com/xability/maidr/commit/5ff131cebacf411868fe0f800715c624a260b4f9))
+
+
+### Features
+
+* **candlestick:** add bullish/bearish/neutral rotor navigation units ([#628](https://github.com/xability/maidr/issues/628)) ([28f0dfc](https://github.com/xability/maidr/commit/28f0dfc839799cd56ebed00b724a1e8ab3cd49f5))
+* **candlestick:** add virtual reference-line delta layer with F7 dialog ([#627](https://github.com/xability/maidr/issues/627)) ([ffe0496](https://github.com/xability/maidr/commit/ffe04965c03886f4c3930a6b9624bb648c073c59))
+* support multi-panel and faceted plots across all chart-library adapters ([#624](https://github.com/xability/maidr/issues/624)) ([984a7a4](https://github.com/xability/maidr/commit/984a7a4ea7679749525b9db764593f6992e6dfaa))
+
 # [3.71.0](https://github.com/xability/maidr/compare/v3.70.0...v3.71.0) (2026-06-29)
 
 
