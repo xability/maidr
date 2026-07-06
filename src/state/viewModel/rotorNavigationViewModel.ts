@@ -85,31 +85,51 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
   }
 
   /**
+   * Runs a rotor move and clears the rotor announcement area.
+   *
+   * Boundary / unavailable messages returned by the service have already been
+   * announced through the notification service (the revision-keyed
+   * `role="alert"` region, which re-announces on every repeat press) and are
+   * shown visually in the text container. Writing them into `rotor_value` too
+   * would push the identical text into a SECOND aria-live region
+   * (`ROTOR_AREA`), so a screen reader announces the same boundary message
+   * twice on the first hit (#630 item 3). `rotor_value` is therefore reserved
+   * for the rotor mode name (set by the cycle methods); moves clear it, which
+   * matches the pre-existing behaviour on a successful move.
+   * @param move - The rotor service move to run; its return value is ignored
+   *   here because announcement is handled inside the service.
+   */
+  private runMove(move: () => string | null): void {
+    move();
+    this.store.dispatch(setValue(null));
+  }
+
+  /**
    * Moves up within the current rotor navigation unit.
    */
   public moveUp(): void {
-    this.store.dispatch(setValue(this.rotorService.moveUp()));
+    this.runMove(() => this.rotorService.moveUp());
   }
 
   /**
    * Moves left within the current rotor navigation unit.
    */
   public moveLeft(): void {
-    this.store.dispatch(setValue(this.rotorService.moveLeft()));
+    this.runMove(() => this.rotorService.moveLeft());
   }
 
   /**
    * Moves down within the current rotor navigation unit.
    */
   public moveDown(): void {
-    this.store.dispatch(setValue(this.rotorService.moveDown()));
+    this.runMove(() => this.rotorService.moveDown());
   }
 
   /**
    * Moves right within the current rotor navigation unit.
    */
   public moveRight(): void {
-    this.store.dispatch(setValue(this.rotorService.moveRight()));
+    this.runMove(() => this.rotorService.moveRight());
   }
 }
 
