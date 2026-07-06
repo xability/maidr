@@ -1,6 +1,6 @@
 import type { NotificationService } from '@service/notification';
 import type { MaidrLayer } from '@type/grammar';
-import type { TraceState } from '@type/state';
+import type { PlotState, TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
 import { TextService } from '@service/text';
@@ -111,5 +111,63 @@ describe('textService first-navigation announcement gate', () => {
     text.update(emptyState);
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('does not fire first_navigation for a warning empty trace state', () => {
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+
+    // Warning empties bypass the top-of-method out-of-bounds early return, so
+    // the `!state.empty` guard is what keeps them from un-gating announcements.
+    const warningState: TraceState = {
+      empty: true,
+      type: 'trace',
+      traceType: TraceType.BAR,
+      audio: { y: 0, x: 0, rows: 0, cols: 0 },
+      warning: true,
+    };
+    text.update(warningState);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('does not fire first_navigation while text mode is off', () => {
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+
+    // VERBOSE -> TERSE -> OFF. Navigating while off must not un-gate; the flag
+    // stays armed for when the user turns text back on and navigates.
+    text.toggle();
+    text.toggle();
+    expect(text.isOff()).toBe(true);
+
+    text.update(createTraceState());
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('still fires first_navigation for a figure-type first navigation', () => {
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+
+    // Multi-panel plots start at figure level; removing the old figure-only
+    // block must not regress their first-navigation announcement.
+    const figureState = {
+      empty: false,
+      type: 'figure',
+      title: '',
+      subtitle: '',
+      caption: '',
+      size: 2,
+      index: 1,
+      traceTypes: ['bar'],
+    } as unknown as PlotState;
+    text.update(figureState);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
   });
 });
