@@ -1,8 +1,9 @@
 import type { Context } from '@model/context';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
-import type { MaidrLayer } from '@type/grammar';
+import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
+import { Heatmap } from '@model/heatmap';
 import { LineTrace } from '@model/line';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
@@ -270,5 +271,132 @@ describe('RotorNavigationService intersection dispatch', () => {
     }
 
     expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
+  });
+});
+
+describe('RotorNavigationService compare-mode boundary re-announcement', () => {
+  /**
+   * Single ascending line so that, sitting on the maximum, HIGHER_VALUE_MODE
+   * has no further higher value to the right — a reliable compare boundary.
+   * @returns A single-line LineTrace with values [1, 2, 3]
+   */
+  function createAscendingLine(): LineTrace {
+    return new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 1 },
+        { x: 1, y: 2 },
+        { x: 2, y: 3 },
+      ],
+    ]));
+  }
+
+  test('compare-mode boundary routes through notification.notify and re-announces each press', () => {
+    // Regression: the intersection path already re-announces on repeat presses
+    // by routing through notification.notify (the alert region is keyed by a
+    // revision counter). The compare-mode boundary path historically returned
+    // the message to the rotor area only, so repeated identical hits went
+    // silent for screen readers. This asserts compare mode now re-announces
+    // the same way.
+    const trace = createAscendingLine();
+    trace.col = 2; // sit on the maximum (value 3)
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    const result = service.moveRight();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/higher value/i),
+    );
+    expect(trace.col).toBe(2); // did not move
+
+    // Each repeat hit must call notify so the alert region re-mounts.
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveRight();
+    service.moveRight();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('the left/lower fallback path also re-announces the boundary', () => {
+    // moveLeft in LOWER_VALUE_MODE exercises a different message branch than
+    // the moveRight/higher case above: LineTrace does not override
+    // moveLeftRotor, so moveLeft throws and falls back to
+    // callMoveToNextCompareMethod('left'), which is the fifth wrapped site.
+    const trace = createAscendingLine();
+    trace.col = 0; // leftmost — no lower value further left
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.LOWER_VALUE_MODE);
+
+    const result = service.moveLeft();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/lower value/i),
+    );
+    expect(trace.col).toBe(0);
+
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveLeft();
+    service.moveLeft();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('the inline vertical compare branch (heatmap moveUp) re-announces too', () => {
+    // Heatmap overrides moveUpRotor to delegate to a compare search that can
+    // return false, so its boundary flows through the INLINE moveUp branch
+    // rather than the callMoveToNextCompareMethod fallback the line cases hit.
+    // No selectors → no DOM needed (highlightValues stays null).
+    const data: HeatmapData = { x: ['a', 'b'], y: ['p', 'q'], points: [[1, 2], [3, 4]] };
+    const layer: MaidrLayer = {
+      id: 'hm',
+      type: TraceType.HEATMAP,
+      title: 'rotor heatmap',
+      axes: { x: { label: 'X' }, y: { label: 'Y' } },
+      data,
+    };
+    const trace = new Heatmap(layer);
+    // The model reverses rows, so trace row 0 = points row 1 = [3, 4]; sitting
+    // on col 0 (value 3) there is no higher value further up its column.
+    trace.row = 0;
+    trace.col = 0;
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    const result = service.moveUp();
+    expect(result).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(
+      expect.stringMatching(/higher value/i),
+    );
+
+    const callsBefore = (notification.notify as jest.Mock).mock.calls.length;
+    service.moveUp();
+    service.moveUp();
+    expect((notification.notify as jest.Mock).mock.calls.length).toBe(callsBefore + 2);
+  });
+
+  test('text-off mode still suppresses the compare boundary message', () => {
+    const trace = createAscendingLine();
+    trace.col = 2;
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService({ off: true }),
+      createMockNotificationService(),
+    );
+    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+
+    expect(service.moveRight()).toBe('');
   });
 });

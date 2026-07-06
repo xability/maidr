@@ -16,8 +16,11 @@ export interface TextState {
   announce: boolean;
   value: string;
   /**
-   * Monotonic counter that increments on every update (including same-text updates).
-   *  Used by the View to detect re-announcement requests without invisible characters.
+   * Monotonic counter that increments on every text update AND every
+   * notification (including same-text/same-message dispatches). The View keys
+   * the screen-reader alert region on it, so bumping it here is what forces a
+   * re-announcement (via re-mount) even when the text/message is unchanged —
+   * without relying on invisible Unicode characters.
    */
   revision: number;
   message: string | null;
@@ -47,6 +50,11 @@ const textSlice = createSlice({
     },
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
+      // Bump revision so the alert region re-mounts and screen readers
+      // re-announce even when the same message is dispatched repeatedly (e.g.
+      // holding a direction key at a rotor boundary). Without this, an
+      // identical repeat notify() produces no DOM change and stays silent.
+      state.revision += 1;
     },
     clearMessage(state): void {
       state.message = null;
