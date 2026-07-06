@@ -81,6 +81,21 @@ describe('candlestick compare navigation is orientation-independent', () => {
     expect(trace.row).toBe(1);
   });
 
+  test('horizontal: compare works after navigating in, not only from entry', () => {
+    // Exercises the currentPointIndex path from a moved position (this.col
+    // holds the segment index here, this.row the candle index), so it guards
+    // the fix independently of the initial-entry code path.
+    const trace = new Candlestick(makeLayer(Orientation.HORIZONTAL));
+    trace.moveOnce('FORWARD'); // initial entry -> d0
+    trace.moveOnce('FORWARD'); // d0 -> d1
+    expect(currentDate(trace)).toBe('d1');
+
+    // From d1 (close 8) the next higher close to the right is d2 (12).
+    expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
+    expect(currentDate(trace)).toBe('d2');
+    expect(trace.row).toBe(2);
+  });
+
   test('horizontal: boundary returns false and stays on the current candle', () => {
     const trace = new Candlestick(makeLayer(Orientation.HORIZONTAL));
     // From d0 there is nothing further left.
