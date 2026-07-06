@@ -1010,30 +1010,25 @@ export class Candlestick extends AbstractTrace {
       this.handleInitialEntry();
     }
 
-    const currentGroup = this.row;
-    if (currentGroup < 0 || currentGroup >= this.candles.length) {
+    // Drive off currentPointIndex, which is the candle index in BOTH
+    // orientations. Reading this.col directly is only correct in the vertical
+    // layout — in the horizontal layout this.col holds the segment position
+    // and this.row holds the candle index (see updateVisualPointPosition).
+    // updateVisualPointPosition() maps currentPointIndex back to row/col.
+    const currentIndex = this.currentPointIndex;
+    if (currentIndex < 0 || currentIndex >= this.candles.length) {
       return false;
     }
     const currentSegment = this.currentSegmentType ?? 'open';
 
-    const segmentValues = this.candles.map((c, index) => ({
-      value: c[currentSegment],
-      index,
-      xValue: c.value,
-    }));
-
-    const currentIndex = this.col;
     const step = direction === 'right' ? 1 : -1;
-    let i = currentIndex + step;
-    while (i >= 0 && i < segmentValues.length) {
-      if (this.compare(segmentValues[i].value, segmentValues[currentIndex].value, type)) {
-        this.col = i;
+    for (let i = currentIndex + step; i >= 0 && i < this.candles.length; i += step) {
+      if (this.compare(this.candles[i][currentSegment], this.candles[currentIndex][currentSegment], type)) {
         this.currentPointIndex = i;
         this.updateVisualPointPosition();
         this.notifyStateUpdate();
         return true;
       }
-      i += step;
     }
     this.notifyRotorBounds();
     return false;

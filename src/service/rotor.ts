@@ -638,7 +638,12 @@ export class RotorNavigationService {
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!isGridNavigable(activeTrace) || !activeTrace.supportsGridMode()) {
-      return this.getMessage('grid value', direction);
+      // Route through announceRotorMessage so this boundary re-announces on
+      // repeat presses like every other rotor boundary path. Defensive only:
+      // GRID_MODE is offered by getAvailableModes() only when supportsGridMode()
+      // is true, so this branch is not reachable through the normal getMode()
+      // dispatch — hence there is no black-box test for it.
+      return this.announceRotorMessage(this.getMessage('grid value', direction));
     }
 
     // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text
