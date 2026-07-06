@@ -74,6 +74,23 @@ function createOutOfBoundsState(): TraceState {
   };
 }
 
+/**
+ * Builds the warning/rotor-bounds trace state that AbstractTrace.notifyRotorBounds()
+ * pushes at a rotor/section boundary: an empty trace state WITH `warning: true`.
+ * Distinct from a pure out-of-bounds edge event, and deliberately excluded from
+ * the edge-alert branch's terse/verbose wording split.
+ * @returns A warning trace-type PlotState.
+ */
+function createWarningState(): TraceState {
+  return {
+    empty: true,
+    type: 'trace',
+    traceType: TraceType.BAR,
+    audio: { y: 0, x: 0, rows: 0, cols: 0 },
+    warning: true,
+  };
+}
+
 describe('textService first-navigation announcement gate', () => {
   test('fires first_navigation on the first trace-level navigation', () => {
     const text = new TextService(createMockNotificationService());
@@ -129,14 +146,7 @@ describe('textService first-navigation announcement gate', () => {
 
     // Warning empties bypass the top-of-method out-of-bounds early return, so
     // the `!state.empty` guard is what keeps them from un-gating announcements.
-    const warningState: TraceState = {
-      empty: true,
-      type: 'trace',
-      traceType: TraceType.BAR,
-      audio: { y: 0, x: 0, rows: 0, cols: 0 },
-      warning: true,
-    };
-    text.update(warningState);
+    text.update(createWarningState());
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -236,6 +246,23 @@ describe('textService out-of-bounds edge alert', () => {
     // Terse gets its own shorter wording, distinct from verbose.
     expect(changeListener).toHaveBeenCalledTimes(1);
     expect(changeListener).toHaveBeenCalledWith({ value: 'No info' });
+  });
+
+  test('keeps the warning/rotor-bounds wording mode-independent in terse mode', () => {
+    // The terse "No info" split is scoped to the pure out-of-bounds edge path.
+    // Warning states (rotor/section bounds) are excluded by `!state.warning` and
+    // flow through format() unchanged, so they must NOT become "No info" in
+    // terse mode — that feature is out of this fix's scope.
+    const text = new TextService(createMockNotificationService());
+    text.toggle(); // VERBOSE -> TERSE
+    expect(text.isTerse()).toBe(true);
+
+    const changeListener = jest.fn();
+    text.onChange(changeListener);
+
+    text.update(createWarningState());
+
+    expect(changeListener).toHaveBeenCalledWith({ value: 'No plot info to display' });
   });
 
   test('stays silent on out-of-bounds while text mode is off', () => {

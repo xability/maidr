@@ -226,13 +226,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       if (state.type === 'subplot') {
         return 'No additional layer';
       }
-      if (state.type === 'trace') {
-        // Boundary / out-of-bounds cue shown when navigation hits a trace edge.
-        // Terse trims the phrasing the same way terse navigation text trims its
-        // scaffolding; verbose keeps the full sentence.
-        return this.mode === TextMode.TERSE ? 'No info' : 'No plot info to display';
-      }
-      return `No ${state.type} info to display`;
+      return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
       return this.formatFigureText(state.index, state.size, state.traceTypes);
     } else if (state.type === 'subplot') {
@@ -563,10 +557,13 @@ export class TextService implements Observer<PlotState>, Disposable {
     // bookkeeping below.
     //
     // We still announce a boundary alert so reaching an edge is not silent,
-    // respecting text mode: OFF stays silent, while TERSE ("No info") and
-    // VERBOSE ("No plot info to display") get mode-appropriate wording from
-    // format(). Returning early also avoids firing `first_navigation` for an
-    // empty state, keeping announce-gating intact.
+    // respecting text mode: OFF stays silent, TERSE gets a short "No info" cue,
+    // and VERBOSE reuses format()'s full "No plot info to display". The wording
+    // split is kept LOCAL to this branch so it applies only to edge navigation
+    // — the warning/rotor-bounds path (excluded by `!state.warning`) still flows
+    // through format() and keeps its original, mode-independent wording.
+    // Returning early also avoids firing `first_navigation` for an empty state,
+    // keeping announce-gating intact.
     if (
       state
       && state.empty
@@ -574,10 +571,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
-        const text = this.format(state);
-        if (text) {
-          this.onChangeEmitter.fire({ value: text });
-        }
+        const text = this.mode === TextMode.TERSE ? 'No info' : this.format(state);
+        this.onChangeEmitter.fire({ value: text });
       }
       return;
     }
