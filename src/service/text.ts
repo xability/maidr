@@ -550,17 +550,31 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param state - The new plot state to process
    */
   public update(state: PlotState): void {
-    // Pure out-of-bounds events (empty trace state with no `warning` field) are
-    // fired by AbstractTrace.notifyOutOfBounds() when navigation hits a boundary.
-    // These should NOT overwrite the previously-shown valid text or emit a
-    // "No plot info to display" placeholder, since the user is still located at
-    // the last valid data point. Preserve last valid text by returning early.
+    // Out-of-bounds events (empty trace state, no `warning`) are fired by
+    // AbstractTrace.notifyOutOfBounds() when navigation hits a boundary. The
+    // user stays at the last valid data point, so we must NOT overwrite
+    // `currentState` (used by the AI chat) — hence the early return before that
+    // bookkeeping below.
+    //
+    // We still announce a boundary alert so reaching an edge is not silent,
+    // respecting text mode: OFF stays silent, TERSE gets the short "No more
+    // data" cue, and VERBOSE gets "No more data to display". These literals are
+    // LOCAL to this edge branch (not from format()) so the wording applies only
+    // to edge navigation — the warning/rotor-bounds path (excluded by
+    // `!state.warning`) still flows through format() and keeps its original,
+    // mode-independent "No plot info to display" wording. Returning early also
+    // avoids firing `first_navigation` for an empty state, keeping
+    // announce-gating intact.
     if (
       state
       && state.empty
       && state.type === 'trace'
       && !state.warning
     ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
+        this.onChangeEmitter.fire({ value: text });
+      }
       return;
     }
 

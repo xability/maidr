@@ -42,7 +42,7 @@ export abstract class TestConstants {
   /**
    * MAIDR plot identifiers
    */
-  static readonly PLOT_EXTREME_VERIFICATION = 'No plot info to display';
+  static readonly PLOT_EXTREME_VERIFICATION = 'No more data to display';
   /**
    * MAIDR component identifiers
    */
