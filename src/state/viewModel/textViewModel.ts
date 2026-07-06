@@ -74,6 +74,16 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly textService: TextService;
 
   /**
+   * Whether autoplay is currently running. Autoplay deliberately suppresses
+   * per-point screen-reader announcements (it toggles `announce` off on start
+   * and back on when it stops). The `first_navigation` event also enables
+   * announcements, and it can fire mid-playback when autoplay is the user's
+   * very first navigation — so this flag lets that handler defer to autoplay's
+   * suppression instead of re-enabling announcements underneath it.
+   */
+  private autoplayActive = false;
+
+  /**
    * Creates a new TextViewModel instance and registers event listeners.
    * @param store - The Redux store for state management
    * @param text - Service for managing text formatting and updates
@@ -113,7 +123,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(this.textService.onNavigation((e) => {
-      if (e.type === 'first_navigation') {
+      // Enable announcements on the first navigation, unless autoplay is
+      // running — autoplay owns the announce flag while active and re-enables
+      // it on stop, so overriding here would defeat its per-point suppression.
+      if (e.type === 'first_navigation' && !this.autoplayActive) {
         this.setAnnounce(true);
       }
     }));
@@ -125,9 +138,11 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
+          this.autoplayActive = true;
           this.setAnnounce(false);
           break;
         case 'stop':
+          this.autoplayActive = false;
           this.setAnnounce(true);
           break;
       }

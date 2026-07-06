@@ -582,6 +582,26 @@ export class TextService implements Observer<PlotState>, Disposable {
       return;
     }
 
+    // Enable screen-reader announcements on the user's first navigation, at
+    // whatever plot level that navigation happens.
+    //
+    // The initial instruction is shown visually with announcements suppressed
+    // (Controller.showInitialInstructionInText -> setAnnounce(false)); the
+    // first model-driven update that reaches this point is the user's first
+    // arrow-key navigation, after which nav text must be announced.
+    //
+    // This previously only fired for figure-type states ("first navigation in
+    // multi-panel plots"). But single-subplot plots start navigation at the
+    // trace level and never emit a figure-type state, so `announce` stayed
+    // false forever and their terse/verbose nav text was silently gated out
+    // of the alert region — while rotor/notification messages (which ignore
+    // `announce`) still spoke. Firing on the first non-empty update of ANY
+    // level fixes single-panel plots and keeps multi-panel behavior identical.
+    if (!this.hasHadFirstNavigation && !state.empty) {
+      this.hasHadFirstNavigation = true;
+      this.onNavigationEmitter.fire({ type: 'first_navigation' });
+    }
+
     // Use the type guard and formatter for layer switches
     if (state.type === 'trace' && isLayerSwitchTraceState(state)) {
       const announcement = this.formatLayerSwitchAnnouncement(state);
@@ -595,12 +615,6 @@ export class TextService implements Observer<PlotState>, Disposable {
         this.notification.notify(text);
       }
       return;
-    }
-
-    // Handle figure-level navigation - this is the first navigation in multi-panel plots
-    if (state.type === 'figure' && !state.empty && !this.hasHadFirstNavigation) {
-      this.hasHadFirstNavigation = true;
-      this.onNavigationEmitter.fire({ type: 'first_navigation' });
     }
 
     const text = this.format(state);
