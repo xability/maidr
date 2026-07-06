@@ -215,12 +215,12 @@ describe('textService first-navigation announcement gate', () => {
  * Regression coverage for the "no text alert at plot edges" bug. A guard added
  * in #557 turned the out-of-bounds branch of TextService.update() into a bare
  * `return`, silently swallowing the boundary alert. These tests lock in that
- * the alert is emitted again with mode-appropriate wording (verbose: "No plot
- * info to display"; terse: "No info"; off: silent) while `currentState` (used
- * by the AI chat) is still preserved.
+ * the alert is emitted again with mode-appropriate wording (verbose: "No more
+ * data to display"; terse: "No more data"; off: silent) while `currentState`
+ * (used by the AI chat) is still preserved.
  */
 describe('textService out-of-bounds edge alert', () => {
-  test('emits "No plot info to display" on out-of-bounds in verbose mode', () => {
+  test('emits "No more data to display" on out-of-bounds in verbose mode', () => {
     const text = new TextService(createMockNotificationService());
     expect(text.isVerbose()).toBe(true); // default mode
 
@@ -230,10 +230,10 @@ describe('textService out-of-bounds edge alert', () => {
     text.update(createOutOfBoundsState());
 
     expect(changeListener).toHaveBeenCalledTimes(1);
-    expect(changeListener).toHaveBeenCalledWith({ value: 'No plot info to display' });
+    expect(changeListener).toHaveBeenCalledWith({ value: 'No more data to display' });
   });
 
-  test('emits the terser "No info" on out-of-bounds in terse mode', () => {
+  test('emits the terser "No more data" on out-of-bounds in terse mode', () => {
     const text = new TextService(createMockNotificationService());
     text.toggle(); // VERBOSE -> TERSE
     expect(text.isTerse()).toBe(true);
@@ -245,14 +245,15 @@ describe('textService out-of-bounds edge alert', () => {
 
     // Terse gets its own shorter wording, distinct from verbose.
     expect(changeListener).toHaveBeenCalledTimes(1);
-    expect(changeListener).toHaveBeenCalledWith({ value: 'No info' });
+    expect(changeListener).toHaveBeenCalledWith({ value: 'No more data' });
   });
 
   test('keeps the warning/rotor-bounds wording mode-independent in terse mode', () => {
-    // The terse "No info" split is scoped to the pure out-of-bounds edge path.
-    // Warning states (rotor/section bounds) are excluded by `!state.warning` and
-    // flow through format() unchanged, so they must NOT become "No info" in
-    // terse mode — that feature is out of this fix's scope.
+    // The terse/verbose edge wording ("No more data" / "No more data to
+    // display") is scoped to the pure out-of-bounds edge path. Warning states
+    // (rotor/section bounds) are excluded by `!state.warning` and flow through
+    // format() unchanged, so they must keep the original "No plot info to
+    // display" in both modes — that path is out of this fix's scope.
     const text = new TextService(createMockNotificationService());
     text.toggle(); // VERBOSE -> TERSE
     expect(text.isTerse()).toBe(true);
@@ -290,8 +291,8 @@ describe('textService out-of-bounds edge alert', () => {
     text.update(createOutOfBoundsState());
 
     expect(changeListener).toHaveBeenCalledTimes(2);
-    expect(changeListener).toHaveBeenNthCalledWith(1, { value: 'No plot info to display' });
-    expect(changeListener).toHaveBeenNthCalledWith(2, { value: 'No plot info to display' });
+    expect(changeListener).toHaveBeenNthCalledWith(1, { value: 'No more data to display' });
+    expect(changeListener).toHaveBeenNthCalledWith(2, { value: 'No more data to display' });
   });
 
   test('preserves the last valid currentState (AI chat position) on out-of-bounds', () => {

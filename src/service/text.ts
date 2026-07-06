@@ -557,13 +557,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     // bookkeeping below.
     //
     // We still announce a boundary alert so reaching an edge is not silent,
-    // respecting text mode: OFF stays silent, TERSE gets a short "No info" cue,
-    // and VERBOSE reuses format()'s full "No plot info to display". The wording
-    // split is kept LOCAL to this branch so it applies only to edge navigation
-    // — the warning/rotor-bounds path (excluded by `!state.warning`) still flows
-    // through format() and keeps its original, mode-independent wording.
-    // Returning early also avoids firing `first_navigation` for an empty state,
-    // keeping announce-gating intact.
+    // respecting text mode: OFF stays silent, TERSE gets the short "No more
+    // data" cue, and VERBOSE gets "No more data to display". These literals are
+    // LOCAL to this edge branch (not from format()) so the wording applies only
+    // to edge navigation — the warning/rotor-bounds path (excluded by
+    // `!state.warning`) still flows through format() and keeps its original,
+    // mode-independent "No plot info to display" wording. Returning early also
+    // avoids firing `first_navigation` for an empty state, keeping
+    // announce-gating intact.
     if (
       state
       && state.empty
@@ -571,7 +572,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
-        const text = this.mode === TextMode.TERSE ? 'No info' : this.format(state);
+        const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
         this.onChangeEmitter.fire({ value: text });
       }
       return;
