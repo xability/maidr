@@ -23,6 +23,11 @@ function createMockService(
   } as unknown as RotorNavigationService;
 }
 
+// This suite verifies the view-model half of the fix (rotor_value is not
+// written with the boundary message). The complementary half — that the
+// boundary message is still announced exactly once via notification.notify
+// inside the service, re-announcing on each repeat press — is covered in
+// test/service/rotor.test.ts.
 describe('RotorNavigationViewModel boundary announcement (#630 item 3)', () => {
   test('a boundary move runs the service but does NOT write the message to rotor_value', () => {
     const store = createMaidrStore();
