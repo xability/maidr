@@ -157,6 +157,26 @@ describe('textService first-navigation announcement gate', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  test('flips the gate on the first key press even in a boundary direction', () => {
+    // Refutes the "first interaction is out-of-bounds -> silent" concern: the
+    // model's initial-entry guard (MovableGrid/MovableGraph/LineTrace moveOnce)
+    // makes the FIRST move succeed with a non-empty state regardless of
+    // direction, so first_navigation fires and announcements un-gate. A genuine
+    // boundary (empty) event can therefore only occur after >=1 successful move,
+    // by which point `announce` is already true.
+    const trace = new BarTrace(createBarLayer()); // single row of bars
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+    trace.addObserver(text);
+
+    // UPWARD is a boundary direction for a single-row bar plot, yet the very
+    // first press lands on a valid point via handleInitialEntry (non-empty).
+    trace.moveOnce('UPWARD');
+
+    expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
+  });
+
   test('still fires first_navigation for a figure-type first navigation', () => {
     const text = new TextService(createMockNotificationService());
     const listener = jest.fn();
