@@ -1,3 +1,11 @@
+## [3.72.1](https://github.com/xability/maidr/compare/v3.72.0...v3.72.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **text:** announce arrow navigation for single-panel plots ([#633](https://github.com/xability/maidr/issues/633)) ([233b98c](https://github.com/xability/maidr/commit/233b98c3d78cf519449d2a23cc4ffda804e9d607))
+* **text:** restore edge boundary alert for single-panel navigation ([#634](https://github.com/xability/maidr/issues/634)) ([cceb384](https://github.com/xability/maidr/commit/cceb3845d3c7b011d16518c94792bac27f32f3d4))
+
 # [3.72.0](https://github.com/xability/maidr/compare/v3.71.0...v3.72.0) (2026-07-06)
 
 
