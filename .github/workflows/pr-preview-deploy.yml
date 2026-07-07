@@ -1,0 +1,194 @@
+# Deploys the example preview built by "PR Preview Build" to Cloudflare Pages and
+# posts (or updates) a sticky comment on the PR with a browsable URL.
+#
+# This runs on `workflow_run` — i.e. in the TRUSTED context of the base repo's
+# default branch — which is the only context where fork-PR previews can safely
+# use secrets. It deploys the PRE-BUILT artifact bytes and NEVER checks out or
+# runs the PR's code.
+#
+# Requires two repository secrets (one-time setup — see .github/PR_PREVIEW.md):
+#   CLOUDFLARE_API_TOKEN    scope: Account > Cloudflare Pages > Edit
+#   CLOUDFLARE_ACCOUNT_ID
+# Until they are set, the job logs a warning and exits without deploying, so it
+# is safe to merge before the secrets exist.
+#
+# The preview is served at a stable per-PR alias:
+#   https://pr-<number>.maidr-preview.pages.dev
+name: PR Preview Deploy
+
+on:
+  workflow_run:
+    workflows: ["PR Preview Build"]
+    types: [completed]
+
+# One in-flight deploy per source branch; newer commits supersede older deploys.
+concurrency:
+  group: pr-preview-deploy-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read # download the triggering run's artifacts (cross-run)
+  pull-requests: write # create/update the sticky preview comment
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only act on preview builds that actually succeeded.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      # Detect whether the Cloudflare secrets are configured. Secrets can't be
+      # used directly in `if:`, so we surface a boolean output instead. When
+      # unset (e.g. before first-time setup) every later step no-ops.
+      - name: Check Cloudflare configuration
+        id: cfg
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_API_TOKEN" ] && [ -n "$CF_ACCOUNT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Cloudflare secrets (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID) are not set — skipping PR preview deploy. See .github/PR_PREVIEW.md for setup."
+          fi
+
+      - name: Download preview site
+        if: success() && steps.cfg.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-site
+          path: _site
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Download PR metadata
+        if: success() && steps.cfg.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-meta
+          path: pr-meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # The artifact came from an untrusted PR build, so treat its contents as
+      # attacker-controlled: enforce a strictly numeric PR number before it is
+      # used in any privileged API call or the deploy branch label.
+      - name: Read and validate PR number
+        if: success() && steps.cfg.outputs.ready == 'true'
+        id: pr
+        run: |
+          PR="$(cat pr-meta/pr-number)"
+          if ! printf '%s' "$PR" | grep -Eq '^[0-9]+$'; then
+            echo "::error::Invalid PR number from artifact: '$PR'"
+            exit 1
+          fi
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+
+      # Idempotent: pins production-branch=main so every pr-* deploy is a preview.
+      # No-ops (errors) once the project exists, hence continue-on-error.
+      - name: Ensure Cloudflare Pages project exists
+        if: success() && steps.cfg.outputs.ready == 'true'
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create maidr-preview --production-branch=main
+
+      - name: Deploy to Cloudflare Pages
+        if: success() && steps.cfg.outputs.ready == 'true'
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy _site --project-name=maidr-preview --branch=pr-${{ steps.pr.outputs.number }} --commit-dirty=true
+
+      - name: Post preview URL to the PR
+        if: success() && steps.cfg.outputs.ready == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          ALIAS_URL: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              throw new Error(`Invalid PR number: ${process.env.PR_NUMBER}`);
+            }
+            // Prefer the stable per-PR alias; fall back to the immutable deploy URL.
+            const url = (process.env.ALIAS_URL || process.env.DEPLOY_URL || '').trim();
+            if (!url) {
+              throw new Error('No deployment URL was returned by wrangler-action');
+            }
+            const sha = (process.env.HEAD_SHA || '').slice(0, 7);
+            const marker = '<!-- maidr-pr-preview -->';
+            const body = [
+              marker,
+              '### 🔎 MAIDR example preview is ready',
+              '',
+              `**Open the preview:** ${url}`,
+              '',
+              `- Example gallery: ${url}/examples.html`,
+              `- Or open any example directly, e.g. ${url}/examples/heatmap.html`,
+              '',
+              `Built from \`${sha}\`. This preview URL is stable and updates automatically on every new commit to the PR.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }
+
+      # Best-effort: if the deploy failed after we knew the PR number, flip the
+      # sticky comment to a failure notice so reviewers aren't left waiting.
+      - name: Note preview failure on the PR
+        if: failure() && steps.pr.outputs.number != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              return;
+            }
+            const marker = '<!-- maidr-pr-preview -->';
+            const body = [
+              marker,
+              '### ⚠️ MAIDR example preview failed to deploy',
+              '',
+              `The preview build succeeded but publishing to Cloudflare Pages failed. See the [workflow logs](${process.env.RUN_URL}) for details.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }

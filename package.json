@@ -72,6 +72,7 @@
   ],
   "scripts": {
     "build": "node scripts/build.js",
+    "build:preview": "npm run build && npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",

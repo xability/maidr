@@ -1,0 +1,81 @@
+# Builds a self-contained preview of the MAIDR example gallery for every pull
+# request and uploads it as an artifact. Screen-reader reviewers can then open a
+# live URL instead of pulling the branch and running `npm run build` locally.
+#
+# This workflow runs in the UNTRUSTED `pull_request` context (fork PRs included),
+# so it has NO access to secrets and only a read-only token — it never deploys.
+# Its companion, `pr-preview-deploy.yml`, runs on `workflow_run` in the trusted
+# base-repo context (where the Cloudflare secrets live), downloads this artifact,
+# and publishes the preview + comments the URL on the PR.
+#
+# Nothing here is committed to the PR branch — the built site exists only as a
+# CI artifact and, after deploy, on Cloudflare Pages. The PR's git history is
+# untouched.
+#
+# One-time Cloudflare setup is documented in .github/PR_PREVIEW.md.
+name: PR Preview Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Cancel superseded builds for the same PR so only the latest commit is previewed.
+concurrency:
+  group: pr-preview-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build example preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          # Untrusted PR code is checked out only to be BUILT; don't leave the
+          # job token in .git/config where a build script could read it.
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Builds all dist bundles (core + every adapter), the recharts/victory/
+      # react single-file examples, and assembles _site/ (dist + examples +
+      # gallery). Skips typedoc — the /api docs aren't needed to test examples.
+      - name: Build preview site
+        run: npm run build:preview
+
+      - name: Upload preview site
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-site
+          path: _site
+          retention-days: 5
+          if-no-files-found: error
+
+      # The PR number is written to a SEPARATE artifact (never into _site, which
+      # is served publicly) so the trusted deploy workflow knows which PR to
+      # comment on — github.event.workflow_run.pull_requests is empty for fork
+      # PRs. The number is a GitHub-controlled integer, safe to inline here.
+      - name: Save PR metadata
+        run: |
+          mkdir -p pr-meta
+          echo "${{ github.event.pull_request.number }}" > pr-meta/pr-number
+
+      - name: Upload PR metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-meta
+          path: pr-meta
+          retention-days: 5
+          if-no-files-found: error
