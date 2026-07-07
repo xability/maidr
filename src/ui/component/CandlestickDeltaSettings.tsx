@@ -16,6 +16,11 @@ import React, { useEffect, useRef } from 'react';
  * mirroring the Command Palette (Ctrl+Shift+P). An extra aria-live region here
  * would double-announce the selection ("… 3 of 3, Selected: …"), so there
  * intentionally isn't one.
+ *
+ * The modal is hand-rolled (not MUI's Modal) to keep Escape and the arrow
+ * keys flowing to the hotkeys-js scope, so it also lacks MUI's built-in focus
+ * containment. A small Tab trap (onKeyDown below) keeps keyboard focus inside
+ * the picker instead of letting it escape behind the backdrop into the page.
  */
 const CandlestickDeltaSettings: React.FC = () => {
   const viewModel = useViewModel('candlestickDelta');
@@ -24,6 +29,7 @@ const CandlestickDeltaSettings: React.FC = () => {
   const modalRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const visible = state.visible && state.references.length > 0;
 
@@ -62,6 +68,27 @@ const CandlestickDeltaSettings: React.FC = () => {
     viewModel.confirmSelection();
   };
 
+  // Trap Tab within the picker. Without browser-level focus containment a Tab
+  // would move focus behind the backdrop into the still-interactive page, so
+  // cycle between the two focusable controls (close button and highlighted
+  // option). Only Tab is intercepted — arrows, Enter and Escape fall through
+  // to the hotkeys-js scope untouched.
+  const handleModalKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    const focusables = [closeButtonRef.current, selectedItemRef.current]
+      .filter(Boolean) as HTMLElement[];
+    if (focusables.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    const activeIndex = focusables.indexOf(document.activeElement as HTMLElement);
+    const step = event.shiftKey ? -1 : 1;
+    const nextIndex = (activeIndex + step + focusables.length) % focusables.length;
+    focusables[nextIndex].focus();
+  };
+
   return (
     <>
       <Box
@@ -85,6 +112,7 @@ const CandlestickDeltaSettings: React.FC = () => {
         aria-labelledby="candlestick-delta-title"
         aria-describedby="candlestick-delta-description"
         tabIndex={0}
+        onKeyDown={handleModalKeyDown}
         sx={{
           position: 'fixed',
           top: '50%',
@@ -114,7 +142,7 @@ const CandlestickDeltaSettings: React.FC = () => {
           >
             Compare to Reference Line
           </Typography>
-          <IconButton onClick={handleClose} aria-label="Close reference picker" size="small">
+          <IconButton ref={closeButtonRef} onClick={handleClose} aria-label="Close reference picker" size="small">
             <Close />
           </IconButton>
         </Box>
