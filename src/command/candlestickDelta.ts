@@ -3,7 +3,7 @@ import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDelt
 import type { Command } from './command';
 
 /**
- * Command bound to Ctrl+L: toggles the virtual candlestick delta layer on or
+ * Command bound to Alt+L: toggles the virtual candlestick delta layer on or
  * off using the remembered reference line. With no reference chosen yet it
  * warns and opens the reference picker.
  */

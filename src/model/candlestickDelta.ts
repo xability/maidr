@@ -631,6 +631,13 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       return false;
     }
 
+    // Establish the entry position on the first move so a compare jump made as
+    // the very first action starts from a settled cursor, mirroring
+    // Candlestick.moveToRotorFilter / moveOnce / moveToExtreme.
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
     const deltas = this.deltaByField[this.currentField];
     const step = direction === 'right' ? 1 : -1;
     for (
@@ -684,6 +691,12 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     if (key !== ON_LINE_KEY) {
       this.notifyRotorBounds();
       return false;
+    }
+
+    // Settle the cursor if this filter jump is the user's first action, so the
+    // search starts from the entry candle (mirrors Candlestick.moveToRotorFilter).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
     }
 
     const deltas = this.deltaByField[this.currentField];

@@ -87,7 +87,7 @@ const BRAILLE_KEYMAP = {
  */
 const CANDLESTICK_DELTA_KEYMAP = {
   EXIT_CANDLESTICK_DELTA: key(`esc`, 'Exit Comparison and Return to Chart'),
-  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.ctrl}+l`, 'Turn Off Reference Comparison', { helpKey: `${Platform.ctrl} + L` }),
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Turn Off Reference Comparison', { helpKey: `${Platform.alt} + L` }),
   SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Change Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
   // Label scope ('l') is intentionally NOT bound here: TRACE_LABEL's Escape
@@ -314,7 +314,7 @@ const TRACE_KEYMAP = {
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
   // Candlestick reference comparison (virtual delta layer)
-  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.ctrl}+l`, 'Toggle Candlestick Reference Comparison', { helpKey: `${Platform.ctrl} + L` }),
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Toggle Candlestick Reference Comparison', { helpKey: `${Platform.alt} + L` }),
   SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Choose Candlestick Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
   // rotor functionality

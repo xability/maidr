@@ -56,7 +56,7 @@ const { show, setSelectedIndex, hide } = candlestickDeltaSlice.actions;
 
 /**
  * ViewModel bridging the candlestick delta service and the reference picker.
- * Owns the Ctrl+L toggle logic and the Ctrl+Shift+L reference listbox.
+ * Owns the Alt+L toggle logic and the Ctrl+Shift+L reference listbox.
  */
 export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDeltaState> {
   private readonly deltaService: CandlestickDeltaService;
@@ -82,7 +82,7 @@ export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDelt
   }
 
   /**
-   * Ctrl+L: toggles the comparison layer on or off using the remembered
+   * Alt+L: toggles the comparison layer on or off using the remembered
    * reference line. When no reference has been chosen yet, warns the user and
    * opens the reference picker so they can pick one.
    */

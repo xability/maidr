@@ -33,8 +33,8 @@ export interface CandlestickDeltaReference {
  * Interaction model:
  * - Ctrl+Shift+L opens the reference picker; confirming a line remembers it as
  *   the reference and activates the comparison.
- * - Ctrl+L toggles the comparison on/off using the remembered reference. The
- *   very first Ctrl+L with no reference chosen yet warns and opens the picker.
+ * - Alt+L toggles the comparison on/off using the remembered reference. The
+ *   very first Alt+L with no reference chosen yet warns and opens the picker.
  */
 export class CandlestickDeltaService implements Disposable {
   private readonly context: Context;
@@ -226,7 +226,7 @@ export class CandlestickDeltaService implements Disposable {
       + `${candles.length} points, starting on ${initialField}. `
       + 'Positive values are above the line, negative below. '
       + 'Use Left and Right arrows to move between candles, Up and Down to '
-      + 'switch between open, high, low and close. Press Control L to turn the '
+      + 'switch between open, high, low and close. Press Alt L to turn the '
       + 'comparison off, G for extrema, and the rotor to browse above-line, '
       + 'below-line, or on-line points. Press Escape to return to the chart.',
     );
@@ -235,7 +235,7 @@ export class CandlestickDeltaService implements Disposable {
 
   /**
    * Deactivates the virtual delta layer and restores the real chart layer.
-   * The remembered reference is kept so a later Ctrl+L can re-enable it.
+   * The remembered reference is kept so a later Alt+L can re-enable it.
    *
    * @param options - Deactivation options
    * @param options.silent - Skip announcements and position sync (used when
@@ -282,7 +282,7 @@ export class CandlestickDeltaService implements Disposable {
       }
       this.notification.notify(
         'Reference comparison closed. Returned to the chart layer. '
-        + 'Press Control L to compare again.',
+        + 'Press Alt L to compare again.',
       );
     }
     return true;

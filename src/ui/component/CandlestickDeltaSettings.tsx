@@ -126,15 +126,20 @@ const CandlestickDeltaSettings: React.FC = () => {
           sx={{ mb: 2 }}
         >
           Choose a reference line to compare each candle against. Use the Up and
-          Down arrows to move, then press Enter. Once chosen, press Control L to
+          Down arrows to move, then press Enter. Once chosen, press Alt L to
           turn the comparison on or off.
         </Typography>
 
+        {/*
+          Roving tabindex: real DOM focus is moved onto the highlighted option
+          (see the selection effect above), so the container deliberately does
+          NOT also carry aria-activedescendant — combining both focus patterns
+          can double-announce on some screen reader/browser combinations.
+        */}
         <Box
           ref={listContainerRef}
           role="listbox"
           aria-label="Reference lines"
-          aria-activedescendant={`candlestick-delta-option-${state.selectedIndex}`}
           sx={{ maxHeight: 320, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}
         >
           {state.references.map((reference, index) => {
