@@ -141,7 +141,7 @@ const CANDLESTICK_DELTA_KEYMAP = {
 } as const;
 
 /**
- * Keymap configuration for the candlestick delta settings dialog (F7).
+ * Keymap configuration for the candlestick delta reference picker (Ctrl+Shift+L).
  */
 const CANDLESTICK_DELTA_SETTINGS_KEYMAP = {
   // Reference picker listbox navigation (standard UI, not shown in help)

@@ -492,9 +492,10 @@ export enum TraceType {
   BOX = 'box',
   CANDLESTICK = 'candlestick',
   /**
-   * Virtual layer comparing one candlestick OHLC field against a reference
+   * Virtual layer comparing candlestick OHLC fields against a reference
    * line (e.g. a moving average). Never declared in MAIDR JSON — created at
-   * runtime by the candlestick delta feature (F7).
+   * runtime by the candlestick delta feature (Alt+L to toggle, Ctrl+Shift+L
+   * to pick the reference line).
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
   DODGED = 'dodged_bar',
