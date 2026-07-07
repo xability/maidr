@@ -1,6 +1,6 @@
 import type {
+  CandlestickDeltaCandle,
   CandlestickDeltaField,
-  CandlestickDeltaPoint,
 } from '@model/candlestickDelta';
 import type { Context } from '@model/context';
 import type { Trace } from '@model/plot';
@@ -11,11 +11,7 @@ import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { RotorNavigationService } from './rotor';
 import { Candlestick } from '@model/candlestick';
-import {
-  CandlestickDeltaTrace,
-  deltaTrend,
-  roundDelta,
-} from '@model/candlestickDelta';
+import { CandlestickDeltaTrace } from '@model/candlestickDelta';
 import { LineTrace } from '@model/line';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
@@ -28,17 +24,17 @@ export interface CandlestickDeltaReference {
   label: string;
 }
 
-/** The configuration of the currently active delta layer, if any. */
-export interface CandlestickDeltaSelection {
-  referenceId: string;
-  field: CandlestickDeltaField;
-}
-
 /**
  * Manages the virtual candlestick delta layer: discovers reference lines in
- * the active subplot, builds the {@link CandlestickDeltaTrace} from the
- * user's F7 dialog selection, swaps it in/out of the navigation context, and
- * announces activation and exit.
+ * the active subplot, remembers the user's chosen reference line, builds the
+ * {@link CandlestickDeltaTrace} on demand, swaps it in/out of the navigation
+ * context, and announces activation and exit.
+ *
+ * Interaction model:
+ * - Ctrl+Shift+L opens the reference picker; confirming a line remembers it as
+ *   the reference and activates the comparison.
+ * - Ctrl+L toggles the comparison on/off using the remembered reference. The
+ *   very first Ctrl+L with no reference chosen yet warns and opens the picker.
  */
 export class CandlestickDeltaService implements Disposable {
   private readonly context: Context;
@@ -52,7 +48,8 @@ export class CandlestickDeltaService implements Disposable {
   private deltaTrace: CandlestickDeltaTrace | null = null;
   /** The real trace the delta layer replaced; restored on exit. */
   private anchor: Trace | null = null;
-  private selection: CandlestickDeltaSelection | null = null;
+  /** The reference line remembered across on/off toggles. */
+  private selectedReferenceId: string | null = null;
 
   public constructor(
     context: Context,
@@ -70,7 +67,7 @@ export class CandlestickDeltaService implements Disposable {
     this.deltaTrace?.dispose();
     this.deltaTrace = null;
     this.anchor = null;
-    this.selection = null;
+    this.selectedReferenceId = null;
     this.wireTrace = null;
   }
 
@@ -89,9 +86,9 @@ export class CandlestickDeltaService implements Disposable {
     return this.deltaTrace !== null && this.context.active === this.deltaTrace;
   }
 
-  /** The active layer's configuration, used to preselect the F7 dialog. */
-  public get activeSelection(): CandlestickDeltaSelection | null {
-    return this.isActive ? this.selection : null;
+  /** The remembered reference line id, or null when none has been chosen. */
+  public get selectedReference(): string | null {
+    return this.selectedReferenceId;
   }
 
   /**
@@ -120,26 +117,39 @@ export class CandlestickDeltaService implements Disposable {
     return references.length > 0 ? references : null;
   }
 
-  /** Moves keyboard focus into the F7 settings dialog scope. */
+  /** Moves keyboard focus into the reference picker dialog scope. */
   public openSettings(): void {
     this.display.toggleFocus(Scope.CANDLESTICK_DELTA_SETTINGS);
   }
 
-  /** Closes the F7 settings dialog scope, returning to the previous scope. */
+  /** Closes the reference picker dialog scope, returning to the previous scope. */
   public closeSettings(): void {
     this.display.toggleFocus(Scope.CANDLESTICK_DELTA_SETTINGS);
   }
 
   /**
-   * Builds and activates the virtual delta layer for the given reference
-   * series and OHLC field. Replaces an already-active delta layer in place
-   * when the user reconfigures via F7.
-   *
+   * Remembers a reference line as the active comparison target. Persists
+   * across on/off toggles until the user picks a different one.
    * @param referenceId - Id of the reference series (from getReferences)
-   * @param field - The OHLC field to compare
+   */
+  public setSelectedReference(referenceId: string): void {
+    this.selectedReferenceId = referenceId;
+  }
+
+  /**
+   * Builds and activates the virtual delta layer for the remembered (or
+   * given) reference line, comparing every OHLC field. Replaces an
+   * already-active delta layer in place when the user reconfigures via the
+   * reference picker.
+   *
+   * @param referenceId - Reference series id; defaults to the remembered one
    * @returns True when the layer was activated
    */
-  public activate(referenceId: string, field: CandlestickDeltaField): boolean {
+  public activate(referenceId: string | null = this.selectedReferenceId): boolean {
+    if (referenceId === null) {
+      return false;
+    }
+
     const candlestick = this.resolveCandlestick();
     if (!candlestick) {
       this.notification.notify(
@@ -154,25 +164,35 @@ export class CandlestickDeltaService implements Disposable {
       return false;
     }
 
-    const points = this.buildDeltaPoints(candlestick, reference.points, field);
-    if (points.length === 0) {
+    const candles = this.buildDeltaCandles(candlestick, reference.points);
+    if (candles.length === 0) {
       this.notification.notify(
         `No matching x values between the candlestick chart and ${reference.label}.`,
       );
       return false;
     }
 
-    const trace = this.buildTrace(candlestick, reference.label, field, points);
-
     const wasActive = this.isActive;
+    // Preserve the field being compared across an in-place reconfiguration.
+    const initialField: CandlestickDeltaField
+      = wasActive && this.deltaTrace ? this.deltaTrace.comparedField : 'close';
+
+    const trace = this.buildTrace(
+      candlestick,
+      reference.label,
+      candles,
+      initialField,
+    );
 
     // Land on the x the user is currently on: the delta layer's own position
-    // when reconfiguring via F7, otherwise the candle the user was on.
+    // when reconfiguring, otherwise the candle the user was on. This keeps the
+    // candle position fixed as the virtual layer is toggled on and off.
     const currentX = wasActive && this.deltaTrace
       ? this.deltaTrace.getCurrentXValue()
       : candlestick.getCurrentXValue();
-    const startIndex
-      = currentX === null ? -1 : points.findIndex(point => point.x === currentX);
+    const startIndex = currentX === null
+      ? -1
+      : candles.findIndex(candle => candle.x === currentX);
     if (startIndex >= 0) {
       trace.setInitialPosition(startIndex);
     }
@@ -190,7 +210,7 @@ export class CandlestickDeltaService implements Disposable {
       this.anchor = previous;
     }
     this.deltaTrace = trace;
-    this.selection = { referenceId, field };
+    this.selectedReferenceId = referenceId;
 
     this.rotor.resetToDataMode();
     if (!wasActive) {
@@ -202,17 +222,20 @@ export class CandlestickDeltaService implements Disposable {
     // update would wipe these instructions before screen readers read them.
     trace.notifyStateUpdate();
     this.notification.notify(
-      `Reference comparison on: ${field} price minus ${reference.label}, `
-      + `${points.length} points. Positive values are above the line, negative below. `
-      + 'Use Left and Right arrows to explore, G for extrema, '
-      + 'and the rotor to browse only above-line or below-line points. '
-      + 'Press Escape to return to the chart.',
+      `Reference comparison on: OHLC price minus ${reference.label}, `
+      + `${candles.length} points, starting on ${initialField}. `
+      + 'Positive values are above the line, negative below. '
+      + 'Use Left and Right arrows to move between candles, Up and Down to '
+      + 'switch between open, high, low and close. Press Control L to turn the '
+      + 'comparison off, G for extrema, and the rotor to browse above-line, '
+      + 'below-line, or on-line points. Press Escape to return to the chart.',
     );
     return true;
   }
 
   /**
    * Deactivates the virtual delta layer and restores the real chart layer.
+   * The remembered reference is kept so a later Ctrl+L can re-enable it.
    *
    * @param options - Deactivation options
    * @param options.silent - Skip announcements and position sync (used when
@@ -237,7 +260,6 @@ export class CandlestickDeltaService implements Disposable {
     const anchor = this.anchor;
     this.deltaTrace = null;
     this.anchor = null;
-    this.selection = null;
     trace.dispose();
     this.rotor.resetToDataMode();
 
@@ -259,7 +281,8 @@ export class CandlestickDeltaService implements Disposable {
         anchor.moveToXValue(lastX);
       }
       this.notification.notify(
-        'Reference comparison closed. Returned to the chart layer.',
+        'Reference comparison closed. Returned to the chart layer. '
+        + 'Press Control L to compare again.',
       );
     }
     return true;
@@ -278,7 +301,6 @@ export class CandlestickDeltaService implements Disposable {
       this.deltaTrace.dispose();
       this.deltaTrace = null;
       this.anchor = null;
-      this.selection = null;
     }
   }
 
@@ -298,7 +320,6 @@ export class CandlestickDeltaService implements Disposable {
     const trace = this.deltaTrace;
     this.deltaTrace = null;
     this.anchor = null;
-    this.selection = null;
     trace.dispose();
     this.rotor.resetToDataMode();
   }
@@ -340,15 +361,16 @@ export class CandlestickDeltaService implements Disposable {
   }
 
   /**
-   * Matches candles to reference points by x value and computes the signed
-   * deltas. Candles without a reference value at the same x (e.g. the head
-   * of a moving average window) are skipped.
+   * Matches candles to reference points by x value, capturing every OHLC
+   * value alongside the reference so the delta layer can recompute deltas as
+   * the user navigates open/high/low/close. Candles without a reference value
+   * at the same x (e.g. the head of a moving average window) or with any
+   * non-finite OHLC value are skipped.
    */
-  private buildDeltaPoints(
+  private buildDeltaCandles(
     candlestick: Candlestick,
     referencePoints: readonly LinePoint[],
-    field: CandlestickDeltaField,
-  ): CandlestickDeltaPoint[] {
+  ): CandlestickDeltaCandle[] {
     const referenceByX = new Map<string, number>();
     for (const point of referencePoints) {
       const y = Number(point.y);
@@ -357,36 +379,37 @@ export class CandlestickDeltaService implements Disposable {
       }
     }
 
-    const points: CandlestickDeltaPoint[] = [];
+    const candles: CandlestickDeltaCandle[] = [];
     for (const candle of candlestick.getCandles()) {
       const reference = referenceByX.get(String(candle.value));
       if (reference === undefined) {
         continue;
       }
-      const fieldValue = candle[field];
-      if (!Number.isFinite(fieldValue)) {
+      if (
+        !Number.isFinite(candle.open)
+        || !Number.isFinite(candle.high)
+        || !Number.isFinite(candle.low)
+        || !Number.isFinite(candle.close)
+      ) {
         continue;
       }
-      const delta = roundDelta(
-        fieldValue - reference,
-        Math.max(Math.abs(fieldValue), Math.abs(reference)),
-      );
-      points.push({
+      candles.push({
         x: candle.value,
-        fieldValue,
         reference,
-        delta,
-        trend: deltaTrend(delta),
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
       });
     }
-    return points;
+    return candles;
   }
 
   private buildTrace(
     candlestick: Candlestick,
     referenceLabel: string,
-    field: CandlestickDeltaField,
-    points: CandlestickDeltaPoint[],
+    candles: CandlestickDeltaCandle[],
+    initialField: CandlestickDeltaField,
   ): CandlestickDeltaTrace {
     const candleState = candlestick.state;
     const xAxis = candleState.empty ? 'X' : candleState.xAxis;
@@ -397,7 +420,7 @@ export class CandlestickDeltaService implements Disposable {
       // currency) apply to the delta layer's x values and magnitudes too.
       id: candlestick.getId(),
       type: TraceType.CANDLESTICK_DELTA,
-      title: `${field} price vs ${referenceLabel}`,
+      title: `OHLC price vs ${referenceLabel}`,
       axes: {
         x: { label: xAxis },
         y: { label: `${yAxis} delta` },
@@ -406,9 +429,9 @@ export class CandlestickDeltaService implements Disposable {
     };
 
     const trace = new CandlestickDeltaTrace(layer, {
-      points,
-      field,
+      candles,
       referenceLabel,
+      initialField,
     });
     this.wireTrace?.(trace);
     return trace;

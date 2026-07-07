@@ -1,4 +1,4 @@
-import type { CandlestickDeltaPoint } from '@model/candlestickDelta';
+import type { CandlestickDeltaCandle } from '@model/candlestickDelta';
 import type { MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import {
@@ -7,21 +7,10 @@ import {
   CandlestickDeltaTrace,
   DELTA_POINT_MODE,
   deltaTrend,
+  ON_LINE_MODE,
   roundDelta,
 } from '@model/candlestickDelta';
 import { TraceType } from '@type/grammar';
-
-/**
- * Builds a delta point with the trend derived from the delta sign.
- * @param x - The shared x value
- * @param fieldValue - The OHLC value at x
- * @param reference - The reference line value at x
- * @returns A delta point
- */
-function point(x: string, fieldValue: number, reference: number): CandlestickDeltaPoint {
-  const delta = roundDelta(fieldValue - reference);
-  return { x, fieldValue, reference, delta, trend: deltaTrend(delta) };
-}
 
 /**
  * Creates a synthetic layer definition for the virtual delta trace.
@@ -31,26 +20,33 @@ function createLayer(): MaidrLayer {
   return {
     id: 'candle-layer',
     type: TraceType.CANDLESTICK_DELTA,
-    title: 'close price vs MA 3',
+    title: 'OHLC price vs MA 3',
     axes: { x: { label: 'Date' }, y: { label: 'Price delta' } },
     data: [],
   };
 }
 
 /**
- * Creates a delta trace with deltas +2, -1.5, 0, +0.5 over four dates.
+ * Four candles over a flat reference line of 10. Close deltas are
+ * +2, -1.5, 0, +0.5 (above, below, on line, above); the largest |delta|
+ * across every field is the high of 2026-01-01 (+3).
+ */
+const CANDLES: CandlestickDeltaCandle[] = [
+  { x: '2026-01-01', reference: 10, open: 11, high: 13, low: 9, close: 12 },
+  { x: '2026-01-02', reference: 10, open: 9, high: 11, low: 8, close: 8.5 },
+  { x: '2026-01-03', reference: 10, open: 10, high: 10.5, low: 9.5, close: 10 },
+  { x: '2026-01-04', reference: 10, open: 10.2, high: 11, low: 10, close: 10.5 },
+];
+
+/**
+ * Creates a delta trace over {@link CANDLES}, starting on the close field.
  * @returns The trace under test
  */
 function createTrace(): CandlestickDeltaTrace {
   return new CandlestickDeltaTrace(createLayer(), {
-    points: [
-      point('2026-01-01', 12, 10), // +2 (above)
-      point('2026-01-02', 8.5, 10), // -1.5 (below)
-      point('2026-01-03', 10, 10), // 0 (on line)
-      point('2026-01-04', 10.5, 10), // +0.5 (above)
-    ],
-    field: 'close',
+    candles: CANDLES.map(candle => ({ ...candle })),
     referenceLabel: 'Moving Average 3 days',
+    initialField: 'close',
   });
 }
 
@@ -70,18 +66,12 @@ describe('roundDelta and deltaTrend', () => {
   });
 
   test('scales the zero tolerance to operand magnitude for large prices', () => {
-    // A ~2e-3 residual on a ~1.6e9 instrument is averaging noise: on line.
-    // The old fixed 1e-9 grid both overflowed here and reported it as nonzero.
     expect(roundDelta(2e-3, 1.6e9)).toBe(0);
-    // The same residual on a ~10 instrument is a real, meaningful delta.
     expect(roundDelta(2e-3, 10)).toBe(0.002);
-    // A genuinely large delta on a large instrument survives (no overflow).
     expect(roundDelta(1500, 1.6e9)).toBe(1500);
   });
 
   test('preserves precision at large magnitude instead of overflowing', () => {
-    // Math.round(1.6e9 * 1e9) overflows MAX_SAFE_INTEGER and returns garbage;
-    // the magnitude-aware version returns the delta faithfully.
     expect(roundDelta(12.5, 1.6e9)).toBe(12.5);
   });
 
@@ -92,11 +82,13 @@ describe('roundDelta and deltaTrend', () => {
   });
 });
 
-describe('candlestickDelta navigation', () => {
-  test('moves left and right through the delta points', () => {
+describe('candlestickDelta candle navigation', () => {
+  test('moves left and right through the candles, starting on close', () => {
     const trace = createTrace();
     enter(trace);
     expect(trace.col).toBe(0);
+    expect(trace.comparedField).toBe('close');
+    expect(trace.getCurrentXValue()).toBe('2026-01-01');
 
     expect(trace.moveOnce('FORWARD')).toBe(true);
     expect(trace.col).toBe(1);
@@ -104,20 +96,13 @@ describe('candlestickDelta navigation', () => {
     expect(trace.col).toBe(0);
   });
 
-  test('reports out of bounds for vertical movement (single-row layer)', () => {
-    const trace = createTrace();
-    enter(trace);
-
-    expect(trace.moveOnce('UPWARD')).toBe(false);
-    expect(trace.moveOnce('DOWNWARD')).toBe(false);
-  });
-
-  test('setInitialPosition places the cursor without entering initial entry', () => {
+  test('setInitialPosition places the cursor on a candle without initial entry', () => {
     const trace = createTrace();
     trace.setInitialPosition(2);
 
     expect(trace.isInitialEntry).toBe(false);
     expect(trace.col).toBe(2);
+    expect(trace.comparedField).toBe('close');
     expect(trace.getCurrentXValue()).toBe('2026-01-03');
   });
 
@@ -132,8 +117,42 @@ describe('candlestickDelta navigation', () => {
   });
 });
 
+describe('candlestickDelta field navigation', () => {
+  test('up and down move through the OHLC fields value-sorted per candle', () => {
+    const trace = createTrace();
+    enter(trace); // 2026-01-01, close (sorted: low, open, close, high)
+
+    // Up from close reaches high (the top field).
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.comparedField).toBe('high');
+    // Already at the top: another up is out of bounds.
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(trace.comparedField).toBe('high');
+
+    // Down walks high -> close -> open -> low, then bottoms out.
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.comparedField).toBe('close');
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.comparedField).toBe('open');
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.comparedField).toBe('low');
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    expect(trace.comparedField).toBe('low');
+  });
+
+  test('the compared field is preserved when moving between candles', () => {
+    const trace = createTrace();
+    enter(trace);
+    trace.moveOnce('UPWARD'); // high on 2026-01-01
+    trace.moveOnce('FORWARD'); // still high, now 2026-01-02
+
+    expect(trace.comparedField).toBe('high');
+    expect(trace.getCurrentXValue()).toBe('2026-01-02');
+  });
+});
+
 describe('candlestickDelta state', () => {
-  test('text describes direction and magnitude', () => {
+  test('text describes the field, magnitude and position', () => {
     const trace = createTrace();
     enter(trace);
     const state = trace.state;
@@ -160,23 +179,40 @@ describe('candlestickDelta state', () => {
     expect(!onLine.empty && onLine.text.cross.value).toBe(0);
   });
 
-  test('audio encodes |delta| as pitch, trend as timbre, and opts into the zero click', () => {
+  test('audio encodes |delta| as pitch and glides up for above-line points', () => {
     const trace = createTrace();
-    trace.setInitialPosition(1);
+    enter(trace); // 2026-01-01 close: +2 (above)
     const state = trace.state;
 
     expect(state.empty).toBe(false);
     if (!state.empty) {
-      expect(state.audio.freq.raw).toBe(1.5);
+      expect(state.audio.freq.raw).toBe(2);
       expect(state.audio.freq.min).toBe(0);
-      expect(state.audio.freq.max).toBe(2);
-      expect(state.audio.trend).toBe('Bear');
-      expect(state.audio.zeroClick).toBe(true);
-      expect(state.audio.panning).toEqual({ x: 1, y: 0, rows: 1, cols: 4 });
+      expect(state.audio.freq.max).toBe(3); // global max |delta| (high +3)
+      expect(state.audio.glide).toBe('up');
+      expect(state.audio.zeroClick).toBeUndefined();
+      expect(state.audio.panning).toEqual({ x: 0, y: 2, rows: 4, cols: 4 });
     }
   });
 
-  test('braille exposes |delta| heights with bearish markers for below-line points', () => {
+  test('audio glides down for below-line points', () => {
+    const trace = createTrace();
+    trace.setInitialPosition(1); // close -1.5 (below)
+    const state = trace.state;
+    expect(!state.empty && state.audio.freq.raw).toBe(1.5);
+    expect(!state.empty && state.audio.glide).toBe('down');
+  });
+
+  test('audio opts into the zero click on the line with no glide', () => {
+    const trace = createTrace();
+    trace.setInitialPosition(2); // close 0 (on line)
+    const state = trace.state;
+    expect(!state.empty && state.audio.freq.raw).toBe(0);
+    expect(!state.empty && state.audio.zeroClick).toBe(true);
+    expect(!state.empty && state.audio.glide).toBeUndefined();
+  });
+
+  test('braille exposes |delta| heights for the current field with bearish markers', () => {
     const trace = createTrace();
     enter(trace);
     const state = trace.state;
@@ -189,10 +225,26 @@ describe('candlestickDelta state', () => {
       expect(state.braille.custom).toEqual(['Bull', 'Bear', 'Neutral', 'Bull']);
       expect(state.braille.row).toBe(0);
       expect(state.braille.col).toBe(0);
+      expect((state.braille as { max: number[] }).max).toEqual([2]);
     }
   });
 
-  test('braille returns stable array references across navigation', () => {
+  test('braille reflects the field after moving up to high', () => {
+    const trace = createTrace();
+    enter(trace);
+    trace.moveOnce('UPWARD'); // high field
+    const state = trace.state;
+
+    if (!state.empty && !state.braille.empty) {
+      // high deltas: +3, +1, +0.5, +1 (all above the line -> all Bull)
+      expect((state.braille as { values: number[][] }).values).toEqual([
+        [3, 1, 0.5, 1],
+      ]);
+      expect(state.braille.custom).toEqual(['Bull', 'Bull', 'Bull', 'Bull']);
+    }
+  });
+
+  test('braille returns stable array references across candle navigation', () => {
     const trace = createTrace();
     enter(trace);
     const first = trace.state;
@@ -205,13 +257,15 @@ describe('candlestickDelta state', () => {
     }
   });
 
-  test('autoplay spans the point count in horizontal directions', () => {
+  test('autoplay spans candles horizontally and fields vertically', () => {
     const trace = createTrace();
     enter(trace);
     const state = trace.state;
 
     expect(!state.empty && state.autoplay.FORWARD).toBe(4);
     expect(!state.empty && state.autoplay.BACKWARD).toBe(4);
+    expect(!state.empty && state.autoplay.UPWARD).toBe(4);
+    expect(!state.empty && state.autoplay.DOWNWARD).toBe(4);
   });
 
   test('never highlights (virtual layer)', () => {
@@ -222,7 +276,7 @@ describe('candlestickDelta state', () => {
     expect(!state.empty && state.highlight.empty).toBe(true);
   });
 
-  test('description summarizes reference, counts, and data table', () => {
+  test('description summarizes the current field, counts, and data table', () => {
     const trace = createTrace();
     const description = trace.description;
 
@@ -231,6 +285,7 @@ describe('candlestickDelta state', () => {
       label: 'Reference line',
       value: 'Moving Average 3 days',
     });
+    expect(description.stats).toContainEqual({ label: 'Compared value', value: 'close' });
     expect(description.stats).toContainEqual({ label: 'Points above line', value: 2 });
     expect(description.stats).toContainEqual({ label: 'Points below line', value: 1 });
     expect(description.stats).toContainEqual({ label: 'Points on line', value: 1 });
@@ -246,7 +301,7 @@ describe('candlestickDelta state', () => {
 });
 
 describe('candlestickDelta extrema', () => {
-  test('exposes max and min signed delta targets', () => {
+  test('exposes max and min signed delta targets for the current field', () => {
     const trace = createTrace();
     const targets = trace.getExtremaTargets();
 
@@ -294,14 +349,20 @@ describe('candlestickDelta rotor', () => {
     expect(info.lower.label).toBe(BELOW_LINE_MODE);
   });
 
+  test('exposes the on-line filter unit when a point sits on the line', () => {
+    const trace = createTrace();
+    const units = trace.getRotorFilterUnits();
+    expect(units).toHaveLength(1);
+    expect(units[0].label).toBe(ON_LINE_MODE);
+  });
+
   test('above-line unit skips to the next point above the reference', () => {
     const trace = createTrace();
     enter(trace); // col 0 (+2)
 
     expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
-    expect(trace.col).toBe(3); // skips -1.5 and 0
+    expect(trace.col).toBe(3); // skips -1.5 and 0 to reach +0.5
 
-    // No further above-line point to the right.
     expect(trace.moveToNextCompareValue('right', 'higher')).toBe(false);
     expect(trace.col).toBe(3);
   });
@@ -313,6 +374,16 @@ describe('candlestickDelta rotor', () => {
     expect(trace.moveToNextCompareValue('left', 'lower')).toBe(true);
     expect(trace.col).toBe(1);
     expect(trace.moveToNextCompareValue('left', 'lower')).toBe(false);
+  });
+
+  test('on-line filter jumps between points exactly on the reference line', () => {
+    const trace = createTrace();
+    enter(trace); // col 0
+
+    expect(trace.moveToRotorFilter('onLine', 'right')).toBe(true);
+    expect(trace.col).toBe(2); // 2026-01-03 close is exactly on the line
+    expect(trace.moveToRotorFilter('onLine', 'right')).toBe(false);
+    expect(trace.col).toBe(2);
   });
 
   test('vertical compare navigation is out of bounds', () => {

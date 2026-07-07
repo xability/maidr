@@ -305,10 +305,108 @@ export class AudioService implements Observer<PlotState>, Disposable {
         } else {
           this.playZeroTone(audio.panning);
         }
+      } else if (audio.glide) {
+        this.playGlideTone(audio.freq, audio.panning, audio.glide);
       } else {
         this.playTone(audio.freq, audio.panning, paletteEntry);
       }
     }
+  }
+
+  /**
+   * Plays a pitched tone that glides its frequency over the note duration to
+   * convey a direction: `'up'` rises (a "whoosh"), `'down'` falls (a drop).
+   *
+   * The base pitch — mapped from the data value in `freq` exactly like
+   * {@link playTone} — is where the glide starts, so pitch still encodes the
+   * value (e.g. |delta|) while the sweep direction carries an independent
+   * meaning (e.g. above vs below the reference line). The sweep spans a
+   * perfect fifth (frequency ratio 1.5), large enough to be unmistakably
+   * directional yet musical, and is stereo-panned by x like every data tone.
+   *
+   * @param freq - Frequency mapping for the base pitch
+   * @param panning - Position information for stereo placement
+   * @param direction - Sweep direction: 'up' rises, 'down' falls
+   * @returns AudioId for the played tone
+   */
+  private playGlideTone(
+    freq: Frequency,
+    panning: Panning,
+    direction: 'up' | 'down',
+  ): AudioId {
+    // Silent at volume 0; return a harmless self-clearing id (see playEmptyTone).
+    if (this.volume <= 0) {
+      const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
+      this.activeAudioIds.set(audioId, []);
+      return audioId;
+    }
+
+    const ctx = this.audioContext;
+    const startTime = ctx.currentTime;
+    const duration = DEFAULT_DURATION;
+
+    const baseFrequency = MathUtil.interpolate(
+      freq.raw as number,
+      freq.min,
+      freq.max,
+      this.minFrequency,
+      this.maxFrequency,
+    );
+    // Perfect fifth sweep: unmistakably directional but still musical.
+    const SWEEP_RATIO = 1.5;
+    const targetFrequency = direction === 'up'
+      ? baseFrequency * SWEEP_RATIO
+      : baseFrequency / SWEEP_RATIO;
+
+    const oscillator = ctx.createOscillator();
+    // Triangle rising, sine falling: the softer sine reinforces the "drop".
+    oscillator.type = direction === 'up' ? 'triangle' : 'sine';
+    oscillator.frequency.setValueAtTime(baseFrequency, startTime);
+    // Exponential glide reads as a smooth, natural pitch slide (linear-in-Hz
+    // sounds like it decelerates). Both endpoints are > 0, so it is safe.
+    oscillator.frequency.exponentialRampToValueAtTime(
+      targetFrequency,
+      startTime + duration,
+    );
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(1e-4 * this.volume, startTime);
+    gainNode.gain.linearRampToValueAtTime(this.volume, startTime + duration * 0.15);
+    gainNode.gain.linearRampToValueAtTime(1e-4 * this.volume, startTime + duration);
+
+    const xPos = MathUtil.clamp(
+      MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1),
+      -1,
+      1,
+    );
+    // createStereoPanner is unavailable on Safari < 14.5; degrade to mono.
+    const stereoPanner = typeof ctx.createStereoPanner === 'function'
+      ? ctx.createStereoPanner()
+      : null;
+    if (stereoPanner) {
+      stereoPanner.pan.value = xPos;
+    }
+
+    oscillator.connect(gainNode);
+    if (stereoPanner) {
+      gainNode.connect(stereoPanner);
+      stereoPanner.connect(this.compressor);
+    } else {
+      gainNode.connect(this.compressor);
+    }
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+
+    const nodes: AudioNode[] = stereoPanner
+      ? [oscillator, gainNode, stereoPanner]
+      : [oscillator, gainNode];
+    const audioId = setTimeout(() => {
+      nodes.forEach(node => node.disconnect());
+      this.activeAudioIds.delete(audioId);
+    }, duration * 1e3 * 2);
+    this.activeAudioIds.set(audioId, [oscillator]);
+    return audioId;
   }
 
   private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {
