@@ -11,8 +11,11 @@ import React, { useEffect, useRef } from 'react';
  * comparison; Escape closes without changing anything.
  *
  * Keyboard handling lives in the scope keybindings (which drive the view
- * model), so this component only renders state and manages focus and
- * screen-reader announcements — mirroring the GoToExtrema modal.
+ * model), so this component only renders state and moves DOM focus onto the
+ * highlighted option. That focus move is the sole announcement mechanism —
+ * mirroring the Command Palette (Ctrl+Shift+P). An extra aria-live region here
+ * would double-announce the selection ("… 3 of 3, Selected: …"), so there
+ * intentionally isn't one.
  */
 const CandlestickDeltaSettings: React.FC = () => {
   const viewModel = useViewModel('candlestickDelta');
@@ -21,7 +24,6 @@ const CandlestickDeltaSettings: React.FC = () => {
   const modalRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
-  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   const visible = state.visible && state.references.length > 0;
 
@@ -33,7 +35,9 @@ const CandlestickDeltaSettings: React.FC = () => {
     }
   }, [visible]);
 
-  // Keep the highlighted option focused and in view, and announce it.
+  // Move focus onto the highlighted option and keep it in view. The focus move
+  // is what the screen reader announces (the option's label plus its position),
+  // so no separate live region is used — that would announce a second time.
   useEffect(() => {
     if (!visible) {
       return;
@@ -42,10 +46,6 @@ const CandlestickDeltaSettings: React.FC = () => {
     if (item) {
       item.focus();
       item.scrollIntoView({ block: 'nearest' });
-    }
-    const reference = state.references[state.selectedIndex];
-    if (liveRegionRef.current && reference) {
-      liveRegionRef.current.textContent = `Selected: ${reference.label}`;
     }
   }, [visible, state.selectedIndex, state.references]);
 
@@ -173,13 +173,6 @@ const CandlestickDeltaSettings: React.FC = () => {
             );
           })}
         </Box>
-
-        <div
-          ref={liveRegionRef}
-          aria-live="assertive"
-          aria-atomic="true"
-          style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
-        />
       </Box>
     </>
   );
