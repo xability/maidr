@@ -898,6 +898,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Minimum Frequency',
+                          'min': 0,
                         },
                       },
                     }}
@@ -925,6 +926,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Maximum Frequency',
+                          'min': 0,
                         },
                       },
                     }}

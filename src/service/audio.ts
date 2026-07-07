@@ -357,15 +357,21 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const targetFrequency = direction === 'up'
       ? baseFrequency * SWEEP_RATIO
       : baseFrequency / SWEEP_RATIO;
+    // exponentialRampToValueAtTime rejects non-positive targets. A misconfigured
+    // (negative) Min Frequency setting can push baseFrequency <= 0, so floor
+    // both endpoints just above zero — otherwise the throw would propagate out
+    // of update() and abort the remaining observer updates for this keypress.
+    const safeBase = Math.max(baseFrequency, 1e-3);
+    const safeTarget = Math.max(targetFrequency, 1e-3);
 
     const oscillator = ctx.createOscillator();
     // Triangle rising, sine falling: the softer sine reinforces the "drop".
     oscillator.type = direction === 'up' ? 'triangle' : 'sine';
-    oscillator.frequency.setValueAtTime(baseFrequency, startTime);
+    oscillator.frequency.setValueAtTime(safeBase, startTime);
     // Exponential glide reads as a smooth, natural pitch slide (linear-in-Hz
-    // sounds like it decelerates). Both endpoints are > 0, so it is safe.
+    // sounds like it decelerates).
     oscillator.frequency.exponentialRampToValueAtTime(
-      targetFrequency,
+      safeTarget,
       startTime + duration,
     );
 

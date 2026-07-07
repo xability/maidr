@@ -178,7 +178,9 @@ export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDelt
     }
     this.store.dispatch(hide());
     this.deltaService.closeSettings();
-    this.deltaService.setSelectedReference(reference.id);
+    // activate() commits the reference as the remembered one only on success,
+    // so a reference that no longer overlaps the candles fails cleanly without
+    // clobbering the previously working selection.
     this.deltaService.activate(reference.id);
   }
 

@@ -149,6 +149,19 @@ describe('candlestickDelta field navigation', () => {
     expect(trace.comparedField).toBe('high');
     expect(trace.getCurrentXValue()).toBe('2026-01-02');
   });
+
+  test('moveToIndex (braille cursor) preserves the compared field', () => {
+    const trace = createTrace();
+    enter(trace);
+    trace.moveOnce('UPWARD'); // high field
+    expect(trace.comparedField).toBe('high');
+
+    // Braille collapses fields to a single row (row 0); moving the cursor must
+    // not snap the field back to the candle's lowest value.
+    expect(trace.moveToIndex(0, 3)).toBe(true);
+    expect(trace.col).toBe(3);
+    expect(trace.comparedField).toBe('high');
+  });
 });
 
 describe('candlestickDelta state', () => {
@@ -349,11 +362,18 @@ describe('candlestickDelta rotor', () => {
     expect(info.lower.label).toBe(BELOW_LINE_MODE);
   });
 
-  test('exposes the on-line filter unit when a point sits on the line', () => {
+  test('exposes the on-line filter unit only for fields that have a zero', () => {
     const trace = createTrace();
-    const units = trace.getRotorFilterUnits();
-    expect(units).toHaveLength(1);
-    expect(units[0].label).toBe(ON_LINE_MODE);
+    // close has an on-line point (2026-01-03), so the unit is offered.
+    const closeUnits = trace.getRotorFilterUnits();
+    expect(closeUnits).toHaveLength(1);
+    expect(closeUnits[0].label).toBe(ON_LINE_MODE);
+
+    // high never touches the line (deltas +3, +1, +0.5, +1), so no unit —
+    // gating on the current field avoids advertising a dead-end mode.
+    enter(trace);
+    trace.moveOnce('UPWARD'); // high field
+    expect(trace.getRotorFilterUnits()).toHaveLength(0);
   });
 
   test('above-line unit skips to the next point above the reference', () => {

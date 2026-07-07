@@ -162,9 +162,10 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private readonly deltaGrid: number[][];
   /** Largest |delta| across every field — audio's shared pitch ceiling. */
   private readonly maxAbsDelta: number;
-  /** True when any field of any candle lands exactly on the line. */
-  private readonly hasOnLinePoint: boolean;
-  private readonly onLineUnits: readonly RotorFilterUnit[];
+  /** Cached on-line rotor unit, exposed only for fields that have a zero. */
+  private readonly onLineUnits: readonly RotorFilterUnit[] = [
+    { key: ON_LINE_KEY, label: ON_LINE_MODE, noun: 'point on the line' },
+  ];
 
   private currentPointIndex = 0;
   private currentField: CandlestickDeltaField;
@@ -215,13 +216,6 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       (max, field) => Math.max(max, this.brailleMaxByField[field][0]),
       0,
     );
-    this.hasOnLinePoint = CANDLESTICK_DELTA_FIELDS.some(field =>
-      this.deltaByField[field].includes(0),
-    );
-    this.onLineUnits = this.hasOnLinePoint
-      ? [{ key: ON_LINE_KEY, label: ON_LINE_MODE, noun: 'point on the line' }]
-      : [];
-
     this.sortedFieldsByPoint = this.candles.map((candle) => {
       // Sort by the candle's price so up/down matches the candle geometry
       // (low at the bottom, high at the top); a stable tiebreak keeps the
@@ -407,14 +401,15 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       this.notifyOutOfBounds();
       return false;
     }
-    const navOrder = this.sortedFieldsByPoint[col];
-    if (row < 0 || row >= navOrder.length) {
-      this.notifyOutOfBounds();
-      return false;
-    }
+    // Braille flattens the four OHLC fields into a single row for the current
+    // field (see the braille getter — always row 0), so an incoming `row`
+    // carries no field information. This is the layer's only index-navigation
+    // source (it has no SVG geometry to hover), so preserve the compared field
+    // and move along the candle axis only — matching how Left/Right (moveOnce)
+    // behaves, rather than silently snapping to the candle's lowest field.
+    void row;
     this.isInitialEntry = false;
     this.currentPointIndex = col;
-    this.currentField = navOrder[row];
     this.updateVisualPosition();
     this.notifyStateUpdate();
     return true;
@@ -658,14 +653,19 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   }
 
   /**
-   * Exposes the "on line" rotor filter unit when at least one point lands
-   * exactly on the reference line. Appended after the above/below compare
-   * units so cycling the rotor offers: delta point (default), below line,
-   * above line, and — when present — on line.
-   * @returns The on-line filter unit, or an empty list
+   * Exposes the "on line" rotor filter unit when the CURRENT field has a
+   * point exactly on the reference line. Gating on the current field (rather
+   * than any field) keeps availability aligned with navigation, which only
+   * ever searches the current field — so the unit is never a dead end. The
+   * rotor service re-queries this every keystroke, so the unit appears and
+   * disappears as the user moves between fields. Appended after the
+   * above/below compare units in the rotor cycle.
+   * @returns The on-line filter unit when reachable, or an empty list
    */
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
-    return this.onLineUnits;
+    return this.deltaByField[this.currentField].includes(0)
+      ? this.onLineUnits
+      : [];
   }
 
   /**

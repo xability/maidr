@@ -169,6 +169,16 @@ describe('candlestickDeltaService activation', () => {
     expect(service.isActive).toBe(false);
   });
 
+  test('a failed activation leaves the remembered reference untouched', () => {
+    const { service } = createHarness();
+    service.activate('ma-layer:0');
+    expect(service.selectedReference).toBe('ma-layer:0');
+
+    // An unresolvable reference must not clobber the working selection.
+    expect(service.activate('ma-layer:9')).toBe(false);
+    expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
   test('starts on the candle the user was on when it exists in the delta domain', () => {
     const { context, service } = createHarness();
     (context.active as Trace).moveToXValue('2026-01-03');
