@@ -162,7 +162,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private readonly deltaGrid: number[][];
   /** Largest |delta| across every field — audio's shared pitch ceiling. */
   private readonly maxAbsDelta: number;
-  /** Cached on-line rotor unit, exposed only for fields that have a zero. */
+  /** Cached on-line rotor unit; always offered (see getRotorFilterUnits). */
   private readonly onLineUnits: readonly RotorFilterUnit[] = [
     { key: ON_LINE_KEY, label: ON_LINE_MODE, noun: 'point on the line' },
   ];
@@ -660,19 +660,19 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   }
 
   /**
-   * Exposes the "on line" rotor filter unit when the CURRENT field has a
-   * point exactly on the reference line. Gating on the current field (rather
-   * than any field) keeps availability aligned with navigation, which only
-   * ever searches the current field — so the unit is never a dead end. The
-   * rotor service re-queries this every keystroke, so the unit appears and
-   * disappears as the user moves between fields. Appended after the
-   * above/below compare units in the rotor cycle.
-   * @returns The on-line filter unit when reachable, or an empty list
+   * Always exposes the "on line" rotor filter unit, completing the fixed
+   * above-line / on-line / below-line trichotomy alongside the two compare
+   * units. It is intentionally NOT gated on a zero being present: gating on
+   * the current field made the unit flicker in and out as the user moved
+   * between OHLC fields, and gating on any field would silently hide the
+   * category for the (common) real-world case where no candle sits exactly on
+   * a moving average. A present-but-empty unit announces "no point on the
+   * line", which is the honest, predictable result — mirroring how the
+   * above/below compare units are always offered even when empty.
+   * @returns The on-line filter unit
    */
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
-    return this.deltaByField[this.currentField].includes(0)
-      ? this.onLineUnits
-      : [];
+    return this.onLineUnits;
   }
 
   /**

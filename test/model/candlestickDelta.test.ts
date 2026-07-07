@@ -362,18 +362,37 @@ describe('candlestickDelta rotor', () => {
     expect(info.lower.label).toBe(BELOW_LINE_MODE);
   });
 
-  test('exposes the on-line filter unit only for fields that have a zero', () => {
+  test('always offers the on-line filter unit, regardless of the current field', () => {
     const trace = createTrace();
-    // close has an on-line point (2026-01-03), so the unit is offered.
     const closeUnits = trace.getRotorFilterUnits();
     expect(closeUnits).toHaveLength(1);
     expect(closeUnits[0].label).toBe(ON_LINE_MODE);
 
-    // high never touches the line (deltas +3, +1, +0.5, +1), so no unit —
-    // gating on the current field avoids advertising a dead-end mode.
+    // high never touches the line (deltas +3, +1, +0.5, +1), but the unit
+    // stays offered so the above/on/below trichotomy is stable as the user
+    // moves between fields; moving simply reports no point on the line.
     enter(trace);
     trace.moveOnce('UPWARD'); // high field
-    expect(trace.getRotorFilterUnits()).toHaveLength(0);
+    expect(trace.getRotorFilterUnits()).toHaveLength(1);
+    expect(trace.moveToRotorFilter('onLine', 'right')).toBe(false);
+    expect(trace.moveToRotorFilter('onLine', 'left')).toBe(false);
+  });
+
+  test('offers the on-line unit even when no candle sits exactly on the line', () => {
+    // Every field of every candle is strictly above or below the reference,
+    // as real moving-average data usually is.
+    const trace = new CandlestickDeltaTrace(createLayer(), {
+      candles: [
+        { x: 'a', reference: 10, open: 11, high: 12, low: 10.5, close: 11.5 },
+        { x: 'b', reference: 10, open: 9, high: 9.5, low: 8, close: 8.8 },
+      ],
+      referenceLabel: 'Moving Average 3 days',
+      initialField: 'close',
+    });
+
+    expect(trace.getRotorFilterUnits()).toHaveLength(1);
+    enter(trace);
+    expect(trace.moveToRotorFilter('onLine', 'right')).toBe(false);
   });
 
   test('above-line unit skips to the next point above the reference', () => {
