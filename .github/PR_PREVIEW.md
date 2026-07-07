@@ -62,6 +62,30 @@ warning and skips until the two secrets exist.
 That's it. Open a PR and the preview comment appears once the build + deploy
 finish.
 
+> **Activation caveat:** `workflow_run` workflows only run the copy that lives on
+> the repository's **default branch**. So the deploy half starts working only
+> after these files are merged to `main` — the PR that *introduces* this feature
+> will build a preview but won't post a comment. Validate end-to-end with a
+> follow-up test PR (ideally one same-repo and one from a fork) after merging.
+
+## Security model
+
+Because a preview is built from untrusted PR code (fork PRs included), the design
+keeps that code away from anything privileged:
+
+- The **build** job (`pull_request`) has no secrets and a read-only token. The
+  **deploy** job (`workflow_run`) holds the secrets but never checks out or runs
+  PR code — it only publishes the pre-built files.
+- The PR number is passed via artifact but **verified** in the deploy job: it
+  must match an open PR whose head commit and repo equal the triggering run's,
+  so a forged number can't redirect the deploy or comment at another PR.
+- The deploy strips `_worker.js`, `functions/`, `_headers`, and `_redirects`
+  from the site so a malicious build can't run server-side code or set response
+  headers on the preview origin.
+- **Never add environment variables, secrets, or bindings to the `maidr-preview`
+  Pages project** — it serves untrusted, PR-built content, and a preview
+  `_worker.js` could otherwise read them.
+
 ## Notes
 
 - The Cloudflare **project name** is `maidr-preview` (referenced in

@@ -27,7 +27,6 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
   actions: read # download the triggering run's artifacts (cross-run)
   pull-requests: write # create/update the sticky preview comment
 
@@ -75,19 +74,51 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
 
-      # The artifact came from an untrusted PR build, so treat its contents as
-      # attacker-controlled: enforce a strictly numeric PR number before it is
-      # used in any privileged API call or the deploy branch label.
-      - name: Read and validate PR number
+      # The pr-meta artifact came from an UNTRUSTED PR build — and a fork PR can
+      # even rewrite pr-preview-build.yml, because `pull_request` runs the
+      # workflow from the PR head. So the PR number it claims is only a
+      # candidate: validate it is strictly numeric AND verify it belongs to the
+      # commit/repo that produced this run, so a forged number can't redirect
+      # the deploy or the sticky comment at a different (victim) PR.
+      - name: Resolve and verify PR number
         if: success() && steps.cfg.outputs.ready == 'true'
         id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync('pr-meta/pr-number', 'utf8').trim();
+            if (!/^[0-9]+$/.test(raw)) {
+              throw new Error(`Non-numeric PR number in artifact: ${JSON.stringify(raw)}`);
+            }
+            const prNumber = Number(raw);
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              throw new Error(`Invalid PR number: ${raw}`);
+            }
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            // head_sha is set by GitHub for the triggering run and cannot be
+            // forged to match an unrelated PR's head commit.
+            if (pr.head.sha !== run.head_sha) {
+              throw new Error(`PR #${prNumber} head (${pr.head.sha}) does not match the run head (${run.head_sha}); refusing to deploy.`);
+            }
+            const claimedRepo = pr.head.repo && pr.head.repo.full_name;
+            const runRepo = run.head_repository && run.head_repository.full_name;
+            if (claimedRepo && runRepo && claimedRepo !== runRepo) {
+              throw new Error(`PR #${prNumber} head repo (${claimedRepo}) does not match the run head repo (${runRepo}); refusing to deploy.`);
+            }
+            core.setOutput('number', String(prNumber));
+
+      # Previews must be purely static. The built _site is untrusted (a fork PR
+      # produced it), so strip the files Cloudflare Pages treats specially —
+      # otherwise a malicious build could run server-side code (_worker.js /
+      # functions/) or set arbitrary response headers (_headers / _redirects)
+      # on the preview origin.
+      - name: Enforce static-only preview
+        if: success() && steps.cfg.outputs.ready == 'true'
         run: |
-          PR="$(cat pr-meta/pr-number)"
-          if ! printf '%s' "$PR" | grep -Eq '^[0-9]+$'; then
-            echo "::error::Invalid PR number from artifact: '$PR'"
-            exit 1
-          fi
-          echo "number=$PR" >> "$GITHUB_OUTPUT"
+          rm -rf _site/_worker.js _site/_worker.js.map _site/functions _site/_headers _site/_redirects
 
       # Idempotent: pins production-branch=main so every pr-* deploy is a preview.
       # No-ops (errors) once the project exists, hence continue-on-error.
