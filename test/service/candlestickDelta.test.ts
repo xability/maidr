@@ -354,6 +354,29 @@ describe('candlestickDelta rotor integration', () => {
     expect(trace.getCurrentXValue()).toBe('2026-01-03');
   });
 
+  test('up/down in above-line mode switches OHLC fields, not candles', () => {
+    const { context, service, rotor } = createHarness();
+    service.activate('ma-layer:0');
+    const trace = context.active as CandlestickDeltaTrace;
+    trace.setInitialPosition(0); // 2026-01-02, close (sorted: low, open, close, high)
+    expect(trace.comparedField).toBe('close');
+
+    rotor.moveToNextRotorUnit(); // below line
+    rotor.moveToNextRotorUnit(); // above line
+    expect(rotor.getMode()).toBe(ABOVE_LINE_MODE);
+
+    // Up must move to the field above close (high) on the SAME candle, not fall
+    // through to a right/candle jump (the pre-fix behaviour).
+    rotor.moveUp();
+    expect(trace.getCurrentXValue()).toBe('2026-01-02');
+    expect(trace.comparedField).toBe('high');
+
+    // Down returns to close, still on the same candle.
+    rotor.moveDown();
+    expect(trace.getCurrentXValue()).toBe('2026-01-02');
+    expect(trace.comparedField).toBe('close');
+  });
+
   test('activation and deactivation reset the rotor to the data unit', () => {
     const { context, service, rotor } = createHarness();
     service.activate('ma-layer:0');

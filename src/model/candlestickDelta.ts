@@ -660,6 +660,31 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   }
 
   /**
+   * Switches to the next OHLC field upward while the rotor is in a compare
+   * (above-line / below-line) mode. Without this override the rotor would fall
+   * back to the base class's throwing implementation and silently mirror a
+   * right move, jumping candles instead of changing field. Mirrors
+   * Candlestick.moveUpRotor: delegate to moveOnce, which handles its own
+   * boundary tone, and always report success so the rotor adds no competing
+   * message.
+   * @returns Always true (boundary handled by moveOnce)
+   */
+  public override moveUpRotor(): boolean {
+    this.moveOnce('UPWARD');
+    return true;
+  }
+
+  /**
+   * Switches to the next OHLC field downward in a compare mode. See
+   * {@link moveUpRotor}.
+   * @returns Always true (boundary handled by moveOnce)
+   */
+  public override moveDownRotor(): boolean {
+    this.moveOnce('DOWNWARD');
+    return true;
+  }
+
+  /**
    * Always exposes the "on line" rotor filter unit, completing the fixed
    * above-line / on-line / below-line trichotomy alongside the two compare
    * units. It is intentionally NOT gated on a zero being present: gating on
