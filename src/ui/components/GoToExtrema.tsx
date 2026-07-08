@@ -204,7 +204,8 @@ export const GoToExtrema: React.FC = () => {
   // the extrema options, or the dropdown all reach it. It is required because
   // KeybindingService's global `esc` binding (GO_TO_EXTREMA_CLOSE) is suppressed
   // by hotkeys.filter while focus is inside the search <input> — without this
-  // handler, Escape is a dead key there (mirrors Settings.tsx's dialog handler).
+  // handler, Escape is a dead key there. This is the same dialog-level onKeyDown
+  // workaround Settings.tsx uses to keep its shortcuts alive inside a text field.
   const handleModalKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -376,6 +377,11 @@ export const GoToExtrema: React.FC = () => {
       // (WAI-ARIA editable combobox behavior). When empty, caret movement is a
       // no-op, so we use the keys to jump to the first/last search result.
       if (inputValue !== '') {
+        // Stop the event from bubbling to the enclosing listbox's onKeyDown
+        // (this input is nested inside it), which would otherwise preventDefault
+        // the native caret move AND jump the extrema selection. We intentionally
+        // do NOT preventDefault here, so the input's native caret move still runs.
+        event.stopPropagation();
         return;
       }
       event.preventDefault();
