@@ -99,9 +99,12 @@ export const GoToExtrema: React.FC = () => {
     setFilteredOptions(next);
     if (isDropdownOpen) {
       // Clamp against the freshly filtered list so the highlighted index never
-      // points past the end after typing a filter (which would blank out the
-      // highlight and the aria-activedescendant announcement).
-      setDropdownSelectedIndex(prev => (prev < 0 ? 0 : Math.min(prev, Math.max(0, next.length - 1))));
+      // points past the end after typing a filter. When the filter yields no
+      // results, drop to -1 so aria-activedescendant is cleared instead of
+      // pointing at a non-existent option-0 (which has no rendered element and
+      // would leave a stale highlight that confuses screen readers).
+      setDropdownSelectedIndex(prev =>
+        next.length === 0 ? -1 : (prev < 0 ? 0 : Math.min(prev, next.length - 1)));
     }
   }, [inputValue, availableOptions, isDropdownOpen]);
 
@@ -324,7 +327,10 @@ export const GoToExtrema: React.FC = () => {
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
-      if (dropdownSelectedIndex === filteredOptions.length - 1) {
+      if (filteredOptions.length === 0) {
+        // No options to move onto; keep the highlight cleared (aria-activedescendant undefined).
+        announceToScreenReader('No search results');
+      } else if (dropdownSelectedIndex === filteredOptions.length - 1) {
         announceToScreenReader('At last search result');
       } else {
         setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
@@ -336,8 +342,10 @@ export const GoToExtrema: React.FC = () => {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
-      // If on first search result, go back to main options
-      if (dropdownSelectedIndex === 0) {
+      // If on the first search result (or there are no results to navigate),
+      // go back to the main extrema options. `<= 0` also covers the empty-list
+      // case where dropdownSelectedIndex is -1, avoiding a stale reset to 0.
+      if (dropdownSelectedIndex <= 0) {
         setIsDropdownOpen(false);
         setDropdownSelectedIndex(-1);
         // Get the last selected extrema option's label for announcement.
@@ -347,7 +355,7 @@ export const GoToExtrema: React.FC = () => {
         const lastSelectedOption = state.targets[state.selectedIndex];
         announceToScreenReader(
           lastSelectedOption
-            ? `Returning to extrema options: ${lastSelectedOption.label}`
+            ? `Returning to extrema options: ${buildTargetDisplayLabel(lastSelectedOption)}`
             : 'Returning to extrema options',
         );
         // Focus back on the selected option
