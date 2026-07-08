@@ -6,6 +6,33 @@ import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } 
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+// Builds the user-facing label for an extrema target. Used for the visible
+// text, the option's aria-label, AND the keyboard-navigation announcements so
+// all three stay in sync (e.g. "Max point Value: 8.00 at Nov 3" — including the
+// numeric value, which target.label alone omits).
+function buildTargetDisplayLabel(target: ExtremaTarget): string {
+  const isIntersection = target.type === 'intersection';
+  if (isIntersection && target.display) {
+    // Prefix tells users whether this is a sampled-point or segment-only crossing.
+    const intersectionPrefix = target.intersectionKind === 'point'
+      ? 'Point intersection'
+      : target.intersectionKind === 'slope'
+        ? 'Slope intersection'
+        : 'Intersection';
+    return `${intersectionPrefix} with ${target.display.otherLines} at ${target.display.coords}`;
+  }
+  if (isIntersection) {
+    // Fallback for intersection without display fields
+    return target.label;
+  }
+  // For min/max, show: "Max point Value: 8.00 at X"
+  const labelParts = target.label.split(' at ');
+  // Guard against labels without " at " separator
+  return labelParts[1]
+    ? `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`
+    : `${labelParts[0]} Value: ${target.value.toFixed(2)}`;
+}
+
 // Helper function to generate styles for target boxes
 function getTargetBoxSx(isSelected: boolean): object {
   return {
@@ -230,10 +257,10 @@ export const GoToExtrema: React.FC = () => {
         announceToScreenReader('Moved to search. Type to filter X values.');
       } else {
         goToExtremaViewModel.moveDown();
-        // Announce the newly selected option
+        // Announce the newly selected option (same rich label the row shows).
         const newOption = state.targets[state.selectedIndex + 1];
         if (newOption) {
-          announceToScreenReader(`Selected: ${newOption.label}`);
+          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(newOption)}`);
         }
       }
     } else if (event.key === 'ArrowUp') {
@@ -244,10 +271,10 @@ export const GoToExtrema: React.FC = () => {
         announceToScreenReader('At first extrema option');
       } else {
         goToExtremaViewModel.moveUp();
-        // Announce the newly selected option
+        // Announce the newly selected option (same rich label the row shows).
         const newOption = state.targets[state.selectedIndex - 1];
         if (newOption) {
-          announceToScreenReader(`Selected: ${newOption.label}`);
+          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(newOption)}`);
         }
       }
     } else if (event.key === 'Home') {
@@ -258,7 +285,7 @@ export const GoToExtrema: React.FC = () => {
         goToExtremaViewModel.moveToIndex(0);
         const first = state.targets[0];
         if (first) {
-          announceToScreenReader(`Selected: ${first.label}`);
+          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(first)}`);
         }
       }
     } else if (event.key === 'End') {
@@ -271,7 +298,7 @@ export const GoToExtrema: React.FC = () => {
         goToExtremaViewModel.moveToIndex(lastIndex);
         const last = state.targets[lastIndex];
         if (last) {
-          announceToScreenReader(`Selected: ${last.label}`);
+          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(last)}`);
         }
       }
     } else if (event.key === 'Enter') {
@@ -334,28 +361,23 @@ export const GoToExtrema: React.FC = () => {
           announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1].label}`);
         }
       }
-    } else if (event.key === 'Home') {
-      // WAI-ARIA: jump to the first search result. preventDefault stops the
-      // input's native caret-to-start; stopPropagation stops the keydown from
-      // bubbling to the listbox handler (which would double-handle it).
-      event.preventDefault();
-      event.stopPropagation();
-      if (filteredOptions.length === 0) {
-        announceToScreenReader('No search results');
-      } else {
-        setDropdownSelectedIndex(0);
-        announceToScreenReader(`Selected: ${filteredOptions[0].label}`);
+    } else if (event.key === 'Home' || event.key === 'End') {
+      // Only repurpose Home/End for list navigation when the query is empty.
+      // With text present, leave them to the input's native caret-to-start/end
+      // so the user can still reposition the caret while editing the query
+      // (WAI-ARIA editable combobox behavior). When empty, caret movement is a
+      // no-op, so we use the keys to jump to the first/last search result.
+      if (inputValue !== '') {
+        return;
       }
-    } else if (event.key === 'End') {
-      // WAI-ARIA: jump to the last search result.
       event.preventDefault();
-      event.stopPropagation();
+      event.stopPropagation(); // don't also fire the listbox handler
       if (filteredOptions.length === 0) {
         announceToScreenReader('No search results');
       } else {
-        const lastIndex = filteredOptions.length - 1;
-        setDropdownSelectedIndex(lastIndex);
-        announceToScreenReader(`Selected: ${filteredOptions[lastIndex].label}`);
+        const targetIndex = event.key === 'Home' ? 0 : filteredOptions.length - 1;
+        setDropdownSelectedIndex(targetIndex);
+        announceToScreenReader(`Selected: ${filteredOptions[targetIndex].label}`);
       }
     }
   };
@@ -422,30 +444,7 @@ export const GoToExtrema: React.FC = () => {
 
             <Box ref={listContainerRef} role="listbox" aria-label="Navigation targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
               {state.targets.map((target: ExtremaTarget, index: number) => {
-                // Format display based on target type using structured display fields when available
-                const isIntersection = target.type === 'intersection';
-                let displayLabel: string;
-
-                if (isIntersection && target.display) {
-                  // Use structured display fields for intersections
-                  // Prefix tells users whether this is sampled-point or segment-only crossing.
-                  const intersectionPrefix = target.intersectionKind === 'point'
-                    ? 'Point intersection'
-                    : target.intersectionKind === 'slope'
-                      ? 'Slope intersection'
-                      : 'Intersection';
-                  displayLabel = `${intersectionPrefix} with ${target.display.otherLines} at ${target.display.coords}`;
-                } else if (isIntersection) {
-                  // Fallback for intersection without display fields
-                  displayLabel = target.label;
-                } else {
-                  // For min/max, show: "Max point Value: 8.00 at X"
-                  const labelParts = target.label.split(' at ');
-                  // Guard against labels without " at " separator
-                  displayLabel = labelParts[1]
-                    ? `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`
-                    : `${labelParts[0]} Value: ${target.value.toFixed(2)}`;
-                }
+                const displayLabel = buildTargetDisplayLabel(target);
 
                 return (
                   <Box

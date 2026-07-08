@@ -285,9 +285,13 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 
+    // String()-coerce the formatter output (custom `function` formatters are
+    // built via new Function and only nominally return a string) so the label
+    // is always safe to call string methods on downstream, matching the
+    // tolerance of formatTargetLabels.
     return rawValues.map(value => ({
       value,
-      label: this.formatter!.formatSingleValue(value, layerId, 'x'),
+      label: String(this.formatter!.formatSingleValue(value, layerId, 'x')),
     }));
   }
 

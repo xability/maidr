@@ -173,4 +173,30 @@ describe('AudioService menu open/close cues', () => {
     expect(ctx.oscillators.length).toBe(before);
     service.dispose();
   });
+
+  it('schedules each arpeggio note\'s cleanup after the note finishes (no truncation)', async () => {
+    installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    // Record the cleanup-timer delays scheduled by the two menu beeps.
+    const delays: number[] = [];
+    const spy = jest.spyOn(globalThis, 'setTimeout').mockImplementation(((_fn: unknown, ms?: number) => {
+      delays.push(ms ?? 0);
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout);
+
+    service.playMenuOpenTone();
+    spy.mockRestore();
+
+    // Two notes: note 0 stops at 60 ms, note 1 starts at 110 ms and stops at
+    // 170 ms. Each note's disconnect timer must fire AFTER the note stops, or
+    // the tone is cut off (the bug this guards). Sorted ascending, both delays
+    // must clear their respective stop times.
+    expect(delays.length).toBe(2);
+    const sorted = [...delays].sort((a, b) => a - b);
+    expect(sorted[0]).toBeGreaterThanOrEqual(60);
+    expect(sorted[1]).toBeGreaterThanOrEqual(170);
+    service.dispose();
+  });
 });

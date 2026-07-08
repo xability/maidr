@@ -734,12 +734,16 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     // Register the nodes and a self-clearing cleanup timer so stopAll()/dispose()
     // can cancel a pending beep and disconnect the graph (mirrors the guidance
-    // beep). The 2x margin lets the fade-out tail finish before disconnecting.
+    // beep). The delay must include this beep's own start offset (a later note
+    // in the arpeggio starts in the future); otherwise disconnect() fires while
+    // the note is still scheduled and truncates it. The extra 2x-duration margin
+    // then lets the fade-out tail finish before disconnecting.
+    const startOffset = Math.max(0, startTime - this.audioContext.currentTime);
     const nodes: AudioNode[] = [osc, gain];
     const audioId = setTimeout(() => {
       nodes.forEach(node => node.disconnect());
       this.activeAudioIds.delete(audioId);
-    }, MENU_TONE_DURATION * 1000 * 2);
+    }, (startOffset + MENU_TONE_DURATION * 2) * 1000);
     this.activeAudioIds.set(audioId, nodes);
   }
 

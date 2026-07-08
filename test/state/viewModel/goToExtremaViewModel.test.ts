@@ -98,6 +98,24 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     ]);
   });
 
+  test('coerces a non-string formatter result to a string label', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([5, 6]);
+    const context = createContextStub(trace, 'layer-1');
+    // A misbehaving custom formatter (built via new Function) that returns a
+    // number rather than a string. The label must still be a string so
+    // downstream string operations (e.g. filter's toLowerCase) don't throw.
+    const formatter = {
+      hasCustomFormatter: () => true,
+      formatSingleValue: (v: number) => (v * 100) as unknown as string,
+    } as unknown as FormatterService;
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
+
+    const options = vm.getAvailableXValueOptions();
+    expect(options).toEqual([{ value: 5, label: '500' }, { value: 6, label: '600' }]);
+    expect(typeof options[0].label).toBe('string');
+  });
+
   test('falls back to String(value) when no formatter is injected', () => {
     const store = createMaidrStore();
     const trace = createTraceStub(['2019-11-03']);
