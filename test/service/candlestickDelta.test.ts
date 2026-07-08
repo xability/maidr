@@ -258,6 +258,47 @@ describe('candlestickDeltaService activation', () => {
     expect(context.active.constructor.name).toBe('Candlestick');
   });
 
+  test('reconfiguring to a reference that misses the current candle keeps the current comparison', () => {
+    // A third moving average that only covers the last two candles.
+    const maidr = createMaidr();
+    const lineLayer = maidr.subplots[0][0].layers[1];
+    (lineLayer.data as LinePoint[][]).push([
+      { x: '2026-01-03', y: 10, z: 'Moving Average 9 days' },
+      { x: '2026-01-04', y: 11, z: 'Moving Average 9 days' },
+    ]);
+    const context = new Context(new Figure(maidr));
+    const notification = new NotificationService();
+    const notify = jest.fn();
+    notification.onChange(event => notify(event.value));
+    const text = new TextService(notification);
+    const rotor = new RotorNavigationService(context, text, notification);
+    const service = new CandlestickDeltaService(
+      context,
+      notification,
+      { toggleFocus: jest.fn() } as unknown as DisplayService,
+      rotor,
+    );
+
+    // On 2026-01-02, activate MA3 (which covers it).
+    (context.active as Trace).moveToXValue('2026-01-02');
+    expect(service.activate('ma-layer:0')).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-02');
+    notify.mockClear();
+
+    // Reconfigure to MA9 (ma-layer:2), which does NOT reach 2026-01-02.
+    expect(service.activate('ma-layer:2')).toBe(false);
+
+    // The old MA3 comparison stays active on the same candle; the remembered
+    // reference is unchanged.
+    expect(service.isActive).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).reference).toBe('Moving Average 3 days');
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-02');
+    expect(service.selectedReference).toBe('ma-layer:0');
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining('Keeping the current comparison'),
+    );
+  });
+
   test('reconfiguring preserves the current delta-layer x, not the pre-activation candle', () => {
     const { context, service } = createHarness();
     service.activate('ma-layer:0');

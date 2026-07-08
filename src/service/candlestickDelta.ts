@@ -171,13 +171,6 @@ export class CandlestickDeltaService implements Disposable {
       );
       return false;
     }
-    // The reference is a usable line (it overlaps the candles somewhere), so
-    // remember it now — even if we cannot virtualize at the current candle —
-    // so a later Alt L from a covered candle can re-enable the comparison. A
-    // reference with no overlap at all is rejected above and never reaches
-    // here, so it can't clobber a previously working selection.
-    this.selectedReferenceId = referenceId;
-
     const wasActive = this.isActive;
 
     // The delta layer stays x-synced with the candlestick, so it must land on
@@ -191,12 +184,23 @@ export class CandlestickDeltaService implements Disposable {
       : candles.findIndex(candle => candle.x === currentX);
 
     // A moving average is shorter than the candlestick, so the current candle
-    // may have no reference value — and therefore no delta — at its x. On a
-    // fresh activation, refuse and alert instead of silently jumping to the
-    // far-left first delta point: the layer only ever virtualizes where a
-    // delta actually exists. (An in-place reconfiguration keeps its own cursor
-    // and is not gated here.)
-    if (!wasActive && startIndex < 0) {
+    // may have no reference value — and therefore no delta — at its x. Never
+    // teleport to some other candle to hide that: keep the layer x-synced.
+    if (startIndex < 0) {
+      if (wasActive) {
+        // Reconfiguring (Ctrl+Shift+L) to a reference that does not cover the
+        // candle the user is on: keep the current comparison and position
+        // rather than silently jumping to the new reference's first candle.
+        // The previous reference stays remembered.
+        this.notification.notify(
+          `Keeping the current comparison: ${reference.label} does not reach `
+          + `${currentX}. Move to a candle it covers, then choose it again.`,
+        );
+        return false;
+      }
+      // Fresh activation: remember the usable reference so a later Alt L from a
+      // covered candle re-enables it, then alert that there is nothing here.
+      this.selectedReferenceId = referenceId;
       this.notification.notify(
         `No reference comparison at ${currentX}: ${reference.label} does not `
         + 'reach this candle. Move to a candle the moving average covers, then '
@@ -204,6 +208,9 @@ export class CandlestickDeltaService implements Disposable {
       );
       return false;
     }
+
+    // The current candle has a delta: virtualize it. The reference is
+    // committed as remembered only once the swap below succeeds.
 
     // Preserve the field being compared across an in-place reconfiguration.
     const initialField: CandlestickDeltaField
@@ -215,9 +222,7 @@ export class CandlestickDeltaService implements Disposable {
       candles,
       initialField,
     );
-    if (startIndex >= 0) {
-      trace.setInitialPosition(startIndex);
-    }
+    trace.setInitialPosition(startIndex);
     const previous = this.context.swapActiveTrace(trace);
     if (!previous) {
       trace.dispose();
@@ -232,6 +237,7 @@ export class CandlestickDeltaService implements Disposable {
       this.anchor = previous;
     }
     this.deltaTrace = trace;
+    this.selectedReferenceId = referenceId;
 
     this.rotor.resetToDataMode();
     if (!wasActive) {
