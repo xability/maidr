@@ -37,6 +37,16 @@ const WARNING_FREQUENCY = 180;
 const WARNING_DURATION = 0.2;
 const WARNING_SPACE = 0.1;
 
+// Menu open/close cue (Go-To modal). A short two-note "tick" arpeggio that
+// reads as UI chrome — rising when the pull-down menu opens, falling when it
+// closes — kept brighter and quieter than the low descending warning pair so
+// the two are never confused.
+const MENU_TONE_DURATION = 0.06; // snappy tick, matches the guidance beep length
+const MENU_TONE_SPACE = 0.05; // gap so the two notes read as an arpeggio, not a chord
+const MENU_TONE_VOLUME_SCALE = 0.5; // quieter than data tones: "this is navigation"
+const MENU_OPEN_FREQUENCIES = [660, 990]; // rising: menu drops down
+const MENU_CLOSE_FREQUENCIES = [990, 660]; // falling: menu retracts
+
 // 60 ms is short enough that rapid beeps don't blur together at the fastest
 // throttle interval, while still being long enough to be clearly audible as
 // a discrete tone rather than a click.
@@ -756,6 +766,89 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
     this.playWarningTone();
+  }
+
+  /**
+   * Plays the "menu open" cue — a short rising two-note tick — when the Go-To
+   * modal opens. A navigational affordance, so it plays in any audio mode
+   * except OFF (mirroring playWarningToneIfEnabled).
+   */
+  public playMenuOpenTone(): void {
+    this.playMenuTone(MENU_OPEN_FREQUENCIES);
+  }
+
+  /**
+   * Plays the "menu close" cue — a short falling two-note tick — when the Go-To
+   * modal is dismissed. Plays in any audio mode except OFF.
+   */
+  public playMenuCloseTone(): void {
+    this.playMenuTone(MENU_CLOSE_FREQUENCIES);
+  }
+
+  /**
+   * Schedules a sequence of short menu-cue beeps. Shared by the open/close
+   * cues; the frequency order encodes direction (rising = open, falling = close).
+   * @param frequencies - Beep frequencies in play order.
+   */
+  private playMenuTone(frequencies: number[]): void {
+    // Menu cues are navigational: silence only when the user turned sound OFF.
+    if (this.mode === AudioMode.OFF) {
+      return;
+    }
+    // At volume 0 the exponential ramp target collapses to 0 (a RangeError) and
+    // nothing would be audible anyway.
+    if (this.volume <= 0) {
+      return;
+    }
+    // A suspended context reports currentTime === 0; scheduling start(0)/stop()
+    // now would fire an unexpected beep the instant the context resumes.
+    if (this.audioContext.state !== 'running') {
+      return;
+    }
+
+    const now = this.audioContext.currentTime;
+    frequencies.forEach((freq, i) => {
+      this.playMenuBeep(freq, now + i * (MENU_TONE_DURATION + MENU_TONE_SPACE));
+    });
+  }
+
+  /**
+   * Plays a single menu-cue beep and tracks its nodes for disposal.
+   * @param freq - Oscillator frequency in Hz.
+   * @param startTime - AudioContext time at which to start the beep.
+   */
+  private playMenuBeep(freq: number, startTime: number): void {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    const menuVolume = this.volume * MENU_TONE_VOLUME_SCALE;
+    gain.gain.setValueAtTime(menuVolume, startTime);
+    // Scale the ramp target with menuVolume (like playPointerGuidanceBeep) so
+    // the fade-out never inverts (tone swells) at low user volume.
+    gain.gain.exponentialRampToValueAtTime(0.001 * menuVolume, startTime + MENU_TONE_DURATION);
+
+    osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(startTime);
+    osc.stop(startTime + MENU_TONE_DURATION);
+
+    // Register the nodes and a self-clearing cleanup timer so stopAll()/dispose()
+    // can cancel a pending beep and disconnect the graph (mirrors the guidance
+    // beep). The delay must include this beep's own start offset (a later note
+    // in the arpeggio starts in the future); otherwise disconnect() fires while
+    // the note is still scheduled and truncates it. The extra 2x-duration margin
+    // then lets the fade-out tail finish before disconnecting.
+    const startOffset = Math.max(0, startTime - this.audioContext.currentTime);
+    const nodes: AudioNode[] = [osc, gain];
+    const audioId = setTimeout(() => {
+      nodes.forEach(node => node.disconnect());
+      this.activeAudioIds.delete(audioId);
+    }, (startOffset + MENU_TONE_DURATION * 2) * 1000);
+    this.activeAudioIds.set(audioId, nodes);
   }
 
   /**

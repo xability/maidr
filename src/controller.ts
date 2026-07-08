@@ -164,6 +164,7 @@ export class Controller implements Disposable {
       store,
       this.goToExtremaService,
       this.context,
+      this.audioService,
       this.formatterService,
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
