@@ -87,7 +87,8 @@ const BRAILLE_KEYMAP = {
  */
 const CANDLESTICK_DELTA_KEYMAP = {
   EXIT_CANDLESTICK_DELTA: key(`esc`, 'Exit Comparison and Return to Chart'),
-  TOGGLE_CANDLESTICK_DELTA: key(`f7`, 'Change Reference Comparison', { helpKey: 'F7' }),
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Turn Off Reference Comparison', { helpKey: `${Platform.alt} + L` }),
+  SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Change Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
   // Label scope ('l') is intentionally NOT bound here: TRACE_LABEL's Escape
   // (DEACTIVATE_TRACE_LABEL_SCOPE) hard-returns to Scope.TRACE, which would
@@ -140,11 +141,14 @@ const CANDLESTICK_DELTA_KEYMAP = {
 } as const;
 
 /**
- * Keymap configuration for the candlestick delta settings dialog (F7).
+ * Keymap configuration for the candlestick delta reference picker (Ctrl+Shift+L).
  */
 const CANDLESTICK_DELTA_SETTINGS_KEYMAP = {
-  // Misc
-  TOGGLE_CANDLESTICK_DELTA: key(`esc`, 'Close Reference Comparison Dialog', { showInHelp: false }),
+  // Reference picker listbox navigation (standard UI, not shown in help)
+  CANDLESTICK_DELTA_REF_MOVE_UP: key(`up`, 'Previous Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_MOVE_DOWN: key(`down`, 'Next Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_SELECT: key(`enter`, 'Select Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_CLOSE: key(`esc`, 'Close Reference Picker', { showInHelp: false }),
 } as const;
 
 /**
@@ -310,7 +314,8 @@ const TRACE_KEYMAP = {
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
   // Candlestick reference comparison (virtual delta layer)
-  TOGGLE_CANDLESTICK_DELTA: key(`f7`, 'Compare Candlestick to Reference Line', { helpKey: 'F7' }),
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Toggle Candlestick Reference Comparison', { helpKey: `${Platform.alt} + L` }),
+  SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Choose Candlestick Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),

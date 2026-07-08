@@ -173,6 +173,16 @@ export interface AudioState {
    */
   zeroClick?: boolean;
   /**
+   * Pitch-glide direction for the tone. When set, the tone glides its pitch
+   * over the note duration to convey a direction while `freq.raw` still sets
+   * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps
+   * downward (a falling drop). Used by the candlestick delta layer so
+   * above-line points rise and below-line points fall, independent of the
+   * base pitch that still encodes the delta magnitude. Ignored for the zero
+   * (`zeroClick`) path.
+   */
+  glide?: 'up' | 'down';
+  /**
    * Volume multiplier for dynamic volume control.
    * Used to scale audio volume based on data characteristics (e.g., violin plot width).
    * If undefined, defaults to 1.0 (no volume scaling).

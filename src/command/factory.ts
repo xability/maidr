@@ -35,8 +35,13 @@ import {
   StopAutoplayCommand,
 } from './autoplay';
 import {
+  CandlestickDeltaRefCloseCommand,
+  CandlestickDeltaRefMoveDownCommand,
+  CandlestickDeltaRefMoveUpCommand,
+  CandlestickDeltaRefSelectCommand,
   ExitCandlestickDeltaCommand,
-  ToggleCandlestickDeltaCommand,
+  SelectCandlestickDeltaReferenceCommand,
+  ToggleCandlestickDeltaLayerCommand,
 } from './candlestickDelta';
 import {
   AnnounceCaptionCommand,
@@ -248,8 +253,18 @@ export class CommandFactory {
         return new ToggleDescriptionCommand(this.descriptionViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
-      case 'TOGGLE_CANDLESTICK_DELTA':
-        return new ToggleCandlestickDeltaCommand(this.candlestickDeltaViewModel);
+      case 'TOGGLE_CANDLESTICK_DELTA_LAYER':
+        return new ToggleCandlestickDeltaLayerCommand(this.candlestickDeltaViewModel);
+      case 'SELECT_CANDLESTICK_DELTA_REFERENCE':
+        return new SelectCandlestickDeltaReferenceCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_MOVE_UP':
+        return new CandlestickDeltaRefMoveUpCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_MOVE_DOWN':
+        return new CandlestickDeltaRefMoveDownCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_SELECT':
+        return new CandlestickDeltaRefSelectCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_CLOSE':
+        return new CandlestickDeltaRefCloseCommand(this.candlestickDeltaViewModel);
       case 'EXIT_CANDLESTICK_DELTA':
         return new ExitCandlestickDeltaCommand(this.candlestickDeltaService);
 

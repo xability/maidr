@@ -7,6 +7,7 @@ import {
   BELOW_LINE_MODE,
   CandlestickDeltaTrace,
   DELTA_POINT_MODE,
+  ON_LINE_MODE,
 } from '@model/candlestickDelta';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
@@ -110,6 +111,12 @@ function createHarness(): Harness {
   const toggleFocus = jest.fn();
   const display = { toggleFocus } as unknown as DisplayService;
   const service = new CandlestickDeltaService(context, notification, display, rotor);
+  // The moving averages start one day after the candles (2026-01-01 is
+  // uncovered), and the delta layer only activates where the current candle
+  // has a delta. Park the candlestick on the first covered candle so the
+  // activation tests exercise the success path; the refusal tests move back to
+  // 2026-01-01 explicitly.
+  (context.active as Trace).moveToXValue('2026-01-02');
   return { context, service, rotor, notify, toggleFocus };
 }
 
@@ -135,7 +142,7 @@ describe('candlestickDeltaService activation', () => {
   test('activates a virtual delta layer matched by x value', () => {
     const { context, service, notify, toggleFocus } = createHarness();
 
-    expect(service.activate('ma-layer:0', 'close')).toBe(true);
+    expect(service.activate('ma-layer:0')).toBe(true);
 
     const active = context.active;
     expect(active).toBeInstanceOf(CandlestickDeltaTrace);
@@ -148,48 +155,101 @@ describe('candlestickDeltaService activation', () => {
       '2026-01-04',
     ]);
     expect(toggleFocus).toHaveBeenCalledWith(Scope.CANDLESTICK_DELTA);
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining('close price minus Moving Average 3 days'));
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('OHLC price minus Moving Average 3 days'));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('Escape'));
     expect(service.isActive).toBe(true);
+    expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('activate with no argument uses the remembered reference', () => {
+    const { context, service } = createHarness();
+    service.setSelectedReference('ma-layer:1');
+
+    expect(service.activate()).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).reference).toBe('Moving Average 6 days');
+  });
+
+  test('activate with no reference chosen is a no-op', () => {
+    const { service } = createHarness();
+    expect(service.activate()).toBe(false);
+    expect(service.isActive).toBe(false);
+  });
+
+  test('a failed activation leaves the remembered reference untouched', () => {
+    const { service } = createHarness();
+    service.activate('ma-layer:0');
+    expect(service.selectedReference).toBe('ma-layer:0');
+
+    // An unresolvable reference must not clobber the working selection.
+    expect(service.activate('ma-layer:9')).toBe(false);
+    expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('refuses and alerts when the current candle has no reference value', () => {
+    const { context, service, notify, toggleFocus } = createHarness();
+    // 2026-01-01 is before the moving average starts — no delta there.
+    (context.active as Trace).moveToXValue('2026-01-01');
+
+    expect(service.activate('ma-layer:0')).toBe(false);
+    expect(service.isActive).toBe(false);
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining('does not reach this candle'),
+    );
+    // The virtual layer must not have been swapped in.
+    expect(context.active.constructor.name).toBe('Candlestick');
+    expect(toggleFocus).not.toHaveBeenCalledWith(Scope.CANDLESTICK_DELTA);
+    // The reference is still remembered so a later Alt L can use it.
+    expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('activates from a covered candle after a refusal on an uncovered one', () => {
+    const { context, service } = createHarness();
+    (context.active as Trace).moveToXValue('2026-01-01');
+    expect(service.activate('ma-layer:0')).toBe(false);
+
+    // Move onto a covered candle and toggle on via the remembered reference.
+    (context.active as Trace).moveToXValue('2026-01-03');
+    expect(service.activate()).toBe(true);
+    expect(service.isActive).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-03');
   });
 
   test('starts on the candle the user was on when it exists in the delta domain', () => {
     const { context, service } = createHarness();
     (context.active as Trace).moveToXValue('2026-01-03');
 
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
 
     expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-03');
   });
 
-  test('computes signed deltas including exact zeros', () => {
+  test('computes signed deltas including exact zeros on the close field', () => {
     const { context, service } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     const trace = context.active as CandlestickDeltaTrace;
 
-    // close - MA3: 12-11=+1, 9-10=-1, 11-11=0
+    // close - MA3: 12-11=+1 (above), 9-10=-1 (below), 11-11=0 (on line)
     trace.moveToXValue('2026-01-02');
     let state = trace.state;
     expect(!state.empty && state.audio.freq.raw).toBe(1);
-    expect(!state.empty && state.audio.trend).toBe('Bull');
+    expect(!state.empty && state.audio.glide).toBe('up');
 
     trace.moveToXValue('2026-01-03');
     state = trace.state;
-    expect(!state.empty && state.audio.trend).toBe('Bear');
+    expect(!state.empty && state.audio.glide).toBe('down');
 
     trace.moveToXValue('2026-01-04');
     state = trace.state;
     expect(!state.empty && state.audio.freq.raw).toBe(0);
-    expect(!state.empty && state.audio.trend).toBe('Neutral');
     expect(!state.empty && state.audio.zeroClick).toBe(true);
   });
 
   test('reconfiguring while active replaces the layer and keeps the anchor', () => {
     const { context, service } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     const firstTrace = context.active;
 
-    expect(service.activate('ma-layer:1', 'open')).toBe(true);
+    expect(service.activate('ma-layer:1')).toBe(true);
     expect(context.active).not.toBe(firstTrace);
     expect((context.active as CandlestickDeltaTrace).reference).toBe('Moving Average 6 days');
 
@@ -198,15 +258,53 @@ describe('candlestickDeltaService activation', () => {
     expect(context.active.constructor.name).toBe('Candlestick');
   });
 
+  test('reconfiguring to a reference that misses the current candle keeps the current comparison', () => {
+    // A third moving average that only covers the last two candles.
+    const maidr = createMaidr();
+    const lineLayer = maidr.subplots[0][0].layers[1];
+    (lineLayer.data as LinePoint[][]).push([
+      { x: '2026-01-03', y: 10, z: 'Moving Average 9 days' },
+      { x: '2026-01-04', y: 11, z: 'Moving Average 9 days' },
+    ]);
+    const context = new Context(new Figure(maidr));
+    const notification = new NotificationService();
+    const notify = jest.fn();
+    notification.onChange(event => notify(event.value));
+    const text = new TextService(notification);
+    const rotor = new RotorNavigationService(context, text, notification);
+    const service = new CandlestickDeltaService(
+      context,
+      notification,
+      { toggleFocus: jest.fn() } as unknown as DisplayService,
+      rotor,
+    );
+
+    // On 2026-01-02, activate MA3 (which covers it).
+    (context.active as Trace).moveToXValue('2026-01-02');
+    expect(service.activate('ma-layer:0')).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-02');
+    notify.mockClear();
+
+    // Reconfigure to MA9 (ma-layer:2), which does NOT reach 2026-01-02.
+    expect(service.activate('ma-layer:2')).toBe(false);
+
+    // The old MA3 comparison stays active on the same candle; the remembered
+    // reference is unchanged.
+    expect(service.isActive).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).reference).toBe('Moving Average 3 days');
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-02');
+    expect(service.selectedReference).toBe('ma-layer:0');
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining('Keeping the current comparison'),
+    );
+  });
+
   test('reconfiguring preserves the current delta-layer x, not the pre-activation candle', () => {
     const { context, service } = createHarness();
-    // User was on the first candle before activating.
-    service.activate('ma-layer:0', 'close');
-    // Navigate deep inside the delta layer.
+    service.activate('ma-layer:0');
     (context.active as CandlestickDeltaTrace).moveToXValue('2026-01-04');
 
-    // Reconfigure to a different reference that still covers that x.
-    service.activate('ma-layer:1', 'close');
+    service.activate('ma-layer:1');
 
     expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-04');
   });
@@ -224,7 +322,7 @@ describe('candlestickDeltaService activation', () => {
     const display = { toggleFocus: jest.fn() } as unknown as DisplayService;
     const service = new CandlestickDeltaService(context, notification, display, rotor);
 
-    expect(service.activate('ma-layer:0', 'close')).toBe(false);
+    expect(service.activate('ma-layer:0')).toBe(false);
     expect(service.isActive).toBe(false);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('No matching x values'));
   });
@@ -233,7 +331,7 @@ describe('candlestickDeltaService activation', () => {
 describe('candlestickDeltaService deactivation', () => {
   test('restores the candlestick layer and syncs its position to the delta x', () => {
     const { context, service, toggleFocus } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     (context.active as CandlestickDeltaTrace).moveToXValue('2026-01-03');
     toggleFocus.mockClear();
 
@@ -245,6 +343,16 @@ describe('candlestickDeltaService deactivation', () => {
     expect(service.isActive).toBe(false);
   });
 
+  test('keeps the remembered reference after deactivation for re-toggling', () => {
+    const { service } = createHarness();
+    service.activate('ma-layer:0');
+    service.deactivate();
+
+    expect(service.selectedReference).toBe('ma-layer:0');
+    // A bare activate() re-enables the same comparison.
+    expect(service.activate()).toBe(true);
+  });
+
   test('deactivate is a no-op when nothing is active', () => {
     const { service } = createHarness();
     expect(service.deactivate()).toBe(false);
@@ -252,7 +360,7 @@ describe('candlestickDeltaService deactivation', () => {
 
   test('deactivateIfActive silently restores the anchor before layer switching', () => {
     const { context, service, notify } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     notify.mockClear();
 
     service.deactivateIfActive();
@@ -263,7 +371,7 @@ describe('candlestickDeltaService deactivation', () => {
 
   test('discardActiveLayer tears down state and resets the rotor without touching focus or the stack', () => {
     const { context, service, rotor, toggleFocus, notify } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     const deltaTrace = context.active;
     rotor.moveToNextRotorUnit(); // leave data mode
     expect(context.isRotorEnabled()).toBe(true);
@@ -272,11 +380,9 @@ describe('candlestickDeltaService deactivation', () => {
 
     service.discardActiveLayer();
 
-    // Internal state is cleared and the rotor is reset...
     expect(service.isActive).toBe(false);
     expect(context.isRotorEnabled()).toBe(false);
     expect(rotor.getCurrentUnit()).toBe(0);
-    // ...but the caller owns the stack and focus, so neither is touched here.
     expect(context.active).toBe(deltaTrace);
     expect(toggleFocus).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
@@ -289,43 +395,67 @@ describe('candlestickDeltaService deactivation', () => {
 });
 
 describe('candlestickDelta rotor integration', () => {
-  test('cycles delta point, below line, and above line units', () => {
+  test('cycles delta point, below line, above line, and on line units', () => {
     const { service, rotor } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
 
     expect(rotor.getMode()).toBe(DELTA_POINT_MODE);
     expect(rotor.moveToNextRotorUnit()).toBe(BELOW_LINE_MODE);
     expect(rotor.getCompareType()).toBe('lower');
     expect(rotor.moveToNextRotorUnit()).toBe(ABOVE_LINE_MODE);
     expect(rotor.getCompareType()).toBe('higher');
+    expect(rotor.moveToNextRotorUnit()).toBe(ON_LINE_MODE);
     expect(rotor.moveToNextRotorUnit()).toBe(DELTA_POINT_MODE);
   });
 
   test('right arrow in above-line mode jumps to the next above-line point', () => {
     const { context, service, rotor } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     const trace = context.active as CandlestickDeltaTrace;
-    trace.setInitialPosition(0); // 2026-01-02, delta +1
+    trace.setInitialPosition(0); // 2026-01-02, close delta +1
 
     rotor.moveToNextRotorUnit(); // below line
     rotor.moveToNextRotorUnit(); // above line
 
-    // Only point 0 is above the line, so moving right reports a boundary.
+    // Only point 0 is above the line on close, so moving right hits a boundary.
     const message = rotor.moveRight();
     expect(message).toContain('point above the line');
     expect(trace.getCurrentXValue()).toBe('2026-01-02');
 
     // From the right edge, moving left in below-line mode lands on -1.
     trace.setInitialPosition(2);
-    rotor.moveToNextRotorUnit(); // wraps to delta point
+    rotor.resetToDataMode();
     rotor.moveToNextRotorUnit(); // below line
     expect(rotor.moveLeft()).toBeNull();
     expect(trace.getCurrentXValue()).toBe('2026-01-03');
   });
 
+  test('up/down in above-line mode switches OHLC fields, not candles', () => {
+    const { context, service, rotor } = createHarness();
+    service.activate('ma-layer:0');
+    const trace = context.active as CandlestickDeltaTrace;
+    trace.setInitialPosition(0); // 2026-01-02, close (sorted: low, open, close, high)
+    expect(trace.comparedField).toBe('close');
+
+    rotor.moveToNextRotorUnit(); // below line
+    rotor.moveToNextRotorUnit(); // above line
+    expect(rotor.getMode()).toBe(ABOVE_LINE_MODE);
+
+    // Up must move to the field above close (high) on the SAME candle, not fall
+    // through to a right/candle jump (the pre-fix behaviour).
+    rotor.moveUp();
+    expect(trace.getCurrentXValue()).toBe('2026-01-02');
+    expect(trace.comparedField).toBe('high');
+
+    // Down returns to close, still on the same candle.
+    rotor.moveDown();
+    expect(trace.getCurrentXValue()).toBe('2026-01-02');
+    expect(trace.comparedField).toBe('close');
+  });
+
   test('activation and deactivation reset the rotor to the data unit', () => {
     const { context, service, rotor } = createHarness();
-    service.activate('ma-layer:0', 'close');
+    service.activate('ma-layer:0');
     rotor.moveToNextRotorUnit(); // below line
     expect(context.isRotorEnabled()).toBe(true);
 
