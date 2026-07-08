@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { FormatterService } from '@service/formatter';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { AppStore } from '@state/store';
@@ -12,6 +13,17 @@ import { AbstractViewModel } from '@state/viewModel/viewModel';
 // Type for plots that support getAvailableXValues
 interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
+}
+
+/**
+ * An X value paired with its display label. `value` is the raw XValue used for
+ * navigation (moveToXValue matches on the raw value); `label` is the x-axis
+ * formatted string that is shown, filtered, and announced in the search
+ * combobox so it matches the terse layer text and the extrema target labels.
+ */
+export interface XValueOption {
+  value: XValue;
+  label: string;
 }
 
 export interface GoToExtremaState {
@@ -63,17 +75,20 @@ const { show, hide, updateSelectedIndex } = goToExtremaSlice.actions;
 export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly context: Context;
+  private readonly audioService: AudioService;
   private readonly formatter?: FormatterService;
 
   public constructor(
     store: AppStore,
     goToExtremaService: GoToExtremaService,
     context: Context,
+    audioService: AudioService,
     formatter?: FormatterService,
   ) {
     super(store);
     this.goToExtremaService = goToExtremaService;
     this.context = context;
+    this.audioService = audioService;
     this.formatter = formatter;
   }
 
@@ -110,6 +125,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
       // Then change scope to show the modal
       this.goToExtremaService.toggle(state);
+
+      // Play the "menu open" cue now that the modal is actually shown.
+      this.audioService.playMenuOpenTone();
     }
   }
 
@@ -118,6 +136,12 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     // Return scope to TRACE so plot navigation works again
     this.goToExtremaService.returnToTraceScope();
+
+    // Play the "menu close" cue. Every user-initiated dismissal (backdrop, X
+    // button, Esc, re-pressing G, selecting a target/option) funnels through
+    // this method, so the cue fires exactly once per close. dispose() dispatches
+    // the hide action directly (not via this method), so focus-out is silent.
+    this.audioService.playMenuCloseTone();
   }
 
   public get activeContext(): Context {
@@ -146,6 +170,22 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
+  /**
+   * Moves the selection to an explicit index (WAI-ARIA Home/End support).
+   * Clamps to [0, targets.length]; targets.length is the virtual search option,
+   * mirroring moveDown()'s upper bound so any valid position is addressable.
+   * @param index - The target selection index.
+   */
+  public moveToIndex(index: number): void {
+    const currentState = this.state;
+
+    if (currentState.targets.length > 0) {
+      const maxIndex = currentState.targets.length; // includes virtual search option
+      const clamped = Math.max(0, Math.min(maxIndex, index));
+      this.store.dispatch(updateSelectedIndex(clamped));
+    }
+  }
+
   public selectCurrent(): void {
     const currentState = this.state;
 
@@ -163,11 +203,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
       try {
-        // First hide the modal to ensure proper scope change
-        this.store.dispatch(hide());
-
-        // Return to trace scope before navigation
-        this.goToExtremaService.returnToTraceScope();
+        // Hide the modal (dispatches hide, restores TRACE scope, plays the
+        // close cue) before navigating so the scope change and cue happen once.
+        this.hide();
 
         // Then navigate to the target
         activeTrace.navigateToExtrema(target);
@@ -224,6 +262,45 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return (activeTrace as PlotWithXValues).getAvailableXValues();
     }
     return [];
+  }
+
+  /**
+   * Get available X values paired with their display label. `value` is the raw
+   * XValue (navigation matches on it); `label` is the x-axis formatted string so
+   * the search options read the same as the terse layer text and the extrema
+   * target labels (e.g. "Nov 3" rather than the raw "2019-11-03"). Falls back to
+   * String(value) when no custom x formatter is configured for the active layer.
+   * @returns Array of {value, label} options for the search combobox.
+   */
+  public getAvailableXValueOptions(): XValueOption[] {
+    const rawValues = this.getAvailableXValues();
+    if (rawValues.length === 0) {
+      return [];
+    }
+
+    const layerId = this.activeLayerId();
+    // Same gate the extrema target labels use (formatTargetLabels): pass through
+    // unchanged when the active layer has no custom x formatter.
+    if (!this.formatter || layerId === null || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+      return rawValues.map(value => ({ value, label: String(value) }));
+    }
+
+    return rawValues.map(value => ({
+      value,
+      label: this.formatter!.formatSingleValue(value, layerId, 'x'),
+    }));
+  }
+
+  /**
+   * Layer id of the active trace, or null when the active plot is not a
+   * non-empty trace. The plot stack is unchanged while the modal is open (the
+   * GO_TO_EXTREMA scope is a keyboard scope only), so context.state resolves to
+   * the same trace whose X values are being listed.
+   * @returns The active layer id, or null.
+   */
+  private activeLayerId(): string | null {
+    const state = this.context.state;
+    return state.type === 'trace' && !state.empty ? state.layerId : null;
   }
 
   /**

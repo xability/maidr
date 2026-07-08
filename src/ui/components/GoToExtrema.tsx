@@ -1,3 +1,4 @@
+import type { XValueOption } from '@state/viewModel/goToExtremaViewModel';
 import type { ExtremaTarget } from '@type/extrema';
 import type { XValue } from '@type/navigation';
 import { Close, KeyboardArrowDown } from '@mui/icons-material';
@@ -38,7 +39,7 @@ export const GoToExtrema: React.FC = () => {
   // Search combobox state
   const [inputValue, setInputValue] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [filteredOptions, setFilteredOptions] = useState<XValue[]>([]);
+  const [filteredOptions, setFilteredOptions] = useState<XValueOption[]>([]);
   const [dropdownSelectedIndex, setDropdownSelectedIndex] = useState(-1);
   const inputFieldWrapperRef = useRef<HTMLInputElement>(null);
   const inputElRef = useRef<HTMLInputElement>(null); // real input element
@@ -51,16 +52,23 @@ export const GoToExtrema: React.FC = () => {
     }
   }, []);
 
-  // Available X values from active trace if provided
-  const availableXValues = useMemo(() => {
-    return goToExtremaViewModel.getAvailableXValues();
+  // Available X values from active trace, each paired with a display label that
+  // is x-axis formatted to match the layer's terse text (e.g. "Nov 3" not
+  // "2019-11-03"). The raw `value` is preserved for navigation.
+  const availableOptions = useMemo(() => {
+    return goToExtremaViewModel.getAvailableXValueOptions();
   }, [goToExtremaViewModel]);
 
-  // Keep filtered options in sync
+  // Keep filtered options in sync. Match against the formatted label AND the
+  // raw value so a screen-reader user who hears "Nov 3" can type "Nov", while a
+  // user who knows the underlying value can still type the raw "2019-11-03".
   useEffect(() => {
-    const next = inputValue.trim() === ''
-      ? availableXValues
-      : availableXValues.filter(v => String(v).toLowerCase().includes(inputValue.toLowerCase()));
+    const query = inputValue.trim().toLowerCase();
+    const next = query === ''
+      ? availableOptions
+      : availableOptions.filter(o =>
+          o.label.toLowerCase().includes(query)
+          || String(o.value).toLowerCase().includes(query));
     setFilteredOptions(next);
     if (isDropdownOpen) {
       // Clamp against the freshly filtered list so the highlighted index never
@@ -68,11 +76,11 @@ export const GoToExtrema: React.FC = () => {
       // highlight and the aria-activedescendant announcement).
       setDropdownSelectedIndex(prev => (prev < 0 ? 0 : Math.min(prev, Math.max(0, next.length - 1))));
     }
-  }, [inputValue, availableXValues, isDropdownOpen]);
+  }, [inputValue, availableOptions, isDropdownOpen]);
 
   // Compute active option text for announcement via aria-valuetext
   const activeOptionText = dropdownSelectedIndex >= 0 && filteredOptions[dropdownSelectedIndex] !== undefined
-    ? String(filteredOptions[dropdownSelectedIndex])
+    ? filteredOptions[dropdownSelectedIndex].label
     : undefined;
 
   // TextField slot props for accessibility and functionality
@@ -161,6 +169,20 @@ export const GoToExtrema: React.FC = () => {
     goToExtremaViewModel.hide();
   };
 
+  // Close the modal on Escape from ANY focus context. This is attached to the
+  // modal container so an Escape keydown that bubbles up from the search input,
+  // the extrema options, or the dropdown all reach it. It is required because
+  // KeybindingService's global `esc` binding (GO_TO_EXTREMA_CLOSE) is suppressed
+  // by hotkeys.filter while focus is inside the search <input> — without this
+  // handler, Escape is a dead key there (mirrors Settings.tsx's dialog handler).
+  const handleModalKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      handleClose();
+    }
+  };
+
   const handleOptionSelect = (value: XValue): void => {
     const activeTrace = goToExtremaViewModel.activeContext?.active;
     if (activeTrace && hasMoveToXValue(activeTrace)) {
@@ -228,6 +250,30 @@ export const GoToExtrema: React.FC = () => {
           announceToScreenReader(`Selected: ${newOption.label}`);
         }
       }
+    } else if (event.key === 'Home') {
+      // WAI-ARIA listbox: jump to the first extrema option.
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.targets.length > 0) {
+        goToExtremaViewModel.moveToIndex(0);
+        const first = state.targets[0];
+        if (first) {
+          announceToScreenReader(`Selected: ${first.label}`);
+        }
+      }
+    } else if (event.key === 'End') {
+      // WAI-ARIA listbox: jump to the last extrema option (not the virtual
+      // search option at index targets.length).
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.targets.length > 0) {
+        const lastIndex = state.targets.length - 1;
+        goToExtremaViewModel.moveToIndex(lastIndex);
+        const last = state.targets[lastIndex];
+        if (last) {
+          announceToScreenReader(`Selected: ${last.label}`);
+        }
+      }
     } else if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
@@ -246,7 +292,7 @@ export const GoToExtrema: React.FC = () => {
       event.preventDefault();
       event.stopPropagation();
       if (dropdownSelectedIndex >= 0 && filteredOptions[dropdownSelectedIndex] !== undefined) {
-        handleOptionSelect(filteredOptions[dropdownSelectedIndex]);
+        handleOptionSelect(filteredOptions[dropdownSelectedIndex].value);
       }
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -257,7 +303,7 @@ export const GoToExtrema: React.FC = () => {
         setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
         // Announce the newly selected search result
         if (filteredOptions[dropdownSelectedIndex + 1]) {
-          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex + 1]}`);
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex + 1].label}`);
         }
       }
     } else if (event.key === 'ArrowUp') {
@@ -285,8 +331,31 @@ export const GoToExtrema: React.FC = () => {
         setDropdownSelectedIndex(i => Math.max(0, i - 1));
         // Announce the newly selected search result
         if (filteredOptions[dropdownSelectedIndex - 1]) {
-          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1]}`);
+          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1].label}`);
         }
+      }
+    } else if (event.key === 'Home') {
+      // WAI-ARIA: jump to the first search result. preventDefault stops the
+      // input's native caret-to-start; stopPropagation stops the keydown from
+      // bubbling to the listbox handler (which would double-handle it).
+      event.preventDefault();
+      event.stopPropagation();
+      if (filteredOptions.length === 0) {
+        announceToScreenReader('No search results');
+      } else {
+        setDropdownSelectedIndex(0);
+        announceToScreenReader(`Selected: ${filteredOptions[0].label}`);
+      }
+    } else if (event.key === 'End') {
+      // WAI-ARIA: jump to the last search result.
+      event.preventDefault();
+      event.stopPropagation();
+      if (filteredOptions.length === 0) {
+        announceToScreenReader('No search results');
+      } else {
+        const lastIndex = filteredOptions.length - 1;
+        setDropdownSelectedIndex(lastIndex);
+        announceToScreenReader(`Selected: ${filteredOptions[lastIndex].label}`);
       }
     }
   };
@@ -318,6 +387,7 @@ export const GoToExtrema: React.FC = () => {
             aria-labelledby="go-to-extrema-title"
             aria-describedby="go-to-extrema-description"
             tabIndex={0}
+            onKeyDown={handleModalKeyDown}
             sx={{
               position: 'fixed',
               top: '50%',
@@ -397,7 +467,7 @@ export const GoToExtrema: React.FC = () => {
               })}
 
               {/* 4th option: Searchable combobox */}
-              {availableXValues.length > 0 && (
+              {availableOptions.length > 0 && (
                 <Box
                   ref={searchOptionRef}
                   id="search-input-option"
@@ -418,7 +488,7 @@ export const GoToExtrema: React.FC = () => {
                     ref={inputFieldWrapperRef}
                     inputRef={inputElRef}
                     label="Search X values"
-                    placeholder={`Type to search ${availableXValues.length} values`}
+                    placeholder={`Type to search ${availableOptions.length} values`}
                     fullWidth
                     variant="outlined"
                     size="small"
@@ -442,20 +512,20 @@ export const GoToExtrema: React.FC = () => {
 
                   {isDropdownOpen && filteredOptions.length > 0 && (
                     <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
-                      {filteredOptions.map((value, idx) => (
+                      {filteredOptions.map((option, idx) => (
                         <ListItem
-                          key={`${value}-${idx}`}
+                          key={`${option.value}-${idx}`}
                           id={`option-${idx}`}
                           role="option"
                           aria-selected={dropdownSelectedIndex === idx}
-                          aria-label={String(value)}
+                          aria-label={option.label}
                           tabIndex={0}
-                          onClick={() => handleOptionSelect(value)}
+                          onClick={() => handleOptionSelect(option.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleOptionSelect(value);
+                              handleOptionSelect(option.value);
                             } else if (e.key === 'ArrowDown') {
                               e.preventDefault();
                               e.stopPropagation();
@@ -468,7 +538,7 @@ export const GoToExtrema: React.FC = () => {
                           }}
                           sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
                         >
-                          <ListItemText primary={String(value)} />
+                          <ListItemText primary={option.label} />
                         </ListItem>
                       ))}
                     </List>
