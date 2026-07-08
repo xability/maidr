@@ -547,6 +547,17 @@ export const GoToExtrema: React.FC = () => {
                               e.preventDefault();
                               e.stopPropagation();
                               setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
+                            } else if (e.key === 'Home') {
+                              // Handle here so the key doesn't bubble to the
+                              // enclosing extrema listbox (which would jump the
+                              // wrong list) when focus is on a result item.
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropdownSelectedIndex(0);
+                            } else if (e.key === 'End') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropdownSelectedIndex(filteredOptions.length - 1);
                             }
                           }}
                           sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
