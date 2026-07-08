@@ -171,8 +171,40 @@ export class CandlestickDeltaService implements Disposable {
       );
       return false;
     }
+    // The reference is a usable line (it overlaps the candles somewhere), so
+    // remember it now — even if we cannot virtualize at the current candle —
+    // so a later Alt L from a covered candle can re-enable the comparison. A
+    // reference with no overlap at all is rejected above and never reaches
+    // here, so it can't clobber a previously working selection.
+    this.selectedReferenceId = referenceId;
 
     const wasActive = this.isActive;
+
+    // The delta layer stays x-synced with the candlestick, so it must land on
+    // the candle the user is currently on: the delta layer's own position when
+    // reconfiguring, otherwise the candle in the underlying chart.
+    const currentX = wasActive && this.deltaTrace
+      ? this.deltaTrace.getCurrentXValue()
+      : candlestick.getCurrentXValue();
+    const startIndex = currentX === null
+      ? -1
+      : candles.findIndex(candle => candle.x === currentX);
+
+    // A moving average is shorter than the candlestick, so the current candle
+    // may have no reference value — and therefore no delta — at its x. On a
+    // fresh activation, refuse and alert instead of silently jumping to the
+    // far-left first delta point: the layer only ever virtualizes where a
+    // delta actually exists. (An in-place reconfiguration keeps its own cursor
+    // and is not gated here.)
+    if (!wasActive && startIndex < 0) {
+      this.notification.notify(
+        `No reference comparison at ${currentX}: ${reference.label} does not `
+        + 'reach this candle. Move to a candle the moving average covers, then '
+        + 'press Alt L.',
+      );
+      return false;
+    }
+
     // Preserve the field being compared across an in-place reconfiguration.
     const initialField: CandlestickDeltaField
       = wasActive && this.deltaTrace ? this.deltaTrace.comparedField : 'close';
@@ -183,16 +215,6 @@ export class CandlestickDeltaService implements Disposable {
       candles,
       initialField,
     );
-
-    // Land on the x the user is currently on: the delta layer's own position
-    // when reconfiguring, otherwise the candle the user was on. This keeps the
-    // candle position fixed as the virtual layer is toggled on and off.
-    const currentX = wasActive && this.deltaTrace
-      ? this.deltaTrace.getCurrentXValue()
-      : candlestick.getCurrentXValue();
-    const startIndex = currentX === null
-      ? -1
-      : candles.findIndex(candle => candle.x === currentX);
     if (startIndex >= 0) {
       trace.setInitialPosition(startIndex);
     }
@@ -210,7 +232,6 @@ export class CandlestickDeltaService implements Disposable {
       this.anchor = previous;
     }
     this.deltaTrace = trace;
-    this.selectedReferenceId = referenceId;
 
     this.rotor.resetToDataMode();
     if (!wasActive) {

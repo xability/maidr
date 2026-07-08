@@ -111,6 +111,12 @@ function createHarness(): Harness {
   const toggleFocus = jest.fn();
   const display = { toggleFocus } as unknown as DisplayService;
   const service = new CandlestickDeltaService(context, notification, display, rotor);
+  // The moving averages start one day after the candles (2026-01-01 is
+  // uncovered), and the delta layer only activates where the current candle
+  // has a delta. Park the candlestick on the first covered candle so the
+  // activation tests exercise the success path; the refusal tests move back to
+  // 2026-01-01 explicitly.
+  (context.active as Trace).moveToXValue('2026-01-02');
   return { context, service, rotor, notify, toggleFocus };
 }
 
@@ -177,6 +183,35 @@ describe('candlestickDeltaService activation', () => {
     // An unresolvable reference must not clobber the working selection.
     expect(service.activate('ma-layer:9')).toBe(false);
     expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('refuses and alerts when the current candle has no reference value', () => {
+    const { context, service, notify, toggleFocus } = createHarness();
+    // 2026-01-01 is before the moving average starts — no delta there.
+    (context.active as Trace).moveToXValue('2026-01-01');
+
+    expect(service.activate('ma-layer:0')).toBe(false);
+    expect(service.isActive).toBe(false);
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining('does not reach this candle'),
+    );
+    // The virtual layer must not have been swapped in.
+    expect(context.active.constructor.name).toBe('Candlestick');
+    expect(toggleFocus).not.toHaveBeenCalledWith(Scope.CANDLESTICK_DELTA);
+    // The reference is still remembered so a later Alt L can use it.
+    expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('activates from a covered candle after a refusal on an uncovered one', () => {
+    const { context, service } = createHarness();
+    (context.active as Trace).moveToXValue('2026-01-01');
+    expect(service.activate('ma-layer:0')).toBe(false);
+
+    // Move onto a covered candle and toggle on via the remembered reference.
+    (context.active as Trace).moveToXValue('2026-01-03');
+    expect(service.activate()).toBe(true);
+    expect(service.isActive).toBe(true);
+    expect((context.active as CandlestickDeltaTrace).getCurrentXValue()).toBe('2026-01-03');
   });
 
   test('starts on the candle the user was on when it exists in the delta domain', () => {
