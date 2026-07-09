@@ -167,9 +167,10 @@ const FIGURE_LABEL_KEYMAP = {
 
   // Description
   // Mirrors TRACE_LABEL so the figure lobby exposes the same L-chord labels
-  // (l x / l y / l t / l s / l c) as an individual subplot.
+  // (l x / l y / l z / l t / l s / l c) as an individual subplot.
   ANNOUNCE_X: key(`x`, 'Announce X Label'),
   ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
+  ANNOUNCE_Z: key(`z`, 'Announce Z Label'),
   ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
   ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),

@@ -4,7 +4,7 @@ import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { PlotState } from '@type/state';
-import { AnnounceXCommand, AnnounceYCommand } from '@command/describe';
+import { AnnounceXCommand, AnnounceYCommand, AnnounceZCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
 
@@ -161,6 +161,64 @@ describe('AnnounceYCommand at the figure lobby', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith('Y label is not available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+});
+
+describe('AnnounceZCommand at the figure lobby', () => {
+  test('announces the active subplot trace Z label from figure-level state', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const state = {
+      empty: false,
+      type: 'figure',
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: {
+          empty: false,
+          type: 'trace',
+          text: { z: { label: 'Trend', value: 'up' } },
+        },
+      },
+    } as unknown as PlotState;
+    const command = new AnnounceZCommand(
+      createMockContext(state),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Z label is Trend');
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('falls back to "not available" when the active trace has no z data', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const state = {
+      empty: false,
+      type: 'figure',
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: { empty: false, type: 'trace', text: {} },
+      },
+    } as unknown as PlotState;
+    const command = new AnnounceZCommand(
+      createMockContext(state),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Z-axis is not available');
     expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
   });
 });

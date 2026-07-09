@@ -67,16 +67,19 @@ abstract class AnnounceCommand implements Command {
   }
 
   /**
-   * Resolves the populated trace state whose axis labels should be announced,
-   * regardless of the current navigation level:
+   * Resolves the populated trace state whose labels (x / y / z) should be
+   * announced, regardless of the current navigation level:
    *  - trace level: the active trace itself;
-   *  - figure lobby (multi-panel) or subplot level: the active subplot's
-   *    active trace, whose axes are shared across the figure's panels.
+   *  - figure lobby (multi-panel) or subplot level: the *currently focused*
+   *    subplot's active trace. In a facet figure every panel shares the same
+   *    axes, so this is the figure-wide label; in a general multi-panel figure
+   *    each panel may differ, so the announcement tracks whichever subplot the
+   *    cursor is on (and updates as the user navigates between subplots).
    *
    * Returns null when no populated trace is reachable (e.g. an empty state),
    * so callers can fall back to an "unavailable" announcement.
    */
-  protected resolveAxisTraceState(): NonEmptyTraceState | null {
+  protected resolveActiveTraceState(): NonEmptyTraceState | null {
     const state = this.context.state;
     if (state.empty) {
       return null;
@@ -120,12 +123,12 @@ export class AnnounceXCommand extends AnnounceCommand {
   /**
    * Executes the command to display the X-axis label.
    *
-   * Works at the figure lobby too: {@link resolveAxisTraceState} reads the
+   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
    * active subplot's trace so `l x` announces the shared X label in
    * multi-panel/facet figures, not just when a single trace is active.
    */
   public execute(): void {
-    const traceState = this.resolveAxisTraceState();
+    const traceState = this.resolveActiveTraceState();
     if (traceState !== null) {
       const text = this.textService.isTerse()
         ? traceState.xAxis
@@ -167,12 +170,12 @@ export class AnnounceYCommand extends AnnounceCommand {
   /**
    * Executes the command to display the Y-axis label.
    *
-   * Works at the figure lobby too: {@link resolveAxisTraceState} reads the
+   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
    * active subplot's trace so `l y` announces the shared Y label in
    * multi-panel/facet figures, not just when a single trace is active.
    */
   public execute(): void {
-    const traceState = this.resolveAxisTraceState();
+    const traceState = this.resolveActiveTraceState();
     if (traceState !== null) {
       const text = this.textService.isTerse()
         ? traceState.yAxis
@@ -217,13 +220,17 @@ export class AnnounceZCommand extends AnnounceCommand {
    * Executes the command to display the z (level) information.
    * Checks for valid z-axis data which is in state.text.z with label and value properties.
    * Supports: candlestick (trend), heatmap (z), segmented bars (level), multi-line (group).
+   *
+   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
+   * active subplot's trace so `l z` announces its level/group label in
+   * multi-panel/facet figures, degrading to "not available" for chart types
+   * (e.g. box, single-line) that have no z.
    */
   public execute(): void {
-    const state = this.context.state;
+    const traceState = this.resolveActiveTraceState();
 
-    // Check if we have valid z-axis data
     // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line)
-    const zData = state.type === 'trace' && !state.empty ? state.text.z : undefined;
+    const zData = traceState?.text.z;
     const hasValidZ = zData !== undefined
       && zData.value !== undefined
       && zData.value !== null
