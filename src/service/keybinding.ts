@@ -194,9 +194,9 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
-  // Title/subtitle/caption/axis labels are reached through the label scope
-  // (l t / l x / l y / l s / l c), matching an individual subplot where a bare
-  // 't' toggles Text mode rather than announcing the title.
+  // No bare label keys at the lobby: title / subtitle / caption / axis labels
+  // are reached through the label scope (l t / l x / l y / l z / l s / l c),
+  // consistent with an individual subplot (where a bare 't' toggles Text mode).
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 

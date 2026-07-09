@@ -28,11 +28,12 @@ function figureLobbyState(xAxis: string, yAxis: string, index = 2): PlotState {
 interface ContextOverrides {
   figureXAxis?: string;
   figureYAxis?: string;
+  scope?: Scope;
 }
 
 function createMockContext(state: PlotState, overrides: ContextOverrides = {}): Context {
   return {
-    scope: Scope.FIGURE_LABEL,
+    scope: overrides.scope ?? Scope.FIGURE_LABEL,
     state,
     figureXAxis: overrides.figureXAxis ?? '',
     figureYAxis: overrides.figureYAxis ?? '',
@@ -115,7 +116,7 @@ describe('AnnounceXCommand at the figure lobby', () => {
       yAxis: 'Count',
     } as unknown as PlotState;
     const command = new AnnounceXCommand(
-      createMockContext(state),
+      createMockContext(state, { scope: Scope.TRACE_LABEL }),
       textViewModel,
       createMockAudioService(),
       createMockTextService(),

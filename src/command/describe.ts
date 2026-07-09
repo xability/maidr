@@ -87,14 +87,20 @@ abstract class AnnounceCommand implements Command {
     if (state.type === 'trace') {
       return state;
     }
+    // Defensive: at runtime the context stack never holds a bare Subplot (it is
+    // always paired with a Trace on top, see Context.enterSubplot), so this
+    // branch is unreachable in practice — kept for completeness like the
+    // 'subplot' fallback in AnnounceTitleCommand.
     if (state.type === 'subplot') {
       return state.trace.empty ? null : state.trace;
     }
-    // Figure lobby: read the active subplot's active trace.
-    if (state.subplot.empty || state.subplot.trace.empty) {
+    // Figure lobby: read the focused subplot's active trace. Narrow the
+    // subplot to its non-empty variant first so `trace` is well-typed.
+    const subplot = state.subplot;
+    if (subplot.empty || subplot.trace.empty) {
       return null;
     }
-    return state.subplot.trace;
+    return subplot.trace;
   }
 
   /**
