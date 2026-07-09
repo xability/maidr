@@ -196,7 +196,7 @@ const SUBPLOT_KEYMAP = {
   // Description
   // No bare label keys at the lobby: title / subtitle / caption / axis labels
   // are reached through the label scope (l t / l x / l y / l z / l s / l c),
-  // consistent with an individual subplot (where a bare 't' toggles Text mode).
+  // consistent with trace scope, where a bare 't' toggles Text mode.
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 

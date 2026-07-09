@@ -190,6 +190,42 @@ describe('AnnounceYCommand at the figure lobby', () => {
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 
+  test('announces just the value in terse mode (no subplot prefix)', () => {
+    const textViewModel = createMockTextViewModel();
+    const command = new AnnounceYCommand(
+      createMockContext(figureLobbyState('Month', 'Sales')),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(true),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Sales');
+  });
+
+  test('still announces the trace Y label at trace level (single-panel)', () => {
+    const textViewModel = createMockTextViewModel();
+    const state = {
+      empty: false,
+      type: 'trace',
+      xAxis: 'Year',
+      yAxis: 'Count',
+    } as unknown as PlotState;
+    const command = new AnnounceYCommand(
+      createMockContext(state, { scope: Scope.TRACE_LABEL }),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Y label is Count');
+  });
+
   test('falls back to "not available" when the active state is empty', () => {
     const textViewModel = createMockTextViewModel();
     const audioService = createMockAudioService();
@@ -239,6 +275,55 @@ describe('AnnounceZCommand at the figure lobby', () => {
 
     expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2, Z label is Trend');
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('announces just the value in terse mode (no subplot prefix)', () => {
+    const textViewModel = createMockTextViewModel();
+    const state = {
+      empty: false,
+      type: 'figure',
+      index: 2,
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: {
+          empty: false,
+          type: 'trace',
+          text: { z: { label: 'Trend', value: 'up' } },
+        },
+      },
+    } as unknown as PlotState;
+    const command = new AnnounceZCommand(
+      createMockContext(state),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(true),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Trend');
+  });
+
+  test('announces the trace Z label at trace level (single-panel)', () => {
+    const textViewModel = createMockTextViewModel();
+    const state = {
+      empty: false,
+      type: 'trace',
+      text: { z: { label: 'Trend', value: 'up' } },
+    } as unknown as PlotState;
+    const command = new AnnounceZCommand(
+      createMockContext(state, { scope: Scope.TRACE_LABEL }),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Z label is Trend');
   });
 
   test('falls back to "not available" when the active trace has no z data', () => {
