@@ -106,6 +106,9 @@ describe('descriptionService figure-level description', () => {
     expect(description!.stats).toEqual([{ label: 'Subplots', value: 4 }]);
   });
 
+  // Documents the defensive null contract that DescriptionViewModel's guard
+  // relies on. Figure.state never actually yields an empty variant at runtime
+  // (see getDescription's comment), so this fabricates one via the mock.
   test('returns null for an empty figure state', () => {
     const context = createMockContext({
       state: { empty: true, type: 'figure' } as unknown as PlotState,

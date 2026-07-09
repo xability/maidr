@@ -50,6 +50,13 @@ export class DescriptionService {
     // bare Figure exactly when it is at figure level (Context.isFigureLevel),
     // and a Subplot is always paired with a Trace on top (see enterSubplot), so
     // a Subplot is never the active element on its own.
+    //
+    // The `!state.empty` check is required to narrow to the populated
+    // FigureState variant (which carries `size`); `Figure.state` never returns
+    // the empty variant in practice (that only comes from `outOfBoundsState`,
+    // which is delivered straight to observers, not via this getter). The final
+    // `return null` is therefore defensive against the declared PlotState type
+    // rather than a reachable runtime path.
     const state = active.state;
     if (state.type === 'figure' && !state.empty) {
       return this.getFigureDescription(state.size);
