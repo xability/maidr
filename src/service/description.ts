@@ -45,6 +45,11 @@ export class DescriptionService {
     // Multi-panel lobby: the active element is the Figure itself (the user has
     // not entered a subplot yet), so there is no trace to introspect.
     // Summarize the whole figure instead so 'd' works at the figure level.
+    //
+    // Only 'figure' is handled here, not 'subplot': the Context stack pushes a
+    // bare Figure exactly when it is at figure level (Context.isFigureLevel),
+    // and a Subplot is always paired with a Trace on top (see enterSubplot), so
+    // a Subplot is never the active element on its own.
     const state = active.state;
     if (state.type === 'figure' && !state.empty) {
       return this.getFigureDescription(state.size);
@@ -57,8 +62,10 @@ export class DescriptionService {
    * Builds a figure-level description for a multi-panel figure's lobby view.
    * Surfaces the authored figure title, subplot count, and any authored
    * subtitle/caption, plus the per-subplot summaries so the user sees what
-   * is available before navigating in. Axes and a data table are omitted
-   * because those are trace-level concepts with no figure-level equivalent.
+   * is available before navigating in. Axes and the data table are left
+   * blank (empty object / no rows) because those are trace-level concepts
+   * with no figure-level equivalent; the description modal hides those
+   * empty sections.
    *
    * @param size - The number of subplots in the figure.
    * @returns The figure-level description state.
@@ -79,13 +86,17 @@ export class DescriptionService {
       stats.push({ label: 'Caption', value: caption });
     }
 
+    // Mirror the trace-level branch: only surface `subplots` when there is at
+    // least one summary, matching the DescriptionState contract that the field
+    // is present only for genuine multi-panel figures.
+    const subplots = this.context.getSubplotSummaries();
     return {
       chartType: 'Multi-panel figure',
       title,
       axes: {},
       stats,
       dataTable: { headers: [], rows: [] },
-      subplots: this.context.getSubplotSummaries(),
+      ...(subplots.length > 0 && { subplots }),
     };
   }
 

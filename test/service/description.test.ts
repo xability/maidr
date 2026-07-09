@@ -81,6 +81,7 @@ describe('descriptionService figure-level description', () => {
     const service = new DescriptionService(context, createMockDisplayService());
     const description = service.getDescription();
 
+    expect(description).not.toBeNull();
     expect(description!.stats).toEqual([
       { label: 'Subplots', value: 3 },
       { label: 'Subtitle', value: 'A subtitle' },
@@ -100,6 +101,7 @@ describe('descriptionService figure-level description', () => {
     const service = new DescriptionService(context, createMockDisplayService());
     const description = service.getDescription();
 
+    expect(description).not.toBeNull();
     expect(description!.title).toBe('');
     expect(description!.stats).toEqual([{ label: 'Subplots', value: 4 }]);
   });
