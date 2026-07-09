@@ -344,6 +344,35 @@ describe('AnnounceTitleCommand', () => {
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 
+  test('announces just the focused subplot title in terse mode at the lobby', () => {
+    const context = createMockContext({
+      state: {
+        empty: false,
+        type: 'figure',
+        title: 'MAIDR Plot',
+        index: 2,
+        subplot: {
+          empty: false,
+          type: 'subplot',
+          trace: { empty: false, type: 'trace', title: 'Panel Two' },
+        },
+      } as unknown as PlotState,
+      authoredTitles: ['Panel Two'],
+    });
+    const textViewModel = createMockTextViewModel();
+    const command = new AnnounceTitleCommand(
+      context,
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(true),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Panel Two');
+  });
+
   test('announces "No title available" at the lobby when neither figure nor subplot title is authored', () => {
     const context = createMockContext({
       state: {
