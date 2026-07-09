@@ -12,10 +12,11 @@ import { Scope } from '@type/event';
  * Builds a figure-level PlotState (the multi-panel "figure lobby") whose active
  * subplot's active trace carries the given axis labels.
  */
-function figureLobbyState(xAxis: string, yAxis: string): PlotState {
+function figureLobbyState(xAxis: string, yAxis: string, index = 2): PlotState {
   return {
     empty: false,
     type: 'figure',
+    index,
     subplot: {
       empty: false,
       type: 'subplot',
@@ -61,11 +62,11 @@ describe('AnnounceXCommand at the figure lobby', () => {
 
     command.execute();
 
-    expect(textViewModel.update).toHaveBeenCalledWith('X label is Month');
+    expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2, X label is Month');
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 
-  test('announces just the value in terse mode', () => {
+  test('announces just the value in terse mode (no subplot prefix)', () => {
     const textViewModel = createMockTextViewModel();
     const command = new AnnounceXCommand(
       createMockContext(figureLobbyState('Month', 'Sales')),
@@ -142,7 +143,7 @@ describe('AnnounceYCommand at the figure lobby', () => {
 
     command.execute();
 
-    expect(textViewModel.update).toHaveBeenCalledWith('Y label is Sales');
+    expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2, Y label is Sales');
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 
@@ -172,6 +173,7 @@ describe('AnnounceZCommand at the figure lobby', () => {
     const state = {
       empty: false,
       type: 'figure',
+      index: 2,
       subplot: {
         empty: false,
         type: 'subplot',
@@ -192,7 +194,7 @@ describe('AnnounceZCommand at the figure lobby', () => {
 
     command.execute();
 
-    expect(textViewModel.update).toHaveBeenCalledWith('Z label is Trend');
+    expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2, Z label is Trend');
     expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 

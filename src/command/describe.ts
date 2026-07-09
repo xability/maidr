@@ -96,6 +96,27 @@ abstract class AnnounceCommand implements Command {
     }
     return state.subplot.trace;
   }
+
+  /**
+   * Prefix that names which subplot an announced label belongs to.
+   *
+   * At the multi-panel figure lobby the cursor sits on one subplot at a time
+   * and each panel may carry different axes, so an axis/level announcement is
+   * prefixed with the focused subplot's position (e.g. "Subplot 2, "). Returns
+   * an empty string once the user is inside a subplot (trace/subplot level) or
+   * in a single-panel figure, where the source is already unambiguous — and in
+   * terse mode, which stays minimal by design.
+   */
+  protected labelSourcePrefix(): string {
+    if (this.textService.isTerse()) {
+      return '';
+    }
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      return `Subplot ${state.index}, `;
+    }
+    return '';
+  }
 }
 
 /**
@@ -132,7 +153,7 @@ export class AnnounceXCommand extends AnnounceCommand {
     if (traceState !== null) {
       const text = this.textService.isTerse()
         ? traceState.xAxis
-        : `X label is ${traceState.xAxis}`;
+        : `${this.labelSourcePrefix()}X label is ${traceState.xAxis}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
@@ -179,7 +200,7 @@ export class AnnounceYCommand extends AnnounceCommand {
     if (traceState !== null) {
       const text = this.textService.isTerse()
         ? traceState.yAxis
-        : `Y label is ${traceState.yAxis}`;
+        : `${this.labelSourcePrefix()}Y label is ${traceState.yAxis}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
@@ -240,7 +261,7 @@ export class AnnounceZCommand extends AnnounceCommand {
       const zLabel = zData!.label;
       const text = this.textService.isTerse()
         ? zLabel
-        : `Z label is ${zLabel}`;
+        : `${this.labelSourcePrefix()}Z label is ${zLabel}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
