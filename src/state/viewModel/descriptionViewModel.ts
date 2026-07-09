@@ -49,6 +49,12 @@ export class DescriptionViewModel extends AbstractViewModel<DescriptionMenuState
     const isCurrentlyOpen = this.store.getState().description.data !== null;
     if (!isCurrentlyOpen) {
       const data = this.descriptionService.getDescription();
+      // Nothing to describe: don't enter the DESCRIPTION scope, which would
+      // otherwise trap the user in an invisible modal (Description renders
+      // nothing for null data) recoverable only via Escape.
+      if (data === null) {
+        return;
+      }
       this.store.dispatch(setDescription(data));
     } else {
       this.store.dispatch(setDescription(null));
