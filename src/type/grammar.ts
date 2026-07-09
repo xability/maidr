@@ -169,6 +169,23 @@ export interface Maidr {
   /** Chart caption. */
   caption?: string;
   /**
+   * Optional figure-wide axis labels shared across every subplot — e.g. a facet
+   * grid whose panels all sit on one common X and Y axis drawn at the figure
+   * margins. Each axis is an {@link AxisConfig} object (same shape as a layer's
+   * axes); only `label` is read at the figure level.
+   *
+   * When present and authored, the figure lobby's `l x` / `l y` announce these
+   * as the figure-wide label; when omitted they fall back to the focused
+   * subplot's own axis, so existing charts are unaffected.
+   *
+   * @example
+   * axes: { x: { label: "Year" }, y: { label: "Revenue" } }
+   */
+  axes?: {
+    x?: AxisConfig;
+    y?: AxisConfig;
+  };
+  /**
    * 2D grid of subplots. Each row is an array of subplots.
    * For a single chart, use `[[{ layers: [...] }]]`.
    */

@@ -25,10 +25,18 @@ function figureLobbyState(xAxis: string, yAxis: string, index = 2): PlotState {
   } as unknown as PlotState;
 }
 
-function createMockContext(state: PlotState): Context {
+interface ContextOverrides {
+  figureXAxis?: string;
+  figureYAxis?: string;
+}
+
+function createMockContext(state: PlotState, overrides: ContextOverrides = {}): Context {
   return {
     scope: Scope.FIGURE_LABEL,
     state,
+    figureXAxis: overrides.figureXAxis ?? '',
+    figureYAxis: overrides.figureYAxis ?? '',
+    isAuthoredAxisLabel: (label: string) => label.trim() !== '',
   } as unknown as Context;
 }
 
@@ -49,7 +57,24 @@ function createMockDisplayService(): DisplayService {
 }
 
 describe('AnnounceXCommand at the figure lobby', () => {
-  test('announces the active subplot trace X label from figure-level state', () => {
+  test('prefers an authored figure-wide X label over the subplot fallback', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceXCommand(
+      createMockContext(figureLobbyState('Month', 'Sales'), { figureXAxis: 'Fiscal Year' }),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Figure X label is Fiscal Year');
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('falls back to the focused subplot X label when no figure-wide label is authored', () => {
     const textViewModel = createMockTextViewModel();
     const audioService = createMockAudioService();
     const command = new AnnounceXCommand(
@@ -130,7 +155,24 @@ describe('AnnounceXCommand at the figure lobby', () => {
 });
 
 describe('AnnounceYCommand at the figure lobby', () => {
-  test('announces the active subplot trace Y label from figure-level state', () => {
+  test('prefers an authored figure-wide Y label over the subplot fallback', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceYCommand(
+      createMockContext(figureLobbyState('Month', 'Sales'), { figureYAxis: 'Total Revenue' }),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Figure Y label is Total Revenue');
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('falls back to the focused subplot Y label when no figure-wide label is authored', () => {
     const textViewModel = createMockTextViewModel();
     const audioService = createMockAudioService();
     const command = new AnnounceYCommand(

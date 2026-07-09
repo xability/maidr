@@ -10,7 +10,7 @@ import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
-import { DEFAULT_CAPTION, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from './plot';
+import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from './plot';
 
 /**
  * Build a human-readable plot type string with optional orientation prefix.
@@ -454,6 +454,44 @@ export class Context implements Disposable {
       return figureState.caption;
     }
     return DEFAULT_CAPTION;
+  }
+
+  /**
+   * Returns the figure-wide X axis label (shared across all subplots), or the
+   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
+   * to distinguish an authored figure-level label from the absent default.
+   */
+  public get figureXAxis(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.xAxis;
+    }
+    return DEFAULT_FIGURE_AXIS;
+  }
+
+  /**
+   * Returns the figure-wide Y axis label (shared across all subplots), or the
+   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
+   * to distinguish an authored figure-level label from the absent default.
+   */
+  public get figureYAxis(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.yAxis;
+    }
+    return DEFAULT_FIGURE_AXIS;
+  }
+
+  /**
+   * Returns true when the given axis label came from the MAIDR JSON's
+   * figure-level `axes`, i.e. it is not the empty absent-default. Unlike layer
+   * axes (which default to 'X'/'Y'), a figure-wide label is only meaningful
+   * when explicitly authored, so an empty value means "fall back to the focused
+   * subplot".
+   * @param {string} label - The figure-level axis label to check.
+   */
+  public isAuthoredAxisLabel(label: string): boolean {
+    return label.trim() !== '' && label !== DEFAULT_FIGURE_AXIS;
   }
 
   public toggleScope(scope: Scope): void {

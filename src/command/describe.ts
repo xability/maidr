@@ -117,6 +117,23 @@ abstract class AnnounceCommand implements Command {
     }
     return '';
   }
+
+  /**
+   * The authored figure-wide axis label to announce at the multi-panel figure
+   * lobby, or null when none was authored (so the caller falls back to the
+   * focused subplot's own axis). Only applies at the lobby (figure state):
+   * once the user is inside a subplot the trace's own axis is authoritative,
+   * so this returns null there and existing single-panel behavior is untouched.
+   * @param {'x' | 'y'} axis - Which figure-wide axis label to resolve.
+   */
+  protected figureWideAxisLabel(axis: 'x' | 'y'): string | null {
+    const state = this.context.state;
+    if (state.type !== 'figure' || state.empty) {
+      return null;
+    }
+    const label = axis === 'x' ? this.context.figureXAxis : this.context.figureYAxis;
+    return this.context.isAuthoredAxisLabel(label) ? label : null;
+  }
 }
 
 /**
@@ -144,11 +161,22 @@ export class AnnounceXCommand extends AnnounceCommand {
   /**
    * Executes the command to display the X-axis label.
    *
-   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
-   * active subplot's trace so `l x` announces the shared X label in
-   * multi-panel/facet figures, not just when a single trace is active.
+   * Precedence at the figure lobby: an authored figure-wide X label wins
+   * ("Figure X label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, X label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged.
    */
   public execute(): void {
+    const figureLabel = this.figureWideAxisLabel('x');
+    if (figureLabel !== null) {
+      const text = this.textService.isTerse()
+        ? figureLabel
+        : `Figure X label is ${figureLabel}`;
+      this.textViewModel.update(text);
+      this.restoreScope();
+      return;
+    }
+
     const traceState = this.resolveActiveTraceState();
     if (traceState !== null) {
       const text = this.textService.isTerse()
@@ -191,11 +219,22 @@ export class AnnounceYCommand extends AnnounceCommand {
   /**
    * Executes the command to display the Y-axis label.
    *
-   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
-   * active subplot's trace so `l y` announces the shared Y label in
-   * multi-panel/facet figures, not just when a single trace is active.
+   * Precedence at the figure lobby: an authored figure-wide Y label wins
+   * ("Figure Y label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, Y label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged.
    */
   public execute(): void {
+    const figureLabel = this.figureWideAxisLabel('y');
+    if (figureLabel !== null) {
+      const text = this.textService.isTerse()
+        ? figureLabel
+        : `Figure Y label is ${figureLabel}`;
+      this.textViewModel.update(text);
+      this.restoreScope();
+      return;
+    }
+
     const traceState = this.resolveActiveTraceState();
     if (traceState !== null) {
       const text = this.textService.isTerse()
@@ -303,7 +342,10 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    * defaults are treated as "no title". Announces "No title available"
    * when nothing was authored at either level.
    *
-   * - Figure-level scope (multi-panel): "Figure title is ...".
+   * - Figure-level scope (multi-panel): prefers the figure title as
+   *   "Figure title is ...", then falls back to the focused subplot's title as
+   *   "Subplot N title is ..." so the lobby still names the panel the cursor is
+   *   on when no figure title was authored.
    * - Trace-level scope, single-panel: prefers the layer title, then the
    *   figure title, announced as "Title is ...".
    * - Trace-level scope, multi-panel: prefers the layer title as
@@ -322,6 +364,15 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     if (state.type === 'figure') {
       if (this.context.isAuthoredTitle(state.title)) {
         this.announce(state.title, 'Figure title');
+        this.restoreScope();
+        return;
+      }
+      // No figure title: fall back to the focused subplot's own title.
+      const subplotTitle = !state.subplot.empty && !state.subplot.trace.empty
+        ? state.subplot.trace.title
+        : '';
+      if (this.context.isAuthoredTitle(subplotTitle)) {
+        this.announce(subplotTitle, `Subplot ${state.index} title`);
       } else {
         this.announceUnavailable();
       }

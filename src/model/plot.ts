@@ -22,6 +22,12 @@ import { MovableGrid } from './movable';
 export const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 export const DEFAULT_SUBTITLE = 'unavailable';
 export const DEFAULT_CAPTION = 'unavailable';
+/**
+ * Sentinel for a figure-wide axis label that the JSON did not author. Empty
+ * (rather than 'X'/'Y' like a layer axis) so callers can tell "no figure-level
+ * label" apart from an authored one and fall back to the focused subplot.
+ */
+export const DEFAULT_FIGURE_AXIS = '';
 
 /**
  * Represents a figure containing one or more subplots
@@ -40,6 +46,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   private readonly title: string;
   private readonly subtitle: string;
   private readonly caption: string;
+  private readonly xLabel: string;
+  private readonly yLabel: string;
 
   public readonly subplots: Subplot[][];
   private readonly size: number;
@@ -78,6 +86,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.title = maidr.title ?? DEFAULT_FIGURE_TITLE;
     this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
+    this.xLabel = maidr.axes?.x?.label ?? DEFAULT_FIGURE_AXIS;
+    this.yLabel = maidr.axes?.y?.label ?? DEFAULT_FIGURE_AXIS;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
     this.subplots = subplots.map(row =>
@@ -207,6 +217,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       title: this.title,
       subtitle: this.subtitle,
       caption: this.caption,
+      xAxis: this.xLabel,
+      yAxis: this.yLabel,
       size: this.size,
       index: currentIndex ?? 1,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),
