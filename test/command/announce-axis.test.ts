@@ -1,0 +1,166 @@
+import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
+import type { DisplayService } from '@service/display';
+import type { TextService } from '@service/text';
+import type { TextViewModel } from '@state/viewModel/textViewModel';
+import type { PlotState } from '@type/state';
+import { AnnounceXCommand, AnnounceYCommand } from '@command/describe';
+import { describe, expect, jest, test } from '@jest/globals';
+import { Scope } from '@type/event';
+
+/**
+ * Builds a figure-level PlotState (the multi-panel "figure lobby") whose active
+ * subplot's active trace carries the given axis labels.
+ */
+function figureLobbyState(xAxis: string, yAxis: string): PlotState {
+  return {
+    empty: false,
+    type: 'figure',
+    subplot: {
+      empty: false,
+      type: 'subplot',
+      trace: { empty: false, type: 'trace', xAxis, yAxis },
+    },
+  } as unknown as PlotState;
+}
+
+function createMockContext(state: PlotState): Context {
+  return {
+    scope: Scope.FIGURE_LABEL,
+    state,
+  } as unknown as Context;
+}
+
+function createMockTextViewModel(): TextViewModel {
+  return { update: jest.fn() } as unknown as TextViewModel;
+}
+
+function createMockTextService(terse = false): TextService {
+  return { isTerse: () => terse } as unknown as TextService;
+}
+
+function createMockAudioService(): AudioService {
+  return { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService;
+}
+
+function createMockDisplayService(): DisplayService {
+  return { exitLabelScope: jest.fn() } as unknown as DisplayService;
+}
+
+describe('AnnounceXCommand at the figure lobby', () => {
+  test('announces the active subplot trace X label from figure-level state', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceXCommand(
+      createMockContext(figureLobbyState('Month', 'Sales')),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('X label is Month');
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('announces just the value in terse mode', () => {
+    const textViewModel = createMockTextViewModel();
+    const command = new AnnounceXCommand(
+      createMockContext(figureLobbyState('Month', 'Sales')),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(true),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Month');
+  });
+
+  test('still announces the trace X label at trace level (single-panel)', () => {
+    const textViewModel = createMockTextViewModel();
+    const state = {
+      empty: false,
+      type: 'trace',
+      xAxis: 'Year',
+      yAxis: 'Count',
+    } as unknown as PlotState;
+    const command = new AnnounceXCommand(
+      createMockContext(state),
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('X label is Year');
+  });
+
+  test('falls back to "not available" when the active trace is empty', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const state = {
+      empty: false,
+      type: 'figure',
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: { empty: true, type: 'trace' },
+      },
+    } as unknown as PlotState;
+    const command = new AnnounceXCommand(
+      createMockContext(state),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('X label is not available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+});
+
+describe('AnnounceYCommand at the figure lobby', () => {
+  test('announces the active subplot trace Y label from figure-level state', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const command = new AnnounceYCommand(
+      createMockContext(figureLobbyState('Month', 'Sales')),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Y label is Sales');
+    expect(audioService.playWarningToneIfEnabled).not.toHaveBeenCalled();
+  });
+
+  test('falls back to "not available" when the active state is empty', () => {
+    const textViewModel = createMockTextViewModel();
+    const audioService = createMockAudioService();
+    const state = { empty: true, type: 'figure' } as unknown as PlotState;
+    const command = new AnnounceYCommand(
+      createMockContext(state),
+      textViewModel,
+      audioService,
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Y label is not available');
+    expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+});

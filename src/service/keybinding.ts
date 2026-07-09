@@ -166,6 +166,10 @@ const FIGURE_LABEL_KEYMAP = {
   DEACTIVATE_FIGURE_LABEL_SCOPE: key(`escape`, 'Exit Label Mode', { showInHelp: false }),
 
   // Description
+  // Mirrors TRACE_LABEL so the figure lobby exposes the same L-chord labels
+  // (l x / l y / l t / l s / l c) as an individual subplot.
+  ANNOUNCE_X: key(`x`, 'Announce X Label'),
+  ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
   ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
   ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
@@ -189,7 +193,9 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
-  ANNOUNCE_TITLE: key(`t`, 'Announce Title'),
+  // Title/subtitle/caption/axis labels are reached through the label scope
+  // (l t / l x / l y / l s / l c), matching an individual subplot where a bare
+  // 't' toggles Text mode rather than announcing the title.
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 

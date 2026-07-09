@@ -54,16 +54,44 @@ abstract class AnnounceCommand implements Command {
    * the correct scope (TRACE, BRAILLE, etc.) regardless of which scope
    * was active before entering label mode.
    *
-   * Only exits when a label scope is actually active. These announce
-   * commands are also bound outside label mode (e.g. 't' at subplot/figure
-   * level); exiting unconditionally would flip navigation into TRACE scope
-   * via the stale focus stack and break subplot activation.
+   * Only exits when a label scope (TRACE_LABEL or FIGURE_LABEL) is actually
+   * active. Some announce commands can be invoked from non-label scopes;
+   * exiting unconditionally would flip navigation into TRACE scope via the
+   * stale focus stack and break subplot activation.
    */
   protected restoreScope(): void {
     const scope = this.context.scope;
     if (scope === Scope.TRACE_LABEL || scope === Scope.FIGURE_LABEL) {
       this.displayService.exitLabelScope();
     }
+  }
+
+  /**
+   * Resolves the populated trace state whose axis labels should be announced,
+   * regardless of the current navigation level:
+   *  - trace level: the active trace itself;
+   *  - figure lobby (multi-panel) or subplot level: the active subplot's
+   *    active trace, whose axes are shared across the figure's panels.
+   *
+   * Returns null when no populated trace is reachable (e.g. an empty state),
+   * so callers can fall back to an "unavailable" announcement.
+   */
+  protected resolveAxisTraceState(): NonEmptyTraceState | null {
+    const state = this.context.state;
+    if (state.empty) {
+      return null;
+    }
+    if (state.type === 'trace') {
+      return state;
+    }
+    if (state.type === 'subplot') {
+      return state.trace.empty ? null : state.trace;
+    }
+    // Figure lobby: read the active subplot's active trace.
+    if (state.subplot.empty || state.subplot.trace.empty) {
+      return null;
+    }
+    return state.subplot.trace;
   }
 }
 
@@ -91,13 +119,17 @@ export class AnnounceXCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the X-axis label.
+   *
+   * Works at the figure lobby too: {@link resolveAxisTraceState} reads the
+   * active subplot's trace so `l x` announces the shared X label in
+   * multi-panel/facet figures, not just when a single trace is active.
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
+    const traceState = this.resolveAxisTraceState();
+    if (traceState !== null) {
       const text = this.textService.isTerse()
-        ? state.xAxis
-        : `X label is ${state.xAxis}`;
+        ? traceState.xAxis
+        : `X label is ${traceState.xAxis}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
@@ -134,13 +166,17 @@ export class AnnounceYCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the Y-axis label.
+   *
+   * Works at the figure lobby too: {@link resolveAxisTraceState} reads the
+   * active subplot's trace so `l y` announces the shared Y label in
+   * multi-panel/facet figures, not just when a single trace is active.
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
+    const traceState = this.resolveAxisTraceState();
+    if (traceState !== null) {
       const text = this.textService.isTerse()
-        ? state.yAxis
-        : `Y label is ${state.yAxis}`;
+        ? traceState.yAxis
+        : `Y label is ${traceState.yAxis}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
