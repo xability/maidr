@@ -1,6 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { DescriptionState } from '@type/state';
+import type { DescriptionStat, DescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
 
@@ -41,7 +41,52 @@ export class DescriptionService {
         ...(subplots.length > 0 && { subplots }),
       };
     }
+
+    // Multi-panel lobby: the active element is the Figure itself (the user has
+    // not entered a subplot yet), so there is no trace to introspect.
+    // Summarize the whole figure instead so 'd' works at the figure level.
+    const state = active.state;
+    if (state.type === 'figure' && !state.empty) {
+      return this.getFigureDescription(state.size);
+    }
+
     return null;
+  }
+
+  /**
+   * Builds a figure-level description for a multi-panel figure's lobby view.
+   * Surfaces the authored figure title, subplot count, and any authored
+   * subtitle/caption, plus the per-subplot summaries so the user sees what
+   * is available before navigating in. Axes and a data table are omitted
+   * because those are trace-level concepts with no figure-level equivalent.
+   *
+   * @param size - The number of subplots in the figure.
+   * @returns The figure-level description state.
+   */
+  private getFigureDescription(size: number): DescriptionState {
+    const figureTitle = this.context.figureTitle;
+    const title = this.context.isAuthoredTitle(figureTitle) ? figureTitle : '';
+
+    const stats: DescriptionStat[] = [
+      { label: 'Subplots', value: size },
+    ];
+    const subtitle = this.context.figureSubtitle;
+    if (this.context.isAuthoredSubtitle(subtitle)) {
+      stats.push({ label: 'Subtitle', value: subtitle });
+    }
+    const caption = this.context.figureCaption;
+    if (this.context.isAuthoredCaption(caption)) {
+      stats.push({ label: 'Caption', value: caption });
+    }
+
+    return {
+      chartType: 'Multi-panel figure',
+      title,
+      axes: {},
+      stats,
+      dataTable: { headers: [], rows: [] },
+      subplots: this.context.getSubplotSummaries(),
+    };
   }
 
   /**

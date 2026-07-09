@@ -193,6 +193,9 @@ const SUBPLOT_KEYMAP = {
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
   // Navigation
   MOVE_UP: key(`up`, 'Move Up'),
   MOVE_DOWN: key(`down`, 'Move Down'),
