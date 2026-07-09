@@ -119,6 +119,8 @@ export class DescriptionService {
   private getFigureAxes(): DescriptionState['axes'] {
     const x = this.context.figureXAxis;
     const y = this.context.figureYAxis;
+    // Only x/y are figure-wide concepts; z (level/group/trend) is inherently
+    // per-trace, so there is no figure-level z to surface here.
     return {
       ...(this.context.isAuthoredAxisLabel(x) && { x }),
       ...(this.context.isAuthoredAxisLabel(y) && { y }),

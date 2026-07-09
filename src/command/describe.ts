@@ -140,6 +140,45 @@ abstract class AnnounceCommand implements Command {
     const label = axis === 'x' ? this.context.figureXAxis : this.context.figureYAxis;
     return this.context.isAuthoredAxisLabel(label) ? label : null;
   }
+
+  /**
+   * Shared X/Y axis announcement: an authored figure-wide label wins at the
+   * lobby ("Figure X label is ..."), otherwise the focused subplot's own axis
+   * is used ("Subplot N, X label is ...") — falling through to "not available"
+   * when no populated trace is reachable. Z is intentionally not routed here:
+   * it reads a different field (`text.z`) with different wording and has no
+   * figure-wide equivalent.
+   * @param {'x' | 'y'} axis - Which axis to announce.
+   */
+  protected announceAxisLabel(axis: 'x' | 'y'): void {
+    const axisName = axis === 'x' ? 'X' : 'Y';
+
+    const figureLabel = this.figureWideAxisLabel(axis);
+    if (figureLabel !== null) {
+      const text = this.textService.isTerse()
+        ? figureLabel
+        : `Figure ${axisName} label is ${figureLabel}`;
+      this.textViewModel.update(text);
+      this.restoreScope();
+      return;
+    }
+
+    const traceState = this.resolveActiveTraceState();
+    if (traceState !== null) {
+      const label = axis === 'x' ? traceState.xAxis : traceState.yAxis;
+      const text = this.textService.isTerse()
+        ? label
+        : `${this.labelSourcePrefix()}${axisName} label is ${label}`;
+      this.textViewModel.update(text);
+    } else {
+      const text = this.textService.isTerse()
+        ? 'unavailable'
+        : `${axisName} label is not available`;
+      this.textViewModel.update(text);
+      this.audioService.playWarningToneIfEnabled();
+    }
+    this.restoreScope();
+  }
 }
 
 /**
@@ -173,30 +212,7 @@ export class AnnounceXCommand extends AnnounceCommand {
    * subplot / single-panel the trace's own axis is used unchanged.
    */
   public execute(): void {
-    const figureLabel = this.figureWideAxisLabel('x');
-    if (figureLabel !== null) {
-      const text = this.textService.isTerse()
-        ? figureLabel
-        : `Figure X label is ${figureLabel}`;
-      this.textViewModel.update(text);
-      this.restoreScope();
-      return;
-    }
-
-    const traceState = this.resolveActiveTraceState();
-    if (traceState !== null) {
-      const text = this.textService.isTerse()
-        ? traceState.xAxis
-        : `${this.labelSourcePrefix()}X label is ${traceState.xAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'X label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('x');
   }
 }
 
@@ -231,30 +247,7 @@ export class AnnounceYCommand extends AnnounceCommand {
    * subplot / single-panel the trace's own axis is used unchanged.
    */
   public execute(): void {
-    const figureLabel = this.figureWideAxisLabel('y');
-    if (figureLabel !== null) {
-      const text = this.textService.isTerse()
-        ? figureLabel
-        : `Figure Y label is ${figureLabel}`;
-      this.textViewModel.update(text);
-      this.restoreScope();
-      return;
-    }
-
-    const traceState = this.resolveActiveTraceState();
-    if (traceState !== null) {
-      const text = this.textService.isTerse()
-        ? traceState.yAxis
-        : `${this.labelSourcePrefix()}Y label is ${traceState.yAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'Y label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('y');
   }
 }
 
