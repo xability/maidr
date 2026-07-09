@@ -55,9 +55,11 @@ abstract class AnnounceCommand implements Command {
    * was active before entering label mode.
    *
    * Only exits when a label scope (TRACE_LABEL or FIGURE_LABEL) is actually
-   * active. Some announce commands can be invoked from non-label scopes;
-   * exiting unconditionally would flip navigation into TRACE scope via the
-   * stale focus stack and break subplot activation.
+   * active. Every current caller (announce x/y/z/title/subtitle/caption) is
+   * bound only inside a label scope, so this guard is defensive: it keeps the
+   * command safe if a future keybinding ever invokes it from a non-label
+   * scope, where exiting unconditionally would flip navigation into TRACE
+   * scope via the stale focus stack and break subplot activation.
    */
   protected restoreScope(): void {
     const scope = this.context.scope;
