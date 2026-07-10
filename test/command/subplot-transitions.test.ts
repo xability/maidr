@@ -53,6 +53,15 @@ function createMockBrailleService(enabled: boolean): BrailleService {
   } as unknown as BrailleService;
 }
 
+/**
+ * Null-safe stand-in for Context.isAuthoredTitle: rejects the model's
+ * placeholder defaults and blank/undefined titles, so a trace mock without a
+ * `title` yields no authored title (matching a subplot that has none).
+ */
+function isAuthoredTitle(title?: string): boolean {
+  return !!title && title.trim() !== '' && title !== 'unavailable' && title !== 'MAIDR Plot';
+}
+
 describe('MoveToTraceContextCommand entry cue', () => {
   test('plays the enter tone and announces the entered subplot from the lobby', () => {
     const figureState = {
@@ -66,7 +75,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       empty: false,
       plotType: 'bar',
     } as unknown as PlotState;
-    const context = { state: figureState } as unknown as Context;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
     (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = traceState;
     });
@@ -98,7 +107,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       index: 1,
       size: 3,
     } as unknown as PlotState;
-    const context = { state: figureState } as unknown as Context;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
     (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
@@ -128,7 +137,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       index: 2,
       size: 4,
     } as unknown as PlotState;
-    const context = { state: figureState } as unknown as Context;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
     (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
@@ -156,9 +165,9 @@ describe('MoveToTraceContextCommand entry cue', () => {
     expect(notificationService.notify).not.toHaveBeenCalled();
   });
 
-  test('announces a terse entry message in terse mode', () => {
+  test('announces a terse entry message (no title) in terse mode', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
-    const context = { state: figureState } as unknown as Context;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
     (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
@@ -179,12 +188,42 @@ describe('MoveToTraceContextCommand entry cue', () => {
 
     command.execute();
 
-    expect(notificationService.notify).toHaveBeenCalledWith('Subplot 2 of 4');
+    // Terse drops the "of N" framing; with no authored subplot title the panel
+    // is named on its own.
+    expect(notificationService.notify).toHaveBeenCalledWith('Subplot 2');
+  });
+
+  test('announces the subplot title in terse mode when the subplot has one', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
+    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+      (context as { state: PlotState }).state = {
+        type: 'trace',
+        empty: false,
+        plotType: 'bar',
+        title: 'Sales in North',
+      } as unknown as PlotState;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToTraceContextCommand(
+      context,
+      createMockBrailleService(false),
+      createMockDisplayService(),
+      createMockAudioService(),
+      notificationService,
+      createMockTextService('terse'),
+    );
+
+    command.execute();
+
+    // Terse names the panel and its authored title, without "of N".
+    expect(notificationService.notify).toHaveBeenCalledWith('Subplot 2, Sales in North');
   });
 
   test('plays the tone but announces nothing in OFF text mode', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
-    const context = { state: figureState } as unknown as Context;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
     (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',

@@ -275,8 +275,24 @@ export class MoveToTraceContextCommand implements Command {
       // reordered by the focus move. The enter cue tone still plays either way.
       if (!brailleEnabled) {
         const active = this.context.state;
-        const plotType = active.type === 'trace' && !active.empty ? active.plotType : '';
-        const message = subplotEntryMessage(this.textService, lobby.index, lobby.size, plotType);
+        let plotType = '';
+        let title = '';
+        if (active.type === 'trace' && !active.empty) {
+          plotType = active.plotType;
+          // The entered subplot's title is stored on its active trace; keep
+          // only authored titles so terse entry can name the panel (e.g. a
+          // facet label) and skip the model's placeholder defaults.
+          if (this.context.isAuthoredTitle(active.title)) {
+            title = active.title;
+          }
+        }
+        const message = subplotEntryMessage(
+          this.textService,
+          lobby.index,
+          lobby.size,
+          plotType,
+          title,
+        );
         if (message) {
           this.notificationService.notify(message);
         }
