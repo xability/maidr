@@ -46,6 +46,12 @@ const MENU_TONE_SPACE = 0.05; // gap so the two notes read as an arpeggio, not a
 const MENU_TONE_VOLUME_SCALE = 0.5; // quieter than data tones: "this is navigation"
 const MENU_OPEN_FREQUENCIES = [660, 990]; // rising: menu drops down
 const MENU_CLOSE_FREQUENCIES = [990, 660]; // falling: menu retracts
+// Subplot enter/exit cues: three-note arpeggios (C5-E5-G5) so they read as a
+// richer "stepping into / out of a panel" gesture, distinct from the two-note
+// modal open/close ticks above. Rising = descend into a subplot, falling =
+// come back out to the figure lobby.
+const SUBPLOT_ENTER_FREQUENCIES = [523.25, 659.25, 783.99]; // C5-E5-G5 rising
+const SUBPLOT_EXIT_FREQUENCIES = [783.99, 659.25, 523.25]; // G5-E5-C5 falling
 
 // 60 ms is short enough that rapid beeps don't blur together at the fastest
 // throttle interval, while still being long enough to be clearly audible as
@@ -783,6 +789,24 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   public playMenuCloseTone(): void {
     this.playMenuTone(MENU_CLOSE_FREQUENCIES);
+  }
+
+  /**
+   * Plays the "enter subplot" cue — a short rising three-note arpeggio — when
+   * the user activates a subplot from the multi-panel figure lobby. A
+   * navigational affordance, so it plays in any audio mode except OFF.
+   */
+  public playSubplotEnterTone(): void {
+    this.playMenuTone(SUBPLOT_ENTER_FREQUENCIES);
+  }
+
+  /**
+   * Plays the "exit subplot" cue — a short falling three-note arpeggio — when
+   * the user returns from a subplot to the figure lobby. Plays in any audio
+   * mode except OFF.
+   */
+  public playSubplotExitTone(): void {
+    this.playMenuTone(SUBPLOT_EXIT_FREQUENCIES);
   }
 
   /**

@@ -1,11 +1,33 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { NotificationService } from '@service/notification';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ExitBrailleAndSubplotCommand, MoveToTraceContextCommand } from '@command/move';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
+
+/**
+ * Creates a mock AudioService exposing the subplot enter/exit cue stubs.
+ */
+function createMockAudioService(): AudioService {
+  return {
+    playSubplotEnterTone: jest.fn(),
+    playSubplotExitTone: jest.fn(),
+    playWarningTone: jest.fn(),
+  } as unknown as AudioService;
+}
+
+/**
+ * Creates a mock NotificationService with a notify stub.
+ */
+function createMockNotificationService(): NotificationService {
+  return {
+    notify: jest.fn(),
+  } as unknown as NotificationService;
+}
 
 /**
  * Creates a mock CandlestickDeltaService with a discardActiveLayer stub.
@@ -203,7 +225,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(false);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createMockAudioService(), createMockNotificationService());
     command.execute();
 
     expect(context.enterSubplot).toHaveBeenCalled();
@@ -214,7 +236,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createMockAudioService(), createMockNotificationService());
     command.execute();
 
     expect(displayService.toggleFocus).toHaveBeenCalledWith(Scope.BRAILLE);
@@ -225,7 +247,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(false);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createMockAudioService(), createMockNotificationService());
     command.execute();
 
     expect(displayService.toggleFocus).not.toHaveBeenCalled();
@@ -238,7 +260,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createMockAudioService(), createMockNotificationService());
     command.execute();
 
     expect(brailleService.refreshDisplay).not.toHaveBeenCalled();

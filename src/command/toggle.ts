@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { MonitorService } from '@service/monitor';
+import type { NotificationService } from '@service/notification';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -20,25 +21,44 @@ import { Scope } from '@type/event';
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly notificationService: NotificationService;
+  private readonly audioService: AudioService;
 
   /**
    * Creates an instance of ToggleBrailleCommand.
    * @param {Context} context - The application context.
    * @param {BrailleViewModel} brailleViewModel - The braille view model.
+   * @param {NotificationService} notificationService - Announces the unsupported warning.
+   * @param {AudioService} audioService - Plays the warning tone.
    */
-  public constructor(context: Context, brailleViewModel: BrailleViewModel) {
+  public constructor(
+    context: Context,
+    brailleViewModel: BrailleViewModel,
+    notificationService: NotificationService,
+    audioService: AudioService,
+  ) {
     this.context = context;
     this.brailleViewModel = brailleViewModel;
+    this.notificationService = notificationService;
+    this.audioService = audioService;
   }
 
   /**
-   * Toggles the braille display if the current state is a trace state.
+   * Toggles the braille display when a trace is active. Above the trace level
+   * (e.g. the multi-panel figure lobby) there is no data series to render as
+   * braille, so instead of silently ignoring the key it announces a warning and
+   * plays a warning tone — mirroring how `l t` warns when text mode is off.
    */
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
       this.brailleViewModel.toggle(state);
+      return;
     }
+    this.notificationService.notify(
+      'Braille is not available here. Press Enter to select a subplot first.',
+    );
+    this.audioService.playWarningTone();
   }
 }
 

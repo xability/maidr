@@ -194,10 +194,9 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
-  // A bare 't' does nothing at the lobby: title / subtitle / caption / axis
-  // labels are reached only through the label scope (l t / l x / l y / l z /
-  // l s / l c). This mirrors trace scope, where 't' is bound to TOGGLE_TEXT, so
-  // labels there also live under the 'l' chord rather than on a bare key.
+  // Title / subtitle / caption / axis labels are reached through the label
+  // scope (l t / l x / l y / l z / l s / l c), not a bare key — mirroring trace
+  // scope, where a bare 't' is TOGGLE_TEXT (below) rather than the title.
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
@@ -217,6 +216,13 @@ const SUBPLOT_KEYMAP = {
 
   MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
+  // Modes
+  // Text and sonification toggles work at the lobby (they are global modes).
+  // Braille has no figure-level meaning, so pressing it here announces a
+  // "not available" warning (see ToggleBrailleCommand) rather than doing nothing.
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 

@@ -220,9 +220,9 @@ export class CommandFactory {
         return new MoveToRightExtremeCommand(this.context);
 
       case 'MOVE_TO_TRACE_CONTEXT':
-        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService);
+        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.audioService, this.notificationService);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context, this.displayService);
+        return new MoveToSubplotContextCommand(this.context, this.displayService, this.audioService, this.notificationService);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
         return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService);
       case 'MOVE_TO_NEXT_TRACE':
@@ -233,7 +233,7 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.brailleViewModel);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel, this.notificationService, this.audioService);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':

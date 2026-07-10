@@ -1,7 +1,9 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { NotificationService } from '@service/notification';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
 import { Scope } from '@type/event';
@@ -196,17 +198,29 @@ export class MoveToTraceContextCommand implements Command {
   private readonly context: Context;
   private readonly brailleService: BrailleService;
   private readonly displayService: DisplayService;
+  private readonly audioService: AudioService;
+  private readonly notificationService: NotificationService;
 
   /**
    * Creates an instance of MoveToTraceContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {BrailleService} brailleService - The braille service to check enabled state.
    * @param {DisplayService} displayService - The display service for managing focus.
+   * @param {AudioService} audioService - Plays the "enter subplot" cue.
+   * @param {NotificationService} notificationService - Announces the entry message.
    */
-  public constructor(context: Context, brailleService: BrailleService, displayService: DisplayService) {
+  public constructor(
+    context: Context,
+    brailleService: BrailleService,
+    displayService: DisplayService,
+    audioService: AudioService,
+    notificationService: NotificationService,
+  ) {
     this.context = context;
     this.brailleService = brailleService;
     this.displayService = displayService;
+    this.audioService = audioService;
+    this.notificationService = notificationService;
   }
 
   /**
@@ -216,10 +230,20 @@ export class MoveToTraceContextCommand implements Command {
    *
    * Note: we update the braille service directly rather than calling
    * notifyStateUpdate() on the trace, because notifying all observers
-   * would also trigger AudioService (playing a tone on entry) and other
-   * services. Only the braille display needs to be refreshed here.
+   * would also trigger AudioService (playing a data tone on entry) and other
+   * services. Only the braille display needs to be refreshed here. The
+   * entry cue below is a distinct navigational tone, not a data tone.
+   *
+   * On a successful entry (from the multi-panel lobby) it also plays the
+   * "enter subplot" cue and announces which subplot was activated, so the
+   * transition is not silent.
    */
   public execute(): void {
+    // Capture the lobby position before entering; enterSubplot() only acts when
+    // the active element is the figure, so a non-figure state means no entry.
+    const before = this.context.state;
+    const lobby = before.type === 'figure' && !before.empty ? before : null;
+
     this.context.enterSubplot();
     if (this.brailleService.isEnabled) {
       const state = this.context.state;
@@ -234,6 +258,24 @@ export class MoveToTraceContextCommand implements Command {
       // restore to the correct scope after exiting label mode.
       this.displayService.syncFocusStack(Scope.TRACE);
     }
+
+    if (lobby) {
+      this.audioService.playSubplotEnterTone();
+      this.notificationService.notify(this.buildEntryMessage(lobby.index, lobby.size));
+    }
+  }
+
+  /**
+   * Builds the entry announcement from the captured lobby position and the
+   * now-active trace, e.g. "Entered subplot 2 of 4, bar plot.".
+   * @param {number} index - 1-based visual position of the entered subplot.
+   * @param {number} size - Total number of subplots in the figure.
+   */
+  private buildEntryMessage(index: number, size: number): string {
+    const active = this.context.state;
+    const plotType = active.type === 'trace' && !active.empty ? active.plotType : '';
+    const suffix = plotType ? `, ${plotType} plot` : '';
+    return `Entered subplot ${index} of ${size}${suffix}.`;
   }
 }
 
@@ -243,19 +285,38 @@ export class MoveToTraceContextCommand implements Command {
 export class MoveToSubplotContextCommand implements Command {
   private readonly context: Context;
   private readonly displayService: DisplayService;
+  private readonly audioService: AudioService;
+  private readonly notificationService: NotificationService;
 
   /**
    * Creates an instance of MoveToSubplotContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {DisplayService} displayService - The display service for focus management.
+   * @param {AudioService} audioService - Plays the "exit subplot" cue.
+   * @param {NotificationService} notificationService - Announces the exit message.
    */
-  public constructor(context: Context, displayService: DisplayService) {
+  public constructor(
+    context: Context,
+    displayService: DisplayService,
+    audioService: AudioService,
+    notificationService: NotificationService,
+  ) {
     this.context = context;
     this.displayService = displayService;
+    this.audioService = audioService;
+    this.notificationService = notificationService;
   }
 
   /**
-   * Executes the move operation to exit the trace context and return to subplot.
+   * Executes the move operation to exit the trace context and return to the
+   * figure lobby.
+   *
+   * exitSubplot() already re-announces the figure position via the observer
+   * chain (TextViewModel.update clears any pending message). Announcing the
+   * exit cue *after* it therefore wins: notify() sets the message that overrides
+   * the nav value in the alert region, and React batches both synchronous
+   * dispatches into a single re-render, so the user hears one clear
+   * "Returned to figure overview" message plus the falling exit tone.
    */
   public execute(): void {
     this.context.exitSubplot();
@@ -265,7 +326,21 @@ export class MoveToSubplotContextCommand implements Command {
     // SUBPLOT here would introduce the opposite desync.
     if (this.context.scope === Scope.SUBPLOT) {
       this.displayService.syncFocusStack(Scope.SUBPLOT);
+      this.audioService.playSubplotExitTone();
+      this.notificationService.notify(this.buildExitMessage());
     }
+  }
+
+  /**
+   * Builds the exit announcement from the figure lobby position the user
+   * returned to, e.g. "Returned to figure overview, subplot 2 of 4.".
+   */
+  private buildExitMessage(): string {
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      return `Returned to figure overview, subplot ${state.index} of ${state.size}.`;
+    }
+    return 'Returned to figure overview.';
   }
 }
 
