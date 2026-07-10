@@ -166,8 +166,11 @@ abstract class AnnounceCommand implements Command {
     }
 
     const traceState = this.resolveActiveTraceState();
-    if (traceState !== null) {
-      const label = axis === 'x' ? traceState.xAxis : traceState.yAxis;
+    const label = traceState !== null ? (axis === 'x' ? traceState.xAxis : traceState.yAxis) : '';
+    // A blank / whitespace-only label is announced as "not available" (matching
+    // the title/subtitle/caption commands), so an authored `axes.x.label: ""`
+    // never speaks a bare "X label is ".
+    if (traceState !== null && label.trim() !== '') {
       const text = this.textService.isTerse()
         ? label
         : `${this.labelSourcePrefix()}${axisName} label is ${label}`;
@@ -211,7 +214,8 @@ export class AnnounceXCommand extends AnnounceCommand {
    * Precedence at the figure lobby: an authored figure-wide X label wins
    * ("Figure X label is ..."); otherwise {@link resolveActiveTraceState} reads
    * the focused subplot's trace ("Subplot N, X label is ..."). Inside a
-   * subplot / single-panel the trace's own axis is used unchanged.
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
     this.announceAxisLabel('x');
@@ -246,7 +250,8 @@ export class AnnounceYCommand extends AnnounceCommand {
    * Precedence at the figure lobby: an authored figure-wide Y label wins
    * ("Figure Y label is ..."); otherwise {@link resolveActiveTraceState} reads
    * the focused subplot's trace ("Subplot N, Y label is ..."). Inside a
-   * subplot / single-panel the trace's own axis is used unchanged.
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
     this.announceAxisLabel('y');
@@ -290,12 +295,16 @@ export class AnnounceZCommand extends AnnounceCommand {
   public execute(): void {
     const traceState = this.resolveActiveTraceState();
 
-    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line)
+    // text.z is optional and may be undefined for some chart types (e.g. box,
+    // single-line). A blank label is also rejected below so an authored
+    // `axes.z.label: ""` announces "not available" rather than a bare
+    // "Z label is ", matching the X/Y label commands.
     const zData = traceState?.text.z;
     const hasValidZ = zData !== undefined
       && zData.value !== undefined
       && zData.value !== null
-      && zData.value !== 'undefined';
+      && zData.value !== 'undefined'
+      && zData.label.trim() !== '';
 
     if (hasValidZ) {
       const zLabel = zData!.label;
