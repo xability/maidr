@@ -306,7 +306,7 @@ export class AnnounceZCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Z-axis is not available';
+        : 'Z label is not available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }

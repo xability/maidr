@@ -348,7 +348,7 @@ describe('AnnounceZCommand at the figure lobby', () => {
 
     command.execute();
 
-    expect(textViewModel.update).toHaveBeenCalledWith('Z-axis is not available');
+    expect(textViewModel.update).toHaveBeenCalledWith('Z label is not available');
     expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
   });
 });
