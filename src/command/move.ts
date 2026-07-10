@@ -185,14 +185,15 @@ export class MoveToRightExtremeCommand implements Command {
 }
 
 /**
- * Command to move into the trace context from the current subplot.
+ * Command to move into the trace context (activate a subplot from the
+ * multi-panel figure lobby).
  *
- * Architectural note: this command holds references to BrailleService and
- * DisplayService (not just Context) as a deliberate exception to the usual
- * pattern where commands only interact with the model layer. This is needed
- * because the model's notifyStateUpdate() cannot be used here without
- * triggering unwanted side effects (e.g. audio on entry). Do not copy this
- * pattern without similar justification.
+ * Besides Context it injects BrailleService, DisplayService, AudioService, and
+ * NotificationService, because it drives braille refresh, focus, the enter cue,
+ * and the entry announcement itself. It cannot lean on the model's
+ * notifyStateUpdate() to fan these out, because that would also fire the data
+ * audio tone (and other observers) on entry — so the command performs the
+ * needed feedback explicitly.
  */
 export class MoveToTraceContextCommand implements Command {
   private readonly context: Context;
@@ -245,7 +246,8 @@ export class MoveToTraceContextCommand implements Command {
     const lobby = before.type === 'figure' && !before.empty ? before : null;
 
     this.context.enterSubplot();
-    if (this.brailleService.isEnabled) {
+    const brailleEnabled = this.brailleService.isEnabled;
+    if (brailleEnabled) {
       const state = this.context.state;
       // After enterSubplot(), context.state should always be a trace.
       // The guard is defensive; if it fails, braille simply shows stale data.
@@ -261,7 +263,13 @@ export class MoveToTraceContextCommand implements Command {
 
     if (lobby) {
       this.audioService.playSubplotEnterTone();
-      this.notificationService.notify(this.buildEntryMessage(lobby.index, lobby.size));
+      // Skip the spoken entry alert when we just moved focus into the braille
+      // textarea: the braille display and the focus change are the feedback in
+      // that path, and a simultaneous role="alert" update can be clipped or
+      // reordered by the focus move. The enter cue tone still plays either way.
+      if (!brailleEnabled) {
+        this.notificationService.notify(this.buildEntryMessage(lobby.index, lobby.size));
+      }
     }
   }
 

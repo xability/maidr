@@ -107,6 +107,40 @@ describe('MoveToTraceContextCommand entry cue', () => {
     expect(notificationService.notify).toHaveBeenCalledWith('Entered subplot 1 of 3.');
   });
 
+  test('plays the enter tone but skips the spoken alert when braille is enabled', () => {
+    const figureState = {
+      type: 'figure',
+      empty: false,
+      index: 2,
+      size: 4,
+    } as unknown as PlotState;
+    const context = { state: figureState } as unknown as Context;
+    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+      (context as { state: PlotState }).state = {
+        type: 'trace',
+        empty: false,
+        plotType: 'bar',
+      } as unknown as PlotState;
+    });
+
+    const audioService = createMockAudioService();
+    const notificationService = createMockNotificationService();
+    const command = new MoveToTraceContextCommand(
+      context,
+      createMockBrailleService(true), // braille enabled -> focus moves to braille
+      createMockDisplayService(),
+      audioService,
+      notificationService,
+    );
+
+    command.execute();
+
+    // Tone still plays, but the alert is suppressed to avoid clashing with the
+    // braille focus change.
+    expect(audioService.playSubplotEnterTone).toHaveBeenCalled();
+    expect(notificationService.notify).not.toHaveBeenCalled();
+  });
+
   test('does not announce when the active element is not the figure lobby', () => {
     const context = {
       state: { type: 'trace', empty: false } as unknown as PlotState,

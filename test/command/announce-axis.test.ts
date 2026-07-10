@@ -128,6 +128,28 @@ describe('AnnounceXCommand at the figure lobby', () => {
     expect(textViewModel.update).toHaveBeenCalledWith('X label is Year');
   });
 
+  test('re-reads the focused subplot on each call (different axes per panel)', () => {
+    const textViewModel = createMockTextViewModel();
+    // A general multi-panel figure whose panels carry different X axes. Reusing
+    // one command instance proves the announcement reflects the currently
+    // focused subplot, not a cached one, as the user moves between panels.
+    const context = createMockContext(figureLobbyState('Month', 'Sales', 1));
+    const command = new AnnounceXCommand(
+      context,
+      textViewModel,
+      createMockAudioService(),
+      createMockTextService(),
+      createMockDisplayService(),
+    );
+
+    command.execute();
+    expect(textViewModel.update).toHaveBeenLastCalledWith('Subplot 1, X label is Month');
+
+    (context as { state: PlotState }).state = figureLobbyState('Week', 'Units', 3);
+    command.execute();
+    expect(textViewModel.update).toHaveBeenLastCalledWith('Subplot 3, X label is Week');
+  });
+
   test('falls back to "not available" when the active trace is empty', () => {
     const textViewModel = createMockTextViewModel();
     const audioService = createMockAudioService();
