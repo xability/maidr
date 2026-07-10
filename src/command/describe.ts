@@ -91,10 +91,16 @@ export class AnnounceXCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the X-axis label.
+   *
+   * An empty or whitespace-only label is treated as "not available" so the
+   * announcement stays consistent with the title/subtitle/caption commands,
+   * which reject blank values via {@link Context.isAuthoredTitle}. Without
+   * this guard a chart authored with `axes.x.label: ""` would announce a bare
+   * "X label is " with no value.
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
+    if (state.type === 'trace' && !state.empty && state.xAxis.trim() !== '') {
       const text = this.textService.isTerse()
         ? state.xAxis
         : `X label is ${state.xAxis}`;
@@ -134,10 +140,16 @@ export class AnnounceYCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the Y-axis label.
+   *
+   * An empty or whitespace-only label is treated as "not available" so the
+   * announcement stays consistent with the title/subtitle/caption commands,
+   * which reject blank values via {@link Context.isAuthoredTitle}. Without
+   * this guard a chart authored with `axes.y.label: ""` would announce a bare
+   * "Y label is " with no value.
    */
   public execute(): void {
     const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
+    if (state.type === 'trace' && !state.empty && state.yAxis.trim() !== '') {
       const text = this.textService.isTerse()
         ? state.yAxis
         : `Y label is ${state.yAxis}`;
@@ -186,12 +198,15 @@ export class AnnounceZCommand extends AnnounceCommand {
     const state = this.context.state;
 
     // Check if we have valid z-axis data
-    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line)
+    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line).
+    // A blank label is also rejected so an authored `axes.z.label: ""` is announced as
+    // "not available" rather than a bare "Z label is ", matching the X/Y label commands.
     const zData = state.type === 'trace' && !state.empty ? state.text.z : undefined;
     const hasValidZ = zData !== undefined
       && zData.value !== undefined
       && zData.value !== null
-      && zData.value !== 'undefined';
+      && zData.value !== 'undefined'
+      && zData.label.trim() !== '';
 
     if (hasValidZ) {
       const zLabel = zData!.label;
@@ -202,7 +217,7 @@ export class AnnounceZCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Z-axis is not available';
+        : 'Z label is not available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
