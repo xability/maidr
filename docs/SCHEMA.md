@@ -151,7 +151,10 @@ applies across all subplots:
   In the multi-panel lobby, `l x` / `l y` announce the figure-wide label when
   authored ("Figure X label is Year"); otherwise they fall back to the focused
   subplot's own axis ("Subplot 2, X label is ..."). Omitting `axes` keeps the
-  existing behavior, so this is fully backward compatible.
+  existing behavior, so this is fully backward compatible. Only `x` and `y` are
+  read at the figure level — there is no figure-wide `z`, since the Z axis is
+  inherently per-trace, so `l z` in the lobby always reports the focused
+  subplot's own Z label.
 
 ### Top-Level Properties for Live Charts
 
