@@ -307,7 +307,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     );
   });
 
-  test('announces a terse exit message in terse mode', () => {
+  test('announces a terse exit message (no title) in terse mode', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
     const context = { scope: Scope.TRACE, state: figureState } as unknown as Context;
     (context as { exitSubplot: () => void }).exitSubplot = jest.fn(() => {
@@ -325,7 +325,46 @@ describe('MoveToSubplotContextCommand exit cue', () => {
 
     command.execute();
 
-    expect(notificationService.notify).toHaveBeenCalledWith('Figure, subplot 2 of 4');
+    // Terse drops the "of N" framing; with no authored subplot title only the
+    // panel position is named.
+    expect(notificationService.notify).toHaveBeenCalledWith('Figure, subplot 2');
+  });
+
+  test('announces the subplot title in the terse exit message when the subplot has one', () => {
+    // After exiting, context.state is the figure lobby state whose focused
+    // subplot carries the title.
+    const figureState = {
+      type: 'figure',
+      empty: false,
+      index: 2,
+      size: 4,
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: { empty: false, type: 'trace', title: 'Sales in North' },
+      },
+    } as unknown as PlotState;
+    const context = {
+      scope: Scope.TRACE,
+      state: figureState,
+      isAuthoredTitle,
+    } as unknown as Context;
+    (context as { exitSubplot: () => void }).exitSubplot = jest.fn(() => {
+      (context as { scope: Scope }).scope = Scope.SUBPLOT;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToSubplotContextCommand(
+      context,
+      createMockDisplayService(),
+      createMockAudioService(),
+      notificationService,
+      createMockTextService('terse'),
+    );
+
+    command.execute();
+
+    expect(notificationService.notify).toHaveBeenCalledWith('Figure, subplot 2, Sales in North');
   });
 
   test('plays the exit tone but announces nothing in OFF text mode', () => {
