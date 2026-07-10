@@ -220,11 +220,11 @@ export class CommandFactory {
         return new MoveToRightExtremeCommand(this.context);
 
       case 'MOVE_TO_TRACE_CONTEXT':
-        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.audioService, this.notificationService);
+        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.audioService, this.notificationService, this.textService);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context, this.displayService, this.audioService, this.notificationService);
+        return new MoveToSubplotContextCommand(this.context, this.displayService, this.audioService, this.notificationService, this.textService);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
-        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService);
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.audioService, this.notificationService, this.textService);
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService);
       case 'MOVE_TO_PREV_TRACE':

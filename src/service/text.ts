@@ -246,6 +246,11 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted figure description text
    */
   private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+    // Terse: just the position and plot type(s), no framing or the "Press
+    // ENTER" prompt — keeps lobby navigation quick to scan.
+    if (this.mode === TextMode.TERSE) {
+      return `Subplot ${index} of ${size}, ${traceTypes.join(Constant.COMMA_SPACE)}`;
+    }
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
@@ -573,6 +578,24 @@ export class TextService implements Observer<PlotState>, Disposable {
     ) {
       if (this.mode !== TextMode.OFF) {
         const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
+        this.onChangeEmitter.fire({ value: text });
+      }
+      return;
+    }
+
+    // Figure-level out-of-bounds: navigating subplots in the multi-panel lobby
+    // and hitting an edge. Mirror the trace edge cue with subplot wording,
+    // respecting text mode (OFF silent, TERSE short, VERBOSE full). Returns
+    // early like the trace branch so the empty state does not overwrite
+    // `currentState` (the user stayed on the current subplot).
+    if (
+      state
+      && state.empty
+      && state.type === 'figure'
+      && !state.warning
+    ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.mode === TextMode.TERSE ? 'No more subplots' : 'No more subplots to display';
         this.onChangeEmitter.fire({ value: text });
       }
       return;

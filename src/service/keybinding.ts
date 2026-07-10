@@ -223,6 +223,7 @@ const SUBPLOT_KEYMAP = {
   TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
   TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
   TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 

@@ -4,9 +4,11 @@ import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
 import { Scope } from '@type/event';
+import { subplotEntryMessage, subplotExitMessage } from './subplotCue';
 
 /**
  * Command to move the current position one step upward.
@@ -201,6 +203,7 @@ export class MoveToTraceContextCommand implements Command {
   private readonly displayService: DisplayService;
   private readonly audioService: AudioService;
   private readonly notificationService: NotificationService;
+  private readonly textService: TextService;
 
   /**
    * Creates an instance of MoveToTraceContextCommand.
@@ -209,6 +212,7 @@ export class MoveToTraceContextCommand implements Command {
    * @param {DisplayService} displayService - The display service for managing focus.
    * @param {AudioService} audioService - Plays the "enter subplot" cue.
    * @param {NotificationService} notificationService - Announces the entry message.
+   * @param {TextService} textService - Provides the current text mode for the entry message.
    */
   public constructor(
     context: Context,
@@ -216,12 +220,14 @@ export class MoveToTraceContextCommand implements Command {
     displayService: DisplayService,
     audioService: AudioService,
     notificationService: NotificationService,
+    textService: TextService,
   ) {
     this.context = context;
     this.brailleService = brailleService;
     this.displayService = displayService;
     this.audioService = audioService;
     this.notificationService = notificationService;
+    this.textService = textService;
   }
 
   /**
@@ -268,22 +274,14 @@ export class MoveToTraceContextCommand implements Command {
       // that path, and a simultaneous role="alert" update can be clipped or
       // reordered by the focus move. The enter cue tone still plays either way.
       if (!brailleEnabled) {
-        this.notificationService.notify(this.buildEntryMessage(lobby.index, lobby.size));
+        const active = this.context.state;
+        const plotType = active.type === 'trace' && !active.empty ? active.plotType : '';
+        const message = subplotEntryMessage(this.textService, lobby.index, lobby.size, plotType);
+        if (message) {
+          this.notificationService.notify(message);
+        }
       }
     }
-  }
-
-  /**
-   * Builds the entry announcement from the captured lobby position and the
-   * now-active trace, e.g. "Entered subplot 2 of 4, bar plot.".
-   * @param {number} index - 1-based visual position of the entered subplot.
-   * @param {number} size - Total number of subplots in the figure.
-   */
-  private buildEntryMessage(index: number, size: number): string {
-    const active = this.context.state;
-    const plotType = active.type === 'trace' && !active.empty ? active.plotType : '';
-    const suffix = plotType ? `, ${plotType} plot` : '';
-    return `Entered subplot ${index} of ${size}${suffix}.`;
   }
 }
 
@@ -295,6 +293,7 @@ export class MoveToSubplotContextCommand implements Command {
   private readonly displayService: DisplayService;
   private readonly audioService: AudioService;
   private readonly notificationService: NotificationService;
+  private readonly textService: TextService;
 
   /**
    * Creates an instance of MoveToSubplotContextCommand.
@@ -302,17 +301,20 @@ export class MoveToSubplotContextCommand implements Command {
    * @param {DisplayService} displayService - The display service for focus management.
    * @param {AudioService} audioService - Plays the "exit subplot" cue.
    * @param {NotificationService} notificationService - Announces the exit message.
+   * @param {TextService} textService - Provides the current text mode for the exit message.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
     audioService: AudioService,
     notificationService: NotificationService,
+    textService: TextService,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.audioService = audioService;
     this.notificationService = notificationService;
+    this.textService = textService;
   }
 
   /**
@@ -323,8 +325,9 @@ export class MoveToSubplotContextCommand implements Command {
    * chain (TextViewModel.update clears any pending message). Announcing the
    * exit cue *after* it therefore wins: notify() sets the message that overrides
    * the nav value in the alert region, and React batches both synchronous
-   * dispatches into a single re-render, so the user hears one clear
-   * "Returned to figure overview" message plus the falling exit tone.
+   * dispatches into a single re-render, so the user hears one clear exit
+   * message plus the falling exit tone. In OFF text mode the message is null,
+   * so only the tone plays.
    */
   public execute(): void {
     this.context.exitSubplot();
@@ -335,20 +338,11 @@ export class MoveToSubplotContextCommand implements Command {
     if (this.context.scope === Scope.SUBPLOT) {
       this.displayService.syncFocusStack(Scope.SUBPLOT);
       this.audioService.playSubplotExitTone();
-      this.notificationService.notify(this.buildExitMessage());
+      const message = subplotExitMessage(this.textService, this.context.state);
+      if (message) {
+        this.notificationService.notify(message);
+      }
     }
-  }
-
-  /**
-   * Builds the exit announcement from the figure lobby position the user
-   * returned to, e.g. "Returned to figure overview, subplot 2 of 4.".
-   */
-  private buildExitMessage(): string {
-    const state = this.context.state;
-    if (state.type === 'figure' && !state.empty) {
-      return `Returned to figure overview, subplot ${state.index} of ${state.size}.`;
-    }
-    return 'Returned to figure overview.';
   }
 }
 
@@ -374,6 +368,9 @@ export class ExitBrailleAndSubplotCommand implements Command {
   private readonly displayService: DisplayService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly candlestickDeltaService: CandlestickDeltaService;
+  private readonly audioService: AudioService;
+  private readonly notificationService: NotificationService;
+  private readonly textService: TextService;
 
   /**
    * Creates an instance of ExitBrailleAndSubplotCommand.
@@ -381,17 +378,26 @@ export class ExitBrailleAndSubplotCommand implements Command {
    * @param {DisplayService} displayService - The display service for focus management.
    * @param {BrailleViewModel} brailleViewModel - The braille view model for the single-panel fallback.
    * @param {CandlestickDeltaService} candlestickDeltaService - Releases the virtual delta layer on the multi-panel exit path.
+   * @param {AudioService} audioService - Plays the "exit subplot" cue on the multi-panel exit.
+   * @param {NotificationService} notificationService - Announces the exit message on the multi-panel exit.
+   * @param {TextService} textService - Provides the current text mode for the exit message.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
     brailleViewModel: BrailleViewModel,
     candlestickDeltaService: CandlestickDeltaService,
+    audioService: AudioService,
+    notificationService: NotificationService,
+    textService: TextService,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.brailleViewModel = brailleViewModel;
     this.candlestickDeltaService = candlestickDeltaService;
+    this.audioService = audioService;
+    this.notificationService = notificationService;
+    this.textService = textService;
   }
 
   /**
@@ -409,6 +415,15 @@ export class ExitBrailleAndSubplotCommand implements Command {
       this.displayService.dismissModalScope(Scope.SUBPLOT);
       this.context.exitSubplot();
       this.displayService.notifyFocusChange(Scope.SUBPLOT);
+      // Match the trace-scope Esc exit (MoveToSubplotContextCommand): the same
+      // logical transition (subplot -> figure lobby) should play the falling
+      // exit cue and announce the lobby position, so returning from braille
+      // mode is not silent. Mode-aware: OFF plays only the tone.
+      this.audioService.playSubplotExitTone();
+      const message = subplotExitMessage(this.textService, this.context.state);
+      if (message) {
+        this.notificationService.notify(message);
+      }
       return;
     }
 

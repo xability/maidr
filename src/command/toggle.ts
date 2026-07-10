@@ -124,13 +124,12 @@ export class ToggleReviewCommand implements Command {
   }
 
   /**
-   * Toggles the review mode if the current state is a trace state.
+   * Toggles review mode for the active plot element. Works at the trace level
+   * (data descriptions) and at the multi-panel figure lobby (subplot navigation
+   * text); the ReviewService formats whatever plot state is active.
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.reviewViewModel.toggle(state);
-    }
+    this.reviewViewModel.toggle(this.context.state);
   }
 }
 

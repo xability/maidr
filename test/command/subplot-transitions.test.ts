@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { PlotState } from '@type/state';
 import {
@@ -23,6 +24,17 @@ function createMockAudioService(): AudioService {
 
 function createMockNotificationService(): NotificationService {
   return { notify: jest.fn() } as unknown as NotificationService;
+}
+
+/**
+ * Mock TextService. Defaults to verbose; pass a mode to exercise terse/off.
+ */
+function createMockTextService(mode: 'verbose' | 'terse' | 'off' = 'verbose'): TextService {
+  return {
+    isOff: () => mode === 'off',
+    isTerse: () => mode === 'terse',
+    isVerbose: () => mode === 'verbose',
+  } as unknown as TextService;
 }
 
 function createMockDisplayService(): DisplayService {
@@ -67,6 +79,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       createMockDisplayService(),
       audioService,
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();
@@ -100,6 +113,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       createMockDisplayService(),
       createMockAudioService(),
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();
@@ -131,12 +145,67 @@ describe('MoveToTraceContextCommand entry cue', () => {
       createMockDisplayService(),
       audioService,
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();
 
     // Tone still plays, but the alert is suppressed to avoid clashing with the
     // braille focus change.
+    expect(audioService.playSubplotEnterTone).toHaveBeenCalled();
+    expect(notificationService.notify).not.toHaveBeenCalled();
+  });
+
+  test('announces a terse entry message in terse mode', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { state: figureState } as unknown as Context;
+    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+      (context as { state: PlotState }).state = {
+        type: 'trace',
+        empty: false,
+        plotType: 'bar',
+      } as unknown as PlotState;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToTraceContextCommand(
+      context,
+      createMockBrailleService(false),
+      createMockDisplayService(),
+      createMockAudioService(),
+      notificationService,
+      createMockTextService('terse'),
+    );
+
+    command.execute();
+
+    expect(notificationService.notify).toHaveBeenCalledWith('Subplot 2 of 4');
+  });
+
+  test('plays the tone but announces nothing in OFF text mode', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { state: figureState } as unknown as Context;
+    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+      (context as { state: PlotState }).state = {
+        type: 'trace',
+        empty: false,
+        plotType: 'bar',
+      } as unknown as PlotState;
+    });
+
+    const audioService = createMockAudioService();
+    const notificationService = createMockNotificationService();
+    const command = new MoveToTraceContextCommand(
+      context,
+      createMockBrailleService(false),
+      createMockDisplayService(),
+      audioService,
+      notificationService,
+      createMockTextService('off'),
+    );
+
+    command.execute();
+
     expect(audioService.playSubplotEnterTone).toHaveBeenCalled();
     expect(notificationService.notify).not.toHaveBeenCalled();
   });
@@ -155,6 +224,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       createMockDisplayService(),
       audioService,
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();
@@ -187,6 +257,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       createMockDisplayService(),
       audioService,
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();
@@ -195,6 +266,50 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     expect(notificationService.notify).toHaveBeenCalledWith(
       'Returned to figure overview, subplot 2 of 4.',
     );
+  });
+
+  test('announces a terse exit message in terse mode', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { scope: Scope.TRACE, state: figureState } as unknown as Context;
+    (context as { exitSubplot: () => void }).exitSubplot = jest.fn(() => {
+      (context as { scope: Scope }).scope = Scope.SUBPLOT;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToSubplotContextCommand(
+      context,
+      createMockDisplayService(),
+      createMockAudioService(),
+      notificationService,
+      createMockTextService('terse'),
+    );
+
+    command.execute();
+
+    expect(notificationService.notify).toHaveBeenCalledWith('Figure, subplot 2 of 4');
+  });
+
+  test('plays the exit tone but announces nothing in OFF text mode', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { scope: Scope.TRACE, state: figureState } as unknown as Context;
+    (context as { exitSubplot: () => void }).exitSubplot = jest.fn(() => {
+      (context as { scope: Scope }).scope = Scope.SUBPLOT;
+    });
+
+    const audioService = createMockAudioService();
+    const notificationService = createMockNotificationService();
+    const command = new MoveToSubplotContextCommand(
+      context,
+      createMockDisplayService(),
+      audioService,
+      notificationService,
+      createMockTextService('off'),
+    );
+
+    command.execute();
+
+    expect(audioService.playSubplotExitTone).toHaveBeenCalled();
+    expect(notificationService.notify).not.toHaveBeenCalled();
   });
 
   test('stays silent when exitSubplot is a no-op (single-subplot chart)', () => {
@@ -211,6 +326,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       createMockDisplayService(),
       audioService,
       notificationService,
+      createMockTextService(),
     );
 
     command.execute();

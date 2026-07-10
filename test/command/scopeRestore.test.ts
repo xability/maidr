@@ -44,6 +44,14 @@ function createMockNotificationService(): NotificationService {
   return { notify: jest.fn() } as unknown as NotificationService;
 }
 
+function createMockTextServiceForExit(): TextService {
+  return {
+    isOff: () => false,
+    isTerse: () => false,
+    isVerbose: () => true,
+  } as unknown as TextService;
+}
+
 describe('MoveToSubplotContextCommand', () => {
   test('syncs the focus stack when exitSubplot actually changed scope', () => {
     const context = createMockContext();
@@ -53,7 +61,7 @@ describe('MoveToSubplotContextCommand', () => {
     });
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService()).execute();
+    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()).execute();
 
     expect(displayService.syncFocusStack).toHaveBeenCalledWith(Scope.SUBPLOT);
   });
@@ -63,7 +71,7 @@ describe('MoveToSubplotContextCommand', () => {
     const context = createMockContext();
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService()).execute();
+    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()).execute();
 
     expect(context.exitSubplot).toHaveBeenCalled();
     expect(displayService.syncFocusStack).not.toHaveBeenCalled();
