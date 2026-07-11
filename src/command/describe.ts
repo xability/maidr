@@ -7,6 +7,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
+import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
@@ -377,11 +378,12 @@ export class AnnounceTitleCommand extends AnnounceCommand {
         this.restoreScope();
         return;
       }
-      // No figure title: fall back to the focused subplot's own title.
-      const subplotTitle = !state.subplot.empty && !state.subplot.trace.empty
-        ? state.subplot.trace.title
-        : '';
-      if (this.context.isAuthoredTitle(subplotTitle)) {
+      // No figure title: fall back to the focused subplot's own title, reusing
+      // the shared focusedSubplotTitle() traversal (already placeholder-filtered
+      // via isAuthoredTitle), the single source of truth also used by move.ts
+      // and text.ts.
+      const subplotTitle = focusedSubplotTitle(state);
+      if (subplotTitle) {
         this.announce(subplotTitle, `Subplot ${state.index} title`);
       } else {
         this.announceUnavailable();
