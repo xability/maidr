@@ -136,8 +136,9 @@ applies across all subplots:
   figure, `l t` in the lobby announces the figure `title`, falling back to the
   focused subplot's own title when no figure title is authored.
 - `axes` (object): figure-wide axis labels shared by every subplot — e.g. a
-  facet grid whose panels all sit on one common X and Y axis. Same per-axis
-  shape as a layer's `axes` (only `label` is read at the figure level):
+  facet grid whose panels all sit on one common X and Y axis. Only `label` is
+  honored at the figure level (the type is `Pick<AxisConfig, 'label'>`, so a
+  layer's `min` / `max` / `tickStep` / `format` have no figure-wide meaning):
 
   ```javascript
   var maidr = {
