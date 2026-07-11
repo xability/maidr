@@ -1,15 +1,11 @@
 import type { Context } from '@model/context';
-import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
-import type { NotificationService } from '@service/notification';
-import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
-import { focusedSubplotTitle } from '@model/plot';
+import type { SubplotCue } from './subplotCue';
 import { Scope } from '@type/event';
-import { subplotEntryMessage, subplotExitMessage } from './subplotCue';
 
 /**
  * Command to move the current position one step upward.
@@ -202,33 +198,25 @@ export class MoveToTraceContextCommand implements Command {
   private readonly context: Context;
   private readonly brailleService: BrailleService;
   private readonly displayService: DisplayService;
-  private readonly audioService: AudioService;
-  private readonly notificationService: NotificationService;
-  private readonly textService: TextService;
+  private readonly cue: SubplotCue;
 
   /**
    * Creates an instance of MoveToTraceContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {BrailleService} brailleService - The braille service to check enabled state.
    * @param {DisplayService} displayService - The display service for managing focus.
-   * @param {AudioService} audioService - Plays the "enter subplot" cue.
-   * @param {NotificationService} notificationService - Announces the entry message.
-   * @param {TextService} textService - Provides the current text mode for the entry message.
+   * @param {SubplotCue} cue - Plays the enter tone and announces the entered subplot.
    */
   public constructor(
     context: Context,
     brailleService: BrailleService,
     displayService: DisplayService,
-    audioService: AudioService,
-    notificationService: NotificationService,
-    textService: TextService,
+    cue: SubplotCue,
   ) {
     this.context = context;
     this.brailleService = brailleService;
     this.displayService = displayService;
-    this.audioService = audioService;
-    this.notificationService = notificationService;
-    this.textService = textService;
+    this.cue = cue;
   }
 
   /**
@@ -269,7 +257,7 @@ export class MoveToTraceContextCommand implements Command {
     }
 
     if (lobby) {
-      this.audioService.playSubplotEnterTone();
+      this.cue.playEnterTone();
       // Skip the spoken entry alert when we just moved focus into the braille
       // textarea: the braille display and the focus change are the feedback in
       // that path, and a simultaneous role="alert" update can be clipped or
@@ -287,16 +275,7 @@ export class MoveToTraceContextCommand implements Command {
             title = active.title;
           }
         }
-        const message = subplotEntryMessage(
-          this.textService,
-          lobby.index,
-          lobby.size,
-          plotType,
-          title,
-        );
-        if (message) {
-          this.notificationService.notify(message);
-        }
+        this.cue.announceEntry(lobby.index, lobby.size, plotType, title);
       }
     }
   }
@@ -308,30 +287,22 @@ export class MoveToTraceContextCommand implements Command {
 export class MoveToSubplotContextCommand implements Command {
   private readonly context: Context;
   private readonly displayService: DisplayService;
-  private readonly audioService: AudioService;
-  private readonly notificationService: NotificationService;
-  private readonly textService: TextService;
+  private readonly cue: SubplotCue;
 
   /**
    * Creates an instance of MoveToSubplotContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {DisplayService} displayService - The display service for focus management.
-   * @param {AudioService} audioService - Plays the "exit subplot" cue.
-   * @param {NotificationService} notificationService - Announces the exit message.
-   * @param {TextService} textService - Provides the current text mode for the exit message.
+   * @param {SubplotCue} cue - Plays the exit tone and announces the figure position.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
-    audioService: AudioService,
-    notificationService: NotificationService,
-    textService: TextService,
+    cue: SubplotCue,
   ) {
     this.context = context;
     this.displayService = displayService;
-    this.audioService = audioService;
-    this.notificationService = notificationService;
-    this.textService = textService;
+    this.cue = cue;
   }
 
   /**
@@ -354,12 +325,7 @@ export class MoveToSubplotContextCommand implements Command {
     // SUBPLOT here would introduce the opposite desync.
     if (this.context.scope === Scope.SUBPLOT) {
       this.displayService.syncFocusStack(Scope.SUBPLOT);
-      this.audioService.playSubplotExitTone();
-      const state = this.context.state;
-      const message = subplotExitMessage(this.textService, state, focusedSubplotTitle(state));
-      if (message) {
-        this.notificationService.notify(message);
-      }
+      this.cue.announceExit(this.context.state);
     }
   }
 }
@@ -386,9 +352,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
   private readonly displayService: DisplayService;
   private readonly brailleViewModel: BrailleViewModel;
   private readonly candlestickDeltaService: CandlestickDeltaService;
-  private readonly audioService: AudioService;
-  private readonly notificationService: NotificationService;
-  private readonly textService: TextService;
+  private readonly cue: SubplotCue;
 
   /**
    * Creates an instance of ExitBrailleAndSubplotCommand.
@@ -396,26 +360,20 @@ export class ExitBrailleAndSubplotCommand implements Command {
    * @param {DisplayService} displayService - The display service for focus management.
    * @param {BrailleViewModel} brailleViewModel - The braille view model for the single-panel fallback.
    * @param {CandlestickDeltaService} candlestickDeltaService - Releases the virtual delta layer on the multi-panel exit path.
-   * @param {AudioService} audioService - Plays the "exit subplot" cue on the multi-panel exit.
-   * @param {NotificationService} notificationService - Announces the exit message on the multi-panel exit.
-   * @param {TextService} textService - Provides the current text mode for the exit message.
+   * @param {SubplotCue} cue - Plays the exit tone and announces the lobby position on the multi-panel exit.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
     brailleViewModel: BrailleViewModel,
     candlestickDeltaService: CandlestickDeltaService,
-    audioService: AudioService,
-    notificationService: NotificationService,
-    textService: TextService,
+    cue: SubplotCue,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.brailleViewModel = brailleViewModel;
     this.candlestickDeltaService = candlestickDeltaService;
-    this.audioService = audioService;
-    this.notificationService = notificationService;
-    this.textService = textService;
+    this.cue = cue;
   }
 
   /**
@@ -437,12 +395,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
       // logical transition (subplot -> figure lobby) should play the falling
       // exit cue and announce the lobby position, so returning from braille
       // mode is not silent. Mode-aware: OFF plays only the tone.
-      this.audioService.playSubplotExitTone();
-      const state = this.context.state;
-      const message = subplotExitMessage(this.textService, state, focusedSubplotTitle(state));
-      if (message) {
-        this.notificationService.notify(message);
-      }
+      this.cue.announceExit(this.context.state);
       return;
     }
 

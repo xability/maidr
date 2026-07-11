@@ -10,6 +10,7 @@ import {
   MoveToSubplotContextCommand,
   MoveToTraceContextCommand,
 } from '@command/move';
+import { SubplotCue } from '@command/subplotCue';
 import { ToggleBrailleCommand } from '@command/toggle';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
@@ -54,6 +55,19 @@ function createMockBrailleService(enabled: boolean): BrailleService {
 }
 
 /**
+ * Wraps the audio/notification/text mock trio in a real (thin) SubplotCue so
+ * the command's cue calls pass straight through to the same mock instances the
+ * tests assert on.
+ */
+function createSubplotCue(
+  audio: AudioService,
+  notification: NotificationService,
+  text: TextService,
+): SubplotCue {
+  return new SubplotCue(audio, notification, text);
+}
+
+/**
  * Null-safe stand-in for Context.isAuthoredTitle: rejects the model's
  * placeholder defaults and blank/undefined titles, so a trace mock without a
  * `title` yields no authored title (matching a subplot that has none).
@@ -86,9 +100,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(audioService, notificationService, createMockTextService()),
     );
 
     command.execute();
@@ -120,9 +132,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      createMockAudioService(),
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService()),
     );
 
     command.execute();
@@ -152,9 +162,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(true), // braille enabled -> focus moves to braille
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(audioService, notificationService, createMockTextService()),
     );
 
     command.execute();
@@ -181,9 +189,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      createMockAudioService(),
-      notificationService,
-      createMockTextService('terse'),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('terse')),
     );
 
     command.execute();
@@ -210,9 +216,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      createMockAudioService(),
-      notificationService,
-      createMockTextService('terse'),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('terse')),
     );
 
     command.execute();
@@ -238,9 +242,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService('off'),
+      createSubplotCue(audioService, notificationService, createMockTextService('off')),
     );
 
     command.execute();
@@ -261,9 +263,7 @@ describe('MoveToTraceContextCommand entry cue', () => {
       context,
       createMockBrailleService(false),
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(audioService, notificationService, createMockTextService()),
     );
 
     command.execute();
@@ -294,9 +294,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     const command = new MoveToSubplotContextCommand(
       context,
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(audioService, notificationService, createMockTextService()),
     );
 
     command.execute();
@@ -318,9 +316,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     const command = new MoveToSubplotContextCommand(
       context,
       createMockDisplayService(),
-      createMockAudioService(),
-      notificationService,
-      createMockTextService('terse'),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('terse')),
     );
 
     command.execute();
@@ -357,9 +353,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     const command = new MoveToSubplotContextCommand(
       context,
       createMockDisplayService(),
-      createMockAudioService(),
-      notificationService,
-      createMockTextService('terse'),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('terse')),
     );
 
     command.execute();
@@ -379,9 +373,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     const command = new MoveToSubplotContextCommand(
       context,
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService('off'),
+      createSubplotCue(audioService, notificationService, createMockTextService('off')),
     );
 
     command.execute();
@@ -402,9 +394,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
     const command = new MoveToSubplotContextCommand(
       context,
       createMockDisplayService(),
-      audioService,
-      notificationService,
-      createMockTextService(),
+      createSubplotCue(audioService, notificationService, createMockTextService()),
     );
 
     command.execute();

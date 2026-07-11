@@ -7,6 +7,7 @@ import type { TextViewModel } from '@state/viewModel/textViewModel';
 import { AnnounceXCommand } from '@command/describe';
 import { EnterGridCellCommand } from '@command/gridCell';
 import { MoveToSubplotContextCommand } from '@command/move';
+import { SubplotCue } from '@command/subplotCue';
 import { describe, expect, jest, test } from '@jest/globals';
 import { Scope } from '@type/event';
 
@@ -52,6 +53,14 @@ function createMockTextServiceForExit(): TextService {
   } as unknown as TextService;
 }
 
+function createSubplotCue(
+  audio: AudioService,
+  notification: NotificationService,
+  text: TextService,
+): SubplotCue {
+  return new SubplotCue(audio, notification, text);
+}
+
 describe('MoveToSubplotContextCommand', () => {
   test('syncs the focus stack when exitSubplot actually changed scope', () => {
     const context = createMockContext();
@@ -61,7 +70,7 @@ describe('MoveToSubplotContextCommand', () => {
     });
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
 
     expect(displayService.syncFocusStack).toHaveBeenCalledWith(Scope.SUBPLOT);
   });
@@ -71,7 +80,7 @@ describe('MoveToSubplotContextCommand', () => {
     const context = createMockContext();
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
 
     expect(context.exitSubplot).toHaveBeenCalled();
     expect(displayService.syncFocusStack).not.toHaveBeenCalled();
