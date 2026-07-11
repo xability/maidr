@@ -35,35 +35,6 @@ export function subplotEntryMessage(
 }
 
 /**
- * The authored title of the figure lobby's focused subplot, or '' when the
- * subplot has no authored title. After exiting a subplot the context is back
- * at the figure state, whose `subplot.trace.title` holds the focused panel's
- * title; `isAuthored` rejects the model's placeholder defaults so a bare
- * "unavailable" is never spoken. The `!state.subplot` guard mirrors the
- * defensive checks elsewhere so a malformed figure state cannot crash the cue.
- *
- * @param state - The figure lobby state (context.state after exiting).
- * @param isAuthored - Predicate rejecting placeholder title defaults (Context.isAuthoredTitle).
- * @returns The authored focused-subplot title, or ''.
- */
-export function focusedSubplotTitle(
-  state: PlotState,
-  isAuthored: (title: string) => boolean,
-): string {
-  if (
-    state.type !== 'figure'
-    || state.empty
-    || !state.subplot
-    || state.subplot.empty
-    || state.subplot.trace.empty
-  ) {
-    return '';
-  }
-  const title = state.subplot.trace.title;
-  return isAuthored(title) ? title : '';
-}
-
-/**
  * Builds the spoken cue for returning from a subplot to the figure lobby,
  * respecting the current text mode:
  *  - OFF: `null` (the exit tone alone signals the transition);

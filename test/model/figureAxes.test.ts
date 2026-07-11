@@ -55,4 +55,18 @@ describe('Figure figure-wide axes parsing', () => {
       expect(state.yAxis).toBe(DEFAULT_FIGURE_AXIS);
     }
   });
+
+  test('collapses an authored-but-blank axis label to the empty sentinel', () => {
+    // An explicit `axes.x.label: ""` (or whitespace) must parse to the same
+    // empty sentinel as an omitted axis, so `isAuthoredAxisLabel` rejects it
+    // and the announce commands fall back to the focused subplot's own axis.
+    const figure = new Figure(createMaidr({ x: { label: '' }, y: { label: '   ' } }));
+    const state = figure.state;
+
+    expect(state.empty).toBe(false);
+    if (!state.empty) {
+      expect(state.xAxis).toBe(DEFAULT_FIGURE_AXIS);
+      expect(state.yAxis.trim()).toBe('');
+    }
+  });
 });

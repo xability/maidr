@@ -10,7 +10,7 @@ import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
-import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from './plot';
+import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
 
 /**
  * Build a human-readable plot type string with optional orientation prefix.
@@ -378,20 +378,13 @@ export class Context implements Disposable {
    * when the JSON omits `title`. Encapsulates the model's internal default
    * constants so callers (commands, services) can avoid importing them.
    *
-   * Empty / whitespace-only strings are also treated as unauthored, since
-   * announcing a bare label like "Title is " is not useful.
-   *
-   * Known limitation: a title authored as the exact placeholder string
-   * (e.g. "MAIDR Plot" or "unavailable") will be filtered out. The sentinel
-   * defaults are deliberately uncommon strings to minimize collision risk.
+   * Delegates to the shared {@link isAuthoredTitle} predicate in `plot.ts`
+   * (imported here as `isAuthoredTitleValue`), the single source of truth for
+   * the placeholder-rejection rule.
    * @param {string} title - The title string to check.
    */
   public isAuthoredTitle(title: string): boolean {
-    return (
-      title.trim() !== ''
-      && title !== DEFAULT_FIGURE_TITLE
-      && title !== DEFAULT_SUBPLOT_TITLE
-    );
+    return isAuthoredTitleValue(title);
   }
 
   /**

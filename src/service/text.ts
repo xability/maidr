@@ -1,11 +1,10 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { PlotState, SubplotState, TextState, TraceState } from '@type/state';
+import type { PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
-import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
-import { DEFAULT_FIGURE_TITLE } from '@model/plot';
+import { focusedSubplotTitle } from '@model/plot';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
@@ -234,7 +233,7 @@ export class TextService implements Observer<PlotState>, Disposable {
         state.index,
         state.size,
         state.traceTypes,
-        this.lobbySubplotTitle(state.subplot),
+        focusedSubplotTitle(state),
       );
     } else if (state.type === 'subplot') {
       return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
@@ -269,41 +268,6 @@ export class TextService implements Observer<PlotState>, Disposable {
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
     return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
-  }
-
-  /**
-   * Resolves the authored title of the focused subplot for the multi-panel
-   * lobby, or '' when the subplot has no authored title. The subplot's title
-   * is stored on its active trace (see AnnounceTitleCommand). Placeholder
-   * defaults the model substitutes when the JSON omits a title are treated as
-   * "no title" so terse lobby navigation never reads back a bare "unavailable".
-   * @param subplot - The focused subplot's state.
-   * @returns The authored subplot title, or '' when none.
-   */
-  private lobbySubplotTitle(subplot: SubplotState): string {
-    // `subplot` is always present on a real FigureState; the `!subplot` guard
-    // mirrors the defensive `!state` check in format() so a malformed figure
-    // state can never crash the text pipeline.
-    if (!subplot || subplot.empty || subplot.trace.empty) {
-      return '';
-    }
-    return this.isAuthoredTitle(subplot.trace.title) ? subplot.trace.title : '';
-  }
-
-  /**
-   * Whether a title string came from the MAIDR JSON rather than a model
-   * placeholder default. Mirrors Context.isAuthoredTitle; it is duplicated
-   * here because TextService formats state from the observer chain without a
-   * Context reference. Blank / whitespace-only titles are also rejected.
-   * @param title - The title string to check.
-   * @returns True when the title was authored in the JSON.
-   */
-  private isAuthoredTitle(title: string): boolean {
-    return (
-      title.trim() !== ''
-      && title !== DEFAULT_SUBPLOT_TITLE
-      && title !== DEFAULT_FIGURE_TITLE
-    );
   }
 
   /**

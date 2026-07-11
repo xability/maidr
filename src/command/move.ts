@@ -7,8 +7,9 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
+import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
-import { focusedSubplotTitle, subplotEntryMessage, subplotExitMessage } from './subplotCue';
+import { subplotEntryMessage, subplotExitMessage } from './subplotCue';
 
 /**
  * Command to move the current position one step upward.
@@ -355,8 +356,7 @@ export class MoveToSubplotContextCommand implements Command {
       this.displayService.syncFocusStack(Scope.SUBPLOT);
       this.audioService.playSubplotExitTone();
       const state = this.context.state;
-      const title = focusedSubplotTitle(state, t => this.context.isAuthoredTitle(t));
-      const message = subplotExitMessage(this.textService, state, title);
+      const message = subplotExitMessage(this.textService, state, focusedSubplotTitle(state));
       if (message) {
         this.notificationService.notify(message);
       }
@@ -439,8 +439,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
       // mode is not silent. Mode-aware: OFF plays only the tone.
       this.audioService.playSubplotExitTone();
       const state = this.context.state;
-      const title = focusedSubplotTitle(state, t => this.context.isAuthoredTitle(t));
-      const message = subplotExitMessage(this.textService, state, title);
+      const message = subplotExitMessage(this.textService, state, focusedSubplotTitle(state));
       if (message) {
         this.notificationService.notify(message);
       }
