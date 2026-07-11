@@ -303,6 +303,11 @@ const TRACE_KEYMAP = {
   MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
   MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
+  // `backspace` is an alternate to `esc` for returning from a subplot to the
+  // multi-panel figure lobby. It is bound only in TRACE scope (never in the
+  // braille/review text areas, which the hotkeys filter allow-lists), so it
+  // never collides with the text-delete meaning of Backspace inside an editable
+  // field — it only acts as a "navigate back" key while reading a chart.
   MOVE_TO_SUBPLOT_CONTEXT: key(`esc,backspace`, 'Return to Subplot', { showInHelp: false }),
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
   MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
