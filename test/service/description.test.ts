@@ -121,6 +121,23 @@ describe('descriptionService figure-level description', () => {
     expect(description!.axes).toEqual({ x: 'Year' });
   });
 
+  test('omits a figure-wide axis whose authored label is blank/whitespace', () => {
+    // Mirrors the "blank label -> not available" handling tested for the
+    // `l x` / `l y` commands: an authored-but-blank `axes.x.label: ""` is
+    // filtered out of the `d` description modal too, via isAuthoredAxisLabel.
+    const context = createMockContext({
+      state: figureState(2),
+      figureXAxis: '   ',
+      figureYAxis: 'Revenue',
+    });
+
+    const service = new DescriptionService(context, createMockDisplayService());
+    const description = service.getDescription();
+
+    expect(description).not.toBeNull();
+    expect(description!.axes).toEqual({ y: 'Revenue' });
+  });
+
   test('omits unauthored title, subtitle, and caption', () => {
     const context = createMockContext({
       state: figureState(4),
