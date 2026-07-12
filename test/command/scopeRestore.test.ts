@@ -2,13 +2,13 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
-import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import { AnnounceXCommand } from '@command/describe';
 import { EnterGridCellCommand } from '@command/gridCell';
 import { MoveToSubplotContextCommand } from '@command/move';
 import { SubplotCue } from '@command/subplotCue';
 import { describe, expect, jest, test } from '@jest/globals';
+import { TextService } from '@service/text';
 import { Scope } from '@type/event';
 
 /**
@@ -46,11 +46,9 @@ function createMockNotificationService(): NotificationService {
 }
 
 function createMockTextServiceForExit(): TextService {
-  return {
-    isOff: () => false,
-    isTerse: () => false,
-    isVerbose: () => true,
-  } as unknown as TextService;
+  // A real TextService (default VERBOSE) so the SubplotCue exit path runs the
+  // real wording; these tests assert focus/scope, not the message text.
+  return new TextService({ notify: jest.fn() } as unknown as NotificationService);
 }
 
 function createSubplotCue(

@@ -4,11 +4,11 @@ import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
-import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ExitBrailleAndSubplotCommand, MoveToTraceContextCommand } from '@command/move';
 import { SubplotCue } from '@command/subplotCue';
 import { describe, expect, jest, test } from '@jest/globals';
+import { TextService } from '@service/text';
 import { Scope } from '@type/event';
 
 /**
@@ -32,14 +32,12 @@ function createMockNotificationService(): NotificationService {
 }
 
 /**
- * Creates a mock TextService in verbose mode (isOff/isTerse false).
+ * A real TextService in the default VERBOSE mode, so SubplotCue exercises the
+ * actual exit wording. Its NotificationService is a throwaway stub, separate
+ * from the one the assertions target.
  */
 function createMockTextService(): TextService {
-  return {
-    isOff: () => false,
-    isTerse: () => false,
-    isVerbose: () => true,
-  } as unknown as TextService;
+  return new TextService({ notify: jest.fn() } as unknown as NotificationService);
 }
 
 /**
