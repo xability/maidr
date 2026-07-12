@@ -395,6 +395,13 @@ export class ExitBrailleAndSubplotCommand implements Command {
       // logical transition (subplot -> figure lobby) should play the falling
       // exit cue and announce the lobby position, so returning from braille
       // mode is not silent. Mode-aware: OFF plays only the tone.
+      //
+      // Unlike MoveToSubplotContextCommand there is no `scope === SUBPLOT`
+      // guard, and none is needed: braille mode is only reachable from inside a
+      // trace, so within this `isMultiPanel` branch the stack is always
+      // [Figure, Subplot, Trace] and exitSubplot() always pops a real subplot.
+      // The announced exit therefore always corresponds to a real transition
+      // (the single-panel case never reaches here — it takes the else branch).
       this.cue.announceExit(this.context.state);
       return;
     }
