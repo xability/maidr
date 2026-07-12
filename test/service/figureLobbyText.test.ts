@@ -45,7 +45,7 @@ describe('TextService figure-lobby navigation text', () => {
     expect(onChange).toHaveBeenCalledWith({ value: 'Sales in North' });
   });
 
-  test('terse: falls back to "Subplot N, <types>" when the subplot has no title', () => {
+  test('terse: falls back to the bare "Subplot N" when the subplot has no title', () => {
     const text = new TextService(createMockNotificationService());
     text.toggle(); // VERBOSE -> TERSE
     const onChange = jest.fn();
@@ -54,7 +54,7 @@ describe('TextService figure-lobby navigation text', () => {
     // 'unavailable' is the model's placeholder default -> treated as no title.
     text.update(figureState('unavailable'));
 
-    expect(onChange).toHaveBeenCalledWith({ value: 'Subplot 2, bar' });
+    expect(onChange).toHaveBeenCalledWith({ value: 'Subplot 2' });
   });
 
   test('terse: a blank subplot title is also treated as no title', () => {
@@ -65,16 +65,27 @@ describe('TextService figure-lobby navigation text', () => {
 
     text.update(figureState('   '));
 
-    expect(onChange).toHaveBeenCalledWith({ value: 'Subplot 2, bar' });
+    expect(onChange).toHaveBeenCalledWith({ value: 'Subplot 2' });
   });
 
-  test('verbose: keeps the full position + "Press ENTER" prompt', () => {
+  test('verbose: full position + "Press ENTER" prompt, now including the title', () => {
     const text = new TextService(createMockNotificationService()); // defaults to VERBOSE
     const onChange = jest.fn();
     text.onChange(onChange);
 
-    // Even with an authored subplot title, verbose is unchanged.
     text.update(figureState('Sales in North'));
+
+    expect(onChange).toHaveBeenCalledWith({
+      value: 'Subplot 2 of 3, Sales in North: This is a bar plot. Press \'ENTER\' to select this subplot.',
+    });
+  });
+
+  test('verbose: omits the title when the subplot has none', () => {
+    const text = new TextService(createMockNotificationService()); // defaults to VERBOSE
+    const onChange = jest.fn();
+    text.onChange(onChange);
+
+    text.update(figureState('unavailable'));
 
     expect(onChange).toHaveBeenCalledWith({
       value: 'Subplot 2 of 3: This is a bar plot. Press \'ENTER\' to select this subplot.',

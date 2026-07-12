@@ -8,10 +8,11 @@ import { focusedSubplotTitle } from '@model/plot';
  * Builds the spoken cue for entering a subplot from the multi-panel figure
  * lobby, respecting the current text mode:
  *  - OFF: `null` (the enter tone alone signals the transition);
- *  - TERSE: the panel and, when authored, its title, e.g. "Subplot 2, Sales"
- *    (or just "Subplot 2" when the subplot has no title) — dropping the
- *    "of N" position framing so the confirmation stays quick;
- *  - VERBOSE: the full transition, e.g. "Entered subplot 2 of 4, bar plot.".
+ *  - TERSE: just the panel's authored title, e.g. "Sales in North" — no
+ *    "Subplot N" framing at all; falls back to the bare "Subplot N" position
+ *    only when the subplot has no authored title;
+ *  - VERBOSE: the full transition including the title when authored, e.g.
+ *    "Entered subplot 2 of 4, Sales in North, bar plot.".
  *
  * @param text - The text service, for the current mode.
  * @param index - 1-based visual position of the entered subplot.
@@ -31,20 +32,24 @@ export function subplotEntryMessage(
     return null;
   }
   if (text.isTerse()) {
-    return title ? `Subplot ${index}, ${title}` : `Subplot ${index}`;
+    // Terse identifies the panel by its title alone; the position is only a
+    // last-resort fallback for an untitled subplot.
+    return title || `Subplot ${index}`;
   }
+  const titlePart = title ? `, ${title}` : '';
   const suffix = plotType ? `, ${plotType} plot` : '';
-  return `Entered subplot ${index} of ${size}${suffix}.`;
+  return `Entered subplot ${index} of ${size}${titlePart}${suffix}.`;
 }
 
 /**
  * Builds the spoken cue for returning from a subplot to the figure lobby,
  * respecting the current text mode:
  *  - OFF: `null` (the exit tone alone signals the transition);
- *  - TERSE: names the panel and, when authored, its title, e.g.
- *    "Figure, subplot 2, Sales" (or "Figure, subplot 2" when untitled) —
- *    dropping the "of N" framing to match the terse entry cue;
- *  - VERBOSE: "Returned to figure overview, subplot 2 of 4.".
+ *  - TERSE: "Figure, <title>" — the "Figure," marker signals the return to
+ *    the lobby, then the panel's authored title alone (no "subplot N of M");
+ *    falls back to the bare "Figure, subplot N" only for an untitled subplot;
+ *  - VERBOSE: the full return including the title when authored, e.g.
+ *    "Returned to figure overview, subplot 2 of 4, Sales in North.".
  *
  * Shared by both exit paths (Esc in trace scope and Esc in braille mode) so
  * they stay consistent.
@@ -61,11 +66,14 @@ export function subplotExitMessage(text: TextService, state: PlotState, title: s
   const terse = text.isTerse();
   if (state.type === 'figure' && !state.empty) {
     if (terse) {
+      // Terse names the panel by title alone after the "Figure," return
+      // marker; the position is only a fallback for an untitled subplot.
       return title
-        ? `Figure, subplot ${state.index}, ${title}`
+        ? `Figure, ${title}`
         : `Figure, subplot ${state.index}`;
     }
-    return `Returned to figure overview, subplot ${state.index} of ${state.size}.`;
+    const titlePart = title ? `, ${title}` : '';
+    return `Returned to figure overview, subplot ${state.index} of ${state.size}${titlePart}.`;
   }
   return terse ? 'Figure' : 'Returned to figure overview.';
 }

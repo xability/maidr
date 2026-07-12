@@ -221,8 +221,34 @@ describe('MoveToTraceContextCommand entry cue', () => {
 
     command.execute();
 
-    // Terse names the panel and its authored title, without "of N".
-    expect(notificationService.notify).toHaveBeenCalledWith('Subplot 2, Sales in North');
+    // Terse names the panel by its authored title alone (no "Subplot N").
+    expect(notificationService.notify).toHaveBeenCalledWith('Sales in North');
+  });
+
+  test('announces the full title in verbose mode when the subplot has one', () => {
+    const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
+    const context = { state: figureState, isAuthoredTitle } as unknown as Context;
+    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+      (context as { state: PlotState }).state = {
+        type: 'trace',
+        empty: false,
+        plotType: 'bar',
+        title: 'Sales in North',
+      } as unknown as PlotState;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToTraceContextCommand(
+      context,
+      createMockBrailleService(false),
+      createMockDisplayService(),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('verbose')),
+    );
+
+    command.execute();
+
+    // Verbose keeps the full framing and now includes the title.
+    expect(notificationService.notify).toHaveBeenCalledWith('Entered subplot 2 of 4, Sales in North, bar plot.');
   });
 
   test('plays the tone but announces nothing in OFF text mode', () => {
@@ -358,7 +384,43 @@ describe('MoveToSubplotContextCommand exit cue', () => {
 
     command.execute();
 
-    expect(notificationService.notify).toHaveBeenCalledWith('Figure, subplot 2, Sales in North');
+    // Terse names the panel by its title alone after the "Figure," marker.
+    expect(notificationService.notify).toHaveBeenCalledWith('Figure, Sales in North');
+  });
+
+  test('announces the full title in the verbose exit message when the subplot has one', () => {
+    const figureState = {
+      type: 'figure',
+      empty: false,
+      index: 2,
+      size: 4,
+      subplot: {
+        empty: false,
+        type: 'subplot',
+        trace: { empty: false, type: 'trace', title: 'Sales in North' },
+      },
+    } as unknown as PlotState;
+    const context = {
+      scope: Scope.TRACE,
+      state: figureState,
+      isAuthoredTitle,
+    } as unknown as Context;
+    (context as { exitSubplot: () => void }).exitSubplot = jest.fn(() => {
+      (context as { scope: Scope }).scope = Scope.SUBPLOT;
+    });
+
+    const notificationService = createMockNotificationService();
+    const command = new MoveToSubplotContextCommand(
+      context,
+      createMockDisplayService(),
+      createSubplotCue(createMockAudioService(), notificationService, createMockTextService('verbose')),
+    );
+
+    command.execute();
+
+    expect(notificationService.notify).toHaveBeenCalledWith(
+      'Returned to figure overview, subplot 2 of 4, Sales in North.',
+    );
   });
 
   test('plays the exit tone but announces nothing in OFF text mode', () => {

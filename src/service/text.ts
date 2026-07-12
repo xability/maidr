@@ -253,21 +253,20 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted figure description text
    */
   private formatFigureText(index: number, size: number, traceTypes: string[], subplotTitle: string): string {
-    // Terse: keep lobby navigation quick to scan. Prefer the focused subplot's
-    // own title (e.g. a facet label) announced on its own, so arrowing between
-    // panels reads back just the titles. When the subplot has no authored
-    // title, fall back to the position and plot type(s) — dropping the "of N"
-    // framing and the "Press ENTER" prompt.
+    // Terse: keep lobby navigation quick to scan by reading back just the
+    // focused subplot's own title (e.g. a facet label) — no "Subplot N"
+    // framing. Only when the subplot has no authored title does it fall back
+    // to the bare position identifier.
     if (this.mode === TextMode.TERSE) {
-      if (subplotTitle) {
-        return subplotTitle;
-      }
-      return `Subplot ${index}, ${traceTypes.join(Constant.COMMA_SPACE)}`;
+      return subplotTitle || `Subplot ${index}`;
     }
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
-    return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
+    // Verbose: the full framing, now naming the panel by its authored title
+    // (when present) alongside the position.
+    const titlePart = subplotTitle ? `, ${subplotTitle}` : '';
+    return `Subplot ${index} of ${size}${titlePart}: ${details}. Press 'ENTER' to select this subplot.`;
   }
 
   /**
