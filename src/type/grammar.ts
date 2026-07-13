@@ -169,6 +169,25 @@ export interface Maidr {
   /** Chart caption. */
   caption?: string;
   /**
+   * Optional figure-wide axis labels shared across every subplot — e.g. a facet
+   * grid whose panels all sit on one common X and Y axis drawn at the figure
+   * margins. Only `label` is honored at the figure level, so the type is
+   * narrowed to `Pick<AxisConfig, 'label'>` (a layer's `min` / `max` /
+   * `tickStep` / `format` have no figure-wide meaning and would be silently
+   * ignored — the narrower type surfaces that as a compile error instead).
+   *
+   * When present and authored, the figure lobby's `l x` / `l y` announce these
+   * as the figure-wide label; when omitted they fall back to the focused
+   * subplot's own axis, so existing charts are unaffected.
+   *
+   * @example
+   * axes: { x: { label: "Year" }, y: { label: "Revenue" } }
+   */
+  axes?: {
+    x?: Pick<AxisConfig, 'label'>;
+    y?: Pick<AxisConfig, 'label'>;
+  };
+  /**
    * 2D grid of subplots. Each row is an array of subplots.
    * For a single chart, use `[[{ layers: [...] }]]`.
    */

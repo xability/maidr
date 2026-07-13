@@ -6,6 +6,7 @@ import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
+  PlotState,
   PointerGuidanceState,
   SubplotState,
   SubplotSummary,
@@ -15,13 +16,67 @@ import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
 import { Svg } from '@util/svg';
-import { AbstractPlot } from './abstract';
+import { AbstractPlot, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
 export const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
 export const DEFAULT_SUBTITLE = 'unavailable';
 export const DEFAULT_CAPTION = 'unavailable';
+/**
+ * Sentinel for a figure-wide axis label that the JSON did not author. Empty
+ * (rather than 'X'/'Y' like a layer axis) so callers can tell "no figure-level
+ * label" apart from an authored one and fall back to the focused subplot.
+ */
+export const DEFAULT_FIGURE_AXIS = '';
+
+/**
+ * Whether a title came from the MAIDR JSON rather than a model placeholder
+ * default the Figure / Trace models substitute when the JSON omits `title`.
+ * Blank / whitespace-only titles also count as unauthored, since announcing a
+ * bare label like "Title is " is not useful.
+ *
+ * Single source of truth for the placeholder-rejection rule, shared by
+ * {@link Context.isAuthoredTitle}, {@link TextService}, and the subplot cue
+ * builders so the rule cannot drift across copies.
+ *
+ * Known limitation: a title authored as the exact placeholder string
+ * (e.g. "MAIDR Plot" or "unavailable") is filtered out; the sentinel defaults
+ * are deliberately uncommon strings to minimize collision risk.
+ * @param title - The title string to check.
+ * @returns True when the title was authored in the JSON.
+ */
+export function isAuthoredTitle(title: string): boolean {
+  return (
+    title.trim() !== ''
+    && title !== DEFAULT_FIGURE_TITLE
+    && title !== DEFAULT_SUBPLOT_TITLE
+  );
+}
+
+/**
+ * The authored title of the figure lobby's focused subplot, or '' when the
+ * subplot has no authored title. The subplot's title is stored on its active
+ * trace; placeholder defaults are rejected via {@link isAuthoredTitle}. The
+ * `!state.subplot` guard is defensive so a malformed figure state cannot crash
+ * callers. Shared by the lobby navigation text (TextService) and the exit cue
+ * (subplotCue) so the traversal is defined once.
+ * @param state - A figure lobby state (e.g. context.state at/after the lobby).
+ * @returns The authored focused-subplot title, or ''.
+ */
+export function focusedSubplotTitle(state: PlotState): string {
+  if (
+    state.type !== 'figure'
+    || state.empty
+    || !state.subplot
+    || state.subplot.empty
+    || state.subplot.trace.empty
+  ) {
+    return '';
+  }
+  const title = state.subplot.trace.title;
+  return isAuthoredTitle(title) ? title : '';
+}
 
 /**
  * Represents a figure containing one or more subplots
@@ -40,6 +95,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   private readonly title: string;
   private readonly subtitle: string;
   private readonly caption: string;
+  private readonly xLabel: string;
+  private readonly yLabel: string;
 
   public readonly subplots: Subplot[][];
   private readonly size: number;
@@ -78,6 +135,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.title = maidr.title ?? DEFAULT_FIGURE_TITLE;
     this.subtitle = maidr.subtitle ?? DEFAULT_SUBTITLE;
     this.caption = maidr.caption ?? DEFAULT_CAPTION;
+    this.xLabel = maidr.axes?.x?.label ?? DEFAULT_FIGURE_AXIS;
+    this.yLabel = maidr.axes?.y?.label ?? DEFAULT_FIGURE_AXIS;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
     this.subplots = subplots.map(row =>
@@ -207,6 +266,8 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
       title: this.title,
       subtitle: this.subtitle,
       caption: this.caption,
+      xAxis: this.xLabel,
+      yAxis: this.yLabel,
       size: this.size,
       index: currentIndex ?? 1,
       subplot: activeSubplot.getStateWithFigurePosition(this.row, this.col),

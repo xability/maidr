@@ -166,6 +166,11 @@ const FIGURE_LABEL_KEYMAP = {
   DEACTIVATE_FIGURE_LABEL_SCOPE: key(`escape`, 'Exit Label Mode', { showInHelp: false }),
 
   // Description
+  // Mirrors TRACE_LABEL so the figure lobby exposes the same L-chord labels
+  // (l x / l y / l z / l t / l s / l c) as an individual subplot.
+  ANNOUNCE_X: key(`x`, 'Announce X Label'),
+  ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
+  ANNOUNCE_Z: key(`z`, 'Announce Z Label'),
   ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
   ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
@@ -189,7 +194,9 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
-  ANNOUNCE_TITLE: key(`t`, 'Announce Title'),
+  // Title / subtitle / caption / axis labels are reached through the label
+  // scope (l t / l x / l y / l z / l s / l c), not a bare key — mirroring trace
+  // scope, where a bare 't' is TOGGLE_TEXT (below) rather than the title.
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
 
@@ -209,6 +216,14 @@ const SUBPLOT_KEYMAP = {
 
   MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
+  // Modes
+  // Text and sonification toggles work at the lobby (they are global modes).
+  // Braille has no figure-level meaning, so pressing it here announces a
+  // "not available" warning (see ToggleBrailleCommand) rather than doing nothing.
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
@@ -288,7 +303,12 @@ const TRACE_KEYMAP = {
   MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
   MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
-  MOVE_TO_SUBPLOT_CONTEXT: key(`esc`, 'Return to Subplot', { showInHelp: false }),
+  // `backspace` is an alternate to `esc` for returning from a subplot to the
+  // multi-panel figure lobby. It is bound only in TRACE scope (never in the
+  // braille/review text areas, which the hotkeys filter allow-lists), so it
+  // never collides with the text-delete meaning of Backspace inside an editable
+  // field — it only acts as a "navigate back" key while reading a chart.
+  MOVE_TO_SUBPLOT_CONTEXT: key(`esc,backspace`, 'Return to Subplot', { showInHelp: false }),
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
   MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
 

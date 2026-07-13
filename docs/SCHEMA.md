@@ -127,6 +127,36 @@ Use the following to define the object properties:
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
 - `data`: the main data for your plot. See below.
 
+### Top-Level Figure Properties
+
+The top-level `maidr` object also accepts optional figure-wide metadata that
+applies across all subplots:
+
+- `title`, `subtitle`, `caption` (string): figure-level text. In a multi-panel
+  figure, `l t` in the lobby announces the figure `title`, falling back to the
+  focused subplot's own title when no figure title is authored.
+- `axes` (object): figure-wide axis labels shared by every subplot — e.g. a
+  facet grid whose panels all sit on one common X and Y axis. Only `label` is
+  honored at the figure level (the type is `Pick<AxisConfig, 'label'>`, so a
+  layer's `min` / `max` / `tickStep` / `format` have no figure-wide meaning):
+
+  ```javascript
+  var maidr = {
+    id: "facet_grid",
+    title: "Sales by Region",
+    axes: { x: { label: "Year" }, y: { label: "Revenue" } },
+    subplots: [ /* ... */ ]
+  };
+  ```
+
+  In the multi-panel lobby, `l x` / `l y` announce the figure-wide label when
+  authored ("Figure X label is Year"); otherwise they fall back to the focused
+  subplot's own axis ("Subplot 2, X label is ..."). Omitting `axes` keeps the
+  existing behavior, so this is fully backward compatible. Only `x` and `y` are
+  read at the figure level — there is no figure-wide `z`, since the Z axis is
+  inherently per-trace, so `l z` in the lobby always reports the focused
+  subplot's own Z label.
+
 ### Top-Level Properties for Live Charts
 
 The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.html) guide):

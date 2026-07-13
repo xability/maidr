@@ -2,7 +2,7 @@ import type { Figure } from '@model/plot';
 import { describe, expect, test } from '@jest/globals';
 import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
 import { Context } from '@model/context';
-import { DEFAULT_CAPTION, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from '@model/plot';
+import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from '@model/plot';
 
 /**
  * Minimal Figure stub that takes the empty-state branch in Context's
@@ -75,5 +75,30 @@ describe('Context.isAuthoredCaption', () => {
   test('returns false for an empty or whitespace-only string', () => {
     expect(context.isAuthoredCaption('')).toBe(false);
     expect(context.isAuthoredCaption('   ')).toBe(false);
+  });
+});
+
+describe('Context.isAuthoredAxisLabel', () => {
+  const context = new Context(createStubFigure());
+
+  test('returns true for a normal authored figure-wide axis label', () => {
+    expect(context.isAuthoredAxisLabel('Year')).toBe(true);
+  });
+
+  test('returns false for the absent (empty sentinel) default', () => {
+    expect(context.isAuthoredAxisLabel(DEFAULT_FIGURE_AXIS)).toBe(false);
+  });
+
+  test('returns false for an empty or whitespace-only string', () => {
+    expect(context.isAuthoredAxisLabel('')).toBe(false);
+    expect(context.isAuthoredAxisLabel('   ')).toBe(false);
+  });
+
+  test('with no figure state, figure axis getters return the empty default', () => {
+    // The stub figure reports an empty state, so the getters fall through to
+    // DEFAULT_FIGURE_AXIS and read as unauthored.
+    expect(context.figureXAxis).toBe(DEFAULT_FIGURE_AXIS);
+    expect(context.figureYAxis).toBe(DEFAULT_FIGURE_AXIS);
+    expect(context.isAuthoredAxisLabel(context.figureXAxis)).toBe(false);
   });
 });

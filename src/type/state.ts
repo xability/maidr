@@ -21,6 +21,17 @@ export type FigureState
     title: string;
     subtitle: string;
     caption: string;
+    /**
+     * Figure-wide X axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level x label; callers
+     * then fall back to the focused subplot's own axis.
+     */
+    xAxis: string;
+    /**
+     * Figure-wide Y axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level y label.
+     */
+    yAxis: string;
     size: number;
     index: number;
     subplot: SubplotState;

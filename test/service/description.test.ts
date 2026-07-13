@@ -12,6 +12,8 @@ interface ContextOverrides {
   figureTitle?: string;
   figureSubtitle?: string;
   figureCaption?: string;
+  figureXAxis?: string;
+  figureYAxis?: string;
   authored?: string[];
   subplotSummaries?: SubplotSummary[];
 }
@@ -28,9 +30,12 @@ function createMockContext(overrides: ContextOverrides): Context {
     figureTitle: overrides.figureTitle ?? 'unavailable',
     figureSubtitle: overrides.figureSubtitle ?? 'unavailable',
     figureCaption: overrides.figureCaption ?? 'unavailable',
+    figureXAxis: overrides.figureXAxis ?? '',
+    figureYAxis: overrides.figureYAxis ?? '',
     isAuthoredTitle: (value: string) => authored.has(value),
     isAuthoredSubtitle: (value: string) => authored.has(value),
     isAuthoredCaption: (value: string) => authored.has(value),
+    isAuthoredAxisLabel: (value: string) => value.trim() !== '',
     getSubplotSummaries: () => overrides.subplotSummaries ?? [],
   } as unknown as Context;
 }
@@ -87,6 +92,50 @@ describe('descriptionService figure-level description', () => {
       { label: 'Subtitle', value: 'A subtitle' },
       { label: 'Caption', value: 'A caption' },
     ]);
+  });
+
+  test('surfaces authored figure-wide axes at the lobby', () => {
+    const context = createMockContext({
+      state: figureState(2),
+      figureXAxis: 'Year',
+      figureYAxis: 'Revenue',
+    });
+
+    const service = new DescriptionService(context, createMockDisplayService());
+    const description = service.getDescription();
+
+    expect(description).not.toBeNull();
+    expect(description!.axes).toEqual({ x: 'Year', y: 'Revenue' });
+  });
+
+  test('includes only the authored figure-wide axis when just one is set', () => {
+    const context = createMockContext({
+      state: figureState(2),
+      figureXAxis: 'Year',
+    });
+
+    const service = new DescriptionService(context, createMockDisplayService());
+    const description = service.getDescription();
+
+    expect(description).not.toBeNull();
+    expect(description!.axes).toEqual({ x: 'Year' });
+  });
+
+  test('omits a figure-wide axis whose authored label is blank/whitespace', () => {
+    // Mirrors the "blank label -> not available" handling tested for the
+    // `l x` / `l y` commands: an authored-but-blank `axes.x.label: ""` is
+    // filtered out of the `d` description modal too, via isAuthoredAxisLabel.
+    const context = createMockContext({
+      state: figureState(2),
+      figureXAxis: '   ',
+      figureYAxis: 'Revenue',
+    });
+
+    const service = new DescriptionService(context, createMockDisplayService());
+    const description = service.getDescription();
+
+    expect(description).not.toBeNull();
+    expect(description!.axes).toEqual({ y: 'Revenue' });
   });
 
   test('omits unauthored title, subtitle, and caption', () => {

@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { PlotState } from '@type/state';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
@@ -15,9 +15,11 @@ interface ReviewChangedEvent {
 }
 
 /**
- * Manages review mode functionality for trace data, generating formatted review text.
+ * Manages review mode functionality, generating formatted review text for the
+ * active plot element. Works at trace level (data descriptions) and at the
+ * multi-panel figure lobby (subplot navigation text).
  */
-export class ReviewService implements Observer<TraceState>, Disposable {
+export class ReviewService implements Observer<PlotState>, Disposable {
   private readonly notification: NotificationService;
   private readonly display: DisplayService;
   private readonly text: TextService;
@@ -52,10 +54,10 @@ export class ReviewService implements Observer<TraceState>, Disposable {
   }
 
   /**
-   * Updates the review content based on the current trace state.
-   * @param state - The current trace state to generate review from
+   * Updates the review content based on the current plot state.
+   * @param state - The current plot state to generate review from
    */
-  public update(state: TraceState): void {
+  public update(state: PlotState): void {
     if (!this.enabled || state.empty) {
       return;
     }
@@ -68,9 +70,9 @@ export class ReviewService implements Observer<TraceState>, Disposable {
 
   /**
    * Toggles review mode on or off and updates the display focus.
-   * @param state - The current trace state to review
+   * @param state - The current plot state to review
    */
-  public toggle(state: TraceState): void {
+  public toggle(state: PlotState): void {
     if (state.empty) {
       const noInfo = 'No info for review';
       this.notification.notify(noInfo);

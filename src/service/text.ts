@@ -4,6 +4,7 @@ import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
+import { focusedSubplotTitle } from '@model/plot';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
@@ -228,7 +229,12 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
-      return this.formatFigureText(state.index, state.size, state.traceTypes);
+      return this.formatFigureText(
+        state.index,
+        state.size,
+        state.traceTypes,
+        focusedSubplotTitle(state),
+      );
     } else if (state.type === 'subplot') {
       return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
     } else if (this.mode === TextMode.VERBOSE) {
@@ -243,13 +249,95 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param index - Current subplot index
    * @param size - Total number of subplots
    * @param traceTypes - Array of trace type names in the figure
+   * @param subplotTitle - Authored title of the focused subplot ('' when none)
    * @returns Formatted figure description text
    */
-  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+  private formatFigureText(index: number, size: number, traceTypes: string[], subplotTitle: string): string {
+    // Terse: keep lobby navigation quick to scan by reading back just the
+    // focused subplot's own title (e.g. a facet label) — no "Subplot N"
+    // framing. Only when the subplot has no authored title does it fall back
+    // to the bare position identifier.
+    if (this.mode === TextMode.TERSE) {
+      return this.terseSubplotLabel(index, subplotTitle);
+    }
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
-    return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
+    // Verbose: the full framing, now naming the panel by its authored title
+    // (when present) alongside the position.
+    const titlePart = subplotTitle ? `, ${subplotTitle}` : '';
+    return `Subplot ${index} of ${size}${titlePart}: ${details}. Press 'ENTER' to select this subplot.`;
+  }
+
+  /**
+   * The terse identifier for a lobby subplot: its authored title, or the bare
+   * "Subplot N" position when the subplot has no title. The single terse rule
+   * shared by the arrow-navigation description ({@link formatFigureText}) and
+   * the entry cue ({@link subplotEntryText}).
+   * @param index - 1-based visual position of the subplot.
+   * @param title - The subplot's authored title ('' when none).
+   * @returns The terse panel identifier.
+   */
+  private terseSubplotLabel(index: number, title: string): string {
+    return title || `Subplot ${index}`;
+  }
+
+  /**
+   * Builds the spoken cue for ENTERING a subplot from the multi-panel figure
+   * lobby, respecting the current text mode:
+   *  - OFF: `null` (only the enter tone signals the transition);
+   *  - TERSE: the panel's title alone (or bare "Subplot N" when untitled);
+   *  - VERBOSE: the full transition, e.g.
+   *    "Entered subplot 2 of 4, Sales in North, bar plot.".
+   *
+   * Lives here (not in the command layer) so all lobby wording and its
+   * terse/verbose rules share one home with {@link formatFigureText}.
+   * @param index - 1-based visual position of the entered subplot.
+   * @param size - Total number of subplots in the figure.
+   * @param plotType - The entered trace's plot type ('' to omit).
+   * @param title - The entered subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public subplotEntryText(index: number, size: number, plotType: string, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    if (this.mode === TextMode.TERSE) {
+      return this.terseSubplotLabel(index, title);
+    }
+    const titlePart = title ? `, ${title}` : '';
+    const suffix = plotType ? `, ${plotType} plot` : '';
+    return `Entered subplot ${index} of ${size}${titlePart}${suffix}.`;
+  }
+
+  /**
+   * Builds the spoken cue for EXITING a subplot back to the multi-panel figure
+   * lobby, respecting the current text mode:
+   *  - OFF: `null` (only the exit tone signals the transition);
+   *  - TERSE: "Figure, <title>" — the "Figure," marker signals the return, then
+   *    the panel's title alone (or bare "Figure, subplot N" when untitled);
+   *  - VERBOSE: the full return, e.g.
+   *    "Returned to figure overview, subplot 2 of 4, Sales in North.".
+   *
+   * Shares the lobby wording rules with {@link subplotEntryText} and
+   * {@link formatFigureText}.
+   * @param state - The figure lobby state returned to.
+   * @param title - The focused subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public subplotExitText(state: PlotState, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    const terse = this.mode === TextMode.TERSE;
+    if (state.type === 'figure' && !state.empty) {
+      if (terse) {
+        return title ? `Figure, ${title}` : `Figure, subplot ${state.index}`;
+      }
+      const titlePart = title ? `, ${title}` : '';
+      return `Returned to figure overview, subplot ${state.index} of ${state.size}${titlePart}.`;
+    }
+    return terse ? 'Figure' : 'Returned to figure overview.';
   }
 
   /**
@@ -573,6 +661,24 @@ export class TextService implements Observer<PlotState>, Disposable {
     ) {
       if (this.mode !== TextMode.OFF) {
         const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
+        this.onChangeEmitter.fire({ value: text });
+      }
+      return;
+    }
+
+    // Figure-level out-of-bounds: navigating subplots in the multi-panel lobby
+    // and hitting an edge. Mirror the trace edge cue with subplot wording,
+    // respecting text mode (OFF silent, TERSE short, VERBOSE full). Returns
+    // early like the trace branch so the empty state does not overwrite
+    // `currentState` (the user stayed on the current subplot).
+    if (
+      state
+      && state.empty
+      && state.type === 'figure'
+      && !state.warning
+    ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.mode === TextMode.TERSE ? 'No more subplots' : 'No more subplots to display';
         this.onChangeEmitter.fire({ value: text });
       }
       return;

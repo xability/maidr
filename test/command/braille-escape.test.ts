@@ -1,11 +1,57 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { NotificationService } from '@service/notification';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { ExitBrailleAndSubplotCommand, MoveToTraceContextCommand } from '@command/move';
+import { SubplotCue } from '@command/subplotCue';
 import { describe, expect, jest, test } from '@jest/globals';
+import { TextService } from '@service/text';
 import { Scope } from '@type/event';
+
+/**
+ * Creates a mock AudioService exposing the subplot enter/exit cue stubs.
+ */
+function createMockAudioService(): AudioService {
+  return {
+    playSubplotEnterTone: jest.fn(),
+    playSubplotExitTone: jest.fn(),
+    playWarningTone: jest.fn(),
+  } as unknown as AudioService;
+}
+
+/**
+ * Creates a mock NotificationService with a notify stub.
+ */
+function createMockNotificationService(): NotificationService {
+  return {
+    notify: jest.fn(),
+  } as unknown as NotificationService;
+}
+
+/**
+ * A real TextService in the default VERBOSE mode, so SubplotCue exercises the
+ * actual exit wording. Its NotificationService is a throwaway stub, separate
+ * from the one the assertions target.
+ */
+function createMockTextService(): TextService {
+  return new TextService({ notify: jest.fn() } as unknown as NotificationService);
+}
+
+/**
+ * Wraps the audio/notification/text mock trio in a real (thin) SubplotCue so
+ * the command's cue calls pass straight through to the same mock instances the
+ * tests assert on.
+ */
+function createSubplotCue(
+  audio: AudioService,
+  notification: NotificationService,
+  text: TextService,
+): SubplotCue {
+  return new SubplotCue(audio, notification, text);
+}
 
 /**
  * Creates a mock CandlestickDeltaService with a discardActiveLayer stub.
@@ -88,7 +134,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       });
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(callOrder).toEqual([
@@ -103,7 +149,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(displayService.dismissModalScope).toHaveBeenCalledWith(Scope.SUBPLOT);
@@ -114,7 +160,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(displayService.notifyFocusChange).toHaveBeenCalledWith(Scope.SUBPLOT);
@@ -125,7 +171,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(context.exitSubplot).toHaveBeenCalled();
@@ -136,10 +182,35 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+    });
+
+    test('plays the exit cue and announces the lobby position on the braille exit', () => {
+      const context = createMockContext({
+        isMultiPanel: true,
+        state: { type: 'figure', empty: false, index: 2, size: 4 },
+      });
+      const displayService = createMockDisplayService();
+      const brailleViewModel = createMockBrailleViewModel();
+      const audioService = createMockAudioService();
+      const notificationService = createMockNotificationService();
+
+      const command = new ExitBrailleAndSubplotCommand(
+        context,
+        displayService,
+        brailleViewModel,
+        createMockCandlestickDeltaService(),
+        createSubplotCue(audioService, notificationService, createMockTextService()),
+      );
+      command.execute();
+
+      expect(audioService.playSubplotExitTone).toHaveBeenCalled();
+      expect(notificationService.notify).toHaveBeenCalledWith(
+        'Returned to figure overview, subplot 2 of 4.',
+      );
     });
 
     test('discards the virtual delta layer before exiting the subplot', () => {
@@ -158,7 +229,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
         }),
       });
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(candlestickDeltaService.discardActiveLayer).toHaveBeenCalled();
@@ -174,7 +245,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const displayService = createMockDisplayService();
       const brailleViewModel = createMockBrailleViewModel();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService());
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, createMockCandlestickDeltaService(), createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(brailleViewModel.toggle).toHaveBeenCalledWith(traceState);
@@ -189,7 +260,7 @@ describe('ExitBrailleAndSubplotCommand', () => {
       const brailleViewModel = createMockBrailleViewModel();
       const candlestickDeltaService = createMockCandlestickDeltaService();
 
-      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService);
+      const command = new ExitBrailleAndSubplotCommand(context, displayService, brailleViewModel, candlestickDeltaService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
       command.execute();
 
       expect(candlestickDeltaService.discardActiveLayer).not.toHaveBeenCalled();
@@ -203,7 +274,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(false);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
     command.execute();
 
     expect(context.enterSubplot).toHaveBeenCalled();
@@ -214,7 +285,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
     command.execute();
 
     expect(displayService.toggleFocus).toHaveBeenCalledWith(Scope.BRAILLE);
@@ -225,7 +296,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(false);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
     command.execute();
 
     expect(displayService.toggleFocus).not.toHaveBeenCalled();
@@ -238,7 +309,7 @@ describe('MoveToTraceContextCommand', () => {
     const brailleService = createMockBrailleService(true);
     const displayService = createMockDisplayService();
 
-    const command = new MoveToTraceContextCommand(context, brailleService, displayService);
+    const command = new MoveToTraceContextCommand(context, brailleService, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextService()));
     command.execute();
 
     expect(brailleService.refreshDisplay).not.toHaveBeenCalled();

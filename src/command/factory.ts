@@ -89,6 +89,7 @@ import {
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
+import { SubplotCue } from './subplotCue';
 import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
@@ -143,6 +144,8 @@ export class CommandFactory {
   private readonly textViewModel: TextViewModel;
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
 
+  private readonly subplotCue: SubplotCue;
+
   /**
    * Creates an instance of CommandFactory.
    * @param {CommandContext} commandContext - The command context containing services and view models.
@@ -161,6 +164,8 @@ export class CommandFactory {
     this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
     this.textService = commandContext.textService;
+
+    this.subplotCue = new SubplotCue(this.audioService, this.notificationService, this.textService);
 
     this.brailleViewModel = commandContext.brailleViewModel;
     this.candlestickDeltaViewModel = commandContext.candlestickDeltaViewModel;
@@ -220,11 +225,11 @@ export class CommandFactory {
         return new MoveToRightExtremeCommand(this.context);
 
       case 'MOVE_TO_TRACE_CONTEXT':
-        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService);
+        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.subplotCue);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context, this.displayService);
+        return new MoveToSubplotContextCommand(this.context, this.displayService, this.subplotCue);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
-        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService);
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.subplotCue);
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService);
       case 'MOVE_TO_PREV_TRACE':
@@ -233,7 +238,7 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.brailleViewModel);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel, this.notificationService, this.audioService);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':

@@ -67,12 +67,12 @@ export class DescriptionService {
 
   /**
    * Builds a figure-level description for a multi-panel figure's lobby view.
-   * Surfaces the authored figure title, subplot count, and any authored
-   * subtitle/caption, plus the per-subplot summaries so the user sees what
-   * is available before navigating in. Axes and the data table are left
-   * blank (empty object / no rows) because those are trace-level concepts
-   * with no figure-level equivalent; the description modal hides those
-   * empty sections.
+   * Surfaces the authored figure title, subplot count, any authored
+   * subtitle/caption, and the authored figure-wide axes (e.g. a facet grid's
+   * shared X/Y labels), plus the per-subplot summaries so the user sees what
+   * is available before navigating in. The data table is left blank (no rows)
+   * because raw data is a trace-level concept with no figure-level equivalent;
+   * the description modal hides empty sections.
    *
    * @param size - The number of subplots in the figure.
    * @returns The figure-level description state.
@@ -100,10 +100,30 @@ export class DescriptionService {
     return {
       chartType: 'Multi-panel figure',
       title,
-      axes: {},
+      axes: this.getFigureAxes(),
       stats,
       dataTable: { headers: [], rows: [] },
       ...(subplots.length > 0 && { subplots }),
+    };
+  }
+
+  /**
+   * Resolves the figure-wide axes to show in the lobby description: the
+   * authored figure-level X/Y labels (a facet grid's shared axes). Returns an
+   * empty object when no figure-wide axis was authored — per-subplot axes
+   * belong to each subplot's own summary, so the figure overview omits them,
+   * matching the prior behavior for figures without global axes.
+   *
+   * @returns The axes object for the figure-level description.
+   */
+  private getFigureAxes(): DescriptionState['axes'] {
+    const x = this.context.figureXAxis;
+    const y = this.context.figureYAxis;
+    // Only x/y are figure-wide concepts; z (level/group/trend) is inherently
+    // per-trace, so there is no figure-level z to surface here.
+    return {
+      ...(this.context.isAuthoredAxisLabel(x) && { x }),
+      ...(this.context.isAuthoredAxisLabel(y) && { y }),
     };
   }
 

@@ -24,6 +24,18 @@ interface Harness {
   audioService: { playWarningToneIfEnabled: jest.Mock };
 }
 
+/**
+ * Constructor shape shared by the three axis-label announce commands, so the
+ * harness can build any of them without falling back to `never[]`/`any`.
+ */
+type AnnounceCommandCtor = new (
+  context: Context,
+  textViewModel: TextViewModel,
+  audioService: AudioService,
+  textService: TextService,
+  displayService: DisplayService,
+) => AnnounceXCommand | AnnounceYCommand | AnnounceZCommand;
+
 function createContext(state: Record<string, unknown>): Context {
   return {
     scope: Scope.TRACE_LABEL,
@@ -32,7 +44,7 @@ function createContext(state: Record<string, unknown>): Context {
 }
 
 function createHarness(
-  CommandClass: new (...args: never[]) => AnnounceXCommand | AnnounceYCommand | AnnounceZCommand,
+  CommandClass: AnnounceCommandCtor,
   state: Record<string, unknown>,
   terse = false,
 ): Harness {

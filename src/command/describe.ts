@@ -7,6 +7,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
+import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
@@ -54,16 +55,135 @@ abstract class AnnounceCommand implements Command {
    * the correct scope (TRACE, BRAILLE, etc.) regardless of which scope
    * was active before entering label mode.
    *
-   * Only exits when a label scope is actually active. These announce
-   * commands are also bound outside label mode (e.g. 't' at subplot/figure
-   * level); exiting unconditionally would flip navigation into TRACE scope
-   * via the stale focus stack and break subplot activation.
+   * Only exits when a label scope (TRACE_LABEL or FIGURE_LABEL) is actually
+   * active. Every current caller (announce x/y/z/title/subtitle/caption) is
+   * bound only inside a label scope, so this guard is defensive: it keeps the
+   * command safe if a future keybinding ever invokes it from a non-label
+   * scope, where exiting unconditionally would flip navigation into TRACE
+   * scope via the stale focus stack and break subplot activation.
    */
   protected restoreScope(): void {
     const scope = this.context.scope;
     if (scope === Scope.TRACE_LABEL || scope === Scope.FIGURE_LABEL) {
       this.displayService.exitLabelScope();
     }
+  }
+
+  /**
+   * Resolves the populated trace state whose labels (x / y / z) should be
+   * announced, regardless of the current navigation level:
+   *  - trace level: the active trace itself;
+   *  - figure lobby (multi-panel) or subplot level: the *currently focused*
+   *    subplot's active trace. In a facet figure every panel shares the same
+   *    axes, so this is the figure-wide label; in a general multi-panel figure
+   *    each panel may differ, so the announcement tracks whichever subplot the
+   *    cursor is on (and updates as the user navigates between subplots).
+   *
+   * Returns null when no populated trace is reachable (e.g. an empty state),
+   * so callers can fall back to an "unavailable" announcement.
+   */
+  protected resolveActiveTraceState(): NonEmptyTraceState | null {
+    const state = this.context.state;
+    if (state.empty) {
+      return null;
+    }
+    if (state.type === 'trace') {
+      return state;
+    }
+    // Defensive: at runtime the context stack never holds a bare Subplot (it is
+    // always paired with a Trace on top, see Context.enterSubplot), so this
+    // branch is unreachable in practice — kept for completeness like the
+    // 'subplot' fallback in AnnounceTitleCommand.
+    if (state.type === 'subplot') {
+      return state.trace.empty ? null : state.trace;
+    }
+    // Figure lobby: read the focused subplot's active trace. Narrow the
+    // subplot to its non-empty variant first so `trace` is well-typed.
+    const subplot = state.subplot;
+    if (subplot.empty || subplot.trace.empty) {
+      return null;
+    }
+    return subplot.trace;
+  }
+
+  /**
+   * Prefix that names which subplot an announced label belongs to.
+   *
+   * At the multi-panel figure lobby the cursor sits on one subplot at a time
+   * and each panel may carry different axes, so an axis/level announcement is
+   * prefixed with the focused subplot's position (e.g. "Subplot 2, "). Returns
+   * an empty string once the user is inside a subplot (trace/subplot level) or
+   * in a single-panel figure, where the source is already unambiguous — and in
+   * terse mode, which stays minimal by design.
+   */
+  protected labelSourcePrefix(): string {
+    if (this.textService.isTerse()) {
+      return '';
+    }
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      return `Subplot ${state.index}, `;
+    }
+    return '';
+  }
+
+  /**
+   * The authored figure-wide axis label to announce at the multi-panel figure
+   * lobby, or null when none was authored (so the caller falls back to the
+   * focused subplot's own axis). Only applies at the lobby (figure state):
+   * once the user is inside a subplot the trace's own axis is authoritative,
+   * so this returns null there and existing single-panel behavior is untouched.
+   * @param {'x' | 'y'} axis - Which figure-wide axis label to resolve.
+   */
+  protected figureWideAxisLabel(axis: 'x' | 'y'): string | null {
+    const state = this.context.state;
+    if (state.type !== 'figure' || state.empty) {
+      return null;
+    }
+    const label = axis === 'x' ? this.context.figureXAxis : this.context.figureYAxis;
+    return this.context.isAuthoredAxisLabel(label) ? label : null;
+  }
+
+  /**
+   * Shared X/Y axis announcement: an authored figure-wide label wins at the
+   * lobby ("Figure X label is ..."), otherwise the focused subplot's own axis
+   * is used ("Subplot N, X label is ...") — falling through to "not available"
+   * when no populated trace is reachable. Z is intentionally not routed here:
+   * it reads a different field (`text.z`) with different wording and has no
+   * figure-wide equivalent.
+   * @param {'x' | 'y'} axis - Which axis to announce.
+   */
+  protected announceAxisLabel(axis: 'x' | 'y'): void {
+    const axisName = axis === 'x' ? 'X' : 'Y';
+
+    const figureLabel = this.figureWideAxisLabel(axis);
+    if (figureLabel !== null) {
+      const text = this.textService.isTerse()
+        ? figureLabel
+        : `Figure ${axisName} label is ${figureLabel}`;
+      this.textViewModel.update(text);
+      this.restoreScope();
+      return;
+    }
+
+    const traceState = this.resolveActiveTraceState();
+    const label = traceState !== null ? (axis === 'x' ? traceState.xAxis : traceState.yAxis) : '';
+    // A blank / whitespace-only label is announced as "not available" (matching
+    // the title/subtitle/caption commands), so an authored `axes.x.label: ""`
+    // never speaks a bare "X label is ".
+    if (traceState !== null && label.trim() !== '') {
+      const text = this.textService.isTerse()
+        ? label
+        : `${this.labelSourcePrefix()}${axisName} label is ${label}`;
+      this.textViewModel.update(text);
+    } else {
+      const text = this.textService.isTerse()
+        ? 'unavailable'
+        : `${axisName} label is not available`;
+      this.textViewModel.update(text);
+      this.audioService.playWarningToneIfEnabled();
+    }
+    this.restoreScope();
   }
 }
 
@@ -92,27 +212,14 @@ export class AnnounceXCommand extends AnnounceCommand {
   /**
    * Executes the command to display the X-axis label.
    *
-   * An empty or whitespace-only label is treated as "not available" so the
-   * announcement stays consistent with the title/subtitle/caption commands,
-   * which reject blank values via {@link Context.isAuthoredTitle}. Without
-   * this guard a chart authored with `axes.x.label: ""` would announce a bare
-   * "X label is " with no value.
+   * Precedence at the figure lobby: an authored figure-wide X label wins
+   * ("Figure X label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, X label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty && state.xAxis.trim() !== '') {
-      const text = this.textService.isTerse()
-        ? state.xAxis
-        : `X label is ${state.xAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'X label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('x');
   }
 }
 
@@ -141,27 +248,14 @@ export class AnnounceYCommand extends AnnounceCommand {
   /**
    * Executes the command to display the Y-axis label.
    *
-   * An empty or whitespace-only label is treated as "not available" so the
-   * announcement stays consistent with the title/subtitle/caption commands,
-   * which reject blank values via {@link Context.isAuthoredTitle}. Without
-   * this guard a chart authored with `axes.y.label: ""` would announce a bare
-   * "Y label is " with no value.
+   * Precedence at the figure lobby: an authored figure-wide Y label wins
+   * ("Figure Y label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, Y label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty && state.yAxis.trim() !== '') {
-      const text = this.textService.isTerse()
-        ? state.yAxis
-        : `Y label is ${state.yAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'Y label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('y');
   }
 }
 
@@ -193,15 +287,20 @@ export class AnnounceZCommand extends AnnounceCommand {
    * Executes the command to display the z (level) information.
    * Checks for valid z-axis data which is in state.text.z with label and value properties.
    * Supports: candlestick (trend), heatmap (z), segmented bars (level), multi-line (group).
+   *
+   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
+   * active subplot's trace so `l z` announces its level/group label in
+   * multi-panel/facet figures, degrading to "not available" for chart types
+   * (e.g. box, single-line) that have no z.
    */
   public execute(): void {
-    const state = this.context.state;
+    const traceState = this.resolveActiveTraceState();
 
-    // Check if we have valid z-axis data
-    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line).
-    // A blank label is also rejected so an authored `axes.z.label: ""` is announced as
-    // "not available" rather than a bare "Z label is ", matching the X/Y label commands.
-    const zData = state.type === 'trace' && !state.empty ? state.text.z : undefined;
+    // text.z is optional and may be undefined for some chart types (e.g. box,
+    // single-line). A blank label is also rejected below so an authored
+    // `axes.z.label: ""` announces "not available" rather than a bare
+    // "Z label is ", matching the X/Y label commands.
+    const zData = traceState?.text.z;
     const hasValidZ = zData !== undefined
       && zData.value !== undefined
       && zData.value !== null
@@ -212,7 +311,7 @@ export class AnnounceZCommand extends AnnounceCommand {
       const zLabel = zData!.label;
       const text = this.textService.isTerse()
         ? zLabel
-        : `Z label is ${zLabel}`;
+        : `${this.labelSourcePrefix()}Z label is ${zLabel}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
@@ -254,7 +353,10 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    * defaults are treated as "no title". Announces "No title available"
    * when nothing was authored at either level.
    *
-   * - Figure-level scope (multi-panel): "Figure title is ...".
+   * - Figure-level scope (multi-panel): prefers the figure title as
+   *   "Figure title is ...", then falls back to the focused subplot's title as
+   *   "Subplot N title is ..." so the lobby still names the panel the cursor is
+   *   on when no figure title was authored.
    * - Trace-level scope, single-panel: prefers the layer title, then the
    *   figure title, announced as "Title is ...".
    * - Trace-level scope, multi-panel: prefers the layer title as
@@ -273,6 +375,16 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     if (state.type === 'figure') {
       if (this.context.isAuthoredTitle(state.title)) {
         this.announce(state.title, 'Figure title');
+        this.restoreScope();
+        return;
+      }
+      // No figure title: fall back to the focused subplot's own title, reusing
+      // the shared focusedSubplotTitle() traversal (already placeholder-filtered
+      // via isAuthoredTitle), the single source of truth also used by move.ts
+      // and text.ts.
+      const subplotTitle = focusedSubplotTitle(state);
+      if (subplotTitle) {
+        this.announce(subplotTitle, `Subplot ${state.index} title`);
       } else {
         this.announceUnavailable();
       }

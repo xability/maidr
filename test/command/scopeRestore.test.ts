@@ -2,12 +2,13 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
-import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import { AnnounceXCommand } from '@command/describe';
 import { EnterGridCellCommand } from '@command/gridCell';
 import { MoveToSubplotContextCommand } from '@command/move';
+import { SubplotCue } from '@command/subplotCue';
 import { describe, expect, jest, test } from '@jest/globals';
+import { TextService } from '@service/text';
 import { Scope } from '@type/event';
 
 /**
@@ -33,6 +34,31 @@ function createMockDisplayService(): DisplayService {
   } as unknown as DisplayService;
 }
 
+function createMockAudioService(): AudioService {
+  return {
+    playSubplotExitTone: jest.fn(),
+    playWarningToneIfEnabled: jest.fn(),
+  } as unknown as AudioService;
+}
+
+function createMockNotificationService(): NotificationService {
+  return { notify: jest.fn() } as unknown as NotificationService;
+}
+
+function createMockTextServiceForExit(): TextService {
+  // A real TextService (default VERBOSE) so the SubplotCue exit path runs the
+  // real wording; these tests assert focus/scope, not the message text.
+  return new TextService({ notify: jest.fn() } as unknown as NotificationService);
+}
+
+function createSubplotCue(
+  audio: AudioService,
+  notification: NotificationService,
+  text: TextService,
+): SubplotCue {
+  return new SubplotCue(audio, notification, text);
+}
+
 describe('MoveToSubplotContextCommand', () => {
   test('syncs the focus stack when exitSubplot actually changed scope', () => {
     const context = createMockContext();
@@ -42,7 +68,7 @@ describe('MoveToSubplotContextCommand', () => {
     });
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
 
     expect(displayService.syncFocusStack).toHaveBeenCalledWith(Scope.SUBPLOT);
   });
@@ -52,7 +78,7 @@ describe('MoveToSubplotContextCommand', () => {
     const context = createMockContext();
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
 
     expect(context.exitSubplot).toHaveBeenCalled();
     expect(displayService.syncFocusStack).not.toHaveBeenCalled();
