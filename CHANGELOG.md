@@ -1,3 +1,18 @@
+# [3.73.0](https://github.com/xability/maidr/compare/v3.72.1...v3.73.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **facet:** restore Y label in example and announce blank axis labels as unavailable ([#640](https://github.com/xability/maidr/issues/640)) ([ff3d508](https://github.com/xability/maidr/commit/ff3d50834d833d6e09d4bad06dc87e224d90f059))
+
+
+### Features
+
+* **candlestick:** rework delta layer with Ctrl+L toggle, OHLC nav, and directional sonification ([#635](https://github.com/xability/maidr/issues/635)) ([8618376](https://github.com/xability/maidr/commit/861837670c7f4addb56b5a327c7550334ec979e8))
+* **description:** support 'd' shortcut at multi-panel figure level ([#638](https://github.com/xability/maidr/issues/638)) ([e35d0b3](https://github.com/xability/maidr/commit/e35d0b342f80967a3bd7e8463dd01372d03eb717))
+* **go-to:** format search options, add Esc/Home/End, and open/close audio cues ([#637](https://github.com/xability/maidr/issues/637)) ([8da2ca2](https://github.com/xability/maidr/commit/8da2ca297df133956924f65ef679c4ebf6b78f63))
+* improve consistent labels, figure-wide axes, and navigation cues at the multi-panel figure overview ([#639](https://github.com/xability/maidr/issues/639)) ([0904e97](https://github.com/xability/maidr/commit/0904e9715173cd99c38f44f44ff7ca231973293f))
+
 ## [3.72.1](https://github.com/xability/maidr/compare/v3.72.0...v3.72.1) (2026-07-06)
 
 
