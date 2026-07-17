@@ -824,8 +824,36 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (this.volume <= 0) {
       return;
     }
-    // A suspended context reports currentTime === 0; scheduling start(0)/stop()
-    // now would fire an unexpected beep the instant the context resumes.
+
+    // A suspended context (before the first user gesture reaches the audio
+    // graph) reports currentTime === 0; scheduling start(0)/stop() against it
+    // would collapse the whole arpeggio to the instant it later resumes. Resume
+    // it first and play the notes once it is actually running, so the first cue
+    // after focus is heard rather than dropped.
+    if (this.audioContext.state !== 'running') {
+      void this.audioContext.resume()
+        .then(() => this.scheduleMenuTone(frequencies))
+        .catch(() => {
+          // resume() rejects on a closed context (dispose raced the resume) or
+          // when the browser still blocks playback; nothing to schedule then.
+        });
+      return;
+    }
+
+    this.scheduleMenuTone(frequencies);
+  }
+
+  /**
+   * Schedules a menu arpeggio's beeps back-to-back from the current time.
+   * Re-checks mode/volume/context because it can run after an async
+   * {@link AudioContext.resume}, by which point the user may have turned sound
+   * off or to zero, or the context may have been closed on disposal.
+   * @param frequencies - Beep frequencies in play order.
+   */
+  private scheduleMenuTone(frequencies: number[]): void {
+    if (this.mode === AudioMode.OFF || this.volume <= 0) {
+      return;
+    }
     if (this.audioContext.state !== 'running') {
       return;
     }
