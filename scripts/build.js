@@ -90,6 +90,9 @@ function defaultJobs() {
   // reports the host's cores (Node >= 18.14; fall back for older runtimes).
   const cores = os.availableParallelism?.() ?? os.cpus().length;
   const cpuCap = Math.round(cores * 2 / 3);
+  // Unlike availableParallelism, totalmem() is NOT cgroup-aware: it reports
+  // the host's physical RAM, so a memory-limited container can still
+  // over-provision. Set MAIDR_BUILD_JOBS/--jobs explicitly in that case.
   const memGb = os.totalmem() / 1024 ** 3;
   const memCap = Math.floor((memGb - 1.5) / 1.75);
   return Math.max(1, Math.min(8, cpuCap, memCap));
@@ -358,8 +361,10 @@ async function runParallel(selected, jobs, outDir) {
   const scriptPath = fileURLToPath(import.meta.url);
   const total = selected.length;
   let started = 0;
-  let done = 0;
   const activeChildren = new Set();
+  // Filenames merged into dist this run, keyed to the bundle that emitted
+  // them — lets us detect two bundles emitting the same name (see below).
+  const mergedBy = new Map();
 
   const runWorker = config => new Promise((resolve, reject) => {
     const step = `[${++started}/${total}]`;
@@ -391,14 +396,27 @@ async function runParallel(selected, jobs, outDir) {
       }
       try {
         // Merge this bundle's artifacts into dist. Filenames are unique per
-        // bundle, so concurrent merges never collide; if two bundles ever
-        // emit a same-named entry the rename fails loudly instead of output
-        // being silently dropped.
+        // bundle today, but fs.rename silently replaces an existing file, so
+        // that alone can't be trusted to surface a collision. Track what each
+        // bundle emitted this run and fail loudly if two bundles ever produce
+        // the same name, instead of one silently overwriting the other.
         const entries = await fs.readdir(workerOut, { withFileTypes: true });
-        await Promise.all(entries.map(e =>
-          fs.rename(path.join(workerOut, e.name), path.join(outDir, e.name))));
+        for (const e of entries) {
+          const emitter = mergedBy.get(e.name);
+          if (emitter !== undefined)
+            throw new Error(`Merge collision: "${config.name}" and "${emitter}" both emitted "${e.name}"`);
+          mergedBy.set(e.name, config.name);
+        }
+        await Promise.all(entries.map(async (e) => {
+          const dest = path.join(outDir, e.name);
+          // Stale copies from an earlier build are expected in selective
+          // builds (dist isn't emptied); clear them first so a directory
+          // rename can't fail with ENOTEMPTY.
+          await fs.rm(dest, { recursive: true, force: true });
+          await fs.rename(path.join(workerOut, e.name), dest);
+        }));
         await fs.rm(workerOut, { recursive: true, force: true });
-        console.log(`[${++done}/${total}] Done ${config.name} (${((Date.now() - t) / 1000).toFixed(1)}s)`);
+        console.log(`${step} Done ${config.name} (${((Date.now() - t) / 1000).toFixed(1)}s)`);
         resolve();
       } catch (err) {
         reject(err);
