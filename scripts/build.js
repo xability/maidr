@@ -119,7 +119,9 @@ function defaultJobs() {
  * report success having built nothing.
  */
 function parseJobs(raw, source) {
-  const jobs = Number.parseInt(raw, 10);
+  // Number(), not parseInt(): parseInt stops at the first non-digit, so a
+  // value like "4x" would silently parse as 4 instead of being rejected.
+  const jobs = Number(raw);
   if (!Number.isInteger(jobs) || jobs < 1) {
     console.error(`Invalid ${source} value: "${raw}" — expected a positive integer.`);
     process.exit(1);
@@ -534,7 +536,7 @@ async function main() {
     : builds;
 
   // Resolve the job cap early: before the sequential-path branch (a cap of 1
-  // routes there) and before touching dist, so a malformed
+  // routes there) and before emptying dist, so a malformed
   // --jobs/MAIDR_BUILD_JOBS aborts without wiping previous build output.
   const jobs = jobsArg
     ? parseJobs(jobsArg.slice('--jobs='.length), '--jobs')
