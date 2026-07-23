@@ -95,6 +95,9 @@ async function filesEqual(a, b) {
  *   - A hard ceiling of 8: there are only ~7-8 heavy bundles, so more workers
  *     than that never shortens the wall clock on any machine.
  * Override with --jobs=N or MAIDR_BUILD_JOBS when you know your hardware.
+ *
+ * The 2/3, 1.75 GB and 1.5 GB constants were tuned empirically against the
+ * current bundle set — retune them if bundles get heavier or more numerous.
  */
 function defaultJobs() {
   // availableParallelism honours container/cgroup CPU limits where cpus()
@@ -392,7 +395,9 @@ async function runParallel(selected, jobs, outDir) {
         // React-based bundle writes an identical shared maidr.css. Keep the
         // first copy when contents are byte-identical, and fail only on a
         // genuine conflict — fs.rename would otherwise silently replace the
-        // existing file and corrupt another bundle's artifact.
+        // existing file and corrupt another bundle's artifact. Deliberately
+        // conservative: same-named directories always conflict, since no
+        // bundle emits them today and deep-comparing them is untested.
         if (e.isFile() && await filesEqual(src, dest))
           continue;
         throw new Error(
@@ -468,6 +473,8 @@ async function runParallel(selected, jobs, outDir) {
   // Defense-in-depth for Ctrl+C / kill: shells usually signal the whole
   // foreground process group, but that isn't guaranteed everywhere (notably
   // Windows), so make sure an interrupted build doesn't leave workers running.
+  // Best-effort by design: exit() neither waits for the children to die nor
+  // runs main()'s finally cleanup — the next non-worker run sweeps dist/.tmp.
   const onSignal = (signal) => {
     for (const child of activeChildren)
       child.kill('SIGTERM');
@@ -526,8 +533,19 @@ async function main() {
         .map(b => ({ ...b, emptyOutDir: false }))
     : builds;
 
-  // Worker processes (and single-bundle requests) just build in-process.
-  if (isWorker || sequential || selected.length === 1) {
+  // Resolve the job cap early: before the sequential-path branch (a cap of 1
+  // routes there) and before touching dist, so a malformed
+  // --jobs/MAIDR_BUILD_JOBS aborts without wiping previous build output.
+  const jobs = jobsArg
+    ? parseJobs(jobsArg.slice('--jobs='.length), '--jobs')
+    : process.env.MAIDR_BUILD_JOBS
+      ? parseJobs(process.env.MAIDR_BUILD_JOBS, 'MAIDR_BUILD_JOBS')
+      : defaultJobs();
+
+  // Worker processes (and single-bundle requests) just build in-process. A
+  // job cap of 1 gains nothing from forking, so it goes in-process too
+  // instead of paying per-bundle child startup.
+  if (isWorker || sequential || jobs === 1 || selected.length === 1) {
     if (!isWorker)
       console.log('Building MAIDR library...\n');
     await runSequential(selected);
@@ -535,14 +553,6 @@ async function main() {
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     return;
   }
-
-  // Resolve the job cap before touching dist, so a malformed
-  // --jobs/MAIDR_BUILD_JOBS aborts without wiping previous build output.
-  const jobs = jobsArg
-    ? parseJobs(jobsArg.slice('--jobs='.length), '--jobs')
-    : process.env.MAIDR_BUILD_JOBS
-      ? parseJobs(process.env.MAIDR_BUILD_JOBS, 'MAIDR_BUILD_JOBS')
-      : defaultJobs();
 
   // Parent orchestrator: empty dist once up front, then fork workers. Children
   // build into isolated temp dirs and the parent merges results into dist.
