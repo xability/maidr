@@ -321,7 +321,9 @@ function createViteConfig(config) {
 
   // Workers build into an isolated outDir (passed via env) so parallel
   // vite-plugin-dts runs never clobber each other's intermediate .d.ts files
-  // in the shared dist directory. vite-plugin-dts follows build.outDir.
+  // in the shared dist directory. vite-plugin-dts follows build.outDir —
+  // that assumption is load-bearing for the parallel build, so re-verify it
+  // (default output byte-identical to --sequential) when bumping the plugin.
   const outDir = process.env.MAIDR_BUILD_OUTDIR || 'dist';
 
   return {
@@ -502,6 +504,10 @@ async function main() {
   const jobsArg = argv.find(a => a.startsWith('--jobs='));
   const requested = argv.filter(a => !a.startsWith('--'));
 
+  if (argv.includes('--jobs')) {
+    console.error('--jobs requires a value, e.g. --jobs=4');
+    process.exit(1);
+  }
   // A mistyped flag must not silently fall through to the default behaviour
   // (e.g. `--sequental` quietly running a full parallel build).
   const unknownFlags = argv.filter(a =>
@@ -525,6 +531,9 @@ async function main() {
   // crashed or interrupted parallel build can leave dist/.tmp behind, and
   // `files: ["dist"]` would ship it via npm pack. Workers must NOT do this:
   // they run concurrently, and dist/.tmp holds their siblings' output.
+  // As with the old serial build, concurrent invocations of this script
+  // against the same checkout are unsupported — this sweep (and the dist
+  // merges later) would race with the other run's in-flight output.
   if (!isWorker)
     await fs.rm(path.resolve(rootDir, 'dist', '.tmp'), { recursive: true, force: true });
 
