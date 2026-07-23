@@ -76,19 +76,38 @@ async function emptyDir(dir) {
  * The build is bottlenecked by ~7 heavy React + vite-plugin-dts bundles, each
  * of which holds ~1.75 GB during the api-extractor type rollup. So we cap by
  * three things and take the smallest:
- *   - CPU: ~2/3 of logical cores keeps them busy without oversubscribing the
+ *   - CPU: ~2/3 of available cores keeps them busy without oversubscribing the
  *     dts/esbuild work (which slows every build via contention past that).
  *   - RAM: ~1.75 GB per concurrent build with ~1.5 GB held in reserve — this is
- *     what keeps low-memory laptops (e.g. 8 GB) from OOM-ing.
+ *     what keeps low-memory laptops (e.g. 8 GB) from OOM-ing. On very tight
+ *     machines the cap can drop all the way to a single worker.
  *   - A hard ceiling of 8: there are only ~7-8 heavy bundles, so more workers
  *     than that never shortens the wall clock on any machine.
  * Override with --jobs=N or MAIDR_BUILD_JOBS when you know your hardware.
  */
 function defaultJobs() {
-  const cpuCap = Math.round(os.cpus().length * 2 / 3);
+  // availableParallelism honours container/cgroup CPU limits where cpus()
+  // reports the host's cores (Node >= 18.14; fall back for older runtimes).
+  const cores = os.availableParallelism?.() ?? os.cpus().length;
+  const cpuCap = Math.round(cores * 2 / 3);
   const memGb = os.totalmem() / 1024 ** 3;
   const memCap = Math.floor((memGb - 1.5) / 1.75);
-  return Math.max(2, Math.min(8, cpuCap, memCap));
+  return Math.max(1, Math.min(8, cpuCap, memCap));
+}
+
+/**
+ * Parse a user-supplied job count. A malformed value must abort the build:
+ * left unchecked it flows as NaN into the worker pool, where
+ * `Array.from({ length: NaN })` yields an empty array and the script would
+ * report success having built nothing.
+ */
+function parseJobs(raw, source) {
+  const jobs = Number.parseInt(raw, 10);
+  if (!Number.isInteger(jobs) || jobs < 1) {
+    console.error(`Invalid ${source} value: "${raw}" — expected a positive integer.`);
+    process.exit(1);
+  }
+  return jobs;
 }
 
 function onWarn(warning, warn) {
@@ -340,6 +359,7 @@ async function runParallel(selected, jobs, outDir) {
   const total = selected.length;
   let started = 0;
   let done = 0;
+  const activeChildren = new Set();
 
   const runWorker = config => new Promise((resolve, reject) => {
     const step = `[${++started}/${total}]`;
@@ -356,20 +376,27 @@ async function runParallel(selected, jobs, outDir) {
       env: { ...process.env, MAIDR_BUILD_WORKER: '1', MAIDR_BUILD_OUTDIR: workerOut },
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     });
+    activeChildren.add(child);
 
-    child.on('error', reject);
-    child.on('exit', async (code) => {
+    child.on('error', (err) => {
+      activeChildren.delete(child);
+      reject(err);
+    });
+    child.on('exit', async (code, signal) => {
+      activeChildren.delete(child);
       if (code !== 0) {
-        reject(new Error(`Build "${config.name}" failed (exit code ${code})`));
+        const cause = signal ? `terminated by ${signal}` : `exit code ${code}`;
+        reject(new Error(`Build "${config.name}" failed (${cause})`));
         return;
       }
       try {
-        // Merge this bundle's flat artifacts into dist (filenames are unique
-        // per bundle, so concurrent merges never collide).
+        // Merge this bundle's artifacts into dist. Filenames are unique per
+        // bundle, so concurrent merges never collide; if two bundles ever
+        // emit a same-named entry the rename fails loudly instead of output
+        // being silently dropped.
         const entries = await fs.readdir(workerOut, { withFileTypes: true });
-        await Promise.all(entries
-          .filter(e => e.isFile())
-          .map(e => fs.rename(path.join(workerOut, e.name), path.join(outDir, e.name))));
+        await Promise.all(entries.map(e =>
+          fs.rename(path.join(workerOut, e.name), path.join(outDir, e.name))));
         await fs.rm(workerOut, { recursive: true, force: true });
         console.log(`[${++done}/${total}] Done ${config.name} (${((Date.now() - t) / 1000).toFixed(1)}s)`);
         resolve();
@@ -379,14 +406,25 @@ async function runParallel(selected, jobs, outDir) {
     });
   });
 
-  // Simple concurrency pool: keep `jobs` workers in flight.
+  // Simple concurrency pool: keep `jobs` workers in flight. On the first
+  // failure stop dequeuing and kill in-flight siblings, so a broken build
+  // doesn't leave orphaned processes chewing CPU/RAM after the parent exits.
   const queue = [...selected];
+  let firstError = null;
   const workers = Array.from({ length: Math.min(jobs, queue.length) }, async () => {
-    while (queue.length > 0) {
-      await runWorker(queue.shift());
+    while (queue.length > 0 && firstError === null) {
+      try {
+        await runWorker(queue.shift());
+      } catch (err) {
+        firstError ??= err;
+        for (const child of activeChildren)
+          child.kill('SIGTERM');
+      }
     }
   });
   await Promise.all(workers);
+  if (firstError)
+    throw firstError;
 }
 
 async function main() {
@@ -396,6 +434,16 @@ async function main() {
   const sequential = argv.includes('--sequential');
   const jobsArg = argv.find(a => a.startsWith('--jobs='));
   const requested = argv.filter(a => !a.startsWith('--'));
+
+  // A mistyped flag must not silently fall through to the default behaviour
+  // (e.g. `--sequental` quietly running a full parallel build).
+  const unknownFlags = argv.filter(a =>
+    a.startsWith('--') && a !== '--sequential' && !a.startsWith('--jobs='));
+  if (unknownFlags.length > 0) {
+    console.error(`Unknown flag(s): ${unknownFlags.join(', ')}`);
+    console.error('Supported flags: --sequential, --jobs=N');
+    process.exit(1);
+  }
 
   const unknown = requested.filter(name => !builds.some(b => b.name === name));
   if (unknown.length > 0) {
@@ -423,6 +471,14 @@ async function main() {
     return;
   }
 
+  // Resolve the job cap before touching dist, so a malformed
+  // --jobs/MAIDR_BUILD_JOBS aborts without wiping previous build output.
+  const jobs = jobsArg
+    ? parseJobs(jobsArg.slice('--jobs='.length), '--jobs')
+    : process.env.MAIDR_BUILD_JOBS
+      ? parseJobs(process.env.MAIDR_BUILD_JOBS, 'MAIDR_BUILD_JOBS')
+      : defaultJobs();
+
   // Parent orchestrator: empty dist once up front, then fork workers. Children
   // build into isolated temp dirs and the parent merges results into dist.
   const outDir = path.resolve(rootDir, 'dist');
@@ -434,16 +490,16 @@ async function main() {
   await fs.mkdir(outDir, { recursive: true });
   const workerBuilds = selected.map(b => ({ ...b, emptyOutDir: false }));
 
-  const explicitJobs = jobsArg
-    ? Number.parseInt(jobsArg.split('=')[1], 10)
-    : process.env.MAIDR_BUILD_JOBS
-      ? Number.parseInt(process.env.MAIDR_BUILD_JOBS, 10)
-      : null;
-  const jobs = Math.max(1, explicitJobs ?? defaultJobs());
-
   console.log(`Building MAIDR library (${workerBuilds.length} bundles, up to ${jobs} in parallel)...\n`);
-  await runParallel(workerBuilds, jobs, outDir);
-  await fs.rm(path.join(outDir, '.tmp'), { recursive: true, force: true });
+  try {
+    await runParallel(workerBuilds, jobs, outDir);
+  } finally {
+    // Clean up .tmp on success AND failure — `files: ["dist"]` in package.json
+    // means anything left under dist/ would end up in the published package.
+    // Best-effort so a cleanup error can't mask a real build failure.
+    await fs.rm(path.join(outDir, '.tmp'), { recursive: true, force: true })
+      .catch(() => {});
+  }
 
   console.log(`\nAll builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 }
