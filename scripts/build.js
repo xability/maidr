@@ -71,6 +71,17 @@ async function emptyDir(dir) {
 }
 
 /**
+ * Byte-compare two files (cheap size check first, then contents).
+ */
+async function filesEqual(a, b) {
+  const [statA, statB] = await Promise.all([fs.stat(a), fs.stat(b)]);
+  if (statA.size !== statB.size)
+    return false;
+  const [bufA, bufB] = await Promise.all([fs.readFile(a), fs.readFile(b)]);
+  return bufA.equals(bufB);
+}
+
+/**
  * Pick a default worker count that works across a wide range of dev machines.
  *
  * The build is bottlenecked by ~7 heavy React + vite-plugin-dts bundles, each
@@ -306,7 +317,7 @@ function createViteConfig(config) {
   // Workers build into an isolated outDir (passed via env) so parallel
   // vite-plugin-dts runs never clobber each other's intermediate .d.ts files
   // in the shared dist directory. vite-plugin-dts follows build.outDir.
-  const outDir = process.env.MAIDR_BUILD_OUTDIR || config.outDir || 'dist';
+  const outDir = process.env.MAIDR_BUILD_OUTDIR || 'dist';
 
   return {
     configFile: false,
@@ -365,6 +376,38 @@ async function runParallel(selected, jobs, outDir) {
   // Filenames merged into dist this run, keyed to the bundle that emitted
   // them — lets us detect two bundles emitting the same name (see below).
   const mergedBy = new Map();
+  // Merges are serialized through this promise chain: they're just a few
+  // renames (milliseconds next to the builds they follow), and running them
+  // one at a time keeps the duplicate/collision bookkeeping race-free.
+  let mergeLock = Promise.resolve();
+
+  const mergeOutput = async (config, workerOut) => {
+    const entries = await fs.readdir(workerOut, { withFileTypes: true });
+    for (const e of entries) {
+      const src = path.join(workerOut, e.name);
+      const dest = path.join(outDir, e.name);
+      const emitter = mergedBy.get(e.name);
+      if (emitter !== undefined) {
+        // Some outputs are legitimately emitted by several bundles: every
+        // React-based bundle writes an identical shared maidr.css. Keep the
+        // first copy when contents are byte-identical, and fail only on a
+        // genuine conflict — fs.rename would otherwise silently replace the
+        // existing file and corrupt another bundle's artifact.
+        if (e.isFile() && await filesEqual(src, dest))
+          continue;
+        throw new Error(
+          `Merge collision: "${config.name}" and "${emitter}" emitted different contents for "${e.name}"`,
+        );
+      }
+      mergedBy.set(e.name, config.name);
+      // Stale copies from an earlier build are expected in selective builds
+      // (dist isn't emptied); clear them first so a directory rename can't
+      // fail with ENOTEMPTY.
+      await fs.rm(dest, { recursive: true, force: true });
+      await fs.rename(src, dest);
+    }
+    await fs.rm(workerOut, { recursive: true, force: true });
+  };
 
   const runWorker = config => new Promise((resolve, reject) => {
     const step = `[${++started}/${total}]`;
@@ -395,27 +438,9 @@ async function runParallel(selected, jobs, outDir) {
         return;
       }
       try {
-        // Merge this bundle's artifacts into dist. Filenames are unique per
-        // bundle today, but fs.rename silently replaces an existing file, so
-        // that alone can't be trusted to surface a collision. Track what each
-        // bundle emitted this run and fail loudly if two bundles ever produce
-        // the same name, instead of one silently overwriting the other.
-        const entries = await fs.readdir(workerOut, { withFileTypes: true });
-        for (const e of entries) {
-          const emitter = mergedBy.get(e.name);
-          if (emitter !== undefined)
-            throw new Error(`Merge collision: "${config.name}" and "${emitter}" both emitted "${e.name}"`);
-          mergedBy.set(e.name, config.name);
-        }
-        await Promise.all(entries.map(async (e) => {
-          const dest = path.join(outDir, e.name);
-          // Stale copies from an earlier build are expected in selective
-          // builds (dist isn't emptied); clear them first so a directory
-          // rename can't fail with ENOTEMPTY.
-          await fs.rm(dest, { recursive: true, force: true });
-          await fs.rename(path.join(workerOut, e.name), dest);
-        }));
-        await fs.rm(workerOut, { recursive: true, force: true });
+        const merge = mergeLock.then(() => mergeOutput(config, workerOut));
+        mergeLock = merge.catch(() => {});
+        await merge;
         console.log(`${step} Done ${config.name} (${((Date.now() - t) / 1000).toFixed(1)}s)`);
         resolve();
       } catch (err) {
@@ -440,7 +465,22 @@ async function runParallel(selected, jobs, outDir) {
       }
     }
   });
-  await Promise.all(workers);
+  // Defense-in-depth for Ctrl+C / kill: shells usually signal the whole
+  // foreground process group, but that isn't guaranteed everywhere (notably
+  // Windows), so make sure an interrupted build doesn't leave workers running.
+  const onSignal = (signal) => {
+    for (const child of activeChildren)
+      child.kill('SIGTERM');
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+  try {
+    await Promise.all(workers);
+  } finally {
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
+  }
   if (firstError)
     throw firstError;
 }
@@ -471,6 +511,13 @@ async function main() {
   }
 
   const isWorker = process.env.MAIDR_BUILD_WORKER === '1';
+
+  // Sweep stale worker temp output on every non-worker invocation — a
+  // crashed or interrupted parallel build can leave dist/.tmp behind, and
+  // `files: ["dist"]` would ship it via npm pack. Workers must NOT do this:
+  // they run concurrently, and dist/.tmp holds their siblings' output.
+  if (!isWorker)
+    await fs.rm(path.resolve(rootDir, 'dist', '.tmp'), { recursive: true, force: true });
 
   const selected = requested.length > 0
     ? builds
@@ -503,8 +550,7 @@ async function main() {
   const shouldEmpty = selected.some(b => b.emptyOutDir);
   if (shouldEmpty)
     await emptyDir(outDir);
-  // Ensure a clean dist (and no stale .tmp) exists for merges to land into.
-  await fs.rm(path.join(outDir, '.tmp'), { recursive: true, force: true });
+  // Ensure dist exists for merges to land into (.tmp was swept above).
   await fs.mkdir(outDir, { recursive: true });
   const workerBuilds = selected.map(b => ({ ...b, emptyOutDir: false }));
 
