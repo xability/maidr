@@ -35,6 +35,7 @@ interface MockAudioContext {
   createGain: () => unknown;
   createStereoPanner: () => unknown;
   createDynamicsCompressor: () => unknown;
+  resume: () => Promise<void>;
   close: () => void;
 }
 
@@ -85,6 +86,10 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
       connect: jest.fn(),
       disconnect: jest.fn(),
     }),
+    resume() {
+      this.state = 'running';
+      return Promise.resolve();
+    },
     close: jest.fn(),
   };
   const audioGlobal = globalThis as unknown as { AudioContext: new () => MockAudioContext };

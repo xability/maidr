@@ -31,6 +31,7 @@ interface MockAudioContext {
   createGain: () => unknown;
   createStereoPanner: () => unknown;
   createDynamicsCompressor: () => unknown;
+  resume: () => Promise<void>;
   close: () => void;
 }
 
@@ -89,6 +90,10 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
     createGain: makeGain,
     createStereoPanner: makePanner,
     createDynamicsCompressor: makeCompressor,
+    resume() {
+      this.state = 'running';
+      return Promise.resolve();
+    },
     close: jest.fn(),
   };
   const audioGlobal = globalThis as unknown as { AudioContext: new () => MockAudioContext };
@@ -162,7 +167,7 @@ describe('AudioService menu open/close cues', () => {
     service.dispose();
   });
 
-  it('plays no cue while the AudioContext is suspended (avoids a beep on resume)', async () => {
+  it('resumes a suspended AudioContext, then plays the cue (no drop on first use)', async () => {
     const ctx = installAudioContextMock('suspended');
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -170,7 +175,15 @@ describe('AudioService menu open/close cues', () => {
     const before = ctx.oscillators.length;
     service.playMenuOpenTone();
 
+    // Nothing synchronously: scheduling start(0)/stop() against a still-suspended
+    // context (currentTime === 0) would collapse the arpeggio to a single instant.
     expect(ctx.oscillators.length).toBe(before);
+
+    // Flush the resume() microtask; the two arpeggio notes schedule once the
+    // context is actually running.
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
+    expect(ctx.oscillators.length).toBe(before + 2);
     service.dispose();
   });
 
