@@ -86,6 +86,9 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
       connect: jest.fn(),
       disconnect: jest.fn(),
     }),
+    // Simplification: state flips synchronously, though a real AudioContext
+    // only transitions once the promise settles. Tests where that ordering
+    // matters must override resume() with a deferred flip.
     resume() {
       this.state = 'running';
       return Promise.resolve();

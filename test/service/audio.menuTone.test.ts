@@ -93,6 +93,9 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
     createGain: makeGain,
     createStereoPanner: makePanner,
     createDynamicsCompressor: makeCompressor,
+    // Simplification: state flips synchronously, though a real AudioContext
+    // only transitions once the promise settles. Tests where that ordering
+    // matters must override resume() with a deferred flip.
     resume() {
       this.state = 'running';
       return Promise.resolve();
@@ -258,6 +261,38 @@ describe('AudioService menu open/close cues', () => {
     // cancellation of the pending cue prevents audio after disposal.
     await Promise.resolve();
     expect(ctx.oscillators.length).toBe(before);
+  });
+
+  it('drops a cue still waiting on resume() when volume is set to 0', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Extend the settings stub so the test can fire a live volume change into
+    // the listener AudioService registers in its constructor.
+    interface MockSettingsEvent {
+      affectsSetting: (key: string) => boolean;
+      get: <T>(key: string) => T;
+    }
+    let onSettingsChange: ((event: MockSettingsEvent) => void) | undefined;
+    const settings = {
+      get: <T>(_key: string) => 100 as unknown as T,
+      onChange: (listener: (event: MockSettingsEvent) => void) => {
+        onSettingsChange = listener;
+      },
+    } as unknown as SettingsService;
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), settings, INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    // Volume drops to 0 during the async resume() gap; the deferred path's
+    // volume re-check must silence the cue.
+    onSettingsChange?.({
+      affectsSetting: (key: string) => key === 'general.volume',
+      get: <T>(_key: string) => 0 as unknown as T,
+    });
+
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
   });
 
   it('drops a cue still waiting on resume() when audio is toggled OFF', async () => {

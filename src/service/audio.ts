@@ -847,17 +847,21 @@ export class AudioService implements Observer<PlotState>, Disposable {
       // The already in-flight resume() below will pick up this newer cue.
       return;
     }
-    void this.audioContext.resume()
-      .then(() => {
+    // Two-argument then(): the rejection handler must cover only resume()
+    // itself. A bug thrown by the cue callback should surface as an unhandled
+    // rejection, not be silently absorbed as if resume() had failed.
+    void this.audioContext.resume().then(
+      () => {
         const pending = this.pendingCue;
         this.pendingCue = null;
         pending?.();
-      })
-      .catch(() => {
+      },
+      () => {
         // resume() rejects on a closed context (dispose raced the resume) or
         // when the browser still blocks playback; nothing to schedule then.
         this.pendingCue = null;
-      });
+      },
+    );
   }
 
   /**
