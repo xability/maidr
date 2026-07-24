@@ -1,8 +1,11 @@
 /**
  * Tests for AudioService.playMenuOpenTone / playMenuCloseTone — the Go-To modal
  * open/close cues. Each cue is a short two-note arpeggio, so a successful cue
- * creates exactly two oscillators. The cue must be silent when audio is OFF,
- * when the volume is 0, or when the AudioContext is still suspended.
+ * creates exactly two oscillators. The cue must be silent when audio is OFF or
+ * when the volume is 0. On a suspended AudioContext the cue is deferred behind
+ * resume() and only the most recent deferred cue plays (last one wins); it is
+ * dropped entirely if the service is disposed, audio is turned OFF, or the
+ * context still is not running once resume() settles.
  *
  * AudioContext doesn't exist in the node test environment, so we install a
  * minimal global mock that records createOscillator calls (the visible side
@@ -31,6 +34,7 @@ interface MockAudioContext {
   createGain: () => unknown;
   createStereoPanner: () => unknown;
   createDynamicsCompressor: () => unknown;
+  resume: () => Promise<void>;
   close: () => void;
 }
 
@@ -89,6 +93,13 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
     createGain: makeGain,
     createStereoPanner: makePanner,
     createDynamicsCompressor: makeCompressor,
+    // Simplification: state flips synchronously, though a real AudioContext
+    // only transitions once the promise settles. Tests where that ordering
+    // matters must override resume() with a deferred flip.
+    resume() {
+      this.state = 'running';
+      return Promise.resolve();
+    },
     close: jest.fn(),
   };
   const audioGlobal = globalThis as unknown as { AudioContext: new () => MockAudioContext };
@@ -162,7 +173,7 @@ describe('AudioService menu open/close cues', () => {
     service.dispose();
   });
 
-  it('plays no cue while the AudioContext is suspended (avoids a beep on resume)', async () => {
+  it('resumes a suspended AudioContext, then plays the cue (no drop on first use)', async () => {
     const ctx = installAudioContextMock('suspended');
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
@@ -170,6 +181,146 @@ describe('AudioService menu open/close cues', () => {
     const before = ctx.oscillators.length;
     service.playMenuOpenTone();
 
+    // Nothing synchronously: scheduling start(0)/stop() against a still-suspended
+    // context (currentTime === 0) would collapse the arpeggio to a single instant.
+    expect(ctx.oscillators.length).toBe(before);
+
+    // Flush the resume() microtask; the two arpeggio notes schedule once the
+    // context is actually running.
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
+    expect(ctx.oscillators.length).toBe(before + 2);
+    service.dispose();
+  });
+
+  it('plays only the latest cue queued while suspended (no stacked arpeggios)', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Like a real browser, flip the state only when resume() settles, so both
+    // cues below are requested while the context is still suspended.
+    let resumeCalls = 0;
+    ctx.resume = () => {
+      resumeCalls += 1;
+      return Promise.resolve().then(() => {
+        ctx.state = 'running';
+      });
+    };
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.playMenuCloseTone();
+    expect(ctx.oscillators.length).toBe(before);
+
+    // After resume() settles (two microtask hops: the state flip, then the
+    // deferred scheduling), only the close cue (falling 990 -> 660) plays;
+    // replaying the superseded open cue too would stack both arpeggios into
+    // one garbled chord at the same start time. The second call only replaces
+    // the pending cue — it must not kick off a second resume().
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(resumeCalls).toBe(1);
+    expect(ctx.oscillators.slice(before).map(osc => osc.frequency.value)).toEqual([990, 660]);
+    service.dispose();
+  });
+
+  it('swallows a rejected resume() and recovers on the next cue', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Autoplay policy edge: resume() can reject outright while the browser
+    // still blocks playback (distinct from resolving without running).
+    ctx.resume = () => Promise.reject(new Error('blocked by autoplay policy'));
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+
+    // Two microtask hops: the rejection propagates, then the catch runs. The
+    // suite fails on any unhandled rejection, so this also pins the swallow.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+
+    // Once the context is running (e.g. a later user gesture), cues play again.
+    ctx.state = 'running';
+    service.playMenuOpenTone();
+    expect(ctx.oscillators.length).toBe(before + 2);
+    service.dispose();
+  });
+
+  it('drops a cue still waiting on resume() when the service is disposed', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.dispose();
+
+    // The mock's close() does not flip the state, so only the dispose-time
+    // cancellation of the pending cue prevents audio after disposal.
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+  });
+
+  it('drops a cue still waiting on resume() when volume is set to 0', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Extend the settings stub so the test can fire a live volume change into
+    // the listener AudioService registers in its constructor.
+    interface MockSettingsEvent {
+      affectsSetting: (key: string) => boolean;
+      get: <T>(key: string) => T;
+    }
+    let onSettingsChange: ((event: MockSettingsEvent) => void) | undefined;
+    const settings = {
+      get: <T>(_key: string) => 100 as unknown as T,
+      onChange: (listener: (event: MockSettingsEvent) => void) => {
+        onSettingsChange = listener;
+      },
+    } as unknown as SettingsService;
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), settings, INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    // Volume drops to 0 during the async resume() gap; the deferred path's
+    // volume re-check must silence the cue.
+    onSettingsChange?.({
+      affectsSetting: (key: string) => key === 'general.volume',
+      get: <T>(_key: string) => 0 as unknown as T,
+    });
+
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
+  });
+
+  it('drops a cue still waiting on resume() when audio is toggled OFF', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.toggle(); // SEPARATE -> OFF during the async resume() gap
+
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
+  });
+
+  it('plays no cue when resume() settles but the context still is not running', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Autoplay policy edge: resume() can settle without the context actually
+    // reaching the running state; the deferred path must re-check.
+    ctx.resume = () => Promise.resolve();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+
+    await Promise.resolve();
     expect(ctx.oscillators.length).toBe(before);
     service.dispose();
   });

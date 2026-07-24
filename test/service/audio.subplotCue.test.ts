@@ -35,6 +35,7 @@ interface MockAudioContext {
   createGain: () => unknown;
   createStereoPanner: () => unknown;
   createDynamicsCompressor: () => unknown;
+  resume: () => Promise<void>;
   close: () => void;
 }
 
@@ -85,6 +86,13 @@ function installAudioContextMock(state: string = 'running'): MockAudioContext {
       connect: jest.fn(),
       disconnect: jest.fn(),
     }),
+    // Simplification: state flips synchronously, though a real AudioContext
+    // only transitions once the promise settles. Tests where that ordering
+    // matters must override resume() with a deferred flip.
+    resume() {
+      this.state = 'running';
+      return Promise.resolve();
+    },
     close: jest.fn(),
   };
   const audioGlobal = globalThis as unknown as { AudioContext: new () => MockAudioContext };
@@ -128,6 +136,26 @@ describe('AudioService subplot enter/exit cues', () => {
     const before = ctx.oscillators.length;
     service.playSubplotExitTone();
 
+    expect(ctx.oscillators.length).toBe(before + 3);
+    service.dispose();
+  });
+
+  it('resumes a suspended AudioContext, then plays the subplot cue', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playSubplotEnterTone();
+
+    // Nothing synchronously: the cue defers behind resume() while suspended.
+    expect(ctx.oscillators.length).toBe(before);
+
+    // Flush the resume() microtask; the three arpeggio notes schedule once the
+    // context is actually running (same path as the menu cues, pinned here so
+    // the subplot entry point's coverage is explicit).
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
     expect(ctx.oscillators.length).toBe(before + 3);
     service.dispose();
   });

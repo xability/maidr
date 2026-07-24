@@ -103,6 +103,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
   private nextPointerGuidanceBeepAt: number;
+  private pendingCue: (() => void) | null;
 
   /**
    * Creates an instance of AudioService.
@@ -140,6 +141,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.audioContext = new AudioContext();
     this.compressor = this.initCompressor();
     this.nextPointerGuidanceBeepAt = 0;
+    this.pendingCue = null;
   }
 
   /**
@@ -148,6 +150,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * the compressor, and closes the AudioContext.
    */
   public dispose(): void {
+    // Drop any cue still waiting on AudioContext.resume(); its then-callback
+    // must not schedule audio against the closing context.
+    this.pendingCue = null;
     this.stopAll();
     this.audioPalette.dispose();
 
@@ -755,23 +760,108 @@ export class AudioService implements Observer<PlotState>, Disposable {
   /**
    * Plays a warning tone to indicate navigation boundary or invalid state.
    * Consists of two descending beeps (half-step down) to clearly signal a warning.
+   * Like the menu cues, a warning on a suspended context is deferred behind
+   * {@link AudioContext.resume} so the first warning after focus is heard
+   * instead of collapsing to a stray beep when the context later resumes.
    */
   public playWarningTone(): void {
+    // At volume 0 the beeps are skipped anyway (see playOneWarningBeep); bail
+    // early so a silent cue neither triggers resume() nor claims the deferred
+    // cue slot (mirroring playMenuTone's outer guard).
+    if (this.volume <= 0) {
+      return;
+    }
+    this.scheduleWhenRunning(() => this.scheduleWarningTone());
+  }
+
+  /**
+   * Schedules the two descending warning beeps from the current time.
+   * Re-checks the context state because it can run after an async
+   * {@link AudioContext.resume}, by which point disposal may have closed the
+   * context. The volume is re-checked by playOneWarningBeep itself. The mode
+   * is deliberately NOT re-checked here: playWarningTone is the unconditional
+   * variant (its callers want the alert even when sound is OFF), and
+   * playWarningToneIfEnabled layers its own mode re-check on top.
+   */
+  private scheduleWarningTone(): void {
+    if (this.audioContext.state !== 'running') {
+      return;
+    }
     const now = this.audioContext.currentTime;
     this.playOneWarningBeep(WARNING_FREQUENCY, now);
     this.playOneWarningBeep(WARNING_FREQUENCY / 2 ** (1 / 12), now + WARNING_SPACE); // half step down
-    // setTimeout(() => this.audioContext.close(), (WARNING_SPACE + WARNING_DURATION + 0.1) * 1000);
   }
 
   /**
    * Plays a warning tone only if audio mode is enabled.
-   * Use this for conditional warnings that should respect user's audio preferences.
+   * Use this for conditional warnings that should respect user's audio
+   * preferences. The mode is re-checked when a cue deferred behind
+   * {@link AudioContext.resume} finally schedules, so a warning queued while
+   * suspended stays suppressed if the user turns sound OFF in the meantime.
    */
   public playWarningToneIfEnabled(): void {
     if (this.mode === AudioMode.OFF) {
       return;
     }
-    this.playWarningTone();
+    // See playWarningTone: a silent cue must not resume() or claim the slot.
+    if (this.volume <= 0) {
+      return;
+    }
+    this.scheduleWhenRunning(() => {
+      if (this.mode === AudioMode.OFF) {
+        return;
+      }
+      this.scheduleWarningTone();
+    });
+  }
+
+  /**
+   * Runs a cue's scheduling callback once the AudioContext is running.
+   *
+   * A suspended context (before the first user gesture reaches the audio
+   * graph) reports currentTime === 0, so scheduling against it would collapse
+   * the cue to the instant the context later resumes. When not running, resume
+   * the context first and schedule once it settles, so the first cue after
+   * focus is heard rather than dropped.
+   *
+   * Only the most recent deferred cue is kept (last one wins), and the slot is
+   * deliberately shared across cue types (menu, subplot, and warning cues
+   * alike): replaying every cue queued while suspended would stack them into
+   * one garbled chord on resume, and the latest cue — whatever its type — is
+   * the one that reflects the current UI state.
+   *
+   * @param scheduleCue - Schedules the cue; it must re-check any mode/volume/
+   * context preconditions itself, because it can run after an async gap.
+   */
+  private scheduleWhenRunning(scheduleCue: () => void): void {
+    if (this.audioContext.state === 'running') {
+      // A cue still waiting on resume() is superseded by this newer one.
+      this.pendingCue = null;
+      scheduleCue();
+      return;
+    }
+
+    const resumePending = this.pendingCue !== null;
+    this.pendingCue = scheduleCue;
+    if (resumePending) {
+      // The already in-flight resume() below will pick up this newer cue.
+      return;
+    }
+    // Two-argument then(): the rejection handler must cover only resume()
+    // itself. A bug thrown by the cue callback should surface as an unhandled
+    // rejection, not be silently absorbed as if resume() had failed.
+    void this.audioContext.resume().then(
+      () => {
+        const pending = this.pendingCue;
+        this.pendingCue = null;
+        pending?.();
+      },
+      () => {
+        // resume() rejects on a closed context (dispose raced the resume) or
+        // when the browser still blocks playback; nothing to schedule then.
+        this.pendingCue = null;
+      },
+    );
   }
 
   /**
@@ -824,8 +914,21 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (this.volume <= 0) {
       return;
     }
-    // A suspended context reports currentTime === 0; scheduling start(0)/stop()
-    // now would fire an unexpected beep the instant the context resumes.
+
+    this.scheduleWhenRunning(() => this.scheduleMenuTone(frequencies));
+  }
+
+  /**
+   * Schedules a menu arpeggio's beeps back-to-back from the current time.
+   * Re-checks mode/volume/context because it can run after an async
+   * {@link AudioContext.resume}, by which point the user may have turned sound
+   * off or to zero, or the context may have been closed on disposal.
+   * @param frequencies - Beep frequencies in play order.
+   */
+  private scheduleMenuTone(frequencies: number[]): void {
+    if (this.mode === AudioMode.OFF || this.volume <= 0) {
+      return;
+    }
     if (this.audioContext.state !== 'running') {
       return;
     }
