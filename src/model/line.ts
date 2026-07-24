@@ -920,6 +920,72 @@ export class LineTrace extends AbstractTrace {
   private static readonly INTERSECTION_EPSILON = 1e-6;
 
   /**
+   * Lazily-built mapping from non-numeric x values (e.g. the date strings of
+   * a candlestick moving-average layer) to ordinal positions on a shared x
+   * domain. Lines may start/end at different offsets (a long-window moving
+   * average starts later than a short-window one), so per-line column indices
+   * are not comparable across lines; instead each line's x sequence is merged
+   * into one ordered domain, preserving relative order. Built once per
+   * instance — trace data is immutable (live-data updates rebuild the trace).
+   *
+   * Complexity: near-linear when lines are consistent subsequences of one
+   * shared domain (the moving-average case — indexOf hits at the merge cursor
+   * and splice appends). Lines that disagree on relative order degrade toward
+   * O(points × domain) in the worst case; acceptable for a one-time build.
+   */
+  private xOrdinalMap: Map<string, number> | null = null;
+
+  private getXOrdinalMap(): Map<string, number> {
+    if (this.xOrdinalMap) {
+      return this.xOrdinalMap;
+    }
+
+    const domain: string[] = [];
+    const seen = new Set<string>();
+    for (const line of this.points) {
+      let insertAt = 0;
+      for (const point of line) {
+        const key = String(point.x);
+        if (seen.has(key)) {
+          // Already placed. If it sits at/after the merge cursor, advance
+          // past it; if it sits before the cursor the lines disagree on
+          // order — keep the earlier position.
+          const existing = domain.indexOf(key, insertAt);
+          if (existing !== -1) {
+            insertAt = existing + 1;
+          }
+        } else {
+          seen.add(key);
+          domain.splice(insertAt, 0, key);
+          insertAt += 1;
+        }
+      }
+    }
+
+    this.xOrdinalMap = new Map(domain.map((key, index) => [key, index]));
+    return this.xOrdinalMap;
+  }
+
+  /**
+   * Numeric x coordinate for intersection geometry. Numeric (or numeric
+   * string) x values pass through unchanged; categorical values (e.g.
+   * '2019-11-05') resolve to their ordinal position on the shared x domain so
+   * segment-intersection math works on date/category axes too — Number()
+   * alone yields NaN for them, which used to make every intersection check
+   * fail. Mixing numeric and categorical x values across lines is
+   * unsupported, matching the exact-match detection in findIntersections.
+   * @param x The point's raw x value
+   * @returns A finite coordinate, or NaN for an unknown value
+   */
+  private numericX(x: number | string): number {
+    const numeric = Number(x);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    return this.getXOrdinalMap().get(String(x)) ?? Number.NaN;
+  }
+
+  /**
    * Find all points where the current line intersects with other lines
    * Uses line segment intersection algorithm to find crossings between data points
    * Results are cached per row and invalidated when the active row changes
@@ -961,48 +1027,86 @@ export class LineTrace extends AbstractTrace {
       otherLine: number;
     }> = [];
 
-    // For each segment on the current line
-    for (let segIndex = 0; segIndex < currentLinePoints.length - 1; segIndex++) {
-      const p1 = currentLinePoints[segIndex];
-      const p2 = currentLinePoints[segIndex + 1];
+    // Numeric coordinates for segment math; categorical x values resolve to
+    // ordinal positions on the shared domain (see numericX).
+    const numericLines = this.points.map(line =>
+      line.map(point => ({ x: this.numericX(point.x), y: Number(point.y) })),
+    );
+    const currentLine = numericLines[currentGroup];
 
-      // Convert to numeric for calculation
-      const seg1Start = { x: Number(p1.x), y: Number(p1.y) };
-      const seg1End = { x: Number(p2.x), y: Number(p2.y) };
-
-      // Check against all segments from other lines
-      for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
-        if (otherLine === currentGroup) {
-          continue;
+    // A line sorted by ascending x lets the scan below skip segment pairs
+    // whose x-ranges cannot overlap. NaN-safe: a NaN coordinate fails the
+    // comparison and marks the line unsorted, forcing the exhaustive scan.
+    const isSortedByX = (line: { x: number }[]): boolean => {
+      for (let i = 0; i < line.length - 1; i++) {
+        if (!(line[i + 1].x >= line[i].x)) {
+          return false;
         }
+      }
+      return true;
+    };
+    const currentSorted = isSortedByX(currentLine);
 
-        const otherLinePoints = this.points[otherLine];
-        if (otherLinePoints.length < 2) {
-          continue;
+    const checkSegmentPair = (
+      segIndex: number,
+      otherLine: number,
+      otherSegIndex: number,
+    ): void => {
+      const seg1Start = currentLine[segIndex];
+      const seg1End = currentLine[segIndex + 1];
+      const seg2Start = numericLines[otherLine][otherSegIndex];
+      const seg2End = numericLines[otherLine][otherSegIndex + 1];
+
+      const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
+      if (!intersection) {
+        return;
+      }
+
+      // Find the nearest point on the current line to navigate to
+      // Use Euclidean distance for accuracy with nearly vertical segments
+      const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
+      const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
+      const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
+
+      rawIntersections.push({
+        pointIndex: nearestPointIndex,
+        x: intersection.x,
+        y: intersection.y,
+        otherLine,
+      });
+    };
+
+    for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
+      if (otherLine === currentGroup) {
+        continue;
+      }
+
+      const otherPoints = numericLines[otherLine];
+      if (otherPoints.length < 2) {
+        continue;
+      }
+
+      if (currentSorted && isSortedByX(otherPoints)) {
+        // Both lines sorted by x: sweep with a forward-only cursor so each
+        // current segment is only tested against other segments whose
+        // x-range overlaps — O(n + matches) instead of O(n²), which matters
+        // for daily financial series with thousands of points.
+        let cursor = 0;
+        for (let segIndex = 0; segIndex < currentLine.length - 1; segIndex++) {
+          const segXMin = currentLine[segIndex].x;
+          const segXMax = currentLine[segIndex + 1].x;
+          while (cursor < otherPoints.length - 1 && otherPoints[cursor + 1].x < segXMin) {
+            cursor++;
+          }
+          for (let k = cursor; k < otherPoints.length - 1 && otherPoints[k].x <= segXMax; k++) {
+            checkSegmentPair(segIndex, otherLine, k);
+          }
         }
-
-        for (let otherSegIndex = 0; otherSegIndex < otherLinePoints.length - 1; otherSegIndex++) {
-          const p3 = otherLinePoints[otherSegIndex];
-          const p4 = otherLinePoints[otherSegIndex + 1];
-
-          const seg2Start = { x: Number(p3.x), y: Number(p3.y) };
-          const seg2End = { x: Number(p4.x), y: Number(p4.y) };
-
-          const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
-
-          if (intersection) {
-            // Find the nearest point on the current line to navigate to
-            // Use Euclidean distance for accuracy with nearly vertical segments
-            const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
-            const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
-            const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
-
-            rawIntersections.push({
-              pointIndex: nearestPointIndex,
-              x: intersection.x,
-              y: intersection.y,
-              otherLine,
-            });
+      } else {
+        // Fallback exhaustive scan for unsorted (or NaN-containing) lines.
+        for (let segIndex = 0; segIndex < currentLine.length - 1; segIndex++) {
+          for (let otherSegIndex = 0; otherSegIndex < otherPoints.length - 1; otherSegIndex++) {
+            checkSegmentPair(segIndex, otherLine, otherSegIndex);
           }
         }
       }
@@ -1045,8 +1149,12 @@ export class LineTrace extends AbstractTrace {
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
-        // Classify once during target generation so UI can announce the right type.
+        // Classify once during target generation so UI can announce the right
+        // type. The precomputed numeric lines are passed through so
+        // classification doesn't re-coerce every point per intersection —
+        // Number() on categorical x strings is expensive at daily-series scale.
         intersectionKind: this.classifyIntersectionKind(
+          numericLines,
           currentGroup,
           Array.from(entry.intersectingLines),
           entry.x,
@@ -1079,25 +1187,35 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Check whether a line contains a sampled point at the given coordinate.
+   * Operates on the precomputed numeric coordinates (see numericX) so the
+   * comparison is consistent with the segment math on categorical x axes and
+   * avoids re-coercing raw values on every call.
+   * @param numericLines Precomputed numeric coordinates for all lines
    * @param lineIndex The line index to inspect
    * @param x X coordinate
    * @param y Y coordinate
    * @returns True if the coordinate exists in the line's sampled points
    */
-  private hasPointAtCoordinate(lineIndex: number, x: number, y: number): boolean {
-    if (lineIndex < 0 || lineIndex >= this.points.length) {
+  private hasPointAtCoordinate(
+    numericLines: { x: number; y: number }[][],
+    lineIndex: number,
+    x: number,
+    y: number,
+  ): boolean {
+    if (lineIndex < 0 || lineIndex >= numericLines.length) {
       return false;
     }
 
-    return this.points[lineIndex].some(point =>
-      Math.abs(Number(point.x) - x) < LineTrace.INTERSECTION_EPSILON
-      && Math.abs(Number(point.y) - y) < LineTrace.INTERSECTION_EPSILON,
+    return numericLines[lineIndex].some(point =>
+      Math.abs(point.x - x) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(point.y - y) < LineTrace.INTERSECTION_EPSILON,
     );
   }
 
   /**
    * Classify an intersection as either point-based (sampled in SVG data) or
    * slope-based (created by segment crossing between sampled points).
+   * @param numericLines Precomputed numeric coordinates for all lines
    * @param currentLine The current active line index
    * @param intersectingLines Other lines participating in this intersection
    * @param x Intersection x coordinate
@@ -1105,19 +1223,20 @@ export class LineTrace extends AbstractTrace {
    * @returns Intersection kind
    */
   private classifyIntersectionKind(
+    numericLines: { x: number; y: number }[][],
     currentLine: number,
     intersectingLines: number[],
     x: number,
     y: number,
   ): 'point' | 'slope' {
     // Point intersection requires both lines to contain the sampled coordinate.
-    const currentHasPoint = this.hasPointAtCoordinate(currentLine, x, y);
+    const currentHasPoint = this.hasPointAtCoordinate(numericLines, currentLine, x, y);
     if (!currentHasPoint) {
       return 'slope';
     }
 
     const otherHasPoint = intersectingLines.some(lineIndex =>
-      this.hasPointAtCoordinate(lineIndex, x, y),
+      this.hasPointAtCoordinate(numericLines, lineIndex, x, y),
     );
 
     return otherHasPoint ? 'point' : 'slope';
@@ -1186,8 +1305,14 @@ export class LineTrace extends AbstractTrace {
     for (const intersection of intersections) {
       // intersectingLines only contains OTHER lines (not current line)
       const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
-      // Format the intersection coordinates for display
-      const coordsDisplay = `x=${intersection.x.toFixed(2)}, y=${intersection.y.toFixed(2)}`;
+      // Format the intersection coordinates for display. On categorical x
+      // axes intersection.x is an ordinal position (see numericX), so show
+      // the x label of the nearest sampled point instead.
+      const nearestX = this.points[this.row]?.[intersection.pointIndex]?.x;
+      const xDisplay = nearestX !== undefined && !Number.isFinite(Number(nearestX))
+        ? String(nearestX)
+        : intersection.x.toFixed(2);
+      const coordsDisplay = `x=${xDisplay}, y=${intersection.y.toFixed(2)}`;
       const intersectionLabel = intersection.intersectionKind === 'point'
         ? 'Point intersection'
         : 'Slope intersection';
