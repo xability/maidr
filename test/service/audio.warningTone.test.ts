@@ -177,6 +177,38 @@ describe('AudioService warning cue', () => {
     service.dispose();
   });
 
+  it('playWarningToneIfEnabled drops a deferred warning when audio is toggled OFF', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playWarningToneIfEnabled();
+    service.toggle(); // SEPARATE -> OFF during the async resume() gap
+
+    // The "IfEnabled" contract must hold across the gap: no beep after resume.
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
+  });
+
+  it('playWarningTone still plays a deferred warning after audio is toggled OFF', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playWarningTone();
+    service.toggle(); // SEPARATE -> OFF during the async resume() gap
+
+    // playWarningTone is the deliberately unconditional variant (used by e.g.
+    // ToggleBrailleCommand): it alerts even when sound is OFF, so the deferred
+    // path must not silently grow a mode check.
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before + 2);
+    service.dispose();
+  });
+
   it('a warning queued while suspended supersedes a pending menu cue', async () => {
     const ctx = installAudioContextMock('suspended');
     // Like a real browser, flip the state only when resume() settles, so both

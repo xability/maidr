@@ -772,7 +772,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * Schedules the two descending warning beeps from the current time.
    * Re-checks the context state because it can run after an async
    * {@link AudioContext.resume}, by which point disposal may have closed the
-   * context. The volume is re-checked by playOneWarningBeep itself.
+   * context. The volume is re-checked by playOneWarningBeep itself. The mode
+   * is deliberately NOT re-checked here: playWarningTone is the unconditional
+   * variant (its callers want the alert even when sound is OFF), and
+   * playWarningToneIfEnabled layers its own mode re-check on top.
    */
   private scheduleWarningTone(): void {
     if (this.audioContext.state !== 'running') {
@@ -785,13 +788,21 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   /**
    * Plays a warning tone only if audio mode is enabled.
-   * Use this for conditional warnings that should respect user's audio preferences.
+   * Use this for conditional warnings that should respect user's audio
+   * preferences. The mode is re-checked when a cue deferred behind
+   * {@link AudioContext.resume} finally schedules, so a warning queued while
+   * suspended stays suppressed if the user turns sound OFF in the meantime.
    */
   public playWarningToneIfEnabled(): void {
     if (this.mode === AudioMode.OFF) {
       return;
     }
-    this.playWarningTone();
+    this.scheduleWhenRunning(() => {
+      if (this.mode === AudioMode.OFF) {
+        return;
+      }
+      this.scheduleWarningTone();
+    });
   }
 
   /**
