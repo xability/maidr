@@ -194,9 +194,13 @@ describe('AudioService menu open/close cues', () => {
     const ctx = installAudioContextMock('suspended');
     // Like a real browser, flip the state only when resume() settles, so both
     // cues below are requested while the context is still suspended.
-    ctx.resume = () => Promise.resolve().then(() => {
-      ctx.state = 'running';
-    });
+    let resumeCalls = 0;
+    ctx.resume = () => {
+      resumeCalls += 1;
+      return Promise.resolve().then(() => {
+        ctx.state = 'running';
+      });
+    };
     const { AudioService } = await import('@service/audio');
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
@@ -208,10 +212,36 @@ describe('AudioService menu open/close cues', () => {
     // After resume() settles (two microtask hops: the state flip, then the
     // deferred scheduling), only the close cue (falling 990 -> 660) plays;
     // replaying the superseded open cue too would stack both arpeggios into
-    // one garbled chord at the same start time.
+    // one garbled chord at the same start time. The second call only replaces
+    // the pending cue — it must not kick off a second resume().
     await Promise.resolve();
     await Promise.resolve();
+    expect(resumeCalls).toBe(1);
     expect(ctx.oscillators.slice(before).map(osc => osc.frequency.value)).toEqual([990, 660]);
+    service.dispose();
+  });
+
+  it('swallows a rejected resume() and recovers on the next cue', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Autoplay policy edge: resume() can reject outright while the browser
+    // still blocks playback (distinct from resolving without running).
+    ctx.resume = () => Promise.reject(new Error('blocked by autoplay policy'));
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+
+    // Two microtask hops: the rejection propagates, then the catch runs. The
+    // suite fails on any unhandled rejection, so this also pins the swallow.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+
+    // Once the context is running (e.g. a later user gesture), cues play again.
+    ctx.state = 'running';
+    service.playMenuOpenTone();
+    expect(ctx.oscillators.length).toBe(before + 2);
     service.dispose();
   });
 

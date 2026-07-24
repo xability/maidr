@@ -177,6 +177,35 @@ describe('AudioService warning cue', () => {
     service.dispose();
   });
 
+  it('a warning queued while suspended supersedes a pending menu cue', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Like a real browser, flip the state only when resume() settles, so both
+    // cues below are requested while the context is still suspended.
+    ctx.resume = () => Promise.resolve().then(() => {
+      ctx.state = 'running';
+    });
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.playWarningTone();
+    expect(ctx.oscillators.length).toBe(before);
+
+    // The deferred slot is deliberately shared across cue types (last one
+    // wins): after resume() settles (two microtask hops: the state flip, then
+    // the deferred scheduling), only the newest cue — the warning's descending
+    // 180 Hz pair — plays; the stale menu cue would otherwise stack on top of
+    // it at the same start time.
+    await Promise.resolve();
+    await Promise.resolve();
+    const frequencies = ctx.oscillators.slice(before).map(osc => osc.frequency.value);
+    expect(frequencies).toHaveLength(2);
+    expect(frequencies[0]).toBe(180);
+    expect(frequencies[1]).toBeCloseTo(180 / 2 ** (1 / 12), 10);
+    service.dispose();
+  });
+
   it('drops a warning still waiting on resume() when the service is disposed', async () => {
     const ctx = installAudioContextMock('suspended');
     const { AudioService } = await import('@service/audio');
