@@ -1,8 +1,11 @@
 /**
  * Tests for AudioService.playMenuOpenTone / playMenuCloseTone — the Go-To modal
  * open/close cues. Each cue is a short two-note arpeggio, so a successful cue
- * creates exactly two oscillators. The cue must be silent when audio is OFF,
- * when the volume is 0, or when the AudioContext is still suspended.
+ * creates exactly two oscillators. The cue must be silent when audio is OFF or
+ * when the volume is 0. On a suspended AudioContext the cue is deferred behind
+ * resume() and only the most recent deferred cue plays (last one wins); it is
+ * dropped entirely if the service is disposed, audio is turned OFF, or the
+ * context still is not running once resume() settles.
  *
  * AudioContext doesn't exist in the node test environment, so we install a
  * minimal global mock that records createOscillator calls (the visible side
@@ -184,6 +187,76 @@ describe('AudioService menu open/close cues', () => {
     await Promise.resolve();
     expect(ctx.state).toBe('running');
     expect(ctx.oscillators.length).toBe(before + 2);
+    service.dispose();
+  });
+
+  it('plays only the latest cue queued while suspended (no stacked arpeggios)', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Like a real browser, flip the state only when resume() settles, so both
+    // cues below are requested while the context is still suspended.
+    ctx.resume = () => Promise.resolve().then(() => {
+      ctx.state = 'running';
+    });
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.playMenuCloseTone();
+    expect(ctx.oscillators.length).toBe(before);
+
+    // After resume() settles (two microtask hops: the state flip, then the
+    // deferred scheduling), only the close cue (falling 990 -> 660) plays;
+    // replaying the superseded open cue too would stack both arpeggios into
+    // one garbled chord at the same start time.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.oscillators.slice(before).map(osc => osc.frequency.value)).toEqual([990, 660]);
+    service.dispose();
+  });
+
+  it('drops a cue still waiting on resume() when the service is disposed', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.dispose();
+
+    // The mock's close() does not flip the state, so only the dispose-time
+    // cancellation of the pending cue prevents audio after disposal.
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+  });
+
+  it('drops a cue still waiting on resume() when audio is toggled OFF', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+    service.toggle(); // SEPARATE -> OFF during the async resume() gap
+
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
+  });
+
+  it('plays no cue when resume() settles but the context still is not running', async () => {
+    const ctx = installAudioContextMock('suspended');
+    // Autoplay policy edge: resume() can settle without the context actually
+    // reaching the running state; the deferred path must re-check.
+    ctx.resume = () => Promise.resolve();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playMenuOpenTone();
+
+    await Promise.resolve();
+    expect(ctx.oscillators.length).toBe(before);
     service.dispose();
   });
 
