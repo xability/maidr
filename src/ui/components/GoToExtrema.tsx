@@ -4,7 +4,7 @@ import type { XValue } from '@type/navigation';
 import { Close, KeyboardArrowDown } from '@mui/icons-material';
 import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 // Builds the user-facing label for an extrema target. Used for the visible
 // text, the option's aria-label, AND the keyboard-navigation announcements so
@@ -55,6 +55,61 @@ function getTargetBoxSx(isSelected: boolean): object {
   };
 }
 
+// Type guard to check if plot supports navigateToExtrema
+function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
+  return plot !== null
+    && typeof plot === 'object'
+    && 'navigateToExtrema' in plot
+    && typeof (plot as any).navigateToExtrema === 'function';
+}
+
+/**
+ * Fixed X-value dropdown row height in px. Rows are given exactly this height
+ * so scroll offsets map 1:1 to option indices for windowed rendering.
+ */
+const DROPDOWN_ITEM_HEIGHT = 36;
+/** Height in px of the X-value dropdown viewport. */
+const DROPDOWN_MAX_HEIGHT = 180;
+/** Extra rows rendered above/below the visible dropdown window. */
+const DROPDOWN_OVERSCAN = 5;
+
+interface TargetOptionRowProps {
+  target: ExtremaTarget;
+  index: number;
+  isSelected: boolean;
+  onSelect: (target: ExtremaTarget) => void;
+  optionRef: React.Ref<HTMLDivElement> | null;
+}
+
+/**
+ * One row of the extrema listbox. Memoized so a selection change re-renders
+ * only the row losing and the row gaining selection — intersection-heavy
+ * layers (e.g. moving averages over a long daily series) produce hundreds of
+ * targets, and re-rendering every row on each ArrowUp/ArrowDown made keyboard
+ * navigation visibly sluggish.
+ */
+const TargetOptionRow = React.memo(({ target, index, isSelected, onSelect, optionRef }: TargetOptionRowProps): React.JSX.Element => {
+  const displayLabel = buildTargetDisplayLabel(target);
+
+  return (
+    <Box
+      ref={optionRef}
+      id={`extrema-target-${index}`}
+      onClick={() => onSelect(target)}
+      role="option"
+      aria-selected={isSelected}
+      aria-label={displayLabel}
+      tabIndex={0}
+      sx={getTargetBoxSx(isSelected)}
+    >
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {displayLabel}
+      </Typography>
+    </Box>
+  );
+});
+TargetOptionRow.displayName = 'TargetOptionRow';
+
 export const GoToExtrema: React.FC = () => {
   const goToExtremaViewModel = useViewModel('goToExtrema');
   const state = useViewModelState('goToExtrema');
@@ -68,6 +123,7 @@ export const GoToExtrema: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [filteredOptions, setFilteredOptions] = useState<XValueOption[]>([]);
   const [dropdownSelectedIndex, setDropdownSelectedIndex] = useState(-1);
+  const [dropdownScrollTop, setDropdownScrollTop] = useState(0);
   const inputFieldWrapperRef = useRef<HTMLInputElement>(null);
   const inputElRef = useRef<HTMLInputElement>(null); // real input element
   const listboxRef = useRef<HTMLUListElement>(null);
@@ -147,7 +203,9 @@ export const GoToExtrema: React.FC = () => {
     }
   }, [dropdownSelectedIndex, activeOptionText]);
 
-  // Auto-scroll and focus management when selection changes
+  // Auto-scroll and focus management when selection changes. Instant scroll
+  // (no smooth behavior): with key repeat, queued smooth-scroll animations
+  // lag behind the selection and make navigation feel unresponsive.
   useEffect(() => {
     if (selectedItemRef.current && listContainerRef.current) {
       const listContainer = listContainerRef.current;
@@ -159,38 +217,39 @@ export const GoToExtrema: React.FC = () => {
       const itemRect = selectedItem.getBoundingClientRect();
 
       if (itemRect.bottom > containerRect.bottom) {
-        selectedItem.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+        selectedItem.scrollIntoView({ block: 'end', inline: 'nearest' });
       } else if (itemRect.top < containerRect.top) {
-        selectedItem.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        selectedItem.scrollIntoView({ block: 'start', inline: 'nearest' });
       }
     }
   }, [state.selectedIndex]);
 
-  // Ensure dropdown option stays visible
-  useEffect(() => {
+  // Keep the highlighted option inside the dropdown viewport. Direct
+  // scrollTop math (not scrollIntoView) because with windowed rendering the
+  // target row may not be mounted until the scroll position moves. Layout
+  // effect so the row exists before paint — aria-activedescendant must point
+  // at a rendered element when the screen reader reads it.
+  useLayoutEffect(() => {
     if (isDropdownOpen && dropdownSelectedIndex >= 0 && listboxRef.current) {
-      const el = listboxRef.current.querySelector(`#option-${dropdownSelectedIndex}`) as HTMLElement | null;
-      if (el) {
-        el.scrollIntoView({ block: 'nearest' });
+      const listbox = listboxRef.current;
+      const itemTop = dropdownSelectedIndex * DROPDOWN_ITEM_HEIGHT;
+      const itemBottom = itemTop + DROPDOWN_ITEM_HEIGHT;
+      if (itemTop < listbox.scrollTop) {
+        listbox.scrollTop = itemTop;
+      } else if (itemBottom > listbox.scrollTop + listbox.clientHeight) {
+        listbox.scrollTop = itemBottom - listbox.clientHeight;
       }
+      setDropdownScrollTop(listbox.scrollTop);
     }
   }, [dropdownSelectedIndex, isDropdownOpen]);
 
-  const handleTargetSelect = (target: ExtremaTarget): void => {
+  const handleTargetSelect = useCallback((target: ExtremaTarget): void => {
     const activeTrace = goToExtremaViewModel.activeContext?.active;
     if (activeTrace && hasNavigateToExtrema(activeTrace)) {
       activeTrace.navigateToExtrema(target);
     }
     goToExtremaViewModel.hide();
-  };
-
-  // Type guard to check if plot supports navigateToExtrema
-  function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
-    return plot !== null
-      && typeof plot === 'object'
-      && 'navigateToExtrema' in plot
-      && typeof (plot as any).navigateToExtrema === 'function';
-  }
+  }, [goToExtremaViewModel]);
 
   const handleClose = (): void => {
     if (liveRegionRef.current) {
@@ -396,6 +455,20 @@ export const GoToExtrema: React.FC = () => {
     }
   };
 
+  // Windowed rendering of the X-value dropdown: only rows near the scroll
+  // position are mounted, with spacers preserving the scrollbar geometry.
+  // The option list holds one entry per data point (thousands for a long
+  // daily series), and mounting a DOM node for every one made opening the
+  // dropdown and each ArrowUp/ArrowDown re-render take seconds.
+  const totalOptionCount = filteredOptions.length;
+  const windowCapacity = Math.ceil(DROPDOWN_MAX_HEIGHT / DROPDOWN_ITEM_HEIGHT) + 2 * DROPDOWN_OVERSCAN;
+  const firstVisibleOption = Math.max(0, Math.min(
+    Math.floor(dropdownScrollTop / DROPDOWN_ITEM_HEIGHT) - DROPDOWN_OVERSCAN,
+    totalOptionCount - windowCapacity,
+  ));
+  const lastVisibleOption = Math.min(totalOptionCount - 1, firstVisibleOption + windowCapacity - 1);
+  const visibleOptions = filteredOptions.slice(firstVisibleOption, lastVisibleOption + 1);
+
   // Conditional rendering in JSX, not early return (following codebase pattern)
   return state.visible && state.targets.length > 0
     ? (
@@ -457,27 +530,16 @@ export const GoToExtrema: React.FC = () => {
             </Box>
 
             <Box ref={listContainerRef} role="listbox" aria-label="Navigation targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
-              {state.targets.map((target: ExtremaTarget, index: number) => {
-                const displayLabel = buildTargetDisplayLabel(target);
-
-                return (
-                  <Box
-                    key={`target-${index}-${target.type}-${target.label}`}
-                    ref={index === state.selectedIndex ? selectedItemRef : null}
-                    id={`extrema-target-${index}`}
-                    onClick={() => handleTargetSelect(target)}
-                    role="option"
-                    aria-selected={state.selectedIndex === index}
-                    aria-label={displayLabel}
-                    tabIndex={0}
-                    sx={getTargetBoxSx(state.selectedIndex === index)}
-                  >
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {displayLabel}
-                    </Typography>
-                  </Box>
-                );
-              })}
+              {state.targets.map((target: ExtremaTarget, index: number) => (
+                <TargetOptionRow
+                  key={`target-${index}-${target.type}-${target.label}`}
+                  target={target}
+                  index={index}
+                  isSelected={state.selectedIndex === index}
+                  onSelect={handleTargetSelect}
+                  optionRef={index === state.selectedIndex ? selectedItemRef : null}
+                />
+              ))}
 
               {/* 4th option: Searchable combobox */}
               {availableOptions.length > 0 && (
@@ -524,47 +586,69 @@ export const GoToExtrema: React.FC = () => {
                   />
 
                   {isDropdownOpen && filteredOptions.length > 0 && (
-                    <List ref={listboxRef} id="x-value-listbox" role="listbox" aria-label="Available X values" aria-hidden={!isDropdownOpen} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 180, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}>
-                      {filteredOptions.map((option, idx) => (
-                        <ListItem
-                          key={`${option.value}-${idx}`}
-                          id={`option-${idx}`}
-                          role="option"
-                          aria-selected={dropdownSelectedIndex === idx}
-                          aria-label={option.label}
-                          tabIndex={0}
-                          onClick={() => handleOptionSelect(option.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleOptionSelect(option.value);
-                            } else if (e.key === 'ArrowDown') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
-                            } else if (e.key === 'ArrowUp') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
-                            } else if (e.key === 'Home') {
-                              // Handle here so the key doesn't bubble to the
-                              // enclosing extrema listbox (which would jump the
-                              // wrong list) when focus is on a result item.
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDropdownSelectedIndex(0);
-                            } else if (e.key === 'End') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDropdownSelectedIndex(filteredOptions.length - 1);
-                            }
-                          }}
-                          sx={{ 'cursor': 'pointer', 'py': 1, 'px': 2, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
-                        >
-                          <ListItemText primary={option.label} />
-                        </ListItem>
-                      ))}
+                    <List
+                      ref={listboxRef}
+                      id="x-value-listbox"
+                      role="listbox"
+                      aria-label="Available X values"
+                      aria-hidden={!isDropdownOpen}
+                      disablePadding
+                      onScroll={(event: React.UIEvent<HTMLUListElement>) => setDropdownScrollTop(event.currentTarget.scrollTop)}
+                      sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: DROPDOWN_MAX_HEIGHT, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}
+                    >
+                      {/* Spacer standing in for the unmounted rows above the window */}
+                      {firstVisibleOption > 0 && (
+                        <Box component="li" role="presentation" sx={{ height: firstVisibleOption * DROPDOWN_ITEM_HEIGHT }} />
+                      )}
+                      {visibleOptions.map((option, offset) => {
+                        const idx = firstVisibleOption + offset;
+                        return (
+                          <ListItem
+                            key={`${option.value}-${idx}`}
+                            id={`option-${idx}`}
+                            role="option"
+                            aria-selected={dropdownSelectedIndex === idx}
+                            aria-label={option.label}
+                            aria-setsize={totalOptionCount}
+                            aria-posinset={idx + 1}
+                            tabIndex={0}
+                            onClick={() => handleOptionSelect(option.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleOptionSelect(option.value);
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
+                              } else if (e.key === 'Home') {
+                                // Handle here so the key doesn't bubble to the
+                                // enclosing extrema listbox (which would jump the
+                                // wrong list) when focus is on a result item.
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDropdownSelectedIndex(0);
+                              } else if (e.key === 'End') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDropdownSelectedIndex(filteredOptions.length - 1);
+                              }
+                            }}
+                            sx={{ 'cursor': 'pointer', 'height': DROPDOWN_ITEM_HEIGHT, 'boxSizing': 'border-box', 'overflow': 'hidden', 'px': 2, 'py': 0, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
+                          >
+                            <ListItemText primary={option.label} sx={{ my: 0 }} slotProps={{ primary: { noWrap: true } }} />
+                          </ListItem>
+                        );
+                      })}
+                      {/* Spacer standing in for the unmounted rows below the window */}
+                      {lastVisibleOption < totalOptionCount - 1 && (
+                        <Box component="li" role="presentation" sx={{ height: (totalOptionCount - 1 - lastVisibleOption) * DROPDOWN_ITEM_HEIGHT }} />
+                      )}
                     </List>
                   )}
                   {/* Assertive live region for immediate announcement of highlighted option */}
