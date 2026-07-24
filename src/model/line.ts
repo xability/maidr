@@ -927,6 +927,11 @@ export class LineTrace extends AbstractTrace {
    * are not comparable across lines; instead each line's x sequence is merged
    * into one ordered domain, preserving relative order. Built once per
    * instance — trace data is immutable (live-data updates rebuild the trace).
+   *
+   * Complexity: near-linear when lines are consistent subsequences of one
+   * shared domain (the moving-average case — indexOf hits at the merge cursor
+   * and splice appends). Lines that disagree on relative order degrade toward
+   * O(points × domain) in the worst case; acceptable for a one-time build.
    */
   private xOrdinalMap: Map<string, number> | null = null;
 

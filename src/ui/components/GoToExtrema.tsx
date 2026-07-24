@@ -4,6 +4,7 @@ import type { XValue } from '@type/navigation';
 import { Close, KeyboardArrowDown } from '@mui/icons-material';
 import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { computeListWindow } from '@util/listWindow';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 // Builds the user-facing label for an extrema target. Used for the visible
@@ -59,8 +60,14 @@ function getTargetBoxSx(isSelected: boolean): object {
 function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
   return plot !== null
     && typeof plot === 'object'
-    && 'navigateToExtrema' in plot
-    && typeof (plot as any).navigateToExtrema === 'function';
+    && typeof (plot as Record<string, unknown>).navigateToExtrema === 'function';
+}
+
+// Type guard to check if plot supports moveToXValue
+function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
+  return plot !== null
+    && typeof plot === 'object'
+    && typeof (plot as Record<string, unknown>).moveToXValue === 'function';
 }
 
 /**
@@ -284,14 +291,6 @@ export const GoToExtrema: React.FC = () => {
     }
   };
 
-  // Type guard to check if plot supports moveToXValue
-  function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
-    return plot !== null
-      && typeof plot === 'object'
-      && 'moveToXValue' in plot
-      && typeof (plot as any).moveToXValue === 'function';
-  }
-
   const focusSearchInput = (): void => {
     // Prefer focusing the actual input element
     if (inputElRef.current) {
@@ -459,28 +458,20 @@ export const GoToExtrema: React.FC = () => {
   // position are mounted, with spacers preserving the scrollbar geometry.
   // The option list holds one entry per data point (thousands for a long
   // daily series), and mounting a DOM node for every one made opening the
-  // dropdown and each ArrowUp/ArrowDown re-render take seconds.
+  // dropdown and each ArrowUp/ArrowDown re-render take seconds. The
+  // highlighted option is always part of the plan (as an "island" row when
+  // manual scrolling moves the window away from it) so the input's
+  // aria-activedescendant always references a mounted element. The plan math
+  // lives in computeListWindow, which is unit-tested.
   const totalOptionCount = filteredOptions.length;
-  const windowCapacity = Math.ceil(DROPDOWN_MAX_HEIGHT / DROPDOWN_ITEM_HEIGHT) + 2 * DROPDOWN_OVERSCAN;
-  const firstVisibleOption = Math.max(0, Math.min(
-    Math.floor(dropdownScrollTop / DROPDOWN_ITEM_HEIGHT) - DROPDOWN_OVERSCAN,
-    totalOptionCount - windowCapacity,
-  ));
-  const lastVisibleOption = Math.min(totalOptionCount - 1, firstVisibleOption + windowCapacity - 1);
-  const visibleOptions = filteredOptions.slice(firstVisibleOption, lastVisibleOption + 1);
-
-  // Manual scrolling can move the highlighted option outside the mounted
-  // window. The input's aria-activedescendant must always reference a mounted
-  // element, so the highlighted option is kept rendered as an "island" row
-  // (with the spacers around it re-split to preserve geometry) rather than
-  // moving the user's selection on scroll.
-  const activeAboveWindow = dropdownSelectedIndex >= 0 && dropdownSelectedIndex < firstVisibleOption;
-  const activeBelowWindow = dropdownSelectedIndex > lastVisibleOption && dropdownSelectedIndex < totalOptionCount;
-
-  const renderDropdownSpacer = (rowCount: number): React.JSX.Element | null =>
-    rowCount > 0
-      ? <Box component="li" role="presentation" sx={{ height: rowCount * DROPDOWN_ITEM_HEIGHT }} />
-      : null;
+  const dropdownWindowItems = computeListWindow({
+    scrollTop: dropdownScrollTop,
+    itemHeight: DROPDOWN_ITEM_HEIGHT,
+    viewportHeight: DROPDOWN_MAX_HEIGHT,
+    overscan: DROPDOWN_OVERSCAN,
+    totalCount: totalOptionCount,
+    activeIndex: dropdownSelectedIndex,
+  });
 
   const renderDropdownOption = (option: XValueOption, idx: number): React.JSX.Element => (
     <ListItem
@@ -652,27 +643,17 @@ export const GoToExtrema: React.FC = () => {
                       onScroll={(event: React.UIEvent<HTMLUListElement>) => setDropdownScrollTop(event.currentTarget.scrollTop)}
                       sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: DROPDOWN_MAX_HEIGHT, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}
                     >
-                      {/* Rows above the window: plain spacer, or spacer + highlighted-option island + spacer */}
-                      {activeAboveWindow
-                        ? (
-                            <>
-                              {renderDropdownSpacer(dropdownSelectedIndex)}
-                              {renderDropdownOption(filteredOptions[dropdownSelectedIndex], dropdownSelectedIndex)}
-                              {renderDropdownSpacer(firstVisibleOption - dropdownSelectedIndex - 1)}
-                            </>
-                          )
-                        : renderDropdownSpacer(firstVisibleOption)}
-                      {visibleOptions.map((option, offset) => renderDropdownOption(option, firstVisibleOption + offset))}
-                      {/* Rows below the window: plain spacer, or spacer + highlighted-option island + spacer */}
-                      {activeBelowWindow
-                        ? (
-                            <>
-                              {renderDropdownSpacer(dropdownSelectedIndex - lastVisibleOption - 1)}
-                              {renderDropdownOption(filteredOptions[dropdownSelectedIndex], dropdownSelectedIndex)}
-                              {renderDropdownSpacer(totalOptionCount - 1 - dropdownSelectedIndex)}
-                            </>
-                          )
-                        : renderDropdownSpacer(totalOptionCount - 1 - lastVisibleOption)}
+                      {dropdownWindowItems.map((item, position) =>
+                        item.kind === 'spacer'
+                          ? (
+                              <Box
+                                key={`spacer-${position}`}
+                                component="li"
+                                role="presentation"
+                                sx={{ height: item.rows * DROPDOWN_ITEM_HEIGHT }}
+                              />
+                            )
+                          : renderDropdownOption(filteredOptions[item.index], item.index))}
                     </List>
                   )}
                   {/* Assertive live region for immediate announcement of highlighted option */}
