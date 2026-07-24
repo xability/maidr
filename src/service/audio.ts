@@ -765,6 +765,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * instead of collapsing to a stray beep when the context later resumes.
    */
   public playWarningTone(): void {
+    // At volume 0 the beeps are skipped anyway (see playOneWarningBeep); bail
+    // early so a silent cue neither triggers resume() nor claims the deferred
+    // cue slot (mirroring playMenuTone's outer guard).
+    if (this.volume <= 0) {
+      return;
+    }
     this.scheduleWhenRunning(() => this.scheduleWarningTone());
   }
 
@@ -795,6 +801,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   public playWarningToneIfEnabled(): void {
     if (this.mode === AudioMode.OFF) {
+      return;
+    }
+    // See playWarningTone: a silent cue must not resume() or claim the slot.
+    if (this.volume <= 0) {
       return;
     }
     this.scheduleWhenRunning(() => {

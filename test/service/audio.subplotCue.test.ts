@@ -137,6 +137,26 @@ describe('AudioService subplot enter/exit cues', () => {
     service.dispose();
   });
 
+  it('resumes a suspended AudioContext, then plays the subplot cue', async () => {
+    const ctx = installAudioContextMock('suspended');
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playSubplotEnterTone();
+
+    // Nothing synchronously: the cue defers behind resume() while suspended.
+    expect(ctx.oscillators.length).toBe(before);
+
+    // Flush the resume() microtask; the three arpeggio notes schedule once the
+    // context is actually running (same path as the menu cues, pinned here so
+    // the subplot entry point's coverage is explicit).
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
+    expect(ctx.oscillators.length).toBe(before + 3);
+    service.dispose();
+  });
+
   it('plays no cue when audio mode is OFF', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');

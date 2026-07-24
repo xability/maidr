@@ -164,6 +164,29 @@ describe('AudioService warning cue', () => {
     service.dispose();
   });
 
+  it('does not resume a suspended context for a silent (volume 0) warning', async () => {
+    const ctx = installAudioContextMock('suspended');
+    let resumeCalls = 0;
+    ctx.resume = () => {
+      resumeCalls += 1;
+      ctx.state = 'running';
+      return Promise.resolve();
+    };
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(0), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playWarningTone();
+    service.playWarningToneIfEnabled();
+
+    // A cue that would play nothing must neither trigger resume() nor claim
+    // the deferred cue slot (mirrors playMenuTone's outer volume guard).
+    await Promise.resolve();
+    expect(resumeCalls).toBe(0);
+    expect(ctx.oscillators.length).toBe(before);
+    service.dispose();
+  });
+
   it('playWarningToneIfEnabled plays nothing when audio mode is OFF', async () => {
     const ctx = installAudioContextMock();
     const { AudioService } = await import('@service/audio');
