@@ -469,6 +469,62 @@ export const GoToExtrema: React.FC = () => {
   const lastVisibleOption = Math.min(totalOptionCount - 1, firstVisibleOption + windowCapacity - 1);
   const visibleOptions = filteredOptions.slice(firstVisibleOption, lastVisibleOption + 1);
 
+  // Manual scrolling can move the highlighted option outside the mounted
+  // window. The input's aria-activedescendant must always reference a mounted
+  // element, so the highlighted option is kept rendered as an "island" row
+  // (with the spacers around it re-split to preserve geometry) rather than
+  // moving the user's selection on scroll.
+  const activeAboveWindow = dropdownSelectedIndex >= 0 && dropdownSelectedIndex < firstVisibleOption;
+  const activeBelowWindow = dropdownSelectedIndex > lastVisibleOption && dropdownSelectedIndex < totalOptionCount;
+
+  const renderDropdownSpacer = (rowCount: number): React.JSX.Element | null =>
+    rowCount > 0
+      ? <Box component="li" role="presentation" sx={{ height: rowCount * DROPDOWN_ITEM_HEIGHT }} />
+      : null;
+
+  const renderDropdownOption = (option: XValueOption, idx: number): React.JSX.Element => (
+    <ListItem
+      key={`${option.value}-${idx}`}
+      id={`option-${idx}`}
+      role="option"
+      aria-selected={dropdownSelectedIndex === idx}
+      aria-label={option.label}
+      aria-setsize={totalOptionCount}
+      aria-posinset={idx + 1}
+      tabIndex={0}
+      onClick={() => handleOptionSelect(option.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          handleOptionSelect(option.value);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          e.stopPropagation();
+          setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
+        } else if (e.key === 'Home') {
+          // Handle here so the key doesn't bubble to the
+          // enclosing extrema listbox (which would jump the
+          // wrong list) when focus is on a result item.
+          e.preventDefault();
+          e.stopPropagation();
+          setDropdownSelectedIndex(0);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          e.stopPropagation();
+          setDropdownSelectedIndex(filteredOptions.length - 1);
+        }
+      }}
+      sx={{ 'cursor': 'pointer', 'height': DROPDOWN_ITEM_HEIGHT, 'boxSizing': 'border-box', 'overflow': 'hidden', 'px': 2, 'py': 0, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
+    >
+      <ListItemText primary={option.label} sx={{ my: 0 }} slotProps={{ primary: { noWrap: true } }} />
+    </ListItem>
+  );
+
   // Conditional rendering in JSX, not early return (following codebase pattern)
   return state.visible && state.targets.length > 0
     ? (
@@ -596,59 +652,27 @@ export const GoToExtrema: React.FC = () => {
                       onScroll={(event: React.UIEvent<HTMLUListElement>) => setDropdownScrollTop(event.currentTarget.scrollTop)}
                       sx={{ position: 'absolute', top: '100%', left: 0, right: 0, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: DROPDOWN_MAX_HEIGHT, overflowY: 'auto', zIndex: 2, boxShadow: 2, mt: 0.5 }}
                     >
-                      {/* Spacer standing in for the unmounted rows above the window */}
-                      {firstVisibleOption > 0 && (
-                        <Box component="li" role="presentation" sx={{ height: firstVisibleOption * DROPDOWN_ITEM_HEIGHT }} />
-                      )}
-                      {visibleOptions.map((option, offset) => {
-                        const idx = firstVisibleOption + offset;
-                        return (
-                          <ListItem
-                            key={`${option.value}-${idx}`}
-                            id={`option-${idx}`}
-                            role="option"
-                            aria-selected={dropdownSelectedIndex === idx}
-                            aria-label={option.label}
-                            aria-setsize={totalOptionCount}
-                            aria-posinset={idx + 1}
-                            tabIndex={0}
-                            onClick={() => handleOptionSelect(option.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleOptionSelect(option.value);
-                              } else if (e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDropdownSelectedIndex(curr => Math.min(curr + 1, filteredOptions.length - 1));
-                              } else if (e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDropdownSelectedIndex(curr => Math.max(curr - 1, 0));
-                              } else if (e.key === 'Home') {
-                                // Handle here so the key doesn't bubble to the
-                                // enclosing extrema listbox (which would jump the
-                                // wrong list) when focus is on a result item.
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDropdownSelectedIndex(0);
-                              } else if (e.key === 'End') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDropdownSelectedIndex(filteredOptions.length - 1);
-                              }
-                            }}
-                            sx={{ 'cursor': 'pointer', 'height': DROPDOWN_ITEM_HEIGHT, 'boxSizing': 'border-box', 'overflow': 'hidden', 'px': 2, 'py': 0, 'bgcolor': dropdownSelectedIndex === idx ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
-                          >
-                            <ListItemText primary={option.label} sx={{ my: 0 }} slotProps={{ primary: { noWrap: true } }} />
-                          </ListItem>
-                        );
-                      })}
-                      {/* Spacer standing in for the unmounted rows below the window */}
-                      {lastVisibleOption < totalOptionCount - 1 && (
-                        <Box component="li" role="presentation" sx={{ height: (totalOptionCount - 1 - lastVisibleOption) * DROPDOWN_ITEM_HEIGHT }} />
-                      )}
+                      {/* Rows above the window: plain spacer, or spacer + highlighted-option island + spacer */}
+                      {activeAboveWindow
+                        ? (
+                            <>
+                              {renderDropdownSpacer(dropdownSelectedIndex)}
+                              {renderDropdownOption(filteredOptions[dropdownSelectedIndex], dropdownSelectedIndex)}
+                              {renderDropdownSpacer(firstVisibleOption - dropdownSelectedIndex - 1)}
+                            </>
+                          )
+                        : renderDropdownSpacer(firstVisibleOption)}
+                      {visibleOptions.map((option, offset) => renderDropdownOption(option, firstVisibleOption + offset))}
+                      {/* Rows below the window: plain spacer, or spacer + highlighted-option island + spacer */}
+                      {activeBelowWindow
+                        ? (
+                            <>
+                              {renderDropdownSpacer(dropdownSelectedIndex - lastVisibleOption - 1)}
+                              {renderDropdownOption(filteredOptions[dropdownSelectedIndex], dropdownSelectedIndex)}
+                              {renderDropdownSpacer(totalOptionCount - 1 - dropdownSelectedIndex)}
+                            </>
+                          )
+                        : renderDropdownSpacer(totalOptionCount - 1 - lastVisibleOption)}
                     </List>
                   )}
                   {/* Assertive live region for immediate announcement of highlighted option */}
