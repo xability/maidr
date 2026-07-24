@@ -666,17 +666,37 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * The panning position from the Panning object provides directional spatial cues,
    * helping users infer where the empty state occurs within the overall layout.
    *
+   * Like the menu and warning cues, an empty tone on a suspended context is
+   * deferred behind {@link AudioContext.resume} instead of being scheduled at
+   * currentTime === 0, where it would fire at an arbitrary later instant once
+   * the context resumes, detached from the interaction that caused it.
+   *
    * @param panning - Position information for spatial audio placement
-   * @returns AudioId for the played tone
    */
-  private playEmptyTone(panning: Panning): AudioId {
+  private playEmptyTone(panning: Panning): void {
     // At volume 0 every exponential ramp target below collapses to 0, which
     // the Web Audio spec rejects with a RangeError. The tone would be silent
-    // anyway, so skip scheduling and return a harmless, self-clearing id.
+    // anyway, so it must neither trigger resume() nor claim the deferred cue
+    // slot (mirroring playMenuTone's outer guard).
     if (this.volume <= 0) {
-      const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
-      this.activeAudioIds.set(audioId, []);
-      return audioId;
+      return;
+    }
+    this.scheduleWhenRunning(() => this.scheduleEmptyTone(panning));
+  }
+
+  /**
+   * Schedules the empty-state harmonics from the current time.
+   * Re-checks mode/volume/context because it can run after an async
+   * {@link AudioContext.resume}, by which point the user may have turned sound
+   * off or to zero, or the context may have been closed on disposal.
+   * @param panning - Position information for spatial audio placement
+   */
+  private scheduleEmptyTone(panning: Panning): void {
+    if (this.mode === AudioMode.OFF || this.volume <= 0) {
+      return;
+    }
+    if (this.audioContext.state !== 'running') {
+      return;
     }
 
     const xPos = MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1);
@@ -730,7 +750,6 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
     this.activeAudioIds.set(audioId, oscillators);
-    return audioId;
   }
 
   private playOneWarningBeep(freq: number, startTime: number): void {
