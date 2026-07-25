@@ -603,6 +603,35 @@ function resolveMarkItemData(
 }
 
 /**
+ * Enumerate every dataset registered on a compiled Vega view, keyed by name.
+ *
+ * `View.getState` is public, typed API (`vega-typings`), but its `data`
+ * option is a **predicate** — `(name, object) => boolean` — not a boolean.
+ * Passing `true` makes Vega throw `options.data is not a function`, which a
+ * `catch` would swallow into "no datasets available", silently disabling
+ * every caller. Validated against vega 6.3.1.
+ *
+ * @returns The datasets by name, or `undefined` when the view exposes no
+ * usable `getState`.
+ */
+function getViewDatasets(view: VegaView): Record<string, unknown> | undefined {
+  try {
+    const stateGetter = (view as unknown as {
+      getState?: (opts?: {
+        data?: (name?: string, object?: unknown) => boolean;
+      }) => { data?: Record<string, unknown> } | undefined;
+    }).getState;
+    if (typeof stateGetter !== 'function')
+      return undefined;
+    const datasets = stateGetter.call(view, { data: () => true })?.data;
+    return datasets && typeof datasets === 'object' ? datasets : undefined;
+  } catch {
+    // getState() shape varies across Vega versions; treat as unavailable.
+    return undefined;
+  }
+}
+
+/**
  * True for compiled-Vega dataset names that hold layout / legend / header
  * internals rather than chart data. Facet compilations register
  * `row_domain` / `column_domain` / `facet_domain*`, header / footer group
@@ -689,42 +718,24 @@ function resolveData(
     // `bin_maxbins_10_value`); a stricter check would break
     // histograms. A field-aware redesign that recognises bin/aggregate
     // transforms is tracked as a follow-up.
-    try {
-      // `view.getState({ data: true })` returns all datasets keyed by name.
-      // The exact return shape is loosely typed across Vega versions, so
-      // narrow defensively.
-
-      const stateGetter = (view as any).getState as
-        | ((opts?: { data?: boolean }) => unknown)
-        | undefined;
-      if (typeof stateGetter === 'function') {
-        const state = stateGetter.call(view, { data: true }) as
-          | { data?: Record<string, unknown> }
-          | undefined;
-        const datasets = state?.data;
-        if (datasets && typeof datasets === 'object') {
-          for (const [name, rows] of Object.entries(datasets)) {
-            // Skip the names we already tried above.
-            if (datasetNames.includes(name))
-              continue;
-            // Faceted / repeated compilations register layout-internal
-            // datasets (facet/row/column domains, headers, footers, and
-            // per-group scenegraph items like `cell` or `child__*_group`)
-            // that hold no chart data. Skip them by name pattern, and skip
-            // any dataset whose rows are scenegraph items rather than
-            // data records.
-            if (isInternalDatasetName(name))
-              continue;
-            if (Array.isArray(rows) && rows.length > 0
-              && typeof rows[0] === 'object' && rows[0] !== null
-              && !isSceneGraphRow(rows[0] as Record<string, unknown>)) {
-              return rows as Record<string, unknown>[];
-            }
-          }
-        }
+    const datasets = getViewDatasets(view);
+    for (const [name, rows] of Object.entries(datasets ?? {})) {
+      // Skip the names we already tried above.
+      if (datasetNames.includes(name))
+        continue;
+      // Faceted / repeated compilations register layout-internal
+      // datasets (facet/row/column domains, headers, footers, and
+      // per-group scenegraph items like `cell` or `child__*_group`)
+      // that hold no chart data. Skip them by name pattern, and skip
+      // any dataset whose rows are scenegraph items rather than
+      // data records.
+      if (isInternalDatasetName(name))
+        continue;
+      if (Array.isArray(rows) && rows.length > 0
+        && typeof rows[0] === 'object' && rows[0] !== null
+        && !isSceneGraphRow(rows[0] as Record<string, unknown>)) {
+        return rows as Record<string, unknown>[];
       }
-    } catch {
-      // getState() shape varies across Vega versions; ignore and fall through.
     }
   }
 
@@ -1511,19 +1522,8 @@ function resolveFacetLayerDatasets(
   if (!view || layerCount < 2)
     return undefined;
 
-  let datasets: Record<string, unknown> | undefined;
-  try {
-    const stateGetter = (view as unknown as {
-      getState?: (opts?: { data?: boolean }) => { data?: Record<string, unknown> };
-    }).getState;
-    if (typeof stateGetter !== 'function')
-      return undefined;
-    datasets = stateGetter.call(view, { data: true })?.data;
-  } catch {
-    // getState() shape varies across Vega versions; treat as unavailable.
-    return undefined;
-  }
-  if (!datasets || typeof datasets !== 'object')
+  const datasets = getViewDatasets(view);
+  if (!datasets)
     return undefined;
 
   const candidates: { index: number; rows: Record<string, unknown>[] }[] = [];

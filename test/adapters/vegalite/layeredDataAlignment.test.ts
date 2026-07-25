@@ -1,4 +1,4 @@
-import type { BarPoint, HistogramPoint, LinePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, HistogramPoint, LinePoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import {
   facetedDensityDatasets,
@@ -11,6 +11,12 @@ import {
   layeredTwoBarsSpec,
 } from './fixtures/layeredNonLine';
 import { makeView } from './fixtures/testView';
+import {
+  layeredBoxplotDatasets,
+  layeredBoxplotSpec,
+  nestedColorLineDatasets,
+  nestedColorLineSpec,
+} from './fixtures/unreachableMarkDatasets';
 
 /** Strip the compiled mark datasets, leaving only the data pipelines. */
 function withoutMarkDatasets(
@@ -94,6 +100,41 @@ describe('vega-Lite layered non-line data alignment', () => {
       )[0].data as HistogramPoint[];
 
       expect(bins).toHaveLength(6);
+    });
+  });
+
+  /**
+   * `resolveMarkItemData` can never serve these shapes, so they must keep
+   * working through the pre-existing name-guessing path. The fail-closed
+   * fallback is what makes applying the mark lookup to every layered trace
+   * type safe, and it is easy to break silently in a future refactor —
+   * these pin it.
+   */
+  describe('shapes whose mark datasets are unreachable', () => {
+    it('falls back for a colour-encoded line nested in a pathgroup', () => {
+      // Vega wraps this mark in `layer_0_pathgroup`, so `layer_0_marks` is
+      // nested and `view.data()` rejects it.
+      const series = layersOf(
+        nestedColorLineSpec,
+        nestedColorLineDatasets,
+      )[0].data as LinePoint[][];
+
+      expect(series.map(s => s[0]?.z)).toEqual(['A', 'B']);
+      expect(series.map(s => s.map(p => p.y))).toEqual([[1, 2, 6], [5, 9, 7]]);
+    });
+
+    it('falls back for a boxplot expanded into nested sub-layers', () => {
+      // Vega-Lite expands a boxplot into `layer_0_layer_0_layer_0_marks`
+      // and friends, so the `layer_0_marks` name the adapter derives from
+      // the layer index never exists.
+      const box = layersOf(
+        layeredBoxplotSpec,
+        layeredBoxplotDatasets,
+      )[0].data as BoxPoint[];
+
+      expect(box.map(b => b.z)).toEqual(['A', 'B']);
+      expect(box[0].q2).toBe(2);
+      expect(box[1].q2).toBe(7);
     });
   });
 
