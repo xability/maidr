@@ -32,6 +32,7 @@ import type { FacetDescriptor, RepeatCellMapping, RepeatDescriptor } from './fac
 import type {
   VegaLiteChannelDef,
   VegaLiteEncoding,
+  VegaLiteFilterPredicate,
   VegaLiteSpec,
   VegaLiteToMaidrOptions,
   VegaView,
@@ -53,6 +54,18 @@ import { buildLineSelectors, buildSelector } from './selectors';
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/**
+ * A converted layer kept next to the spec fragment it was built from.
+ *
+ * `MaidrLayer` intentionally carries no trace of its Vega-Lite origin, but
+ * merging sibling line layers needs the source spec to recover each
+ * series' name, so the two travel together until the merge is done.
+ */
+interface ConvertedLayer {
+  layer: MaidrLayer;
+  spec: VegaLiteSpec;
+}
 
 /**
  * Convert a Vega-Lite spec (and optionally its compiled Vega view) into a
@@ -109,9 +122,13 @@ export function vegaLiteToMaidr(
   // Handle layered specs.
   const isLayered = spec.layer != null && spec.layer.length > 0;
   if (isLayered) {
-    const rawLayers = spec.layer!.map((layerSpec, i) =>
-      convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder),
-    ).filter(Boolean) as MaidrLayer[];
+    // Keep each converted layer paired with the spec it came from: the
+    // series names a merge needs live in the spec (color datum, filter,
+    // title), not in the converted layer.
+    const rawLayers = spec.layer!.map((layerSpec, i) => {
+      const layer = convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder);
+      return layer ? { layer, spec: layerSpec } : null;
+    }).filter(Boolean) as ConvertedLayer[];
 
     // Coalesce sibling LINE layers with matching axes into a single
     // multi-series LINE layer. This handles the common Altair case where
@@ -150,35 +167,38 @@ export function vegaLiteToMaidr(
  * LINE pairs (linreplot) are NOT collapsed because the SCATTER mark is
  * not LINE-typed and the predicate skips it.
  */
-function coalesceSiblingLineLayers(layers: MaidrLayer[]): MaidrLayer[] {
-  if (layers.length < 2)
-    return layers;
+function coalesceSiblingLineLayers(
+  entries: ConvertedLayer[],
+  parentEncoding?: VegaLiteEncoding,
+): MaidrLayer[] {
+  if (entries.length < 2)
+    return entries.map(e => e.layer);
 
   const out: MaidrLayer[] = [];
   let i = 0;
 
-  while (i < layers.length) {
-    const current = layers[i];
+  while (i < entries.length) {
+    const current = entries[i];
 
-    if (current.type !== TraceType.LINE) {
-      out.push(current);
+    if (current.layer.type !== TraceType.LINE) {
+      out.push(current.layer);
       i += 1;
       continue;
     }
 
     // Walk forward gathering consecutive LINE layers whose axes match.
-    const run: MaidrLayer[] = [current];
+    const run: ConvertedLayer[] = [current];
     let j = i + 1;
-    while (j < layers.length && layers[j].type === TraceType.LINE
-      && axesAreCompatible(current.axes, layers[j].axes)) {
-      run.push(layers[j]);
+    while (j < entries.length && entries[j].layer.type === TraceType.LINE
+      && axesAreCompatible(current.layer.axes, entries[j].layer.axes)) {
+      run.push(entries[j]);
       j += 1;
     }
 
     if (run.length === 1) {
-      out.push(current);
+      out.push(current.layer);
     } else {
-      out.push(mergeLineLayers(run));
+      out.push(mergeLineLayers(run, parentEncoding));
     }
     i = j;
   }
@@ -199,18 +219,38 @@ function axesAreCompatible(
   return ax === bx && ay === by;
 }
 
-function mergeLineLayers(run: MaidrLayer[]): MaidrLayer {
+function mergeLineLayers(
+  run: ConvertedLayer[],
+  parentEncoding?: VegaLiteEncoding,
+): MaidrLayer {
   // Each input layer's `data` is already `LinePoint[][]` with exactly
   // one inner series (because per-layer single-line extraction returns
   // `[pts]`). Flatten by concatenating those inner arrays so the merged
   // layer ends up as `[layer0_series, layer1_series, ...]`.
   const mergedData: LinePoint[][] = [];
   const mergedSelectors: string[] = [];
+  let named = false;
+  let dimensionLabel: string | undefined;
 
-  for (const layer of run) {
+  for (const { layer, spec } of run) {
+    const encoding: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    // Name the series this sub-layer contributes. Layers extracted via a
+    // `color`/`fill` *field* already carry a per-point `z`; those keep it
+    // and only anonymous points are filled in, so a run that mixes both
+    // shapes never has a derived name overwrite a real one.
+    const seriesName = resolveLayerSeriesName(spec, encoding);
+    dimensionLabel ??= resolveSeriesDimensionLabel(spec, encoding);
+
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
-        mergedData.push(series);
+        if (seriesName === undefined) {
+          mergedData.push(series);
+          continue;
+        }
+        named = true;
+        mergedData.push(series.map(point =>
+          point.z === undefined ? { ...point, z: seriesName } : point,
+        ));
       }
     }
     if (Array.isArray(layer.selectors)) {
@@ -222,11 +262,139 @@ function mergeLineLayers(run: MaidrLayer[]): MaidrLayer {
     }
   }
 
-  return {
-    ...run[0],
+  const merged: MaidrLayer = {
+    ...run[0].layer,
     selectors: mergedSelectors,
     data: mergedData,
   };
+
+  // Only advertise a z axis once the merge actually produced names, and
+  // only when the spec names the *dimension* those series belong to.
+  // Without a real label, LineTrace's own "Group" default reads better
+  // than a fabricated axis title.
+  if (named && dimensionLabel) {
+    merged.axes = { ...merged.axes, z: { label: dimensionLabel } };
+  }
+
+  return merged;
+}
+
+/**
+ * Matches a filter expression that is a single equality test against one
+ * `datum` field, e.g. `(datum.species === 'Adelie')` or
+ * `datum['Origin'] == "Europe"`.
+ *
+ * Deliberately anchored and deliberately narrow: anything with a boolean
+ * operator, a comparison other than equality, or a non-literal right-hand
+ * side fails to match and yields no name. A compound predicate does not
+ * describe a single named series, so guessing one would mislabel the line.
+ */
+const SINGLE_EQUALITY_FILTER
+  = /^\(?\s*datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(['"])(.*?)\4\s*\)?$/i;
+
+/** Read the `filter` transforms declared directly on a layer spec. */
+function getFilterTransforms(spec: VegaLiteSpec): (string | VegaLiteFilterPredicate)[] {
+  if (!Array.isArray(spec.transform))
+    return [];
+  return spec.transform
+    .map(t => t?.filter)
+    .filter((f): f is string | VegaLiteFilterPredicate => f !== undefined);
+}
+
+/**
+ * Parse `datum.<field> === '<value>'` into its field and value.
+ *
+ * @returns The parsed pair, or `undefined` when the expression is not a
+ * lone equality test.
+ */
+function parseSingleEqualityFilter(
+  expression: string,
+): { field: string; value: string } | undefined {
+  const match = SINGLE_EQUALITY_FILTER.exec(expression.trim());
+  if (!match)
+    return undefined;
+  const field = match[1] ?? match[3];
+  if (!field)
+    return undefined;
+  return { field, value: match[5] };
+}
+
+/**
+ * Resolve the display name of the series drawn by one layer of a layered
+ * spec, so a merge can label it.
+ *
+ * Sources, most explicit first:
+ *  1. `encoding.color.datum` / `encoding.fill.datum` — the constant
+ *     Vega-Lite binds to a layer purely to name it in the legend.
+ *  2. A `filter` transform's `{field, equal}` predicate — the value the
+ *     layer was narrowed to.
+ *  3. The layer's own `title`.
+ *  4. A `filter` transform written as a lone `datum.f === 'v'` expression,
+ *     which is what Altair emits for `transform_filter(alt.datum.f == v)`.
+ *
+ * @returns The series name, or `undefined` when the spec names it nowhere.
+ * Callers must leave `z` unset in that case: an invented name is worse
+ * than none, because it reads as authoritative to a screen reader user.
+ */
+function resolveLayerSeriesName(
+  spec: VegaLiteSpec,
+  encoding: VegaLiteEncoding,
+): string | undefined {
+  const datum = encoding.color?.datum ?? encoding.fill?.datum;
+  if (datum != null && String(datum).length > 0)
+    return String(datum);
+
+  const filters = getFilterTransforms(spec);
+
+  for (const filter of filters) {
+    if (typeof filter === 'object' && filter.equal != null)
+      return String(filter.equal);
+  }
+
+  const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
+  if (title)
+    return title;
+
+  // Only trust an expression filter when the layer has exactly one; with
+  // several, no single one identifies the series.
+  if (filters.length === 1 && typeof filters[0] === 'string') {
+    const parsed = parseSingleEqualityFilter(filters[0]);
+    if (parsed)
+      return parsed.value;
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolve the label of the *dimension* the merged series vary along —
+ * the z-axis title, e.g. `"species"` for per-species density curves.
+ *
+ * Distinct from {@link resolveLayerSeriesName}, which names one series.
+ *
+ * @returns The dimension label, or `undefined` when the spec does not say.
+ */
+function resolveSeriesDimensionLabel(
+  spec: VegaLiteSpec,
+  encoding: VegaLiteEncoding,
+): string | undefined {
+  const channel = encoding.color ?? encoding.fill;
+  const channelLabel = channel?.title ?? channel?.field;
+  if (channelLabel)
+    return channelLabel;
+
+  const filters = getFilterTransforms(spec);
+  for (const filter of filters) {
+    if (typeof filter === 'object' && filter.equal != null && filter.field)
+      return filter.field;
+  }
+  if (filters.length === 1 && typeof filters[0] === 'string') {
+    const parsed = parseSingleEqualityFilter(filters[0]);
+    if (parsed)
+      return parsed.field;
+  }
+
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +506,53 @@ function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
 }
 
 /**
+ * Read a layer's data from its compiled Vega **mark** dataset
+ * (`layer_<N>_marks`), which Vega registers alongside the data pipelines.
+ *
+ * Every item in that dataset is a scenegraph mark instance carrying the
+ * exact source row it was rendered from on `datum`, in DOM order. That
+ * makes it the only source that is both correct per layer and aligned
+ * with the highlight selectors.
+ *
+ * The name-based fallback in {@link resolveData} cannot do either. It
+ * guesses pipeline names (`data_0`, `data_1`, …), but Vega-Lite numbers
+ * those sequentially over the *whole* compiled spec, not per layer, and
+ * skips indices for layers that need no transform. An Altair
+ * `transform_density` + `alt.layer(...)` chart compiles to `data_1` /
+ * `data_2` / `data_3` with no `data_0`, so the guesses land one dataset
+ * short from layer 1 onward: layers 1 and 2 both draw the wrong series
+ * and the last series never appears at all.
+ *
+ * @returns The layer's rows, or `undefined` when the dataset is absent or
+ * does not look like mark items — in which case the caller falls back to
+ * name guessing, preserving the previous behaviour.
+ */
+function resolveMarkItemData(
+  view: VegaView,
+  markDatasetName: string,
+): Record<string, unknown>[] | undefined {
+  let items: unknown;
+  try {
+    items = view.data(markDatasetName);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(items) || items.length === 0)
+    return undefined;
+
+  const rows: Record<string, unknown>[] = [];
+  for (const item of items) {
+    const datum = (item as { datum?: unknown })?.datum;
+    // Bail on the whole dataset rather than emitting a partial series:
+    // dropping points would silently shorten the line.
+    if (typeof datum !== 'object' || datum === null || Array.isArray(datum))
+      return undefined;
+    rows.push(datum as Record<string, unknown>);
+  }
+  return rows;
+}
+
+/**
  * True for compiled-Vega dataset names that hold layout / legend / header
  * internals rather than chart data. Facet compilations register
  * `row_domain` / `column_domain` / `facet_domain*`, header / footer group
@@ -375,7 +590,16 @@ function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
   view?: VegaView,
+  markDatasetName?: string,
 ): Record<string, unknown>[] {
+  // Exact path first: a layer's own mark dataset. See
+  // `resolveMarkItemData` — the name-guessing below is a fallback.
+  if (view && markDatasetName) {
+    const markRows = resolveMarkItemData(view, markDatasetName);
+    if (markRows)
+      return markRows;
+  }
+
   // Common Vega dataset names produced by the VL compiler.
   // Include layer-specific dataset names for composite specs.
   const datasetNames = [
@@ -931,10 +1155,6 @@ function convertLayerSpec(
   if (!traceType)
     return null;
 
-  // Faceted callers pre-filter the resolved dataset down to one panel's
-  // rows and pass them here, bypassing dataset-name resolution.
-  const rows = rowsOverride ?? resolveData(spec, index, view);
-
   const axes: MaidrLayer['axes'] = {
     x: getAxisConfig(encoding.x),
     y: getAxisConfig(encoding.y),
@@ -949,6 +1169,15 @@ function convertLayerSpec(
   // prefix so highlight selectors match those concat mark groups.
   const selectorLayerIndex = selectorOverride?.layerIndex ?? index;
   const markGroupPrefix = selectorOverride?.markGroupPrefix ?? '';
+
+  // Faceted callers pre-filter the resolved dataset down to one panel's
+  // rows and pass them here, bypassing dataset-name resolution.
+  const rows = rowsOverride ?? resolveData(
+    spec,
+    index,
+    view,
+    layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
+  );
 
   let data: MaidrLayer['data'];
   let selectors: MaidrLayer['selectors'];
@@ -1345,7 +1574,7 @@ function buildFacetMaidr(
         if (cellRows.length === 0) {
           return null;
         }
-        return convertLayerSpec(
+        const layer = convertLayerSpec(
           layerSpec,
           j,
           view,
@@ -1355,8 +1584,9 @@ function buildFacetMaidr(
           { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope },
           cellRows,
         );
-      }).filter(Boolean) as MaidrLayer[];
-      const layers = coalesceSiblingLineLayers(rawLayers);
+        return layer ? { layer, spec: layerSpec } : null;
+      }).filter(Boolean) as ConvertedLayer[];
+      const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
       layers.forEach((layer, j) => {
         layer.id = `${flatIndex}_${j}`;
       });
@@ -1479,9 +1709,9 @@ function buildRepeatMaidr(
         { layerIndex: j, markGroupPrefix: `${childName}_` },
       );
       globalLayerIndex++;
-      return layer;
-    }).filter(Boolean) as MaidrLayer[];
-    const layers = coalesceSiblingLineLayers(rawLayers);
+      return layer ? { layer, spec: specForData } : null;
+    }).filter(Boolean) as ConvertedLayer[];
+    const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
     layers.forEach((layer, j) => {
       layer.id = `${flatIndex}_${j}`;
     });

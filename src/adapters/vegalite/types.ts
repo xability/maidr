@@ -72,6 +72,7 @@ export interface VegaLiteSpec {
   title?: string | { text?: string; subtitle?: string };
   description?: string;
   data?: unknown;
+  transform?: VegaLiteTransform[];
   mark?: string | { type: string };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];
@@ -122,12 +123,47 @@ export interface VegaLiteEncoding {
  */
 export interface VegaLiteChannelDef {
   field?: string;
+  /**
+   * A constant bound to the channel instead of a data field
+   * (`{"color": {"datum": "Adelie"}}`).
+   *
+   * Vega-Lite's documented idiom for giving each child of a `layer:` spec
+   * its own legend entry; Altair emits it for `color=alt.datum(name)`.
+   * Because the constant *is* the series' display name, the adapter uses
+   * it to label layers that a merge would otherwise leave anonymous.
+   */
+  datum?: string | number | boolean;
   type?: string;
   aggregate?: string;
   title?: string;
   axis?: { title?: string } | null;
   bin?: boolean | Record<string, unknown>;
   stack?: boolean | string | null;
+}
+
+/**
+ * The object form of a `filter` transform predicate.
+ *
+ * Vega-Lite accepts either a predicate object (`{field, equal}`) or a raw
+ * expression string; Altair emits the former for
+ * `alt.FieldEqualPredicate(...)` and the latter for `alt.datum.f == v`.
+ */
+export interface VegaLiteFilterPredicate {
+  field?: string;
+  equal?: string | number | boolean;
+}
+
+/**
+ * A single entry of a spec's `transform` array.
+ *
+ * Only `filter` is modelled — it is the one transform that identifies the
+ * subset of the data a layer draws, and therefore the only one that can
+ * name a per-group layer. Every other transform (`density`, `aggregate`,
+ * `calculate`, …) is passed over.
+ */
+export interface VegaLiteTransform {
+  filter?: string | VegaLiteFilterPredicate;
+  [key: string]: unknown;
 }
 
 /**
