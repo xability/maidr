@@ -131,6 +131,21 @@ describe('vega-Lite layered non-line data alignment', () => {
       expect(series.map(s => s.map(p => p.y))).toEqual([[1, 2, 6], [5, 9, 7]]);
     });
 
+    it('falls back when a mark dataset exists but holds no rows', () => {
+      // An empty mark dataset is reported as unavailable rather than
+      // adopted, because MAIDR core cannot navigate a zero-point trace.
+      // The layer therefore takes the guessing path instead of coming out
+      // empty — deliberate, and pinned here so the trade stays visible.
+      const emptied = {
+        ...layeredTwoBarsDatasets,
+        layer_0_marks: [],
+        layer_1_marks: [],
+      };
+
+      const layers = layersOf(layeredTwoBarsSpec, emptied);
+      expect(layers[0].data as BarPoint[]).toHaveLength(4);
+    });
+
     it('falls back for a boxplot expanded into nested sub-layers', () => {
       // Vega-Lite expands a boxplot into `layer_0_layer_0_layer_0_marks`
       // and friends, so the `layer_0_marks` name the adapter derives from

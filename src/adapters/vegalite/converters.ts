@@ -665,6 +665,14 @@ function getViewDatasetNames(view: VegaView): string[] {
  *
  * Pairs with {@link getViewDatasetNames}: enumeration gives names, this
  * gives rows. Vega rejects names outside the current scope by throwing.
+ *
+ * A zero-row dataset is deliberately reported the same as a missing one,
+ * so callers fall through rather than adopt it. MAIDR core cannot navigate
+ * a zero-point trace — `buildFacetMaidr` drops such layers outright for
+ * that reason — so an empty result is not a usable answer here. The cost is
+ * that a layer which legitimately renders nothing takes the fallback and
+ * may show another dataset's rows instead of being empty; that trade is
+ * pre-existing and is exercised by the fallback tests.
  */
 function readViewDataset(
   view: VegaView,
@@ -1556,6 +1564,17 @@ function resolveSourceRows(
  * count means the mapping is ambiguous — layers sharing one dataset, or an
  * intermediate pipeline being counted — and the caller keeps its existing
  * behaviour rather than acting on a guess.
+ *
+ * **The ascending-order rule is empirical, not a documented Vega-Lite
+ * contract.** It is validated against vega 6.3.1 / vega-lite 6.4.x with
+ * two-layer facets, including one whose layers transform asymmetrically
+ * (`facetedAsymmetricLayers.ts`) — the shape that makes a *repeat* spec
+ * number its layers in reverse (`repeatLayeredLine.ts`), which is why the
+ * rule is not extended there. Three-or-more-layer facets and future
+ * compiler versions are unverified: the count guard keeps a changed
+ * numbering scheme falling back rather than misbehaving, but it cannot
+ * catch a reordering that preserves the count. Re-check against the
+ * fixtures before relying on this more widely.
  *
  * @returns One row array per layer, or `undefined` when no unambiguous
  * mapping exists.
