@@ -256,9 +256,11 @@ function mergeLineLayers(
     const seriesName = resolveLayerSeriesName(spec, encoding);
     const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding);
     let everySeriesNamed = true;
+    let contributedSeries = false;
 
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
+        contributedSeries = true;
         const points = seriesName === undefined
           ? series
           : series.map(point =>
@@ -272,12 +274,22 @@ function mergeLineLayers(
         mergedData.push(points);
       }
     }
-    // A sub-layer that still contributes an unnamed series cannot vouch for
-    // the run's dimension, so it abstains — which the unanimity check below
-    // then treats as disagreement. Without this, a layer inheriting a
-    // `color` *field* from the parent reports that field as the dimension
-    // even when its own rows lack it and its series came out blank.
-    dimensionLabels.add(everySeriesNamed ? dimensionLabel : undefined);
+    // Only sub-layers that actually contributed a series get a vote.
+    //
+    // A colour-encoded layer whose dataset resolves empty produces no
+    // series at all — `extractLineData` returns `[...groups.values()]`,
+    // which is `[]` for zero rows — and a layer that drew nothing has no
+    // stake in what the run's dimension is. Letting it vote would decide
+    // the z axis on a layer the user never encounters.
+    //
+    // Among layers that did contribute: one that still yields an unnamed
+    // series cannot vouch for the dimension either, so it abstains, which
+    // the unanimity check below treats as disagreement. Without that, a
+    // layer inheriting a `color` *field* from the parent reports that
+    // field as the dimension even when its own rows lack it and its
+    // series came out blank.
+    if (contributedSeries)
+      dimensionLabels.add(everySeriesNamed ? dimensionLabel : undefined);
     if (Array.isArray(layer.selectors)) {
       for (const sel of layer.selectors as string[]) {
         mergedSelectors.push(sel);
@@ -654,8 +666,16 @@ function getViewDatasetNames(view: VegaView): string[] {
       return [];
     const datasets = stateGetter.call(view, { data: () => true })?.data;
     return datasets && typeof datasets === 'object' ? Object.keys(datasets) : [];
-  } catch {
-    // getState() shape varies across Vega versions; treat as unavailable.
+  } catch (error) {
+    // Degrading to "no datasets" is the safe direction, but it is also how
+    // the `{ data: true }` bug above stayed invisible for so long. A view
+    // that has `getState` and still throws is unexpected, so say so rather
+    // than let a future regression here look like an empty chart.
+    console.warn(
+      '[maidr/vegalite] view.getState() failed; falling back to dataset '
+      + 'name guessing.',
+      error,
+    );
     return [];
   }
 }

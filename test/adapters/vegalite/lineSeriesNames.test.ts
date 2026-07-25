@@ -477,6 +477,53 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(seriesNames(onlyLayer(spec))).toEqual(['Alpha', 'Baseline']);
     });
 
+    it('gives no dimension vote to a layer that contributed no series', () => {
+      // A colour-encoded layer with no rows yields zero series —
+      // `extractLineData` returns `[...groups.values()]`, empty for empty
+      // rows — so it draws nothing. Its `color` field would still resolve
+      // `site` as a dimension; letting that decide the z axis would label
+      // the run from a layer the user never reaches.
+      // The two drawn layers agree the dimension is `site`. The empty one
+      // would vote `year`, breaking that agreement and suppressing a z axis
+      // the drawn series genuinely share.
+      const spec: VegaLiteSpec = {
+        layer: [
+          {
+            mark: 'line',
+            transform: [{ filter: { field: 'site', equal: 'Alpha' } }],
+            data: { values: [{ x: 1, y: 1 }, { x: 2, y: 2 }] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            transform: [{ filter: { field: 'site', equal: 'Beta' } }],
+            data: { values: [{ x: 1, y: 3 }, { x: 2, y: 4 }] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            data: { values: [] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+              color: { field: 'year', type: 'nominal' },
+            },
+          },
+        ],
+      };
+
+      const layer = onlyLayer(spec);
+      expect(layer.data as LinePoint[][]).toHaveLength(2);
+      expect(seriesNames(layer)).toEqual(['Alpha', 'Beta']);
+      expect(layer.axes?.z).toEqual({ label: 'site' });
+    });
+
     it('names only the layers that resolve, leaving the rest bare', () => {
       const layer = onlyLayer(layeredLineSpec([
         { encoding: { x: { field: 'x' }, y: { field: 'y' }, color: { datum: 'Alpha' } } },
