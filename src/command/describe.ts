@@ -680,7 +680,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
-      this.announceMultiLinePosition(x, cols, y, rows);
+      this.announceMultiLinePosition(x, cols, y, rows, state.group);
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
@@ -851,13 +851,15 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Announces position for multi-line plots.
-   * Always shows "Plot X of Y" prefix, followed by position within the line.
+   * Always shows "Plot X of Y" prefix, followed by the group the cursor is on
+   * (when the trace exposes one) and the position within that line.
    */
   private announceMultiLinePosition(
     posIndex: number,
     totalPos: number,
     lineIndex: number,
     totalLines: number,
+    group?: { label: string; value: string },
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
@@ -865,9 +867,13 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${plotPrefix}, ${posPercent}%`);
+      const groupSuffix = group ? `, ${group.value}` : '';
+      this.textViewModel.update(`${plotPrefix}${groupSuffix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update(`${plotPrefix}, Position is ${pos} of ${totalPos}`);
+      const groupSuffix = group ? `, ${group.label} is ${group.value}` : '';
+      this.textViewModel.update(
+        `${plotPrefix}${groupSuffix}, Position is ${pos} of ${totalPos}`,
+      );
     }
   }
 

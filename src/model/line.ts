@@ -110,6 +110,45 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * Resolves the z label: honor the user-provided spec label, otherwise fall
+   * back to the LineTrace-specific default ("Group") rather than the generic
+   * "Level" inherited from `AbstractTrace`.
+   */
+  private get groupLabel(): string {
+    return this.layer.axes?.z?.label ?? TYPE;
+  }
+
+  /**
+   * Name a line carries in the spec, or `undefined` when the data authors
+   * none. Consumers that have nothing meaningful to say without a real name
+   * (e.g. the position announcement) can then stay silent about groups.
+   */
+  private authoredGroupNameAt(row: number): string | undefined {
+    const authored = this.points[row]?.[0]?.z;
+    return authored === undefined || authored === null || authored === ''
+      ? undefined
+      : String(authored);
+  }
+
+  /**
+   * Human-readable name of a single line: the authored name when the spec
+   * provides one, otherwise a positional fallback ("Line 2").
+   */
+  private groupNameAt(row: number): string {
+    return this.authoredGroupNameAt(row) ?? `Line ${row + 1}`;
+  }
+
+  /**
+   * Label and name of the line the cursor sits on. Resolved from the row
+   * rather than from `text.z`, which is replaced by the intersection summary
+   * when several lines meet at the current point.
+   */
+  private get currentGroup(): { label: string; value: string } | undefined {
+    const value = this.authoredGroupNameAt(this.row);
+    return value === undefined ? undefined : { label: this.groupLabel, value };
+  }
+
+  /**
    * Gets the line series with human-readable labels. Used by the candlestick
    * delta feature to list reference-line candidates (e.g., moving averages).
    * @returns One entry per series with its label and points
@@ -140,7 +179,7 @@ export class LineTrace extends AbstractTrace {
 
     if (isMultiline) {
       const lineNames = this.points
-        .map((line, i) => line[0]?.z || `Line ${i + 1}`)
+        .map((_line, i) => this.groupNameAt(i))
         .join(', ');
       stats.push({ label: 'Line names', value: lineNames });
     }
@@ -151,7 +190,7 @@ export class LineTrace extends AbstractTrace {
     if (isMultiline) {
       headers = [this.xAxis, this.yAxis, 'Line'];
       rows = this.points.flatMap((line, i) => {
-        const lineName = line[0]?.z || `Line ${i + 1}`;
+        const lineName = this.groupNameAt(i);
         return line.map(p => [p.x, p.y, lineName]);
       });
     } else {
@@ -278,9 +317,7 @@ export class LineTrace extends AbstractTrace {
       | { z: { label: string; value: string } }
       | Record<string, never> = {};
 
-    // Resolve z label: honor user-provided spec label, otherwise fall back
-    // to LineTrace-specific default ("Group") rather than the generic "Level".
-    const zLabel = this.layer.axes?.z?.label ?? TYPE;
+    const zLabel = this.groupLabel;
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
@@ -772,11 +809,13 @@ export class LineTrace extends AbstractTrace {
       return baseState;
 
     const isMultiline = this.points.length > 1;
+    const group = isMultiline ? this.currentGroup : undefined;
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
       plotType: isMultiline ? 'multiline' : 'single line',
       ...(isMultiline && { groupCount: this.points.length }),
+      ...(group && { group }),
     };
 
     // Check for intersection at current (x, y)

@@ -102,6 +102,14 @@ export type TraceState
        */
       groupCount?: number;
       /**
+       * Label and name of the group/series the cursor is currently on, e.g.
+       * `{ label: 'Group', value: 'Series 1' }`. Only present for multiline
+       * plots (plotType === 'multiline') whose data names its groups; absent
+       * when the spec authors no names, so consumers can omit group wording
+       * rather than announce a positional placeholder.
+       */
+      group?: { label: string; value: string };
+      /**
        * Plot orientation, if applicable (e.g. bar, box, violin).
        */
       orientation?: Orientation;
