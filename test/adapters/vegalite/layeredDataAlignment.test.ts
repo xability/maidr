@@ -1,5 +1,9 @@
-import type { BarPoint, HistogramPoint } from '@type/grammar';
+import type { BarPoint, HistogramPoint, LinePoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
+import {
+  facetedDensityDatasets,
+  facetedDensitySpec,
+} from './fixtures/facetedLayeredDensity';
 import {
   layeredHistogramDatasets,
   layeredHistogramSpec,
@@ -90,6 +94,49 @@ describe('vega-Lite layered non-line data alignment', () => {
       )[0].data as HistogramPoint[];
 
       expect(bins).toHaveLength(6);
+    });
+  });
+
+  describe('faceted layered density chart', () => {
+    /**
+     * Facets slice a pre-resolved per-layer dataset per cell, so they never
+     * reach the mark-dataset lookup — and their own mark datasets are not
+     * addressable anyway. Without a separate mapping the merged series get
+     * named (this PR) while all drawing layer 0's curve, which is exactly
+     * the mislabelling the naming work exists to avoid.
+     */
+    function panelSeries(
+      datasets: Record<string, Record<string, unknown>[]>,
+    ): LinePoint[][][] {
+      return vegaLiteToMaidr(facetedDensitySpec, makeView(datasets))
+        .subplots
+        .flat()
+        .map(subplot => subplot.layers[0].data as LinePoint[][]);
+    }
+
+    it('gives every panel both species curves, each under its own name', () => {
+      const panels = panelSeries(facetedDensityDatasets);
+      expect(panels).toHaveLength(2);
+
+      for (const series of panels) {
+        expect(series.map(s => s[0]?.z)).toEqual(['Adelie', 'Chinstrap']);
+        // Disjoint mass ranges: at x=3000 Adelie is near its peak while
+        // Chinstrap is vanishingly small. Equal values would mean both
+        // series drew the same layer's data.
+        expect(Number(series[0][0].y)).toBeGreaterThan(Number(series[1][0].y));
+      }
+    });
+
+    it('does not remap when the pipeline count is ambiguous', () => {
+      // Fails closed: drop one layer's pipeline and the per-layer mapping
+      // no longer matches the layer count, so the previous name-guessing
+      // behaviour stands rather than a half-applied guess.
+      const { data_3: _dropped, ...ambiguous } = facetedDensityDatasets;
+      const panels = panelSeries(ambiguous);
+
+      for (const series of panels) {
+        expect(Number(series[0][0].y)).toBe(Number(series[1][0].y));
+      }
     });
   });
 });

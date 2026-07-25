@@ -1479,6 +1479,76 @@ function resolveSourceRows(
 }
 
 /**
+ * Resolve one dataset per layer for a **faceted** layered spec, by taking
+ * the compiled `data_<N>` pipelines in ascending order.
+ *
+ * Faceted specs cannot use the exact `layer_<N>_marks` lookup that
+ * {@link resolveMarkItemData} gives non-faceted ones: Vega nests a facet's
+ * marks inside the per-cell group, so `child_layer_<N>_marks` is not a
+ * top-level dataset and `view.data()` rejects it. What Vega does expose at
+ * the top level is one fully-computed pipeline per layer, spanning every
+ * cell — precisely the pre-filter rows the caller slices per cell.
+ *
+ * Name guessing cannot pick those apart. An Altair `transform_density` +
+ * `alt.layer(...)` chart wrapped in a facet compiles to `data_2` / `data_3`
+ * with no `data_0` or `data_1` at top level, so every layer resolves to
+ * `data_2` and each series draws the first layer's curve.
+ *
+ * Deliberately fails closed: it returns rows only when the number of
+ * plausible pipelines matches the number of layers exactly. Any other
+ * count means the mapping is ambiguous — layers sharing one dataset, or an
+ * intermediate pipeline being counted — and the caller keeps its existing
+ * behaviour rather than acting on a guess.
+ *
+ * @returns One row array per layer, or `undefined` when no unambiguous
+ * mapping exists.
+ */
+function resolveFacetLayerDatasets(
+  view: VegaView | undefined,
+  layerCount: number,
+  facetFields: string[],
+): Record<string, unknown>[][] | undefined {
+  if (!view || layerCount < 2)
+    return undefined;
+
+  let datasets: Record<string, unknown> | undefined;
+  try {
+    const stateGetter = (view as unknown as {
+      getState?: (opts?: { data?: boolean }) => { data?: Record<string, unknown> };
+    }).getState;
+    if (typeof stateGetter !== 'function')
+      return undefined;
+    datasets = stateGetter.call(view, { data: true })?.data;
+  } catch {
+    // getState() shape varies across Vega versions; treat as unavailable.
+    return undefined;
+  }
+  if (!datasets || typeof datasets !== 'object')
+    return undefined;
+
+  const candidates: { index: number; rows: Record<string, unknown>[] }[] = [];
+  for (const [name, rows] of Object.entries(datasets)) {
+    const match = /^data_(\d+)$/.exec(name);
+    if (!match || isInternalDatasetName(name))
+      continue;
+    if (!Array.isArray(rows) || rows.length === 0)
+      continue;
+    const first = rows[0] as Record<string, unknown>;
+    if (typeof first !== 'object' || first === null || isSceneGraphRow(first))
+      continue;
+    // Facet fields are always groupby keys, so a pipeline that lost them
+    // is an intermediate stage rather than a layer's rendered data.
+    if (!facetFields.every(field => field in first))
+      continue;
+    candidates.push({ index: Number(match[1]), rows: rows as Record<string, unknown>[] });
+  }
+
+  if (candidates.length !== layerCount)
+    return undefined;
+  return candidates.sort((a, b) => a.index - b.index).map(c => c.rows);
+}
+
+/**
  * Build a multi-subplot Maidr for a faceted spec.
  *
  * Grid construction: row facet values become grid rows and column facet
@@ -1523,7 +1593,16 @@ function buildFacetMaidr(
   // layer's dataset resolution lands on a table without the facet fields
   // (they are always groupby keys, so this signals a wrong dataset), fall
   // back to the raw source rows.
+  // Prefer an unambiguous per-layer mapping over name guessing, which
+  // collapses every layer of a faceted layered spec onto one dataset.
+  const perLayerDatasets = resolveFacetLayerDatasets(
+    view,
+    layerSpecs.length,
+    facetFields,
+  );
   const layerRows = layerSpecs.map((layerSpec, j) => {
+    if (perLayerDatasets)
+      return perLayerDatasets[j];
     const specForData: VegaLiteSpec = layerSpec.data != null
       ? layerSpec
       : { ...layerSpec, data: childSpec.data ?? spec.data };

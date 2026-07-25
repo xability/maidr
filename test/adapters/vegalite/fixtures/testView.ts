@@ -13,6 +13,10 @@ export function makeView(datasets: Record<string, unknown[]>): VegaView {
         throw new Error(`no dataset ${name}`);
       return datasets[name] as Record<string, unknown>[];
     },
+    // Real Vega views expose every registered dataset here; the adapter
+    // uses it to enumerate pipelines it cannot address by name.
+    getState: (opts?: { data?: boolean }) =>
+      (opts?.data ? { data: datasets } : {}),
     container: () => null,
     runAsync: async () => view,
     scale: () => undefined,
