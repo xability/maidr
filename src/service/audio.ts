@@ -355,7 +355,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     panning: Panning,
     direction: 'up' | 'down',
   ): AudioId {
-    // Silent at volume 0; return a harmless self-clearing id (see playEmptyTone).
+    // Silent at volume 0 (an exponential ramp target of 0 would throw a
+    // RangeError anyway); return a harmless self-clearing id so the caller
+    // still gets an AudioId to track.
     if (this.volume <= 0) {
       const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
       this.activeAudioIds.set(audioId, []);
@@ -677,7 +679,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // At volume 0 every exponential ramp target below collapses to 0, which
     // the Web Audio spec rejects with a RangeError. The tone would be silent
     // anyway, so it must neither trigger resume() nor claim the deferred cue
-    // slot (mirroring playMenuTone's outer guard).
+    // slot (mirroring playMenuTone's outer guard). Unlike playMenuTone, no
+    // mode check here: update(), the only caller, already gates on
+    // AudioMode.OFF, and scheduleEmptyTone re-checks it after the async gap.
     if (this.volume <= 0) {
       return;
     }
@@ -1128,7 +1132,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * @returns AudioId for the played click
    */
   private playClickTone(panning: Panning): AudioId {
-    // Silent at volume 0; return a harmless self-clearing id (see playEmptyTone).
+    // Silent at volume 0 (an exponential ramp target of 0 would throw a
+    // RangeError anyway); return a harmless self-clearing id so the caller
+    // still gets an AudioId to track.
     if (this.volume <= 0) {
       const audioId = setTimeout(() => this.activeAudioIds.delete(audioId), 0);
       this.activeAudioIds.set(audioId, []);
