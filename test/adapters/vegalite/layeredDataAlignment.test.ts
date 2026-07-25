@@ -1,12 +1,12 @@
 import type { BarPoint, HistogramPoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
-import { makeView } from './fixtures/altairLayeredDensity';
 import {
   layeredHistogramDatasets,
   layeredHistogramSpec,
   layeredTwoBarsDatasets,
   layeredTwoBarsSpec,
 } from './fixtures/layeredNonLine';
+import { makeView } from './fixtures/testView';
 
 /** Strip the compiled mark datasets, leaving only the data pipelines. */
 function withoutMarkDatasets(

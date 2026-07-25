@@ -32,7 +32,7 @@
  * `alt.FieldEqualPredicate`.
  */
 
-import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
+import type { VegaLiteSpec } from '@adapters/vegalite/types';
 
 export const densitySpec: VegaLiteSpec = {
   layer: [
@@ -417,22 +417,3 @@ export const densityViewDatasets: Record<string, Record<string, unknown>[]> = {
     },
   ],
 };
-
-/**
- * Build a {@link VegaView} stub backed by a dataset dump, mirroring how a
- * live Vega view answers `data(name)` — including throwing for names the
- * compiled spec never registered.
- */
-export function makeView(datasets: Record<string, unknown[]>): VegaView {
-  const view = {
-    data: (name: string): Record<string, unknown>[] => {
-      if (!(name in datasets))
-        throw new Error(`no dataset ${name}`);
-      return datasets[name] as Record<string, unknown>[];
-    },
-    container: () => null,
-    runAsync: async () => view,
-    scale: () => undefined,
-  };
-  return view as unknown as VegaView;
-}

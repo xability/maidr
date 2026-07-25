@@ -2,11 +2,8 @@ import type { VegaLiteSpec } from '@adapters/vegalite/types';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { TraceType } from '@type/grammar';
-import {
-  densitySpec,
-  densityViewDatasets,
-  makeView,
-} from './fixtures/altairLayeredDensity';
+import { densitySpec, densityViewDatasets } from './fixtures/altairLayeredDensity';
+import { makeView } from './fixtures/testView';
 
 /** Convenience: the single layer a merged multi-series line spec produces. */
 function onlyLayer(spec: VegaLiteSpec, view?: ReturnType<typeof makeView>): MaidrLayer {
@@ -145,6 +142,37 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(layer.axes?.z).toEqual({ label: 'site' });
     });
 
+    it('reads an unquoted numeric equality expression filter', () => {
+      // Altair emits the literal unquoted for `alt.datum.year == 2020`, so
+      // restricting the pattern to strings would silently drop every
+      // numerically grouped chart's names.
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: '(datum.year === 2020)' }] },
+        { transform: [{ filter: '(datum.year === 2021)' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['2020', '2021']);
+      expect(layer.axes?.z).toEqual({ label: 'year' });
+    });
+
+    it('reads an unquoted boolean equality expression filter', () => {
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: '(datum.flag === true)' }] },
+        { transform: [{ filter: '(datum.flag === false)' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['true', 'false']);
+    });
+
+    it('reads a negative or fractional numeric literal', () => {
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: '(datum.offset === -1.5)' }] },
+        { transform: [{ filter: '(datum.offset === 2)' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['-1.5', '2']);
+    });
+
     it('coerces a non-string datum to its display form', () => {
       const layer = onlyLayer(layeredLineSpec([
         { encoding: { x: { field: 'x' }, y: { field: 'y' }, color: { datum: 2020 } } },
@@ -235,6 +263,17 @@ describe('vega-Lite merged multi-series line layers', () => {
       const layer = onlyLayer(layeredLineSpec([
         { transform: [{ filter: 'datum.site === \'Alpha\' && datum.year === 2020' }] },
         { transform: [{ filter: 'datum.site === \'Beta\' && datum.year === 2020' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual([undefined, undefined]);
+    });
+
+    it('ignores an identifier right-hand side', () => {
+      // A bare identifier is a variable reference, not a literal the layer
+      // was narrowed to, so it names nothing.
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: 'datum.site === other' }] },
+        { transform: [{ filter: 'datum.site === datum.fallback' }] },
       ]));
 
       expect(seriesNames(layer)).toEqual([undefined, undefined]);

@@ -287,16 +287,23 @@ function mergeLineLayers(
 
 /**
  * Matches a filter expression that is a single equality test against one
- * `datum` field, e.g. `(datum.species === 'Adelie')` or
- * `datum['Origin'] == "Europe"`.
+ * `datum` field, e.g. `(datum.species === 'Adelie')`,
+ * `datum['Origin'] == "Europe"`, `(datum.year === 2020)` or
+ * `(datum.flag === true)`.
  *
- * Deliberately anchored and deliberately narrow: anything with a boolean
- * operator, a comparison other than equality, or a non-literal right-hand
- * side fails to match and yields no name. A compound predicate does not
- * describe a single named series, so guessing one would mislabel the line.
+ * The right-hand side may be a quoted string, a number, or a boolean —
+ * Altair emits all three unquoted-as-appropriate for
+ * `transform_filter(alt.datum.f == v)`, so restricting this to strings
+ * would silently drop names from every numerically grouped chart.
+ *
+ * Deliberately anchored and deliberately narrow otherwise: anything with a
+ * boolean operator, a comparison other than equality, or a non-literal
+ * right-hand side fails to match and yields no name. A compound predicate
+ * does not describe a single named series, so guessing one would mislabel
+ * the line.
  */
 const SINGLE_EQUALITY_FILTER
-  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(['"])(.*?)\4$/i;
+  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(?:(['"])(.*?)\4|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)|(true|false))$/i;
 
 /**
  * Remove one *balanced* pair of wrapping parentheses, which is how Altair
@@ -357,9 +364,13 @@ function parseSingleEqualityFilter(
   if (!match)
     return undefined;
   const field = match[1] ?? match[3];
-  if (!field)
+  // Exactly one right-hand alternative matches; the rest are undefined.
+  const value = match[5] ?? match[6] ?? match[7];
+  // An empty literal names nothing — `z: ''` would read as a real group
+  // downstream while displaying as blank.
+  if (!field || !value)
     return undefined;
-  return { field, value: match[5] };
+  return { field, value };
 }
 
 /**
@@ -418,7 +429,9 @@ function resolveSeriesDimensionLabel(
   encoding: VegaLiteEncoding,
 ): string | undefined {
   const channel = encoding.color ?? encoding.fill;
-  const channelLabel = channel?.title ?? channel?.field;
+  // `||`, not `??`: an explicitly empty title should fall back to the
+  // field name rather than discard it and drop through to the filter.
+  const channelLabel = channel?.title || channel?.field;
   if (channelLabel)
     return channelLabel;
 
