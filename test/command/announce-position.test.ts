@@ -71,8 +71,8 @@ function createCommand(
   return { command, textViewModel };
 }
 
-describe('AnnouncePositionCommand on multiline plots', () => {
-  test('names the group alongside the plot and point position', () => {
+describe('AnnouncePositionCommand on multiline plots (verbose)', () => {
+  test('names the group alongside the line and point position', () => {
     const { command, textViewModel } = createCommand(
       multilineState({ group: { label: 'Group', value: 'Series 1' } }),
     );
@@ -80,7 +80,7 @@ describe('AnnouncePositionCommand on multiline plots', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith(
-      'Plot 1 of 3, Group is Series 1, Position is 3 of 10',
+      'Line 1 of 3, Group is Series 1, Position is 3 of 10',
     );
   });
 
@@ -92,19 +92,8 @@ describe('AnnouncePositionCommand on multiline plots', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith(
-      'Plot 2 of 3, series is Series 2, Position is 3 of 10',
+      'Line 2 of 3, series is Series 2, Position is 3 of 10',
     );
-  });
-
-  test('announces the bare group name in terse mode', () => {
-    const { command, textViewModel } = createCommand(
-      multilineState({ group: { label: 'Group', value: 'Series 1' } }),
-      'terse',
-    );
-
-    command.execute();
-
-    expect(textViewModel.update).toHaveBeenCalledWith('Plot 1 of 3, Series 1, 22%');
   });
 
   test('omits group wording when the trace reports no group', () => {
@@ -112,6 +101,51 @@ describe('AnnouncePositionCommand on multiline plots', () => {
 
     command.execute();
 
-    expect(textViewModel.update).toHaveBeenCalledWith('Plot 1 of 3, Position is 3 of 10');
+    expect(textViewModel.update).toHaveBeenCalledWith('Line 1 of 3, Position is 3 of 10');
+  });
+
+  test('calls each member a line, never a plot', () => {
+    const { command, textViewModel } = createCommand(
+      multilineState({ group: { label: 'Group', value: 'Series 1' } }),
+    );
+
+    command.execute();
+
+    const announced = jest.mocked(textViewModel.update).mock.calls[0][0];
+    expect(announced).not.toContain('Plot');
+  });
+});
+
+describe('AnnouncePositionCommand on multiline plots (terse)', () => {
+  test('drops the line ordinal and label words, keeping the group name', () => {
+    const { command, textViewModel } = createCommand(
+      multilineState({ group: { label: 'Group', value: 'Series 1' } }),
+      'terse',
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Series 1, 22%');
+  });
+
+  test('falls back to the line ordinal when the data names no group', () => {
+    const { command, textViewModel } = createCommand(multilineState(), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Line 1 of 3, 22%');
+  });
+
+  test('stays shorter than the verbose announcement for the same position', () => {
+    const state = multilineState({ group: { label: 'Group', value: 'Series 1' } });
+    const verbose = createCommand(state);
+    const terse = createCommand(state, 'terse');
+
+    verbose.command.execute();
+    terse.command.execute();
+
+    const verboseText = jest.mocked(verbose.textViewModel.update).mock.calls[0][0] as string;
+    const terseText = jest.mocked(terse.textViewModel.update).mock.calls[0][0] as string;
+    expect(terseText.length).toBeLessThan(verboseText.length);
   });
 });

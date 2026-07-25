@@ -851,8 +851,16 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Announces position for multi-line plots.
-   * Always shows "Plot X of Y" prefix, followed by the group the cursor is on
-   * (when the trace exposes one) and the position within that line.
+   *
+   * Lines are identified as "Line X of Y", not "Plot X of Y" — the whole
+   * multiline chart is the plot; its members are lines.
+   *
+   * Verbose spells out both the line's ordinal and its group name:
+   * "Line 1 of 3, Group is Series 1, Position is 3 of 10". Terse keeps only
+   * the shortest identity that still locates the cursor — the group name when
+   * the data provides one, since it identifies the line better than an index
+   * does, otherwise the ordinal — plus the position as a percentage:
+   * "Series 1, 22%" or "Line 1 of 3, 22%".
    */
   private announceMultiLinePosition(
     posIndex: number,
@@ -863,16 +871,15 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
-    const plotPrefix = `Plot ${linePos} of ${totalLines}`;
+    const linePrefix = `Line ${linePos} of ${totalLines}`;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      const groupSuffix = group ? `, ${group.value}` : '';
-      this.textViewModel.update(`${plotPrefix}${groupSuffix}, ${posPercent}%`);
+      this.textViewModel.update(`${group ? group.value : linePrefix}, ${posPercent}%`);
     } else {
       const groupSuffix = group ? `, ${group.label} is ${group.value}` : '';
       this.textViewModel.update(
-        `${plotPrefix}${groupSuffix}, Position is ${pos} of ${totalPos}`,
+        `${linePrefix}${groupSuffix}, Position is ${pos} of ${totalPos}`,
       );
     }
   }
