@@ -1627,11 +1627,17 @@ function resolveSourceRows(
  * two-layer facets, including one whose layers transform asymmetrically
  * (`facetedAsymmetricLayers.ts`) — the shape that makes a *repeat* spec
  * number its layers in reverse (`repeatLayeredLine.ts`), which is why the
- * rule is not extended there. Three-or-more-layer facets and future
- * compiler versions are unverified: the count guard keeps a changed
- * numbering scheme falling back rather than misbehaving, but it cannot
- * catch a reordering that preserves the count. Re-check against the
- * fixtures before relying on this more widely.
+ * rule is not extended there. A three-layer facet was measured too
+ * (`facetedThreeLayers.ts`) and falls back rather than mapping: only two
+ * of its layers keep a pipeline spanning every cell, so the coverage check
+ * rejects the third and the count no longer matches.
+ *
+ * Still unverified: a facet where three or more layers *all* keep
+ * full-coverage pipelines, and future compiler versions. The guards keep a
+ * changed numbering scheme falling back rather than misbehaving, but they
+ * cannot catch a reordering that preserves both the count and the
+ * coverage. Re-check against the fixtures before relying on this more
+ * widely.
  *
  * @returns One row array per layer, or `undefined` when no unambiguous
  * mapping exists.

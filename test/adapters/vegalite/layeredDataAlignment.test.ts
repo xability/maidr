@@ -13,6 +13,10 @@ import {
   facetedDensitySpec,
 } from './fixtures/facetedLayeredDensity';
 import {
+  facetedThreeLayerDatasets,
+  facetedThreeLayerSpec,
+} from './fixtures/facetedThreeLayers';
+import {
   facetNoPipelineDatasets,
   facetNoPipelineSpec,
 } from './fixtures/facetNoPipelineLayer';
@@ -300,6 +304,27 @@ describe('vega-Lite layered non-line data alignment', () => {
           const series = layer.data as LinePoint[][];
           // No two series may share identical y values under distinct
           // names — that is the signature of the mis-mapping.
+          const named = series.filter(s => s[0]?.z !== undefined);
+          const shapes = named.map(s => JSON.stringify(s.map(p => p.y)));
+          expect(new Set(shapes).size).toBe(shapes.length);
+        }
+      }
+    });
+
+    it('declines a three-layer facet whose leftovers cannot be trusted', () => {
+      // Only two of the three layers keep a pre-facet pipeline spanning
+      // both sites; layer 0's survives as a one-panel leftover. Coverage
+      // rejects it, so two candidates face three layers and the count
+      // guard declines. Without the coverage check the count *would* have
+      // matched and layer 0 would have drawn one panel's rows everywhere.
+      const panels = vegaLiteToMaidr(
+        facetedThreeLayerSpec,
+        makeView(facetedThreeLayerDatasets),
+      ).subplots.flat();
+
+      for (const panel of panels) {
+        for (const layer of panel.layers) {
+          const series = layer.data as LinePoint[][];
           const named = series.filter(s => s[0]?.z !== undefined);
           const shapes = named.map(s => JSON.stringify(s.map(p => p.y)));
           expect(new Set(shapes).size).toBe(shapes.length);
