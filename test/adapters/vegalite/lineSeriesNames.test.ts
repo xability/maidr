@@ -167,6 +167,52 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(seriesNames(layer)).toEqual(['Datum', 'Other']);
     });
 
+    it('reads a color encoding hoisted onto the layered parent spec', () => {
+      // Vega-Lite lets a shared channel live on the parent instead of being
+      // repeated on every child. The merge must see the same merged
+      // encoding `convertLayerSpec` already receives.
+      const spec: VegaLiteSpec = {
+        encoding: { color: { field: 'species', title: 'Species' } },
+        layer: [
+          {
+            mark: 'line',
+            data: {
+              values: [
+                { x: 1, y: 1, species: 'Alpha' },
+                { x: 2, y: 2, species: 'Alpha' },
+              ],
+            },
+            transform: [{ filter: { field: 'species', equal: 'Alpha' } }],
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            data: {
+              values: [
+                { x: 1, y: 3, species: 'Beta' },
+                { x: 2, y: 4, species: 'Beta' },
+              ],
+            },
+            transform: [{ filter: { field: 'species', equal: 'Beta' } }],
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+        ],
+      };
+
+      const layer = onlyLayer(spec);
+      expect(seriesNames(layer)).toEqual(['Alpha', 'Beta']);
+      // The parent's channel `title` is what names the dimension. Without
+      // the parent encoding reaching the merge, this falls back to the raw
+      // filter field name (`species`) instead.
+      expect(layer.axes?.z).toEqual({ label: 'Species' });
+    });
+
     it('prefers a filter predicate over the layer title', () => {
       const layer = onlyLayer(layeredLineSpec([
         { title: 'Titled', transform: [{ filter: { field: 'site', equal: 'Filtered' } }] },
@@ -221,6 +267,39 @@ describe('vega-Lite merged multi-series line layers', () => {
       ]));
 
       expect(seriesNames(layer)).toEqual([undefined, undefined]);
+    });
+
+    it('ignores an expression filter with unbalanced parentheses', () => {
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: '(datum.site === \'Alpha\'' }] },
+        { transform: [{ filter: '(datum.site === \'Beta\'' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual([undefined, undefined]);
+    });
+
+    it('drops axes.z when sub-layers name different dimensions', () => {
+      // The series are still named — each layer's own filter says what it
+      // drew — but the run has no single z axis, so labelling it with one
+      // layer's field would mislabel the other's series.
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: { field: 'site', equal: 'Alpha' } }] },
+        { transform: [{ filter: { field: 'year', equal: '2020' } }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['Alpha', '2020']);
+      expect(layer.axes?.z).toBeUndefined();
+    });
+
+    it('keeps axes.z when only some sub-layers name the dimension', () => {
+      // Abstaining is not disagreeing.
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: { field: 'site', equal: 'Alpha' } }] },
+        { title: 'Beta' },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['Alpha', 'Beta']);
+      expect(layer.axes?.z).toEqual({ label: 'site' });
     });
 
     it('names only the layers that resolve, leaving the rest bare', () => {

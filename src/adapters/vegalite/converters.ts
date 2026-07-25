@@ -137,7 +137,7 @@ export function vegaLiteToMaidr(
     // with a `color` encoding. Without coalescing, maidr core sees N
     // independent LINE traces and the user can only navigate within one
     // series at a time.
-    const layers = coalesceSiblingLineLayers(rawLayers);
+    const layers = coalesceSiblingLineLayers(rawLayers, spec.encoding);
 
     return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
@@ -230,7 +230,7 @@ function mergeLineLayers(
   const mergedData: LinePoint[][] = [];
   const mergedSelectors: string[] = [];
   let named = false;
-  let dimensionLabel: string | undefined;
+  const dimensionLabels = new Set<string>();
 
   for (const { layer, spec } of run) {
     const encoding: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
@@ -239,7 +239,9 @@ function mergeLineLayers(
     // and only anonymous points are filled in, so a run that mixes both
     // shapes never has a derived name overwrite a real one.
     const seriesName = resolveLayerSeriesName(spec, encoding);
-    dimensionLabel ??= resolveSeriesDimensionLabel(spec, encoding);
+    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding);
+    if (dimensionLabel)
+      dimensionLabels.add(dimensionLabel);
 
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
@@ -272,8 +274,12 @@ function mergeLineLayers(
   // only when the spec names the *dimension* those series belong to.
   // Without a real label, LineTrace's own "Group" default reads better
   // than a fabricated axis title.
-  if (named && dimensionLabel) {
-    merged.axes = { ...merged.axes, z: { label: dimensionLabel } };
+  //
+  // Sub-layers that name no dimension simply abstain; but if two of them
+  // name *different* dimensions the run has no single z axis, and picking
+  // one would mislabel the other's series. Stay silent instead.
+  if (named && dimensionLabels.size === 1) {
+    merged.axes = { ...merged.axes, z: { label: [...dimensionLabels][0] } };
   }
 
   return merged;
@@ -290,7 +296,26 @@ function mergeLineLayers(
  * describe a single named series, so guessing one would mislabel the line.
  */
 const SINGLE_EQUALITY_FILTER
-  = /^\(?\s*datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(['"])(.*?)\4\s*\)?$/i;
+  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(['"])(.*?)\4$/i;
+
+/**
+ * Remove one *balanced* pair of wrapping parentheses, which is how Altair
+ * emits its filter expressions (`(datum.species === 'Adelie')`).
+ *
+ * An expression containing any further parenthesis is returned untouched,
+ * so it fails {@link SINGLE_EQUALITY_FILTER} and yields no name. That keeps
+ * unbalanced or compound input — `(datum.f === 'v'`, `(a) === (b)` — out,
+ * rather than letting independently-optional parens in the pattern accept it.
+ */
+function stripBalancedOuterParens(expression: string): string {
+  const trimmed = expression.trim();
+  if (!trimmed.startsWith('(') || !trimmed.endsWith(')'))
+    return trimmed;
+  const inner = trimmed.slice(1, -1);
+  if (inner.includes('(') || inner.includes(')'))
+    return trimmed;
+  return inner.trim();
+}
 
 /** Read the `filter` transforms declared directly on a layer spec. */
 function getFilterTransforms(spec: VegaLiteSpec): (string | VegaLiteFilterPredicate)[] {
@@ -310,7 +335,7 @@ function getFilterTransforms(spec: VegaLiteSpec): (string | VegaLiteFilterPredic
 function parseSingleEqualityFilter(
   expression: string,
 ): { field: string; value: string } | undefined {
-  const match = SINGLE_EQUALITY_FILTER.exec(expression.trim());
+  const match = SINGLE_EQUALITY_FILTER.exec(stripBalancedOuterParens(expression));
   if (!match)
     return undefined;
   const field = match[1] ?? match[3];
