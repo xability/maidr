@@ -610,7 +610,12 @@ function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
  *
  * @returns The layer's rows, or `undefined` when the dataset is absent or
  * does not look like mark items — in which case the caller falls back to
- * name guessing, preserving the previous behaviour.
+ * name guessing, preserving the previous behaviour. A dataset present but
+ * holding zero items counts as absent for the same reason
+ * {@link readViewDataset} gives: MAIDR core cannot navigate a zero-point
+ * trace, so an empty result is not a usable answer. The cost is that a
+ * layer which legitimately renders nothing takes the fallback and may show
+ * another dataset's rows.
  */
 function resolveMarkItemData(
   view: VegaView,
@@ -657,11 +662,7 @@ function resolveMarkItemData(
  */
 function getViewDatasetNames(view: VegaView): string[] {
   try {
-    const stateGetter = (view as unknown as {
-      getState?: (opts?: {
-        data?: (name?: string, object?: unknown) => boolean;
-      }) => { data?: Record<string, unknown> } | undefined;
-    }).getState;
+    const stateGetter = view.getState;
     if (typeof stateGetter !== 'function')
       return [];
     const datasets = stateGetter.call(view, { data: () => true })?.data;

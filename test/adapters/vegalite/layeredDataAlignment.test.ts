@@ -1,6 +1,10 @@
 import type { BarPoint, BoxPoint, HistogramPoint, LinePoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import {
+  concatLayeredLineDatasets,
+  concatLayeredLineSpec,
+} from './fixtures/concatLayeredLine';
+import {
   facetedAsymmetricDatasets,
   facetedAsymmetricSpec,
 } from './fixtures/facetedAsymmetricLayers';
@@ -158,6 +162,32 @@ describe('vega-Lite layered non-line data alignment', () => {
       expect(box.map(b => b.z)).toEqual(['A', 'B']);
       expect(box[0].q2).toBe(2);
       expect(box[1].q2).toBe(7);
+    });
+  });
+
+  describe('concat spec with layered children', () => {
+    /**
+     * `buildConcatMaidr` derives `concat_<i>_layer_<j>_marks`, so this path
+     * gets the mark lookup like every other layered call site — but Vega
+     * nests a concat child's marks in its own group, so the name never
+     * resolves and the pre-existing guessing stands. Pinned because it was
+     * previously the one layered composition the new logic reached without
+     * a real-compiler fixture behind it.
+     */
+    it('falls back for concat children and keeps their layers unmerged', () => {
+      const panels = vegaLiteToMaidr(
+        concatLayeredLineSpec,
+        makeView(concatLayeredLineDatasets),
+      ).subplots.flat();
+
+      expect(panels).toHaveLength(2);
+      for (const panel of panels) {
+        // Concat children never reach `coalesceSiblingLineLayers`, so the
+        // two line layers stay separate and no name is derived for them.
+        expect(panel.layers).toHaveLength(2);
+        for (const layer of panel.layers)
+          expect(layer.axes?.z).toBeUndefined();
+      }
     });
   });
 

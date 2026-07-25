@@ -34,6 +34,27 @@ export interface VegaView {
    * visible chart.
    */
   scale: (name: string) => { domain: () => unknown[] } | undefined;
+  /**
+   * Serialise the view's state. The adapter uses it for one thing only:
+   * enumerating the **names** of every registered dataset, so it can reach
+   * pipelines it cannot address by a name it derived.
+   *
+   * Two details of the real signature are easy to get wrong, and both fail
+   * silently — see `getViewDatasetNames`:
+   *
+   *  - `data` is a **predicate**, not a boolean. Vega throws
+   *    `options.data is not a function` when handed `true`.
+   *  - The returned values are Vega's internal state descriptors, **not**
+   *    rows. Use {@link VegaView.data} to read records.
+   *
+   * Optional because the adapter must tolerate a view that predates it or
+   * a host that stubs only part of the API.
+   */
+  getState?: (options?: {
+    data?: (name?: string, object?: unknown) => boolean;
+    signals?: (name?: string, operator?: unknown) => boolean;
+    recurse?: boolean;
+  }) => { data?: Record<string, unknown>; signals?: Record<string, unknown> } | undefined;
 }
 
 /**
