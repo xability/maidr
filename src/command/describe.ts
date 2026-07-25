@@ -680,7 +680,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
-      this.announceMultiLinePosition(x, cols, y, rows);
+      this.announceMultiLinePosition(x, cols, y, rows, state.group);
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
@@ -851,23 +851,36 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Announces position for multi-line plots.
-   * Always shows "Plot X of Y" prefix, followed by position within the line.
+   *
+   * Lines are identified as "Line X of Y", not "Plot X of Y" — the whole
+   * multiline chart is the plot; its members are lines.
+   *
+   * Verbose spells out both the line's ordinal and its group name:
+   * "Line 1 of 3, Group is Series 1, Position is 3 of 10". Terse keeps only
+   * the shortest identity that still locates the cursor — the group name when
+   * the data provides one, since it identifies the line better than an index
+   * does, otherwise the ordinal — plus the position as a percentage:
+   * "Series 1, 22%" or "Line 1 of 3, 22%".
    */
   private announceMultiLinePosition(
     posIndex: number,
     totalPos: number,
     lineIndex: number,
     totalLines: number,
+    group?: { label: string; value: string },
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
-    const plotPrefix = `Plot ${linePos} of ${totalLines}`;
+    const linePrefix = `Line ${linePos} of ${totalLines}`;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${plotPrefix}, ${posPercent}%`);
+      this.textViewModel.update(`${group ? group.value : linePrefix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update(`${plotPrefix}, Position is ${pos} of ${totalPos}`);
+      const groupSuffix = group ? `, ${group.label} is ${group.value}` : '';
+      this.textViewModel.update(
+        `${linePrefix}${groupSuffix}, Position is ${pos} of ${totalPos}`,
+      );
     }
   }
 
