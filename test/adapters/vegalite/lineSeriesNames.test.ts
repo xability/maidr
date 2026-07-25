@@ -291,11 +291,56 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(layer.axes?.z).toBeUndefined();
     });
 
-    it('keeps axes.z when only some sub-layers name the dimension', () => {
-      // Abstaining is not disagreeing.
+    it('drops axes.z when a sub-layer names a series but no dimension', () => {
+      // `Beta` comes from a title, which says nothing about `site`. Titling
+      // the axis `site` would assert that Beta is a site.
       const layer = onlyLayer(layeredLineSpec([
         { transform: [{ filter: { field: 'site', equal: 'Alpha' } }] },
         { title: 'Beta' },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['Alpha', 'Beta']);
+      expect(layer.axes?.z).toBeUndefined();
+    });
+
+    it('ignores a {field, equal} filter when the layer declares several', () => {
+      // Both layers agree on `site` and differ only on `year`; naming them
+      // from the first filter would collide two distinct series on "Alpha".
+      const layer = onlyLayer(layeredLineSpec([
+        {
+          transform: [
+            { filter: { field: 'site', equal: 'Alpha' } },
+            { filter: { field: 'year', equal: 2020 } },
+          ],
+        },
+        {
+          transform: [
+            { filter: { field: 'site', equal: 'Alpha' } },
+            { filter: { field: 'year', equal: 2021 } },
+          ],
+        },
+      ]));
+
+      expect(seriesNames(layer)).toEqual([undefined, undefined]);
+      expect(layer.axes?.z).toBeUndefined();
+    });
+
+    it('still reads a filter that sits alongside non-filter transforms', () => {
+      // A `density` / `aggregate` transform narrows nothing, so it must not
+      // count toward the compound-filter guard. This is the Altair shape.
+      const layer = onlyLayer(layeredLineSpec([
+        {
+          transform: [
+            { filter: { field: 'site', equal: 'Alpha' } },
+            { density: 'x', as: ['x', 'density'] },
+          ],
+        },
+        {
+          transform: [
+            { filter: { field: 'site', equal: 'Beta' } },
+            { density: 'x', as: ['x', 'density'] },
+          ],
+        },
       ]));
 
       expect(seriesNames(layer)).toEqual(['Alpha', 'Beta']);
@@ -347,7 +392,11 @@ describe('vega-Lite merged multi-series line layers', () => {
         ],
       };
 
-      expect(seriesNames(onlyLayer(spec))).toEqual(['Real A', 'Real B', 'Derived']);
+      const layer = onlyLayer(spec);
+      expect(seriesNames(layer)).toEqual(['Real A', 'Real B', 'Derived']);
+      // `Derived` is not a value of `g`, so the run has no shared z axis
+      // even though the grouped layer alone would have named one.
+      expect(layer.axes?.z).toBeUndefined();
     });
 
     it('does not stamp a name on a lone line layer that was never merged', () => {

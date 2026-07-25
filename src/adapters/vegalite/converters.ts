@@ -230,7 +230,9 @@ function mergeLineLayers(
   const mergedData: LinePoint[][] = [];
   const mergedSelectors: string[] = [];
   let named = false;
-  const dimensionLabels = new Set<string>();
+  // Every sub-layer's answer, `undefined` included — see the z-axis
+  // decision below, which requires unanimity.
+  const dimensionLabels = new Set<string | undefined>();
 
   for (const { layer, spec } of run) {
     const encoding: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
@@ -239,9 +241,7 @@ function mergeLineLayers(
     // and only anonymous points are filled in, so a run that mixes both
     // shapes never has a derived name overwrite a real one.
     const seriesName = resolveLayerSeriesName(spec, encoding);
-    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding);
-    if (dimensionLabel)
-      dimensionLabels.add(dimensionLabel);
+    dimensionLabels.add(resolveSeriesDimensionLabel(spec, encoding));
 
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
@@ -270,16 +270,16 @@ function mergeLineLayers(
     data: mergedData,
   };
 
-  // Only advertise a z axis once the merge actually produced names, and
-  // only when the spec names the *dimension* those series belong to.
-  // Without a real label, LineTrace's own "Group" default reads better
-  // than a fabricated axis title.
-  //
-  // Sub-layers that name no dimension simply abstain; but if two of them
-  // name *different* dimensions the run has no single z axis, and picking
-  // one would mislabel the other's series. Stay silent instead.
-  if (named && dimensionLabels.size === 1) {
-    merged.axes = { ...merged.axes, z: { label: [...dimensionLabels][0] } };
+  // Only advertise a z axis once the merge produced names AND every
+  // sub-layer agrees on the same dimension. A label is a claim about all
+  // the merged series at once, so one dissenting sub-layer invalidates it:
+  // whether it names a *different* dimension or none at all, its series do
+  // not belong to the dimension the others describe, and titling the axis
+  // would mislabel them. Without a label, LineTrace's own "Group" default
+  // reads better than a fabricated axis title.
+  const [dimensionLabel] = [...dimensionLabels];
+  if (named && dimensionLabels.size === 1 && dimensionLabel) {
+    merged.axes = { ...merged.axes, z: { label: dimensionLabel } };
   }
 
   return merged;
@@ -317,13 +317,31 @@ function stripBalancedOuterParens(expression: string): string {
   return inner.trim();
 }
 
-/** Read the `filter` transforms declared directly on a layer spec. */
-function getFilterTransforms(spec: VegaLiteSpec): (string | VegaLiteFilterPredicate)[] {
+/**
+ * Read a layer's `filter` transform, but only when it declares exactly one.
+ *
+ * A layer narrowed by several filters (say `site` *and* `year`) is not
+ * identified by any one of them: two layers agreeing on `site` but
+ * differing on `year` would both resolve to the same name and collide
+ * under one misleading label. Both the predicate-object and the
+ * expression-string forms go through this gate so neither can name a
+ * compound-filtered layer.
+ *
+ * Non-`filter` transforms (`density`, `aggregate`, …) are not counted —
+ * they narrow nothing and routinely sit alongside a filter.
+ *
+ * @returns The sole filter, or `undefined` when the layer declares none
+ * or more than one.
+ */
+function getSoleFilterTransform(
+  spec: VegaLiteSpec,
+): string | VegaLiteFilterPredicate | undefined {
   if (!Array.isArray(spec.transform))
-    return [];
-  return spec.transform
+    return undefined;
+  const filters = spec.transform
     .map(t => t?.filter)
     .filter((f): f is string | VegaLiteFilterPredicate => f !== undefined);
+  return filters.length === 1 ? filters[0] : undefined;
 }
 
 /**
@@ -369,21 +387,17 @@ function resolveLayerSeriesName(
   if (datum != null && String(datum).length > 0)
     return String(datum);
 
-  const filters = getFilterTransforms(spec);
+  const filter = getSoleFilterTransform(spec);
 
-  for (const filter of filters) {
-    if (typeof filter === 'object' && filter.equal != null)
-      return String(filter.equal);
-  }
+  if (typeof filter === 'object' && filter.equal != null)
+    return String(filter.equal);
 
   const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
   if (title)
     return title;
 
-  // Only trust an expression filter when the layer has exactly one; with
-  // several, no single one identifies the series.
-  if (filters.length === 1 && typeof filters[0] === 'string') {
-    const parsed = parseSingleEqualityFilter(filters[0]);
+  if (typeof filter === 'string') {
+    const parsed = parseSingleEqualityFilter(filter);
     if (parsed)
       return parsed.value;
   }
@@ -408,13 +422,11 @@ function resolveSeriesDimensionLabel(
   if (channelLabel)
     return channelLabel;
 
-  const filters = getFilterTransforms(spec);
-  for (const filter of filters) {
-    if (typeof filter === 'object' && filter.equal != null && filter.field)
-      return filter.field;
-  }
-  if (filters.length === 1 && typeof filters[0] === 'string') {
-    const parsed = parseSingleEqualityFilter(filters[0]);
+  const filter = getSoleFilterTransform(spec);
+  if (typeof filter === 'object' && filter.equal != null && filter.field)
+    return filter.field;
+  if (typeof filter === 'string') {
+    const parsed = parseSingleEqualityFilter(filter);
     if (parsed)
       return parsed.field;
   }
