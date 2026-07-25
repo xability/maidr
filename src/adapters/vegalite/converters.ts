@@ -345,6 +345,14 @@ function mergeLineLayers(
  * right-hand side fails to match and yields no name. A compound predicate
  * does not describe a single named series, so guessing one would mislabel
  * the line.
+ *
+ * Note this pattern is coupled to how Altair stringifies
+ * `transform_filter` today. If a future version changes its spacing,
+ * quoting, or parenthesisation, this stops matching and layers simply go
+ * unnamed — the pre-PR behaviour, not a break. That degradation is silent
+ * by design, which also means no test here will catch it: the fixtures are
+ * frozen captures, so confirming continued support means re-capturing them
+ * against a newer Altair rather than trusting a green suite.
  */
 const SINGLE_EQUALITY_FILTER
   = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])([^'"]*)\2\])\s*===?\s*(?:'([^']*)'|"([^"]*)"|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)|(true|false))$/i;
