@@ -10,6 +10,10 @@ import {
   layeredTwoBarsDatasets,
   layeredTwoBarsSpec,
 } from './fixtures/layeredNonLine';
+import {
+  repeatLayeredLineDatasets,
+  repeatLayeredLineSpec,
+} from './fixtures/repeatLayeredLine';
 import { makeView } from './fixtures/testView';
 import {
   layeredBoxplotDatasets,
@@ -135,6 +139,42 @@ describe('vega-Lite layered non-line data alignment', () => {
       expect(box.map(b => b.z)).toEqual(['A', 'B']);
       expect(box[0].q2).toBe(2);
       expect(box[1].q2).toBe(7);
+    });
+  });
+
+  describe('repeated layered spec', () => {
+    /**
+     * A repeat cell's marks are nested inside its group, so the mark lookup
+     * always fails closed here and the pre-existing name guessing stands.
+     * These pin that, and pin the residual limitation so it is visible
+     * rather than assumed fixed.
+     */
+    it('falls back to name guessing, leaving per-layer data unresolved', () => {
+      const panels = vegaLiteToMaidr(
+        repeatLayeredLineSpec,
+        makeView(repeatLayeredLineDatasets),
+      ).subplots.flat();
+
+      expect(panels).toHaveLength(2);
+
+      // Layer 0 filters to t === 1, layer 1 draws every point. Both resolve
+      // to `source_0` — the only dataset reachable at the top level — so the
+      // filtered series shows all three points. Pre-existing behaviour that
+      // the mark lookup cannot reach; documented, not endorsed.
+      const series = panels[0].layers[0].data as LinePoint[][];
+      expect(series.map(s => s.map(p => p.y))).toEqual([[1, 2, 5], [1, 2, 5]]);
+    });
+
+    it('still refuses a z axis when only one of the layers is named', () => {
+      // The unanimity rule carries over: layer 0 resolves "1" from its
+      // filter, layer 1 resolves nothing, so no dimension is claimed.
+      const layer = vegaLiteToMaidr(
+        repeatLayeredLineSpec,
+        makeView(repeatLayeredLineDatasets),
+      ).subplots.flat()[0].layers[0];
+
+      expect((layer.data as LinePoint[][]).map(s => s[0]?.z)).toEqual(['1', undefined]);
+      expect(layer.axes?.z).toBeUndefined();
     });
   });
 

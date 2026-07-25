@@ -386,6 +386,82 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(layer.axes?.z).toEqual({ label: 'site' });
     });
 
+    it('drops axes.z when a sub-layer inherits the dimension but stays unnamed', () => {
+      // The parent's `color` field makes `extractLineData` group on `site`,
+      // so the third layer — whose rows have no `site`, and which the spec
+      // names nowhere — comes out blank. It resolves `site` as its
+      // dimension all the same, so counting that would title the axis
+      // `site` over a series that isn't in it.
+      const rows = (site: string): Record<string, unknown>[] =>
+        [{ x: 1, y: 1, site }, { x: 2, y: 2, site }];
+      const spec: VegaLiteSpec = {
+        encoding: { color: { field: 'site', type: 'nominal' } },
+        layer: [
+          {
+            mark: 'line',
+            data: { values: rows('Alpha') },
+            transform: [{ filter: { field: 'site', equal: 'Alpha' } }],
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            data: { values: rows('Beta') },
+            transform: [{ filter: { field: 'site', equal: 'Beta' } }],
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            data: { values: [{ x: 1, y: 7 }, { x: 2, y: 8 }] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+        ],
+      };
+
+      const layer = onlyLayer(spec);
+      expect(seriesNames(layer)).toEqual(['Alpha', 'Beta', '']);
+      expect(layer.axes?.z).toBeUndefined();
+    });
+
+    it('fills a blank inherited z when the layer does resolve a name', () => {
+      // Same shape, except the third layer carries a title. `z: ''` is not
+      // a real name, so the derived one replaces it rather than being
+      // blocked by it.
+      const spec: VegaLiteSpec = {
+        encoding: { color: { field: 'site', type: 'nominal' } },
+        layer: [
+          {
+            mark: 'line',
+            data: { values: [{ x: 1, y: 1, site: 'Alpha' }, { x: 2, y: 2, site: 'Alpha' }] },
+            transform: [{ filter: { field: 'site', equal: 'Alpha' } }],
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+          {
+            mark: 'line',
+            title: 'Baseline',
+            data: { values: [{ x: 1, y: 7 }, { x: 2, y: 8 }] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              y: { field: 'y', type: 'quantitative' },
+            },
+          },
+        ],
+      };
+
+      expect(seriesNames(onlyLayer(spec))).toEqual(['Alpha', 'Baseline']);
+    });
+
     it('names only the layers that resolve, leaving the rest bare', () => {
       const layer = onlyLayer(layeredLineSpec([
         { encoding: { x: { field: 'x' }, y: { field: 'y' }, color: { datum: 'Alpha' } } },

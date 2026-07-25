@@ -219,6 +219,19 @@ function axesAreCompatible(
   return ax === bx && ay === by;
 }
 
+/**
+ * True when a point's `z` actually identifies a series.
+ *
+ * Empty counts as unnamed, not named. `extractLineData` keys its groups on
+ * `String(row[colorField] ?? '')`, so a layer whose rows lack the colour
+ * field — common when a `color` encoding is hoisted onto a layered parent —
+ * yields `z: ''`. Treating that as a real name would both block the merge
+ * from filling it and let the layer vouch for a dimension it isn't in.
+ */
+function hasSeriesName(z: string | undefined): boolean {
+  return z !== undefined && z !== '';
+}
+
 function mergeLineLayers(
   run: ConvertedLayer[],
   parentEncoding?: VegaLiteEncoding,
@@ -241,20 +254,30 @@ function mergeLineLayers(
     // and only anonymous points are filled in, so a run that mixes both
     // shapes never has a derived name overwrite a real one.
     const seriesName = resolveLayerSeriesName(spec, encoding);
-    dimensionLabels.add(resolveSeriesDimensionLabel(spec, encoding));
+    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding);
+    let everySeriesNamed = true;
 
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
-        if (seriesName === undefined) {
-          mergedData.push(series);
-          continue;
+        const points = seriesName === undefined
+          ? series
+          : series.map(point =>
+              hasSeriesName(point.z) ? point : { ...point, z: seriesName },
+            );
+        if (hasSeriesName(points[0]?.z)) {
+          named = true;
+        } else {
+          everySeriesNamed = false;
         }
-        named = true;
-        mergedData.push(series.map(point =>
-          point.z === undefined ? { ...point, z: seriesName } : point,
-        ));
+        mergedData.push(points);
       }
     }
+    // A sub-layer that still contributes an unnamed series cannot vouch for
+    // the run's dimension, so it abstains — which the unanimity check below
+    // then treats as disagreement. Without this, a layer inheriting a
+    // `color` *field* from the parent reports that field as the dimension
+    // even when its own rows lack it and its series came out blank.
+    dimensionLabels.add(everySeriesNamed ? dimensionLabel : undefined);
     if (Array.isArray(layer.selectors)) {
       for (const sel of layer.selectors as string[]) {
         mergedSelectors.push(sel);
