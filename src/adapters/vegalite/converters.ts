@@ -254,7 +254,7 @@ function mergeLineLayers(
     // and only anonymous points are filled in, so a run that mixes both
     // shapes never has a derived name overwrite a real one.
     const seriesName = resolveLayerSeriesName(spec, encoding);
-    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding);
+    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding, seriesName);
     let everySeriesNamed = true;
     let contributedSeries = false;
 
@@ -331,6 +331,15 @@ function mergeLineLayers(
  * `transform_filter(alt.datum.f == v)`, so restricting this to strings
  * would silently drop names from every numerically grouped chart.
  *
+ * Each quoted form is spelled out separately (`'([^']*)'` / `"([^"]*)"`)
+ * rather than sharing a backreferenced delimiter with a lazy body. A lazy
+ * `(.*?)` only has to reach *a* matching quote before the end anchor, so it
+ * happily swallows an operator: `datum.a === 'x' && datum.b === 'y'` parsed
+ * as the single value `x' && datum.b === 'y`. Excluding the delimiter from
+ * the body makes the match stop at the closing quote, so a compound
+ * predicate fails outright — while a value containing the *other* quote
+ * character still parses, which is how Altair escapes.
+ *
  * Deliberately anchored and deliberately narrow otherwise: anything with a
  * boolean operator, a comparison other than equality, or a non-literal
  * right-hand side fails to match and yields no name. A compound predicate
@@ -338,7 +347,7 @@ function mergeLineLayers(
  * the line.
  */
 const SINGLE_EQUALITY_FILTER
-  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])(.*?)\2\])\s*===?\s*(?:(['"])(.*?)\4|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)|(true|false))$/i;
+  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])([^'"]*)\2\])\s*===?\s*(?:'([^']*)'|"([^"]*)"|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)|(true|false))$/i;
 
 /**
  * Remove one *balanced* pair of wrapping parentheses, which is how Altair
@@ -400,7 +409,7 @@ function parseSingleEqualityFilter(
     return undefined;
   const field = match[1] ?? match[3];
   // Exactly one right-hand alternative matches; the rest are undefined.
-  const value = match[5] ?? match[6] ?? match[7];
+  const value = match[4] ?? match[5] ?? match[6] ?? match[7];
   // An empty literal names nothing — `z: ''` would read as a real group
   // downstream while displaying as blank.
   if (!field || !value)
@@ -435,8 +444,13 @@ function resolveLayerSeriesName(
 
   const filter = getSoleFilterTransform(spec);
 
-  if (typeof filter === 'object' && filter.equal != null)
+  // `!= null` keeps a legitimate `0` / `false`; the length check drops an
+  // empty one, matching the `datum` branch above. An empty name would be
+  // stamped onto every point and then render blank.
+  if (typeof filter === 'object' && filter.equal != null
+    && String(filter.equal).length > 0) {
     return String(filter.equal);
+  }
 
   const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
   if (title)
@@ -456,12 +470,23 @@ function resolveLayerSeriesName(
  * the z-axis title, e.g. `"species"` for per-species density curves.
  *
  * Distinct from {@link resolveLayerSeriesName}, which names one series.
+ * The two must stay correlated: a label is a claim that the names are
+ * values of* that dimension. A colour channel always qualifies, since
+ * whatever it holds is what the names came from. A filter only qualifies
+ * when it narrowed the layer to the very value the name reports —
+ * otherwise a layer titled `Trend A` and filtered on `site` would be
+ * announced as site `Trend A`, which the spec never says.
  *
+ * @param spec - The layer's own spec fragment.
+ * @param encoding - The layer's encoding, merged with any parent's.
+ * @param seriesName - The name {@link resolveLayerSeriesName} resolved for
+ * this layer, used to confirm a filter actually produced it.
  * @returns The dimension label, or `undefined` when the spec does not say.
  */
 function resolveSeriesDimensionLabel(
   spec: VegaLiteSpec,
   encoding: VegaLiteEncoding,
+  seriesName: string | undefined,
 ): string | undefined {
   const channel = encoding.color ?? encoding.fill;
   // `||`, not `??`: an explicitly empty title should fall back to the
@@ -470,13 +495,16 @@ function resolveSeriesDimensionLabel(
   if (channelLabel)
     return channelLabel;
 
+  if (seriesName === undefined)
+    return undefined;
+
   const filter = getSoleFilterTransform(spec);
   if (typeof filter === 'object' && filter.equal != null && filter.field)
-    return filter.field;
+    return String(filter.equal) === seriesName ? filter.field : undefined;
   if (typeof filter === 'string') {
     const parsed = parseSingleEqualityFilter(filter);
     if (parsed)
-      return parsed.field;
+      return parsed.value === seriesName ? parsed.field : undefined;
   }
 
   return undefined;
@@ -1600,13 +1628,62 @@ function resolveSourceRows(
  * @returns One row array per layer, or `undefined` when no unambiguous
  * mapping exists.
  */
+/**
+ * True when `rows` contain every facet value the chart renders.
+ *
+ * @param rows - The candidate dataset's rows.
+ * @param expected - Facet field to the full set of its values.
+ */
+function coversEveryFacetValue(
+  rows: Record<string, unknown>[],
+  expected: Map<string, Set<string>>,
+): boolean {
+  for (const [field, values] of expected) {
+    const present = new Set<string>();
+    for (const row of rows)
+      present.add(String(row[field]));
+    for (const value of values) {
+      if (!present.has(value))
+        return false;
+    }
+  }
+  return true;
+}
+
 function resolveFacetLayerDatasets(
   view: VegaView | undefined,
   layerCount: number,
   facetFields: string[],
+  sourceRows: Record<string, unknown>[],
 ): Record<string, unknown>[][] | undefined {
-  if (!view || layerCount < 2)
+  if (!view || layerCount < 2 || facetFields.length === 0)
     return undefined;
+
+  // Every facet value the chart will render. Vega registers these in its
+  // compiled domain datasets, which is more reliable than the source rows
+  // (an Altair spec names its data, so `source_0` often does not exist).
+  const expected = new Map<string, Set<string>>();
+  for (const field of facetFields) {
+    const values = new Set<string>();
+    for (const domain of ['column_domain', 'row_domain', 'facet_domain']) {
+      const rows = readViewDataset(view, domain);
+      if (!rows || !(field in rows[0]))
+        continue;
+      for (const row of rows)
+        values.add(String(row[field]));
+    }
+    if (values.size === 0) {
+      for (const row of sourceRows) {
+        if (field in row)
+          values.add(String(row[field]));
+      }
+    }
+    // Without a known domain there is nothing to check coverage against,
+    // and an unchecked mapping is exactly what this guard exists to stop.
+    if (values.size === 0)
+      return undefined;
+    expected.set(field, values);
+  }
 
   const candidates: { index: number; rows: Record<string, unknown>[] }[] = [];
   for (const name of getViewDatasetNames(view)) {
@@ -1622,6 +1699,15 @@ function resolveFacetLayerDatasets(
     // Facet fields are always groupby keys, so a pipeline that lost them
     // is an intermediate stage rather than a layer's rendered data.
     if (!facetFields.every(field => field in first))
+      continue;
+    // And it must span every facet value, because the caller slices it per
+    // cell. Vega also leaves *cell-scoped* datasets registered under
+    // `data_<N>` names — a layer that reads the faceted source directly
+    // never gets a pre-facet pipeline of its own, and the leftovers hold
+    // one cell's rows each. Those pass the field check and can even match
+    // the layer count exactly, so without this the mapping would hand each
+    // layer a single panel's data and blank out every other panel.
+    if (!coversEveryFacetValue(rows, expected))
       continue;
     candidates.push({ index: Number(match[1]), rows });
   }
@@ -1682,6 +1768,7 @@ function buildFacetMaidr(
     view,
     layerSpecs.length,
     facetFields,
+    resolveSourceRows(spec, view),
   );
   const layerRows = layerSpecs.map((layerSpec, j) => {
     if (perLayerDatasets)

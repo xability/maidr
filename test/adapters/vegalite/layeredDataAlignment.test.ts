@@ -13,6 +13,10 @@ import {
   facetedDensitySpec,
 } from './fixtures/facetedLayeredDensity';
 import {
+  facetNoPipelineDatasets,
+  facetNoPipelineSpec,
+} from './fixtures/facetNoPipelineLayer';
+import {
   layeredHistogramDatasets,
   layeredHistogramSpec,
   layeredTwoBarsDatasets,
@@ -273,6 +277,33 @@ describe('vega-Lite layered non-line data alignment', () => {
         const series = panel.layers[0].data as LinePoint[][];
         expect(series.map(s => s[0]?.z)).toEqual(['Adelie', 'All species']);
         expect(Number(series[0][0].y)).toBeGreaterThan(Number(series[1][0].y));
+      }
+    });
+
+    it('refuses cell-scoped leftovers when a layer has no pipeline', () => {
+      // Layer 1 reads the faceted source directly, so it gets no pre-facet
+      // pipeline and the registered `data_<N>` names are one-cell leftovers
+      // (`data_0` South only, `data_3` North only). Field check and count
+      // guard both pass; only the facet-value coverage check rejects them.
+      //
+      // The fallback is poor for this shape — the panel comes out empty,
+      // a pre-existing limitation of name guessing here. What matters is
+      // that no series is announced under a name over another panel's
+      // data, which is what the mapping would otherwise produce.
+      const panels = vegaLiteToMaidr(
+        facetNoPipelineSpec,
+        makeView(facetNoPipelineDatasets),
+      ).subplots.flat();
+
+      for (const panel of panels) {
+        for (const layer of panel.layers) {
+          const series = layer.data as LinePoint[][];
+          // No two series may share identical y values under distinct
+          // names — that is the signature of the mis-mapping.
+          const named = series.filter(s => s[0]?.z !== undefined);
+          const shapes = named.map(s => JSON.stringify(s.map(p => p.y)));
+          expect(new Set(shapes).size).toBe(shapes.length);
+        }
       }
     });
 
