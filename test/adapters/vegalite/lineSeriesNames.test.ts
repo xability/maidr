@@ -173,6 +173,21 @@ describe('vega-Lite merged multi-series line layers', () => {
       expect(seriesNames(layer)).toEqual(['-1.5', '2']);
     });
 
+    it('reads a value containing the other quote character', () => {
+      // Altair avoids escapes by switching the delimiter: a value with an
+      // apostrophe comes back double-quoted and vice versa. Both are real
+      // Altair output for `transform_filter(alt.datum.f == v)`, and the
+      // pattern anchors on the captured opening quote, so neither needs
+      // backslash handling.
+      const layer = onlyLayer(layeredLineSpec([
+        { transform: [{ filter: '(datum.country === "Côte d\'Ivoire")' }] },
+        { transform: [{ filter: '(datum.country === \'The "Big" One\')' }] },
+      ]));
+
+      expect(seriesNames(layer)).toEqual(['Côte d\'Ivoire', 'The "Big" One']);
+      expect(layer.axes?.z).toEqual({ label: 'country' });
+    });
+
     it('coerces a non-string datum to its display form', () => {
       const layer = onlyLayer(layeredLineSpec([
         { encoding: { x: { field: 'x' }, y: { field: 'y' }, color: { datum: 2020 } } },
