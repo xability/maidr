@@ -13,13 +13,18 @@ export function makeView(datasets: Record<string, unknown[]>): VegaView {
         throw new Error(`no dataset ${name}`);
       return datasets[name] as Record<string, unknown>[];
     },
-    // Real Vega views expose every registered dataset here; the adapter
-    // uses it to enumerate pipelines it cannot address by name.
+    // Real Vega views expose every registered dataset name here; the
+    // adapter uses it to enumerate pipelines it cannot address by name.
     //
-    // Vega's `data` option is a PREDICATE, not a boolean, and real Vega
-    // throws `options.data is not a function` when handed `true`. This
-    // stub reproduces that exactly — a laxer stub silently hides callers
-    // that pass the wrong shape and would be dead code in production.
+    // Two behaviours are reproduced deliberately, because a laxer stub
+    // hides callers that would be dead code in production:
+    //
+    //  - `data` is a PREDICATE, not a boolean. Real Vega throws
+    //    `options.data is not a function` when handed `true`.
+    //  - The values are Vega's internal state descriptors, NOT rows.
+    //    `getState(...).data.data_2` is `{}`; only `data('data_2')`
+    //    returns records. A caller that reads rows off `getState` and
+    //    tests them with `Array.isArray` silently finds nothing.
     getState: (opts?: { data?: (name?: string, object?: unknown) => boolean }) => {
       if (opts?.data === undefined)
         return {};
@@ -27,7 +32,9 @@ export function makeView(datasets: Record<string, unknown[]>): VegaView {
         throw new TypeError('options.data is not a function');
       return {
         data: Object.fromEntries(
-          Object.entries(datasets).filter(([name]) => opts.data!(name)),
+          Object.keys(datasets)
+            .filter(name => opts.data!(name))
+            .map(name => [name, {}]),
         ),
       };
     },

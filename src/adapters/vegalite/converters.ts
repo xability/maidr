@@ -628,16 +628,22 @@ function resolveMarkItemData(
 /**
  * Enumerate every dataset registered on a compiled Vega view, keyed by name.
  *
- * `View.getState` is public, typed API (`vega-typings`), but its `data`
- * option is a **predicate** — `(name, object) => boolean` — not a boolean.
- * Passing `true` makes Vega throw `options.data is not a function`, which a
- * `catch` would swallow into "no datasets available", silently disabling
- * every caller. Validated against vega 6.3.1.
+ * Two traps here, both silent, both validated against vega 6.3.1:
  *
- * @returns The datasets by name, or `undefined` when the view exposes no
+ * 1. `getState`'s `data` option is a **predicate** — `(name, object) =>
+ *    boolean` — not a boolean. Passing `true` makes Vega throw
+ *    `options.data is not a function`.
+ * 2. The values it returns are Vega's internal state descriptors, **not
+ *    rows**. `getState(...).data.data_2` is `{}`; only
+ *    `view.data('data_2')` yields the records.
+ *
+ * So this returns names only. Anything that reads a value off `getState`
+ * and tests it with `Array.isArray` silently finds nothing.
+ *
+ * @returns Every registered dataset name, or `[]` when the view exposes no
  * usable `getState`.
  */
-function getViewDatasets(view: VegaView): Record<string, unknown> | undefined {
+function getViewDatasetNames(view: VegaView): string[] {
   try {
     const stateGetter = (view as unknown as {
       getState?: (opts?: {
@@ -645,11 +651,29 @@ function getViewDatasets(view: VegaView): Record<string, unknown> | undefined {
       }) => { data?: Record<string, unknown> } | undefined;
     }).getState;
     if (typeof stateGetter !== 'function')
-      return undefined;
+      return [];
     const datasets = stateGetter.call(view, { data: () => true })?.data;
-    return datasets && typeof datasets === 'object' ? datasets : undefined;
+    return datasets && typeof datasets === 'object' ? Object.keys(datasets) : [];
   } catch {
     // getState() shape varies across Vega versions; treat as unavailable.
+    return [];
+  }
+}
+
+/**
+ * Fetch a dataset's rows by name, or `undefined` when it holds none.
+ *
+ * Pairs with {@link getViewDatasetNames}: enumeration gives names, this
+ * gives rows. Vega rejects names outside the current scope by throwing.
+ */
+function readViewDataset(
+  view: VegaView,
+  name: string,
+): Record<string, unknown>[] | undefined {
+  try {
+    const rows = view.data(name);
+    return Array.isArray(rows) && rows.length > 0 ? rows : undefined;
+  } catch {
     return undefined;
   }
 }
@@ -741,8 +765,7 @@ function resolveData(
     // `bin_maxbins_10_value`); a stricter check would break
     // histograms. A field-aware redesign that recognises bin/aggregate
     // transforms is tracked as a follow-up.
-    const datasets = getViewDatasets(view);
-    for (const [name, rows] of Object.entries(datasets ?? {})) {
+    for (const name of getViewDatasetNames(view)) {
       // Skip the names we already tried above.
       if (datasetNames.includes(name))
         continue;
@@ -754,10 +777,10 @@ function resolveData(
       // data records.
       if (isInternalDatasetName(name))
         continue;
-      if (Array.isArray(rows) && rows.length > 0
-        && typeof rows[0] === 'object' && rows[0] !== null
-        && !isSceneGraphRow(rows[0] as Record<string, unknown>)) {
-        return rows as Record<string, unknown>[];
+      const rows = readViewDataset(view, name);
+      if (rows && typeof rows[0] === 'object' && rows[0] !== null
+        && !isSceneGraphRow(rows[0])) {
+        return rows;
       }
     }
   }
@@ -1545,25 +1568,22 @@ function resolveFacetLayerDatasets(
   if (!view || layerCount < 2)
     return undefined;
 
-  const datasets = getViewDatasets(view);
-  if (!datasets)
-    return undefined;
-
   const candidates: { index: number; rows: Record<string, unknown>[] }[] = [];
-  for (const [name, rows] of Object.entries(datasets)) {
+  for (const name of getViewDatasetNames(view)) {
     const match = /^data_(\d+)$/.exec(name);
     if (!match || isInternalDatasetName(name))
       continue;
-    if (!Array.isArray(rows) || rows.length === 0)
+    const rows = readViewDataset(view, name);
+    if (!rows)
       continue;
-    const first = rows[0] as Record<string, unknown>;
+    const first = rows[0];
     if (typeof first !== 'object' || first === null || isSceneGraphRow(first))
       continue;
     // Facet fields are always groupby keys, so a pipeline that lost them
     // is an intermediate stage rather than a layer's rendered data.
     if (!facetFields.every(field => field in first))
       continue;
-    candidates.push({ index: Number(match[1]), rows: rows as Record<string, unknown>[] });
+    candidates.push({ index: Number(match[1]), rows });
   }
 
   if (candidates.length !== layerCount)

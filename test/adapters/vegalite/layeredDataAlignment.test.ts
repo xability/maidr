@@ -1,6 +1,10 @@
 import type { BarPoint, BoxPoint, HistogramPoint, LinePoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import {
+  facetedAsymmetricDatasets,
+  facetedAsymmetricSpec,
+} from './fixtures/facetedAsymmetricLayers';
+import {
   facetedDensityDatasets,
   facetedDensitySpec,
 } from './fixtures/facetedLayeredDensity';
@@ -204,6 +208,25 @@ describe('vega-Lite layered non-line data alignment', () => {
         // Disjoint mass ranges: at x=3000 Adelie is near its peak while
         // Chinstrap is vanishingly small. Equal values would mean both
         // series drew the same layer's data.
+        expect(Number(series[0][0].y)).toBeGreaterThan(Number(series[1][0].y));
+      }
+    });
+
+    it('keeps declaration order when the layers transform asymmetrically', () => {
+      // The repeat fixture shows a repeat spec numbering its layers in
+      // reverse when only one of them filters, so this pins that facets do
+      // NOT behave that way. Layer 0 filters to one species and peaks near
+      // 3000; layer 1 is a flatter all-species mixture. A swap would put
+      // the flat curve first.
+      const panels = vegaLiteToMaidr(
+        facetedAsymmetricSpec,
+        makeView(facetedAsymmetricDatasets),
+      ).subplots.flat();
+
+      expect(panels).toHaveLength(2);
+      for (const panel of panels) {
+        const series = panel.layers[0].data as LinePoint[][];
+        expect(series.map(s => s[0]?.z)).toEqual(['Adelie', 'All species']);
         expect(Number(series[0][0].y)).toBeGreaterThan(Number(series[1][0].y));
       }
     });
