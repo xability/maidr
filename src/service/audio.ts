@@ -844,10 +844,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * focus is heard rather than dropped.
    *
    * Only the most recent deferred cue is kept (last one wins), and the slot is
-   * deliberately shared across cue types (menu, subplot, and warning cues
-   * alike): replaying every cue queued while suspended would stack them into
-   * one garbled chord on resume, and the latest cue — whatever its type — is
-   * the one that reflects the current UI state.
+   * deliberately shared across cue types (menu, subplot, warning, and
+   * empty-state cues alike): replaying every cue queued while suspended would
+   * stack them into one garbled chord on resume, and the latest cue — whatever
+   * its type — is the one that reflects the current UI state.
    *
    * @param scheduleCue - Schedules the cue; it must re-check any mode/volume/
    * context preconditions itself, because it can run after an async gap.
