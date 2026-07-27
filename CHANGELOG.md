@@ -1,3 +1,18 @@
+# [3.74.0](https://github.com/xability/maidr/compare/v3.73.0...v3.74.0) (2026-07-27)
+
+
+### Bug Fixes
+
+* address audiocontext suspension on menu tones ([#643](https://github.com/xability/maidr/issues/643)) ([f0ea94d](https://github.com/xability/maidr/commit/f0ea94dc3f3b5d25020081309f52e1de81286d0f))
+* **audio:** defer empty-state tones behind AudioContext.resume() ([#645](https://github.com/xability/maidr/issues/645)) ([d8176e8](https://github.com/xability/maidr/commit/d8176e8afd516b952305fe584559f3403586c016))
+* enable intersection rotor on date-axis multiline layers and speed up Go-To dialog navigation ([#646](https://github.com/xability/maidr/issues/646)) ([5259269](https://github.com/xability/maidr/commit/52592698d835355cd7f861587953be2796914d7e))
+* name merged multi-series line layers in the Vega-Lite adapter ([#649](https://github.com/xability/maidr/issues/649)) ([38f0499](https://github.com/xability/maidr/commit/38f0499a6b0f7ee889b30a247d2707b184a89e22))
+
+
+### Features
+
+* **position:** announce the group name for multiline plots ([#647](https://github.com/xability/maidr/issues/647)) ([ca49158](https://github.com/xability/maidr/commit/ca49158b2d67789733df9576c511f1137f74c28b))
+
 # [3.73.0](https://github.com/xability/maidr/compare/v3.72.1...v3.73.0) (2026-07-13)
 
 
