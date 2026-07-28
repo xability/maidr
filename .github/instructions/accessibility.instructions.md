@@ -45,7 +45,7 @@ meaningful output for it.
 - Keep visible focus indicators intact; never set `outline: none` without an
   equivalent replacement.
 - Respect the active scope so shortcuts do not collide across modes
-  (see `rules/command.md`).
+  (see `command.instructions.md`).
 
 ## Markup and visuals
 

@@ -74,8 +74,9 @@ e2e_tests/specs/      # playwright specs
    service never dispatches Redux; a component never touches a service or the
    model. Crossing a boundary is a regression.
 3. **Debug before you edit.** Reproduce, isolate the layer, trace the flow, find
-   the root cause, then design the smallest fix. Run `/debug-maidr` for the
-   workflow and per-layer checklists.
+   the root cause, then design the smallest fix. The full workflow and the
+   per-layer checklists are in `.claude/skills/debug-maidr/SKILL.md`; in Claude
+   Code, run `/debug-maidr`.
 4. **Accessibility is the product.** A change that works visually but drops an
    announcement, a braille update, or a keyboard path is broken.
 5. **Change only what the task requires.** One logical change per commit.
@@ -88,7 +89,10 @@ npm run lint:fix && npm run type-check && npm run build && npm test
 
 Report what actually happened. If a test fails or a step was skipped, say so.
 
-## Claude Code setup
+## Agent configuration
 
-`.claude/` holds this project's Claude Code configuration — path-scoped rules,
-subagents, and skills. See `.claude/README.md` for what goes where.
+`.claude/` holds the Claude Code configuration — path-scoped rules, subagents,
+and skills. The GitHub Copilot equivalents under `.github/` are generated from
+it by `scripts/sync-copilot-instructions.mjs`, so edit the `.claude/` side and
+run `npm run sync:copilot`. See `.claude/README.md` for what goes where and how
+the two map onto each other.

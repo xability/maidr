@@ -92,7 +92,8 @@ paths:
 | `code-reviewer`        | Reviews changes for architecture, quality, a11y, security     |
 | `test-runner`          | Runs and repairs the Jest and Playwright suites               |
 | `accessibility-expert` | Audits the four modalities and WCAG compliance                |
-| `feature-builder`      | Orchestrates the six above through a full feature lifecycle   |
+| `debugger`             | Root-cause analysis; preloads the `debug-maidr` skill         |
+| `feature-builder`      | Orchestrates plan → architect → implement → review → test → audit |
 
 Keep each agent's `description` short and specific — it is what Claude matches
 against when deciding to delegate, and it loads on every request. Keep the body
@@ -140,9 +141,23 @@ npm run sync:copilot         # regenerate after editing CLAUDE.md or a rule
 npm run sync:copilot:check   # what CI runs; fails if the mirror is stale
 ```
 
-The only transformation is the frontmatter: a rule's `paths:` YAML list becomes
-Copilot's comma-separated `applyTo:` string, and an unscoped rule — which loads
-every session in Claude Code — becomes `applyTo: "**"`.
+Two things are transformed:
+
+- **Frontmatter.** A rule's `paths:` YAML list becomes Copilot's
+  comma-separated `applyTo:` string, and an unscoped rule — which loads every
+  session in Claude Code — becomes `applyTo: "**"`. Brace groups are expanded,
+  since `applyTo` documents commas but not braces.
+- **Cross-references.** A rule that points at `rules/model.md` is rewritten to
+  point at `model.instructions.md`, so a reader working only from
+  `.github/instructions/` never follows a pointer to a file that does not exist
+  on their side.
+
+Subdirectories are mirrored, so `.claude/rules/frontend/react.md` generates
+`.github/instructions/frontend/react.instructions.md`.
+
+Renaming or deleting a rule leaves the old generated file behind. `--check`
+treats that as a failure; the plain `sync:copilot` only prints a note about it,
+so delete the orphan yourself rather than waiting for CI to point at it.
 
 Copilot also reads `CLAUDE.md` directly as an agent-instructions file, so the
 generated `copilot-instructions.md` keeps the two surfaces consistent rather

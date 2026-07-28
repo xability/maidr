@@ -48,15 +48,15 @@ keypress
 ## Adding to the system
 
 - **New trace type** → class in `src/model/`, register in `src/model/factory.ts`,
-  add the type to `src/type/grammar.ts`. See `rules/model.md`.
+  add the type to `src/type/grammar.ts`. See `model.instructions.md`.
 - **New service** → class in `src/service/`, construct and register as an
-  observer in `src/controller.ts`, dispose it there too. See `rules/service.md`.
+  observer in `src/controller.ts`, dispose it there too. See `service.instructions.md`.
 - **New UI state** → service fires an event, a ViewModel in
   `src/state/viewModel/` dispatches, a component reads it with
-  `useViewModelState()`. See `rules/viewmodel.md` and `rules/ui.md`.
+  `useViewModelState()`. See `viewmodel.instructions.md` and `ui.instructions.md`.
 - **New keyboard action** → command in `src/command/`, keybinding in
   `src/service/keybinding.ts`, help entry in `src/service/help.ts`.
-  See `rules/command.md`.
+  See `command.instructions.md`.
 
 ## Working style
 

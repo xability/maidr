@@ -22,8 +22,8 @@
  * @see https://docs.github.com/en/copilot/how-tos/configure-custom-instructions
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -102,6 +102,40 @@ function expandBraces(glob) {
 }
 
 /**
+ * Lists markdown files under a directory, recursing into subdirectories.
+ *
+ * Both tools discover nested files — Claude Code reads `.claude/rules/`
+ * recursively, and Copilot allows subdirectories of `.github/instructions/` —
+ * so the mirror has to recurse as well. A non-recursive listing would drop a
+ * nested rule silently and still report the mirror as in sync.
+ *
+ * @param {string} dir Absolute directory to walk.
+ * @param {string} suffix Only entries ending with this are returned.
+ * @returns {string[]} Paths relative to `dir`, using forward slashes, sorted.
+ */
+function listMarkdown(dir, suffix) {
+  if (!existsSync(dir)) {
+    return [];
+  }
+  return readdirSync(dir, { recursive: true })
+    .map(entry => entry.split('\\').join('/'))
+    .filter(entry => entry.endsWith(suffix))
+    .sort();
+}
+
+/**
+ * Repoints a rule's cross-references at the generated Copilot filenames, so a
+ * reader working only from `.github/instructions/` does not follow a pointer
+ * to a file that does not exist on their side.
+ *
+ * @param {string} body Markdown body of a rule.
+ * @returns {string} The body with `rules/<name>.md` rewritten.
+ */
+function rewriteRuleLinks(body) {
+  return body.replace(/\brules\/([\w./-]+)\.md\b/g, '$1.instructions.md');
+}
+
+/**
  * Takes the first level-1 markdown heading as the instruction description.
  *
  * @param {string} body Markdown body.
@@ -140,7 +174,7 @@ function render() {
     `${banner('CLAUDE.md')}\n\n${claudeMd.trimEnd()}\n`,
   );
 
-  for (const file of readdirSync(RULES_DIR).filter(f => f.endsWith('.md')).sort()) {
+  for (const file of listMarkdown(RULES_DIR, '.md')) {
     const source = `.claude/rules/${file}`;
     let frontmatter, body, globs;
     try {
@@ -150,6 +184,8 @@ function render() {
       throw new Error(`${source}: ${error.message}`);
     }
 
+    // Nested rules keep their subdirectory: .claude/rules/frontend/react.md
+    // mirrors to .github/instructions/frontend/react.instructions.md.
     const stem = file.replace(/\.md$/, '');
     // An unscoped Claude rule loads every session; "**" is Copilot's equivalent.
     const applyTo = globs.length > 0 ? globs.flatMap(expandBraces).join(',') : '**';
@@ -158,13 +194,13 @@ function render() {
       `.github/instructions/${stem}.instructions.md`,
       [
         '---',
-        `description: ${yamlString(readTitle(body, stem))}`,
+        `description: ${yamlString(readTitle(body, basename(stem)))}`,
         `applyTo: ${yamlString(applyTo)}`,
         '---',
         '',
         banner(source),
         '',
-        body.trimStart().trimEnd(),
+        rewriteRuleLinks(body.trimStart().trimEnd()),
         '',
       ].join('\n'),
     );
@@ -179,12 +215,9 @@ function main() {
 
   mkdirSync(INSTRUCTIONS_DIR, { recursive: true });
 
-  const existing = new Set(
-    readdirSync(INSTRUCTIONS_DIR)
-      .filter(f => f.endsWith('.instructions.md'))
-      .map(f => `.github/instructions/${f}`),
-  );
-  const stale = [...existing].filter(p => !expected.has(p));
+  const existing = listMarkdown(INSTRUCTIONS_DIR, '.instructions.md')
+    .map(f => `.github/instructions/${f}`);
+  const stale = existing.filter(p => !expected.has(p));
 
   const changed = [];
   for (const [relative, content] of expected) {
@@ -197,6 +230,7 @@ function main() {
     if (current !== content) {
       changed.push(relative);
       if (!check) {
+        mkdirSync(dirname(join(ROOT, relative)), { recursive: true });
         writeFileSync(join(ROOT, relative), content);
       }
     }

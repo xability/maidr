@@ -43,5 +43,5 @@ export const Text: React.FC = () => {
 
 This is an accessibility library — a visually correct component that a screen
 reader cannot use is a broken component. Before finishing any component, check
-the rules in `rules/accessibility.md`: live regions, labels and roles, keyboard
+the rules in `accessibility.instructions.md`: live regions, labels and roles, keyboard
 operability, visible focus, and contrast.
