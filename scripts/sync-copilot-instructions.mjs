@@ -66,6 +66,38 @@ function splitFrontmatter(text) {
 }
 
 /**
+ * Reads one glob out of a `paths:` list item.
+ *
+ * This is a hand-rolled subset of YAML, so it errors on anything it cannot
+ * read rather than guessing. Quote-stripping with a bare regex silently
+ * mangles `- "src/**"  # note` into a glob with the comment still attached,
+ * and a corrupted glob matches nothing on either side without complaining.
+ *
+ * @param {string} raw Text after the `- ` marker.
+ * @returns {string} The glob, unquoted, with any trailing comment removed.
+ */
+function readGlob(raw) {
+  const value = raw.trim();
+  const quote = value[0];
+
+  if (quote === '"' || quote === '\'') {
+    const close = value.indexOf(quote, 1);
+    if (close === -1) {
+      throw new Error(`unterminated quote in \`paths:\` entry: ${value}`);
+    }
+    const rest = value.slice(close + 1).trim();
+    if (rest && !rest.startsWith('#')) {
+      throw new Error(`unexpected text after the closing quote in \`paths:\` entry: ${value}`);
+    }
+    return value.slice(1, close);
+  }
+
+  // Unquoted: a ` #` begins a comment, per YAML.
+  const comment = value.indexOf(' #');
+  return (comment === -1 ? value : value.slice(0, comment)).trim();
+}
+
+/**
  * Reads the glob patterns out of a rule's `paths:` frontmatter list.
  *
  * @param {string | null} frontmatter Frontmatter block, or null if absent.
@@ -91,7 +123,7 @@ function readPaths(frontmatter) {
     }
     const trimmed = line.trim();
     if (trimmed.startsWith('- ')) {
-      const glob = trimmed.slice(2).trim().replace(/^["']|["']$/g, '');
+      const glob = readGlob(trimmed.slice(2));
       if (glob) {
         globs.push(glob);
       }

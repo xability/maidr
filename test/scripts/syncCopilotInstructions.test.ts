@@ -170,6 +170,45 @@ describe('rejecting malformed input', () => {
     expect(result.output).toContain('unterminated');
   });
 
+  // Regression: quote-stripping with a bare regex left the comment attached to
+  // the glob, producing `src/model/**"  # note` — a pattern that matches
+  // nothing, generated without complaint.
+  it('should strip a trailing comment from a quoted glob', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - "src/model/**"  # only the model layer\n---\n\n# Model\n`);
+
+    run();
+
+    expect(read('.github/instructions/model.instructions.md'))
+      .toContain('applyTo: "src/model/**"');
+  });
+
+  it('should strip a trailing comment from an unquoted glob', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - src/model/** # only the model layer\n---\n\n# Model\n`);
+
+    run();
+
+    expect(read('.github/instructions/model.instructions.md'))
+      .toContain('applyTo: "src/model/**"');
+  });
+
+  it('should fail on an unterminated quote rather than guess', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - "src/model/**\n---\n\n# Model\n`);
+
+    const result = run('--check');
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('unterminated quote');
+  });
+
+  it('should fail on stray text after a closing quote', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - "src/model/**" and "src/type/**"\n---\n\n# Model\n`);
+
+    const result = run('--check');
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('unexpected text after the closing quote');
+  });
+
   // Regression: the glob scan read every "- " line in the frontmatter, so a
   // sibling block list was folded into applyTo. The empty-result guard could
   // not catch it, because the result was not empty.
