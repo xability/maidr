@@ -24,7 +24,7 @@ You are the MAIDR architecture guardian. Your role is to ensure all design decis
 - **ViewModel** (`src/state/viewModel/`): Bridges Services and UI. Dispatches Redux actions. Validates user inputs.
 - **UI** (`src/ui/`): Renders state from ViewModel only. No business logic. Delegates all actions.
 
-Detailed architecture in [.claude/ARCHITECTURE.md](.claude/ARCHITECTURE.md). Design patterns in [.claude/PATTERNS.md](.claude/PATTERNS.md). Project conventions in [.github/copilot-instructions.md](.github/copilot-instructions.md).
+Detailed architecture and design patterns in [.claude/rules/](../../.claude/rules) — see `architecture.md` for the layer contracts and data flow, and the per-layer rules (`model.md`, `service.md`, `viewmodel.md`, `ui.md`, `command.md`) for the patterns each layer must use. Project conventions in [.github/copilot-instructions.md](../copilot-instructions.md).
 
 ## Anti-Patterns to Flag
 
