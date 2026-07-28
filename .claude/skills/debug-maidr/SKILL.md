@@ -60,12 +60,15 @@ second most common is a **missing `notifyStateUpdate()`** after a model change.
 | **No highlight**               | Does the selector match anything? `document.querySelectorAll(selector).length` is usually 0 because the SVG structure differs from what the trace assumes. |
 | **Highlight deletes the chart**| An element cloned by hand without `Svg.markOwned(...)`, or a `shouldClone = false` element wrongly marked owned. |
 | **Leak across focus changes**  | Something not released in `dispose()` — check the whole chain, controller included. |
+| **Chat not responding**        | `chat.ts` and `llmValidation.ts` — an unset or rejected API key, or a promise that never settles. Check the request actually resolved before blaming the UI. |
 
 ## Layer checklists
 
 **Model** — is `notifyStateUpdate()` called after every state change? Are
 `row`/`col` in bounds? Does `isMovable()` agree with the data shape? Is the
-JSON parsed as expected?
+JSON parsed as expected? Which `Movable` strategy is in play — `MovableGrid`,
+`MovableGraph`, or `MovablePlane` in `src/model/movable.ts`? A trace that moves
+in the wrong direction is often wired to the wrong one.
 
 **Service** — is `update(state)` reached? Is the event fired? Are resources
 released in `dispose()`?
