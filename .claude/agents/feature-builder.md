@@ -1,6 +1,6 @@
 ---
 name: feature-builder
-description: Orchestrates full feature development for MAIDR. Coordinates planning, architecture validation, implementation, code review, testing, and accessibility audit by delegating to specialized subagents. Use proactively for any non-trivial feature request.
+description: Runs a full MAIDR feature through plan, architecture review, implementation, code review, tests, and accessibility audit by delegating to the specialist subagents. Use for non-trivial feature requests.
 tools: Agent, Read, Grep, Glob, Bash
 model: opus
 memory: project

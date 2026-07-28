@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: Writes and modifies MAIDR feature code — new trace types, services, commands, ViewModels, and React components — following the MVVC architecture. Use for implementation tasks.
-tools: Read, Edit, Write, Bash, Grep, Glob
+tools: Read, Edit, Write, Bash, Grep, Glob, WebFetch, WebSearch
 model: opus
 memory: project
 color: red
@@ -23,8 +23,13 @@ context. Follow them; this file covers only how you work.
    `bar.ts`; a new service should look like its neighbours.
 3. **Identify the affected layers** before writing anything, and work outward
    from the model.
-4. **Implement**, defining types first, then logic, then cleanup.
-5. **Verify** — see below. Do not move to the next piece while the current one
+4. **Look it up rather than guess** when the uncertainty is external — a Web
+   Audio behaviour, an ARIA pattern, an SVG detail, a chart library's API. The
+   codebase is the authority on convention; the specification is the authority
+   on the platform. Never import a pattern found online that contradicts the
+   project rules.
+5. **Implement**, defining types first, then logic, then cleanup.
+6. **Verify** — see below. Do not move to the next piece while the current one
    fails to compile.
 
 ## Recipes

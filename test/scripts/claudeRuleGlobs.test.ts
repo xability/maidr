@@ -13,6 +13,12 @@ import { join, resolve } from 'node:path';
  * The patterns are read from the generated instruction files rather than
  * re-parsed out of the rules, so this does not duplicate the generator's
  * parser. The `copilot-sync` check already guarantees the two agree.
+ *
+ * Matching is done by `git ls-files`, whose pathspec handling is close to but
+ * not identical with the matchers Claude Code and Copilot use at runtime. This
+ * catches the realistic failure — a typo'd path that matches nothing anywhere
+ * — rather than proving byte-for-byte parity with either tool, which would
+ * mean reimplementing both matchers and trusting the reimplementation.
  */
 
 const ROOT = resolve(__dirname, '../..');
