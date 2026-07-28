@@ -19,14 +19,14 @@ import { Constant } from './constant';
  * re-initialisation (e.g. a live [maidr] attribute change) can tear down the
  * previous root instead of nesting a second root inside it.
  */
-const rootRegistry = new WeakMap<HTMLElement, { root: Root; container: HTMLElement }>();
+const rootRegistry = new WeakMap<Element, { root: Root; container: HTMLElement }>();
 
 /**
  * Adopts an existing DOM node into React's tree via a ref callback.
  * Used by script-tag and adapter entry points to render a pre-existing plot
  * element as children of the {@link MaidrComponent}.
  */
-export function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
+export function DomNodeAdapter({ node }: { node: Element }): JSX.Element {
   const ref = useCallback(
     (container: HTMLDivElement | null) => {
       if (container) {
@@ -64,7 +64,7 @@ export function SizedDomNodeAdapter({
   width,
   height,
 }: {
-  node: HTMLElement;
+  node: Element;
   width: number;
   height: number;
 }): JSX.Element {
@@ -106,8 +106,13 @@ export function SizedDomNodeAdapter({
  * restored to its original DOM position before a fresh root is created. Without
  * this teardown a second init would nest a new React root inside the still-
  * mounted old one, duplicating controllers/hotkeys and leaking the old root.
+ *
+ * `plot` is typed as `Element`, not `HTMLElement`: charting libraries render
+ * into `<svg>`, which is an `SVGElement`. Only basic node capabilities
+ * (parentNode, attributes) are needed here, and both branches of the DOM tree
+ * provide them.
  */
-export function initMaidrOnElement(maidr: Maidr, plot: HTMLElement): void {
+export function initMaidrOnElement(maidr: Maidr, plot: Element): void {
   // Re-init path: tear down the previous root first. Order matters — unmounting
   // runs DomNodeAdapter's ref cleanup, which detaches `plot`; we then restore
   // `plot` where the old container was so the standard init path below can run.
@@ -128,8 +133,10 @@ export function initMaidrOnElement(maidr: Maidr, plot: HTMLElement): void {
   plot.parentNode.replaceChild(container, plot);
 
   // Opt-in path for adapters whose bound element has no intrinsic size.
-  const hostWidth = plot.dataset.maidrHostWidth;
-  const hostHeight = plot.dataset.maidrHostHeight;
+  // Read via getAttribute rather than `dataset`: `dataset` lives on
+  // HTMLOrSVGElement, which `Element` does not narrow to.
+  const hostWidth = plot.getAttribute('data-maidr-host-width');
+  const hostHeight = plot.getAttribute('data-maidr-host-height');
   const adopt
     = hostWidth && hostHeight
       ? (
