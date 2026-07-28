@@ -72,6 +72,10 @@ discovered automatically, so `rules/frontend/react.md` works. Omit `paths:`
 only if it is genuinely needed in every session — an unscoped rule that applies
 narrowly is wasted context.
 
+Write `paths:` as a block list, one glob per line, as below. The sync script
+rejects a flow sequence (`paths: ["src/**"]`) rather than let a scoped rule
+silently mirror as `applyTo: "**"`.
+
 ```markdown
 ---
 paths:

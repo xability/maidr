@@ -16,7 +16,8 @@
  * stale instead of rewriting them.
  *
  * Uses only Node built-ins so CI can run the check without installing
- * dependencies.
+ * dependencies. Requires Node 18.17.0 or newer for the `recursive` option of
+ * `fs.readdirSync`; every workflow here runs `lts/*`.
  *
  * @see https://code.claude.com/docs/en/memory
  * @see https://docs.github.com/en/copilot/how-tos/configure-custom-instructions
@@ -73,11 +74,22 @@ function readPaths(frontmatter) {
   if (!/^paths:/m.test(frontmatter)) {
     throw new Error('frontmatter present but has no `paths:` key');
   }
-  return frontmatter
+  const globs = frontmatter
     .split('\n')
     .filter(line => line.trim().startsWith('- '))
     .map(line => line.trim().slice(2).trim().replace(/^["']|["']$/g, ''))
     .filter(Boolean);
+
+  // Falling back to an empty list here would widen the rule to applyTo: "**"
+  // in the mirror — a scoped rule silently becoming unscoped. Fail instead.
+  if (globs.length === 0) {
+    throw new Error(
+      'has a `paths:` key but no globs were parsed from it. Use a block list, '
+      + 'one glob per line (`- "src/**"`); flow sequences (`paths: [...]`) are '
+      + 'not supported',
+    );
+  }
+  return globs;
 }
 
 /**

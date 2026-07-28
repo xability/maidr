@@ -61,8 +61,9 @@ keypress
 ## Working style
 
 - **Debug before you edit.** Reproduce, isolate the layer, trace the flow, find
-  the root cause, then design the smallest fix. Run the `/debug-maidr` skill for
-  the full workflow and per-layer checklists.
+  the root cause, then design the smallest fix. The full workflow and the
+  per-layer checklists are in `.claude/skills/debug-maidr/SKILL.md`; in Claude
+  Code, run `/debug-maidr`.
 - **Keep it simple.** Prefer readable code over clever code. Break large
   functions into single-purpose ones. Do not add abstractions before a second
   caller exists.
