@@ -66,6 +66,11 @@ so a leak here accumulates for the lifetime of the page.
 - **Inject dependencies through the constructor.** Base services
   (`notification.ts`, `settings.ts`) are constructed first in
   `src/controller.ts` and passed to the services that need them.
+- **No secrets in source.** API keys belong in user settings at runtime, never
+  committed — `chat.ts` and the LLM services are where this slips.
+- **Validate what crosses the boundary.** Chart input, LLM responses, and live
+  data feeds are untrusted: check shape before use, and never pass any of it
+  onward as markup (see `rules/ui.md`).
 
 ## Registering a new service
 

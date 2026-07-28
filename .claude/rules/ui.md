@@ -35,6 +35,9 @@ export const Text: React.FC = () => {
   stable props. Do not wrap everything by reflex.
 - Keep `useEffect` dependency arrays complete and honest; add cleanup returns
   for anything that subscribes or schedules.
+- **Never render untrusted data as markup.** No `dangerouslySetInnerHTML` and
+  no `innerHTML` with anything that reaches the page from chart input, an LLM
+  response, or a live data feed. Render it as text and let React escape it.
 - Register new components in `src/ui/App.tsx`.
 
 ## Accessibility is not optional here
