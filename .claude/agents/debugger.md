@@ -46,7 +46,8 @@ codebase.
 
 ## Finishing
 
-Remove the tracing you added — `no-console` is enforced by lint. Then:
+Remove the tracing you added — lint allows only `console.warn` and
+`console.error`, so a stray `console.log` fails the build. Then:
 
 ```bash
 npm run lint:fix

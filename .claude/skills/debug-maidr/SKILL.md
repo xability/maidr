@@ -97,4 +97,6 @@ Prefix every line so it can be filtered: `[Audio]`, `[Model]`, `[TextVM]`. Log
 before and after a state change rather than in the middle. Never log inside a
 tight loop — it will change the timing you are trying to observe.
 
-Remove the logging before committing; `no-console` is enforced by lint.
+Remove the logging before committing. `no-console` is enforced by lint, which
+allows only `console.warn` and `console.error` — so a stray `console.log` fails
+the build, and deliberate error reporting does not.

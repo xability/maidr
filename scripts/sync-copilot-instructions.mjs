@@ -265,7 +265,11 @@ function render() {
     // mirrors to .github/instructions/frontend/react.instructions.md.
     const stem = file.replace(/\.md$/, '');
     // An unscoped Claude rule loads every session; "**" is Copilot's equivalent.
-    const applyTo = globs.length > 0 ? globs.flatMap(expandBraces).join(',') : '**';
+    // Deduplicated: nested groups such as `{ts,{jsx,tsx}}` expand correctly but
+    // can repeat a pattern, and a repeated glob in `applyTo` is just noise.
+    const applyTo = globs.length > 0
+      ? [...new Set(globs.flatMap(expandBraces))].join(',')
+      : '**';
 
     out.set(
       `.github/instructions/${stem}.instructions.md`,
@@ -290,8 +294,9 @@ function main() {
   const check = process.argv.includes('--check');
   const expected = render();
 
-  mkdirSync(INSTRUCTIONS_DIR, { recursive: true });
-
+  // No mkdir here: `--check` is read-only, and creating the output directory
+  // would be a write. `listMarkdown` tolerates a missing directory, and each
+  // write below creates its own parent.
   const existing = listMarkdown(INSTRUCTIONS_DIR, '.instructions.md')
     .map(f => `.github/instructions/${f}`);
   const stale = existing.filter(p => !expected.has(p));

@@ -51,6 +51,17 @@ function trackedMatches(pattern: string): number {
   return stdout.split('\n').filter(Boolean).length;
 }
 
+describe('the committed mirror', () => {
+  // The copilot-sync CI job checks this too, but running it here means a rule
+  // edited without regenerating fails on `npm test` rather than after a push.
+  it('should be in sync with the rules as committed', () => {
+    const script = resolve(ROOT, 'scripts/sync-copilot-instructions.mjs');
+    expect(() =>
+      execFileSync('node', [script, '--check'], { cwd: ROOT, stdio: 'pipe' }),
+    ).not.toThrow();
+  });
+});
+
 describe('rule globs', () => {
   const cases = instructionFiles().flatMap(file =>
     applyToPatterns(file)

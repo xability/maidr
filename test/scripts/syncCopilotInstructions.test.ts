@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -105,6 +105,15 @@ describe('generating the mirror', () => {
 
     expect(read('.github/instructions/ts.instructions.md'))
       .toContain('applyTo: "src/**/*.ts,src/**/*.tsx"');
+  });
+
+  it('should expand nested brace groups without repeating a pattern', () => {
+    write('.claude/rules/ts.md', rule('src/**/*.{ts,{jsx,tsx}}'));
+
+    run();
+
+    expect(read('.github/instructions/ts.instructions.md'))
+      .toContain('applyTo: "src/**/*.ts,src/**/*.jsx,src/**/*.tsx"');
   });
 
   it('should map a rule with no frontmatter to applyTo "**"', () => {
@@ -293,5 +302,15 @@ describe('--check', () => {
 
     expect(result.status).toBe(1);
     expect(() => read('.github/instructions/model.instructions.md')).toThrow();
+  });
+
+  it('should not even create the output directory while checking', () => {
+    write('.claude/rules/model.md', rule('src/model/**'));
+
+    run('--check');
+
+    // --check is documented as read-only, so it must not leave a directory
+    // behind either.
+    expect(existsSync(join(root, '.github/instructions'))).toBe(false);
   });
 });
