@@ -1,9 +1,9 @@
 ---
-paths:
-  - "src/**/*.{ts,tsx}"
-  - "test/**/*.ts"
-  - "e2e_tests/**/*.ts"
+description: "TypeScript conventions"
+applyTo: "src/**/*.ts,src/**/*.tsx,test/**/*.ts,e2e_tests/**/*.ts"
 ---
+
+<!-- Generated from .claude/rules/typescript.md by scripts/sync-copilot-instructions.mjs. Do not edit directly. -->
 
 # TypeScript conventions
 

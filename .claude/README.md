@@ -100,15 +100,67 @@ about the *role*; the codebase conventions come from `rules/`.
 
 ## `skills/`
 
-| Skill          | Invoked                                       |
-| -------------- | --------------------------------------------- |
-| `/code`        | manually — implement a change                 |
-| `/code-review` | manually — review a diff or PR                |
-| `/debug-maidr` | manually, or automatically when debugging     |
+| Skill          | Invoked                                   |
+| -------------- | ----------------------------------------- |
+| `/debug-maidr` | manually, or automatically when debugging |
 
-`code` and `code-review` set `disable-model-invocation: true`, so they cost no
-context until you invoke them. `debug-maidr` stays model-invocable because
-"debug before you edit" should apply whether or not someone remembers to ask.
+`debug-maidr` is model-invocable rather than `disable-model-invocation: true`,
+because "debug before you edit" should apply whether or not someone remembers
+to ask for it.
+
+This directory is deliberately small. A skill earns its place by being a
+*procedure* that nothing else covers. Conventions belong in `rules/`, which
+already reach every agent; a persona that duplicates an agent's role belongs in
+`agents/`. Claude Code also ships bundled skills such as `/code-review` — check
+whether one already covers the need before adding a project skill, since a
+project skill with the same name shadows the bundled one.
+
+## GitHub Copilot
+
+The repository is configured for Copilot as well, under `.github/`. The two
+tools have the same four concepts with different file formats:
+
+| Concept                     | Claude Code                     | GitHub Copilot                        |
+| --------------------------- | ------------------------------- | ------------------------------------- |
+| Repo-wide, always loaded    | `CLAUDE.md`                     | `.github/copilot-instructions.md`     |
+| Path-scoped instructions    | `.claude/rules/*.md` (`paths:`) | `.github/instructions/*.instructions.md` (`applyTo:`) |
+| Isolated worker             | `.claude/agents/*.md`           | `.github/agents/*.agent.md`           |
+| On-demand workflow          | `.claude/skills/*/SKILL.md`     | `.github/prompts/*.prompt.md`         |
+
+### The instruction files are generated — do not edit them
+
+`.github/copilot-instructions.md` and everything in `.github/instructions/` is
+produced from the Claude Code sources by
+`scripts/sync-copilot-instructions.mjs`. Keeping two hand-written copies of the
+same conventions guarantees they drift, so there is one authored source and one
+generated mirror.
+
+```bash
+npm run sync:copilot         # regenerate after editing CLAUDE.md or a rule
+npm run sync:copilot:check   # what CI runs; fails if the mirror is stale
+```
+
+The only transformation is the frontmatter: a rule's `paths:` YAML list becomes
+Copilot's comma-separated `applyTo:` string, and an unscoped rule — which loads
+every session in Claude Code — becomes `applyTo: "**"`.
+
+Copilot also reads `CLAUDE.md` directly as an agent-instructions file, so the
+generated `copilot-instructions.md` keeps the two surfaces consistent rather
+than giving Copilot a second, divergent description of the project.
+
+### What is not mirrored
+
+Agents and workflows are **not** generated, because the formats genuinely
+differ — Copilot agents use a display `name`, `handoffs`, and its own tool
+vocabulary, while Claude subagents use `permissionMode`, `memory`, `skills`,
+and `maxTurns`. Both directories carry the same eight roles; keep them in step
+by hand when a role changes.
+
+The workflow files are intentionally asymmetric. `.github/prompts/` holds
+GitHub-specific chores (filing an issue from a template, replying to a PR
+review) that Claude Code does through `gh` and its GitHub tools instead, and
+`.claude/skills/debug-maidr/` has no Copilot counterpart because the
+`debugger` agent covers that ground on Copilot's side.
 
 ## References
 
@@ -116,3 +168,5 @@ context until you invoke them. `debug-maidr` stays model-invocable because
 - [Subagents](https://code.claude.com/docs/en/sub-agents)
 - [Skills](https://code.claude.com/docs/en/skills)
 - [Choosing between them](https://code.claude.com/docs/en/features-overview)
+- [Copilot custom instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions)
+- [Copilot custom agents](https://docs.github.com/en/copilot/reference/custom-agents-configuration)

@@ -8,6 +8,29 @@ permissions:
       contents: read
 
 jobs:
+  # Copilot's instruction files under .github/ are generated from CLAUDE.md and
+  # .claude/rules/, so an edit to one side must be regenerated into the other.
+  # The check is pure Node with no dependencies, so it skips npm ci and gates
+  # nothing — it reports drift on its own rather than blocking the real jobs.
+  copilot-sync:
+    name: Copilot Instructions In Sync
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Check generated instruction files
+        run: npm run sync:copilot:check
+
   commitlint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
