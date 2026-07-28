@@ -28,7 +28,11 @@ import { basename, dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// Defaults to the repository root. `SYNC_COPILOT_ROOT` points the generator at
+// a fixture tree instead, which is how the test suite drives it.
+const ROOT = process.env.SYNC_COPILOT_ROOT
+  ? resolve(process.env.SYNC_COPILOT_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RULES_DIR = join(ROOT, '.claude/rules');
 const INSTRUCTIONS_DIR = join(ROOT, '.github/instructions');
 
@@ -71,14 +75,28 @@ function readPaths(frontmatter) {
   if (frontmatter === null) {
     return [];
   }
-  if (!/^paths:/m.test(frontmatter)) {
+  const lines = frontmatter.split('\n');
+  const start = lines.findIndex(line => line.startsWith('paths:'));
+  if (start === -1) {
     throw new Error('frontmatter present but has no `paths:` key');
   }
-  const globs = frontmatter
-    .split('\n')
-    .filter(line => line.trim().startsWith('- '))
-    .map(line => line.trim().slice(2).trim().replace(/^["']|["']$/g, ''))
-    .filter(Boolean);
+
+  // Read only the block under `paths:`, stopping at the next top-level key.
+  // Scanning the whole frontmatter would fold a sibling list such as `tags:`
+  // into the globs, and the empty-result guard below could not catch it.
+  const globs = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^\S/.test(line)) {
+      break;
+    }
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      const glob = trimmed.slice(2).trim().replace(/^["']|["']$/g, '');
+      if (glob) {
+        globs.push(glob);
+      }
+    }
+  }
 
   // Falling back to an empty list here would widen the rule to applyTo: "**"
   // in the mirror — a scoped rule silently becoming unscoped. Fail instead.
