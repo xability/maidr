@@ -7,7 +7,7 @@ import type { PlotlyAxis, PlotlyFullLayout, PlotlyGraphDiv } from './types';
  * @param plot - The DOM element that carries the `maidr` attribute.
  * @returns `true` when the element is (or is inside) a Plotly-rendered chart.
  */
-export function isPlotlyPlot(plot: HTMLElement): boolean {
+export function isPlotlyPlot(plot: Element): boolean {
   return (
     plot.classList.contains('main-svg')
     || plot.closest('.js-plotly-plot') !== null

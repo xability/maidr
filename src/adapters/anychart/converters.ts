@@ -2453,12 +2453,12 @@ export function bindAnyChart(
     }
   }
 
-  // MAIDR's `maidr:bindchart` listener in `src/index.tsx` filters its target
-  // with `instanceof HTMLElement`, which excludes `SVGElement`. Wrap the SVG
-  // in a host `<div>` so the listener accepts it. The host carries explicit
-  // pixel dimensions captured from the original container so the SVG keeps
-  // its size once MAIDR re-parents it into the focusable
+  // Wrap the SVG in a host `<div>` carrying explicit pixel dimensions captured
+  // from the original container, so the SVG keeps its size once MAIDR
+  // re-parents it into the focusable
   // `<div tabIndex=0 role="img" style="width: fit-content">` wrapper.
+  // (The wrapper is purely about sizing — `maidr:bindchart` accepts any
+  // `Element`, so an `<svg>` target would bind fine on its own.)
   //
   // The bindchart dispatch below is unconditional: line-marker stamping is
   // best-effort, but the chart must always become focusable so audio /

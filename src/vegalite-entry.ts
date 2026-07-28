@@ -1728,10 +1728,7 @@ export function bindVegaLite(
   // BoxTrace.mapToSvgElements expects.
   buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers, cellDomMap, containerScope);
 
-  // SVGSVGElement is not an HTMLElement, but initMaidrOnElement only
-  // needs basic DOM node capabilities (parentNode, attributes).
-  // Widen through Element which both SVG and HTML elements extend.
-  initMaidrOnElement(maidr, svg as Element as HTMLElement);
+  initMaidrOnElement(maidr, svg);
 }
 
 /**

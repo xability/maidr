@@ -75,7 +75,10 @@ if (document.readyState === 'loading') {
 document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
   const target = event.target;
 
-  if (!(target instanceof HTMLElement))
+  // `Element`, not `HTMLElement`: adapters bind the element their charting
+  // library rendered, which is usually an `<svg>` — an `SVGElement`. Narrowing
+  // to `HTMLElement` here silently dropped every SVG-rooted chart.
+  if (!(target instanceof Element))
     return;
 
   const json = target.getAttribute(Constant.MAIDR_DATA);
@@ -85,7 +88,7 @@ document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
 }) as EventListener);
 
 function parseAndInit(
-  plot: HTMLElement,
+  plot: Element,
   json: string,
   source: 'maidr' | 'maidr-data',
 ): void {
@@ -201,7 +204,7 @@ function initPlotlyChart(gd: HTMLElement): void {
 
   gd.setAttribute('data-maidr-auto', '1');
   normalizePlotlySvg(svg, maidrData);
-  initMaidrOnElement(maidrData, svg as unknown as HTMLElement);
+  initMaidrOnElement(maidrData, svg);
 }
 
 /**
