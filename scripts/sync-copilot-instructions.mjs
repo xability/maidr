@@ -24,20 +24,30 @@
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RULES_DIR = join(ROOT, '.claude/rules');
 const INSTRUCTIONS_DIR = join(ROOT, '.github/instructions');
 
-const BANNER = (source) =>
-  `<!-- Generated from ${source} by scripts/sync-copilot-instructions.mjs. Do not edit directly. -->`;
+/**
+ * Builds the "do not edit" banner stamped onto every generated file.
+ *
+ * @param {string} source Repo-relative path of the authored source file.
+ * @returns {string} An HTML comment naming the source and this generator.
+ */
+function banner(source) {
+  return `<!-- Generated from ${source} by scripts/sync-copilot-instructions.mjs. Do not edit directly. -->`;
+}
 
 /**
  * Splits a markdown file into its YAML frontmatter and body.
  *
  * @param {string} text Raw file contents.
- * @returns {{ frontmatter: string | null, body: string }}
+ * @returns {{ frontmatter: string | null, body: string }} The frontmatter
+ *   block with its `---` fences stripped, or null when absent, plus the
+ *   remaining markdown body.
  */
 function splitFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -96,10 +106,12 @@ function expandBraces(glob) {
  *
  * @param {string} body Markdown body.
  * @param {string} fallback Used when the body has no heading.
- * @returns {string}
+ * @returns {string} The heading text, or the fallback.
  */
 function readTitle(body, fallback) {
-  const match = body.match(/^#\s+(.+)$/m);
+  // The capture starts at a non-space so it cannot overlap the preceding
+  // `\s+`, which would otherwise allow super-linear backtracking.
+  const match = body.match(/^#\s+(\S.*)$/m);
   return match ? match[1].trim() : fallback;
 }
 
@@ -107,7 +119,8 @@ function readTitle(body, fallback) {
  * Escapes a value for a double-quoted YAML scalar.
  *
  * @param {string} value Raw value.
- * @returns {string}
+ * @returns {string} The value wrapped in double quotes, backslashes and
+ *   quotes escaped.
  */
 function yamlString(value) {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -116,7 +129,7 @@ function yamlString(value) {
 /**
  * Builds every file Copilot should have, keyed by repo-relative path.
  *
- * @returns {Map<string, string>}
+ * @returns {Map<string, string>} Repo-relative path to intended file contents.
  */
 function render() {
   const out = new Map();
@@ -124,7 +137,7 @@ function render() {
   const claudeMd = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
   out.set(
     '.github/copilot-instructions.md',
-    `${BANNER('CLAUDE.md')}\n\n${claudeMd.trimEnd()}\n`,
+    `${banner('CLAUDE.md')}\n\n${claudeMd.trimEnd()}\n`,
   );
 
   for (const file of readdirSync(RULES_DIR).filter(f => f.endsWith('.md')).sort()) {
@@ -149,7 +162,7 @@ function render() {
         `applyTo: ${yamlString(applyTo)}`,
         '---',
         '',
-        BANNER(source),
+        banner(source),
         '',
         body.trimStart().trimEnd(),
         '',
