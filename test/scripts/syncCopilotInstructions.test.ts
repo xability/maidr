@@ -79,6 +79,25 @@ describe('generating the mirror', () => {
       .toContain('description: "Model layer"');
   });
 
+  it('should ignore headings inside fenced code blocks when picking the description', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - "src/model/**"\n---\n\n\`\`\`bash\n# install deps first\nnpm install\n\`\`\`\n\n# Model layer\n`);
+
+    run();
+
+    const generated = read('.github/instructions/model.instructions.md');
+    expect(generated).toContain('description: "Model layer"');
+    expect(generated).not.toContain('description: "install deps first"');
+  });
+
+  it('should fall back to the filename when a rule has no heading', () => {
+    write('.claude/rules/model.md', `---\npaths:\n  - "src/model/**"\n---\n\nJust prose, no heading.\n`);
+
+    run();
+
+    expect(read('.github/instructions/model.instructions.md'))
+      .toContain('description: "model"');
+  });
+
   it('should expand brace groups into separate patterns', () => {
     write('.claude/rules/ts.md', rule('src/**/*.{ts,tsx}'));
 

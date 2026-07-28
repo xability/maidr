@@ -205,10 +205,25 @@ function rewriteRuleLinks(body) {
  * @returns {string} The heading text, or the fallback.
  */
 function readTitle(body, fallback) {
-  // The capture starts at a non-space so it cannot overlap the preceding
-  // `\s+`, which would otherwise allow super-linear backtracking.
-  const match = body.match(/^#\s+(\S.*)$/m);
-  return match ? match[1].trim() : fallback;
+  // Fenced blocks are skipped: a rule opening with a shell example would
+  // otherwise donate its `# install deps` comment as the description.
+  let fenced = false;
+  for (const line of body.split('\n')) {
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) {
+      continue;
+    }
+    // The capture starts at a non-space so it cannot overlap the preceding
+    // `\s+`, which would otherwise allow super-linear backtracking.
+    const match = line.match(/^#\s+(\S.*)$/);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return fallback;
 }
 
 /**
@@ -319,7 +334,10 @@ function main() {
       : `Already in sync (${expected.size} files).`,
   );
   for (const p of stale) {
-    console.log(`note: ${p} has no matching rule — delete it if the rule is gone.`);
+    console.log(
+      `WARNING: ${p} has no matching rule. Nothing was deleted — remove it `
+      + 'yourself, or `sync:copilot:check` will keep failing in CI.',
+    );
   }
 }
 
