@@ -65,7 +65,7 @@ nothing until Claude opens a file it applies to.
 `git-workflow.md` deliberately has no `paths:`, so it loads every session:
 commit conventions are needed even in sessions that never open a source file.
 
-### Adding a rule
+### Adding or removing a rule
 
 Create `.claude/rules/<topic>.md` with `paths:` globs. Subdirectories are
 discovered automatically, so `rules/frontend/react.md` works. Omit `paths:`
@@ -85,6 +85,13 @@ paths:
 # Adapter conventions
 ...
 ```
+
+Either way, run `npm run sync:copilot` afterwards and commit what it writes.
+
+**Removing or renaming a rule takes one extra step.** The generator will not
+delete the instruction file left behind, to avoid surprise deletions — it only
+prints a note naming it. Delete that file yourself, or `sync:copilot:check`
+keeps failing in CI after you have "already run the generator."
 
 ## `agents/`
 
