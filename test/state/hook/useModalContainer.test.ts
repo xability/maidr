@@ -23,7 +23,7 @@ import { JSDOM } from 'jsdom';
  * article, the figure, the chart itself, and the React container the dialogs
  * are rendered into.
  */
-const MAIDR_DOM = `<!doctype html><body>
+const MAIDR_BODY = `
   <div id="maidr-wrapper">
     <article id="maidr-article-bar">
       <figure id="maidr-figure-bar">
@@ -32,7 +32,9 @@ const MAIDR_DOM = `<!doctype html><body>
       </figure>
     </article>
   </div>
-</body>`;
+`;
+
+const MAIDR_DOM = `<!doctype html><body>${MAIDR_BODY}</body>`;
 
 /**
  * Globals the render stack reads off `globalThis` rather than off a node's
@@ -77,7 +79,7 @@ function defineGlobal(key: string, value: unknown): void {
  * @param element - The element to render
  */
 async function mount(element: ReactElement): Promise<void> {
-  document.body.innerHTML = new JSDOM(MAIDR_DOM).window.document.body.innerHTML;
+  document.body.innerHTML = MAIDR_BODY;
   root = createRoot(document.getElementById('react-container-bar') as HTMLElement);
   await act(async () => {
     root?.render(element);
