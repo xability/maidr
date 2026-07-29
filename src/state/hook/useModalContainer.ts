@@ -10,9 +10,9 @@ export interface ModalContainer {
    * Ref for the modal root element — `<Dialog ref={...}>` or the `ref` inside
    * a `MenuProps` / `slotProps.root` object.
    */
-  modalRef: RefCallback<HTMLElement>;
+  readonly modalRef: RefCallback<HTMLElement>;
   /** Value for MUI's `container` prop. */
-  container: () => HTMLElement | null;
+  readonly container: () => HTMLElement | null;
 }
 
 /**
