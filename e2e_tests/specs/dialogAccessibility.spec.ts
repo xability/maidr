@@ -53,15 +53,32 @@ async function hiddenAncestorsOf(page: Page, selector: string): Promise<string[]
 }
 
 /**
- * Reads `aria-hidden` off the wrapper MAIDR renders into — the body child that
- * MUI used to hide.
+ * Reads `aria-hidden` off the wrapper MAIDR renders into — the body-level
+ * ancestor of the chart that MUI used to hide.
+ *
+ * Resolved by walking up from the chart article rather than by taking
+ * `body.firstElementChild`, so a change to the example's markup order throws
+ * here instead of silently reading some other element — which, since the
+ * assertion is `toBeNull()`, would otherwise pass while checking nothing.
  * @param page - The Playwright page
  * @returns The attribute value, or null when it is absent
+ * @throws If the chart article is missing or not inside `document.body`
  */
 async function wrapperAriaHidden(page: Page): Promise<string | null> {
-  return page.evaluate(
-    () => document.body.firstElementChild?.getAttribute('aria-hidden') ?? null,
-  );
+  return page.evaluate(() => {
+    const article = document.querySelector('article[id^="maidr-article"]');
+    if (!article) {
+      throw new Error('no maidr article in the document');
+    }
+    let wrapper: Element = article;
+    while (wrapper.parentElement && wrapper.parentElement !== document.body) {
+      wrapper = wrapper.parentElement;
+    }
+    if (wrapper.parentElement !== document.body) {
+      throw new Error('maidr article is not inside document.body');
+    }
+    return wrapper.getAttribute('aria-hidden');
+  });
 }
 
 test.describe('dialog accessibility tree', () => {
