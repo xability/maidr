@@ -144,7 +144,10 @@ const builds = [
     name: 'core',
     entry: 'src/index.tsx',
     libName: 'maidr',
-    formats: ['es', 'umd'],
+    // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
+    // an ES build has no consumer value. Adding 'es' back here would also make
+    // both formats resolve to the same fileName and silently overwrite.
+    formats: ['umd'],
     fileName: () => 'maidr.js',
     emptyOutDir: true,
     external: [],
