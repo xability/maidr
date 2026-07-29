@@ -114,8 +114,10 @@ export function describeOperatingSystem(userAgent: string): string {
   if (windows) {
     return windows[1] === '10.0' ? 'Windows 10 or 11' : `Windows (NT ${windows[1]})`;
   }
-  // ChromeOS and Android both carry "Linux" in their user agent, so they have
-  // to be matched before the bare Linux check below.
+  // Android is the one that carries "Linux" in its user agent, so it has to be
+  // matched before the bare Linux fallback below. ChromeOS carries neither
+  // token — it identifies as "X11; CrOS" — so its place in this order is
+  // grouping with the Linux-adjacent platforms, not a dependency.
   if (userAgent.includes('CrOS')) {
     return 'ChromeOS';
   }
