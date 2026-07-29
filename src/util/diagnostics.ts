@@ -42,20 +42,33 @@ const loadingScript: HTMLScriptElement | null
     : null;
 
 /**
- * Matches the paths the library is published under.
+ * Matches a maidr *package directory*, which is what catches the per-adapter
+ * bundles (`recharts.mjs`, `vegalite.js`, …) whose own filenames say nothing
+ * about maidr.
  *
- * Two alternatives, both deliberately narrow so an unrelated script whose name
- * merely starts with "maidr" is not mistaken for the bundle:
- * - A maidr package directory, which is what catches the per-adapter bundles
- *   (`recharts.mjs`, `vegalite.js`, …) under `/npm/maidr@3.74.0/dist/`. A `@`
- *   may be followed by any npm version spec, but a `-` has to be followed by a
- *   digit, so `/maidr-3.74.0/` matches while `/maidr-analytics/` does not.
- * - The bundle's own filename, where anything after "maidr" must start at a
- *   separator — otherwise `maidrical.js` would match. The separator class and
- *   the segment class are kept disjoint (`\w` excludes `.` and `-`) so the
- *   repetition cannot reach itself and backtrack super-linearly.
+ * Deliberately narrow in both alternatives. A bare `/maidr/` segment counts
+ * only directly under `/npm/` or `/node_modules/`: the project's own docs and
+ * examples are served from `xability.github.io/maidr/`, where *every* asset URL
+ * contains that segment, and `findMaidrScriptUrl` takes the first match in
+ * document order — so accepting it outright would let an unrelated docs bundle
+ * shadow the real one. Anywhere else the version has to be present, where a `@`
+ * takes any npm spec but a `-` must be followed by a digit, so `/maidr-3.74.0/`
+ * matches while `/maidr-analytics/` does not.
+ *
+ * The cost is a miss on an unversioned `unpkg.com/maidr/dist/recharts.mjs`,
+ * which reports `unknown`. That is the right way to be wrong here: this field
+ * exists to be trusted in a bug report, so declining to answer beats answering
+ * with the wrong script.
  */
-const MAIDR_SCRIPT_PATTERN = /\/maidr(?:@[\w.-]+|-\d[\w.-]*)?\/|(?:^|\/)maidr(?:[.-]\w+)*\.m?js(?:$|[?#])/i;
+const MAIDR_PACKAGE_DIR_PATTERN = /\/(?:npm|node_modules)\/maidr(?:@[\w.-]+)?\/|\/maidr(?:@[\w.-]+|-\d[\w.-]*)\//i;
+
+/**
+ * Matches the bundle's own filename. Anything after "maidr" has to start at a
+ * separator — otherwise `maidrical.js` would match. The separator class and the
+ * segment class are kept disjoint (`\w` excludes `.` and `-`) so the repetition
+ * cannot reach itself and backtrack super-linearly.
+ */
+const MAIDR_FILENAME_PATTERN = /(?:^|\/)maidr(?:[.-]\w+)*\.m?js(?:$|[?#])/i;
 
 // Order matters: Edge, Opera and Samsung Internet all keep "Chrome" in their
 // user agent, so each has to be matched before Chrome itself.
@@ -90,7 +103,9 @@ export function describeBrowser(userAgent: string): string {
  *
  * Only what the user agent can actually support is reported: Windows 10 and 11
  * are indistinguishable there, and Safari/Chrome freeze the macOS version at
- * 10.15.7, so neither is given a version it cannot back up.
+ * 10.15.7, so neither is given a version it cannot back up. For the same
+ * reason iPadOS Safari reads as `macOS` — its default user agent claims
+ * `Macintosh; Intel Mac OS X` and carries no iPad token at all.
  * @param userAgent - The `navigator.userAgent` value to read.
  * @returns A label such as `macOS` or `Android 14`, or `Unknown`.
  */
@@ -157,7 +172,7 @@ export function classifyScriptOrigin(scriptUrl: string, pageUrl: string): MaidrS
  * @returns True when the URL names a maidr package directory or bundle file.
  */
 export function isMaidrScriptUrl(url: string): boolean {
-  return MAIDR_SCRIPT_PATTERN.test(url);
+  return MAIDR_FILENAME_PATTERN.test(url) || MAIDR_PACKAGE_DIR_PATTERN.test(url);
 }
 
 /**

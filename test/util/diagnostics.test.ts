@@ -1,9 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import {
   classifyScriptOrigin,
   describeBrowser,
   describeMaidrSource,
   describeOperatingSystem,
+  detectMaidrSource,
   formatDiagnostics,
   isMaidrScriptUrl,
 } from '@util/diagnostics';
@@ -80,6 +81,17 @@ describe('describeOperatingSystem', () => {
     expect(describeOperatingSystem(SAFARI_IOS)).toBe('iOS 17.4');
   });
 
+  it('reads iPadOS Safari as macOS, which its user agent cannot distinguish', () => {
+    // Known limitation, pinned so it is a documented answer rather than a
+    // surprise: iPadOS Safari's default agent claims Macintosh and carries no
+    // iPad token at all.
+    expect(
+      describeOperatingSystem(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15',
+      ),
+    ).toBe('macOS');
+  });
+
   it('falls back to Unknown for an unrecognised agent', () => {
     expect(describeOperatingSystem('some-crawler/1.0')).toBe('Unknown');
   });
@@ -112,6 +124,95 @@ describe('isMaidrScriptUrl', () => {
     expect(isMaidrScriptUrl('https://example.com/maidr-analytics/tracker.js')).toBe(false);
     expect(isMaidrScriptUrl('https://example.com/maidrify.js')).toBe(false);
     expect(isMaidrScriptUrl('https://example.com/vendor/analytics.js')).toBe(false);
+  });
+
+  it('does not match unrelated assets served under a bare /maidr/ path', () => {
+    // The project's own docs and examples live at xability.github.io/maidr/,
+    // so every asset there carries a /maidr/ segment.
+    expect(
+      isMaidrScriptUrl('https://xability.github.io/maidr/assets/javascripts/bundle.8f2a91c4.min.js'),
+    ).toBe(false);
+    // ...while the real bundle on that same host still matches, by filename.
+    expect(isMaidrScriptUrl('https://xability.github.io/maidr/dist/maidr.js')).toBe(true);
+  });
+
+  it('accepts a bare maidr package directory only under npm or node_modules', () => {
+    expect(isMaidrScriptUrl('https://cdn.jsdelivr.net/npm/maidr/dist/recharts.mjs')).toBe(true);
+    expect(isMaidrScriptUrl('/node_modules/maidr/dist/chartjs.js')).toBe(true);
+    // Known, deliberate miss: an unversioned unpkg path has neither marker, so
+    // it reports unknown rather than risking the wrong script.
+    expect(isMaidrScriptUrl('https://unpkg.com/maidr/dist/recharts.mjs')).toBe(false);
+  });
+});
+
+describe('detectMaidrSource', () => {
+  /**
+   * `document.currentScript` is null under the node test environment, which is
+   * exactly the module-script path where the URL is recovered by scanning the
+   * document — so these stubs exercise the real fallback rather than a mock of
+   * it.
+   */
+  function stubPage(scriptUrls: readonly string[], pageUrl: string): void {
+    Object.defineProperty(globalThis, 'window', {
+      value: { location: { href: pageUrl } },
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(globalThis, 'document', {
+      value: { querySelectorAll: () => scriptUrls.map(src => ({ src })) },
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'window');
+    Reflect.deleteProperty(globalThis, 'document');
+  });
+
+  it('is not shadowed by an unrelated script that loads first', () => {
+    // Regression guard: on the project's own GitHub Pages host every asset URL
+    // contains /maidr/, and the docs bundle is emitted before the chart script.
+    stubPage(
+      [
+        'https://xability.github.io/maidr/assets/javascripts/bundle.8f2a91c4.min.js',
+        'https://xability.github.io/maidr/dist/maidr.js',
+      ],
+      'https://xability.github.io/maidr/examples/barplot.html',
+    );
+
+    expect(detectMaidrSource()).toEqual({
+      kind: 'local',
+      url: 'https://xability.github.io/maidr/dist/maidr.js',
+    });
+  });
+
+  it('takes the first genuine match in document order', () => {
+    stubPage(
+      [
+        'https://cdn.jsdelivr.net/npm/maidr@3.74.0/dist/maidr.js',
+        'https://example.com/dist/maidr.js',
+      ],
+      'https://example.com/report.html',
+    );
+
+    expect(detectMaidrSource()).toEqual({
+      kind: 'cdn',
+      url: 'https://cdn.jsdelivr.net/npm/maidr@3.74.0/dist/maidr.js',
+    });
+  });
+
+  it('reports unknown when no script can be attributed', () => {
+    stubPage(
+      ['https://example.com/vendor/analytics.js'],
+      'https://example.com/report.html',
+    );
+
+    expect(detectMaidrSource()).toEqual({ kind: 'unknown', url: null });
+  });
+
+  it('reports unknown outside a browser', () => {
+    expect(detectMaidrSource()).toEqual({ kind: 'unknown', url: null });
   });
 });
 
