@@ -363,6 +363,44 @@ export class BasePage {
   }
 
   /**
+   * Shows the Settings menu and verifies a backdrop click leaves it open
+   *
+   * The settings dialog is a form holding unsaved edits, so unlike the other
+   * dialogs it must not discard them on a stray click outside itself — only
+   * Escape and the Close button close it.
+   * @throws AssertionError if Settings menu does not appear or the backdrop click closes it
+   */
+  public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.page
+        .locator(TestConstants.MAIDR_MODAL_BACKDROP)
+        .first()
+        .click({ position: { x: 5, y: 5 }, force: true });
+
+      await expect(this.page.locator(this.selectors.settingsModal)).toBeVisible();
+
+      await this.closeSettingsMenu(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Settings menu did not survive a backdrop click: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
    * Shows the Chat dialog and verifies it appears correctly
    * @throws AssertionError if Chat Dialog does not appear or doesn't have expected content
    */
