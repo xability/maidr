@@ -336,6 +336,33 @@ export class BasePage {
   }
 
   /**
+   * Shows the Settings menu and verifies the Escape key closes it
+   * @throws AssertionError if Settings menu does not appear or Escape does not close it
+   */
+  public async closeSettingsMenuWithEscape(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.closeModal(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Failed to close settings menu with Escape: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
    * Shows the Chat dialog and verifies it appears correctly
    * @throws AssertionError if Chat Dialog does not appear or doesn't have expected content
    */

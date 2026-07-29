@@ -274,6 +274,11 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.showSettingsMenu();
     });
 
+    test('should close settings menu with escape', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.closeSettingsMenuWithEscape();
+    });
+
     test('should show chat dialog', async ({ page }) => {
       const dodgedBarplotPage = await setupDodgedBarplotPage(page);
       await dodgedBarplotPage.showChatDialog();
