@@ -49,6 +49,11 @@ const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
  * The registry is the production one — it is a plain map — so the component
  * reaches its view models through the same `useViewModel` path it uses at
  * runtime, with only the leaves stubbed.
+ *
+ * A static `state` is enough here because `Settings` reads it once per render
+ * through the view model's getter. A component that subscribes with
+ * `useViewModelState` reads the Redux slice instead, and a stub like this one
+ * would never re-render it — that case needs a store and a `Provider`.
  */
 function renderSettings(): void {
   const registry = new ViewModelRegistry();
@@ -187,13 +192,16 @@ describe('settings About section: copy diagnostics', () => {
     // Observes what a screen reader observes: the region's subtree changing.
     // Asserting on the text alone would pass even when nothing moved, which
     // is precisely the regression — the second copy announced nothing.
-    // Records are collected in the callback rather than read back with
-    // `takeRecords`, since awaiting the click passes a microtask checkpoint
-    // and that is where the queue is drained.
+    //
+    // Records are read from both ends so the assertion does not depend on when
+    // the queue drains: awaiting the click passes a microtask checkpoint, which
+    // hands delivered records to the callback, and `takeRecords` picks up
+    // anything still queued behind it.
     const mutations: MutationRecord[] = [];
     const observer = new MutationObserver(records => mutations.push(...records));
     observer.observe(status, { childList: true, subtree: true, characterData: true });
     await click(button);
+    mutations.push(...observer.takeRecords());
     observer.disconnect();
 
     expect(writeText).toHaveBeenCalledTimes(2);
