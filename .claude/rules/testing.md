@@ -88,3 +88,10 @@ import '@testing-library/jest-dom/jest-globals';
 New behaviour ships with a test that would have failed before it. A bug fix
 ships with a test that reproduces the bug. Run the relevant suite before you
 call the work done, and report failures rather than describing them as passing.
+
+When a change surfaces a bug that belongs to a different fix, pin it with
+`it.failing` and the issue number rather than skipping it or leaving a comment.
+The case keeps running, the suite stays green while the bug stands, and the day
+the fix lands the case turns red — which is the reminder to delete it and
+anything written to work around the bug. `test/ui/settings.copyDiagnostics.test.tsx`
+does this for #655.
