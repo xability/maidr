@@ -4,8 +4,6 @@ import type { MaidrSubplot } from '@type/grammar';
 import { createMaidrFromFrappeCharts } from '@adapters/frappe/converters';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { resolveSubplotLayout } from '@util/subplotLayout';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 /**

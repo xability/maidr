@@ -8,16 +8,17 @@ paths:
 
 # Testing
 
-Two suites, two purposes.
+Three suites, three purposes.
 
-| Suite         | Runner              | Location                | Matches               |
-| ------------- | ------------------- | ----------------------- | --------------------- |
-| **Unit**      | Jest + ts-jest      | `test/`                 | `test/**/*.test.ts`    |
-| **E2E**       | Playwright          | `e2e_tests/specs/`      | `*.spec.ts`            |
+| Suite         | Runner                         | Location           | Matches                |
+| ------------- | ------------------------------ | ------------------ | ---------------------- |
+| **Unit**      | Jest + ts-jest                 | `test/`            | `test/**/*.test.ts`    |
+| **Component** | Jest + jsdom + Testing Library | `test/ui/`         | `test/**/*.test.tsx`   |
+| **E2E**       | Playwright                     | `e2e_tests/specs/` | `*.spec.ts`            |
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
-`test/command/`, `test/util/`, `test/adapters/`. Put a new unit test in the
-directory matching the layer it covers.
+`test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
+test in the directory matching the layer it covers.
 
 ```bash
 npm test              # jest, with coverage
@@ -38,6 +39,40 @@ npm run e2e:ui        # playwright, interactive
   single point, and moves that `isMovable()` should reject.
 - Clean up anything stateful in `afterEach`, and assert `dispose()` really
   releases what it allocated.
+
+## Component tests
+
+The default test environment is `node`. A component test opts into a DOM per
+file, so the suites that do not need one keep their current start-up cost:
+
+```tsx
+/**
+ * @jest-environment jsdom
+ */
+
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+// The `/jest-globals` entry point augments the imported `expect`; the bare
+// one only augments the ambient global.
+import '@testing-library/jest-dom/jest-globals';
+```
+
+- Render through `MaidrContext.Provider` with a `ViewModelRegistry` holding
+  stub view models. The component then reaches its state the same way it does
+  at runtime, and no service or model has to be constructed.
+- Assert the accessibility contract, not the markup: that a live region is in
+  the DOM before the text it will carry, that `aria-describedby` resolves to a
+  real element, that focus lands where the user left it. Those are the parts
+  that break silently.
+- A live region announces on the DOM mutation, not on the state update. When
+  the behaviour is "this is announced again", observe the region with a
+  `MutationObserver` — an assertion on the text alone passes even when nothing
+  moved.
+- Wrap an interaction whose handler is async in `await act(...)`, so the state
+  update it schedules is flushed before the assertions run.
+- jsdom is not a browser and its accessibility tree is not a screen reader.
+  These tests catch wiring regressions; they do not replace verification with
+  real assistive technology.
 
 ## E2E tests
 

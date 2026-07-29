@@ -1,8 +1,6 @@
 import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
 import type { Maidr } from '@type/grammar';
 import { initMaidrOnElement } from '@util/initMaidr';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Tests only use the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 import { bindVegaLite } from '../../../src/vegalite-entry';
 

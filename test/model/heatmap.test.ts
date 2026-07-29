@@ -2,8 +2,6 @@ import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { Heatmap } from '@model/heatmap';
 import { TraceType } from '@type/grammar';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 /**

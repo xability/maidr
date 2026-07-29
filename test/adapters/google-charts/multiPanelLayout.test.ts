@@ -4,8 +4,6 @@ import type { Subplot } from '@model/plot';
 import { createMaidrFromGoogleCharts } from '@adapters/google-charts/converters';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { resolveSubplotLayout } from '@util/subplotLayout';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 /**

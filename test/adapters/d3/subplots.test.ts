@@ -5,8 +5,6 @@ import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

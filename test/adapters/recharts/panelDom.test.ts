@@ -18,8 +18,6 @@ import type { Root } from 'react-dom/client';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { getPanelClassName } from '@adapters/recharts/selectors';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses the public JSDOM/Document surface.
 import { JSDOM } from 'jsdom';
 
 // MaidrApp only mounts after focus-in (contextValue starts null), so it never

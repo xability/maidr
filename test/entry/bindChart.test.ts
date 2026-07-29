@@ -8,8 +8,6 @@
  * accept any `Element` — otherwise SVG-rooted charts are dropped silently.
  */
 
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Tests only use the public JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 const mockInitMaidrOnElement = jest.fn();

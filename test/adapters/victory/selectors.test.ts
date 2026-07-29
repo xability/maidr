@@ -9,8 +9,6 @@ import {
 } from '@adapters/victory/selectors';
 import { buildVictorySubplots } from '@adapters/victory/useVictoryAdapter';
 import { describe, expect, it, jest } from '@jest/globals';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Tests only use the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
