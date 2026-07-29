@@ -13,6 +13,8 @@ import {
 const CHROME = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
 const EDGE = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.3485.14';
 const OPERA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 OPR/124.0.0.0';
+const OPERA_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) OPiOS/16.0.7.121091 Mobile/15E148 Safari/9537.53';
+const OPERA_TOUCH = 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.101 Mobile Safari/537.36 OPT/2.6';
 const SAMSUNG = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36';
 const FIREFOX = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0';
 const SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15';
@@ -39,6 +41,13 @@ describe('describeBrowser', () => {
 
   it('prefers Opera over the Chrome token it also carries', () => {
     expect(describeBrowser(OPERA)).toBe('Opera 124');
+  });
+
+  it('recognises Opera under each of its per-platform tokens', () => {
+    // OPR is the desktop/Android token; iOS sends OPiOS and Opera Touch sends
+    // OPT, and both would otherwise fall through to Safari or Chrome.
+    expect(describeBrowser(OPERA_IOS)).toBe('Opera 16');
+    expect(describeBrowser(OPERA_TOUCH)).toBe('Opera 2');
   });
 
   it('prefers Samsung Internet over the Chrome token it also carries', () => {

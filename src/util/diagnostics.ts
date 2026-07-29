@@ -74,7 +74,10 @@ const MAIDR_FILENAME_PATTERN = /(?:^|\/)maidr(?:[.-]\w+)*\.m?js(?:$|[?#])/i;
 // user agent, so each has to be matched before Chrome itself.
 const BROWSER_PATTERNS: readonly { readonly name: string; readonly pattern: RegExp }[] = [
   { name: 'Microsoft Edge', pattern: /Edg(?:e|A|iOS)?\/(\d+)/ },
-  { name: 'Opera', pattern: /OPR\/(\d+)/ },
+  // Opera ships a different token per platform: OPR on desktop and Android,
+  // OPiOS on iOS, OPT for Opera Touch. Only the first is the well-known one,
+  // and missing the others silently reports Opera users as Chrome or Safari.
+  { name: 'Opera', pattern: /(?:OPR|OPiOS|OPT)\/(\d+)/ },
   { name: 'Samsung Internet', pattern: /SamsungBrowser\/(\d+)/ },
   { name: 'Firefox', pattern: /(?:Firefox|FxiOS)\/(\d+)/ },
   { name: 'Chrome', pattern: /(?:Chrome|CriOS)\/(\d+)/ },
