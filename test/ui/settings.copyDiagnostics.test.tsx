@@ -253,9 +253,14 @@ describe('settings About section: copy diagnostics', () => {
   it.failing('should give the dialog an accessible name (#663)', () => {
     renderSettings();
 
+    // Any non-empty name, not the literal "Settings": the contract is that the
+    // dialog is named at all, and pinning the exact string would keep this red
+    // — indistinguishably from still-unnamed — if the fix lands on wording
+    // this test did not predict.
+    //
     // `queryByRole`, not `getByRole`: the getter's not-found error renders the
     // whole dialog into the failure message, and this case is expected to miss
     // on every run until the dialog is named.
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /\S/ })).toBeInTheDocument();
   });
 });
