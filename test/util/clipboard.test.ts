@@ -131,7 +131,7 @@ describe('copyToClipboard', () => {
     expect(appended[0].value).toBe(REPORT);
   });
 
-  it('hides the textarea without display, visibility or the hidden attribute', async () => {
+  it('keeps the textarea off-screen without display, visibility or the hidden attribute', async () => {
     // Any of those would empty the selection and turn the copy into a no-op.
     await copyToClipboard(REPORT);
 
@@ -139,7 +139,17 @@ describe('copyToClipboard', () => {
     expect(textarea.style.display).toBeUndefined();
     expect(textarea.style.visibility).toBeUndefined();
     expect(textarea.getAttribute('hidden')).toBeNull();
-    expect(textarea.getAttribute('aria-hidden')).toBe('true');
+    expect(textarea.style.position).toBe('fixed');
+    expect(textarea.style.opacity).toBe('0');
+  });
+
+  it('does not mark the textarea aria-hidden, since select() focuses it', async () => {
+    // WAI-ARIA forbids aria-hidden on focused content: assistive technology
+    // behaviour is undefined for it, and this runs at the exact moment the
+    // user asked for a copy.
+    await copyToClipboard(REPORT);
+
+    expect(created[0].getAttribute('aria-hidden')).toBeNull();
   });
 
   it('removes the textarea and restores focus after a successful copy', async () => {

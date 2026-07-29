@@ -45,9 +45,13 @@ function copyWithExecCommand(text: string): void {
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.setAttribute('readonly', '');
-  // Hidden, but not via `display`/`visibility`/`hidden` — those make the
-  // selection empty and turn the copy into a silent no-op.
-  textarea.setAttribute('aria-hidden', 'true');
+  // Kept off-screen rather than hidden: `display`, `visibility` and the
+  // `hidden` attribute all empty the selection and turn the copy into a silent
+  // no-op. `aria-hidden` is deliberately NOT set either — `select()` below puts
+  // focus on this element, and WAI-ARIA forbids `aria-hidden` on focused
+  // content, which leaves assistive technology with undefined behaviour at the
+  // exact moment the user asked for something to happen. Off-screen and
+  // short-lived is the honest trade.
   textarea.style.position = 'fixed';
   textarea.style.top = '-1000px';
   textarea.style.opacity = '0';
