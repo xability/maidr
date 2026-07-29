@@ -59,14 +59,12 @@ const Help: React.FC = () => {
       ref={modalRef}
       container={container}
     >
-      {/* Header */}
-      <Grid container component={DialogTitle}>
-        <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold">
-            Keyboard Shortcuts
-          </Typography>
-        </Grid>
-      </Grid>
+      {/* Header. `DialogTitle` is already a heading, so it carries the text
+          directly — a heading `Typography` nested inside it would put
+          "Keyboard Shortcuts" in the outline twice. */}
+      <DialogTitle sx={{ fontWeight: 'bold' }}>
+        Keyboard Shortcuts
+      </DialogTitle>
 
       <DialogContent>
         <Grid container spacing={1}>

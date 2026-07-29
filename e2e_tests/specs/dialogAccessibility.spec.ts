@@ -81,15 +81,60 @@ async function wrapperAriaHidden(page: Page): Promise<string | null> {
   });
 }
 
+/**
+ * Reports how the open dialog is named and what its heading outline looks
+ * like.
+ *
+ * Resolved through the DOM the way assistive technology resolves it, rather
+ * than by asserting on the markup that produces it: `idCarriers` counts the
+ * elements actually claiming the referenced id, so a dangling reference (0) or
+ * a duplicated one (2+) fails here even when the name still computes
+ * correctly. `nestedHeadings` catches a heading rendered inside another —
+ * invalid, and the reason a title can land in the outline twice (#665).
+ * @param page - The Playwright page
+ * @returns The dialog's labelling and heading structure
+ * @throws If no dialog is open
+ */
+async function dialogStructure(page: Page): Promise<{
+  idCarriers: number;
+  nestedHeadings: string[];
+  headings: string[];
+}> {
+  return page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) {
+      throw new Error('no dialog is open');
+    }
+    const labelledBy = dialog.getAttribute('aria-labelledby');
+    const headings = [...dialog.querySelectorAll('h1,h2,h3,h4,h5,h6')];
+    return {
+      idCarriers: labelledBy
+        ? document.querySelectorAll(`[id="${CSS.escape(labelledBy)}"]`).length
+        : 0,
+      nestedHeadings: headings
+        .filter(h => h.parentElement?.closest('h1,h2,h3,h4,h5,h6'))
+        .map(h => h.tagName),
+      headings: headings.map(h => `${h.tagName}:${h.textContent?.trim()}`),
+    };
+  });
+}
+
 test.describe('dialog accessibility tree', () => {
   test('help dialog and its controls resolve by role', async ({ page }) => {
     const barPlotPage = await setupBarPlotPage(page);
     await barPlotPage.openHelpMenu();
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+
+    // #665: the title was rendered as a heading inside `DialogTitle`, itself a
+    // heading, so it appeared in the outline twice.
+    const structure = await dialogStructure(page);
+    expect(structure.nestedHeadings).toEqual([]);
+    expect(structure.idCarriers).toBe(1);
+    expect(structure.headings).toEqual(['H2:Keyboard Shortcuts']);
   });
 
   test('settings dialog and its controls resolve by role', async ({ page }) => {
@@ -98,7 +143,7 @@ test.describe('dialog accessibility tree', () => {
 
     // By name, not by role alone (#663): the dialog used to resolve here with
     // no accessible name, indistinguishable from the four other dialogs.
-    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.settings-dialog')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
 
@@ -108,6 +153,13 @@ test.describe('dialog accessibility tree', () => {
       page.getByRole('button', { name: 'Close Settings with no changes' }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save & Close Settings' })).toBeVisible();
+
+    // Fixed in #664 and the shape #665 moved the other dialogs onto — asserted
+    // here so the two cannot drift apart.
+    const structure = await dialogStructure(page);
+    expect(structure.nestedHeadings).toEqual([]);
+    expect(structure.idCarriers).toBe(1);
+    expect(structure.headings[0]).toBe('H2:Settings');
   });
 
   test('a select menu inside the settings dialog resolves by role', async ({ page }) => {
@@ -134,9 +186,21 @@ test.describe('dialog accessibility tree', () => {
     await setupBarPlotPage(page);
     await page.keyboard.press('d');
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Chart Description', exact: true })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
+
+    // #665: this dialog put the same id on `DialogTitle` and on a `Typography`
+    // inside it, so two elements claimed the id the dialog points at, and the
+    // title appeared in the outline twice.
+    const structure = await dialogStructure(page);
+    expect(structure.nestedHeadings).toEqual([]);
+    expect(structure.idCarriers).toBe(1);
+    expect(structure.headings.filter(h => h.endsWith(':Chart Description'))).toHaveLength(1);
+    // The title outranks the sections it introduces, rather than sitting at
+    // the same level or skipping straight past them.
+    expect(structure.headings[0]).toBe('H2:Chart Description');
+    expect(structure.headings.slice(1).every(h => h.startsWith('H3:'))).toBe(true);
   });
 
   test('command palette resolves by role', async ({ page }) => {
@@ -144,10 +208,15 @@ test.describe('dialog accessibility tree', () => {
     // The binding is `Platform.ctrl + shift + p`, which is Command on macOS.
     await page.keyboard.press(`${TestConstants.COMMAND_KEY}+Shift+P`);
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Command Palette', exact: true })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
     await expect(page.getByRole('heading', { name: 'Command Palette' })).toBeVisible();
+
+    // Already correct before #665 — asserted so it stays that way.
+    const structure = await dialogStructure(page);
+    expect(structure.nestedHeadings).toEqual([]);
+    expect(structure.idCarriers).toBe(1);
   });
 
   test('chat dialog resolves by role', async ({ page }) => {
@@ -157,6 +226,23 @@ test.describe('dialog accessibility tree', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
+
+    // #665: the dialog was named after the `DialogTitle` row, which holds the
+    // close button as well as the title — so the name ended
+    // "…AI Chat Interface Close chat dialog". Naming it after the heading
+    // alone is what keeps the button's label out.
+    //
+    // `exact` matters here and is not decoration: Playwright matches `name` as
+    // a substring by default, so without it this passes against the polluted
+    // name it is written to reject.
+    await expect(
+      page.getByRole('dialog', { name: 'Chart Assistant - AI Chat Interface', exact: true }),
+    ).toBeVisible();
+
+    const structure = await dialogStructure(page);
+    expect(structure.nestedHeadings).toEqual([]);
+    expect(structure.idCarriers).toBe(1);
+    expect(structure.headings.filter(h => h.endsWith(':Chart Assistant'))).toHaveLength(1);
   });
 
   test('the chart stays in the accessibility tree while a dialog is open', async ({ page }) => {
