@@ -57,6 +57,7 @@ import {
   collectDiagnostics,
   describeMaidrSource,
   formatDiagnostics,
+  redactScriptUrl,
 } from '@util/diagnostics';
 import { resolveVersionOptions } from '@util/llm';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
@@ -426,6 +427,13 @@ const Settings: React.FC = () => {
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
+  // Displayed with the same redaction the copied block uses: a screenshot of
+  // this dialog is handed to a maintainer just as readily as the pasted text,
+  // so both have to drop the OS username and any signed-URL token.
+  const sourceUrl = useMemo(
+    () => (diagnostics.source.url ? redactScriptUrl(diagnostics.source.url) : null),
+    [diagnostics],
+  );
 
   const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
     try {
@@ -1207,18 +1215,18 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <SettingRow
               label="Loaded From"
-              alignLabel={diagnostics.source.url ? 'flex-start' : 'center'}
+              alignLabel={sourceUrl ? 'flex-start' : 'center'}
               input={(
                 <>
                   <Typography variant="body2">
                     {describeMaidrSource(diagnostics.source)}
                   </Typography>
-                  {diagnostics.source.url && (
+                  {sourceUrl && (
                     <Typography
                       variant="caption"
                       sx={{ color: 'text.secondary', wordBreak: 'break-all' }}
                     >
-                      {diagnostics.source.url}
+                      {sourceUrl}
                     </Typography>
                   )}
                 </>

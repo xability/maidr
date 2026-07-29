@@ -7,6 +7,7 @@ import {
   detectMaidrSource,
   formatDiagnostics,
   isMaidrScriptUrl,
+  redactScriptUrl,
 } from '@util/diagnostics';
 
 const CHROME = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
@@ -273,6 +274,32 @@ describe('describeMaidrSource', () => {
     expect(describeMaidrSource({ kind: 'local', url: '/maidr.js' })).toBe('Local assets');
     expect(describeMaidrSource({ kind: 'inline', url: null })).toBe('Embedded in the page');
     expect(describeMaidrSource({ kind: 'unknown', url: null })).toBe('Unknown');
+  });
+});
+
+describe('redactScriptUrl', () => {
+  it('keeps the origin and path of a hosted bundle', () => {
+    expect(
+      redactScriptUrl('https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js'),
+    ).toBe('https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js');
+  });
+
+  it('drops the query and fragment, where a signed URL carries its token', () => {
+    expect(redactScriptUrl('https://cdn.example/maidr.js?token=s3cret#frag')).toBe(
+      'https://cdn.example/maidr.js',
+    );
+  });
+
+  it('reduces a file:// bundle to its protocol and filename', () => {
+    // The directory is the reporter's home directory, so it carries their OS
+    // username — and this value is both displayed and copied.
+    expect(redactScriptUrl('file:///Users/jane.doe/reports/dist/maidr.js')).toBe(
+      'file:///.../maidr.js',
+    );
+  });
+
+  it('returns null for a URL it cannot parse', () => {
+    expect(redactScriptUrl('not a url')).toBeNull();
   });
 });
 

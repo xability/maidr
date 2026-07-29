@@ -256,15 +256,20 @@ export function collectDiagnostics(): Diagnostics {
  * Reduces a script URL to what a bug report needs, dropping what it does not.
  *
  * A `file://` bundle sits wherever the reporter saved it, so its path carries
- * their OS username — and the copied block is headed for a public issue, so
- * only the protocol and filename survive. Everywhere else the origin and path
- * are the whole point of the field (they are what shows a jsDelivr `@latest`
- * against a pinned local copy), so those are kept and only the query and
- * fragment are dropped, since a signed asset URL can carry a token there.
+ * their OS username; only the protocol and filename survive. Everywhere else
+ * the origin and path are the whole point of the field (they are what shows a
+ * jsDelivr `@latest` against a pinned local copy), so those are kept and only
+ * the query and fragment are dropped, since a signed asset URL can carry a
+ * token there.
+ *
+ * This applies to what the dialog displays as well as to what it copies. The
+ * two cannot diverge: the whole point of the section is to be handed to a
+ * maintainer, and a screenshot of the dialog travels just as far as the pasted
+ * block — so a value unsafe to paste is unsafe to show.
  * @param url - The script URL to reduce.
  * @returns The redacted URL, or `null` if it cannot be parsed.
  */
-function redactScriptUrl(url: string): string | null {
+export function redactScriptUrl(url: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -288,8 +293,7 @@ function redactScriptUrl(url: string): string | null {
  * The page URL is deliberately left out: it is the field most likely to carry
  * private paths or credentials in a query string, and it tells a maintainer
  * nothing they cannot get from the report itself. The script URL is kept, but
- * redacted on the same reasoning — see {@link redactScriptUrl}. The dialog
- * still shows it in full, since that stays on the reporter's own screen.
+ * redacted on the same reasoning — see {@link redactScriptUrl}.
  * @param diagnostics - The snapshot to format.
  * @returns A newline-separated `key: value` block.
  */
