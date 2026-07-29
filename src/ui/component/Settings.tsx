@@ -52,11 +52,24 @@ import {
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
+import { copyToClipboard } from '@util/clipboard';
+import {
+  collectDiagnostics,
+  describeMaidrSource,
+  formatDiagnostics,
+} from '@util/diagnostics';
 import { resolveVersionOptions } from '@util/llm';
-import { MAIDR_VERSION } from '@util/version';
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
+
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
+const COPY_STATUS_MESSAGE: Record<CopyStatus, string> = {
+  idle: '',
+  copied: 'Copied to clipboard',
+  failed: 'Could not copy — select the values above and copy them manually',
+};
 
 // Letter portion of the dialog accelerator keys. Shared between the
 // keydown handler and the aria-keyshortcuts attributes so the two
@@ -407,6 +420,22 @@ const Settings: React.FC = () => {
   // arrives in a coherent shape and does not need to re-normalize here.
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
+
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const copyStatusId = `${id}-copy-status`;
+  // The bundle source and the browser cannot change while the dialog is open,
+  // so the DOM scan behind this runs once per mount rather than per render.
+  const diagnostics = useMemo(() => collectDiagnostics(), []);
+
+  const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
+    try {
+      await copyToClipboard(formatDiagnostics(diagnostics));
+      setCopyStatus('copied');
+    } catch (error) {
+      console.error('[Settings] Failed to copy diagnostics', error);
+      setCopyStatus('failed');
+    }
+  }, [diagnostics]);
 
   useEffect(() => {
     viewModel.load();
@@ -1171,7 +1200,85 @@ const Settings: React.FC = () => {
             <SettingRow
               label="maidr.js Version"
               input={(
-                <Typography variant="body2">{MAIDR_VERSION}</Typography>
+                <Typography variant="body2">{diagnostics.version}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Loaded From"
+              alignLabel={diagnostics.source.url ? 'flex-start' : 'center'}
+              input={(
+                <>
+                  <Typography variant="body2">
+                    {describeMaidrSource(diagnostics.source)}
+                  </Typography>
+                  {diagnostics.source.url && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'text.secondary', wordBreak: 'break-all' }}
+                    >
+                      {diagnostics.source.url}
+                    </Typography>
+                  )}
+                </>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Browser"
+              input={(
+                <Typography variant="body2">{diagnostics.browser}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Operating System"
+              input={(
+                <Typography variant="body2">
+                  {diagnostics.operatingSystem}
+                </Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Diagnostics"
+              input={(
+                <Grid container spacing={1} alignItems="center">
+                  <Grid size="auto">
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      size="small"
+                      onClick={handleCopyDiagnostics}
+                      aria-label="Copy diagnostics to clipboard"
+                      aria-describedby={copyStatusId}
+                    >
+                      Copy diagnostics
+                    </Button>
+                  </Grid>
+                  <Grid size="auto">
+                    {/* Rendered even while empty: a live region has to be in
+                        the DOM before its text changes for the update to be
+                        announced. */}
+                    <Typography
+                      id={copyStatusId}
+                      variant="caption"
+                      role="status"
+                      aria-live="polite"
+                      sx={{
+                        color: copyStatus === 'failed'
+                          ? 'error.main'
+                          : 'text.secondary',
+                      }}
+                    >
+                      {COPY_STATUS_MESSAGE[copyStatus]}
+                    </Typography>
+                  </Grid>
+                </Grid>
               )}
             />
           </Grid>
