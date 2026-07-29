@@ -179,7 +179,8 @@ To learn more about the theoretical background and user study results, we recomm
 
 ## License
 
-This project is licensed under the GPL 3 License.
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+See the [LICENSE](https://github.com/xability/maidr/blob/main/LICENSE) file for the full license text.
 
 ## Contact
 

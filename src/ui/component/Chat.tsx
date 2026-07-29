@@ -10,6 +10,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
@@ -22,6 +23,7 @@ const Chat: React.FC = () => {
   const viewModel = useViewModel('chat');
   const settingsViewModel = useViewModel('settings');
   const { messages, suggestions } = useViewModelState('chat');
+  const { modalRef, container } = useModalContainer();
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
@@ -213,6 +215,8 @@ const Chat: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',

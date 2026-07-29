@@ -53,6 +53,7 @@ export abstract class TestConstants {
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
   static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';
+  static readonly MAIDR_MODAL_BACKDROP = '.MuiBackdrop-root';
   static readonly MAIDR_CHAT_MODAL = '.MuiDialog-container div[role="dialog"]';
 
   /**

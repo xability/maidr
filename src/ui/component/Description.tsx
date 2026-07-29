@@ -14,6 +14,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId, useState } from 'react';
 
@@ -106,6 +107,7 @@ const Description: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('description');
   const { data } = useViewModelState('description');
+  const { modalRef, container } = useModalContainer();
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -128,6 +130,8 @@ const Description: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       aria-modal="true"
       aria-labelledby={`${id}-title`}
     >

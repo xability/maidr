@@ -269,11 +269,15 @@ const REVIEW_KEYMAP = {
 
 /**
  * Keymap configuration for settings interface interactions.
+ *
+ * Deliberately empty. The settings dialog is a MUI Modal, and MUI calls
+ * `stopPropagation()` on the Escape keydown before it reaches the
+ * document-level hotkeys-js listener, so a binding registered here could never
+ * fire. Escape is handled by the dialog's own `onClose`
+ * (see `src/ui/component/Settings.tsx`). The scope still matters — it keeps
+ * chart shortcuts from firing while the dialog is open.
  */
-const SETTINGS_KEYMAP = {
-  // Misc
-  TOGGLE_SETTINGS: key(`esc`, 'Close Settings', { showInHelp: false }),
-} as const;
+const SETTINGS_KEYMAP = {} as const;
 
 /**
  * Keymap configuration for trace scope interactions and navigation.
