@@ -224,7 +224,7 @@ export class BasePage {
   ): Promise<void> {
     const _modal = this.page.locator(modalSelector);
     const closeButton = this.page.locator('//button[text()=\'Close\']');
-    closeButton.click();
+    await closeButton.click();
     await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
   }
 
@@ -331,6 +331,71 @@ export class BasePage {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AssertionError(
         `Failed to show settings menu: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Shows the Settings menu and verifies the Escape key closes it
+   * @throws AssertionError if Settings menu does not appear or Escape does not close it
+   */
+  public async closeSettingsMenuWithEscape(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.closeModal(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Failed to close settings menu with Escape: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Shows the Settings menu and verifies a backdrop click leaves it open
+   *
+   * The settings dialog is a form holding unsaved edits, so unlike the other
+   * dialogs it must not discard them on a stray click outside itself — only
+   * Escape and the Close button close it.
+   * @throws AssertionError if Settings menu does not appear or the backdrop click closes it
+   */
+  public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        TestConstants.COMMAND_KEY,
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.page
+        .locator(TestConstants.MAIDR_MODAL_BACKDROP)
+        .first()
+        .click({ position: { x: 5, y: 5 }, force: true });
+
+      await expect(this.page.locator(this.selectors.settingsModal)).toBeVisible();
+
+      await this.closeSettingsMenu(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Settings menu did not survive a backdrop click: ${errorMessage}`,
       );
     }
   }
