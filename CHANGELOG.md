@@ -1,3 +1,18 @@
+# [3.75.0](https://github.com/xability/maidr/compare/v3.74.0...v3.75.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* accept SVG targets in the maidr:bindchart listener ([#653](https://github.com/xability/maidr/issues/653)) ([0c3d7c4](https://github.com/xability/maidr/commit/0c3d7c440fc1d547fe5e184d40aca1b4a0d18641))
+* **settings:** close the settings dialog on escape ([#658](https://github.com/xability/maidr/issues/658)) ([16dc4be](https://github.com/xability/maidr/commit/16dc4be98fd9b2f6c8e0070701485cd8722fa060))
+* **ui:** name the settings dialog with a rendered title ([#664](https://github.com/xability/maidr/issues/664)) ([6a96f8e](https://github.com/xability/maidr/commit/6a96f8ec44d497c67b8692f19083619e8c59b650))
+* **ui:** scope dialog aria-hidden to the modal's own parent ([#659](https://github.com/xability/maidr/issues/659)) ([dbec93c](https://github.com/xability/maidr/commit/dbec93c46dbdb7fe9c249f5eec536b40030636d5))
+
+
+### Features
+
+* **settings:** report maidr.js version, bundle source and browser in the settings dialog ([#654](https://github.com/xability/maidr/issues/654)) ([ba40d07](https://github.com/xability/maidr/commit/ba40d0775c01dd0e9f24eeba054a71d14d4a2a04))
+
 # [3.74.0](https://github.com/xability/maidr/compare/v3.73.0...v3.74.0) (2026-07-27)
 
 
