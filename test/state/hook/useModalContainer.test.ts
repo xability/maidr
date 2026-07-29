@@ -14,8 +14,6 @@
 import type { ReactElement } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses the public JSDOM/Document surface.
 import { JSDOM } from 'jsdom';
 
 /**

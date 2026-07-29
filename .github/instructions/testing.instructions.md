@@ -7,16 +7,17 @@ applyTo: "test/**,e2e_tests/**,jest.config.ts,playwright.config.ts"
 
 # Testing
 
-Two suites, two purposes.
+Three suites, three purposes.
 
-| Suite         | Runner              | Location                | Matches               |
-| ------------- | ------------------- | ----------------------- | --------------------- |
-| **Unit**      | Jest + ts-jest      | `test/`                 | `test/**/*.test.ts`    |
-| **E2E**       | Playwright          | `e2e_tests/specs/`      | `*.spec.ts`            |
+| Suite         | Runner                         | Location           | Matches                |
+| ------------- | ------------------------------ | ------------------ | ---------------------- |
+| **Unit**      | Jest + ts-jest                 | `test/`            | `test/**/*.test.ts`    |
+| **Component** | Jest + jsdom + Testing Library | `test/ui/`         | `test/**/*.test.tsx`   |
+| **E2E**       | Playwright                     | `e2e_tests/specs/` | `*.spec.ts`            |
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
-`test/command/`, `test/util/`, `test/adapters/`. Put a new unit test in the
-directory matching the layer it covers.
+`test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
+test in the directory matching the layer it covers.
 
 ```bash
 npm test              # jest, with coverage
@@ -38,6 +39,51 @@ npm run e2e:ui        # playwright, interactive
 - Clean up anything stateful in `afterEach`, and assert `dispose()` really
   releases what it allocated.
 
+## Component tests
+
+The default test environment is `node`. A component test opts into a DOM per
+file, so the suites that do not need one keep their current start-up cost:
+
+```tsx
+/**
+ * @jest-environment jsdom
+ */
+
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+// The `/jest-globals` entry point augments the imported `expect`; the bare
+// one only augments the ambient global.
+import '@testing-library/jest-dom/jest-globals';
+```
+
+- Render through `MaidrContext.Provider` with a `ViewModelRegistry` holding
+  stub view models. The component then reaches its state the same way it does
+  at runtime, and no service or model has to be constructed.
+- Type a stub view model as a `Pick` of the real one, listing the members the
+  component calls, and cast that. The signatures stay checked, so a rename
+  breaks the test instead of drifting past an `as unknown as`.
+- Assert the accessibility contract, not the markup: that a live region is in
+  the DOM before the text it will carry, that `aria-describedby` resolves to a
+  real element, that focus lands where the user left it. Those are the parts
+  that break silently.
+- A live region announces on the DOM mutation, not on the state update. When
+  the behaviour is "this is announced again", observe the region with a
+  `MutationObserver` — an assertion on the text alone passes even when nothing
+  moved.
+- Wrap an interaction whose handler is async in `await act(...)`, so the state
+  update it schedules is flushed before the assertions run.
+- Silencing a console the code under test writes to on purpose is the one
+  exception to cleaning up in `afterEach`: spy at file scope, `mockClear()` per
+  test, and restore in `afterAll`. Re-installing per test would let the
+  expected-failure cases print on every run.
+- jsdom is not a browser and its accessibility tree is not a screen reader.
+  These tests catch wiring regressions; they do not replace verification with
+  real assistive technology.
+- `jsdom` and `@types/jsdom` are separate devDependencies on different major
+  lines — DefinitelyTyped has no release matching every jsdom major. Bumping
+  one means checking `npm run type-check` still passes, or the break surfaces
+  on an unrelated pull request.
+
 ## E2E tests
 
 - Drive the chart the way a user does: keyboard input, then assert the
@@ -52,3 +98,10 @@ npm run e2e:ui        # playwright, interactive
 New behaviour ships with a test that would have failed before it. A bug fix
 ships with a test that reproduces the bug. Run the relevant suite before you
 call the work done, and report failures rather than describing them as passing.
+
+When a change surfaces a bug that belongs to a different fix, pin it with
+`it.failing` and the issue number rather than skipping it or leaving a comment.
+The case keeps running, the suite stays green while the bug stands, and the day
+the fix lands the case turns red — which is the reminder to delete it and
+anything written to work around the bug. `test/ui/settings.copyDiagnostics.test.tsx`
+does this for #663.

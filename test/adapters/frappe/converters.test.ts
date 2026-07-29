@@ -2,8 +2,6 @@ import type { FrappeChart, FrappePanel } from '@adapters/frappe/types';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from '@adapters/frappe/converters';
 import { TraceType } from '@type/grammar';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Tests only use the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 /** A minimal chart stub — the adapter only reads `chart.data`. */

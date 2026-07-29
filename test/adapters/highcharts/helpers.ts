@@ -13,8 +13,6 @@ import type {
   HighchartsPoint,
   HighchartsSeries,
 } from '@adapters/highcharts/types';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Tests only use the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><body></body>');

@@ -1,8 +1,6 @@
 import { bindD3Segmented } from '@adapters/d3/binders/segmented';
 import { describe, expect, test } from '@jest/globals';
 import { TraceType } from '@type/grammar';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. The test only uses the public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 /**

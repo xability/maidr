@@ -1,8 +1,6 @@
 import { bindD3Box } from '@adapters/d3/binders/box';
 import { describe, expect, test } from '@jest/globals';
 import { Orientation } from '@type/grammar';
-// @ts-expect-error - jsdom is available transitively (rehype-mathjax → jsdom@22),
-// no @types/jsdom installed. Test only uses public Element/JSDOM surface.
 import { JSDOM } from 'jsdom';
 
 interface BoxData {
