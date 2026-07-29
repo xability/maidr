@@ -31,6 +31,12 @@ export interface ModalContainer {
  * Pointing `container` at the modal root's own parent restores the intended
  * behaviour: the modal's siblings are hidden, the modal is not.
  *
+ * Note that MUI reads `container` once when the modal opens and reuses the
+ * element it resolved to when restoring `aria-hidden` on close, so this assumes
+ * the modal root keeps the same parent for as long as it is open — true of
+ * every caller here, whose JSX structure is static. A caller that re-parents an
+ * open modal would leave the original parent's children hidden.
+ *
  * @returns The ref to attach to the modal root and the value for MUI's
  * `container` prop. Both identities are stable across renders.
  *
