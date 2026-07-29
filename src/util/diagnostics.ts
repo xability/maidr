@@ -34,7 +34,15 @@ export interface Diagnostics {
  * run, so it is snapshotted here instead of read on demand. Classic scripts —
  * including the ones py-maidr and r-maidr inject, whether they point at the CDN
  * or at a bundled copy — report the tag that loaded maidr.js. Module scripts
- * report `null`, which the DOM scan in `findMaidrScript` covers.
+ * report `null`, which the DOM scan in {@link findMaidrScriptUrl} covers.
+ *
+ * This carries a load-order assumption worth stating: it holds only while this
+ * module is evaluated as part of the bundle's initial synchronous execution,
+ * which is true of every build target today because none of them code-split.
+ * Should one ever dynamic-import the code that reaches this module, the
+ * snapshot would be `null` on a classic-script load too and every such page
+ * would quietly fall back to the DOM scan — still correct, but a weaker signal
+ * than reading the tag that actually loaded the bundle.
  */
 const loadingScript: HTMLScriptElement | null
   = typeof document !== 'undefined' && document.currentScript instanceof HTMLScriptElement
