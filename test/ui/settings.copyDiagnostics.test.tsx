@@ -256,28 +256,41 @@ describe('settings About section: copy diagnostics', () => {
   });
 
   /**
-   * Pins the accessible name gap that #659 uncovered: the settings dialog has
-   * none. `aria-label="Settings"` is passed to `<Dialog>`, which spreads it
-   * onto the modal root — a `role="presentation"` element, where it names
-   * nothing — while the `role="dialog"` paper carries the `aria-labelledby`
-   * MUI generates for a `DialogTitle` this dialog never renders, so the
-   * reference dangles. A screen reader announces the dialog with no name.
+   * Guards #663: the dialog was exposed with no accessible name at all.
+   * `aria-label="Settings"` was passed to `<Dialog>`, which spreads it onto
+   * the modal root — a `role="presentation"` element, where it names nothing
+   * — while the `role="dialog"` paper carried the `aria-labelledby` MUI
+   * generates for a `DialogTitle` the dialog never rendered, so the reference
+   * dangled and a screen reader announced "dialog" and nothing else.
    *
-   * Invisible until now because the whole dialog sat outside the accessibility
-   * tree. Marked `failing` rather than skipped so it stays executed: naming the
-   * dialog turns this red, which is the signal to drop the marker.
+   * Invisible until #659, which put the dialog back in the accessibility tree
+   * and left this as what remained.
    */
-  it.failing('should give the dialog an accessible name (#663)', () => {
+  it('should name the dialog after the title it renders', () => {
     renderSettings();
 
-    // Any non-empty name, not the literal "Settings": the contract is that the
-    // dialog is named at all, and pinning the exact string would keep this red
-    // — indistinguishably from still-unnamed — if the fix lands on wording
-    // this test did not predict.
-    //
-    // `queryByRole`, not `getByRole`: the getter's not-found error renders the
-    // whole dialog into the failure message, and this case is expected to miss
-    // on every run until the dialog is named.
-    expect(screen.queryByRole('dialog', { name: /\S/ })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
+  });
+
+  /**
+   * The name has to come from a reference that resolves. MUI puts an
+   * `aria-labelledby` on the paper whether or not a `DialogTitle` is rendered,
+   * and a dangling one is a defect in its own right — it also outranks
+   * `aria-label` in the name computation, so a label cannot sit beside it and
+   * win. Resolved through the DOM the way assistive technology resolves it,
+   * rather than by asserting on the markup that happens to produce it.
+   */
+  it('should point the dialog at a heading that exists', () => {
+    renderSettings();
+
+    const id = screen.getByRole('dialog').getAttribute('aria-labelledby');
+    expect(id).toBeTruthy();
+
+    const title = document.getElementById(id as string);
+    expect(title).not.toBeNull();
+    // A heading, not just any labelled node: it is the dialog's only
+    // top-level one, so heading navigation has nothing to land on without it.
+    expect(title).toHaveTextContent('Settings');
+    expect(screen.getByRole('heading', { name: 'Settings', level: 2 })).toBe(title);
   });
 });

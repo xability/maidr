@@ -96,10 +96,13 @@ test.describe('dialog accessibility tree', () => {
     const barPlotPage = await setupBarPlotPage(page);
     await barPlotPage.openSettingsMenu();
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    // By name, not by role alone (#663): the dialog used to resolve here with
+    // no accessible name, indistinguishable from the four other dialogs.
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.settings-dialog')).toEqual([]);
     expect(await wrapperAriaHidden(page)).toBeNull();
 
+    await expect(page.getByRole('heading', { name: 'Settings', level: 2 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reset Settings' })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Close Settings with no changes' }),

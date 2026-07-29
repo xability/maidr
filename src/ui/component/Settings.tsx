@@ -18,6 +18,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -441,6 +442,7 @@ const Settings: React.FC = () => {
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
+  const titleId = `${id}-title`;
   const copyStatusId = `${id}-copy-status`;
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
@@ -631,7 +633,14 @@ const Settings: React.FC = () => {
     <Dialog
       id={id}
       role="dialog"
-      aria-label="Settings"
+      // Names the dialog. `aria-label` cannot do it here: MUI applies
+      // `role` and `aria-labelledby` to the paper — the `role="dialog"`
+      // element — but spreads everything else, `aria-label` included, onto
+      // the modal root, which is `role="presentation"` and names nothing.
+      // Passing the id also settles the reference MUI derives from it for
+      // `DialogContext`; left to generate its own, it points the paper at a
+      // `DialogTitle` that need not exist.
+      aria-labelledby={titleId}
       open={true}
       onClose={handleDialogClose}
       maxWidth="sm"
@@ -644,9 +653,16 @@ const Settings: React.FC = () => {
       onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
+      {/* Renders as an `h2`, so the dialog also gains the top-level heading
+          it lacked — the section headings below were the only ones in it,
+          leaving nothing to land on when navigating by heading. */}
+      <DialogTitle id={titleId} className="settings-dialog-title">
+        Settings
+      </DialogTitle>
+
       <DialogContent className="settings-dialog-content">
         <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
+          <Typography variant="h6" component="h3" fontWeight="bold" gutterBottom>
             General Settings
           </Typography>
         </Grid>
@@ -1114,6 +1130,7 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <Typography
               variant="h6"
+              component="h3"
               fontWeight="bold"
               gutterBottom
               className="settings-section-title"
@@ -1237,6 +1254,7 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <Typography
               variant="h6"
+              component="h3"
               fontWeight="bold"
               gutterBottom
               className="settings-section-title"
