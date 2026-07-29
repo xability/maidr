@@ -42,11 +42,20 @@ const loadingScript: HTMLScriptElement | null
     : null;
 
 /**
- * Matches the filenames the library is published under — `maidr.js` plus the
- * per-adapter bundles (`recharts.mjs`, `vegalite.js`, …) when they are loaded
- * from a path that names maidr.
+ * Matches the paths the library is published under.
+ *
+ * Two alternatives, both deliberately narrow so an unrelated script whose name
+ * merely starts with "maidr" is not mistaken for the bundle:
+ * - A maidr package directory, which is what catches the per-adapter bundles
+ *   (`recharts.mjs`, `vegalite.js`, …) under `/npm/maidr@3.74.0/dist/`. A `@`
+ *   may be followed by any npm version spec, but a `-` has to be followed by a
+ *   digit, so `/maidr-3.74.0/` matches while `/maidr-analytics/` does not.
+ * - The bundle's own filename, where anything after "maidr" must start at a
+ *   separator — otherwise `maidrical.js` would match. The separator class and
+ *   the segment class are kept disjoint (`\w` excludes `.` and `-`) so the
+ *   repetition cannot reach itself and backtrack super-linearly.
  */
-const MAIDR_SCRIPT_PATTERN = /\/maidr[\w.@-]*\/|(?:^|\/)maidr[\w.-]*\.m?js(?:$|[?#])/i;
+const MAIDR_SCRIPT_PATTERN = /\/maidr(?:@[\w.-]+|-\d[\w.-]*)?\/|(?:^|\/)maidr(?:[.-]\w+)*\.m?js(?:$|[?#])/i;
 
 // Order matters: Edge, Opera and Samsung Internet all keep "Chrome" in their
 // user agent, so each has to be matched before Chrome itself.
@@ -143,6 +152,15 @@ export function classifyScriptOrigin(scriptUrl: string, pageUrl: string): MaidrS
 }
 
 /**
+ * Reports whether a script URL looks like a maidr bundle.
+ * @param url - The script URL to test.
+ * @returns True when the URL names a maidr package directory or bundle file.
+ */
+export function isMaidrScriptUrl(url: string): boolean {
+  return MAIDR_SCRIPT_PATTERN.test(url);
+}
+
+/**
  * Finds the URL of the script that loaded maidr.js, falling back to a scan of
  * the document when the bundle was loaded as an ES module (module scripts do
  * not set `document.currentScript`).
@@ -154,7 +172,7 @@ function findMaidrScriptUrl(): string | null {
   }
   const scripts = document.querySelectorAll<HTMLScriptElement>('script[src]');
   for (const script of scripts) {
-    if (MAIDR_SCRIPT_PATTERN.test(script.src)) {
+    if (isMaidrScriptUrl(script.src)) {
       return script.src;
     }
   }
@@ -171,8 +189,13 @@ export function detectMaidrSource(): MaidrSource {
     return { kind: 'unknown', url: null };
   }
 
-  // A `<script>` with no `src` carries the bundle in its own body — that is
-  // how a notebook cell or a self-contained HTML export ships maidr.js.
+  // A `<script>` with no `src` carries the bundle in its own body — that is how
+  // a notebook cell or a self-contained HTML export ships maidr.js. Known gap:
+  // this only recognises an inlined *classic* script, because per spec
+  // `document.currentScript` is null while a module script evaluates. An
+  // inlined `<script type="module">` therefore reports `unknown` rather than
+  // `inline` — deliberately, since nothing distinguishes it at that point from
+  // a bundle rolled into a host application's own chunk.
   const url = loadingScript ? loadingScript.src || null : findMaidrScriptUrl();
   if (!url) {
     return { kind: loadingScript ? 'inline' : 'unknown', url: null };

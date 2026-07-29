@@ -5,6 +5,7 @@ import {
   describeMaidrSource,
   describeOperatingSystem,
   formatDiagnostics,
+  isMaidrScriptUrl,
 } from '@util/diagnostics';
 
 const CHROME = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
@@ -81,6 +82,36 @@ describe('describeOperatingSystem', () => {
 
   it('falls back to Unknown for an unrecognised agent', () => {
     expect(describeOperatingSystem('some-crawler/1.0')).toBe('Unknown');
+  });
+});
+
+describe('isMaidrScriptUrl', () => {
+  it('matches the bundle filename, versioned or not', () => {
+    expect(isMaidrScriptUrl('https://example.com/dist/maidr.js')).toBe(true);
+    expect(isMaidrScriptUrl('https://example.com/maidr.mjs')).toBe(true);
+    expect(isMaidrScriptUrl('https://example.com/maidr.min.js')).toBe(true);
+    expect(isMaidrScriptUrl('https://example.com/lib/maidr-3.74.0.js')).toBe(true);
+    expect(isMaidrScriptUrl('https://example.com/maidr.js?v=3')).toBe(true);
+  });
+
+  it('matches per-adapter bundles under a maidr package directory', () => {
+    expect(
+      isMaidrScriptUrl('https://cdn.jsdelivr.net/npm/maidr@latest/dist/recharts.mjs'),
+    ).toBe(true);
+    expect(
+      isMaidrScriptUrl('https://cdn.jsdelivr.net/npm/maidr@3.74.0/dist/vegalite.js'),
+    ).toBe(true);
+    expect(isMaidrScriptUrl('/lib/maidr-3.74.0/maidr.js')).toBe(true);
+    expect(isMaidrScriptUrl('/node_modules/maidr/dist/chartjs.js')).toBe(true);
+  });
+
+  it('does not match unrelated scripts whose name merely starts with maidr', () => {
+    // The scan returns the first match in document order, so a false positive
+    // here would shadow the real bundle.
+    expect(isMaidrScriptUrl('https://example.com/maidrical.js')).toBe(false);
+    expect(isMaidrScriptUrl('https://example.com/maidr-analytics/tracker.js')).toBe(false);
+    expect(isMaidrScriptUrl('https://example.com/maidrify.js')).toBe(false);
+    expect(isMaidrScriptUrl('https://example.com/vendor/analytics.js')).toBe(false);
   });
 });
 
