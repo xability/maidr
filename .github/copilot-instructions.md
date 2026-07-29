@@ -1,85 +1,98 @@
-**Project Context:** We are building a multimodal access and interactive data representation system based on a strict, layered architecture designed for maintainability, testability, and extensibility. Adherence to these principles is paramount.
+<!-- Generated from CLAUDE.md by scripts/sync-copilot-instructions.mjs. Do not edit directly. -->
 
-**Core Architectural Pillars:**
+# MAIDR — development guide
 
-1.  **Unidirectional Dependency Flow:** UI → ViewModel → Service(s) → Core Model. Inner layers MUST NOT know about or depend on outer layers.
-2.  **Separation of Concerns (SoC):** Each layer and service has a distinct, well-defined responsibility.
-3.  **Loose Coupling & High Cohesion:** Minimize dependencies between components, especially within the Service layer, and ensure components group related functionalities.
-4.  **Single Source of Truth (SSoT):** The Core Model (figure, subplot, trace data) is the ultimate source of truth for application data. Services derive state from it; ViewModels validate and prepare data for UI based on it.
-5.  **Extensibility:** The architecture is designed to allow new services and UI features to be added with minimal impact on existing, unrelated components.
+**MAIDR** (Multimodal Access and Interactive Data Representation) gives blind
+and low-vision users non-visual access to statistical graphics through audio
+sonification, text descriptions, braille output, visual highlighting, and
+AI-generated descriptions.
 
-**What to Follow When Generating Code/Features:**
+**Stack:** TypeScript, React, Redux Toolkit, Web Audio API, Vite.
 
-**I. Core Model Layer:**
-_ **Purpose:** Defines the fundamental, raw data structures (e.g., `figure`, `subplot`, `trace`). This is the SSoT.
-_ **Responsibilities:**
-_ Hold the canonical data.
-_ **Dependencies:** None (it's the innermost core). \* **Behavior:** Pure data, minimal logic.
+## Commands
 
-**II. Service Layer:**
-_ **Purpose:** Encapsulates all business logic, data transformations, and interactions with the Core Model.
-_ **Responsibilities:**
-_ Perform specific tasks (e.g., Text processing, Audio playback, Braille generation, Review logic, Autoplay functionality).
-_ Interact with and transform data from the Core Model.
-_ Emit events to notify ViewModels of changes or outcomes.
-_ Strive to be as stateless as possible (relying on the Core Model and inputs for operations).
-_ Each service should have a specific, narrow responsibility (e.g., `TextService` handles text formatting, state for different modes).
-_ Auxiliary services (e.g., `AutoplayService`) may depend on core services (e.g., `TextService`) if logically required and to avoid code duplication (e.g., Review service leveraging Text service).
+```bash
+npm install            # install dependencies
+npm run dev:recharts   # dev server against the Recharts example
+npm run dev:victory    # dev server against the Victory example
+npm run build          # production build
+npm run type-check     # tsc --noEmit
+npm run lint:fix       # eslint --fix
+npm test               # jest unit tests (test/**/*.test.ts)
+npm run e2e            # playwright end-to-end tests
+npm run docs:serve     # build and preview the docs site
+```
 
-- **Dependencies:** Only on the Core Model and potentially other _logically related_ services.
-- **When adding a new Service:**
-  _ Define its specific responsibility.
-  _ Ensure it only depends on the Core Model or essential peer services. \* Design its event emission for ViewModel consumption.
+There is no `npm run dev` or `npm run preview`; use the per-example dev servers
+above and `npm run build:preview` for a full preview build.
 
-**III. ViewModel Layer:**
-_ **Purpose:** Acts as an intermediary between the UI and the Service layer. Prepares data for display and handles UI logic.
-_ **Responsibilities:**
-_ Consume events and data from the Service layer.
-_ Validate user inputs (from UI, keyboard) and events from the "outer world."
-_ Unify various input sources (keyboard, UI clicks) into consistent actions/data.
-_ Manage UI-specific state (e.g., current editing mode, selection states).
-_ Format/transform data received from services into a presentation-ready format for the UI.
-_ Expose data and commands to the UI (e.g., for React components).
-_ Orchestrate calls to multiple services if a UI action requires it.
-_ **Dependencies:** Only on the Service Layer(s).
-_ **When adding ViewModel logic:**
-_ Focus on data validation, state preparation for the UI, and handling user interactions. \* Delegate complex business logic to appropriate services.
+## Architecture
 
-**IV. UI Layer:**
-_ **Purpose:** Renders the user interface and captures user input.
-_ **Responsibilities:**
-_ Strictly presentation: display data provided by the ViewModel.
-_ Layout: organize visual elements.
-_ Delegate all user actions and events to the ViewModel.
-_ Remain "dumb" – minimal logic, primarily focused on rendering. (e.g., rendering a two-part settings panel with labels and input fields).
-_ **Dependencies:** Only on the ViewModel Layer.
-_ **When adding UI components:**
-_ Ensure all data comes from the ViewModel.
-_ Ensure all actions are routed through the ViewModel. \* Avoid embedding business or validation logic.
+Strict MVVC. Each layer knows only the layer below it.
 
-**V. General Principles for New Features:**
-_ **Identify the Layer:** Determine which layer(s) the new logic belongs to.
-_ **Follow Dependency Flow:** Ensure new code respects the UI → VM → Service → Core direction.
-_ **Event-Driven Updates:** Changes in services should trigger events that ViewModels subscribe to, which then update the UI.
-_ **Data Flow for Actions:** UI captures action → ViewModel validates/processes → ViewModel calls Service(s) → Service(s) interact with Core Model & perform logic → Service(s) emit event(s) → ViewModel updates → UI re-renders. \* **Modularity:** Aim for changes in one service/module to not necessitate changes in unrelated ones.
+```
+VIEW (React)  →  VIEWMODEL (Redux)  →  SERVICES  →  MODEL
+  src/ui/        src/state/           src/service/  src/model/
+```
 
-**What to Avoid (Anti-Patterns):**
+Every interaction follows one path:
 
-1.  **Violating Dependency Direction:**
-    - **NO** Core Model depending on Services, ViewModels, or UI.
-    - **NO** Service depending on ViewModels or UI.
-    - **NO** ViewModel depending on UI.
-2.  **Leaking Responsibilities / "Seeping" Logic:**
-    - **NO** business logic in ViewModels or UI components. (e.g., complex data transformation, core calculations).
-    - **NO** UI layout/presentation logic in ViewModels or Services.
-    - **NO** direct calls from UI to Services or Core Model.
-    - **NO** validation logic (beyond basic UI hints) in the UI layer; primary validation is in the ViewModel.
-    - **NO** Service A directly calling UI-specific methods of Service B.
-3.  **Tight Coupling:**
-    - **AVOID** services having unnecessary knowledge of other services' internal implementations. Communicate via well-defined interfaces or events.
-    - **AVOID** creating a "god object" service or ViewModel that knows too much.
-4.  **Bypassing Layers:** For example, the UI should never directly update the Core Model.
-5.  **Over-Complicating the UI Layer:** The UI (e.g., Settings component) should focus on rendering and delegating actions, not performing complex state management or business logic itself.
-6.  **Placing ViewModel Logic in Services:** Services should focus on business logic and data, not on preparing data _specifically_ for a particular view's display needs (that's the ViewModel's job).
-7.  **Introducing Circular Dependencies** between any components or layers.
-8.  **Excessive State in Services:** Services should primarily operate on inputs and the Core Model, minimizing their own persistent state.
+```
+keypress → KeybindingService → CommandExecutor → Command → Context
+        → Trace.notifyStateUpdate() → observing Services → Emitter events
+        → ViewModels → Redux → React
+```
+
+`src/controller.ts` wires it all together and disposes it on teardown. Detailed
+per-layer rules load automatically from `.claude/rules/` when you open files in
+that layer.
+
+## Layout
+
+```
+src/
+├─ index.tsx          # entry point
+├─ controller.ts      # constructs services + viewmodels, registers observers
+├─ model/             # Figure → Subplot → Trace, navigation, context
+├─ service/           # audio, text, braille, highlight, keybinding, chat, …
+├─ command/           # one class per user action
+├─ state/             # store, viewModel/ (Redux bridge), hook/
+├─ ui/                # React components
+├─ adapters/          # chart-library integrations
+├─ type/              # shared types; grammar.ts is the input schema
+└─ util/              # emitter, svg helpers, …
+
+test/                 # jest unit tests, mirrors src/
+e2e_tests/specs/      # playwright specs
+```
+
+## Principles
+
+1. **Keep it simple.** Readable beats clever. No abstraction before a second
+   caller exists.
+2. **Respect the layer boundaries.** The model never imports a service; a
+   service never dispatches Redux; a component never touches a service or the
+   model. Crossing a boundary is a regression.
+3. **Debug before you edit.** Reproduce, isolate the layer, trace the flow, find
+   the root cause, then design the smallest fix. The full workflow and the
+   per-layer checklists are in `.claude/skills/debug-maidr/SKILL.md`; in Claude
+   Code, run `/debug-maidr`.
+4. **Accessibility is the product.** A change that works visually but drops an
+   announcement, a braille update, or a keyboard path is broken.
+5. **Change only what the task requires.** One logical change per commit.
+
+## Before finishing
+
+```bash
+npm run lint:fix && npm run type-check && npm run build && npm test
+```
+
+Report what actually happened. If a test fails or a step was skipped, say so.
+
+## Agent configuration
+
+`.claude/` holds the Claude Code configuration — path-scoped rules, subagents,
+and skills. The GitHub Copilot equivalents under `.github/` are generated from
+it by `scripts/sync-copilot-instructions.mjs`, so edit the `.claude/` side and
+run `npm run sync:copilot`. See `.claude/README.md` for what goes where and how
+the two map onto each other.

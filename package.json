@@ -79,6 +79,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check-models": "node scripts/check-model-catalog.mjs",
+    "sync:copilot": "node scripts/sync-copilot-instructions.mjs",
+    "sync:copilot:check": "node scripts/sync-copilot-instructions.mjs --check",
     "semantic-release": "semantic-release",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -1,7 +1,7 @@
 ---
 name: test-runner
 description: Testing specialist for MAIDR. Runs Playwright E2E and Jest unit tests, analyzes failures, writes new tests, and ensures coverage. Use proactively to verify changes don't break existing tests.
-tools: Read, Edit, Bash, Grep, Glob
+tools: Read, Edit, Bash, Grep, Glob, Skill
 model: sonnet
 memory: project
 ---
@@ -86,7 +86,8 @@ For each failure:
 4. Fix the root cause, not the symptom
 5. Verify the fix doesn't break other tests
 
-For complex failures with non-obvious root causes, use the debug-first methodology from `.claude/DEBUGGING.md`.
+For complex failures with non-obvious root causes, invoke the `debug-maidr`
+skill and follow its debug-first workflow.
 
 ## Before finishing
 
