@@ -8,6 +8,7 @@ import {
   Grid,
   Typography,
 } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId } from 'react';
 
@@ -40,6 +41,7 @@ const Help: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('help');
   const { items } = useViewModelState('help');
+  const { modalRef, container } = useModalContainer();
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -54,6 +56,8 @@ const Help: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
     >
       {/* Header */}
       <Grid container component={DialogTitle}>

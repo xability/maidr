@@ -336,6 +336,33 @@ export class BasePage {
   }
 
   /**
+   * Opens the help dialog and leaves it open, for tests that need to inspect
+   * the dialog itself rather than the open-then-close round trip.
+   * @throws KeypressError if the shortcut fails
+   */
+  public async openHelpMenu(): Promise<void> {
+    await this.pressKeyCombination(
+      TestConstants.COMMAND_KEY,
+      TestConstants.SLASH_KEY,
+      'open help menu',
+    );
+  }
+
+  /**
+   * Opens the settings dialog and leaves it open, for tests that need to
+   * inspect the dialog itself rather than the open-then-close round trip.
+   * @throws KeypressError if the shortcut fails
+   */
+  public async openSettingsMenu(): Promise<void> {
+    await this.pressKeyCombination(
+      TestConstants.COMMAND_KEY,
+      TestConstants.COMMA_KEY,
+      'open settings menu',
+      100,
+    );
+  }
+
+  /**
    * Shows the Chat dialog and verifies it appears correctly
    * @throws AssertionError if Chat Dialog does not appear or doesn't have expected content
    */

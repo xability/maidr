@@ -35,6 +35,7 @@ import {
 } from '@mui/material';
 import { LlmValidationService } from '@service/llmValidation';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
   MAX_BRAILLE_LINES,
@@ -131,6 +132,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
 }) => {
   const labelId = useId();
   const hintId = useId();
+  const { modalRef, container } = useModalContainer();
   return (
     <SettingRow
       label={rowLabel}
@@ -150,7 +152,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
                 ...(hint ? { 'aria-describedby': hintId } : {}),
               },
             }}
-            MenuProps={{ disablePortal: true }}
+            MenuProps={{ disablePortal: true, ref: modalRef, container }}
           >
             <MenuItem value="" disabled>
               {placeholder}
@@ -192,6 +194,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeVersion,
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
+  const { modalRef, container } = useModalContainer();
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
   // Models available to this credential, probed from the provider's models
@@ -394,6 +397,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 }}
                 MenuProps={{
                   disablePortal: true,
+                  ref: modalRef,
+                  container,
                   PaperProps: {
                     className: 'settings-menu-paper',
                   },
@@ -425,6 +430,8 @@ const Settings: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
+  const dialog = useModalContainer();
+  const expertiseMenu = useModalContainer();
   const { general, llm } = viewModel.state;
 
   // SettingsService normalizes braille display fields at construction
@@ -615,6 +622,8 @@ const Settings: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
+      ref={dialog.modalRef}
+      container={dialog.container}
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
       onKeyDown={handleDialogKeyDown}
@@ -1137,6 +1146,8 @@ const Settings: React.FC = () => {
                     }}
                     MenuProps={{
                       disablePortal: true,
+                      ref: expertiseMenu.modalRef,
+                      container: expertiseMenu.container,
                       PaperProps: {
                         className: 'llm-model-setting-select-menu',
                       },

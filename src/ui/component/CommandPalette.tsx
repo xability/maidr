@@ -1,6 +1,7 @@
 import type { CommandItem } from '@state/viewModel/commandPaletteViewModel';
 import type { Keys } from '@type/event';
 import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { filterCommands } from '@state/viewModel/commandPaletteViewModel';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -8,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 const CommandPalette: React.FC = () => {
   const commandPaletteViewModel = useViewModel('commandPalette');
   const state = useViewModelState('commandPalette');
+  const { modalRef, container } = useModalContainer();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const enterPressedRef = useRef(false);
@@ -92,6 +94,8 @@ const CommandPalette: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       role="dialog"
       aria-modal="true"
       aria-labelledby="command-palette-title"
