@@ -72,6 +72,17 @@ const COPY_STATUS_MESSAGE: Record<CopyStatus, string> = {
   failed: 'Could not copy — select the values above and copy them manually',
 };
 
+interface CopyState {
+  readonly status: CopyStatus;
+  /**
+   * Counts attempts so a repeat copy still reaches the user. Setting the same
+   * status twice changes no text, and unchanged text is no DOM mutation — a
+   * live region announces on the mutation, not on the state update, so without
+   * this a second successful copy would be silent to a screen reader.
+   */
+  readonly attempt: number;
+}
+
 // Letter portion of the dialog accelerator keys. Shared between the
 // keydown handler and the aria-keyshortcuts attributes so the two
 // cannot drift apart and announce a shortcut that no longer fires.
@@ -422,7 +433,7 @@ const Settings: React.FC = () => {
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
   const copyStatusId = `${id}-copy-status`;
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
@@ -436,13 +447,16 @@ const Settings: React.FC = () => {
   );
 
   const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
+    let status: CopyStatus;
     try {
       await copyToClipboard(formatDiagnostics(diagnostics));
-      setCopyStatus('copied');
+      status = 'copied';
     } catch (error) {
       console.error('[Settings] Failed to copy diagnostics', error);
-      setCopyStatus('failed');
+      status = 'failed';
     }
+    // Always a fresh object, so an unchanged status still re-renders.
+    setCopyState(prev => ({ status, attempt: prev.attempt + 1 }));
   }, [diagnostics]);
 
   useEffect(() => {
@@ -1278,12 +1292,18 @@ const Settings: React.FC = () => {
                       role="status"
                       aria-live="polite"
                       sx={{
-                        color: copyStatus === 'failed'
+                        color: copyState.status === 'failed'
                           ? 'error.main'
                           : 'text.secondary',
                       }}
                     >
-                      {COPY_STATUS_MESSAGE[copyStatus]}
+                      {/* Keyed by attempt so React swaps the node on every
+                          copy. Re-rendering the same text would leave the
+                          region untouched, and an untouched live region is
+                          never announced. */}
+                      <span key={copyState.attempt}>
+                        {COPY_STATUS_MESSAGE[copyState.status]}
+                      </span>
                     </Typography>
                   </Grid>
                 </Grid>

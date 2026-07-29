@@ -301,6 +301,13 @@ describe('redactScriptUrl', () => {
   it('returns null for a URL it cannot parse', () => {
     expect(redactScriptUrl('not a url')).toBeNull();
   });
+
+  it('returns null for a file:// URL with no filename to keep', () => {
+    // Degrades to the bare "Local assets" label rather than inventing a path.
+    // Unreachable from a script that actually executed, but the redaction has
+    // to fail closed rather than fall through to the unredacted URL.
+    expect(redactScriptUrl('file:///Users/jane.doe/dist/')).toBeNull();
+  });
 });
 
 describe('formatDiagnostics', () => {
