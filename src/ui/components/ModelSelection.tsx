@@ -1,6 +1,7 @@
 import type { Llm, LlmVersion } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
 import { resolveVersionOptions } from '@util/llm';
@@ -13,6 +14,52 @@ interface ModelSelectionProps {
     version: string;
   }>;
 }
+
+interface ModelVersionSelectProps {
+  label: string;
+  value: LlmVersion;
+  versions: { label: string; value: LlmVersion }[];
+  onChange: (version: LlmVersion) => void;
+}
+
+/**
+ * One provider's version dropdown. Split out of the list so each dropdown owns
+ * the {@link useModalContainer} ref its own menu needs — one hook per menu.
+ */
+const ModelVersionSelect: React.FC<ModelVersionSelectProps> = ({
+  label,
+  value,
+  versions,
+  onChange,
+}) => {
+  const { modalRef, container } = useModalContainer();
+
+  return (
+    <FormControl size="small" sx={{ minWidth: 200 }}>
+      <Select
+        value={value}
+        onChange={e => onChange(e.target.value as LlmVersion)}
+        aria-label={label}
+        MenuProps={{
+          disablePortal: true,
+          ref: modalRef,
+          container,
+          PaperProps: {
+            sx: {
+              maxHeight: 200,
+            },
+          },
+        }}
+      >
+        {versions.map(version => (
+          <MenuItem key={version.value} value={version.value}>
+            {version.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+};
 
 export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels }) => {
   const settingsViewModel = useViewModel('settings');
@@ -82,27 +129,12 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
             {model.name}
             :
           </Typography>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <Select
-              value={getCurrentVersion(model.modelKey)}
-              onChange={e => handleModelChange(model.modelKey, e.target.value as LlmVersion)}
-              aria-label={`Select ${model.name} version`}
-              MenuProps={{
-                disablePortal: true,
-                PaperProps: {
-                  sx: {
-                    maxHeight: 200,
-                  },
-                },
-              }}
-            >
-              {getModelVersions(model.modelKey).map(version => (
-                <MenuItem key={version.value} value={version.value}>
-                  {version.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <ModelVersionSelect
+            label={`Select ${model.name} version`}
+            value={getCurrentVersion(model.modelKey)}
+            versions={getModelVersions(model.modelKey)}
+            onChange={version => handleModelChange(model.modelKey, version)}
+          />
         </Box>
       ))}
     </Box>
