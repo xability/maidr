@@ -36,6 +36,15 @@ const COPY_BUTTON_NAME = 'Copy diagnostics to clipboard';
 const COPIED_MESSAGE = 'Copied to clipboard';
 const FAILED_MESSAGE = 'Could not copy — select the values above and copy them manually';
 
+/** The `SettingsViewModel` surface `Settings` actually calls. */
+type SettingsStub = Pick<
+  SettingsViewModel,
+  'state' | 'load' | 'reset' | 'toggle' | 'saveAndClose'
+>;
+
+/** The `ChatViewModel` surface `Settings` actually calls. */
+type ChatStub = Pick<ChatViewModel, 'updateWelcomeMessage'>;
+
 const writeText = jest.fn<(text: string) => Promise<void>>();
 // Both clipboard paths log on failure by design. Silenced for the file rather
 // than per test, so the expected-failure cases do not print noise, and handed
@@ -56,17 +65,25 @@ const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
  * would never re-render it — that case needs a store and a `Provider`.
  */
 function renderSettings(): void {
-  const registry = new ViewModelRegistry();
-  registry.register('settings', {
+  // Typed as a `Pick` of the real view models rather than cast straight from
+  // an object literal: the members the stub does define are checked against
+  // the production signatures, so a rename or a changed parameter list fails
+  // here instead of drifting silently behind an `as unknown as`. Only the
+  // members `Settings` never calls are bridged by the cast.
+  const settings: SettingsStub = {
     state: DEFAULT_SETTINGS,
     load: jest.fn(),
     reset: jest.fn(),
     toggle: jest.fn(),
     saveAndClose: jest.fn(),
-  } as unknown as SettingsViewModel);
-  registry.register('chat', {
+  };
+  const chat: ChatStub = {
     updateWelcomeMessage: jest.fn(),
-  } as unknown as ChatViewModel);
+  };
+
+  const registry = new ViewModelRegistry();
+  registry.register('settings', settings as SettingsViewModel);
+  registry.register('chat', chat as ChatViewModel);
 
   render(
     <MaidrContext.Provider

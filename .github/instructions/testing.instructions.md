@@ -59,6 +59,9 @@ import '@testing-library/jest-dom/jest-globals';
 - Render through `MaidrContext.Provider` with a `ViewModelRegistry` holding
   stub view models. The component then reaches its state the same way it does
   at runtime, and no service or model has to be constructed.
+- Type a stub view model as a `Pick` of the real one, listing the members the
+  component calls, and cast that. The signatures stay checked, so a rename
+  breaks the test instead of drifting past an `as unknown as`.
 - Assert the accessibility contract, not the markup: that a live region is in
   the DOM before the text it will carry, that `aria-describedby` resolves to a
   real element, that focus lands where the user left it. Those are the parts
@@ -69,9 +72,17 @@ import '@testing-library/jest-dom/jest-globals';
   moved.
 - Wrap an interaction whose handler is async in `await act(...)`, so the state
   update it schedules is flushed before the assertions run.
+- Silencing a console the code under test writes to on purpose is the one
+  exception to cleaning up in `afterEach`: spy at file scope, `mockClear()` per
+  test, and restore in `afterAll`. Re-installing per test would let the
+  expected-failure cases print on every run.
 - jsdom is not a browser and its accessibility tree is not a screen reader.
   These tests catch wiring regressions; they do not replace verification with
   real assistive technology.
+- `jsdom` and `@types/jsdom` are separate devDependencies on different major
+  lines — DefinitelyTyped has no release matching every jsdom major. Bumping
+  one means checking `npm run type-check` still passes, or the break surfaces
+  on an unrelated pull request.
 
 ## E2E tests
 
