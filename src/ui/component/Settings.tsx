@@ -53,6 +53,7 @@ import {
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
 import { resolveVersionOptions } from '@util/llm';
+import { MAIDR_VERSION } from '@util/version';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -1148,6 +1149,32 @@ const Settings: React.FC = () => {
               </Grid>
             </Grid>
           )}
+        </Grid>
+
+        <Grid size={12}>
+          <Divider className="settings-divider" />
+        </Grid>
+
+        {/* About */}
+        <Grid container spacing={0.5} className="settings-section">
+          <Grid size={12}>
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              gutterBottom
+              className="settings-section-title"
+            >
+              About
+            </Typography>
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="maidr.js Version"
+              input={(
+                <Typography variant="body2">{MAIDR_VERSION}</Typography>
+              )}
+            />
+          </Grid>
         </Grid>
 
         <Grid size={12}>
