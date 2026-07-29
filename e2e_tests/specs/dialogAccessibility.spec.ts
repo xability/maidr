@@ -107,6 +107,38 @@ test.describe('dialog accessibility tree', () => {
     expect(await page.getByRole('option').count()).toBeGreaterThan(0);
   });
 
+  // Description, the Command Palette and Chat carry the same wiring as Help
+  // and Settings, so each needs its own assertion — the hook is per-component,
+  // and a missed `container` on one of them is invisible to the others.
+  test('description dialog resolves by role', async ({ page }) => {
+    await setupBarPlotPage(page);
+    await page.keyboard.press('d');
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
+    expect(await wrapperAriaHidden(page)).toBeNull();
+  });
+
+  test('command palette resolves by role', async ({ page }) => {
+    await setupBarPlotPage(page);
+    // The binding is `Platform.ctrl + shift + p`, which is Command on macOS.
+    await page.keyboard.press(`${TestConstants.COMMAND_KEY}+Shift+P`);
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
+    expect(await wrapperAriaHidden(page)).toBeNull();
+    await expect(page.getByRole('heading', { name: 'Command Palette' })).toBeVisible();
+  });
+
+  test('chat dialog resolves by role', async ({ page }) => {
+    await setupBarPlotPage(page);
+    await page.keyboard.press('Shift+/');
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
+    expect(await wrapperAriaHidden(page)).toBeNull();
+  });
+
   test('the chart stays in the accessibility tree while a dialog is open', async ({ page }) => {
     const barPlotPage = await setupBarPlotPage(page);
     await barPlotPage.openHelpMenu();
