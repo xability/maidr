@@ -253,19 +253,51 @@ export function collectDiagnostics(): Diagnostics {
 }
 
 /**
+ * Reduces a script URL to what a bug report needs, dropping what it does not.
+ *
+ * A `file://` bundle sits wherever the reporter saved it, so its path carries
+ * their OS username — and the copied block is headed for a public issue, so
+ * only the protocol and filename survive. Everywhere else the origin and path
+ * are the whole point of the field (they are what shows a jsDelivr `@latest`
+ * against a pinned local copy), so those are kept and only the query and
+ * fragment are dropped, since a signed asset URL can carry a token there.
+ * @param url - The script URL to reduce.
+ * @returns The redacted URL, or `null` if it cannot be parsed.
+ */
+function redactScriptUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Unreachable via `script.src`, which the DOM always resolves to an
+    // absolute URL. Dropping it beats pasting an unparsed string.
+    return null;
+  }
+
+  if (parsed.protocol === 'file:') {
+    const filename = parsed.pathname.split('/').pop();
+    return filename ? `file:///.../${filename}` : null;
+  }
+  return `${parsed.origin}${parsed.pathname}`;
+}
+
+/**
  * Formats a diagnostics snapshot as the plain-text block copied to the
  * clipboard, ready to paste into a bug report.
  *
- * The page URL is deliberately left out: it is the one field here that can
- * carry private paths or credentials in a query string, and it tells a
- * maintainer nothing they cannot get from the report itself.
+ * The page URL is deliberately left out: it is the field most likely to carry
+ * private paths or credentials in a query string, and it tells a maintainer
+ * nothing they cannot get from the report itself. The script URL is kept, but
+ * redacted on the same reasoning — see {@link redactScriptUrl}. The dialog
+ * still shows it in full, since that stays on the reporter's own screen.
  * @param diagnostics - The snapshot to format.
  * @returns A newline-separated `key: value` block.
  */
 export function formatDiagnostics(diagnostics: Diagnostics): string {
   const { version, browser, operatingSystem, source, userAgent } = diagnostics;
-  const loadedFrom = source.url
-    ? `${describeMaidrSource(source)} (${source.url})`
+  const redactedUrl = source.url ? redactScriptUrl(source.url) : null;
+  const loadedFrom = redactedUrl
+    ? `${describeMaidrSource(source)} (${redactedUrl})`
     : describeMaidrSource(source);
 
   return [

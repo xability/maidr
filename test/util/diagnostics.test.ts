@@ -315,4 +315,33 @@ describe('formatDiagnostics', () => {
   it('leaves the page URL out, which can carry private paths or tokens', () => {
     expect(formatDiagnostics(diagnostics)).not.toContain('report.html');
   });
+
+  it('keeps the origin and path of a hosted bundle, which is the diagnostic part', () => {
+    // A jsDelivr @latest against a pinned local copy is exactly the mismatch
+    // this field exists to expose, so the path has to survive.
+    expect(formatDiagnostics(diagnostics)).toContain(
+      'Loaded from: CDN (https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js)',
+    );
+  });
+
+  it('strips the query and fragment, which can carry signed-URL tokens', () => {
+    const report = formatDiagnostics({
+      ...diagnostics,
+      source: { kind: 'cdn', url: 'https://cdn.example/maidr.js?token=s3cret#frag' },
+    });
+    expect(report).toContain('Loaded from: CDN (https://cdn.example/maidr.js)');
+    expect(report).not.toContain('s3cret');
+    expect(report).not.toContain('frag');
+  });
+
+  it('redacts the directory of a file:// bundle, which carries the OS username', () => {
+    const report = formatDiagnostics({
+      ...diagnostics,
+      source: { kind: 'local', url: 'file:///Users/jane.doe/reports/dist/maidr.js' },
+    });
+    expect(report).toContain('Loaded from: Local assets (file:///.../maidr.js)');
+    // The filename still says which bundle; the home directory does not travel.
+    expect(report).not.toContain('jane.doe');
+    expect(report).not.toContain('reports');
+  });
 });
