@@ -554,6 +554,20 @@ const Settings: React.FC = () => {
     viewModel.toggle();
   }, [viewModel]);
 
+  // MUI's Modal calls stopPropagation() on the Escape keydown before it can
+  // reach the document-level hotkeys-js listener, so the SETTINGS scope keymap
+  // never sees the key — Escape has to be handled by the dialog itself.
+  // Only `escapeKeyDown` closes: a backdrop click stays inert so a stray click
+  // outside the dialog cannot discard unsaved edits.
+  const handleDialogClose = useCallback(
+    (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
+      if (reason === 'escapeKeyDown') {
+        handleClose();
+      }
+    },
+    [handleClose],
+  );
+
   const handleSave = useCallback((): void => {
     // Clamp before persisting so a Save click before the field blurs
     // can't bypass the [1, MAX] bound. The onChange path intentionally
@@ -619,6 +633,7 @@ const Settings: React.FC = () => {
       role="dialog"
       aria-label="Settings"
       open={true}
+      onClose={handleDialogClose}
       maxWidth="sm"
       fullWidth
       disablePortal
