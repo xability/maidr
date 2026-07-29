@@ -103,5 +103,6 @@ When a change surfaces a bug that belongs to a different fix, pin it with
 `it.failing` and the issue number rather than skipping it or leaving a comment.
 The case keeps running, the suite stays green while the bug stands, and the day
 the fix lands the case turns red — which is the reminder to delete it and
-anything written to work around the bug. `test/ui/settings.copyDiagnostics.test.tsx`
-does this for #663.
+anything written to work around the bug. Replace it then with a case that
+asserts the fixed behaviour, rather than dropping the marker and leaving the
+weaker assertion the pin was written to tolerate.
