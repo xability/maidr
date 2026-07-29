@@ -82,16 +82,10 @@ function renderSettings(): void {
 
 /**
  * Finds the copy button.
- *
- * `hidden: true` is a concession to #655: MUI's ModalManager marks an ancestor
- * of these `disablePortal` dialogs `aria-hidden`, so nothing inside the dialog
- * is exposed by role while it is open. The bug is pinned by its own case
- * below; every other assertion here is about markup that has to be right
- * either way, so they opt out of the role filter rather than wait on the fix.
  * @returns The About section's copy button.
  */
 function copyButton(): HTMLElement {
-  return screen.getByRole('button', { name: COPY_BUTTON_NAME, hidden: true });
+  return screen.getByRole('button', { name: COPY_BUTTON_NAME });
 }
 
 /**
@@ -233,23 +227,35 @@ describe('settings About section: copy diagnostics', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it('should expose the dialog and its controls to the accessibility tree', () => {
+    renderSettings();
+
+    // Guards #655, fixed in #659: the dialogs render with `disablePortal`, and
+    // MUI used to hide an ancestor of them, taking the dialog and every live
+    // region inside it out of the accessibility tree while it was open.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: COPY_BUTTON_NAME })).toBeInTheDocument();
+    expect(describedBy(copyButton())).toBeInTheDocument();
+  });
+
   /**
-   * Pins #655: while a dialog is open, MUI marks an ancestor of it
-   * `aria-hidden="true"`, so the dialog, its controls and the live region
-   * above are all absent from the accessibility tree — the copy confirmation
-   * mutates correctly and is still announced to nobody.
+   * Pins the accessible name gap that #659 uncovered: the settings dialog has
+   * none. `aria-label="Settings"` is passed to `<Dialog>`, which spreads it
+   * onto the modal root — a `role="presentation"` element, where it names
+   * nothing — while the `role="dialog"` paper carries the `aria-labelledby`
+   * MUI generates for a `DialogTitle` this dialog never renders, so the
+   * reference dangles. A screen reader announces the dialog with no name.
    *
-   * Marked `failing` rather than skipped so it stays executed: fixing #655
-   * turns this red, which is the signal to drop the marker here and the
-   * `hidden: true` in `copyButton`.
+   * Invisible until now because the whole dialog sat outside the accessibility
+   * tree. Marked `failing` rather than skipped so it stays executed: naming the
+   * dialog turns this red, which is the signal to drop the marker.
    */
-  it.failing('should expose the dialog and its controls to the accessibility tree (#655)', () => {
+  it.failing('should give the dialog an accessible name (#663)', () => {
     renderSettings();
 
     // `queryByRole`, not `getByRole`: the getter's not-found error renders the
     // whole dialog into the failure message, and this case is expected to miss
-    // on every run until #655 lands.
+    // on every run until the dialog is named.
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: COPY_BUTTON_NAME })).toBeInTheDocument();
   });
 });

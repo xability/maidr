@@ -93,4 +93,4 @@ When a change surfaces a bug that belongs to a different fix, pin it with
 The case keeps running, the suite stays green while the bug stands, and the day
 the fix lands the case turns red — which is the reminder to delete it and
 anything written to work around the bug. `test/ui/settings.copyDiagnostics.test.tsx`
-does this for #655.
+does this for #663.
