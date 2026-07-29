@@ -224,7 +224,7 @@ export class BasePage {
   ): Promise<void> {
     const _modal = this.page.locator(modalSelector);
     const closeButton = this.page.locator('//button[text()=\'Close\']');
-    closeButton.click();
+    await closeButton.click();
     await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
   }
 
