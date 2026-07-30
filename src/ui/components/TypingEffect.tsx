@@ -69,6 +69,12 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
   // only for the messages that actually contain maths. Until it arrives the
   // equation renders as its own source text, which is legible and, more to the
   // point, is exactly what the live region below announces either way.
+  //
+  // `mathPlugins` tracks "KaTeX has been loaded", not "this message has maths",
+  // so it is deliberately never cleared: should `text` stop matching (a streamed
+  // response can gain and lose a delimiter pair mid-flight), rehype-katex is a
+  // no-op on markdown that remark-math produced no maths nodes for. Dropping it
+  // would re-render the bubble to reach the same output.
   useEffect(() => {
     if (!needsMath) {
       return;
