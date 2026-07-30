@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../../utils/constants';
 import { BarPlotError } from '../../utils/errors';
-import { modifierKey } from '../../utils/platform';
+import { normalizeText } from '../../utils/text';
 import { BasePage } from '../base-page';
 
 /**
@@ -166,7 +166,7 @@ export class BarPlotPage extends BasePage {
   private async getNotificationText(): Promise<string> {
     try {
       const text = await this.getElementText(this.selectors.notification);
-      return text.replace(/\s+/g, ' ').trim();
+      return normalizeText(text);
     } catch (error) {
       throw new BarPlotError('Failed to get notification text', { cause: error });
     }
@@ -354,10 +354,11 @@ export class BarPlotPage extends BasePage {
     const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
     const directionName = direction === 'forward' ? 'forward' : 'reverse';
 
-    // Resolve once: it costs a page round-trip and cannot change mid-test.
-    const modifier = await modifierKey(this.page);
-
     try {
+      // Resolve once: it costs a page round-trip and cannot change mid-test.
+      // Inside the try so a failure is wrapped like every other step here.
+      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
+
       await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);

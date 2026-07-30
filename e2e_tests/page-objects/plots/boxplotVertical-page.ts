@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 import { TestConstants } from '../../utils/constants';
 import { BoxplotVerticalError } from '../../utils/errors';
-import { modifierKey } from '../../utils/platform';
 import { BasePage } from '../base-page';
 
 /**
@@ -342,7 +341,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToTop(): Promise<void> {
     try {
-      await this.pressKeyCombination(await modifierKey(this.page), TestConstants.UP_ARROW_KEY, 'Move to top');
+      await this.pressKeyCombination(await this.resolveModifier('Move to top'), TestConstants.UP_ARROW_KEY, 'Move to top');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to last box', { cause: error });
     }

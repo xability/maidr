@@ -3,17 +3,7 @@ import { expect } from '@playwright/test';
 import { TestConstants } from '../utils/constants';
 import { AssertionError, KeypressError } from '../utils/errors';
 import { modifierKey } from '../utils/platform';
-
-/**
- * Collapses whitespace runs and trims, the way `expect(...).toHaveText()` does
- * before comparing. MAIDR's announcement markup wraps its text across lines, so
- * comparisons against a single-line expected string have to normalise first.
- * @param text - Raw text content read from the page
- * @returns The text with whitespace runs collapsed to single spaces, trimmed
- */
-function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
+import { normalizeText } from '../utils/text';
 
 /**
  * Base page object that all other page objects extend
@@ -175,6 +165,27 @@ export class BasePage {
   }
 
   /**
+   * Resolves the control/command modifier, wrapping a failure the way the key
+   * helpers do. Callers pass the result straight into `pressKeyCombination`,
+   * which evaluates its arguments before its own try block — so without this
+   * a page-evaluate failure would escape unwrapped.
+   * @param context - Context description for error reporting
+   * @returns The modifier key name for this browser
+   * @throws KeypressError if the modifier cannot be resolved
+   */
+  protected async resolveModifier(context: string): Promise<string> {
+    try {
+      return await modifierKey(this.page);
+    } catch (error) {
+      throw new KeypressError(
+        'modifier',
+        context,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+
+  /**
    * Presses a key combination (e.g., Command + key)
    *
    * Named `modifier` rather than `modifierKey` so it does not shadow the
@@ -306,7 +317,7 @@ export class BasePage {
   public async showHelpMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await modifierKey(this.page),
+        await this.resolveModifier('key combination'),
         TestConstants.SLASH_KEY,
         'show help menu',
       );
@@ -330,7 +341,7 @@ export class BasePage {
   public async showSettingsMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await modifierKey(this.page),
+        await this.resolveModifier('key combination'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -358,7 +369,7 @@ export class BasePage {
    */
   public async openHelpMenu(): Promise<void> {
     await this.pressKeyCombination(
-      await modifierKey(this.page),
+      await this.resolveModifier('key combination'),
       TestConstants.SLASH_KEY,
       'open help menu',
     );
@@ -371,7 +382,7 @@ export class BasePage {
    */
   public async openSettingsMenu(): Promise<void> {
     await this.pressKeyCombination(
-      await modifierKey(this.page),
+      await this.resolveModifier('key combination'),
       TestConstants.COMMA_KEY,
       'open settings menu',
       100,
@@ -385,7 +396,7 @@ export class BasePage {
   public async closeSettingsMenuWithEscape(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await modifierKey(this.page),
+        await this.resolveModifier('key combination'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -417,7 +428,7 @@ export class BasePage {
   public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await modifierKey(this.page),
+        await this.resolveModifier('key combination'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -530,7 +541,7 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await this.pressKeyCombination(await modifierKey(this.page), key, action);
+      await this.pressKeyCombination(await this.resolveModifier('key combination'), key, action);
     } else {
       await this.pressKey(key, action);
     }
@@ -758,7 +769,7 @@ export class BasePage {
   protected async getInstructionText(notificationSelector: string): Promise<string> {
     try {
       const text = await this.getElementText(notificationSelector);
-      return text.replace(/\s+/g, ' ').trim();
+      return normalizeText(text);
     } catch (error) {
       throw new Error('Failed to get instruction text', { cause: error });
     }
@@ -869,10 +880,11 @@ export class BasePage {
     const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : direction === 'reverse' ? TestConstants.LEFT_ARROW_KEY : direction === 'downward' ? TestConstants.DOWN_ARROW_KEY : TestConstants.UP_ARROW_KEY;
     const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
-    // Resolve once: it costs a page round-trip and cannot change mid-test.
-    const modifier = await modifierKey(this.page);
-
     try {
+      // Resolve once: it costs a page round-trip and cannot change mid-test.
+      // Inside the try so a failure is wrapped like every other step here.
+      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
+
       await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
