@@ -48,14 +48,12 @@ const MATH_DELIMITER_PATTERN = /\$[^$]*\$/;
 /**
  * Matches the maths stylesheet's own URL, ignoring any query or fragment.
  *
- * The escape is global rather than first-match: the filename carries one dot
- * today, but a second one — a version or content hash — would otherwise slip
- * through unescaped as a wildcard.
+ * Written out rather than built from {@link MATH_STYLESHEET_FILENAME}: escaping
+ * a filename into a pattern means escaping every regex metacharacter, and a
+ * partial escape (dots but not backslashes) is the kind of near-miss that reads
+ * as safe and is not. The two are pinned to each other by a test instead.
  */
-const MATH_STYLESHEET_PATTERN = new RegExp(
-  `(?:^|/)${MATH_STYLESHEET_FILENAME.replace(/\./g, '\\.')}(?:$|[?#])`,
-  'i',
-);
+const MATH_STYLESHEET_PATTERN = /(?:^|\/)maidr-math\.css(?:$|[?#])/i;
 
 /**
  * Matches the URL of a published MAIDR stylesheet — `maidr.css`, or one of the

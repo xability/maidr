@@ -23,7 +23,7 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { containsLatex, resolveMathStylesheetUrl } from '@util/katex';
+import { containsLatex, MATH_STYLESHEET_FILENAME, resolveMathStylesheetUrl } from '@util/katex';
 
 /** Re-imports the module under test with its once-per-page flag cleared. */
 async function freshModule(): Promise<typeof import('@util/katex')> {
@@ -91,6 +91,23 @@ describe('containsLatex', () => {
     // would leave a real equation elsewhere in the same message unstyled. The
     // cost of matching it is one stylesheet fetch.
     expect(containsLatex('It costs $5 and $7 respectively.')).toBe(true);
+  });
+});
+
+describe('the maths stylesheet filename', () => {
+  it('should be the name the module matches links against', async () => {
+    // The matcher is a literal rather than a pattern built from the constant:
+    // escaping a filename into a regex means escaping every metacharacter, and
+    // a partial escape reads as safe without being safe. That trade only holds
+    // while the two agree, which is what this pins — rename the constant and
+    // this fails rather than the dedup silently missing every link.
+    addScript('https://cdn.jsdelivr.net/npm/maidr@3.75.0/dist/maidr.js');
+    addStylesheet(`https://cdn.jsdelivr.net/npm/maidr@3.75.0/dist/${MATH_STYLESHEET_FILENAME}`);
+    const { ensureKatexStylesheet } = await freshModule();
+
+    ensureKatexStylesheet();
+
+    expect(linkedStylesheets()).toHaveLength(1);
   });
 });
 
