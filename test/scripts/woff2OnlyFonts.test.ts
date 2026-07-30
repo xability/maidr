@@ -135,3 +135,102 @@ describe('stripNonWoff2FontSources', () => {
     expect(result.css).toBe(css);
   });
 });
+
+/**
+ * Minified CSS carries no comments today, so these guard a future change in
+ * minifier settings: a `;` or `:` inside a comment must not split a
+ * declaration in the wrong place, and the emitted rule must stay parseable.
+ */
+describe('stripNonWoff2FontSources with comments', () => {
+  /** Fails if the transform emits an empty, doubled or dangling src list. */
+  function expectWellFormed(css: string): void {
+    // Comments are what the browser drops first; check the result after that.
+    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const [, body] of bare.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+      const src = /(?:^|;)\s*src\s*:([^;]*(?:;base64,[^;]*)*)/.exec(body);
+      expect(src).not.toBeNull();
+      const value = src![1].trim();
+      expect(value).not.toBe('');
+      expect(value.startsWith(',')).toBe(false);
+      expect(value.endsWith(',')).toBe(false);
+      expect(value).not.toContain(',,');
+    }
+  }
+
+  it('ignores a semicolon inside a comment in the body', () => {
+    const css = '@font-face{font-family:X;/* a; b; c */'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2"),`
+      + `url(data:font/ttf;base64,${DATA}) format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.error).toBeUndefined();
+    expect(result.rewritten).toBe(1);
+    expect(result.css).toContain('/* a; b; c */');
+    expect(result.css).toContain('font-family:X');
+    expect(result.css).not.toContain('font/ttf');
+    expect((result.css!.match(/font\/woff2/g) ?? []).length).toBe(1);
+    expectWellFormed(result.css!);
+  });
+
+  it('ignores a colon inside a comment in the body', () => {
+    const css = '@font-face{/* src: see below */font-family:X;'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2"),`
+      + `url(data:font/ttf;base64,${DATA}) format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.error).toBeUndefined();
+    expect(result.rewritten).toBe(1);
+    expect(result.css).toContain('/* src: see below */');
+    expect(result.css).not.toContain('font/ttf');
+    expectWellFormed(result.css!);
+  });
+
+  it('ignores a comment sitting between sources in a src list', () => {
+    const css = '@font-face{font-family:X;'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2")/* keep; me: here */,`
+      + `url(data:font/woff;base64,${DATA}) format("woff"),`
+      + `url(data:font/ttf;base64,${DATA}) format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.error).toBeUndefined();
+    expect(result.rewritten).toBe(1);
+    expect(result.css).toBe(
+      '@font-face{font-family:X;'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2")/* keep; me: here */}`,
+    );
+    expectWellFormed(result.css!);
+  });
+
+  it('does not let a commented-out format hint rescue a legacy source', () => {
+    const css = '@font-face{font-family:X;'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2"),`
+      + `url(data:font/ttf;base64,${DATA})/* format("woff2") */ format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.rewritten).toBe(1);
+    expect(result.css).not.toContain('font/ttf');
+    expectWellFormed(result.css!);
+  });
+
+  it('leaves the rule alone when a comment hides the closing brace', () => {
+    // `}` inside a comment truncates the @font-face match. The transform must
+    // degrade to "no change" rather than emit half a rule.
+    const css = '@font-face{font-family:X;/* } */'
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2"),`
+      + `url(data:font/ttf;base64,${DATA}) format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.error).toBeUndefined();
+    expect(result.css).toBe(css);
+  });
+
+  it('leaves an unterminated comment alone rather than guessing', () => {
+    const css = '@font-face{font-family:X;/* never closed '
+      + `src:url(data:font/woff2;base64,${DATA}) format("woff2"),`
+      + `url(data:font/ttf;base64,${DATA}) format("truetype")}`;
+    const result = strip(css);
+
+    expect(result.error).toBeUndefined();
+    expect(result.css).toBe(css);
+  });
+});

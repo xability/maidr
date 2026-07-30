@@ -47,13 +47,31 @@ const LEGACY_SOURCE_RE = new RegExp([
 ].join('|'), 'i');
 
 /**
- * Split `value` on occurrences of `separator` that sit outside parentheses.
+ * Blank out `/* ... *\/` comments so their contents cannot be mistaken for
+ * markup. Used only for inspecting CSS, never for producing it — the original
+ * text, comments included, is what gets emitted.
+ *
+ * @param {string} value
+ * @returns {string} `value` with every closed comment removed
+ */
+function stripComments(value) {
+  return value.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
+ * Split `value` on occurrences of `separator` that sit outside parentheses and
+ * outside comments.
  *
  * Naive splitting is wrong here: a `src` list is comma-separated, but every
  * inlined `url(data:font/woff2;base64,...)` contains both a comma and a
  * semicolon. Font `src` values never nest parentheses outside a `url()` or
  * `format()`, and base64 has no parentheses of its own, so tracking depth is
  * enough.
+ *
+ * Comments are skipped wholesale for the same reason. Minified CSS carries
+ * none today, but a change in minifier settings could reintroduce them, and a
+ * `;` or `:` inside one would otherwise split a declaration in the wrong place.
+ * An unterminated comment runs to the end of the value, as CSS parsers do.
  *
  * @param {string} value
  * @param {string} separator single character
@@ -65,7 +83,10 @@ function splitTopLevel(value, separator) {
   let start = 0;
   for (let i = 0; i < value.length; i++) {
     const char = value[i];
-    if (char === '(') {
+    if (char === '/' && value[i + 1] === '*') {
+      const end = value.indexOf('*/', i + 2);
+      i = end === -1 ? value.length : end + 1;
+    } else if (char === '(') {
       depth++;
     } else if (char === ')') {
       depth = Math.max(0, depth - 1);
@@ -79,15 +100,17 @@ function splitTopLevel(value, separator) {
 }
 
 /**
- * Classify one alternative of a `src` list.
+ * Classify one alternative of a `src` list. Comments are ignored, so a
+ * commented-out `format("woff2")` cannot make a legacy source look current.
  *
  * @param {string} source
  * @returns {'woff2' | 'legacy' | 'other'} `legacy` marks the ones safe to drop
  */
 function classifySource(source) {
-  if (WOFF2_FORMAT_RE.test(source) || WOFF2_URL_RE.test(source))
+  const bare = stripComments(source);
+  if (WOFF2_FORMAT_RE.test(bare) || WOFF2_URL_RE.test(bare))
     return 'woff2';
-  if (LEGACY_SOURCE_RE.test(source))
+  if (LEGACY_SOURCE_RE.test(bare))
     return 'legacy';
   return 'other';
 }
@@ -111,13 +134,16 @@ function rewriteFontFaceBody(body) {
 
   const declarations = splitTopLevel(body, ';').map((declaration) => {
     const colon = splitTopLevel(declaration, ':');
-    if (colon.length < 2 || colon[0].trim().toLowerCase() !== 'src')
+    if (colon.length < 2 || stripComments(colon[0]).trim().toLowerCase() !== 'src')
       return declaration;
 
     const property = colon[0];
     const value = colon.slice(1).join(':');
+    // A segment that is nothing but a comment is not an alternative; carrying
+    // it through would leave a dangling comma, which invalidates the whole
+    // `src` descriptor once the browser strips the comment.
     const sources = splitTopLevel(value, ',')
-      .filter(s => s.trim() !== '')
+      .filter(s => stripComments(s).trim() !== '')
       .map(s => ({ source: s, kind: classifySource(s) }));
     if (sources.length === 0)
       return declaration;
