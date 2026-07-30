@@ -23,12 +23,15 @@ export class ElementNotFoundError extends TestError {
    * Creates a new ElementNotFoundError
    * @param selector - The selector that failed to find an element
    * @param timeout - The timeout that elapsed
+   * @param options - Standard error options. Pass `{ cause }` so the original
+   * failure's message and stack stay attached to this one.
    */
-  constructor(selector: string, timeout?: number) {
+  constructor(selector: string, timeout?: number, options?: ErrorOptions) {
     super(
       `Element with selector "${selector}" was not found${
         timeout ? ` within ${timeout}ms` : ''
       }`,
+      options,
     );
     this.name = 'ElementNotFoundError';
   }
