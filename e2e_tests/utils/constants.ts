@@ -113,11 +113,15 @@ export abstract class TestConstants {
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: single line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // `formatPlotType` in src/model/context.ts prefixes the box type with its
+  // orientation, so a screen reader user hears which axis the boxes run along.
+  static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: horizontal box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: multiline with 3 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: smooth plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // Violin layers are their own trace types (violin_kde / violin_box), not the
+  // smooth + box pair they used to be modelled as.
+  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical violin_box plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes

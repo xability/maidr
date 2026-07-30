@@ -38,10 +38,10 @@ test.describe('Violin Plot', () => {
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
       maidrData = await extractMaidrData(page);
-      // Violin plots have two layers: SMOOTH (KDE) and BOX
+      // Violin plots have two layers, each with its own trace type
       const layers = maidrData.subplots[0][0].layers;
-      _violinKdeLayer = layers.find(l => l.type === 'smooth') || layers[0];
-      _violinBoxLayer = layers.find(l => l.type === 'box') || layers[1];
+      _violinKdeLayer = layers.find(l => l.type === 'violin_kde') || layers[0];
+      _violinBoxLayer = layers.find(l => l.type === 'violin_box') || layers[1];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to extract MAIDR data:', errorMessage);
@@ -77,8 +77,8 @@ test.describe('Violin Plot', () => {
     test('should have two layers (KDE and BOX)', async () => {
       const layers = maidrData.subplots[0][0].layers;
       expect(layers.length).toBe(2);
-      expect(layers.some(l => l.type === 'smooth')).toBe(true);
-      expect(layers.some(l => l.type === 'box')).toBe(true);
+      expect(layers.some(l => l.type === 'violin_kde')).toBe(true);
+      expect(layers.some(l => l.type === 'violin_box')).toBe(true);
     });
   });
 
@@ -137,7 +137,11 @@ test.describe('Violin Plot', () => {
     });
 
     test('should navigate along KDE curve with up/down arrows', async () => {
-      // Get initial position
+      // The first Up press steps off the instruction banner onto the lowest
+      // point. Round-tripping is a property of data points, so take that step
+      // before recording the starting position — otherwise the Down press
+      // walks off the bottom and reports out of bounds.
+      await violinPlotPage.moveUpKdeCurve();
       const initialInfo = await violinPlotPage.getCurrentDataPointInfo();
 
       // Move up along the curve

@@ -44,13 +44,13 @@ function getBoxplotHorizontalDisplayValue(layer: MaidrLayer | undefined, index: 
 
   const boxPoint = layer.data[index];
 
-  if (!boxPoint || !('fill' in boxPoint)) {
+  if (!boxPoint || !('z' in boxPoint)) {
     throw new Error(`Data point at index ${index} has invalid format`);
   }
 
-  // For boxplot, the 'fill' property represents the category label (e.g., 'Africa', 'Americas')
-  // This is what appears in the UI text during navigation
-  return String(boxPoint.fill);
+  // `BoxPoint.z` carries the category label (e.g. 'Group 1'), which is what
+  // MAIDR announces during navigation.
+  return String(boxPoint.z);
 }
 
 /**
