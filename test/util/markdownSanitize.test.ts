@@ -315,11 +315,34 @@ describe('createChatSanitizeSchema', () => {
     expect(Object.keys(schema).sort()).toEqual(['attributes', 'tagNames']);
   });
 
-  it('should return a fresh schema each call', () => {
+  it('should return a fresh schema each call, nested arrays included', () => {
     const first = createChatSanitizeSchema();
     const second = createChatSanitizeSchema();
 
     expect(first).not.toBe(second);
     expect(first.tagNames).not.toBe(second.tagNames);
+    expect(first.attributes).not.toBe(second.attributes);
+    // The per-element lists too — a shared array one level down would leave the
+    // allowlists just as mutable, while the two assertions above still passed.
+    expect(first.attributes?.['*']).not.toBe(second.attributes?.['*']);
+    expect(first.attributes?.math).not.toBe(second.attributes?.math);
+  });
+
+  it('should not let a mutated schema reach the next caller', () => {
+    const first = createChatSanitizeSchema();
+
+    first.tagNames?.push('script');
+    first.attributes?.['*']?.push('onclick');
+    first.attributes?.math?.push('href');
+
+    // The property the doc comment actually promises, stated as the failure it
+    // exists to prevent: one caller widening its own copy must not widen
+    // anyone else's, nor the module's exported lists.
+    const second = createChatSanitizeSchema();
+    expect(second.tagNames).not.toContain('script');
+    expect(second.attributes?.['*']).not.toContain('onclick');
+    expect(second.attributes?.math).not.toContain('href');
+    expect(MATHML_TAG_NAMES).not.toContain('script');
+    expect(MATHML_ATTRIBUTES).not.toContain('href');
   });
 });
