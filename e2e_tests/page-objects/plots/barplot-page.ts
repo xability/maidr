@@ -190,8 +190,13 @@ export class BarPlotPage extends BasePage {
    */
   protected async isModeActive(mode: string, expectedMessage: string): Promise<boolean> {
     try {
-      const notificationText = await this.getNotificationText();
-      return notificationText === expectedMessage;
+      // Delegate rather than read the notification directly: the base
+      // implementation waits for the announcement before comparing, and a
+      // second snapshot-reading copy here would keep the barplot toggles
+      // exposed to the live-region race the base class exists to avoid.
+      return await super.isModeActive(this.selectors.notification, mode, {
+        [mode]: expectedMessage,
+      });
     } catch (error) {
       throw new BarPlotError(`Failed to check ${mode} status`, { cause: error });
     }
@@ -349,12 +354,15 @@ export class BarPlotPage extends BasePage {
     const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
     const directionName = direction === 'forward' ? 'forward' : 'reverse';
 
+    // Resolve once: it costs a page round-trip and cannot change mid-test.
+    const modifier = await modifierKey(this.page);
+
     try {
-      await this.page.keyboard.down(await modifierKey(this.page));
+      await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(await modifierKey(this.page));
+      await this.page.keyboard.up(modifier);
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
       await this.page.keyboard.up(arrowKey);
 

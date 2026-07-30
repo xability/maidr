@@ -5,6 +5,17 @@ import { AssertionError, KeypressError } from '../utils/errors';
 import { modifierKey } from '../utils/platform';
 
 /**
+ * Collapses whitespace runs and trims, the way `expect(...).toHaveText()` does
+ * before comparing. MAIDR's announcement markup wraps its text across lines, so
+ * comparisons against a single-line expected string have to normalise first.
+ * @param text - Raw text content read from the page
+ * @returns The text with whitespace runs collapsed to single spaces, trimmed
+ */
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Base page object that all other page objects extend
  * Provides common functionality for all pages
  */
@@ -762,19 +773,25 @@ export class BasePage {
     mode: string,
     modeMessages: Record<string, string>,
   ): Promise<boolean> {
+    const expected = modeMessages[mode];
+
     // The announcement lands asynchronously after the keypress, so reading the
     // region once races the update — fast enough to pass in Chromium and
     // Firefox, and a flake in WebKit under full-suite load. Wait for the
-    // expected text instead, and report absence as false rather than throwing:
-    // callers assert on the boolean, and "the mode never announced" is a
-    // failed expectation, not a broken page object.
+    // expected text first. A timeout here is deliberately not fatal: the read
+    // below is the authoritative check and answers either way, so rethrowing
+    // would only turn a "mode never announced" expectation into a page-object
+    // error. Callers assert on the boolean.
     await expect(this.page.locator(notificationSelector))
-      .toHaveText(modeMessages[mode], { timeout: 5000 })
-      .catch(() => { /* fall through to the re-read below */ });
+      .toHaveText(expected, { timeout: 5000 })
+      .catch(() => { /* the read below decides */ });
 
     try {
       const notificationText = await this.getElementText(notificationSelector);
-      return notificationText === modeMessages[mode];
+      // Normalise both sides. `toHaveText` collapses whitespace, so a raw
+      // strict compare could contradict the wait that just succeeded, and the
+      // announcement markup wraps its text across lines.
+      return normalizeText(notificationText) === normalizeText(expected);
     } catch (error) {
       throw new Error(`Failed to check ${mode} status`, { cause: error });
     }
@@ -843,12 +860,15 @@ export class BasePage {
     const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : direction === 'reverse' ? TestConstants.LEFT_ARROW_KEY : direction === 'downward' ? TestConstants.DOWN_ARROW_KEY : TestConstants.UP_ARROW_KEY;
     const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
+    // Resolve once: it costs a page round-trip and cannot change mid-test.
+    const modifier = await modifierKey(this.page);
+
     try {
-      await this.page.keyboard.down(await modifierKey(this.page));
+      await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(await modifierKey(this.page));
+      await this.page.keyboard.up(modifier);
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
       await this.page.keyboard.up(arrowKey);
 
