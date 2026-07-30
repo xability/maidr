@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../utils/constants';
 import { AssertionError, KeypressError } from '../utils/errors';
+import { modifierKey } from '../utils/platform';
 
 /**
  * Base page object that all other page objects extend
@@ -291,7 +292,7 @@ export class BasePage {
   public async showHelpMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await modifierKey(this.page),
         TestConstants.SLASH_KEY,
         'show help menu',
       );
@@ -315,7 +316,7 @@ export class BasePage {
   public async showSettingsMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await modifierKey(this.page),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -343,7 +344,7 @@ export class BasePage {
    */
   public async openHelpMenu(): Promise<void> {
     await this.pressKeyCombination(
-      TestConstants.COMMAND_KEY,
+      await modifierKey(this.page),
       TestConstants.SLASH_KEY,
       'open help menu',
     );
@@ -356,7 +357,7 @@ export class BasePage {
    */
   public async openSettingsMenu(): Promise<void> {
     await this.pressKeyCombination(
-      TestConstants.COMMAND_KEY,
+      await modifierKey(this.page),
       TestConstants.COMMA_KEY,
       'open settings menu',
       100,
@@ -370,7 +371,7 @@ export class BasePage {
   public async closeSettingsMenuWithEscape(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await modifierKey(this.page),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -402,7 +403,7 @@ export class BasePage {
   public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await modifierKey(this.page),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -514,7 +515,7 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await this.pressKeyCombination(TestConstants.META_KEY, key, action);
+      await this.pressKeyCombination(await modifierKey(this.page), key, action);
     } else {
       await this.pressKey(key, action);
     }
@@ -833,11 +834,11 @@ export class BasePage {
     const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
     try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.keyboard.down(await modifierKey(this.page));
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(TestConstants.META_KEY);
+      await this.page.keyboard.up(await modifierKey(this.page));
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
       await this.page.keyboard.up(arrowKey);
 

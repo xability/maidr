@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../../utils/constants';
 import { BarPlotError } from '../../utils/errors';
+import { modifierKey } from '../../utils/platform';
 import { BasePage } from '../base-page';
 
 /**
@@ -349,11 +350,11 @@ export class BarPlotPage extends BasePage {
     const directionName = direction === 'forward' ? 'forward' : 'reverse';
 
     try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
+      await this.page.keyboard.down(await modifierKey(this.page));
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(TestConstants.META_KEY);
+      await this.page.keyboard.up(await modifierKey(this.page));
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
       await this.page.keyboard.up(arrowKey);
 
