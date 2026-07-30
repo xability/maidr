@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { MultiLayerPlotPage } from '../page-objects/plots/multiLayer-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a Multi Layer plot page
@@ -66,26 +67,7 @@ test.describe('Multi Layer Plot', () => {
       await multiLayerPlotPage.navigateToMultiLayerPlot();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.MULTI_LAYER_PLOT_ID);
+      maidrData = await extractMaidrData(page);
 
       multiLayerPlotLayer = maidrData.subplots[0][0].layers[0];
       dataLength = (multiLayerPlotLayer.data as { x: string; y: number }[]).length;
@@ -122,7 +104,10 @@ test.describe('Multi Layer Plot', () => {
       });
       test('should switch to first layer', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+        // Leave layer 1 before returning to it, so the assertion proves the
+        // switch happened rather than that nothing moved.
         await multiLayerPlotPage.switchToUpperLayer();
+        await multiLayerPlotPage.switchToLowerLayer();
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });
@@ -351,7 +336,10 @@ test.describe('Multi Layer Plot', () => {
   test.describe('Layer Switching', () => {
     test('should switch to first layer', async ({ page }) => {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
+      // Leave layer 1 before returning to it, so the assertion proves the
+      // switch happened rather than that nothing moved.
       await multiLayerPlotPage.switchToUpperLayer();
+      await multiLayerPlotPage.switchToLowerLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
       expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
     });
@@ -365,7 +353,8 @@ test.describe('Multi Layer Plot', () => {
      */
     async function setupSecondLayerTest(page: Page): Promise<MultiLayerPlotPage> {
       const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-      await multiLayerPlotPage.switchToUpperLayer();
+      // The plot opens on layer 1, so a single Page Up reaches layer 2. A
+      // second press is already at the top and reports "No additional layer".
       await multiLayerPlotPage.switchToUpperLayer();
       const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
       expect(currentLayer).toContain(TestConstants.MULTI_LAYER_SECOND_LAYER);
@@ -391,9 +380,8 @@ test.describe('Multi Layer Plot', () => {
 
       test('should switch to bottom layer', async ({ page }) => {
         const multiLayerPlotPage = await setupMultiLayerPlotPage(page);
-        await multiLayerPlotPage.switchToUpperLayer(); // switching to first layer
-        await multiLayerPlotPage.switchToUpperLayer(); // switching to second layer
-        await multiLayerPlotPage.switchToLowerLayer(); // switch to first layer
+        await multiLayerPlotPage.switchToUpperLayer(); // layer 1 -> layer 2
+        await multiLayerPlotPage.switchToLowerLayer(); // layer 2 -> layer 1
         const currentLayer = await multiLayerPlotPage.getCurrentLayerInfo();
         expect(currentLayer).toContain(TestConstants.MULTI_LAYER_FIRST_LAYER);
       });
