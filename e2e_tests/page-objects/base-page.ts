@@ -762,6 +762,16 @@ export class BasePage {
     mode: string,
     modeMessages: Record<string, string>,
   ): Promise<boolean> {
+    // The announcement lands asynchronously after the keypress, so reading the
+    // region once races the update — fast enough to pass in Chromium and
+    // Firefox, and a flake in WebKit under full-suite load. Wait for the
+    // expected text instead, and report absence as false rather than throwing:
+    // callers assert on the boolean, and "the mode never announced" is a
+    // failed expectation, not a broken page object.
+    await expect(this.page.locator(notificationSelector))
+      .toHaveText(modeMessages[mode], { timeout: 5000 })
+      .catch(() => { /* fall through to the re-read below */ });
+
     try {
       const notificationText = await this.getElementText(notificationSelector);
       return notificationText === modeMessages[mode];
