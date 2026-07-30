@@ -9,14 +9,20 @@
  * emitting `<mmultiscripts>` fails here instead of silently losing the markup
  * at runtime.
  *
- * `rehype-sanitize` cannot be exercised directly — it is ESM-only and the Jest
- * suite is CommonJS — so these tests cover the schema's *contents*. Its two
- * matching rules are relied on rather than re-verified:
+ * These tests cover the schema's *contents*, not `rehype-sanitize` running on
+ * it: the package is ESM-only and this suite is CommonJS, so it cannot be
+ * imported here. That is a property of the current Jest configuration rather
+ * than a hard limit — a second Jest project with `extensionsToTreatAsEsm` and
+ * `--experimental-vm-modules` loads it fine — but wiring one up is test
+ * infrastructure, not part of this fix.
+ *
+ * So two of the utility's rules are relied on rather than re-verified here:
  *
  * - a disallowed element is dropped but its text is kept, so a missing MathML
  *   element leaves the leaf characters behind as prose;
  * - attributes match on hast property names (`ariaHidden`), not HTML attribute
- *   names (`aria-hidden`).
+ *   names (`aria-hidden`), and an entry under `'*'` is additive to the
+ *   element's own list rather than replaced by it.
  */
 
 import { describe, expect, it } from '@jest/globals';

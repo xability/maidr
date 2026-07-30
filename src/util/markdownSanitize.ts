@@ -4,10 +4,12 @@ import type { Options as SanitizeSchema } from 'rehype-sanitize';
  * The sanitisation allowlist for Markdown rendered in AI chat responses.
  *
  * Lives here rather than beside its one caller in `TypingEffect.tsx` because
- * that module imports `react-markdown`, which is ESM-only and cannot be loaded
- * by the Jest suite. Keeping the schema in a module with no runtime imports is
- * what lets `test/util/markdownSanitize.test.ts` check it against the MathML
- * KaTeX actually emits.
+ * that module imports `react-markdown`, which is ESM-only and so is not
+ * loadable by the Jest suite as it is configured — CommonJS, with `allowJs`
+ * off, so nothing under `node_modules` is transformed. Keeping the schema in a
+ * module with no runtime imports is what lets
+ * `test/util/markdownSanitize.test.ts` check it against the MathML KaTeX
+ * actually emits.
  *
  * `rehype-sanitize` *replaces* its default schema with the one it is given
  * rather than merging into it, so everything the chat is allowed to render has
@@ -167,7 +169,7 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       // load-bearing for stretchy delimiters and arrows, which KaTeX draws at
       // `width="400em"` over a `viewBox` 400000 units wide and expects
       // `xMaxYMin slice` to crop rather than scale.
-      'svg': ['ariaHidden', 'xmlns', 'width', 'height', 'viewBox', 'preserveAspectRatio', 'style'],
+      'svg': ['xmlns', 'width', 'height', 'viewBox', 'preserveAspectRatio', 'style'],
       'path': ['d'],
       // `\cancel` and `\not` draw their strike as an SVG line.
       'line': ['x1', 'x2', 'y1', 'y2', 'strokeWidth'],
