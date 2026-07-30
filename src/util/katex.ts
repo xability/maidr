@@ -45,9 +45,15 @@ const MATH_STYLESHEET_ATTRIBUTE = 'data-maidr-math';
  */
 const MATH_DELIMITER_PATTERN = /\$[^$]*\$/;
 
-/** Matches the maths stylesheet's own URL, ignoring any query or fragment. */
+/**
+ * Matches the maths stylesheet's own URL, ignoring any query or fragment.
+ *
+ * The escape is global rather than first-match: the filename carries one dot
+ * today, but a second one — a version or content hash — would otherwise slip
+ * through unescaped as a wildcard.
+ */
 const MATH_STYLESHEET_PATTERN = new RegExp(
-  `(?:^|/)${MATH_STYLESHEET_FILENAME.replace('.', '\\.')}(?:$|[?#])`,
+  `(?:^|/)${MATH_STYLESHEET_FILENAME.replace(/\./g, '\\.')}(?:$|[?#])`,
   'i',
 );
 
@@ -57,6 +63,11 @@ const MATH_STYLESHEET_PATTERN = new RegExp(
  * `diagnostics.ts`: anything after "maidr" has to start at a separator, and the
  * separator and segment classes stay disjoint so the repetition cannot backtrack
  * super-linearly.
+ *
+ * Broader than its name: it matches `maidr-math.css` too. Harmless, and in fact
+ * self-correcting — the only use is to locate the directory `dist` was served
+ * from, and the maths stylesheet sits in that same directory, so resolving
+ * against it yields the same URL.
  */
 const MAIDR_STYLESHEET_PATTERN = /(?:^|\/)maidr(?:[.-]\w+)*\.css(?:$|[?#])/i;
 
