@@ -293,6 +293,16 @@ describe('createChatSanitizeSchema', () => {
     expect(stripped).toEqual([]);
   });
 
+  it('should allow a link its href and nothing else', () => {
+    const schema = createChatSanitizeSchema();
+
+    // `target` was allowed and unreachable — markdown has no syntax for it and
+    // raw HTML is escaped to text — so it only stood to admit a
+    // `target="_blank"` with no `rel="noopener"` the day something could set
+    // one. `href` keeps the default `protocols` filtering; see the test below.
+    expect(schema.attributes?.a).toEqual(['href']);
+  });
+
   it('should override no schema key other than tagNames and attributes', () => {
     const schema = createChatSanitizeSchema();
 

@@ -160,12 +160,25 @@ export function createChatSanitizeSchema(): SanitizeSchema {
   return {
     attributes: {
       '*': [...GLOBAL_ATTRIBUTES],
-      'a': ['href', 'target'],
+      // No `target`. Markdown has no syntax for it, raw HTML is escaped to
+      // text, and nothing in the plugin chain adds one, so it was allowing an
+      // attribute that could not arrive — and a `target="_blank"` without
+      // `rel="noopener"` is reverse tabnabbing waiting for the day one could.
+      // Same reasoning as the ARIA entries dropped from GLOBAL_ATTRIBUTES.
+      'a': ['href'],
       'img': ['src', 'alt'],
+      // `style` here and on `svg` below carries KaTeX's computed layout —
+      // `height:1em;vertical-align:-0.25em`, `top:-4em`, `width:0.471em`. The
+      // values are generated, never passed through: `\htmlStyle` and
+      // `\htmlClass` are disabled by the untrusted defaults KaTeX renders with,
+      // and a raw `<span style>` in a response is escaped to text. So a
+      // response cannot reach a `url()` and turn a rendered equation into a
+      // tracking beacon.
       'span': ['style'],
       // KaTeX's visual layer. It sits inside an `aria-hidden` wrapper, so what
       // is lost here is rendering rather than announcement — but it is lost the
-      // same way the MathML was, by not being named. `preserveAspectRatio` is
+      // same way the MathML was, by not being named. `style` is what `\vec`,
+      // `\hat` and `\dot` size their accent with. `preserveAspectRatio` is
       // load-bearing for stretchy delimiters and arrows, which KaTeX draws at
       // `width="400em"` over a `viewBox` 400000 units wide and expects
       // `xMaxYMin slice` to crop rather than scale.
