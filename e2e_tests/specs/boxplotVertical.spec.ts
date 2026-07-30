@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BoxplotVerticalPage } from '../page-objects/plots/boxplotVertical-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a boxplot vertical page
@@ -19,34 +20,6 @@ async function setupBoxplotVerticalPage(
     await boxplotVerticalPage.activateMaidr();
   }
   return boxplotVerticalPage;
-}
-
-/**
- * Helper function to extract MAIDR data from the page
- * @param page - The Playwright page
- * @param plotId - The ID of the plot to extract data from
- * @returns The extracted MAIDR data
- * @throws Error if data extraction fails
- */
-async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
-  return await page.evaluate((id) => {
-    const svgElement = document.querySelector(`svg`);
-    if (!svgElement) {
-      throw new Error(`SVG element with ID ${id} not found`);
-    }
-
-    const maidrDataAttr = svgElement.getAttribute('maidr-data');
-    if (!maidrDataAttr) {
-      throw new Error('maidr-data attribute not found on SVG element');
-    }
-
-    try {
-      return JSON.parse(maidrDataAttr);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-    }
-  }, plotId);
 }
 
 /**
@@ -111,7 +84,7 @@ test.describe('Boxplot Vertical', () => {
       await boxplotVerticalPage.navigateToBoxplotVertical();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await extractMaidrData(page, TestConstants.BOXPLOT_VERTICAL_ID);
+      maidrData = await extractMaidrData(page);
       boxplotVerticalLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getBoxplotVerticalDataLength(boxplotVerticalLayer);
     } catch (error) {
