@@ -139,13 +139,19 @@ function onWarn(warning, warn) {
 
 /**
  * Build configurations
+ *
+ * Exported so the build-config test can assert against the real array rather
+ * than a fixture that could drift away from it.
  */
-const builds = [
+export const builds = [
   {
     name: 'core',
     entry: 'src/index.tsx',
     libName: 'maidr',
-    formats: ['es', 'umd'],
+    // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
+    // an ES build has no consumer value. Adding 'es' back here would also make
+    // both formats resolve to the same fileName and silently overwrite.
+    formats: ['umd'],
     fileName: () => 'maidr.js',
     emptyOutDir: true,
     external: [],
@@ -501,8 +507,71 @@ async function runParallel(selected, jobs, outDir) {
     throw firstError;
 }
 
+/**
+ * Reject any entry whose formats would fight over one output filename.
+ *
+ * Vite resolves `build.lib.fileName` once per format and writes the outputs in
+ * order, overwriting silently when two formats resolve to the same name: the
+ * earlier format's work is simply lost, and the only hint is the same filename
+ * appearing twice in the build log. That is exactly how the core bundle spent
+ * every build producing an ES output that the UMD output immediately replaced,
+ * so catch the whole class here instead of shipping half a build again.
+ *
+ * `fileName` is invoked the way Vite invokes it — `(format, entryName)` — so an
+ * implementation that ignores its `format` argument (and therefore collides) is
+ * caught behaving exactly as it would at build time.
+ *
+ * @param {typeof builds} configs Entries to check.
+ * @throws {Error} If any entry maps two formats onto the same filename.
+ */
+export function assertUniqueOutputFilenames(configs) {
+  for (const config of configs) {
+    // Vite's lib-mode default when `name` is set. Every entry declares
+    // `formats` today; defaulting keeps an omission from skipping the check.
+    const formats = config.formats ?? ['es', 'umd'];
+    // A string `fileName` cannot collide — Vite appends a per-format extension.
+    if (typeof config.fileName !== 'function')
+      continue;
+    // Vite derives the entry name from the entry file's base name.
+    const entryName = path.basename(config.entry, path.extname(config.entry));
+
+    /** @type {Map<string, string>} filename -> the format that claimed it */
+    const claimedBy = new Map();
+    for (const format of formats) {
+      let fileName;
+      try {
+        fileName = config.fileName(format, entryName);
+      } catch (cause) {
+        throw new Error(
+          `Build config error: bundle "${config.name}" threw while resolving its `
+          + `fileName for the "${format}" format: ${cause.message}`,
+          { cause },
+        );
+      }
+
+      const previous = claimedBy.get(fileName);
+      if (previous !== undefined) {
+        throw new Error(
+          `Build config error: bundle "${config.name}" emits "${fileName}" for both the `
+          + `"${previous}" and "${format}" formats. Vite writes them in order, so `
+          + `"${format}" would silently overwrite "${previous}" and that output would be `
+          + `lost. Give each format its own filename — the adapter entries use `
+          + `\`fileName: format => format === 'es' ? '<name>.mjs' : '<name>.js'\` — or drop `
+          + `the redundant format.`,
+        );
+      }
+      claimedBy.set(fileName, format);
+    }
+  }
+}
+
 async function main() {
   const startTime = Date.now();
+
+  // Fail fast, before emptying dist or forking anything. Checked across every
+  // entry rather than just the selected ones: a collision in a bundle nobody
+  // asked for today is still a latent bug, and the check costs nothing.
+  assertUniqueOutputFilenames(builds);
 
   const argv = process.argv.slice(2);
   const sequential = argv.includes('--sequential');
@@ -594,7 +663,14 @@ async function main() {
   console.log(`\nAll builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 }
 
-main().catch((err) => {
-  console.error('Build failed:', err);
-  process.exit(1);
-});
+// Orchestrate only when this file is the process entry point — which includes
+// each forked worker, whose argv[1] is this same path. Importing the module,
+// as the build-config test does to reach the real `builds` array, must never
+// kick off a build.
+const invokedAs = process.argv[1] ? path.resolve(process.argv[1]) : '';
+if (invokedAs === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error('Build failed:', err);
+    process.exit(1);
+  });
+}
