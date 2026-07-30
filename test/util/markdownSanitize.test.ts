@@ -75,18 +75,55 @@ const CORPUS: readonly string[] = [
 ];
 
 /**
- * Anything in KaTeX's MathML branch. `m[a-z]+` covers `math` and every `m*`
- * element; `semantics` and `annotation` are the two that do not start with `m`.
+ * Anything in KaTeX's MathML branch.
+ *
+ * `m[a-z-]+` covers `math` and every `m*` element; `semantics` and
+ * `annotation` are the two that do not start with `m`. The hyphens are what
+ * make `annotation-xml` match: KaTeX does not emit it under the untrusted
+ * defaults MAIDR renders with, but a pattern that could not match it would
+ * quietly drop the element from the survey instead of failing, and a survey
+ * that cannot see an element cannot report it as unnamed.
  */
-const MATHML_ELEMENT = /^(?:semantics|annotation|m[a-z]+)$/;
+const MATHML_ELEMENT = /^(?:semantics|annotation[a-z-]*|m[a-z-]+)$/;
 
-interface MathmlUsage {
+/** One attribute, and the element KaTeX put it on. */
+interface AttributeUsage {
+  readonly tagName: string;
+  readonly attribute: string;
+}
+
+/** What a corpus render produced, kept separate so bare elements still count. */
+interface Usage {
+  /** Every element name seen, including the many that carry no attributes. */
   readonly tagNames: Set<string>;
-  readonly attributes: Set<string>;
+  /** Every element/attribute pair seen. */
+  readonly attributes: AttributeUsage[];
 }
 
 /**
- * Renders the corpus and collects the MathML KaTeX puts in the accessible tree.
+ * The hast property name for an HTML or MathML attribute.
+ *
+ * Only the two rules that apply to KaTeX's output, written out rather than
+ * pulled from `property-information` — that package is ESM-only, and the point
+ * of the assertion is to state the rule the schema has to follow rather than to
+ * agree with another implementation of it.
+ * @param attribute - The attribute name as it appears in the markup.
+ * @returns The name `rehype-sanitize` matches the attribute under.
+ */
+function hastPropertyName(attribute: string): string {
+  if (attribute === 'class') {
+    return 'className';
+  }
+  return attribute.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+}
+
+/**
+ * Renders the corpus and collects everything KaTeX puts in the tree.
+ *
+ * Covers both of KaTeX's layers, not just the MathML: the visual layer carries
+ * the `aria-hidden` that keeps it from being announced twice, and the SVG that
+ * draws stretchy delimiters. An allowlist checked against one layer alone lets
+ * the other rot.
  *
  * Both display modes are rendered because they take different paths — a sum's
  * limits become `msubsup` inline and `munderover` in display mode, so covering
@@ -94,37 +131,50 @@ interface MathmlUsage {
  * defaults to match how `rehype-katex` is configured in `TypingEffect`; that is
  * what keeps `\href` and `\includegraphics` (and so `href`, `src` and `mglyph`)
  * out of the output.
- * @returns The element and attribute names found under `.katex-mathml`.
+ * @returns The elements seen, and the element/attribute pairs seen.
  */
-function collectMathmlUsage(): MathmlUsage {
+function collectUsage(): Usage {
   const tagNames = new Set<string>();
-  const attributes = new Set<string>();
+  // Keyed so a pair seen in fifty renders is reported once.
+  const attributes = new Map<string, AttributeUsage>();
 
   for (const displayMode of [false, true]) {
     for (const tex of CORPUS) {
       const html = katex.renderToString(tex, { throwOnError: false, displayMode });
       const { document } = new JSDOM(`<div>${html}</div>`).window;
-      const mathml = document.querySelector('.katex-mathml');
-      if (mathml === null) {
+      const root = document.querySelector('.katex');
+      if (root === null) {
         // `\begin{align}` is display-only in LaTeX too, so KaTeX renders the
-        // inline pass as an error span with no MathML. Every other combination
-        // has to produce some, or the corpus is checking nothing.
+        // inline pass as an error span. Every other combination has to render,
+        // or the corpus is checking nothing.
         expect(document.querySelector('.katex-error')).not.toBeNull();
         continue;
       }
 
-      for (const element of mathml.querySelectorAll('*')) {
+      for (const element of root.querySelectorAll('*')) {
         const tagName = element.tagName.toLowerCase();
-        if (!MATHML_ELEMENT.test(tagName)) {
-          continue;
-        }
+        // Recorded before the attributes, because most of the elements that
+        // carry an equation's structure — `mrow`, `msqrt`, `msub` — have none.
         tagNames.add(tagName);
         for (const attribute of element.getAttributeNames()) {
-          attributes.add(attribute);
+          attributes.set(`${tagName}\0${attribute}`, { tagName, attribute });
         }
       }
     }
   }
+
+  return { tagNames, attributes: [...attributes.values()] };
+}
+
+/** The MathML subset of {@link collectUsage}. */
+function collectMathmlUsage(): { tagNames: Set<string>; attributes: Set<string> } {
+  const usage = collectUsage();
+  const tagNames = new Set([...usage.tagNames].filter(tag => MATHML_ELEMENT.test(tag)));
+  const attributes = new Set(
+    usage.attributes
+      .filter(({ tagName }) => MATHML_ELEMENT.test(tagName))
+      .map(({ attribute }) => attribute),
+  );
 
   return { tagNames, attributes };
 }
@@ -206,6 +256,47 @@ describe('createChatSanitizeSchema', () => {
     const schema = createChatSanitizeSchema();
 
     expect(schema.attributes?.['*']).toContain('ariaHidden');
+  });
+
+  it('should name every element KaTeX emits, in both of its layers', () => {
+    const schema = createChatSanitizeSchema();
+
+    const stripped = [...collectUsage().tagNames]
+      .filter(tagName => !schema.tagNames?.includes(tagName))
+      .sort();
+
+    // `line` — which `\cancel` and `\not` draw their strike with — was missing
+    // until this case existed, and an unnamed element is removed outright.
+    expect(stripped).toEqual([]);
+  });
+
+  it('should allow every attribute KaTeX puts on any element, under its hast name', () => {
+    const schema = createChatSanitizeSchema();
+    const shared = schema.attributes?.['*'] ?? [];
+
+    const stripped = collectUsage().attributes.filter(({ tagName, attribute }) => {
+      const property = hastPropertyName(attribute);
+      const allowed = [...shared, ...(schema.attributes?.[tagName] ?? [])];
+      return !allowed.some(entry => (typeof entry === 'string' ? entry : entry[0]) === property);
+    }).map(({ tagName, attribute }) => `${tagName}[${attribute}]`).sort();
+
+    // Covers both layers. `span[aria-hidden]` is the one that broke the
+    // accessible tree; `svg[preserveAspectRatio]` is the one that broke the
+    // rendering of stretchy delimiters, and went unnoticed because the first
+    // version of this suite only surveyed the MathML.
+    expect(stripped).toEqual([]);
+  });
+
+  it('should override no schema key other than tagNames and attributes', () => {
+    const schema = createChatSanitizeSchema();
+
+    // `hast-util-sanitize` resolves its config as `{...defaultSchema,
+    // ...options}` — one level deep. Every key absent here keeps its default,
+    // which is what still strips `javascript:` from a link without `protocols`
+    // being named. Declaring a partial `protocols` would replace that map
+    // rather than extend it, and drop the protocol filtering the default
+    // provides for the keys it left out.
+    expect(Object.keys(schema).sort()).toEqual(['attributes', 'tagNames']);
   });
 
   it('should return a fresh schema each call', () => {

@@ -114,20 +114,22 @@ export const MATHML_ATTRIBUTES: readonly string[] = [
 /**
  * Attributes allowed on every element, spelled as hast property names.
  *
- * `ariaHidden` is the one that carries weight today: KaTeX marks its visual
- * layer with it so assistive technology reads the MathML instead of the glyph
- * spans beside it. The rest are allowed for markup that may carry them; no
- * plugin in the chain emits them at present, and raw HTML in a response never
- * reaches this tree because the pipeline runs without `rehype-raw`.
+ * Both entries are load-bearing. KaTeX puts `class` on every span it builds,
+ * and marks its visual layer `aria-hidden` so assistive technology reads the
+ * MathML instead of the glyph spans beside it.
+ *
+ * The list used to also carry `role`, `ariaLabel`, `ariaBusy`, `ariaLive` and
+ * `ariaAtomic`. Nothing in the pipeline emits any of them — the `role` and
+ * `aria-label` that `TypingEffect` puts on `<pre>` and `<a>` are React props,
+ * applied to the tree after it has been sanitised — and while they were
+ * misspelled they were inert. Correcting the spelling would have made them
+ * live for the first time, so they are dropped instead: a response body cannot
+ * reach an attribute today (the pipeline runs without `rehype-raw`, so raw HTML
+ * is escaped to text), and this way it still could not were that to change.
  */
 const GLOBAL_ATTRIBUTES: readonly string[] = [
   'className',
-  'ariaLabel',
   'ariaHidden',
-  'role',
-  'ariaBusy',
-  'ariaLive',
-  'ariaAtomic',
 ];
 
 /** Every MathML element, mapped to the presentation attributes it may keep. */
@@ -141,6 +143,15 @@ function mathmlAttributes(): Record<string, string[]> {
  * The schema `TypingEffect` hands to `rehype-sanitize`.
  *
  * Built fresh on each call so a caller cannot mutate the shared allowlists.
+ *
+ * Deliberately declares only `tagNames` and `attributes`. `hast-util-sanitize`
+ * resolves its configuration as `{...defaultSchema, ...options}` — a shallow
+ * merge, one level deep — so every key left out here keeps its default. That is
+ * what still strips `javascript:` from a link or an image without `protocols`
+ * appearing anywhere below: the default map covers `href`, `src`, `cite` and
+ * `longDesc`. Adding a partial `protocols` key would replace that map outright
+ * rather than extend it, which is why the test asserts this schema declares no
+ * key beyond the two it means to override.
  * @returns The allowlist of tags and attributes an AI chat response may render.
  */
 export function createChatSanitizeSchema(): SanitizeSchema {
@@ -150,8 +161,16 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       'a': ['href', 'target'],
       'img': ['src', 'alt'],
       'span': ['style'],
-      'svg': ['ariaHidden', 'role', 'xmlns', 'width', 'height', 'viewBox'],
+      // KaTeX's visual layer. It sits inside an `aria-hidden` wrapper, so what
+      // is lost here is rendering rather than announcement — but it is lost the
+      // same way the MathML was, by not being named. `preserveAspectRatio` is
+      // load-bearing for stretchy delimiters and arrows, which KaTeX draws at
+      // `width="400em"` over a `viewBox` 400000 units wide and expects
+      // `xMaxYMin slice` to crop rather than scale.
+      'svg': ['ariaHidden', 'xmlns', 'width', 'height', 'viewBox', 'preserveAspectRatio', 'style'],
       'path': ['d'],
+      // `\cancel` and `\not` draw their strike as an SVG line.
+      'line': ['x1', 'x2', 'y1', 'y2', 'strokeWidth'],
       ...mathmlAttributes(),
     },
     tagNames: [
@@ -172,6 +191,7 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       'span',
       'svg',
       'path',
+      'line',
       ...MATHML_TAG_NAMES,
     ],
   };
