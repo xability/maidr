@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build } from 'vite';
 import dts from 'vite-plugin-dts';
+import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -318,6 +319,10 @@ function createViteConfig(config) {
       insertTypesEntry: false,
     }));
   }
+  // Registered for every bundle, unconditionally: the React-based bundles all
+  // emit the same maidr.css, and runParallel's merge step fails with a "Merge
+  // collision" if their contents differ. Keep this out of any `if`.
+  plugins.push(woff2OnlyFonts());
 
   // Workers build into an isolated outDir (passed via env) so parallel
   // vite-plugin-dts runs never clobber each other's intermediate .d.ts files
