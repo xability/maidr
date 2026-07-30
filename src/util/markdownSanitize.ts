@@ -145,6 +145,10 @@ function mathmlAttributes(): Record<string, string[]> {
  * The schema `TypingEffect` hands to `rehype-sanitize`.
  *
  * Built fresh on each call so a caller cannot mutate the shared allowlists.
+ * `TypingEffect` calls it once and hoists the result to module scope — the
+ * chat animation re-renders every 10 ms, and the allowlist is the same for
+ * every message — so the freshness matters to this function's own contract
+ * rather than to anything visible at that call site.
  *
  * Deliberately declares only `tagNames` and `attributes`. `hast-util-sanitize`
  * resolves its configuration as `{...defaultSchema, ...options}` — a shallow
