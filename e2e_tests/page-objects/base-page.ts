@@ -176,26 +176,29 @@ export class BasePage {
 
   /**
    * Presses a key combination (e.g., Command + key)
-   * @param modifierKey - The modifier key (e.g., Command, Shift)
+   *
+   * Named `modifier` rather than `modifierKey` so it does not shadow the
+   * imported `modifierKey()` helper, which callers pass the result of.
+   * @param modifier - The already-resolved modifier key (e.g., Meta, Shift)
    * @param key - The key to press
    * @param context - Context description for error reporting
    * @param delay - Optional delay between key presses
    * @throws KeypressError if key combination fails
    */
   protected async pressKeyCombination(
-    modifierKey: string,
+    modifier: string,
     key: string,
     context: string,
     delay = 50,
   ): Promise<void> {
     try {
-      await this.page.keyboard.down(modifierKey);
+      await this.page.keyboard.down(modifier);
       await this.page.waitForTimeout(delay);
       await this.pressKey(key, context);
-      await this.page.keyboard.up(modifierKey);
+      await this.page.keyboard.up(modifier);
     } catch (error) {
       throw new KeypressError(
-        `${modifierKey}+${key}`,
+        `${modifier}+${key}`,
         context,
         error instanceof Error ? error : undefined,
       );
@@ -517,7 +520,8 @@ export class BasePage {
    * Moves to a specific data point using a key combination
    * @param key - The key to press
    * @param action - Description of the movement action
-   * @param useMetaKey - Whether to use the Meta key
+   * @param useMetaKey - Whether to hold the control/command modifier, which
+   * resolves to Meta or Control depending on what the browser reports
    * @throws KeypressError if operation fails
    */
   protected async moveToDataPoint(
@@ -767,6 +771,11 @@ export class BasePage {
    * @param modeMessages - Map of mode values to expected messages
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
+   *
+   * Note: a false result costs the full wait timeout, because the wait can only
+   * end early on a match. Every caller today asserts the mode IS active, so
+   * that path is not hit; a future "assert mode X is NOT active" test would pay
+   * ~5s per call and should take a shorter timeout rather than live with it.
    */
   protected async isModeActive(
     notificationSelector: string,
