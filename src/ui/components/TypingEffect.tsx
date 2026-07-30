@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
 import { containsLatex, ensureKatexStylesheet } from '@util/katex';
+import { createChatSanitizeSchema } from '@util/markdownSanitize';
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -14,6 +15,9 @@ type RehypePlugins = NonNullable<
 
 /** Stable empty list, so a message without maths never re-renders on identity. */
 const NO_MATH_PLUGINS: RehypePlugins = [];
+
+/** Built once: the allowlist is the same for every message on the page. */
+const SANITIZE_SCHEMA = createChatSanitizeSchema();
 
 interface TypingEffectProps {
   text: string;
@@ -142,39 +146,9 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
         <ReactMarkdown
           rehypePlugins={[
             // Before rehypeSanitize, so KaTeX's own markup goes through the
-            // allowlist below rather than around it.
+            // allowlist rather than around it.
             ...mathPlugins,
-            [rehypeSanitize, {
-              attributes: {
-                '*': ['className', 'aria-label', 'aria-hidden', 'role', 'aria-busy', 'aria-live', 'aria-atomic'],
-                'a': ['href', 'target'],
-                'img': ['src', 'alt'],
-                'math': ['display'],
-                'span': ['style'],
-                'svg': ['aria-hidden', 'role', 'xmlns', 'width', 'height', 'viewBox'],
-                'path': ['d'],
-              },
-              tagNames: [
-                'p',
-                'br',
-                'b',
-                'i',
-                'em',
-                'strong',
-                'a',
-                'pre',
-                'code',
-                'ul',
-                'ol',
-                'li',
-                'blockquote',
-                'img',
-                'math',
-                'span',
-                'svg',
-                'path',
-              ],
-            }],
+            [rehypeSanitize, SANITIZE_SCHEMA],
           ]}
           remarkPlugins={[remarkGfm, remarkMath]}
           components={{
