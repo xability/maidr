@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build } from 'vite';
 import dts from 'vite-plugin-dts';
+import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -327,8 +328,13 @@ function createViteConfig(config) {
   }
   // Registered for every bundle, unconditionally: the React-based bundles all
   // emit the same maidr.css, and runParallel's merge step fails with a "Merge
-  // collision" if their contents differ. Keep this out of any `if`.
+  // collision" if their contents differ. Keep these out of any `if`.
   plugins.push(woff2OnlyFonts());
+  // Emits maidr-math.css (KaTeX, fonts inlined) plus the placeholder maidr.css
+  // that keeps the published filename alive now that nothing else fills it.
+  // Its content is read from node_modules, not from the module graph, so every
+  // bundle emits the same bytes and the merge step dedupes them.
+  plugins.push(mathStylesheet());
 
   // Workers build into an isolated outDir (passed via env) so parallel
   // vite-plugin-dts runs never clobber each other's intermediate .d.ts files

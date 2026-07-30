@@ -1,22 +1,28 @@
 /**
- * Vite plugin: drop every non-woff2 `@font-face` source from emitted CSS.
+ * Drop every non-woff2 `@font-face` source from a stylesheet.
  *
- * `src/ui/components/TypingEffect.tsx` imports `katex/dist/katex.min.css` to
- * render LaTeX in AI chat responses. Vite's library mode inlines the fonts that
- * stylesheet references as base64 data URIs, and KaTeX ships each of its 20
- * faces three times over — woff2, woff and ttf:
+ * KaTeX ships each of its 20 faces three times over — woff2, woff and ttf:
  *
  *   src:url(...woff2) format("woff2"),url(...woff) format("woff"),
  *       url(...ttf) format("truetype")
  *
- * A browser downloads exactly one of those, so the other two are dead weight in
- * `dist/maidr.css` — 1,402 KB of the file's 1,425 KB was font data, and two
- * thirds of that was never going to be used. woff2 has been baseline since
- * Chrome 36, Safari 12, Firefox 39 and Edge 14, so the legacy alternatives are
- * pure duplication.
+ * A browser downloads exactly one of those, so the other two are dead weight
+ * once the fonts are inlined as base64: they were 1,402 KB of the 1,425 KB
+ * `dist/maidr.css` used to weigh, and two thirds of that was never going to be
+ * used. woff2 has been baseline since Chrome 36, Safari 12, Firefox 39 and
+ * Edge 14, so the legacy alternatives are pure duplication.
  *
  * This is written as a build-time transform rather than a vendored copy of
  * KaTeX's stylesheet so it keeps working across KaTeX upgrades.
+ *
+ * {@link stripNonWoff2FontSources} is the transform, and its one caller today
+ * is `vite-plugin-math-stylesheet.js`, which prepares `maidr-math.css`. KaTeX's
+ * stylesheet is no longer imported from the source tree, so nothing reaches
+ * `maidr.css` through the module graph any more.
+ *
+ * {@link woff2OnlyFonts} keeps applying it across the bundle regardless, as a
+ * standing guarantee that no font ever ships three times over again. It is a
+ * no-op on the CSS built today.
  *
  * NOTE: several bundles emit a byte-identical `maidr.css`, and the parallel
  * build in `scripts/build.js` fails with "Merge collision" if they diverge.

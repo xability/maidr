@@ -1,13 +1,14 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { mathStylesheet } from './scripts/vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './scripts/vite-plugin-woff2-only.js';
 
 export default defineConfig({
-  // woff2OnlyFonts must stay in step with scripts/build.js, which is what
+  // These two must stay in step with scripts/build.js, which is what
   // `npm run build` runs — otherwise a build driven from this config emits a
-  // maidr.css that differs from the published one.
-  plugins: [react(), woff2OnlyFonts()],
+  // maidr.css and maidr-math.css that differ from the published ones.
+  plugins: [react(), woff2OnlyFonts(), mathStylesheet()],
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.tsx'),
