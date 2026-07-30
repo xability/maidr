@@ -80,7 +80,7 @@ jobs:
   # chromium suite is green, so it all runs here — a subset let the specs rot
   # for two months while PRs stayed green (see issue #626). The other two
   # browsers stay on the scheduled e2e workflows.
-  e2e-smoke:
+  e2e-chromium:
     name: E2E (chromium)
     runs-on: ubuntu-latest
     needs: [commitlint, lint]
@@ -109,7 +109,7 @@ jobs:
         run: node scripts/build.js core
 
       - name: Run e2e specs
-        id: smoke
+        id: e2e
         run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium
         env:
           CI: true
@@ -119,10 +119,10 @@ jobs:
       # Scoped to the test step so an earlier failure (npm ci, browser
       # install) doesn't trigger an upload with nothing to upload.
       - name: Upload Playwright report on failure
-        if: failure() && steps.smoke.outcome == 'failure'
+        if: failure() && steps.e2e.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-smoke-report
+          name: e2e-chromium-report
           path: |
             playwright-report/
             test-results/

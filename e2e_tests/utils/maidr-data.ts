@@ -9,11 +9,11 @@ import type { Maidr } from '../../src/type/grammar';
  * them passes or fails on which mechanism its example happens to use, not on
  * whether the product works.
  */
-const SCHEMA_SOURCES = [
-  'the [maidr^="{"] attribute',
-  'the [maidr-data] attribute',
-  'the window.maidr global',
-] as const;
+const SCHEMA_SOURCES = {
+  jsonAttribute: 'the [maidr^="{"] attribute',
+  dataAttribute: 'the [maidr-data] attribute',
+  windowGlobal: 'the window.maidr global',
+} as const;
 
 /**
  * Reads the MAIDR schema out of a loaded example page.
@@ -27,32 +27,34 @@ const SCHEMA_SOURCES = [
  * @throws Error if no source carries a schema, or if the schema is not valid JSON
  */
 export async function extractMaidrData(page: Page): Promise<Maidr> {
-  const result = await page.evaluate(() => {
+  // The callback runs in the browser and cannot close over module bindings,
+  // so the labels are passed in rather than repeated on both sides.
+  const result = await page.evaluate((sources) => {
     // Mirrors Constant.MAIDR_JSON_SELECTOR — chart exports also stamp
     // non-JSON `maidr="<uuid>"` attributes, which are not schemas.
     const jsonAttrPlot = document.querySelector('[maidr^="{"]');
     const jsonAttr = jsonAttrPlot?.getAttribute('maidr');
     if (jsonAttr) {
-      return { json: jsonAttr, source: 'the [maidr^="{"] attribute' };
+      return { json: jsonAttr, source: sources.jsonAttribute };
     }
 
     const dataAttrPlot = document.querySelector('[maidr-data]');
     const dataAttr = dataAttrPlot?.getAttribute('maidr-data');
     if (dataAttr) {
-      return { json: dataAttr, source: 'the [maidr-data] attribute' };
+      return { json: dataAttr, source: sources.dataAttribute };
     }
 
     const globalMaidr = (window as Window & { maidr?: unknown }).maidr;
     if (globalMaidr) {
-      return { json: JSON.stringify(globalMaidr), source: 'the window.maidr global' };
+      return { json: JSON.stringify(globalMaidr), source: sources.windowGlobal };
     }
 
     return null;
-  });
+  }, SCHEMA_SOURCES);
 
   if (!result) {
     throw new Error(
-      `No MAIDR schema found on the page. Looked for ${SCHEMA_SOURCES.join(', ')}.`,
+      `No MAIDR schema found on the page. Looked for ${Object.values(SCHEMA_SOURCES).join(', ')}.`,
     );
   }
 
