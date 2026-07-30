@@ -46,7 +46,7 @@ export class LinePlotPage extends BasePage {
       await super.navigateTo('examples/lineplot.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new LinePlotError('Failed to navigate to line plot');
+      throw new LinePlotError('Failed to navigate to line plot', { cause: error });
     }
   }
 
@@ -58,7 +58,7 @@ export class LinePlotPage extends BasePage {
     try {
       await super.activateMaidr(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new LinePlotError('Failed to activate MAIDR');
+      throw new LinePlotError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -70,7 +70,7 @@ export class LinePlotPage extends BasePage {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new LinePlotError('Failed to activate MAIDR by clicking');
+      throw new LinePlotError('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -83,7 +83,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new LinePlotError('Failed to get instruction text');
+      throw new LinePlotError('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -106,7 +106,7 @@ export class LinePlotPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new LinePlotError('Failed to check text mode status');
+      throw new LinePlotError('Failed to check text mode status', { cause: error });
     }
   }
 
@@ -128,7 +128,7 @@ export class LinePlotPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new LinePlotError('Failed to check braille mode status');
+      throw new LinePlotError('Failed to check braille mode status', { cause: error });
     }
   }
 
@@ -150,7 +150,7 @@ export class LinePlotPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new LinePlotError('Failed to check sonification mode status');
+      throw new LinePlotError('Failed to check sonification mode status', { cause: error });
     }
   }
 
@@ -172,7 +172,7 @@ export class LinePlotPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new LinePlotError('Failed to check review mode status');
+      throw new LinePlotError('Failed to check review mode status', { cause: error });
     }
   }
 
@@ -185,7 +185,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new LinePlotError('Failed to get X-axis title');
+      throw new LinePlotError('Failed to get X-axis title', { cause: error });
     }
   }
 
@@ -198,7 +198,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new LinePlotError('Failed to get Y-axis title');
+      throw new LinePlotError('Failed to get Y-axis title', { cause: error });
     }
   }
 
@@ -211,7 +211,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new LinePlotError('Failed to get playback speed');
+      throw new LinePlotError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -224,7 +224,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new LinePlotError('Failed to get current data point information');
+      throw new LinePlotError('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -243,7 +243,7 @@ export class LinePlotPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new LinePlotError('Failed to start forward autoplay');
+      throw new LinePlotError('Failed to start forward autoplay', { cause: error });
     }
   }
 
@@ -262,7 +262,7 @@ export class LinePlotPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new LinePlotError('Failed to start reverse autoplay');
+      throw new LinePlotError('Failed to start reverse autoplay', { cause: error });
     }
   }
 
@@ -278,7 +278,7 @@ export class LinePlotPage extends BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new LinePlotError('LinePlot plot failed to load correctly');
+      throw new LinePlotError('LinePlot plot failed to load correctly', { cause: error });
     }
   }
 
@@ -291,7 +291,7 @@ export class LinePlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new LinePlotError('Failed to get speed toggle information');
+      throw new LinePlotError('Failed to get speed toggle information', { cause: error });
     }
   }
 }

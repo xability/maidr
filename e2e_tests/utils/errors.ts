@@ -6,9 +6,11 @@ export class TestError extends Error {
   /**
    * Creates a new TestError
    * @param message - Error message
+   * @param options - Standard error options. Pass `{ cause }` so the original
+   * failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'TestError';
   }
 }
@@ -39,9 +41,11 @@ export class AssertionError extends TestError {
   /**
    * Creates a new AssertionError
    * @param message - Description of the failed assertion
+   * @param options - Standard error options. Pass `{ cause }` so the original
+   * failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(`Assertion failed: ${message}`);
+  constructor(message: string, options?: ErrorOptions) {
+    super(`Assertion failed: ${message}`, options);
     this.name = 'AssertionError';
   }
 }
@@ -59,7 +63,7 @@ export class KeypressError extends TestError {
    */
   constructor(key: string, context: string, cause?: Error) {
     const causeMessage = cause ? `: ${cause.message}` : '';
-    super(`Failed to press key "${key}" during ${context}${causeMessage}`);
+    super(`Failed to press key "${key}" during ${context}${causeMessage}`, { cause });
     this.name = 'KeypressError';
 
     // Preserve stack trace in Node.js environments
@@ -76,9 +80,11 @@ export class BarPlotError extends Error {
   /**
    * Creates a new BarPlotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'BarPlotError';
   }
 }
@@ -90,9 +96,11 @@ export class HistogramError extends Error {
   /**
    * Creates a new HistogramError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'HistogramError';
   }
 }
@@ -104,9 +112,11 @@ export class LinePlotError extends Error {
   /**
    * Creates a new LinePlotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'LinePlotError';
   }
 }
@@ -118,9 +128,11 @@ export class HeatmapError extends Error {
   /**
    * Creates a new HeatmapError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'HeatmapError';
   }
 }
@@ -132,9 +144,11 @@ export class DodgedBarplotError extends Error {
   /**
    * Creates a new DodgedBarplotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'DodgedBarplotError';
   }
 }
@@ -146,9 +160,11 @@ export class StackedBarplotError extends Error {
   /**
    * Creates a new StackedBarplotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'StackedBarplotError';
   }
 }
@@ -160,9 +176,11 @@ export class BoxplotVerticalError extends Error {
   /**
    * Creates a new BoxplotVerticalError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'BoxplotVerticalError';
   }
 }
@@ -174,9 +192,11 @@ export class BoxplotHorizontalError extends Error {
   /**
    * Creates a new BoxplotHorizontalError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'BoxplotHorizontalError';
   }
 }
@@ -188,9 +208,11 @@ export class MultiLineplotError extends Error {
   /**
    * Creates a new MultiLineplotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'MultiLineplotError';
   }
 }
@@ -202,9 +224,11 @@ export class MultiLayerPlotError extends Error {
   /**
    * Creates a new MultiLayerPlotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'MultiLayerPlotError';
   }
 }
@@ -216,9 +240,11 @@ export class ViolinPlotError extends Error {
   /**
    * Creates a new ViolinPlotError
    * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
    */
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'ViolinPlotError';
   }
 }
