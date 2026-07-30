@@ -94,5 +94,11 @@ test.describe('Error cause propagation', () => {
     const keypressError = new KeypressError('ArrowRight', 'navigation', original);
     expect(keypressError.cause).toBe(original);
     expect(keypressError.message).toContain('the real failure');
+
+    // With no cause there must be no `cause` property at all. Setting it to
+    // undefined still counts as owning it, and reporters then print a bare
+    // "[cause]: undefined" line on every keypress failure.
+    const causeless = new KeypressError('ArrowRight', 'navigation');
+    expect(Object.prototype.hasOwnProperty.call(causeless, 'cause')).toBe(false);
   });
 });

@@ -56,6 +56,11 @@ export class AssertionError extends TestError {
 /**
  * Error thrown when a keypress operation fails
  * Used to identify issues with keyboard interactions during tests
+ *
+ * Unlike the other errors here, this one takes its cause positionally rather
+ * than as `ErrorOptions`, because it also folds the cause's text into its own
+ * message. New error classes should follow the `options?: ErrorOptions`
+ * pattern the rest of this file uses.
  */
 export class KeypressError extends TestError {
   /**
@@ -66,7 +71,13 @@ export class KeypressError extends TestError {
    */
   constructor(key: string, context: string, cause?: Error) {
     const causeMessage = cause ? `: ${cause.message}` : '';
-    super(`Failed to press key "${key}" during ${context}${causeMessage}`, { cause });
+    // Only pass options when there is a cause: an options object carrying
+    // `cause: undefined` still installs an own `cause` property, which makes
+    // reporters print a bare "[cause]: undefined" line.
+    super(
+      `Failed to press key "${key}" during ${context}${causeMessage}`,
+      cause ? { cause } : undefined,
+    );
     this.name = 'KeypressError';
 
     // Preserve stack trace in Node.js environments
