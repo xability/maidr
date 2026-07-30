@@ -317,7 +317,7 @@ export class BasePage {
   public async showHelpMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await this.resolveModifier('key combination'),
+        await this.resolveModifier('show help menu'),
         TestConstants.SLASH_KEY,
         'show help menu',
       );
@@ -341,7 +341,7 @@ export class BasePage {
   public async showSettingsMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await this.resolveModifier('key combination'),
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -369,7 +369,7 @@ export class BasePage {
    */
   public async openHelpMenu(): Promise<void> {
     await this.pressKeyCombination(
-      await this.resolveModifier('key combination'),
+      await this.resolveModifier('open help menu'),
       TestConstants.SLASH_KEY,
       'open help menu',
     );
@@ -382,7 +382,7 @@ export class BasePage {
    */
   public async openSettingsMenu(): Promise<void> {
     await this.pressKeyCombination(
-      await this.resolveModifier('key combination'),
+      await this.resolveModifier('open settings menu'),
       TestConstants.COMMA_KEY,
       'open settings menu',
       100,
@@ -396,7 +396,7 @@ export class BasePage {
   public async closeSettingsMenuWithEscape(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await this.resolveModifier('key combination'),
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -428,7 +428,7 @@ export class BasePage {
   public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        await this.resolveModifier('key combination'),
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -541,7 +541,7 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await this.pressKeyCombination(await this.resolveModifier('key combination'), key, action);
+      await this.pressKeyCombination(await this.resolveModifier(action), key, action);
     } else {
       await this.pressKey(key, action);
     }
