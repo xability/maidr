@@ -76,15 +76,15 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-  # Fast Playwright smoke on every PR: chromium only, core bundle only, and
-  # only the specs kept deliberately green. The full 3-browser suite stays on
-  # the scheduled e2e workflows; extend the spec list here as more specs are
-  # verified healthy.
+  # Playwright on every PR: chromium only, core bundle only. The whole
+  # chromium suite is green, so it all runs here — a subset let the specs rot
+  # for two months while PRs stayed green (see issue #626). The other two
+  # browsers stay on the scheduled e2e workflows.
   e2e-smoke:
-    name: E2E Smoke (chromium)
+    name: E2E (chromium)
     runs-on: ubuntu-latest
     needs: [commitlint, lint]
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     permissions:
       contents: read
@@ -108,13 +108,13 @@ jobs:
       - name: Build core bundle
         run: node scripts/build.js core
 
-      - name: Run smoke specs
+      - name: Run e2e specs
         id: smoke
-        run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium liveData.spec.ts dialogAccessibility.spec.ts
+        run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium
         env:
           CI: true
 
-      # The smoke specs are kept green, so a failure here is a real
+      # The chromium suite is kept green, so a failure here is a real
       # regression — ship the report and screenshots with the PR run.
       # Scoped to the test step so an earlier failure (npm ci, browser
       # install) doesn't trigger an upload with nothing to upload.
