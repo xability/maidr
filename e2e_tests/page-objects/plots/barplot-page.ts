@@ -60,7 +60,7 @@ export class BarPlotPage extends BasePage {
       await this.navigateTo('/examples/barplot.html');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to navigate to bar plot: ${errorMessage}`);
+      throw new BarPlotError(`Failed to navigate to bar plot: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -105,6 +105,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError(
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
+        { cause: error },
       );
     }
   }
@@ -121,7 +122,7 @@ export class BarPlotPage extends BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new BarPlotError('Bar plot failed to load correctly');
+      throw new BarPlotError('Bar plot failed to load correctly', { cause: error });
     }
   }
 
@@ -136,7 +137,7 @@ export class BarPlotPage extends BasePage {
       await this.page.keyboard.press(TestConstants.TAB_KEY);
       await this.verifySvgFocused();
     } catch (error) {
-      throw new BarPlotError('Failed to activate MAIDR');
+      throw new BarPlotError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -152,7 +153,7 @@ export class BarPlotPage extends BasePage {
       await this.verifySvgFocused();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`);
+      throw new BarPlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -166,7 +167,7 @@ export class BarPlotPage extends BasePage {
       const text = await this.getElementText(this.selectors.notification);
       return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
-      throw new BarPlotError('Failed to get notification text');
+      throw new BarPlotError('Failed to get notification text', { cause: error });
     }
   }
 
@@ -191,7 +192,7 @@ export class BarPlotPage extends BasePage {
       const notificationText = await this.getNotificationText();
       return notificationText === expectedMessage;
     } catch (error) {
-      throw new BarPlotError(`Failed to check ${mode} status`);
+      throw new BarPlotError(`Failed to check ${mode} status`, { cause: error });
     }
   }
 
@@ -273,7 +274,7 @@ export class BarPlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.info);
     } catch (error) {
-      throw new BarPlotError('Failed to get info text');
+      throw new BarPlotError('Failed to get info text', { cause: error });
     }
   }
 
@@ -305,7 +306,7 @@ export class BarPlotPage extends BasePage {
       const speedText = await this.getElementText(this.selectors.speedIndicator);
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new BarPlotError('Failed to get playback speed');
+      throw new BarPlotError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -365,7 +366,7 @@ export class BarPlotPage extends BasePage {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`);
+      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`, { cause: error });
     }
   }
 
