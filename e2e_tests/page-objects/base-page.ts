@@ -235,7 +235,17 @@ export class BasePage {
     // Install and mark in one page call: this path now runs on nearly every
     // interaction in the suite, so a second round trip per action is not free.
     this.actionAnnouncementMark = await installAnnouncementRecorder(this.page);
-    await act();
+
+    try {
+      await act();
+    } catch (error) {
+      // Clear the mark rather than leave a stale one behind. A caller that
+      // swallowed this failure and carried on would otherwise hand the next
+      // check a window belonging to an action that never happened.
+      this.actionAnnouncementMark = null;
+      throw error;
+    }
+
     await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
   }
 
@@ -709,6 +719,12 @@ export class BasePage {
     await this.pressKey(TestConstants.LABEL_KEY, 'label scope');
     await this.pressKey(axisKey, axisName);
 
+    // Bare catch, and unlike `isModeActive` there is no re-read after it to
+    // resurface a structural problem. There does not need to be: the
+    // `textContent()` above exercises this same locator with nothing catching
+    // it, and locator calls enforce strict mode — a selector matching several
+    // elements raises there, before this wait is reached. Only the timeout
+    // gets here, and the caller's assertion decides on that.
     await expect(container)
       .not
       .toHaveText(before, { timeout: TestConstants.ANNOUNCEMENT_TIMEOUT })
