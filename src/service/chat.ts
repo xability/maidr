@@ -611,7 +611,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
    * @param {LlmRequest} request - The request containing authentication details
    * @returns {Record<string, string>} The HTTP headers
    */
-  protected getHeaders(request: LlmRequest): Record<string, string> {
+  protected override getHeaders(request: LlmRequest): Record<string, string> {
     if (request.clientToken) {
       const headers = super.getHeaders(request);
       headers['anthropic-version'] = ANTHROPIC_API_VERSION;
@@ -759,7 +759,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
    * @param {LlmRequest} request - The request containing authentication details
    * @returns {Record<string, string>} The HTTP headers
    */
-  protected getHeaders(request: LlmRequest): Record<string, string> {
+  protected override getHeaders(request: LlmRequest): Record<string, string> {
     const headers = super.getHeaders(request);
     // Gemini uses API key in URL, so we don't need to add it to headers
     delete headers.Authorization;
@@ -893,7 +893,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
    * @param {LlmRequest} _request - The request containing connection details (unused)
    * @returns {Record<string, string>} The HTTP headers
    */
-  protected getHeaders(_request: LlmRequest): Record<string, string> {
+  protected override getHeaders(_request: LlmRequest): Record<string, string> {
     return {
       'Content-Type': 'application/json',
     };

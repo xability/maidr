@@ -148,7 +148,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
     this.densityValues.length = 0;
     this.yValues.length = 0;
@@ -474,14 +474,14 @@ export class ViolinKdeTrace extends AbstractTrace {
   /**
    * Returns the violin index (row) for layer switching.
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     return this.row >= 0 && this.row < this.points.length ? this.row : null;
   }
 
   /**
    * Moves to the specified violin, resetting to bottom of curve.
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -687,7 +687,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     };
   }
 
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;

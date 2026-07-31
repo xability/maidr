@@ -11,7 +11,7 @@ export class ViolinPlotPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors = {
+  protected override readonly selectors = {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.VIOLIN_PLOT_ID}`,
@@ -50,7 +50,7 @@ export class ViolinPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws ViolinPlotError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await super.activateMaidr(this.selectors.svg, TestConstants.VIOLIN_PLOT_ID);
     } catch (error) {
@@ -63,7 +63,7 @@ export class ViolinPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws ViolinPlotError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, TestConstants.VIOLIN_PLOT_ID);
     } catch (error) {
@@ -76,7 +76,7 @@ export class ViolinPlotPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws ViolinPlotError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
@@ -144,7 +144,7 @@ export class ViolinPlotPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws ViolinPlotError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
@@ -170,7 +170,7 @@ export class ViolinPlotPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws ViolinPlotError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {

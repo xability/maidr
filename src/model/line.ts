@@ -207,7 +207,7 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     if (typeof window !== 'undefined') {
       window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
       window.removeEventListener('resize', this.invalidateHighlightCenters);
@@ -360,7 +360,7 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.movable.handleInitialEntry();
       this.previousRow = null;
@@ -494,7 +494,7 @@ export class LineTrace extends AbstractTrace {
     return intersections;
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       const [row, col] = target;
       return (
@@ -803,7 +803,7 @@ export class LineTrace extends AbstractTrace {
     }
   }
 
-  public get state(): TraceState {
+  public override get state(): TraceState {
     const baseState = super.state;
     if (baseState.empty)
       return baseState;
@@ -1404,7 +1404,7 @@ export class LineTrace extends AbstractTrace {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
@@ -1424,7 +1424,7 @@ export class LineTrace extends AbstractTrace {
    * @param xValue The X value to move to
    * @returns true if the position was found and set, false otherwise
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     // Handle initial entry properly
     if (this.isInitialEntry) {
       this.movable.handleInitialEntry();
@@ -1432,7 +1432,7 @@ export class LineTrace extends AbstractTrace {
     return super.moveToXValue(xValue);
   }
 
-  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;
@@ -1460,12 +1460,12 @@ export class LineTrace extends AbstractTrace {
     return false;
   }
 
-  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+  public override moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
 
-  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+  public override moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
     return true;
   }

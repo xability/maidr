@@ -223,7 +223,7 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   /**
    * Cleans up all subplots and releases resources
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.subplots.forEach(row => row.forEach(subplot => subplot.dispose()));
     this.subplots.length = 0;
     super.dispose();
@@ -414,7 +414,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     this.movable = new MovableGrid<Trace>(this.traces);
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
     // Remove the cloned highlight element to avoid stale DOM nodes

@@ -18,7 +18,7 @@ export class BarPlotPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors: {
+  protected override readonly selectors: {
     notification: string;
     info: string;
     speedIndicator: string;
@@ -75,7 +75,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when the condition is met
    * @throws BarPlotError if timeout is reached before the condition is met
    */
-  public async waitForElementContent(
+  public override async waitForElementContent(
     selector: string,
     expectedContent: string,
     options: { timeout?: number; pollInterval?: number } = {},
@@ -116,7 +116,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws BarPlotError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await this.page.waitForLoadState('domcontentloaded');
       await expect(this.page.locator(this.selectors.svg)).toBeVisible({
@@ -132,7 +132,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws BarPlotError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
       await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
@@ -147,7 +147,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws BarPlotError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
       await this.page.click(this.selectors.svg);
@@ -177,7 +177,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws BarPlotError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     return this.getNotificationText();
   }
 
@@ -313,7 +313,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current speed value
    * @throws BarPlotError if speed cannot be retrieved
    */
-  public async getPlaybackSpeed(): Promise<number> {
+  public override async getPlaybackSpeed(): Promise<number> {
     try {
       const speedText = await this.getElementText(this.selectors.speedIndicator);
       return Number.parseFloat(speedText);
@@ -336,7 +336,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws BarPlotError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     return this.getInfoText();
   }
 

@@ -155,7 +155,7 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
@@ -374,7 +374,7 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Moves to the next boxplot section that matches the comparison criteria.
    */
-  public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
       return false;
@@ -429,7 +429,7 @@ export class BoxTrace extends AbstractTrace {
     }
   }
 
-  public moveUpRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('UPWARD');
       return true;
@@ -437,7 +437,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('up', mode);
   }
 
-  public moveDownRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveDownRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('DOWNWARD');
       return true;
@@ -445,7 +445,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('down', mode);
   }
 
-  public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('BACKWARD');
       return true;
@@ -453,7 +453,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('left', mode);
   }
 
-  public moveRightRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('FORWARD');
       return true;
