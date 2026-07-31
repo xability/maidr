@@ -60,7 +60,30 @@ const config: ReturnType<typeof antfu> = antfu({
   rules: {
     'no-restricted-syntax': ['error', {
       selector: 'CallExpression[callee.property.name=\'press\'][callee.object.property.name=\'keyboard\']',
-      message: 'Do not press keys directly in a plot page object. Use this.pressKey() for a silent key, or this.pressKeyAwaitingAnnouncement() when MAIDR announces the result.',
+      message: 'Do not press keys directly in a page object. Use this.pressKey() for a silent key, or this.pressKeyAwaitingAnnouncement() when MAIDR announces the result.',
+    }],
+  },
+}, {
+  // The same bypass one level up. `pressKeyCombination` routes through
+  // `pressKey`, so the mark is cleared and nothing goes unwrapped — but it
+  // does not *wait*, and a modified data-point move announces. `moveToTop` in
+  // boxplotVertical-page.ts was the live case.
+  //
+  // Scoped to `plots/**` rather than all of `page-objects/**`: base-page's own
+  // direct callers are the menu and dialog openers, which are asserted on
+  // visibility rather than on an announcement, and `moveToDataPoint` is where
+  // the wrapped combination lives.
+  // Both selectors are repeated here on purpose: flat config replaces a rule's
+  // options rather than merging them, so listing only the new one would switch
+  // the keypress ban off for exactly the directory it was written for.
+  files: ['e2e_tests/page-objects/plots/**/*.ts'],
+  rules: {
+    'no-restricted-syntax': ['error', {
+      selector: 'CallExpression[callee.property.name=\'press\'][callee.object.property.name=\'keyboard\']',
+      message: 'Do not press keys directly in a page object. Use this.pressKey() for a silent key, or this.pressKeyAwaitingAnnouncement() when MAIDR announces the result.',
+    }, {
+      selector: 'CallExpression[callee.property.name=\'pressKeyCombination\']',
+      message: 'Do not call pressKeyCombination() from a plot page object: it presses the key but does not wait for the announcement. Use this.moveToDataPoint(key, action, true) for a modified move.',
     }],
   },
 });
