@@ -172,6 +172,17 @@ export class BasePage {
    * @throws KeypressError if key press fails
    */
   public async pressKey(key: string, context: string): Promise<void> {
+    // Any key pressed outside `awaitingAnnouncement` invalidates the recorded
+    // window: whatever lands after the mark no longer belongs solely to the
+    // action the mark was taken for, so a later check reading it could match an
+    // older action's message. `toggleAxisTitle` is the live case — it presses
+    // two keys and waits on the display instead. Clearing here rather than at
+    // each call site means a new unwrapped keypress cannot reintroduce the bug.
+    //
+    // `awaitingAnnouncement` publishes its own mark after the action runs, so
+    // this does not interfere with the wrapped path.
+    this.actionAnnouncementMark = null;
+
     try {
       await this.page.keyboard.press(key);
     } catch (error) {
@@ -234,19 +245,17 @@ export class BasePage {
   private async awaitingAnnouncement(act: () => Promise<void>): Promise<void> {
     // Install and mark in one page call: this path now runs on nearly every
     // interaction in the suite, so a second round trip per action is not free.
-    this.actionAnnouncementMark = await installAnnouncementRecorder(this.page);
+    const mark = await installAnnouncementRecorder(this.page);
 
-    try {
-      await act();
-    } catch (error) {
-      // Clear the mark rather than leave a stale one behind. A caller that
-      // swallowed this failure and carried on would otherwise hand the next
-      // check a window belonging to an action that never happened.
-      this.actionAnnouncementMark = null;
-      throw error;
-    }
+    // Publish only once the action has actually run. `act()` presses keys and
+    // `pressKey` clears the mark, so holding it in a local until then is what
+    // lets that clearing be unconditional. It also means a throwing action
+    // leaves the mark cleared: a caller that swallowed the failure and carried
+    // on cannot be handed a window belonging to an action that never happened.
+    await act();
+    this.actionAnnouncementMark = mark;
 
-    await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
+    await waitForAnnouncementAfter(this.page, mark);
   }
 
   /**

@@ -106,6 +106,26 @@ test.describe('Announcement recorder', () => {
     expect(await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE)).toBe(true);
   });
 
+  test('does not answer from a window an unwrapped keypress has invalidated', async ({ page }) => {
+    const histogramPage = new HistogramPage(page);
+    await histogramPage.navigateToHistogram();
+    await installAnnouncementRecorder(page);
+    await histogramPage.activateMaidr();
+
+    // Awaited, so it leaves a mark behind: "Text mode is terse".
+    await histogramPage.toggleTextMode();
+
+    // Now change the mode again without going through the awaited path, the
+    // way `toggleAxisTitle` presses its two keys. Text mode is off after this.
+    await histogramPage.pressKey(TestConstants.TEXT_KEY, 'unwrapped text mode toggle');
+
+    // If the earlier mark survived, the recorded window would still hold
+    // "Text mode is terse" and this would report a mode that is no longer
+    // active. An unwrapped keypress has to invalidate the window, so the check
+    // falls back to the region and reads the state as it now is.
+    expect(await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE)).toBe(false);
+  });
+
   test('ignores display updates that were never announced', async ({ page }) => {
     const histogramPage = new HistogramPage(page);
     await histogramPage.navigateToHistogram();
