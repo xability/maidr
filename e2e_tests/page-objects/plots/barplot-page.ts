@@ -183,12 +183,18 @@ export class BarPlotPage extends BasePage {
 
   /**
    * Checks if a specific mode is active based on expected message
+   *
+   * Deliberately NOT named `isModeActive`: that would override the base
+   * method with an incompatible parameter list, which is how the barplot
+   * toggles previously ended up bypassing the base class's wait entirely.
+   * A different name means a future change to the base signature cannot
+   * silently miss this one.
    * @param mode - The mode to check
    * @param expectedMessage - The expected message for the mode
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws BarPlotError if mode status cannot be checked
    */
-  protected async isModeActive(mode: string, expectedMessage: string): Promise<boolean> {
+  protected async isModeMessageActive(mode: string, expectedMessage: string): Promise<boolean> {
     try {
       // Delegate rather than read the notification directly: the base
       // implementation waits for the announcement before comparing, and a
@@ -217,7 +223,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid text mode specified');
     }
 
-    return this.isModeActive('text', modeMessages[textMode]);
+    return this.isModeMessageActive('text', modeMessages[textMode]);
   }
 
   /**
@@ -234,7 +240,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid braille mode specified');
     }
 
-    return this.isModeActive('braille', modeMessages[brailleMode]);
+    return this.isModeMessageActive('braille', modeMessages[brailleMode]);
   }
 
   /**
@@ -251,7 +257,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid sonification mode specified');
     }
 
-    return this.isModeActive('sonification', modeMessages[sonificationMode]);
+    return this.isModeMessageActive('sonification', modeMessages[sonificationMode]);
   }
 
   /**
@@ -268,7 +274,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid review mode specified');
     }
 
-    return this.isModeActive('review', modeMessages[reviewMode]);
+    return this.isModeMessageActive('review', modeMessages[reviewMode]);
   }
 
   /**
