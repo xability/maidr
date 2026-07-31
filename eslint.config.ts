@@ -43,11 +43,10 @@ const config: ReturnType<typeof antfu> = antfu({
     markdown: 'prettier',
   },
 }).append({
-  // Five review rounds on #684 each turned up one more page object dispatching
-  // a key straight at the keyboard, bypassing the synchronisation in
-  // BasePage — including layer switches whose late announcement then leaked
-  // into the next action's wait. Make that a lint error rather than something
-  // the next reviewer has to remember to grep for.
+  // A key dispatched straight at the keyboard skips BasePage's
+  // synchronisation, so its announcement can land during the NEXT action and
+  // satisfy that action's wait early — the assertion then reads the region
+  // before its own announcement arrives. Layer switches are the usual case.
   //
   // `base-page.ts` is deliberately out of scope: it is where the wrapping
   // lives. Use `pressKey` for a keypress that announces nothing, and

@@ -56,6 +56,38 @@ test.describe('Announcement recorder', () => {
     ]);
   });
 
+  test('records both announcements when two land in one flush', async ({ page }) => {
+    const histogramPage = new HistogramPage(page);
+    await histogramPage.navigateToHistogram();
+    await installAnnouncementRecorder(page);
+    await histogramPage.activateMaidr();
+
+    const before = (await recordedAnnouncements(page)).length;
+
+    // Insert two alerts in one synchronous block so the observer sees both in
+    // a single callback. Driving this through MAIDR would depend on two
+    // notifies landing before one flush, which is not something a test can
+    // force; the observer's own batching behaviour is what is under test, and
+    // it is the reason this walks MutationRecords rather than sampling the
+    // live node once per callback.
+    await page.evaluate((containerId) => {
+      const parent = document.getElementById(containerId)?.parentElement;
+      if (!parent) {
+        throw new Error(`No parent for #${containerId}`);
+      }
+      for (const text of ['First batched message', 'Second batched message']) {
+        const alert = document.createElement('div');
+        alert.setAttribute('role', 'alert');
+        alert.textContent = text;
+        parent.appendChild(alert);
+      }
+    }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
+
+    await expect
+      .poll(async () => (await recordedAnnouncements(page)).slice(before))
+      .toEqual(['First batched message', 'Second batched message']);
+  });
+
   test('ignores display updates that were never announced', async ({ page }) => {
     const histogramPage = new HistogramPage(page);
     await histogramPage.navigateToHistogram();
