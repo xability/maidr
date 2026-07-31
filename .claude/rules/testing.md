@@ -3,6 +3,7 @@ paths:
   - "test/**"
   - "e2e_tests/**"
   - "jest.config.ts"
+  - "playwright.config.ts"
 ---
 
 # Testing

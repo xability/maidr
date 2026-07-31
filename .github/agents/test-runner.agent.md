@@ -27,7 +27,9 @@ You are a testing specialist for the MAIDR accessibility library. You run tests,
 ### E2E Tests (Playwright)
 - Config: `e2e_tests/config/test-config.ts` — Chromium, Firefox, WebKit
 - Run: `npm run e2e`, `npm run e2e:ui`, `npm run e2e:debug` — all three pass
-  `--config`; there is no root `playwright.config.ts`
+  `--config`. The root `playwright.config.ts` re-exports the same file, so a
+  bare `npx playwright test` and editor integrations resolve to it too; it
+  holds no settings, so edit `e2e_tests/config/test-config.ts`
 - Specs: `e2e_tests/specs/*.spec.ts`
 - Page objects: `e2e_tests/page-objects/plots/`
 - Uses `file://` protocol (no server), 30s timeout, no retries (a flake is a
