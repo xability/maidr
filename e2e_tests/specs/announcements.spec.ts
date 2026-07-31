@@ -88,6 +88,24 @@ test.describe('Announcement recorder', () => {
       .toEqual(['First batched message', 'Second batched message']);
   });
 
+  test('falls back to the region when no action preceded the check', async ({ page }) => {
+    const histogramPage = new HistogramPage(page);
+    await histogramPage.navigateToHistogram();
+    await installAnnouncementRecorder(page);
+    await histogramPage.activateMaidr();
+
+    await histogramPage.toggleTextMode();
+
+    // The first check reads the recorded window and consumes the mark.
+    expect(await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE)).toBe(true);
+
+    // The second has no action before it and no mark left, so it has to answer
+    // from the region instead. Pinning this because the alternative — treating
+    // a missing mark as "not active" — would be a silent false negative, and
+    // because the contract is positional and not enforced by the types.
+    expect(await histogramPage.isTextModeActive(TestConstants.TEXT_MODE_TERSE)).toBe(true);
+  });
+
   test('ignores display updates that were never announced', async ({ page }) => {
     const histogramPage = new HistogramPage(page);
     await histogramPage.navigateToHistogram();
