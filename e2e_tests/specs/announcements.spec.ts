@@ -88,6 +88,37 @@ test.describe('Announcement recorder', () => {
       .toEqual(['First batched message', 'Second batched message']);
   });
 
+  test('records both announcements when one insertion carries two', async ({ page }) => {
+    const histogramPage = new HistogramPage(page);
+    await histogramPage.navigateToHistogram();
+    await installAnnouncementRecorder(page);
+    await histogramPage.activateMaidr();
+
+    const before = (await recordedAnnouncements(page)).length;
+
+    // The same collapse as the test above, one level down. A MutationRecord
+    // lists only the root of an inserted subtree, so taking the first match
+    // inside that root would count one announcement where there are two.
+    await page.evaluate((containerId) => {
+      const parent = document.getElementById(containerId)?.parentElement;
+      if (!parent) {
+        throw new Error(`No parent for #${containerId}`);
+      }
+      const wrapper = document.createElement('div');
+      for (const text of ['First nested message', 'Second nested message']) {
+        const alert = document.createElement('div');
+        alert.setAttribute('role', 'alert');
+        alert.textContent = text;
+        wrapper.appendChild(alert);
+      }
+      parent.appendChild(wrapper);
+    }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
+
+    await expect
+      .poll(async () => (await recordedAnnouncements(page)).slice(before))
+      .toEqual(['First nested message', 'Second nested message']);
+  });
+
   test('falls back to the region when no action preceded the check', async ({ page }) => {
     const histogramPage = new HistogramPage(page);
     await histogramPage.navigateToHistogram();

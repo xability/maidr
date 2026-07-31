@@ -69,15 +69,22 @@ export async function installAnnouncementRecorder(page: Page): Promise<number> {
           if (!(node instanceof Element)) {
             continue;
           }
-          const alert = node.matches('[role="alert"]')
-            ? node
-            : node.querySelector('[role="alert"]');
-          if (!alert || !inMaidrRegion(alert)) {
-            continue;
-          }
-          const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
-          if (text) {
-            w.__maidrAnnouncements?.push(text);
+          // `querySelectorAll`, not `querySelector`, for the same reason this
+          // walks the records rather than sampling: taking the first match
+          // collapses two announcements into one. A record only lists the root
+          // of an inserted subtree, so a commit that mounted two alerts under
+          // one new node would otherwise register a single entry.
+          const alerts = node.matches('[role="alert"]')
+            ? [node]
+            : node.querySelectorAll('[role="alert"]');
+          for (const alert of alerts) {
+            if (!inMaidrRegion(alert)) {
+              continue;
+            }
+            const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
+            if (text) {
+              w.__maidrAnnouncements?.push(text);
+            }
           }
         }
       }
