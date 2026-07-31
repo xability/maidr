@@ -42,6 +42,20 @@ export abstract class TestConstants {
    */
   static readonly PLOT_EXTREME_VERIFICATION = 'No more data to display';
   /**
+   * How long an action waits for the announcement it triggered. Generous
+   * next to the millisecond the announcement normally takes, and only ever
+   * spent in full on a keypress that announces nothing.
+   */
+  static readonly ANNOUNCEMENT_TIMEOUT = 2000;
+  /**
+   * How long a mode check polls the displayed region when the recorded window
+   * came back empty. Deliberately longer than `ANNOUNCEMENT_TIMEOUT` rather
+   * than the same value: this is the slower path, reached only once the
+   * recorded one has already found nothing, so it is where a real-but-late
+   * message still has to be caught.
+   */
+  static readonly REGION_FALLBACK_TIMEOUT = 5000;
+  /**
    * MAIDR component identifiers
    */
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-text-container';

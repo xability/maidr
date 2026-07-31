@@ -317,7 +317,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToDataPointBelow(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowDown');
+      await this.pressKeyAwaitingAnnouncement('ArrowDown', 'move to data point below');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to data point below', { cause: error });
     }
@@ -329,7 +329,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToLastBox(): Promise<void> {
     try {
-      await this.page.keyboard.press('End');
+      await this.pressKeyAwaitingAnnouncement('End', 'move to last box');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to last box', { cause: error });
     }
@@ -341,9 +341,12 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToTop(): Promise<void> {
     try {
-      await this.pressKeyCombination(await this.resolveModifier('Move to top'), TestConstants.UP_ARROW_KEY, 'Move to top');
+      // Via `moveToDataPoint` rather than `pressKeyCombination` directly: this
+      // announces, and an un-awaited announcement can land inside the next
+      // action's window and satisfy its wait early.
+      await this.moveToDataPoint(TestConstants.UP_ARROW_KEY, 'Move to top', true);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to move to last box', { cause: error });
+      throw new BoxplotVerticalError('Failed to move to top', { cause: error });
     }
   }
 }

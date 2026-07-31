@@ -279,7 +279,7 @@ export class MultiLayerPlotPage extends BasePage {
    */
   public async switchToUpperLayer(): Promise<void> {
     try {
-      await this.pressKey(TestConstants.PAGE_UP_KEY, 'switch to upper layer');
+      await this.pressKeyAwaitingAnnouncement(TestConstants.PAGE_UP_KEY, 'switch to upper layer');
     } catch (error) {
       throw new MultiLayerPlotError('Failed to switch to upper layer', { cause: error });
     }
@@ -291,7 +291,7 @@ export class MultiLayerPlotPage extends BasePage {
    */
   public async switchToLowerLayer(): Promise<void> {
     try {
-      await this.pressKey(TestConstants.PAGE_DOWN_KEY, 'switch to lower layer');
+      await this.pressKeyAwaitingAnnouncement(TestConstants.PAGE_DOWN_KEY, 'switch to lower layer');
     } catch (error) {
       throw new MultiLayerPlotError('Failed to switch to lower layer', { cause: error });
     }

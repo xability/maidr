@@ -184,7 +184,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveToNextViolin(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowRight');
+      await this.pressKeyAwaitingAnnouncement('ArrowRight', 'move to next violin');
     } catch (error) {
       throw new ViolinPlotError('Failed to move to next violin', { cause: error });
     }
@@ -196,7 +196,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveToPreviousViolin(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowLeft');
+      await this.pressKeyAwaitingAnnouncement('ArrowLeft', 'move to previous violin');
     } catch (error) {
       throw new ViolinPlotError('Failed to move to previous violin', { cause: error });
     }
@@ -208,7 +208,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveUpKdeCurve(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowUp');
+      await this.pressKeyAwaitingAnnouncement('ArrowUp', 'move up KDE curve');
     } catch (error) {
       throw new ViolinPlotError('Failed to move up KDE curve', { cause: error });
     }
@@ -220,7 +220,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveDownKdeCurve(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowDown');
+      await this.pressKeyAwaitingAnnouncement('ArrowDown', 'move down KDE curve');
     } catch (error) {
       throw new ViolinPlotError('Failed to move down KDE curve', { cause: error });
     }
@@ -232,7 +232,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async switchToNextLayer(): Promise<void> {
     try {
-      await this.page.keyboard.press('PageDown');
+      await this.pressKeyAwaitingAnnouncement('PageDown', 'switch to next layer');
     } catch (error) {
       throw new ViolinPlotError('Failed to switch to next layer', { cause: error });
     }
@@ -244,7 +244,7 @@ export class ViolinPlotPage extends BasePage {
    */
   public async switchToPreviousLayer(): Promise<void> {
     try {
-      await this.page.keyboard.press('PageUp');
+      await this.pressKeyAwaitingAnnouncement('PageUp', 'switch to previous layer');
     } catch (error) {
       throw new ViolinPlotError('Failed to switch to previous layer', { cause: error });
     }

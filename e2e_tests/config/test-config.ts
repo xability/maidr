@@ -6,7 +6,6 @@
  */
 import type { PlaywrightTestConfig } from '@playwright/test';
 import path from 'node:path';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 // The package is ESM ("type": "module"), so CommonJS `__dirname` does not
@@ -42,18 +41,6 @@ const config: PlaywrightTestConfig = {
     timeout: 5000,
   },
 
-  // The page objects read MAIDR's live regions immediately after dispatching a
-  // key. Under parallel load WebKit — the slowest of the three — occasionally
-  // reads before the announcement lands, and a different test flakes each run.
-  // Retries absorb that without hiding it: Playwright still marks a test that
-  // needed one as "flaky" in the report. A test that fails every attempt is a
-  // real failure and still fails the run.
-  //
-  // This is a mitigation, not the cure. The cure is for those getters to wait
-  // for the region to update rather than snapshotting it once — see
-  // `isModeActive` in base-page.ts for the shape that fix takes.
-  retries: process.env.CI ? 2 : 0,
-
   // Test reporters
   reporter: [
     ['html', { open: 'never' }],
@@ -68,8 +55,13 @@ const config: PlaywrightTestConfig = {
     // Browser settings
     viewport: null,
 
-    // Capture traces and screenshots on failure
-    trace: 'on-first-retry',
+    // Capture traces and screenshots on failure.
+    //
+    // `retain-on-failure`, not `on-first-retry`: there are no retries any more,
+    // so a trace keyed to a retry attempt would never be written and a real
+    // failure would leave only a screenshot. A failure is now always the first
+    // and only attempt, which is exactly when the trace is worth having.
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
 

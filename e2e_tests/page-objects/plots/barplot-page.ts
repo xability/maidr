@@ -135,7 +135,7 @@ export class BarPlotPage extends BasePage {
   public async activateMaidr(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
+      await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
       await this.verifySvgFocused();
     } catch (error) {
       throw new BarPlotError('Failed to activate MAIDR', { cause: error });
@@ -369,9 +369,10 @@ export class BarPlotPage extends BasePage {
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
+      // Only the two modifiers are still held: `pressKey` above is a full
+      // press, so the arrow key was already released.
       await this.page.keyboard.up(modifier);
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.up(arrowKey);
 
       if (expectedContent) {
         await this.waitForElementContent(
