@@ -177,8 +177,12 @@ export class BasePage {
     try {
       return await modifierKey(this.page);
     } catch (error) {
+      // "Meta/Control" rather than "modifier": KeypressError renders this as
+      // `Failed to press key "..." during <context>`, and naming the two
+      // candidates says what could not be decided. The keypress genuinely did
+      // not happen, so the type is right even though the cause is a page read.
       throw new KeypressError(
-        'modifier',
+        'Meta/Control',
         context,
         error instanceof Error ? error : undefined,
       );
