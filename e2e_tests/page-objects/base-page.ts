@@ -1,5 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import {
+  announcementCount,
+  announcementsSince,
+  installAnnouncementRecorder,
+  waitForAnnouncementAfter,
+} from '../utils/announcements';
 import { TestConstants } from '../utils/constants';
 import { AssertionError, KeypressError } from '../utils/errors';
 import { modifierKey } from '../utils/platform';
@@ -11,6 +17,14 @@ import { normalizeText } from '../utils/text';
  */
 export class BasePage {
   protected readonly page: Page;
+
+  /**
+   * Announcement count captured immediately before the most recent action that
+   * waited for one. Assertions read the window after this mark rather than the
+   * region's current text, so a later announcement replacing theirs — or an
+   * earlier one arriving late — cannot turn a real pass into a failure.
+   */
+  private actionAnnouncementMark = 0;
 
   /**
    * Common selectors used across different pages
@@ -190,6 +204,27 @@ export class BasePage {
   }
 
   /**
+   * Presses a key and waits for MAIDR to announce the result.
+   *
+   * This is the synchronisation point the assertions depend on. Reading the
+   * live region straight after a keypress races the announcement, and waiting
+   * afterwards cannot recover one that has already been replaced — so the wait
+   * has to start before the key is pressed.
+   *
+   * Silent keypresses are fine: the wait resolves false and the caller's own
+   * assertion still decides.
+   * @param key - The key to press
+   * @param context - Context description for error reporting
+   * @throws KeypressError if the key press itself fails
+   */
+  protected async pressKeyAwaitingAnnouncement(key: string, context: string): Promise<void> {
+    await installAnnouncementRecorder(this.page);
+    this.actionAnnouncementMark = await announcementCount(this.page);
+    await this.pressKey(key, context);
+    await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
+  }
+
+  /**
    * Presses a key combination (e.g., Command + key)
    *
    * Named `modifier` rather than `modifierKey` so it does not shadow the
@@ -279,7 +314,7 @@ export class BasePage {
    * @throws KeypressError if toggling fails
    */
   protected async toggleMode(key: string, modeName: string): Promise<void> {
-    await this.pressKey(key, modeName);
+    await this.pressKeyAwaitingAnnouncement(key, modeName);
   }
 
   /**
@@ -496,7 +531,7 @@ export class BasePage {
    * @throws KeypressError if operation fails
    */
   protected async changeSpeed(key: string, action: string): Promise<void> {
-    await this.pressKey(key, action);
+    await this.pressKeyAwaitingAnnouncement(key, action);
   }
 
   /**
@@ -545,9 +580,12 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
+      await installAnnouncementRecorder(this.page);
+      this.actionAnnouncementMark = await announcementCount(this.page);
       await this.pressKeyCombination(await this.resolveModifier(action), key, action);
+      await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
     } else {
-      await this.pressKey(key, action);
+      await this.pressKeyAwaitingAnnouncement(key, action);
     }
   }
 
@@ -647,7 +685,7 @@ export class BasePage {
    */
   protected async toggleAxisTitle(axisKey: string, axisName: string): Promise<void> {
     await this.pressKey(TestConstants.LABEL_KEY, 'label scope');
-    await this.pressKey(axisKey, axisName);
+    await this.pressKeyAwaitingAnnouncement(axisKey, axisName);
   }
 
   /**
@@ -799,13 +837,22 @@ export class BasePage {
   ): Promise<boolean> {
     const expected = modeMessages[mode];
 
-    // The announcement lands asynchronously after the keypress, so reading the
-    // region once races the update — fast enough to pass in Chromium and
-    // Firefox, and a flake in WebKit under full-suite load. Wait for the
-    // expected text first. A timeout here is deliberately not fatal: the read
-    // below is the authoritative check and answers either way, so rethrowing
-    // would only turn a "mode never announced" expectation into a page-object
-    // error. Callers assert on the boolean.
+    // Prefer what the action actually announced. The region holds one message
+    // at a time, so by the time this runs the mode message may already have
+    // been replaced — an announcement from an earlier, un-awaited action
+    // arriving late is enough — and sampling the current text would then report
+    // a mode that did toggle as inactive.
+    const announced = await announcementsSince(this.page, this.actionAnnouncementMark);
+    if (announced.length > 0) {
+      return announced.some(text => normalizeText(text) === normalizeText(expected));
+    }
+
+    // No announcements recorded, so this was not reached through an awaited
+    // action. Fall back to waiting on the region. A timeout here is
+    // deliberately not fatal: the read below is the authoritative check and
+    // answers either way, so rethrowing would only turn a "mode never
+    // announced" expectation into a page-object error. Callers assert on the
+    // boolean.
     // The catch is broad on purpose but not lossy: a structural problem such as
     // a strict-mode violation from a selector matching several elements is
     // raised again by `getElementText` below and surfaces as "Failed to check
