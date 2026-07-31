@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { DEFAULT_SETTINGS } from '../../src/type/settings';
 import { HistogramPage } from '../page-objects/plots/histogram-page';
 import { installAnnouncementRecorder, recordedAnnouncements } from '../utils/announcements';
 import { TestConstants } from '../utils/constants';
@@ -68,8 +69,13 @@ test.describe('Announcement recorder', () => {
 
     // Autoplay turns the `announce` flag off, so no alert node renders while
     // it runs even though the display text advances on every step.
+    //
+    // Sample at half the autoplay duration, derived rather than hard-coded:
+    // reaching the last point flips `announce` back on and does announce, so a
+    // fixed wait would silently start failing for an unrelated reason if the
+    // default were ever tuned down.
     await histogramPage.startForwardAutoplay();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(DEFAULT_SETTINGS.general.autoplayDuration / 2);
 
     // The display really did move — otherwise this test proves nothing.
     expect(await container.textContent()).not.toBe(textBefore);

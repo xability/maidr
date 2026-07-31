@@ -317,7 +317,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToDataPointBelow(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowDown');
+      await this.pressKeyAwaitingAnnouncement('ArrowDown', 'move to data point below');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to data point below', { cause: error });
     }
@@ -329,7 +329,7 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToLastBox(): Promise<void> {
     try {
-      await this.page.keyboard.press('End');
+      await this.pressKeyAwaitingAnnouncement('End', 'move to last box');
     } catch (error) {
       throw new BoxplotVerticalError('Failed to move to last box', { cause: error });
     }
