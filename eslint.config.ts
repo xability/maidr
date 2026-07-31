@@ -42,6 +42,23 @@ const config: ReturnType<typeof antfu> = antfu({
     html: true,
     markdown: 'prettier',
   },
+}).append({
+  // Five review rounds on #684 each turned up one more page object dispatching
+  // a key straight at the keyboard, bypassing the synchronisation in
+  // BasePage — including layer switches whose late announcement then leaked
+  // into the next action's wait. Make that a lint error rather than something
+  // the next reviewer has to remember to grep for.
+  //
+  // `base-page.ts` is deliberately out of scope: it is where the wrapping
+  // lives. Use `pressKey` for a keypress that announces nothing, and
+  // `pressKeyAwaitingAnnouncement` for one that does.
+  files: ['e2e_tests/page-objects/plots/**/*.ts'],
+  rules: {
+    'no-restricted-syntax': ['error', {
+      selector: 'CallExpression[callee.property.name=\'press\'][callee.object.property.name=\'keyboard\']',
+      message: 'Do not press keys directly in a plot page object. Use this.pressKey() for a silent key, or this.pressKeyAwaitingAnnouncement() when MAIDR announces the result.',
+    }],
+  },
 });
 
 export default config;

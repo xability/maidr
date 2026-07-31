@@ -574,14 +574,6 @@ export class BasePage {
   }
 
   /**
-   * Replays the current data point
-   * @throws KeypressError if operation fails
-   */
-  public async replayCurrentPoint(): Promise<void> {
-    await this.pressKey(TestConstants.SPACE_KEY, 'replay current point');
-  }
-
-  /**
    * Moves to a specific data point using a key combination
    * @param key - The key to press
    * @param action - Description of the movement action
@@ -860,10 +852,10 @@ export class BasePage {
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
    *
-   * Note: a false result costs the full wait timeout, because the wait can only
-   * end early on a match. Every caller today asserts the mode IS active, so
-   * that path is not hit; a future "assert mode X is NOT active" test would pay
-   * ~5s per call and should take a shorter timeout rather than live with it.
+   * Note: on the recorded path a false result is immediate — the window is
+   * already known, so a mismatch costs nothing. Only the fallback below pays
+   * the full wait timeout, and it is reached only when no awaited action
+   * preceded the check.
    */
   protected async isModeActive(
     notificationSelector: string,

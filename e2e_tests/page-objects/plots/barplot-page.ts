@@ -135,7 +135,7 @@ export class BarPlotPage extends BasePage {
   public async activateMaidr(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
+      await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
       await this.verifySvgFocused();
     } catch (error) {
       throw new BarPlotError('Failed to activate MAIDR', { cause: error });
