@@ -48,10 +48,15 @@ const config: ReturnType<typeof antfu> = antfu({
   // satisfy that action's wait early — the assertion then reads the region
   // before its own announcement arrives. Layer switches are the usual case.
   //
-  // `base-page.ts` is deliberately out of scope: it is where the wrapping
-  // lives. Use `pressKey` for a keypress that announces nothing, and
+  // Use `pressKey` for a keypress that announces nothing, and
   // `pressKeyAwaitingAnnouncement` for one that does.
-  files: ['e2e_tests/page-objects/plots/**/*.ts'],
+  //
+  // `base-page.ts` is in scope too, with a single inline disable on the one
+  // sanctioned call site inside `pressKey`. Excluding the whole file would
+  // leave the invariant resting on discipline exactly where a new helper is
+  // most likely to be added; an explicit exception at the one line that is
+  // allowed to press a key says the same thing and stays enforceable.
+  files: ['e2e_tests/page-objects/**/*.ts'],
   rules: {
     'no-restricted-syntax': ['error', {
       selector: 'CallExpression[callee.property.name=\'press\'][callee.object.property.name=\'keyboard\']',

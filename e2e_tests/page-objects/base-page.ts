@@ -184,6 +184,10 @@ export class BasePage {
     this.actionAnnouncementMark = null;
 
     try {
+      // The one sanctioned keyboard.press in the page objects: everything else
+      // goes through here so the mark above is always cleared. See the rule's
+      // note in eslint.config.ts.
+      // eslint-disable-next-line no-restricted-syntax
       await this.page.keyboard.press(key);
     } catch (error) {
       throw new KeypressError(
@@ -849,7 +853,7 @@ export class BasePage {
   protected async activateMaidr(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
+      await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
       await this.verifySvgFocused();
     } catch (error) {
       throw new Error('Failed to activate MAIDR', { cause: error });
