@@ -1,68 +1,17 @@
-import type { PlaywrightTestConfig } from '@playwright/test';
-import path from 'node:path';
-
 /**
- * Get the project root directory path
- * @returns Absolute path to the project root
+ * Root Playwright config.
+ *
+ * Holds no settings of its own — it re-exports `e2e_tests/config/test-config.ts`,
+ * which is the single source of truth and the one the npm scripts pass with
+ * `--config`. Edit that file, not this one.
+ *
+ * This exists so the paths that look for a config at the repository root find
+ * the same one: a bare `npx playwright test`, and editor integrations such as
+ * the Playwright VS Code extension. Without it those collect nothing, silently.
+ *
+ * The file this replaces was a full second copy of the settings, which is how
+ * it came to point at a `testDir` that never existed and to set `trace: 'on'`
+ * against the suite's `retain-on-failure` (see #687). A re-export cannot drift
+ * that way, because there is nothing here to drift.
  */
-function getProjectRoot(): string {
-  // This path should point to the root of maidr-ts project
-  // where the examples directory is located
-  // __dirname will be the root folder now
-  return __dirname;
-}
-
-/**
- * Configuration for Playwright tests
- * Includes settings for test execution, browser configuration, and reporting
- */
-const config: PlaywrightTestConfig = {
-  // Set the test directory to match your project structure
-  testDir: path.join(__dirname, 'test/e2e/specs'),
-
-  // Test file pattern - include both spec.ts patterns
-  testMatch: '**/*.spec.ts',
-
-  // Set timeout values
-  timeout: 30000,
-  expect: {
-    timeout: 5000,
-  },
-
-  // Test reporters
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list'],
-  ],
-
-  // Shared settings for all projects
-  use: {
-    // Use file protocol with absolute path to project root
-    baseURL: `file://${getProjectRoot()}/`,
-
-    // Browser settings
-    viewport: null,
-
-    // Capture traces and screenshots on failure
-    trace: 'on',
-    screenshot: 'only-on-failure',
-  },
-
-  // Configure browsers to test in
-  projects: [
-    {
-      name: 'chromium',
-      use: { browserName: 'chromium' },
-    },
-    {
-      name: 'firefox',
-      use: { browserName: 'firefox' },
-    },
-    {
-      name: 'webkit',
-      use: { browserName: 'webkit' },
-    },
-  ],
-};
-
-export default config;
+export { default } from './e2e_tests/config/test-config';
