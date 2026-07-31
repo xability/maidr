@@ -40,7 +40,7 @@ describe('the root playwright config', () => {
 
   // Each of these is a setting the deleted copy carried. Naming them
   // individually means a failure says which one came back.
-  it.each(['testDir', 'testMatch', 'projects', 'timeout', 'reporter', 'use'])(
+  it.each(['testDir', 'testMatch', 'projects', 'timeout', 'expect', 'reporter', 'use'])(
     'should not declare its own %s',
     (setting) => {
       expect(withoutComments(rootConfigSource())).not.toMatch(
