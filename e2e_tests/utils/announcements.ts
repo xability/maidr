@@ -97,10 +97,15 @@ export async function installAnnouncementRecorder(page: Page): Promise<number> {
  * announces — an out-of-bounds move in some modes is silent — and a caller
  * that waited in vain should carry on and let its own assertion decide, the
  * same way `isModeActive` does.
+ *
+ * Only a timeout means that. Anything else — a destroyed execution context
+ * from an unexpected navigation, say — is a broken run rather than a silent
+ * key, and is rethrown so it cannot pass for an expected no-op.
  * @param page - The Playwright page
  * @param since - Count captured before the action
  * @param timeout - How long to wait, in milliseconds
  * @returns True if an announcement arrived, false if the wait timed out
+ * @throws The original error if the wait failed for any reason but a timeout
  */
 export async function waitForAnnouncementAfter(
   page: Page,
@@ -114,8 +119,11 @@ export async function waitForAnnouncementAfter(
       { timeout, polling: 16 },
     );
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return false;
+    }
+    throw error;
   }
 }
 
