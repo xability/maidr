@@ -901,9 +901,13 @@ export class BasePage {
    * @throws Error if mode status cannot be checked
    *
    * Note: on the recorded path a false result is immediate — the window is
-   * already known, so a mismatch costs nothing. Only the fallback below pays
-   * the full wait timeout, and it is reached only when no awaited action
-   * preceded the check.
+   * already known, so a mismatch costs nothing. The fallback below is what
+   * pays the full wait timeout, and it is reached in three cases: no awaited
+   * action preceded the check, the action announced nothing, or this is the
+   * second check after a single action, since the first read consumes the
+   * mark. All three still answer correctly, just from the region rather than
+   * from what was announced — so a check that wants the stronger guarantee
+   * should follow its own awaited action.
    */
   protected async isModeActive(
     notificationSelector: string,
