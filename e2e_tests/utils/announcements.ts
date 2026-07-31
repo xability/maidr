@@ -53,31 +53,37 @@ export async function installAnnouncementRecorder(page: Page): Promise<number> {
     // updating per step while nothing is announced — watching the container
     // would record announcements a screen reader never heard.
     //
-    // Scoped through the container's parent so MUI's own role="alert" inside
-    // the settings dialog cannot be mistaken for MAIDR's live region.
-    const findAlert = (): Element | null =>
-      document.getElementById(containerId)?.parentElement?.querySelector('[role="alert"]') ?? null;
+    // Scoped to MAIDR's own region so MUI's role="alert" inside the settings
+    // dialog cannot be mistaken for it.
+    const inMaidrRegion = (node: Element): boolean =>
+      document.getElementById(containerId)?.parentElement?.contains(node) ?? false;
 
     // The alert is keyed by a revision counter and re-mounts on every update,
-    // so a new announcement is a new node. Comparing node identity gives one
-    // entry per announcement — including a repeat of identical text — and
-    // ignores mutations elsewhere that leave the alert untouched.
-    let lastAlert: Element | null = null;
-
-    new MutationObserver(() => {
-      const alert = findAlert();
-      if (!alert || alert === lastAlert) {
-        return;
-      }
-      lastAlert = alert;
-      const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
-      if (text) {
-        w.__maidrAnnouncements?.push(text);
+    // so each announcement is a fresh node insertion. Walk the mutation
+    // records rather than sampling whatever is live when the callback runs:
+    // a callback batches every record since the last flush, so two alerts
+    // inserted before one flush would otherwise collapse into one entry.
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof Element)) {
+            continue;
+          }
+          const alert = node.matches('[role="alert"]')
+            ? node
+            : node.querySelector('[role="alert"]');
+          if (!alert || !inMaidrRegion(alert)) {
+            continue;
+          }
+          const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
+          if (text) {
+            w.__maidrAnnouncements?.push(text);
+          }
+        }
       }
     }).observe(document.body, {
       childList: true,
       subtree: true,
-      characterData: true,
     });
 
     return w.__maidrAnnouncements.length;

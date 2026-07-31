@@ -23,14 +23,13 @@ export class BasePage {
    * region's current text, so a later announcement replacing theirs — or an
    * earlier one arriving late — cannot turn a real pass into a failure.
    *
-   * The contract is positional and not enforced by the types: `isModeActive`
-   * assumes the action it is checking was the last one to set this. Every
-   * caller follows `toggleXMode()` with `isXModeActive()`, which holds it. A
-   * check that is NOT preceded by an awaited action reads the window since
-   * some unrelated earlier action instead, so widen this to an explicit
-   * handle rather than adding such a caller.
+   * Null until an awaited action sets it, and reset to null once a check has
+   * consumed it. That makes the positional contract self-limiting: a check
+   * with no awaited action before it takes the region fallback instead of
+   * matching against an unrelated earlier announcement, which would be a
+   * silent false positive rather than a visible failure.
    */
-  private actionAnnouncementMark = 0;
+  private actionAnnouncementMark: number | null = null;
 
   /**
    * Common selectors used across different pages
@@ -858,13 +857,20 @@ export class BasePage {
     // been replaced — an announcement from an earlier, un-awaited action
     // arriving late is enough — and sampling the current text would then report
     // a mode that did toggle as inactive.
-    const announced = await announcementsSince(this.page, this.actionAnnouncementMark);
-    if (announced.length > 0) {
-      return announced.some(text => normalizeText(text) === normalizeText(expected));
+    const mark = this.actionAnnouncementMark;
+    this.actionAnnouncementMark = null;
+    if (mark !== null) {
+      const announced = await announcementsSince(this.page, mark);
+      if (announced.length > 0) {
+        return announced.some(text => normalizeText(text) === normalizeText(expected));
+      }
     }
 
-    // No announcements recorded, so this was not reached through an awaited
-    // action. Fall back to waiting on the region. A timeout here is
+    // Nothing recorded for this action, so fall back to the region. Note this
+    // path reads `#maidr-text-container`, which is the displayed text and not
+    // the `role="alert"` node a screen reader hears — the two agree for every
+    // `notify()`-driven message, which is all of these, but the fallback does
+    // not carry the same guarantee as the recorded path above. A timeout here is
     // deliberately not fatal: the read below is the authoritative check and
     // answers either way, so rethrowing would only turn a "mode never
     // announced" expectation into a page-object error. Callers assert on the
