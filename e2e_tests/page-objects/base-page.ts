@@ -728,16 +728,35 @@ export class BasePage {
     await this.pressKey(TestConstants.LABEL_KEY, 'label scope');
     await this.pressKey(axisKey, axisName);
 
-    // Bare catch, and unlike `isModeActive` there is no re-read after it to
-    // resurface a structural problem. There does not need to be: the
-    // `textContent()` above exercises this same locator with nothing catching
-    // it, and locator calls enforce strict mode — a selector matching several
-    // elements raises there, before this wait is reached. Only the timeout
-    // gets here, and the caller's assertion decides on that.
-    await expect(container)
-      .not
-      .toHaveText(before, { timeout: TestConstants.ANNOUNCEMENT_TIMEOUT })
-      .catch(() => { /* the caller's assertion decides */ });
+    // Written with `waitForFunction` rather than `expect(...).not.toHaveText()`
+    // so this can swallow the same narrow thing `waitForAnnouncementAfter`
+    // does: only a timeout means "the display never changed", and anything
+    // else is a broken run that must not pass for one. `expect` rejects with a
+    // plain `Error` — an `ExpectError`, whose `name` is "Error" — so there is
+    // nothing to narrow on, while `waitForFunction` rejects with a named
+    // `TimeoutError`.
+    //
+    // The strict-mode check is not lost: the `textContent()` above exercises
+    // this same locator with nothing catching it, so a selector matching
+    // several elements raises there, before this wait is reached.
+    //
+    // The normalisation is repeated inline because this predicate runs in the
+    // page, where `normalizeText` does not exist.
+    try {
+      await this.page.waitForFunction(
+        ({ containerId, previous }) => {
+          const element = document.getElementById(containerId);
+          return (element?.textContent ?? '').replace(/\s+/g, ' ').trim() !== previous;
+        },
+        { containerId: TestConstants.MAIDR_NOTIFICATION_CONTAINER, previous: before },
+        { timeout: TestConstants.ANNOUNCEMENT_TIMEOUT, polling: 16 },
+      );
+    } catch (error) {
+      if (!(error instanceof Error && error.name === 'TimeoutError')) {
+        throw error;
+      }
+      // The display never changed. The caller's assertion decides.
+    }
   }
 
   /**
