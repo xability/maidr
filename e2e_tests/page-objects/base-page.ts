@@ -933,6 +933,16 @@ export class BasePage {
     if (mark !== null) {
       const announced = await announcementsSince(this.page, mark);
       if (announced.length > 0) {
+        // `some`, not "the last one": an action can announce more than once,
+        // and the mode message is not necessarily last. Entering label scope
+        // warns when text mode is off before announcing the label, and that is
+        // the same shape. Matching only the last entry would report those as
+        // inactive.
+        //
+        // Safe because the window holds this action's announcements and no one
+        // else's: the mark is taken immediately before the action and any
+        // unwrapped keypress invalidates it. An earlier action's message
+        // cannot be sitting in here to match by accident.
         return announced.some(text => normalizeText(text) === normalizeText(expected));
       }
     }
