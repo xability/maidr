@@ -59,26 +59,18 @@ jobs:
         env:
           CI: true
 
-      # The issue below carries the reporter's text; this carries the evidence.
-      # `trace: 'retain-on-failure'` writes a trace for every failed test, and
-      # the html report embeds it — without this upload a scheduled failure
-      # leaves a summary and nothing to open.
+      # The issue below carries the reporter's text; this carries the traces
+      # `retain-on-failure` writes, which the issue cannot.
       #
-      # `always() && != 'success'` rather than `failure()`: the test step runs
-      # under continue-on-error, which masks its conclusion to success, so
-      # `failure()` would never fire here — only `outcome` keeps the real
-      # result. `always()` additionally keeps this step from being skipped when
-      # the job is cancelled, which a `success()`-gated step would be.
+      # `always() && != 'success'` rather than `failure()`: continue-on-error on
+      # the step above masks its conclusion to success, so `failure()` would
+      # never fire — only `outcome` keeps the real result — and `always()` stops
+      # this being skipped when the job is cancelled. Not skipped is not the
+      # same as reached, though: the 60-minute timeout force-kills after
+      # cancelling, so this runs only if the tests exit inside the grace window.
       #
-      # Not skipped is not the same as reached, though: on the 60-minute
-      # timeout the job is cancelled and then force-killed, so this runs only
-      # if `npm run e2e` exits inside the grace window. Worth having for the
-      # case where it does; not something to rely on.
-      #
-      # Failure-only on purpose, narrower than the deleted e2e.yml's `always()`.
-      # A green run's report holds no traces — `retain-on-failure` writes none —
-      # and the issue below already records the reporter's full output, so
-      # uploading it would store a pass list that is already written down.
+      # Failure-only, narrower than the deleted e2e.yml's `always()`: a passing
+      # run has no traces, and its text is already in the issue.
       - name: Upload Playwright report
         if: always() && steps.e2e.outcome != 'success'
         uses: actions/upload-artifact@v4
