@@ -32,7 +32,7 @@ You are a testing specialist for the MAIDR accessibility library.
 - Test config: `e2e_tests/config/test-config.ts`
 - Utils: `e2e_tests/utils/constants.ts`, `e2e_tests/utils/errors.ts`
 - Tests run against `file://` protocol (no server needed)
-- 30s timeout, retries: 2
+- 30s timeout, no retries (a flake is a real failure; see e2e_tests/utils/announcements.ts)
 
 ### Existing E2E spec files
 - `barplot.spec.ts` — Bar plot navigation and sonification

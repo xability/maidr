@@ -41,7 +41,7 @@ export class ViolinPlotPage extends BasePage {
       await super.navigateTo('examples/violin.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new ViolinPlotError('Failed to navigate to Violin Plot');
+      throw new ViolinPlotError('Failed to navigate to Violin Plot', { cause: error });
     }
   }
 
@@ -54,7 +54,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       await super.activateMaidr(this.selectors.svg, TestConstants.VIOLIN_PLOT_ID);
     } catch (error) {
-      throw new ViolinPlotError('Failed to activate MAIDR');
+      throw new ViolinPlotError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -67,7 +67,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, TestConstants.VIOLIN_PLOT_ID);
     } catch (error) {
-      throw new ViolinPlotError('Failed to activate MAIDR by clicking');
+      throw new ViolinPlotError('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -80,7 +80,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new ViolinPlotError('Failed to get instruction text');
+      throw new ViolinPlotError('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -99,7 +99,7 @@ export class ViolinPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, textMode, modeMessages);
     } catch (error) {
-      throw new ViolinPlotError('Failed to check text mode status');
+      throw new ViolinPlotError('Failed to check text mode status', { cause: error });
     }
   }
 
@@ -117,7 +117,7 @@ export class ViolinPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, brailleMode, modeMessages);
     } catch (error) {
-      throw new ViolinPlotError('Failed to check braille mode status');
+      throw new ViolinPlotError('Failed to check braille mode status', { cause: error });
     }
   }
 
@@ -135,7 +135,7 @@ export class ViolinPlotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, sonificationMode, modeMessages);
     } catch (error) {
-      throw new ViolinPlotError('Failed to check sonification mode status');
+      throw new ViolinPlotError('Failed to check sonification mode status', { cause: error });
     }
   }
 
@@ -148,7 +148,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new ViolinPlotError('Failed to get current data point information');
+      throw new ViolinPlotError('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -161,7 +161,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new ViolinPlotError('Failed to get speed toggle information');
+      throw new ViolinPlotError('Failed to get speed toggle information', { cause: error });
     }
   }
 
@@ -174,7 +174,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new ViolinPlotError('Violin Plot failed to load correctly');
+      throw new ViolinPlotError('Violin Plot failed to load correctly', { cause: error });
     }
   }
 
@@ -184,9 +184,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveToNextViolin(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowRight');
+      await this.pressKeyAwaitingAnnouncement('ArrowRight', 'move to next violin');
     } catch (error) {
-      throw new ViolinPlotError('Failed to move to next violin');
+      throw new ViolinPlotError('Failed to move to next violin', { cause: error });
     }
   }
 
@@ -196,9 +196,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveToPreviousViolin(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowLeft');
+      await this.pressKeyAwaitingAnnouncement('ArrowLeft', 'move to previous violin');
     } catch (error) {
-      throw new ViolinPlotError('Failed to move to previous violin');
+      throw new ViolinPlotError('Failed to move to previous violin', { cause: error });
     }
   }
 
@@ -208,9 +208,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveUpKdeCurve(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowUp');
+      await this.pressKeyAwaitingAnnouncement('ArrowUp', 'move up KDE curve');
     } catch (error) {
-      throw new ViolinPlotError('Failed to move up KDE curve');
+      throw new ViolinPlotError('Failed to move up KDE curve', { cause: error });
     }
   }
 
@@ -220,9 +220,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async moveDownKdeCurve(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowDown');
+      await this.pressKeyAwaitingAnnouncement('ArrowDown', 'move down KDE curve');
     } catch (error) {
-      throw new ViolinPlotError('Failed to move down KDE curve');
+      throw new ViolinPlotError('Failed to move down KDE curve', { cause: error });
     }
   }
 
@@ -232,9 +232,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async switchToNextLayer(): Promise<void> {
     try {
-      await this.page.keyboard.press('PageDown');
+      await this.pressKeyAwaitingAnnouncement('PageDown', 'switch to next layer');
     } catch (error) {
-      throw new ViolinPlotError('Failed to switch to next layer');
+      throw new ViolinPlotError('Failed to switch to next layer', { cause: error });
     }
   }
 
@@ -244,9 +244,9 @@ export class ViolinPlotPage extends BasePage {
    */
   public async switchToPreviousLayer(): Promise<void> {
     try {
-      await this.page.keyboard.press('PageUp');
+      await this.pressKeyAwaitingAnnouncement('PageUp', 'switch to previous layer');
     } catch (error) {
-      throw new ViolinPlotError('Failed to switch to previous layer');
+      throw new ViolinPlotError('Failed to switch to previous layer', { cause: error });
     }
   }
 
@@ -259,7 +259,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new ViolinPlotError('Failed to get X-axis title');
+      throw new ViolinPlotError('Failed to get X-axis title', { cause: error });
     }
   }
 
@@ -272,7 +272,7 @@ export class ViolinPlotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new ViolinPlotError('Failed to get Y-axis title');
+      throw new ViolinPlotError('Failed to get Y-axis title', { cause: error });
     }
   }
 }

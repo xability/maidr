@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { HistogramPage } from '../page-objects/plots/histogram-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a histogram page
@@ -66,26 +67,7 @@ test.describe('Histogram', () => {
       await histogramPage.navigateToHistogram();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.HISTOGRAM_ID);
+      maidrData = await extractMaidrData(page);
 
       histogramLayer = maidrData.subplots[0][0].layers[0];
       dataLength = (histogramLayer.data as { x: string; y: number }[]).length;

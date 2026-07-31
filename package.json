@@ -1,7 +1,7 @@
 {
   "name": "maidr",
   "type": "module",
-  "version": "3.74.0",
+  "version": "3.75.0",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -136,7 +136,6 @@
     "react-markdown": "^10.1.0",
     "react-redux": "^9.2.0",
     "rehype-katex": "^7.0.1",
-    "rehype-mathjax": "^5.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0"

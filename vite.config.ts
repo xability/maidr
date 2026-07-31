@@ -1,14 +1,22 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { mathStylesheet } from './scripts/vite-plugin-math-stylesheet.js';
+import { woff2OnlyFonts } from './scripts/vite-plugin-woff2-only.js';
 
 export default defineConfig({
-  plugins: [react()],
+  // These two must stay in step with scripts/build.js, which is what
+  // `npm run build` runs — otherwise a build driven from this config emits a
+  // maidr.css and maidr-math.css that differ from the published ones.
+  plugins: [react(), woff2OnlyFonts(), mathStylesheet()],
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.tsx'),
       name: 'maidr',
-      formats: ['es', 'umd'],
+      // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
+      // an ES build has no consumer value. Adding 'es' back here would also make
+      // both formats resolve to the same fileName and silently overwrite.
+      formats: ['umd'],
       fileName: () => `maidr.js`,
     },
     sourcemap: true,

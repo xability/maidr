@@ -41,7 +41,7 @@ export class MultiLineplotPage extends BasePage {
       await super.navigateTo('examples/multi-lineplot.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new MultiLineplotError('Failed to navigate to Multi Lineplot');
+      throw new MultiLineplotError('Failed to navigate to Multi Lineplot', { cause: error });
     }
   }
 
@@ -54,7 +54,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       await super.activateMaidr(this.selectors.svg, TestConstants.MULTI_LINEPLOT_ID);
     } catch (error) {
-      throw new MultiLineplotError('Failed to activate MAIDR');
+      throw new MultiLineplotError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -67,7 +67,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, TestConstants.MULTI_LINEPLOT_ID);
     } catch (error) {
-      throw new MultiLineplotError('Failed to activate MAIDR by clicking');
+      throw new MultiLineplotError('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -80,7 +80,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get instruction text');
+      throw new MultiLineplotError('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -99,7 +99,7 @@ export class MultiLineplotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, textMode, modeMessages);
     } catch (error) {
-      throw new MultiLineplotError('Failed to check text mode status');
+      throw new MultiLineplotError('Failed to check text mode status', { cause: error });
     }
   }
 
@@ -117,7 +117,7 @@ export class MultiLineplotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, brailleMode, modeMessages);
     } catch (error) {
-      throw new MultiLineplotError('Failed to check braille mode status');
+      throw new MultiLineplotError('Failed to check braille mode status', { cause: error });
     }
   }
 
@@ -135,7 +135,7 @@ export class MultiLineplotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, sonificationMode, modeMessages);
     } catch (error) {
-      throw new MultiLineplotError('Failed to check sonification mode status');
+      throw new MultiLineplotError('Failed to check sonification mode status', { cause: error });
     }
   }
 
@@ -153,7 +153,7 @@ export class MultiLineplotPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, reviewMode, modeMessages);
     } catch (error) {
-      throw new MultiLineplotError('Failed to check review mode status');
+      throw new MultiLineplotError('Failed to check review mode status', { cause: error });
     }
   }
 
@@ -166,7 +166,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get X-axis title');
+      throw new MultiLineplotError('Failed to get X-axis title', { cause: error });
     }
   }
 
@@ -179,7 +179,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get Y-axis title');
+      throw new MultiLineplotError('Failed to get Y-axis title', { cause: error });
     }
   }
 
@@ -192,7 +192,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get playback speed');
+      throw new MultiLineplotError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -205,7 +205,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get current data point information');
+      throw new MultiLineplotError('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -218,7 +218,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new MultiLineplotError('Failed to get speed toggle information');
+      throw new MultiLineplotError('Failed to get speed toggle information', { cause: error });
     }
   }
 
@@ -237,7 +237,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new MultiLineplotError('Failed to start forward autoplay');
+      throw new MultiLineplotError('Failed to start forward autoplay', { cause: error });
     }
   }
 
@@ -256,7 +256,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new MultiLineplotError('Failed to start reverse autoplay');
+      throw new MultiLineplotError('Failed to start reverse autoplay', { cause: error });
     }
   }
 
@@ -269,7 +269,7 @@ export class MultiLineplotPage extends BasePage {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new MultiLineplotError('Multi Lineplot failed to load correctly');
+      throw new MultiLineplotError('Multi Lineplot failed to load correctly', { cause: error });
     }
   }
 }

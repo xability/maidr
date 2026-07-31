@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
 import { TestConstants } from '../utils/constants';
+import { modifierKey } from '../utils/platform';
 
 /**
  * Every MAIDR dialog is rendered with `disablePortal`, so it lives inside the
@@ -206,7 +207,7 @@ test.describe('dialog accessibility tree', () => {
   test('command palette resolves by role', async ({ page }) => {
     await setupBarPlotPage(page);
     // The binding is `Platform.ctrl + shift + p`, which is Command on macOS.
-    await page.keyboard.press(`${TestConstants.COMMAND_KEY}+Shift+P`);
+    await page.keyboard.press(`${await modifierKey(page)}+Shift+P`);
 
     await expect(page.getByRole('dialog', { name: 'Command Palette', exact: true })).toBeVisible();
     expect(await hiddenAncestorsOf(page, '.MuiDialog-root')).toEqual([]);
