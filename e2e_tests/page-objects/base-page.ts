@@ -699,8 +699,28 @@ export class BasePage {
    * @throws KeypressError if operation fails
    */
   protected async toggleAxisTitle(axisKey: string, axisName: string): Promise<void> {
+    // Wait on the displayed text, not on an announcement. The axis title only
+    // reaches the alert once the cursor is on a data point, and these specs
+    // assert it straight after activation — so an announcement wait finds
+    // nothing and spends its whole timeout, which passes only because the
+    // delay works as a sleep. The assertion reads this container, so a change
+    // here is the event it actually depends on.
+    //
+    // This also settles the two-keypress sequence: entering label scope warns
+    // when text mode is off, and that announcement lands inside this wait
+    // rather than leaking into the next action's.
+    const container = this.page.locator(
+      `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}`,
+    );
+    const before = normalizeText((await container.textContent()) ?? '');
+
     await this.pressKey(TestConstants.LABEL_KEY, 'label scope');
-    await this.pressKeyAwaitingAnnouncement(axisKey, axisName);
+    await this.pressKey(axisKey, axisName);
+
+    await expect(container)
+      .not
+      .toHaveText(before, { timeout: TestConstants.ANNOUNCEMENT_TIMEOUT })
+      .catch(() => { /* the caller's assertion decides */ });
   }
 
   /**
