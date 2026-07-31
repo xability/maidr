@@ -64,9 +64,16 @@ jobs:
       # the html report embeds it — without this upload a scheduled failure
       # leaves a summary and nothing to open.
       #
-      # `!= 'success'` rather than `== 'failure'` so a run the 60-minute
-      # timeout cancels still ships whatever it managed to write, which is the
-      # case where the trace is most worth having.
+      # `always() && != 'success'` rather than `failure()`: the test step runs
+      # under continue-on-error, which masks its conclusion to success, so
+      # `failure()` would never fire here — only `outcome` keeps the real
+      # result. `always()` additionally keeps this step from being skipped when
+      # the job is cancelled, which a `success()`-gated step would be.
+      #
+      # Not skipped is not the same as reached, though: on the 60-minute
+      # timeout the job is cancelled and then force-killed, so this runs only
+      # if `npm run e2e` exits inside the grace window. Worth having for the
+      # case where it does; not something to rely on.
       - name: Upload Playwright report
         if: always() && steps.e2e.outcome != 'success'
         uses: actions/upload-artifact@v4
