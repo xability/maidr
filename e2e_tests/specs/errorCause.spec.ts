@@ -28,11 +28,21 @@ import {
 test.describe('Error cause propagation', () => {
   test('a failed navigation reports the browser error through both wrappers', async ({ page }) => {
     // Fail the navigation itself rather than relying on a bad path, so the
-    // test keeps working once the example filename is corrected. Playwright
-    // routing does apply to file:// URLs.
-    await page.route(/\.html$/, route => route.abort());
-
+    // test keeps working now that the example filename is corrected.
+    //
+    // Closing the page rather than aborting via `page.route`: routing only
+    // intercepts file:// navigations in Chromium, so the routed version passed
+    // there and let the navigation succeed in Firefox and WebKit. A closed
+    // page rejects `page.goto` identically in all three.
+    //
+    // Closing the fixture's own page is deliberate, and it is why every
+    // assertion below reads the rejected error rather than the page: once it
+    // is closed Playwright can capture no screenshot, trace or video for this
+    // test. Anything added after this line that touches the page would fail
+    // with no artefact to debug from — open a second page for that instead.
     const plotPage = new MultiLayerPlotPage(page);
+    await page.close();
+
     const error = await plotPage
       .navigateToMultiLayerPlot()
       .then(() => null, (thrown: unknown) => thrown as MultiLayerPlotError);

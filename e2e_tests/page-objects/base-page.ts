@@ -2,6 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../utils/constants';
 import { AssertionError, KeypressError } from '../utils/errors';
+import { modifierKey } from '../utils/platform';
+import { normalizeText } from '../utils/text';
 
 /**
  * Base page object that all other page objects extend
@@ -163,27 +165,55 @@ export class BasePage {
   }
 
   /**
+   * Resolves the control/command modifier, wrapping a failure the way the key
+   * helpers do. Callers pass the result straight into `pressKeyCombination`,
+   * which evaluates its arguments before its own try block — so without this
+   * a page-evaluate failure would escape unwrapped.
+   * @param context - Context description for error reporting
+   * @returns The modifier key name for this browser
+   * @throws KeypressError if the modifier cannot be resolved
+   */
+  protected async resolveModifier(context: string): Promise<string> {
+    try {
+      return await modifierKey(this.page);
+    } catch (error) {
+      // "Meta/Control" rather than "modifier": KeypressError renders this as
+      // `Failed to press key "..." during <context>`, and naming the two
+      // candidates says what could not be decided. The keypress genuinely did
+      // not happen, so the type is right even though the cause is a page read.
+      throw new KeypressError(
+        'Meta/Control',
+        context,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+
+  /**
    * Presses a key combination (e.g., Command + key)
-   * @param modifierKey - The modifier key (e.g., Command, Shift)
+   *
+   * Named `modifier` rather than `modifierKey` so it does not shadow the
+   * imported `modifierKey()` helper, which callers pass the result of.
+   * @param modifier - The already-resolved modifier key (e.g., Meta, Shift)
    * @param key - The key to press
    * @param context - Context description for error reporting
    * @param delay - Optional delay between key presses
    * @throws KeypressError if key combination fails
    */
   protected async pressKeyCombination(
-    modifierKey: string,
+    modifier: string,
     key: string,
     context: string,
     delay = 50,
   ): Promise<void> {
     try {
-      await this.page.keyboard.down(modifierKey);
+      await this.page.keyboard.down(modifier);
       await this.page.waitForTimeout(delay);
       await this.pressKey(key, context);
-      await this.page.keyboard.up(modifierKey);
+      await this.page.keyboard.up(modifier);
     } catch (error) {
       throw new KeypressError(
-        `${modifierKey}+${key}`,
+        `${modifier}+${key}`,
         context,
         error instanceof Error ? error : undefined,
       );
@@ -291,7 +321,7 @@ export class BasePage {
   public async showHelpMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show help menu'),
         TestConstants.SLASH_KEY,
         'show help menu',
       );
@@ -315,7 +345,7 @@ export class BasePage {
   public async showSettingsMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -343,7 +373,7 @@ export class BasePage {
    */
   public async openHelpMenu(): Promise<void> {
     await this.pressKeyCombination(
-      TestConstants.COMMAND_KEY,
+      await this.resolveModifier('open help menu'),
       TestConstants.SLASH_KEY,
       'open help menu',
     );
@@ -356,7 +386,7 @@ export class BasePage {
    */
   public async openSettingsMenu(): Promise<void> {
     await this.pressKeyCombination(
-      TestConstants.COMMAND_KEY,
+      await this.resolveModifier('open settings menu'),
       TestConstants.COMMA_KEY,
       'open settings menu',
       100,
@@ -370,7 +400,7 @@ export class BasePage {
   public async closeSettingsMenuWithEscape(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -402,7 +432,7 @@ export class BasePage {
   public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -505,7 +535,8 @@ export class BasePage {
    * Moves to a specific data point using a key combination
    * @param key - The key to press
    * @param action - Description of the movement action
-   * @param useMetaKey - Whether to use the Meta key
+   * @param useMetaKey - Whether to hold the control/command modifier, which
+   * resolves to Meta or Control depending on what the browser reports
    * @throws KeypressError if operation fails
    */
   protected async moveToDataPoint(
@@ -514,7 +545,7 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await this.pressKeyCombination(TestConstants.META_KEY, key, action);
+      await this.pressKeyCombination(await this.resolveModifier(action), key, action);
     } else {
       await this.pressKey(key, action);
     }
@@ -742,7 +773,7 @@ export class BasePage {
   protected async getInstructionText(notificationSelector: string): Promise<string> {
     try {
       const text = await this.getElementText(notificationSelector);
-      return text.replace(/\s+/g, ' ').trim();
+      return normalizeText(text);
     } catch (error) {
       throw new Error('Failed to get instruction text', { cause: error });
     }
@@ -755,15 +786,41 @@ export class BasePage {
    * @param modeMessages - Map of mode values to expected messages
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
+   *
+   * Note: a false result costs the full wait timeout, because the wait can only
+   * end early on a match. Every caller today asserts the mode IS active, so
+   * that path is not hit; a future "assert mode X is NOT active" test would pay
+   * ~5s per call and should take a shorter timeout rather than live with it.
    */
   protected async isModeActive(
     notificationSelector: string,
     mode: string,
     modeMessages: Record<string, string>,
   ): Promise<boolean> {
+    const expected = modeMessages[mode];
+
+    // The announcement lands asynchronously after the keypress, so reading the
+    // region once races the update — fast enough to pass in Chromium and
+    // Firefox, and a flake in WebKit under full-suite load. Wait for the
+    // expected text first. A timeout here is deliberately not fatal: the read
+    // below is the authoritative check and answers either way, so rethrowing
+    // would only turn a "mode never announced" expectation into a page-object
+    // error. Callers assert on the boolean.
+    // The catch is broad on purpose but not lossy: a structural problem such as
+    // a strict-mode violation from a selector matching several elements is
+    // raised again by `getElementText` below and surfaces as "Failed to check
+    // <mode> status" with the violation as its cause. Only a genuine
+    // "never announced" reaches the boolean. Verified, not assumed.
+    await expect(this.page.locator(notificationSelector))
+      .toHaveText(expected, { timeout: 5000 })
+      .catch(() => { /* the read below decides */ });
+
     try {
       const notificationText = await this.getElementText(notificationSelector);
-      return notificationText === modeMessages[mode];
+      // Normalise both sides. `toHaveText` collapses whitespace, so a raw
+      // strict compare could contradict the wait that just succeeded, and the
+      // announcement markup wraps its text across lines.
+      return normalizeText(notificationText) === normalizeText(expected);
     } catch (error) {
       throw new Error(`Failed to check ${mode} status`, { cause: error });
     }
@@ -833,11 +890,15 @@ export class BasePage {
     const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
     try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
+      // Resolve once: it costs a page round-trip and cannot change mid-test.
+      // Inside the try so a failure is wrapped like every other step here.
+      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
+
+      await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(TestConstants.META_KEY);
+      await this.page.keyboard.up(modifier);
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
       await this.page.keyboard.up(arrowKey);
 
