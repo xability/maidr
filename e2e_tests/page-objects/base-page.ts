@@ -806,6 +806,11 @@ export class BasePage {
     // below is the authoritative check and answers either way, so rethrowing
     // would only turn a "mode never announced" expectation into a page-object
     // error. Callers assert on the boolean.
+    // The catch is broad on purpose but not lossy: a structural problem such as
+    // a strict-mode violation from a selector matching several elements is
+    // raised again by `getElementText` below and surfaces as "Failed to check
+    // <mode> status" with the violation as its cause. Only a genuine
+    // "never announced" reaches the boolean. Verified, not assumed.
     await expect(this.page.locator(notificationSelector))
       .toHaveText(expected, { timeout: 5000 })
       .catch(() => { /* the read below decides */ });
