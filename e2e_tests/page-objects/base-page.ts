@@ -251,9 +251,16 @@ export class BasePage {
     // interaction in the suite, so a second round trip per action is not free.
     const mark = await installAnnouncementRecorder(this.page);
 
-    // Publish only once the action has actually run. `act()` presses keys and
-    // `pressKey` clears the mark, so holding it in a local until then is what
-    // lets that clearing be unconditional. It also means a throwing action
+    // Clear here rather than leaving it to `pressKey`. `act()` is sometimes
+    // `pressKeyCombination`, which holds the modifier down before it reaches
+    // `pressKey` — so an action that throws on `keyboard.down` would never
+    // reach the clearing site and would leave an earlier action's mark in
+    // place. Nothing swallows a KeypressError today, so that stale mark has no
+    // route to a later check; this makes the invalidation independent of that
+    // staying true.
+    this.actionAnnouncementMark = null;
+
+    // Publish only once the action has actually run, so a throwing action
     // leaves the mark cleared: a caller that swallowed the failure and carried
     // on cannot be handed a window belonging to an action that never happened.
     await act();
@@ -945,7 +952,7 @@ export class BasePage {
     // <mode> status" with the violation as its cause. Only a genuine
     // "never announced" reaches the boolean. Verified, not assumed.
     await expect(this.page.locator(notificationSelector))
-      .toHaveText(expected, { timeout: 5000 })
+      .toHaveText(expected, { timeout: TestConstants.REGION_FALLBACK_TIMEOUT })
       .catch(() => { /* the read below decides */ });
 
     try {
