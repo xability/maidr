@@ -55,8 +55,13 @@ const config: PlaywrightTestConfig = {
     // Browser settings
     viewport: null,
 
-    // Capture traces and screenshots on failure
-    trace: 'on-first-retry',
+    // Capture traces and screenshots on failure.
+    //
+    // `retain-on-failure`, not `on-first-retry`: there are no retries any more,
+    // so a trace keyed to a retry attempt would never be written and a real
+    // failure would leave only a screenshot. A failure is now always the first
+    // and only attempt, which is exactly when the trace is worth having.
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
 

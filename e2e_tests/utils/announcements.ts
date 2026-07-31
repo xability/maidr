@@ -30,13 +30,19 @@ interface AnnouncementWindow extends Window {
  * survives for the life of the page. Observation is rooted at `document.body`
  * because MAIDR builds its UI on activation and re-mounts the alert on every
  * announcement, so there is no stable node to attach to.
+ *
+ * Returns the count so an action can install and mark in a single page call.
+ * Installing lazily rather than once at activation is deliberate: a navigation
+ * replaces `window` and takes the recorder with it, so pinning installation to
+ * one earlier moment would go quietly blind afterwards.
  * @param page - The Playwright page, already navigated to the example
+ * @returns The number of announcements already recorded
  */
-export async function installAnnouncementRecorder(page: Page): Promise<void> {
-  await page.evaluate((containerId) => {
+export async function installAnnouncementRecorder(page: Page): Promise<number> {
+  return await page.evaluate((containerId) => {
     const w = window as AnnouncementWindow;
     if (w.__maidrAnnouncements) {
-      return;
+      return w.__maidrAnnouncements.length;
     }
     w.__maidrAnnouncements = [];
 
@@ -73,19 +79,9 @@ export async function installAnnouncementRecorder(page: Page): Promise<void> {
       subtree: true,
       characterData: true,
     });
-  }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
-}
 
-/**
- * Number of announcements recorded so far. Callers capture this before an
- * action and pass it to {@link waitForAnnouncementAfter}.
- * @param page - The Playwright page
- * @returns The count, or 0 when the recorder is not installed
- */
-export async function announcementCount(page: Page): Promise<number> {
-  return await page.evaluate(
-    () => (window as AnnouncementWindow).__maidrAnnouncements?.length ?? 0,
-  );
+    return w.__maidrAnnouncements.length;
+  }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
 }
 
 /**

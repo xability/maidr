@@ -1,7 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import {
-  announcementCount,
   announcementsSince,
   installAnnouncementRecorder,
   waitForAnnouncementAfter,
@@ -234,8 +233,9 @@ export class BasePage {
    * @param act - The key action to run
    */
   private async awaitingAnnouncement(act: () => Promise<void>): Promise<void> {
-    await installAnnouncementRecorder(this.page);
-    this.actionAnnouncementMark = await announcementCount(this.page);
+    // Install and mark in one page call: this path now runs on nearly every
+    // interaction in the suite, so a second round trip per action is not free.
+    this.actionAnnouncementMark = await installAnnouncementRecorder(this.page);
     await act();
     await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
   }
