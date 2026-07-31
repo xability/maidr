@@ -23,6 +23,13 @@ export class BasePage {
    * waited for one. Assertions read the window after this mark rather than the
    * region's current text, so a later announcement replacing theirs — or an
    * earlier one arriving late — cannot turn a real pass into a failure.
+   *
+   * The contract is positional and not enforced by the types: `isModeActive`
+   * assumes the action it is checking was the last one to set this. Every
+   * caller follows `toggleXMode()` with `isXModeActive()`, which holds it. A
+   * check that is NOT preceded by an awaited action reads the window since
+   * some unrelated earlier action instead, so widen this to an explicit
+   * handle rather than adding such a caller.
    */
   private actionAnnouncementMark = 0;
 
@@ -218,9 +225,18 @@ export class BasePage {
    * @throws KeypressError if the key press itself fails
    */
   protected async pressKeyAwaitingAnnouncement(key: string, context: string): Promise<void> {
+    await this.awaitingAnnouncement(() => this.pressKey(key, context));
+  }
+
+  /**
+   * Runs a key action and waits for the announcement it causes, recording
+   * where the action started so assertions can read only its announcements.
+   * @param act - The key action to run
+   */
+  private async awaitingAnnouncement(act: () => Promise<void>): Promise<void> {
     await installAnnouncementRecorder(this.page);
     this.actionAnnouncementMark = await announcementCount(this.page);
-    await this.pressKey(key, context);
+    await act();
     await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
   }
 
@@ -580,10 +596,10 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await installAnnouncementRecorder(this.page);
-      this.actionAnnouncementMark = await announcementCount(this.page);
-      await this.pressKeyCombination(await this.resolveModifier(action), key, action);
-      await waitForAnnouncementAfter(this.page, this.actionAnnouncementMark);
+      const modifier = await this.resolveModifier(action);
+      await this.awaitingAnnouncement(
+        () => this.pressKeyCombination(modifier, key, action),
+      );
     } else {
       await this.pressKeyAwaitingAnnouncement(key, action);
     }

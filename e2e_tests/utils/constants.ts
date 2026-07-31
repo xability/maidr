@@ -42,6 +42,12 @@ export abstract class TestConstants {
    */
   static readonly PLOT_EXTREME_VERIFICATION = 'No more data to display';
   /**
+   * How long an action waits for the announcement it triggered. Generous
+   * next to the millisecond the announcement normally takes, and only ever
+   * spent in full on a keypress that announces nothing.
+   */
+  static readonly ANNOUNCEMENT_TIMEOUT = 2000;
+  /**
    * MAIDR component identifiers
    */
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-text-container';

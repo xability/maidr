@@ -21,10 +21,15 @@ interface AnnouncementWindow extends Window {
  * the note on `announceRotorMessage` in src/service/rotor.ts), so a repeated
  * identical message still registers.
  *
+ * What counts as an announcement is the `role="alert"` node, not the visible
+ * text container: only the alert is gated by the `announce` flag, so the
+ * container can advance — during autoplay, for instance — while a screen
+ * reader hears nothing.
+ *
  * Idempotent: installing twice on the same page is a no-op, and the recorder
  * survives for the life of the page. Observation is rooted at `document.body`
- * rather than the container, because MAIDR creates the container on activation
- * and it is replaced wholesale on each announcement.
+ * because MAIDR builds its UI on activation and re-mounts the alert on every
+ * announcement, so there is no stable node to attach to.
  * @param page - The Playwright page, already navigated to the example
  */
 export async function installAnnouncementRecorder(page: Page): Promise<void> {
@@ -35,12 +40,31 @@ export async function installAnnouncementRecorder(page: Page): Promise<void> {
     }
     w.__maidrAnnouncements = [];
 
-    // One entry per observer callback, not per MutationRecord: a single
-    // announcement replaces several nodes and would otherwise count as many.
+    // Read the role="alert" node, NOT #maidr-text-container. They can differ:
+    // src/ui/component/Text.tsx renders `visual` into the container and
+    // `current` into the alert, and only `current` is gated by the `announce`
+    // flag. During autoplay `announce` is false, so the container keeps
+    // updating per step while nothing is announced — watching the container
+    // would record announcements a screen reader never heard.
+    //
+    // Scoped through the container's parent so MUI's own role="alert" inside
+    // the settings dialog cannot be mistaken for MAIDR's live region.
+    const findAlert = (): Element | null =>
+      document.getElementById(containerId)?.parentElement?.querySelector('[role="alert"]') ?? null;
+
+    // The alert is keyed by a revision counter and re-mounts on every update,
+    // so a new announcement is a new node. Comparing node identity gives one
+    // entry per announcement — including a repeat of identical text — and
+    // ignores mutations elsewhere that leave the alert untouched.
+    let lastAlert: Element | null = null;
+
     new MutationObserver(() => {
-      const text = (document.getElementById(containerId)?.textContent ?? '')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const alert = findAlert();
+      if (!alert || alert === lastAlert) {
+        return;
+      }
+      lastAlert = alert;
+      const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
       if (text) {
         w.__maidrAnnouncements?.push(text);
       }
@@ -79,7 +103,7 @@ export async function announcementCount(page: Page): Promise<number> {
 export async function waitForAnnouncementAfter(
   page: Page,
   since: number,
-  timeout = 2000,
+  timeout = TestConstants.ANNOUNCEMENT_TIMEOUT,
 ): Promise<boolean> {
   try {
     await page.waitForFunction(
