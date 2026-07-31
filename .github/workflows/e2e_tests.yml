@@ -74,6 +74,11 @@ jobs:
       # timeout the job is cancelled and then force-killed, so this runs only
       # if `npm run e2e` exits inside the grace window. Worth having for the
       # case where it does; not something to rely on.
+      #
+      # Failure-only on purpose, narrower than the deleted e2e.yml's `always()`.
+      # A green run's report holds no traces — `retain-on-failure` writes none —
+      # and the issue below already records the reporter's full output, so
+      # uploading it would store a pass list that is already written down.
       - name: Upload Playwright report
         if: always() && steps.e2e.outcome != 'success'
         uses: actions/upload-artifact@v4
