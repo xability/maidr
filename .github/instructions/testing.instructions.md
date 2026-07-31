@@ -1,6 +1,6 @@
 ---
 description: "Testing"
-applyTo: "test/**,e2e_tests/**,jest.config.ts,playwright.config.ts"
+applyTo: "test/**,e2e_tests/**,jest.config.ts"
 ---
 
 <!-- Generated from .claude/rules/testing.md by scripts/sync-copilot-instructions.mjs. Do not edit directly. -->
