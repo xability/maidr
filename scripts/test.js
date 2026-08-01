@@ -19,6 +19,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import process from 'node:process';
 
 const FLAG = '--experimental-vm-modules';
@@ -27,9 +28,15 @@ const FLAG = '--experimental-vm-modules';
 // something here, and CI runners sometimes set memory limits this way.
 const nodeOptions = [process.env.NODE_OPTIONS, FLAG].filter(Boolean).join(' ');
 
-const child = spawn('jest', process.argv.slice(2), {
+// Resolved rather than looked up on PATH. `npm test` puts `node_modules/.bin`
+// there, so a bare `jest` works from an npm script and fails with ENOENT when
+// this file is run directly — which is a confusing way to learn that. Running
+// Jest's own entry point through `node` also keeps the flag applying to the
+// process that needs it, without depending on a shim.
+const jest = createRequire(import.meta.url).resolve('jest/bin/jest');
+
+const child = spawn(process.execPath, [jest, ...process.argv.slice(2)], {
   stdio: 'inherit',
-  shell: process.platform === 'win32',
   env: { ...process.env, NODE_OPTIONS: nodeOptions },
 });
 

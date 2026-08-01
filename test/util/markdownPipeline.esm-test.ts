@@ -29,9 +29,15 @@ import { unified } from 'unified';
  * the tree is the last thing that actually exists on the real path.
  */
 
-/** The plugin chain `TypingEffect` renders with, stopped at the tree. */
+/**
+ * The plugin chain `TypingEffect` renders with, stopped at the tree.
+ *
+ * One processor, parsed and run by itself. `.process()` would be the usual
+ * call but it needs a compiler, and there is none here on purpose — the tree
+ * is the output being asserted on.
+ */
 async function render(markdown: string): Promise<Root> {
-  return unified()
+  const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
@@ -39,8 +45,9 @@ async function render(markdown: string): Promise<Root> {
     // Before rehypeSanitize, so KaTeX's own markup goes through the allowlist
     // rather than around it — the order TypingEffect uses.
     .use(rehypeKatex)
-    .use(rehypeSanitize, createChatSanitizeSchema())
-    .run(unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown)) as Promise<Root>;
+    .use(rehypeSanitize, createChatSanitizeSchema());
+
+  return processor.run(processor.parse(markdown)) as Promise<Root>;
 }
 
 /** Whether a node can have children. */
@@ -113,7 +120,7 @@ describe('maths through the real pipeline', () => {
   });
 });
 
-describe('gFM through the real pipeline', () => {
+describe('GFM through the real pipeline', () => {
   it('should keep a table whole', async () => {
     const tree = await render('| Bar | Value |\n| :-- | ----: |\n| Jan | 45.2 |\n');
 
@@ -149,7 +156,6 @@ describe('gFM through the real pipeline', () => {
     // It matters because the two fail differently: the tuple replaces a
     // disallowed value, while the bare name would admit it, and an `input`
     // whose type is dropped altogether renders as a text box.
-    const { sanitize } = await import('hast-util-sanitize');
     const hidden: Root = {
       type: 'root',
       children: [{
@@ -160,7 +166,12 @@ describe('gFM through the real pipeline', () => {
       }],
     };
 
-    const clean = sanitize(hidden, createChatSanitizeSchema());
+    // Through `rehype-sanitize` rather than `hast-util-sanitize` directly:
+    // same code underneath, but it is the one the pipeline uses, and it is
+    // already a declared dependency.
+    const clean = await unified()
+      .use(rehypeSanitize, createChatSanitizeSchema())
+      .run(hidden) as Root;
 
     expect(first(clean, 'input')?.properties?.type).toBe('checkbox');
     expect(first(clean, 'input')?.properties?.name).toBeUndefined();

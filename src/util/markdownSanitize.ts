@@ -171,9 +171,9 @@ export function createChatSanitizeSchema(): SanitizeSchema {
   return {
     attributes: {
       '*': [...GLOBAL_ATTRIBUTES],
-      // No `target`. Markdown has no syntax for it, raw HTML is escaped to
-      // text, and nothing in the plugin chain adds one, so it was allowing an
-      // attribute that could not arrive — and a `target="_blank"` without
+      // No `target`. Markdown has no syntax for it, raw HTML never becomes
+      // markup, and nothing in the plugin chain adds one, so it was allowing
+      // an attribute that could not arrive — and a `target="_blank"` without
       // `rel="noopener"` is reverse tabnabbing waiting for the day one could.
       // Same reasoning as the ARIA entries dropped from GLOBAL_ATTRIBUTES.
       // `id` and the two ARIA entries are the footnote wiring remark-gfm
