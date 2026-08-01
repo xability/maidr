@@ -118,6 +118,12 @@ const config: ReturnType<typeof antfu> = antfu({
       // covers the member access as well — a separate MemberExpression
       // selector was redundant, and only showed up as redundant because
       // breaking it left the test still passing.
+      //
+      // Matches the name, not the value, so a renamed binding
+      // (`const { children: kids } = props`) passes. That is the limit of a
+      // syntactic selector rather than something to widen: guessing at names
+      // would cost false positives, and the shape this exists to stop is the
+      // one that was actually written.
       selector: 'JSXAttribute[name.name=\'aria-label\'] Identifier[name=\'children\']',
       message: 'Do not build aria-label from children: it stringifies to "[object Object]" unless the child is a plain string, and aria-label replaces the accessible name the element already had.',
     }],
