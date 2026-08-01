@@ -17,8 +17,16 @@ import { runInNewContext } from 'node:vm';
  * what makes the pagination case fail if the fix is ever reverted.
  *
  * The block is extracted textually rather than with a YAML parser: `js-yaml`
- * is only present transitively here, and a test that reaches for an
- * undeclared dependency breaks the day something upstream stops pulling it.
+ * and `yaml` are both present, but only transitively — neither is declared,
+ * and a test that reaches for an undeclared dependency breaks the day
+ * something upstream stops pulling it in.
+ *
+ * That is the whole of the argument, so it expires the moment either becomes
+ * a direct devDependency for some other reason. Parse the workflow then and
+ * delete the extraction below: block-scalar spellings and indentation are a
+ * class of fragility a parser does not have, and this file has already spent
+ * three commits on that class. Adding the dependency solely to delete this
+ * is the trade that is not worth it.
  */
 
 interface StubIssue {
@@ -358,6 +366,24 @@ describe('the scheduled e2e report step', () => {
       };
 
       const result = await runScript('success', [pr]);
+
+      expect(result.adopted).toEqual([]);
+      expect(result.created).toEqual([['test-report']]);
+    });
+
+    // The retire loop's `state: 'open'` is pinned by the already-closed
+    // failure case above; this is the same filter on the other lookup, which
+    // had no closed fixture. Reopening a finished report to write a new run
+    // into it would resurrect an issue someone deliberately closed.
+    it('should file a fresh report rather than reopen a closed one', async () => {
+      const closedReport: StubIssue = {
+        number: 601,
+        title: 'Test Report - 2026-07-29T03:20:11.879Z',
+        labels: ['test-report'],
+        state: 'closed',
+      };
+
+      const result = await runScript('success', [closedReport]);
 
       expect(result.adopted).toEqual([]);
       expect(result.created).toEqual([['test-report']]);

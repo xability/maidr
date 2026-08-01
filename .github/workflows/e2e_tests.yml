@@ -150,6 +150,23 @@ jobs:
               : `${REPORT_PREFIX} - ${new Date().toISOString()}`;
             const labels = isFailure ? ['test-failure'] : ['test-report'];
 
+            // "One this workflow filed, under `prefix`." Both lookups below
+            // ask it, and they used to ask it in their own words — the same
+            // two conditions written twice, which is two places to remember
+            // when either one changes. They already drifted once: the retire
+            // loop excluded pull requests for a round while the lookup above
+            // it did not.
+            //
+            // The label is not enough on its own. A maintainer tracking a
+            // flaky spec could reasonably reach for `test-failure`, and
+            // closing their issue with "fixed by the run that passed" is a
+            // claim this step has no way to know is false. The title prefix
+            // is something only this step writes. It has to be startsWith
+            // rather than includes: a human title can mention the prefix
+            // partway through and mean something else entirely.
+            const isOwn = (issue, prefix) =>
+              !issue.pull_request && issue.title.startsWith(prefix);
+
             // Search for existing issue
             // Paginated: listForRepo caps at 30 per page by default, and a
             // report older than one page would be invisible here — which
@@ -166,13 +183,10 @@ jobs:
             // issue from a previous run — each scheduled failure would file
             // a brand-new issue instead of updating the rolling one.
             //
-            // Pull requests are excluded for the same reason the retire loop
-            // below excludes them: listForRepo returns them, and one carrying
-            // this label and title would otherwise be adopted as the rolling
-            // issue and have its title and body overwritten.
+            // What this one does with a match is rewrite its title and body,
+            // so adopting a pull request by mistake overwrites it.
             const existingIssue = issues.find(issue =>
-              !issue.pull_request
-              && issue.title.startsWith(isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
+              isOwn(issue, isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
             );
 
             if (existingIssue) {
@@ -216,18 +230,12 @@ jobs:
                 state: 'open'
               });
 
-              // Only this workflow's own reports. The label alone is not
-              // proof of authorship: a maintainer tracking a flaky spec could
-              // reasonably reach for `test-failure`, and closing their issue
-              // with "fixed by the run that passed" would be a lie the
-              // automation has no way to know it told. The title prefix is
-              // something only this step writes.
-              //
-              // Pull requests are excluded as well — listForRepo returns them
-              // and they are not reports either.
-              const mine = stale.filter(i =>
-                !i.pull_request && i.title.startsWith(FAILURE_PREFIX)
-              );
+              // Only this workflow's own reports — see isOwn above for why
+              // the label by itself is not proof of authorship. Always the
+              // failure prefix here, never the report one: this branch only
+              // runs on success, when the issues being retired are the
+              // failures a previous run filed.
+              const mine = stale.filter(issue => isOwn(issue, FAILURE_PREFIX));
 
               // Per issue, so one failure does not strand the rest. An
               // uncaught throw here would fail this step and report the whole
