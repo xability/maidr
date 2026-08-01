@@ -356,7 +356,22 @@ describe('GFM allowlist', () => {
 
     // `checked` is the whole point — without it a done task and an outstanding
     // one are indistinguishable — and `disabled` is what keeps it inert.
-    expect(schema.attributes?.input).toEqual(['type', 'checked', 'disabled']);
+    // `type` is pinned to the value, not just the name.
+    expect(schema.attributes?.input).toEqual([['type', 'checkbox'], 'checked', 'disabled']);
+  });
+
+  it('should pin the checkbox type rather than trusting the pipeline', () => {
+    const schema = createChatSanitizeSchema();
+
+    // The tuple form replaces a disallowed value rather than dropping it,
+    // which is what makes this worth pinning: a dropped `type` leaves an
+    // `input` that renders as a text box, so allowing the bare name would
+    // fail open on any value that ever reached it.
+    const type = schema.attributes?.input?.find(
+      entry => typeof entry !== 'string' && entry[0] === 'type',
+    );
+
+    expect(type).toEqual(['type', 'checkbox']);
   });
 
   it('should never let a rendered response become a submittable control', () => {

@@ -202,7 +202,13 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       // and `value` are deliberately absent: none is emitted, and together
       // they are what would turn a rendered response into a submittable
       // control.
-      'input': ['type', 'checked', 'disabled'],
+      //
+      // `type` is pinned to the one value rather than merely allowed. The
+      // tuple form replaces a disallowed value instead of dropping it, which
+      // is the safer failure here: a dropped `type` leaves an `input` that
+      // defaults to a text box, where a replaced one stays the inert checkbox
+      // this entry exists to admit.
+      'input': [['type', 'checkbox'], 'checked', 'disabled'],
       // Column alignment from `:--` / `--:`. Carries no meaning for a screen
       // reader but is the difference between a table that reads as a table
       // visually and one that does not.
