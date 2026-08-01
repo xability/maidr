@@ -20,6 +20,7 @@
     "resolveJsonModule": true,
     "allowJs": false,
     "strict": true,
+    "noImplicitOverride": true,
 
     "noEmit": true,
     "sourceMap": true,

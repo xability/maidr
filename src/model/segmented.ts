@@ -184,7 +184,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
@@ -236,7 +236,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected get text(): TextState {
+  protected override get text(): TextState {
     return {
       ...super.text,
       z: {
@@ -246,7 +246,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected get highlight(): HighlightState {
+  protected override get highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
       return this.outOfBoundsState as HighlightState;
     }
@@ -263,7 +263,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
-  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
+  protected override mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;
     }

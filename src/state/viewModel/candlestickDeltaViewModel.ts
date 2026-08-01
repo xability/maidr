@@ -72,7 +72,7 @@ export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDelt
     this.notification = notification;
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }

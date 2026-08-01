@@ -186,7 +186,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
@@ -336,7 +336,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   /**
    * Returns the violin index for layer switching.
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     if (this.orientation === Orientation.VERTICAL) {
       return this.col >= 0 ? this.col : null;
     }
@@ -346,7 +346,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   /**
    * Moves to a violin index, resetting to MIN section.
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -707,7 +707,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     // Disabled for violin box plots
   }
 
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;

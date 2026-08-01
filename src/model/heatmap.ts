@@ -51,7 +51,7 @@ export class Heatmap extends AbstractTrace {
   /**
    * Cleans up resources and disposes of the heatmap instance
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.heatmapValues.length = 0;
 
     this.x.length = 0;
@@ -280,7 +280,7 @@ export class Heatmap extends AbstractTrace {
   /**
    * Updates the visual position of the current point to safe bounds
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;

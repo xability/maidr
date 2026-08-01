@@ -107,7 +107,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   /**
    * Disposes the view model and resets text state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

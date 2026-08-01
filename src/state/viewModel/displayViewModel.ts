@@ -73,7 +73,7 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   /**
    * Disposes the view model, clears focus, and restores instruction tooltip.
    */
-  public dispose(): void {
+  public override dispose(): void {
     // Clear only focus to avoid wiping other display UI state
     this.store.dispatch(clearFocus());
     this.store.dispatch(showTooltip(this.displayService.getInstruction()));

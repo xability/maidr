@@ -168,7 +168,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
   /**
    * Cleans up resources and removes all highlight elements from the DOM.
    */
-  public dispose(): void {
+  public override dispose(): void {
     if (typeof window !== 'undefined') {
       window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
       window.removeEventListener('resize', this.invalidateHighlightCenters);
@@ -205,7 +205,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * Returns an empty object to avoid grouping scatter points by audio tone.
    * @returns Empty object without groupIndex to maintain consistent audio feedback
    */
-  protected getAudioGroupIndex(): { groupIndex?: number } {
+  protected override getAudioGroupIndex(): { groupIndex?: number } {
     // Rationale for returning empty object instead of groupIndex:
     //
     // Scatterplots fundamentally differ from other plot types in their grouping semantics:
@@ -427,7 +427,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     };
   }
 
-  protected get highlight(): HighlightState {
+  protected override get highlight(): HighlightState {
     if (this.isInGridMode && this.gridCells) {
       const cell = this.gridCells[this.gridRow][this.gridCol];
 
@@ -470,7 +470,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     };
   }
 
-  protected get hasMultiPoints(): boolean {
+  protected override get hasMultiPoints(): boolean {
     return true;
   }
 
@@ -478,7 +478,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * Returns out-of-bounds state with correct position for grid mode panning.
    * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
    */
-  protected get outOfBoundsState(): TraceState {
+  protected override get outOfBoundsState(): TraceState {
     // Use grid position when in grid mode for correct panning
     if (this.isInGridMode && this.gridCells) {
       return {
@@ -546,7 +546,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     }
   }
 
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -622,7 +622,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     return moved;
   }
 
-  public moveToExtreme(direction: MovableDirection): boolean {
+  public override moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -666,7 +666,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     return true;
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
     // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
     // (ROW mode). NavigationService.moveToXValueInValues preserves X across
     // layer switches by calling moveToIndex(0, xIndex), so COL mode must read
@@ -701,7 +701,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * @param target - Direction or coordinate to check
    * @returns True if movement is possible, false otherwise
    */
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       // Array targets are raw cursor coordinates, used by
       // Context.restoreTracePosition to keep the user's position across

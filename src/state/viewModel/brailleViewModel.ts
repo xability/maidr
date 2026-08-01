@@ -57,7 +57,7 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   /**
    * Disposes the view model and resets braille state to initial values.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

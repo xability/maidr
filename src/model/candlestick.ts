@@ -100,7 +100,7 @@ export class Candlestick extends AbstractTrace {
     | null;
 
   // Service dependency for navigation logic
-  protected readonly navigationService: NavigationService;
+  protected override readonly navigationService: NavigationService;
 
   /**
    * Creates a new Candlestick instance from a MAIDR layer
@@ -256,7 +256,7 @@ export class Candlestick extends AbstractTrace {
   /**
    * Updates visual position for point highlighting and segment position
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.row = this.currentPointIndex;
     } else {
@@ -285,7 +285,7 @@ export class Candlestick extends AbstractTrace {
    * Moves navigation position one step in the specified direction
    * @param direction - Direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
    */
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -429,7 +429,7 @@ export class Candlestick extends AbstractTrace {
     }
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
     // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -461,7 +461,7 @@ export class Candlestick extends AbstractTrace {
    * @param target - Target position array or movement direction
    * @returns True if movement is possible, false otherwise
    */
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       // For direct position targeting, use parent logic
       return super.isMovable(target);
@@ -536,7 +536,7 @@ export class Candlestick extends AbstractTrace {
   /**
    * Cleans up resources and disposes of the candlestick instance
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
@@ -834,7 +834,7 @@ export class Candlestick extends AbstractTrace {
    * Gets the current X value from the candlestick trace
    * @returns The current X value or null if not available
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     if (
       this.currentPointIndex >= 0
       && this.currentPointIndex < this.candles.length
@@ -849,7 +849,7 @@ export class Candlestick extends AbstractTrace {
    * @param xValue - The X value to move to
    * @returns True if the position was found and set, false otherwise
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     const targetIndex = this.candles.findIndex(
       candle => candle.value === xValue,
     );
@@ -876,7 +876,7 @@ export class Candlestick extends AbstractTrace {
    * Gets extrema targets for the current candlestick trace with labels and descriptions
    * @returns Array of extrema targets for navigation
    */
-  public getExtremaTargets(): ExtremaTarget[] {
+  public override getExtremaTargets(): ExtremaTarget[] {
     const targets: ExtremaTarget[] = [];
     const currentSegment = this.currentSegmentType ?? 'open';
 
@@ -985,7 +985,7 @@ export class Candlestick extends AbstractTrace {
    * Navigates to a specific extrema target
    * @param target - The extrema target to navigate to
    */
-  public navigateToExtrema(target: ExtremaTarget): void {
+  public override navigateToExtrema(target: ExtremaTarget): void {
     // Update the current point index
     this.currentPointIndex = target.pointIndex;
 
@@ -1002,7 +1002,7 @@ export class Candlestick extends AbstractTrace {
    * @param type - Comparison type (lower or higher)
    * @returns True if a matching value was found and moved to
    */
-  public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
     // Establish the entry position on the first move so the compare jump
     // highlights and a subsequent ordinary keypress isn't swallowed by the
     // initial-entry branch of moveOnce (mirrors moveOnce/moveToExtreme).
@@ -1038,7 +1038,7 @@ export class Candlestick extends AbstractTrace {
    * Moves upward between segments within a candle in rotor mode
    * @returns True if the move was successful
    */
-  public moveUpRotor(): boolean {
+  public override moveUpRotor(): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
@@ -1047,7 +1047,7 @@ export class Candlestick extends AbstractTrace {
    * Moves downward between segments within a candle in rotor mode
    * @returns True if the move was successful
    */
-  public moveDownRotor(): boolean {
+  public override moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
     return true;
   }

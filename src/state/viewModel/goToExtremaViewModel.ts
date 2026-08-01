@@ -92,7 +92,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     this.formatter = formatter;
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }

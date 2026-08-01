@@ -55,7 +55,7 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
    * Prevents a stale rotor value from surviving controller disposal and being
    * re-announced in the live region on the next focus-in.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
