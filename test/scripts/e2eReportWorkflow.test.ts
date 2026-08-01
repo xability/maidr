@@ -25,6 +25,8 @@ interface StubIssue {
   number: number;
   title: string;
   labels: string[];
+  /** Defaults to open; a closed one must never be picked up. */
+  state?: 'open' | 'closed';
   pull_request?: object;
 }
 
@@ -37,7 +39,12 @@ interface RunResult {
   created: string[][];
   /** True if any lookup bypassed `paginate`. */
   usedUnpaginatedList: boolean;
+  /** Warnings the script emitted instead of throwing. */
+  warnings: string[];
 }
+
+/** Issue numbers whose `issues.update` should reject, to test the catch. */
+type FailingUpdates = ReadonlySet<number>;
 
 const ROOT = resolve(__dirname, '../..');
 const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
@@ -71,25 +78,37 @@ function reportScript(): string {
 }
 
 /** Runs the script against stubs and records what it asked GitHub to do. */
-async function runScript(status: string, open: StubIssue[]): Promise<RunResult> {
+async function runScript(
+  status: string,
+  issues: StubIssue[],
+  failingUpdates: FailingUpdates = new Set(),
+): Promise<RunResult> {
   const result: RunResult = {
     closed: [],
     commented: [],
     created: [],
     usedUnpaginatedList: false,
+    warnings: [],
   };
 
-  const matching = (labels: string[]): StubIssue[] =>
-    open.filter(issue => issue.labels.includes(labels[0]));
+  // Honours `state` as well as `labels`, so a query that dropped
+  // `state: 'open'` would start seeing closed issues and fail a test rather
+  // than passing because every fixture happened to be open.
+  const matching = (params: { labels: string[]; state?: string }): StubIssue[] =>
+    issues.filter(issue =>
+      issue.labels.includes(params.labels[0])
+      && (params.state === 'all' || (issue.state ?? 'open') === (params.state ?? 'open')),
+    );
 
   const github = {
-    paginate: async (_fn: unknown, params: { labels: string[] }) => matching(params.labels),
+    paginate: async (_fn: unknown, params: { labels: string[]; state?: string }) =>
+      matching(params),
     rest: {
       issues: {
         // The real API pages at 30; a caller that skips `paginate` sees no more.
-        listForRepo: async (params: { labels: string[] }) => {
+        listForRepo: async (params: { labels: string[]; state?: string }) => {
           result.usedUnpaginatedList = true;
-          return { data: matching(params.labels).slice(0, 30) };
+          return { data: matching(params).slice(0, 30) };
         },
         create: async (params: { labels: string[] }) => {
           result.created.push(params.labels);
@@ -98,12 +117,19 @@ async function runScript(status: string, open: StubIssue[]): Promise<RunResult> 
           result.commented.push(params.issue_number);
         },
         update: async (params: { issue_number: number; state?: string }) => {
+          if (failingUpdates.has(params.issue_number)) {
+            throw new Error('simulated API failure');
+          }
           if (params.state === 'closed') {
             result.closed.push(params.issue_number);
           }
         },
       },
     },
+  };
+
+  const core = {
+    warning: (message: string) => result.warnings.push(message),
   };
 
   const context = {
@@ -121,6 +147,7 @@ async function runScript(status: string, open: StubIssue[]): Promise<RunResult> 
   const sandbox = {
     github,
     context,
+    core,
     require,
     process: { env: { TEST_STATUS: status } },
     Date,
@@ -188,6 +215,32 @@ describe('the scheduled e2e report step', () => {
 
       expect(result.created).toEqual([['test-report']]);
       expect(result.closed).toEqual([]);
+    });
+
+    // The lookups pass `state: 'open'`. Without this every fixture is open,
+    // so dropping that filter would change nothing here and the argument
+    // would be decorative rather than covered.
+    it('should ignore a failure issue that is already closed', async () => {
+      const alreadyClosed: StubIssue = { ...botIssue(600), state: 'closed' };
+
+      const result = await runScript('success', [alreadyClosed, botIssue(683)]);
+
+      expect(result.closed).toEqual([683]);
+      expect(result.commented).toEqual([683]);
+    });
+
+    it('should keep going when one issue cannot be retired', async () => {
+      const result = await runScript(
+        'success',
+        [botIssue(683), botIssue(684), botIssue(685)],
+        new Set([684]),
+      );
+
+      // The other two still close, and the step does not throw.
+      expect(result.closed).toEqual([683, 685]);
+      expect(result.warnings).toEqual([
+        expect.stringContaining('#684') as unknown as string,
+      ]);
     });
   });
 

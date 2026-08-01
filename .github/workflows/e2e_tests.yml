@@ -207,30 +207,40 @@ jobs:
                 !i.pull_request && i.title.includes(FAILURE_PREFIX)
               );
 
+              // Per issue, so one failure does not strand the rest. An
+              // uncaught throw here would fail this step and report the whole
+              // scheduled run as red even though the suite passed — the same
+              // kind of lie about the suite's state that this step exists to
+              // stop telling. Retrying is left to the next run: the issue is
+              // still open and still matches, so it gets picked up again.
               for (const issue of mine) {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: issue.number,
-                  body: [
-                    'The scheduled suite is green again.',
-                    '',
-                    `Commit: ${context.sha}`,
-                    `[View Workflow Run](${run_url})`,
-                    '',
-                    'Closed automatically by the run that passed. If these',
-                    'tests fail again a fresh issue is filed rather than this',
-                    'one reopened, so the history stays per-incident.'
-                  ].join('\n')
-                });
+                try {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    body: [
+                      'The scheduled suite is green again.',
+                      '',
+                      `Commit: ${context.sha}`,
+                      `[View Workflow Run](${run_url})`,
+                      '',
+                      'Closed automatically by the run that passed. If these',
+                      'tests fail again a fresh issue is filed rather than this',
+                      'one reopened, so the history stays per-incident.'
+                    ].join('\n')
+                  });
 
-                await github.rest.issues.update({
-                  owner,
-                  repo,
-                  issue_number: issue.number,
-                  state: 'closed',
-                  state_reason: 'completed'
-                });
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+                } catch (error) {
+                  core.warning(`Could not retire #${issue.number}: ${error.message}`);
+                }
               }
             }
 
