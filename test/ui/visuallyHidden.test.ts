@@ -1,9 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
 import { visuallyHidden } from '@ui/visuallyHidden';
-
-const ROOT = resolve(__dirname, '../..');
+import { lintOutcomes } from './restrictedSyntax';
 
 /**
  * One case for the `sr-only` lint rule, and whether it should be reported.
@@ -33,45 +30,6 @@ const CASES: readonly { code: string; flagged: boolean }[] = [
 ];
 /* eslint-enable no-template-curly-in-string */
 
-/**
- * Lines that `no-restricted-syntax` reports, one case per line.
- *
- * Runs the repo's own ESLint config rather than reconstructing the rule, so
- * this cannot pass against a selector that differs from the one in force.
- * Piped through stdin so no fixture file has to exist under `src/`, where it
- * would be linted and type-checked on its own account.
- * @param source - The fixture to lint.
- * @returns The 1-based line numbers reported.
- */
-function restrictedSyntaxLines(source: string): number[] {
-  let output: string;
-  try {
-    output = execFileSync(
-      join(ROOT, 'node_modules/.bin/eslint'),
-      ['--stdin', '--stdin-filename', 'src/srOnlyFixture.tsx', '--format', 'json'],
-      { cwd: ROOT, input: source, encoding: 'utf8' },
-    );
-  } catch (error) {
-    // Expected: the fixture is written to produce errors, and eslint exits
-    // non-zero when it finds any. The report is still on stdout — but only if
-    // it ran at all, so an empty one means the process failed for some other
-    // reason and must not be read as "nothing was reported".
-    const { stdout } = error as { stdout?: string };
-    if (!stdout) {
-      throw error;
-    }
-    output = stdout;
-  }
-
-  const [result] = JSON.parse(output) as {
-    messages: { line: number; ruleId: string | null }[];
-  }[];
-
-  return result.messages
-    .filter(message => message.ruleId === 'no-restricted-syntax')
-    .map(message => message.line);
-}
-
 describe('visuallyHidden', () => {
   it('should keep hidden content in the accessibility tree', () => {
     // The whole point, and the easiest thing to lose while "simplifying":
@@ -93,15 +51,8 @@ describe('visuallyHidden', () => {
 
 describe('the sr-only lint rule', () => {
   it('should report the class however it is written, and nothing else', () => {
-    const source = CASES.map(({ code }) => `export const x = () => <div ${code} />;`).join('\n');
+    const { actual, expected } = lintOutcomes(CASES);
 
-    const reported = new Set(restrictedSyntaxLines(source));
-
-    // Both directions in one assertion: a selector that matched everything
-    // would pass a check for the flagged cases alone, and one that matched
-    // nothing would pass a check for the ignored ones.
-    const actual = CASES.map(({ code }, index) => `${code} -> ${reported.has(index + 1)}`);
-    const expected = CASES.map(({ code, flagged }) => `${code} -> ${flagged}`);
     expect(actual).toEqual(expected);
   });
 });

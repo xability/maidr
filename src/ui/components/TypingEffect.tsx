@@ -156,15 +156,15 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             pre: ({ node, ...props }) => (
               <pre {...props} role="text" aria-label="Code block" />
             ),
-            // Fall back rather than overwrite, the way the `img` override
-            // below already does. A prop after a spread wins unconditionally,
-            // so this used to discard any `aria-label` the pipeline had set —
-            // and the one case that has one is the footnote backref, whose
-            // visible text is a bare return arrow. It announced as "Link: ↩"
-            // in place of "Back to reference 1".
-            a: ({ node, ...props }) => (
-              <a {...props} aria-label={props['aria-label'] ?? `Link: ${props.children}`} />
-            ),
+            // No `a` override. A link's accessible name comes from its own
+            // text, which is right in every case and needs no help: the one
+            // this used to build — `Link: ${children}` — was a worse copy of
+            // that when children was a string, and `[object Object]` when it
+            // was anything else. `aria-label` replaces the name rather than
+            // supplementing it, so there was no fallback to the visible text.
+            //
+            // Dropping it also lets the footnote backref keep the label
+            // remark-gfm gives it, without a fallback expression to get wrong.
             img: ({ node, ...props }) => (
               <img {...props} alt={props.alt || 'Image in message'} />
             ),

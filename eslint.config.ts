@@ -103,6 +103,23 @@ const config: ReturnType<typeof antfu> = antfu({
     }, {
       selector: 'JSXAttribute[name.name=\'className\'] TemplateElement[value.raw=/(^|\\s)sr-only(\\s|$)/]',
       message: 'Nothing defines .sr-only in MAIDR, so this element is visible. Use the visuallyHidden style object from @ui/visuallyHidden.',
+    }, {
+      // `children` is a React node, not a string. Interpolating it yields
+      // "[object Object]" for anything but a bare string — an element for
+      // `[**bold**](url)`, an array for mixed content — and `aria-label`
+      // replaces the accessible name rather than supplementing it, so the
+      // visible text is not a fallback. A chat link announced as
+      // "Link: [object Object]" is where this came from.
+      //
+      // An element's own text is already its accessible name. Deriving one
+      // from children can at best reproduce that and at worst destroy it.
+      // One selector, not two. `props.children` is a MemberExpression whose
+      // property is an Identifier named `children`, so matching the identifier
+      // covers the member access as well — a separate MemberExpression
+      // selector was redundant, and only showed up as redundant because
+      // breaking it left the test still passing.
+      selector: 'JSXAttribute[name.name=\'aria-label\'] Identifier[name=\'children\']',
+      message: 'Do not build aria-label from children: it stringifies to "[object Object]" unless the child is a plain string, and aria-label replaces the accessible name the element already had.',
     }],
   },
 });
