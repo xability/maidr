@@ -129,7 +129,10 @@ jobs:
             const labels = isFailure ? ['test-failure'] : ['test-report'];
 
             // Search for existing issue
-            const issues = await github.rest.issues.listForRepo({
+            // Paginated: listForRepo caps at 30 per page by default, and a
+            // report older than one page would be invisible here — which
+            // reads as "no rolling issue exists" and files a duplicate.
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo,
               labels,
@@ -140,7 +143,7 @@ jobs:
             // the CURRENT run's URL, so matching on it could never find an
             // issue from a previous run — each scheduled failure would file
             // a brand-new issue instead of updating the rolling one.
-            const existingIssue = issues.data.find(issue =>
+            const existingIssue = issues.find(issue =>
               issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report')
             );
 
@@ -174,7 +177,11 @@ jobs:
             // timestamp, and a run that failed before this step existed could
             // have left more than one behind.
             if (!isFailure) {
-              const stale = await github.rest.issues.listForRepo({
+              // Paginated for the same reason "every open one" is the rule
+              // here: listForRepo returns 30 per page by default, so anything
+              // past the first page would silently stay open — which is the
+              // exact failure this step exists to stop.
+              const stale = await github.paginate(github.rest.issues.listForRepo, {
                 owner,
                 repo,
                 labels: ['test-failure'],
@@ -182,7 +189,7 @@ jobs:
               });
 
               // listForRepo returns pull requests too; they are not reports.
-              for (const issue of stale.data.filter(i => !i.pull_request)) {
+              for (const issue of stale.filter(i => !i.pull_request)) {
                 await github.rest.issues.createComment({
                   owner,
                   repo,
