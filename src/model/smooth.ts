@@ -20,7 +20,7 @@ export class SmoothTrace extends LineTrace {
    * in instruction text and layer announcements.
    * @returns The trace state with plotType set to 'smooth'
    */
-  public get state(): TraceState {
+  public override get state(): TraceState {
     const baseState = super.state;
     if (baseState.empty)
       return baseState;
@@ -38,7 +38,7 @@ export class SmoothTrace extends LineTrace {
    * @returns The description state containing chart metadata and data table
    */
 
-  protected get audio(): AudioState {
+  protected override get audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
     const getY = (i: number): number => {
       return rowYValues[Math.max(0, Math.min(i, rowYValues.length - 1))];

@@ -51,7 +51,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     };
   }
 
-  protected get text(): TextState {
+  protected override get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 

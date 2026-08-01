@@ -103,7 +103,7 @@ export class MovableGrid<Element> extends AbstractMovable {
     return true;
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
     if (!this.isMovable([row, col])) {
       return false;
     }

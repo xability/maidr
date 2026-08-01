@@ -388,7 +388,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * heatmap cells, line dots) merely drop their references so the visible
    * chart geometry survives focusout and live-data rebuilds.
    */
-  public dispose(): void {
+  public override dispose(): void {
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
         row.forEach((el) => {
@@ -628,7 +628,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
-  protected abstract get dimension(): Dimension;
+  protected abstract override get dimension(): Dimension;
 
   protected abstract get highlightValues():
     | (SVGElement[] | SVGElement)[][]

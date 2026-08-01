@@ -62,7 +62,7 @@ export class DescriptionViewModel extends AbstractViewModel<DescriptionMenuState
     this.descriptionService.toggle();
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

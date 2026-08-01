@@ -18,7 +18,7 @@ export class BarPlotPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors: {
+  protected override readonly selectors: {
     notification: string;
     info: string;
     speedIndicator: string;
@@ -75,7 +75,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when the condition is met
    * @throws BarPlotError if timeout is reached before the condition is met
    */
-  public async waitForElementContent(
+  public override async waitForElementContent(
     selector: string,
     expectedContent: string,
     options: { timeout?: number; pollInterval?: number } = {},
@@ -116,7 +116,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws BarPlotError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await this.page.waitForLoadState('domcontentloaded');
       await expect(this.page.locator(this.selectors.svg)).toBeVisible({
@@ -132,7 +132,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws BarPlotError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
       await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
@@ -147,7 +147,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws BarPlotError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
       await this.page.click(this.selectors.svg);
@@ -177,7 +177,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws BarPlotError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     return this.getNotificationText();
   }
 
@@ -313,7 +313,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current speed value
    * @throws BarPlotError if speed cannot be retrieved
    */
-  public async getPlaybackSpeed(): Promise<number> {
+  public override async getPlaybackSpeed(): Promise<number> {
     try {
       const speedText = await this.getElementText(this.selectors.speedIndicator);
       return Number.parseFloat(speedText);
@@ -336,55 +336,8 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws BarPlotError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     return this.getInfoText();
-  }
-
-  /**
-   * Starts autoplay in a specific direction
-   * @param direction - The direction to autoplay ('forward' or 'reverse')
-   * @param infoSelector - The selector for the info element
-   * @param expectedContent - Expected content to wait for upon completion
-   * @param options - Optional timeout configuration
-   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
-   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
-   * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws BarPlotError if autoplay fails or times out
-   */
-  protected async startAutoplay(
-    direction: 'forward' | 'reverse',
-    infoSelector: string,
-    expectedContent?: string,
-    options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
-    const directionName = direction === 'forward' ? 'forward' : 'reverse';
-
-    try {
-      // Resolve once: it costs a page round-trip and cannot change mid-test.
-      // Inside the try so a failure is wrapped like every other step here.
-      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
-
-      await this.page.keyboard.down(modifier);
-      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.pressKey(arrowKey, `start ${directionName} autoplay`);
-
-      // Only the two modifiers are still held: `pressKey` above is a full
-      // press, so the arrow key was already released.
-      await this.page.keyboard.up(modifier);
-      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-
-      if (expectedContent) {
-        await this.waitForElementContent(
-          infoSelector,
-          expectedContent,
-          options,
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`, { cause: error });
-    }
   }
 
   /**
@@ -400,7 +353,11 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start forward autoplay', { cause: error });
+    }
   }
 
   /**
@@ -416,6 +373,10 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start reverse autoplay', { cause: error });
+    }
   }
 }

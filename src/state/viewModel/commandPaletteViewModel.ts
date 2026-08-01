@@ -114,7 +114,7 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   /**
    * Disposes the view model and hides the command palette.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }

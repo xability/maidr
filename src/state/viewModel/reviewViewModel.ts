@@ -50,7 +50,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
   /**
    * Disposes the view model and resets review state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

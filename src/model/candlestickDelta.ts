@@ -234,7 +234,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     this.movable = new MovableGrid<number>(this.deltaGrid);
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.candles.length = 0;
     super.dispose();
   }

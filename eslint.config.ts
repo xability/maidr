@@ -86,6 +86,25 @@ const config: ReturnType<typeof antfu> = antfu({
       message: 'Do not call pressKeyCombination() from a plot page object: it presses the key but does not wait for the announcement. Use this.moveToDataPoint(key, action, true) for a modified move.',
     }],
   },
+}, {
+  // `sr-only` hides nothing here — MAIDR ships no stylesheet to define it, so
+  // the class leaves an ordinary visible element. `src/ui/visuallyHidden.ts`
+  // holds the reasoning and the replacement.
+  //
+  // Matched on the AST because the source-text version of this guard was wrong
+  // three times over, each in a way that passed silently. Scoping to
+  // `className` also leaves `TypingEffect`'s `h2` override alone, since that
+  // reads the class in a `style` attribute rather than assigning one.
+  files: ['src/**/*.ts', 'src/**/*.tsx'],
+  rules: {
+    'no-restricted-syntax': ['error', {
+      selector: 'JSXAttribute[name.name=\'className\'] Literal[value=/(^|\\s)sr-only(\\s|$)/]',
+      message: 'Nothing defines .sr-only in MAIDR, so this element is visible. Use the visuallyHidden style object from @ui/visuallyHidden.',
+    }, {
+      selector: 'JSXAttribute[name.name=\'className\'] TemplateElement[value.raw=/(^|\\s)sr-only(\\s|$)/]',
+      message: 'Nothing defines .sr-only in MAIDR, so this element is visible. Use the visuallyHidden style object from @ui/visuallyHidden.',
+    }],
+  },
 });
 
 export default config;

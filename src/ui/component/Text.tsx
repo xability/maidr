@@ -1,22 +1,7 @@
 import { useViewModelState } from '@state/hook/useViewModel';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import { Constant } from '@util/constant';
 import React from 'react';
-
-/**
- * Visually-hidden style that keeps an element in the accessibility tree
- * but invisible on screen (standard "sr-only" / "clip" pattern).
- */
-const visuallyHidden: React.CSSProperties = {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  padding: 0,
-  margin: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0, 0, 0, 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-};
 
 const Text: React.FC = () => {
   const { enabled, announce, value, revision, message } = useViewModelState('text');

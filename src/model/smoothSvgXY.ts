@@ -19,7 +19,7 @@ export class SmoothTraceSvgXY extends SmoothTrace {
    * @param selectors - Optional array of CSS selectors for line elements
    * @returns Array of SVG element arrays for each line, or null if selectors are invalid or all mappings failed
    */
-  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+  protected override mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length !== this.lineValues.length) {
       return null;
     }

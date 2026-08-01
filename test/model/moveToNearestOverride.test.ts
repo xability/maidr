@@ -103,16 +103,16 @@ class TestTrace extends AbstractTrace {
     return this.nearest;
   }
 
-  public isPointInBounds(_x: number, _y: number, _nearest: NearestPoint): boolean {
+  public override isPointInBounds(_x: number, _y: number, _nearest: NearestPoint): boolean {
     return this.inBounds;
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
     this.moveToIndexCalls++;
     return super.moveToIndex(row, col);
   }
 
-  public getExtremaTargets(): ExtremaTarget[] {
+  public override getExtremaTargets(): ExtremaTarget[] {
     return [];
   }
 }

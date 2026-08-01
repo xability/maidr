@@ -43,7 +43,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   /**
    * Cleans up bar plot resources including points and min/max arrays.
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
 
     this.min.length = 0;
@@ -321,7 +321,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param element.col - The column position of the element
    * @returns True if coordinates are within bounds, false otherwise
    */
-  public isPointInBounds(
+  public override isPointInBounds(
     x: number,
     y: number,
     { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
@@ -439,7 +439,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   /**
    * Updates the visual position of the current point ensuring it's within bounds.
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
