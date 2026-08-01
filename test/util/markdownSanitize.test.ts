@@ -227,6 +227,142 @@ describe('mathML allowlist', () => {
   });
 });
 
+/**
+ * Every element the GFM and CommonMark side of the pipeline produces.
+ *
+ * Collected by running a markdown corpus through `remark-parse` →
+ * `remark-gfm` → `remark-rehype` and walking the resulting hast tree. That run
+ * cannot happen here — the whole chain is ESM and this suite is CommonJS — so
+ * unlike {@link MATHML_TAG_NAMES}, which the KaTeX cases above check against
+ * KaTeX itself, this list is a transcript rather than a live survey. It will
+ * not notice a plugin upgrade that starts emitting something new.
+ *
+ * #678 wires up the ESM Jest project that closes that gap; this list is what
+ * the survey should reproduce when it does.
+ */
+const GFM_ELEMENTS: readonly string[] = [
+  'a',
+  'blockquote',
+  'code',
+  'del',
+  'em',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'hr',
+  'img',
+  'input',
+  'li',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'strong',
+  'sup',
+  'table',
+  'tbody',
+  'td',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+];
+
+/** Element/property pairs from the same run, minus the ones `'*'` covers. */
+const GFM_PROPERTIES: readonly (readonly [string, string])[] = [
+  ['a', 'ariaDescribedBy'],
+  ['a', 'ariaLabel'],
+  ['a', 'dataFootnoteBackref'],
+  ['a', 'dataFootnoteRef'],
+  ['a', 'href'],
+  ['a', 'id'],
+  ['h2', 'id'],
+  ['img', 'alt'],
+  ['img', 'src'],
+  ['input', 'checked'],
+  ['input', 'disabled'],
+  ['input', 'type'],
+  ['li', 'id'],
+  ['section', 'dataFootnotes'],
+  ['td', 'align'],
+  ['th', 'align'],
+];
+
+describe('gFM allowlist', () => {
+  it('should name every element the markdown pipeline emits', () => {
+    const schema = createChatSanitizeSchema();
+
+    const stripped = GFM_ELEMENTS.filter(tag => !schema.tagNames?.includes(tag)).sort();
+
+    // Dropping an element keeps its text, so the failure is silent: a table
+    // becomes "BarValueJan45.2", a heading becomes a sentence, and `~~gone~~`
+    // reads as an assertion rather than a retraction.
+    expect(stripped).toEqual([]);
+  });
+
+  it('should allow every attribute the markdown pipeline emits', () => {
+    const schema = createChatSanitizeSchema();
+    const shared = schema.attributes?.['*'] ?? [];
+
+    const stripped = GFM_PROPERTIES.filter(([tagName, property]) => {
+      const allowed = [...shared, ...(schema.attributes?.[tagName] ?? [])];
+      return !allowed.some(entry => (typeof entry === 'string' ? entry : entry[0]) === property);
+    }).map(([tagName, property]) => `${tagName}[${property}]`).sort();
+
+    expect(stripped).toEqual([]);
+  });
+
+  it('should give a table its structure and its column alignment', () => {
+    const schema = createChatSanitizeSchema();
+
+    // Named separately from the survey because this is the case the issue was
+    // filed for: a table of chart values is the most likely thing an LLM emits
+    // when describing a plot, and losing it leaves a screen reader user with a
+    // run of digits and nothing binding them to a label.
+    expect(schema.tagNames).toEqual(
+      expect.arrayContaining(['table', 'thead', 'tbody', 'tr', 'th', 'td']),
+    );
+    expect(schema.attributes?.th).toContain('align');
+    expect(schema.attributes?.td).toContain('align');
+  });
+
+  it('should admit a task-list checkbox only as a disabled checkbox', () => {
+    const schema = createChatSanitizeSchema();
+
+    // `checked` is the whole point — without it a done task and an outstanding
+    // one are indistinguishable — and `disabled` is what keeps it inert.
+    expect(schema.attributes?.input).toEqual(['type', 'checked', 'disabled']);
+  });
+
+  it('should never let a rendered response become a submittable control', () => {
+    const schema = createChatSanitizeSchema();
+
+    // The attributes that would turn `input` from a rendering of markdown into
+    // a form. None is emitted by the pipeline, so allowing any of them could
+    // only ever admit something a response invented.
+    for (const attribute of ['form', 'name', 'value', 'formAction', 'onClick']) {
+      expect(schema.attributes?.input).not.toContain(attribute);
+    }
+  });
+
+  it('should name the footnote data attributes rather than a data wildcard', () => {
+    const schema = createChatSanitizeSchema();
+
+    expect(schema.attributes?.a).toContain('dataFootnoteRef');
+    expect(schema.attributes?.a).toContain('dataFootnoteBackref');
+    // A `data*` wildcard would admit every dataset key any future plugin
+    // invents, which is a wider grant than footnotes need.
+    const wildcards = Object.values(schema.attributes ?? {})
+      .flat()
+      .map(entry => (typeof entry === 'string' ? entry : entry[0]))
+      .filter(name => name.includes('*'));
+    expect(wildcards).toEqual([]);
+  });
+});
+
 describe('createChatSanitizeSchema', () => {
   it('should allow every MathML element as a tag name', () => {
     const schema = createChatSanitizeSchema();
@@ -293,14 +429,31 @@ describe('createChatSanitizeSchema', () => {
     expect(stripped).toEqual([]);
   });
 
-  it('should allow a link its href and nothing else', () => {
+  it('should allow a link only what the pipeline puts on one', () => {
     const schema = createChatSanitizeSchema();
 
-    // `target` was allowed and unreachable — markdown has no syntax for it and
-    // raw HTML is escaped to text — so it only stood to admit a
-    // `target="_blank"` with no `rel="noopener"` the day something could set
-    // one. `href` keeps the default `protocols` filtering; see the test below.
-    expect(schema.attributes?.a).toEqual(['href']);
+    // Was `['href']` until footnotes were admitted; the rest is the wiring
+    // remark-gfm emits on a reference and its backref. `href` keeps the
+    // default `protocols` filtering; see the test below.
+    expect(schema.attributes?.a).toEqual([
+      'href',
+      'id',
+      'ariaLabel',
+      'ariaDescribedBy',
+      'dataFootnoteRef',
+      'dataFootnoteBackref',
+    ]);
+  });
+
+  it('should never allow target on a link', () => {
+    const schema = createChatSanitizeSchema();
+
+    // Markdown has no syntax for it and raw HTML is escaped to text, so it
+    // could only ever admit a `target="_blank"` with no `rel="noopener"` the
+    // day something could set one. Stated on its own rather than implied by
+    // the exact list above, which now grows whenever the pipeline does.
+    expect(schema.attributes?.a).not.toContain('target');
+    expect(schema.attributes?.['*']).not.toContain('target');
   });
 
   it('should override no schema key other than tagNames and attributes', () => {

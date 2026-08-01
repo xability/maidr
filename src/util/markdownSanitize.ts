@@ -169,8 +169,40 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       // attribute that could not arrive — and a `target="_blank"` without
       // `rel="noopener"` is reverse tabnabbing waiting for the day one could.
       // Same reasoning as the ARIA entries dropped from GLOBAL_ATTRIBUTES.
-      'a': ['href'],
+      // `id` and the two ARIA entries are the footnote wiring remark-gfm
+      // emits: the reference anchor is described by the footnotes heading, and
+      // the backref carries "Back to reference 1" as its only text. Without
+      // them the backref is an unlabelled link.
+      //
+      // The `data-footnote-*` pair is named rather than admitted by a `data-*`
+      // wildcard, so this allows the two attributes footnotes need and not
+      // every dataset key a future plugin invents.
+      'a': [
+        'href',
+        'id',
+        'ariaLabel',
+        'ariaDescribedBy',
+        'dataFootnoteRef',
+        'dataFootnoteBackref',
+      ],
       'img': ['src', 'alt'],
+      // The footnotes block and the anchors its links resolve against.
+      'section': ['dataFootnotes'],
+      'h2': ['id'],
+      'li': ['id'],
+      // GFM's task list. A form control in a chat transcript is admitted only
+      // as the disabled checkbox remark-gfm produces — `checked` is the whole
+      // point, since checked and unchecked are otherwise indistinguishable,
+      // and `disabled` is what keeps it from being operable. `form`, `name`
+      // and `value` are deliberately absent: none is emitted, and together
+      // they are what would turn a rendered response into a submittable
+      // control.
+      'input': ['type', 'checked', 'disabled'],
+      // Column alignment from `:--` / `--:`. Carries no meaning for a screen
+      // reader but is the difference between a table that reads as a table
+      // visually and one that does not.
+      'th': ['align'],
+      'td': ['align'],
       // `style` here and on `svg` below carries KaTeX's computed layout —
       // `height:1em;vertical-align:-0.25em`, `top:-4em`, `width:0.471em`. The
       // values are generated, never passed through: `\htmlStyle` and
@@ -208,6 +240,34 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       'blockquote',
       'img',
       'span',
+      // Heading levels. `rehype-sanitize` keeps the text of an element it
+      // drops, so a missing heading did not vanish — it flattened into the
+      // paragraph flow, taking heading navigation with it.
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      // `del` and `input` change what a sentence means rather than how it
+      // looks: a retraction read as an assertion, and a done task
+      // indistinguishable from an outstanding one.
+      'del',
+      'input',
+      'hr',
+      // Footnotes: `sup` on the reference, `section` on the block.
+      'sup',
+      'section',
+      // The table family. An LLM describing a chart reaches for a table first,
+      // and losing it leaves the numbers as a run of digits with nothing
+      // binding them to a label — no headers, no row or cell boundaries, and
+      // none of the table navigation assistive technology provides.
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
       'svg',
       'path',
       'line',
