@@ -55,12 +55,17 @@ const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
  * Matches the header of a `script:` block scalar.
  *
  * Deliberately wider than the one form this file uses today. YAML also spells
- * it `|-`, `|+` and `|2`, and a reformat that reached for any of those would
- * otherwise report "no script block" — which reads like the step was deleted
- * rather than like the header moved. Matching them means the failure names
- * the real cause instead.
+ * it `|-`, `|+`, `|2`, and the indentation and chomping indicators may come
+ * in either order — `|2-` as readily as `|-2`. A reformat reaching for any of
+ * those would otherwise report "no script block", which reads like the step
+ * was deleted rather than like the header changed spelling.
+ *
+ * The character class is looser than the grammar: it also admits nonsense
+ * like `|--`. That is the right trade here, because this recognises a header
+ * so the error can name the real cause — it is not validating YAML, and
+ * actionlint already rejects anything malformed.
  */
-const SCRIPT_HEADER = /^\s*script: \|[-+]?\d*\s*$/;
+const SCRIPT_HEADER = /^\s*script: \|[-+\d]*\s*$/;
 
 /**
  * The github-script body from the report step, as it will run in CI.
