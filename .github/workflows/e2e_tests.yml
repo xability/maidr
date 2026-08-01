@@ -10,6 +10,20 @@ on:
     - cron: '37 2 */2 * *'
   workflow_dispatch: # Allow manual triggering
 
+# One run at a time. Two overlapping runs — a manual dispatch started while a
+# scheduled run is still going — both read the open failure issues, and both
+# then close and comment on the same ones, because each fetched its list
+# before the other had closed anything. The result is duplicate "green again"
+# comments on an issue that only went green once.
+#
+# cancel-in-progress must stay false. Cancelling the running suite would be
+# worse than the race: the report step treats a cancelled run as a failure,
+# so a manual dispatch would file a failure issue about the run it just
+# interrupted. Queuing costs at most one delayed run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   # The report step files and updates the rolling report issue, and on a green
@@ -221,22 +235,29 @@ jobs:
               // kind of lie about the suite's state that this step exists to
               // stop telling.
               //
-              // Close first, comment second. If the close fails the issue is
-              // still open and still matches, so the next green run retries
-              // it — and because no comment was posted, that retry does not
-              // stack a second "green again" note. The reverse order leaves
-              // the stale report standing while adding a comment per cycle,
-              // which is the wrong half to have succeeded.
+              // Close first, comment second. A close that fails usually
+              // leaves the issue open and still matching, so the next green
+              // run picks it up — and because no comment was posted, that
+              // retry does not stack a second "green again" note. The reverse
+              // order leaves the stale report standing while adding a comment
+              // per cycle, which is the wrong half to have succeeded.
+              //
+              // "Usually", because a lost response is indistinguishable from
+              // a rejected request: the close may have landed and only the
+              // reply gone missing, in which case the issue is closed, the
+              // `state: 'open'` filter never surfaces it again, and it keeps
+              // its report body without ever getting the comment. Rare, and
+              // the wrong half to lose is the note rather than the close, so
+              // it is left alone — but the retry below is best-effort, not a
+              // guarantee, and the warning is the only trace either way.
               //
               // The two are caught separately because they are not the same
-              // event and only one of them is retried. A failed close leaves
-              // the issue open for the next run. A failed comment does not:
-              // the issue is already closed, so the `state: 'open'` filter
-              // above means no later run will ever look at it again and the
-              // note is gone for good. One shared handler saying "could not
-              // retire" would report the second as the first — claiming the
-              // issue is still open and will be picked up later, when it is
-              // closed and will not be.
+              // event and only one of them is even eligible for a retry. A
+              // failed comment never is: the issue is already closed by then,
+              // so no later run will look at it. One shared handler saying
+              // "could not retire" would report that as the other — claiming
+              // the issue is still open and will be picked up later, when it
+              // is closed and will not be.
               for (const issue of mine) {
                 try {
                   await github.rest.issues.update({
