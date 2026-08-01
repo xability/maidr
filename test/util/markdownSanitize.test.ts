@@ -291,7 +291,7 @@ const GFM_PROPERTIES: readonly (readonly [string, string])[] = [
   ['th', 'align'],
 ];
 
-describe('gFM allowlist', () => {
+describe('GFM allowlist', () => {
   it('should name every element the markdown pipeline emits', () => {
     const schema = createChatSanitizeSchema();
 
