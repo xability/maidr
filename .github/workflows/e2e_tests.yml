@@ -10,9 +10,25 @@ on:
     - cron: '37 2 */2 * *'
   workflow_dispatch: # Allow manual triggering
 
+# One run at a time. Two overlapping runs — a manual dispatch started while a
+# scheduled run is still going — both read the open failure issues, and both
+# then close and comment on the same ones, because each fetched its list
+# before the other had closed anything. The result is duplicate "green again"
+# comments on an issue that only went green once.
+#
+# cancel-in-progress must stay false. Cancelling the running suite would be
+# worse than the race: the report step treats a cancelled run as a failure,
+# so a manual dispatch would file a failure issue about the run it just
+# interrupted. Queuing costs at most one delayed run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
-  issues: write # the report step files/updates a test-report issue
+  # The report step files and updates the rolling report issue, and on a green
+  # run also closes and comments on the failure issues it had filed.
+  issues: write
 
 jobs:
   test:
@@ -122,14 +138,36 @@ jobs:
             // Determine issue title and labels based on test status. Anything
             // other than success (failure, cancelled — e.g. the job timeout
             // interrupting a hung run) must be filed as a failure.
+            //
+            // The prefixes are named once: they identify this workflow's own
+            // issues in three places below, and two literals that must agree
+            // are two literals that can drift apart.
+            const FAILURE_PREFIX = 'test: Some e2e tests failed';
+            const REPORT_PREFIX = 'Test Report';
             const isFailure = process.env.TEST_STATUS !== 'success';
             const title = isFailure
-              ? `test: Some e2e tests failed - ${new Date().toISOString()}`
-              : `Test Report - ${new Date().toISOString()}`;
+              ? `${FAILURE_PREFIX} - ${new Date().toISOString()}`
+              : `${REPORT_PREFIX} - ${new Date().toISOString()}`;
             const labels = isFailure ? ['test-failure'] : ['test-report'];
 
+            // "One this workflow filed, under `prefix`" — asked by both
+            // lookups below, so they cannot drift apart.
+            //
+            // The label alone is not proof of authorship: a maintainer
+            // tracking a flaky spec could reasonably reach for `test-failure`,
+            // and closing it with "fixed by the run that passed" is a claim
+            // this step cannot know is false. Only this step writes the title
+            // prefix. `startsWith`, not `includes` — a human title can mention
+            // the prefix partway through and mean something else. And
+            // listForRepo returns pull requests, which are neither.
+            const isOwn = (issue, prefix) =>
+              !issue.pull_request && issue.title.startsWith(prefix);
+
             // Search for existing issue
-            const issues = await github.rest.issues.listForRepo({
+            // Paginated: listForRepo caps at 30 per page by default, and a
+            // report older than one page would be invisible here — which
+            // reads as "no rolling issue exists" and files a duplicate.
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo,
               labels,
@@ -140,8 +178,11 @@ jobs:
             // the CURRENT run's URL, so matching on it could never find an
             // issue from a previous run — each scheduled failure would file
             // a brand-new issue instead of updating the rolling one.
-            const existingIssue = issues.data.find(issue =>
-              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report')
+            //
+            // What this one does with a match is rewrite its title and body,
+            // so adopting a pull request by mistake overwrites it.
+            const existingIssue = issues.find(issue =>
+              isOwn(issue, isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
             );
 
             if (existingIssue) {
@@ -162,6 +203,89 @@ jobs:
                 body: reportContent,
                 labels
               });
+            }
+
+            // A green run retires the failure issue as well as filing its own
+            // report. Without this, success only ever touched `test-report`
+            // and a failure report outlived its fix, with no number of green
+            // runs able to close it.
+            //
+            // Every open one, not just the newest: the titles carry
+            // timestamps, so a failing period can leave several behind.
+            if (!isFailure) {
+              // Paginated: listForRepo caps at 30 per page, and anything past
+              // the first page would silently stay open.
+              const stale = await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                labels: ['test-failure'],
+                state: 'open'
+              });
+
+              // Always the failure prefix: this branch only runs on success,
+              // so the issues to retire are the failures a previous run filed.
+              const mine = stale.filter(issue => isOwn(issue, FAILURE_PREFIX));
+
+              // `.message` on a non-Error is undefined, and these warnings are
+              // the only record either failure below leaves.
+              const reason = error =>
+                error instanceof Error ? error.message : String(error);
+
+              // Caught per issue: an uncaught throw would fail the step and
+              // report a green suite as a red run.
+              //
+              // Close before comment. A failed close usually leaves the issue
+              // open and matching, so the next green run retries it with no
+              // comment already posted to duplicate. The reverse order leaves
+              // the stale report standing and adds a note every cycle.
+              // "Usually" because a lost response looks the same as a refused
+              // one — the close may have landed — so the retry is best-effort.
+              //
+              // Caught separately because only the close is ever retried. By
+              // the time the comment runs the issue is closed, and the
+              // `state: 'open'` filter means no later run will see it, so one
+              // shared handler would report a closed issue as still pending.
+
+              for (const issue of mine) {
+                try {
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+                } catch (error) {
+                  core.warning(
+                    `Could not close #${issue.number}, leaving it for the next `
+                    + `green run: ${reason(error)}`
+                  );
+                  continue;
+                }
+
+                try {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    body: [
+                      'The scheduled suite is green again.',
+                      '',
+                      `Commit: ${context.sha}`,
+                      `[View Workflow Run](${run_url})`,
+                      '',
+                      'Closed automatically by the run that passed. If these',
+                      'tests fail again a fresh issue is filed rather than this',
+                      'one reopened, so the history stays per-incident.'
+                    ].join('\n')
+                  });
+                } catch (error) {
+                  core.warning(
+                    `Closed #${issue.number} but could not comment on it; the `
+                    + `run that fixed it is in this log only: ${reason(error)}`
+                  );
+                }
+              }
             }
 
       # The test step ran with continue-on-error so the report above always
