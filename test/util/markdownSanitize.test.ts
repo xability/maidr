@@ -248,6 +248,10 @@ describe('mathML allowlist', () => {
 const GFM_ELEMENTS: readonly string[] = [
   'a',
   'blockquote',
+  // From a hard line break — two trailing spaces, or a trailing backslash.
+  // Already allowed before this change, so its absence here cost nothing at
+  // the time; a transcript with a hole in it is what costs something later.
+  'br',
   'code',
   'del',
   'em',
