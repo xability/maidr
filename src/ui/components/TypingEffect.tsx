@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import { containsLatex, ensureKatexStylesheet } from '@util/katex';
 import { createChatSanitizeSchema } from '@util/markdownSanitize';
 import React, { memo, useEffect, useMemo, useState } from 'react';
@@ -167,6 +168,18 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             img: ({ node, ...props }) => (
               <img {...props} alt={props.alt || 'Image in message'} />
             ),
+            // The footnotes heading arrives as `<h2 class="sr-only">`, which
+            // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
+            // MAIDR has none, so the class alone leaves a literal "Footnotes"
+            // heading in the bubble. Applied here rather than as a global rule
+            // because a global `.sr-only` would collide with the host page's.
+            h2: ({ node, className, ...props }) => (
+              <h2
+                {...props}
+                className={className}
+                style={className?.split(/\s+/).includes('sr-only') ? visuallyHidden : undefined}
+              />
+            ),
           }}
         >
           {displayedText}
@@ -174,7 +187,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
       </div>
       {/* Visually hidden live region for screen readers */}
       <div
-        className="sr-only"
+        style={visuallyHidden}
         aria-live={settings.general.ariaMode}
         aria-atomic="true"
       >
