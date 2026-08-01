@@ -122,10 +122,16 @@ jobs:
             // Determine issue title and labels based on test status. Anything
             // other than success (failure, cancelled — e.g. the job timeout
             // interrupting a hung run) must be filed as a failure.
+            //
+            // The prefixes are named once: they identify this workflow's own
+            // issues in three places below, and two literals that must agree
+            // are two literals that can drift apart.
+            const FAILURE_PREFIX = 'test: Some e2e tests failed';
+            const REPORT_PREFIX = 'Test Report';
             const isFailure = process.env.TEST_STATUS !== 'success';
             const title = isFailure
-              ? `test: Some e2e tests failed - ${new Date().toISOString()}`
-              : `Test Report - ${new Date().toISOString()}`;
+              ? `${FAILURE_PREFIX} - ${new Date().toISOString()}`
+              : `${REPORT_PREFIX} - ${new Date().toISOString()}`;
             const labels = isFailure ? ['test-failure'] : ['test-report'];
 
             // Search for existing issue
@@ -144,7 +150,7 @@ jobs:
             // issue from a previous run — each scheduled failure would file
             // a brand-new issue instead of updating the rolling one.
             const existingIssue = issues.find(issue =>
-              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report')
+              issue.title.includes(isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
             );
 
             if (existingIssue) {
@@ -188,8 +194,20 @@ jobs:
                 state: 'open'
               });
 
-              // listForRepo returns pull requests too; they are not reports.
-              for (const issue of stale.filter(i => !i.pull_request)) {
+              // Only this workflow's own reports. The label alone is not
+              // proof of authorship: a maintainer tracking a flaky spec could
+              // reasonably reach for `test-failure`, and closing their issue
+              // with "fixed by the run that passed" would be a lie the
+              // automation has no way to know it told. The title prefix is
+              // something only this step writes.
+              //
+              // Pull requests are excluded as well — listForRepo returns them
+              // and they are not reports either.
+              const mine = stale.filter(i =>
+                !i.pull_request && i.title.includes(FAILURE_PREFIX)
+              );
+
+              for (const issue of mine) {
                 await github.rest.issues.createComment({
                   owner,
                   repo,
