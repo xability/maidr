@@ -119,11 +119,14 @@ const config: ReturnType<typeof antfu> = antfu({
       // selector was redundant, and only showed up as redundant because
       // breaking it left the test still passing.
       //
-      // Matches the name, not the value, so a renamed binding
-      // (`const { children: kids } = props`) passes. That is the limit of a
-      // syntactic selector rather than something to widen: guessing at names
-      // would cost false positives, and the shape this exists to stop is the
-      // one that was actually written.
+      // Matches the name, not the value, so it errs in both directions: a
+      // renamed binding (`const { children: kids } = props`) passes, and a
+      // `children` belonging to something other than React would be reported.
+      // Both are the limit of a syntactic selector rather than something to
+      // widen — closing either needs scope or type information the rule does
+      // not have — and the shape this exists to stop is the one that was
+      // actually written. A false report is at least loud, and silenced at
+      // the line with a reason.
       selector: 'JSXAttribute[name.name=\'aria-label\'] Identifier[name=\'children\']',
       message: 'Do not build aria-label from children: it stringifies to "[object Object]" unless the child is a plain string, and aria-label replaces the accessible name the element already had.',
     }],
