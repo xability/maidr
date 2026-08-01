@@ -150,20 +150,16 @@ jobs:
               : `${REPORT_PREFIX} - ${new Date().toISOString()}`;
             const labels = isFailure ? ['test-failure'] : ['test-report'];
 
-            // "One this workflow filed, under `prefix`." Both lookups below
-            // ask it, and they used to ask it in their own words — the same
-            // two conditions written twice, which is two places to remember
-            // when either one changes. They already drifted once: the retire
-            // loop excluded pull requests for a round while the lookup above
-            // it did not.
+            // "One this workflow filed, under `prefix`" — asked by both
+            // lookups below, so they cannot drift apart.
             //
-            // The label is not enough on its own. A maintainer tracking a
-            // flaky spec could reasonably reach for `test-failure`, and
-            // closing their issue with "fixed by the run that passed" is a
-            // claim this step has no way to know is false. The title prefix
-            // is something only this step writes. It has to be startsWith
-            // rather than includes: a human title can mention the prefix
-            // partway through and mean something else entirely.
+            // The label alone is not proof of authorship: a maintainer
+            // tracking a flaky spec could reasonably reach for `test-failure`,
+            // and closing it with "fixed by the run that passed" is a claim
+            // this step cannot know is false. Only this step writes the title
+            // prefix. `startsWith`, not `includes` — a human title can mention
+            // the prefix partway through and mean something else. And
+            // listForRepo returns pull requests, which are neither.
             const isOwn = (issue, prefix) =>
               !issue.pull_request && issue.title.startsWith(prefix);
 
@@ -209,20 +205,16 @@ jobs:
               });
             }
 
-            // A green run has to retire the failure issue as well as file its
-            // own report. Success only ever touched the `test-report` issue,
-            // so the rolling `test-failure` one outlived the fix: #683 stayed
-            // open listing WebKit failures that #679 and #684 had already
-            // fixed, and no number of green runs would have closed it.
+            // A green run retires the failure issue as well as filing its own
+            // report. Without this, success only ever touched `test-report`
+            // and a failure report outlived its fix, with no number of green
+            // runs able to close it.
             //
-            // Every open one, not just the newest: the title carries a
-            // timestamp, and a run that failed before this step existed could
-            // have left more than one behind.
+            // Every open one, not just the newest: the titles carry
+            // timestamps, so a failing period can leave several behind.
             if (!isFailure) {
-              // Paginated for the same reason "every open one" is the rule
-              // here: listForRepo returns 30 per page by default, so anything
-              // past the first page would silently stay open — which is the
-              // exact failure this step exists to stop.
+              // Paginated: listForRepo caps at 30 per page, and anything past
+              // the first page would silently stay open.
               const stale = await github.paginate(github.rest.issues.listForRepo, {
                 owner,
                 repo,
@@ -230,47 +222,29 @@ jobs:
                 state: 'open'
               });
 
-              // Only this workflow's own reports — see isOwn above for why
-              // the label by itself is not proof of authorship. Always the
-              // failure prefix here, never the report one: this branch only
-              // runs on success, when the issues being retired are the
-              // failures a previous run filed.
+              // Always the failure prefix: this branch only runs on success,
+              // so the issues to retire are the failures a previous run filed.
               const mine = stale.filter(issue => isOwn(issue, FAILURE_PREFIX));
 
-              // Per issue, so one failure does not strand the rest. An
-              // uncaught throw here would fail this step and report the whole
-              // scheduled run as red even though the suite passed — the same
-              // kind of lie about the suite's state that this step exists to
-              // stop telling.
-              //
-              // Close first, comment second. A close that fails usually
-              // leaves the issue open and still matching, so the next green
-              // run picks it up — and because no comment was posted, that
-              // retry does not stack a second "green again" note. The reverse
-              // order leaves the stale report standing while adding a comment
-              // per cycle, which is the wrong half to have succeeded.
-              //
-              // "Usually", because a lost response is indistinguishable from
-              // a rejected request: the close may have landed and only the
-              // reply gone missing, in which case the issue is closed, the
-              // `state: 'open'` filter never surfaces it again, and it keeps
-              // its report body without ever getting the comment. Rare, and
-              // the wrong half to lose is the note rather than the close, so
-              // it is left alone — but the retry below is best-effort, not a
-              // guarantee, and the warning is the only trace either way.
-              //
-              // The two are caught separately because they are not the same
-              // event and only one of them is even eligible for a retry. A
-              // failed comment never is: the issue is already closed by then,
-              // so no later run will look at it. One shared handler saying
-              // "could not retire" would report that as the other — claiming
-              // the issue is still open and will be picked up later, when it
-              // is closed and will not be.
-              // Anything can be thrown, and `.message` on a non-Error is
-              // undefined — which would leave the warning as the only record
-              // of the failure and strip the one useful part out of it.
+              // `.message` on a non-Error is undefined, and these warnings are
+              // the only record either failure below leaves.
               const reason = error =>
                 error instanceof Error ? error.message : String(error);
+
+              // Caught per issue: an uncaught throw would fail the step and
+              // report a green suite as a red run.
+              //
+              // Close before comment. A failed close usually leaves the issue
+              // open and matching, so the next green run retries it with no
+              // comment already posted to duplicate. The reverse order leaves
+              // the stale report standing and adds a note every cycle.
+              // "Usually" because a lost response looks the same as a refused
+              // one — the close may have landed — so the retry is best-effort.
+              //
+              // Caught separately because only the close is ever retried. By
+              // the time the comment runs the issue is closed, and the
+              // `state: 'open'` filter means no later run will see it, so one
+              // shared handler would report a closed issue as still pending.
 
               for (const issue of mine) {
                 try {

@@ -5,28 +5,19 @@ import { runInNewContext } from 'node:vm';
 /**
  * Exercises the `github-script` body in the scheduled e2e workflow.
  *
- * That script cannot be run from a pull request — it only fires on
- * `schedule` — so until now it was verified by hand each time it changed.
- * A real bug got through that way: the first version of the close-on-green
- * step called `listForRepo` unpaginated, so "close every open failure issue"
- * silently meant "the first thirty".
+ * That script only fires on `schedule`, so no pull request can run it. The
+ * body is read out of the YAML rather than copied here, so what is tested is
+ * what runs. Octokit is stubbed, and the stub caps an unpaginated
+ * `listForRepo` at 30 the way the real API does — without that the pagination
+ * cases would pass against either version.
  *
- * The script is read out of the YAML rather than duplicated here, so the
- * thing under test is the thing that runs. Octokit is stubbed, and the stub
- * caps an unpaginated `listForRepo` at 30 the way the real API does — that is
- * what makes the pagination case fail if the fix is ever reverted.
- *
- * The block is extracted textually rather than with a YAML parser: `js-yaml`
- * and `yaml` are both present, but only transitively — neither is declared,
- * and a test that reaches for an undeclared dependency breaks the day
- * something upstream stops pulling it in.
- *
- * That is the whole of the argument, so it expires the moment either becomes
- * a direct devDependency for some other reason. Parse the workflow then and
- * delete the extraction below: block-scalar spellings and indentation are a
- * class of fragility a parser does not have, and this file has already spent
- * three commits on that class. Adding the dependency solely to delete this
- * is the trade that is not worth it.
+ * Extracted textually rather than parsed: `js-yaml` and `yaml` are present
+ * but only transitively, and a test resting on an undeclared dependency
+ * breaks when something upstream stops pulling it in. That argument expires
+ * if either becomes a direct devDependency for another reason — parse the
+ * workflow then and delete `reportScript`, since block-scalar spelling and
+ * indentation are a class of bug a parser does not have. Adding the
+ * dependency solely to delete this is the trade that is not worth it.
  */
 
 interface StubIssue {
@@ -62,16 +53,12 @@ const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
 /**
  * Matches the header of a `script:` block scalar.
  *
- * Deliberately wider than the one form this file uses today. YAML also spells
- * it `|-`, `|+`, `|2`, and the indentation and chomping indicators may come
- * in either order — `|2-` as readily as `|-2`. A reformat reaching for any of
- * those would otherwise report "no script block", which reads like the step
- * was deleted rather than like the header changed spelling.
+ * Wider than the form used today, since YAML also spells it `|-`, `|+`, `|2`,
+ * and takes the two indicators in either order. Missing one of those would
+ * report "no script block", which reads as though the step were deleted.
  *
- * The character class is looser than the grammar: it also admits nonsense
- * like `|--`. That is the right trade here, because this recognises a header
- * so the error can name the real cause — it is not validating YAML, and
- * actionlint already rejects anything malformed.
+ * Looser than the grammar too — it admits `|--`. This recognises a header so
+ * the error can name the real cause; validating YAML is actionlint's job.
  */
 const SCRIPT_HEADER = /^\s*script: \|[-+\d]*\s*$/;
 
@@ -79,15 +66,10 @@ const SCRIPT_HEADER = /^\s*script: \|[-+\d]*\s*$/;
  * The github-script body from the report step, as it will run in CI.
  *
  * Takes everything indented past the `script:` line and removes that
- * indentation, which is what a YAML block scalar means.
- *
- * The indentation is measured from the block's first line rather than assumed
- * to be the header's plus two. That assumption holds for this file today, but
- * it describes how the file happens to be formatted, not what YAML requires.
- * Indenting the block deeper survived it — the extra spaces just rode along
- * as harmless leading whitespace — but dedenting it sliced into the code and
- * failed with "does not look like the report script", which points at the
- * wrong thing. Measuring costs one line and neither case arises.
+ * indentation, which is what a YAML block scalar means. The indentation is
+ * measured from the block's first line rather than assumed to be the header's
+ * plus two — that assumption describes this file's current formatting, not
+ * anything YAML requires, and dedenting the block would slice into the code.
  */
 function reportScript(): string {
   const lines = readFileSync(WORKFLOW, 'utf8').split('\n');
@@ -206,6 +188,13 @@ async function runScript(
   // allowed to see explicit. The script reads the reporter output through
   // `fs`; an absent file is a case it already handles, which keeps this from
   // needing a fixture.
+  // `Error` is shared rather than left to the sandbox's own. github-script
+  // runs the script and octokit in one realm, so a thrown error is an
+  // instance of the same constructor the script tests against. A fresh
+  // context gets its own, and `error instanceof Error` on an error the stubs
+  // built out here would be false — sending the script down its non-Error
+  // path on every failure case, and testing the branch production never
+  // takes. Passing it in makes the sandbox model production's single realm.
   const sandbox = {
     github,
     context,
@@ -213,6 +202,7 @@ async function runScript(
     require,
     process: { env: { TEST_STATUS: status } },
     Date,
+    Error,
   };
 
   await runInNewContext(`(async () => {\n${reportScript()}\n})()`, sandbox);
@@ -303,6 +293,11 @@ describe('the scheduled e2e report step', () => {
       expect(result.warnings).toEqual([
         expect.stringContaining('Could not close #684') as unknown as string,
       ]);
+      // The bare message, not `String(error)` — which would read
+      // "Error: simulated API failure". Asserting only the surrounding
+      // template text leaves both branches of `reason()` passing.
+      expect(result.warnings[0]).toContain(': simulated API failure');
+      expect(result.warnings[0]).not.toContain('Error: simulated');
     });
 
     // Closing comes before commenting, so a close that fails leaves no note
