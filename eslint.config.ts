@@ -86,6 +86,32 @@ const config: ReturnType<typeof antfu> = antfu({
       message: 'Do not call pressKeyCombination() from a plot page object: it presses the key but does not wait for the announcement. Use this.moveToDataPoint(key, action, true) for a modified move.',
     }],
   },
+}, {
+  // `sr-only` hides nothing here. MAIDR ships no stylesheet — `dist/maidr.css`
+  // is a placeholder and the UI is styled at runtime by emotion — so an element
+  // given that class is an ordinary visible one. `TypingEffect`'s live region
+  // carried it and rendered every finished chat message a second time, in full.
+  //
+  // Matched on the AST rather than by scanning source text. This started as a
+  // regex over `className=` in a test and took four rounds to stop being wrong
+  // — word boundaries around a hyphen, truncation at the first `}` inside a
+  // template, a brace inside a string literal — and every one of those failed
+  // by silently passing. The selector gets a real parse for free and runs on
+  // every file rather than only when that test does.
+  //
+  // The `sr-only` in `TypingEffect`'s `h2` override is untouched: it sits in a
+  // `style` attribute, reading the class the markdown pipeline set rather than
+  // assigning one.
+  files: ['src/**/*.ts', 'src/**/*.tsx'],
+  rules: {
+    'no-restricted-syntax': ['error', {
+      selector: 'JSXAttribute[name.name=\'className\'] Literal[value=/(^|\\s)sr-only(\\s|$)/]',
+      message: 'Nothing defines .sr-only in MAIDR, so this element is visible. Use the visuallyHidden style object from @ui/visuallyHidden.',
+    }, {
+      selector: 'JSXAttribute[name.name=\'className\'] TemplateElement[value.raw=/(^|\\s)sr-only(\\s|$)/]',
+      message: 'Nothing defines .sr-only in MAIDR, so this element is visible. Use the visuallyHidden style object from @ui/visuallyHidden.',
+    }],
+  },
 });
 
 export default config;
