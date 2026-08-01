@@ -113,7 +113,14 @@ async function dialogStructure(page: Page): Promise<{
         ? document.querySelectorAll(`[id="${CSS.escape(labelledBy)}"]`).length
         : 0,
       nestedHeadings: headings
-        .filter(h => h.parentElement?.closest('h1,h2,h3,h4,h5,h6'))
+        .filter((h) => {
+          // Scoped to the dialog. `closest` walks the whole ancestor chain, and
+          // MAIDR renders into host pages it does not control, so an unscoped
+          // match could report a nesting that belongs to the host's markup
+          // rather than to anything this asserts on.
+          const ancestor = h.parentElement?.closest('h1,h2,h3,h4,h5,h6');
+          return ancestor ? dialog.contains(ancestor) : false;
+        })
         .map(h => h.tagName),
       headings: headings.map(h => `${h.tagName}:${h.textContent?.trim()}`),
     };
@@ -236,6 +243,12 @@ test.describe('dialog accessibility tree', () => {
     // `exact` matters here and is not decoration: Playwright matches `name` as
     // a substring by default, so without it this passes against the polluted
     // name it is written to reject.
+    //
+    // This is also the only assertion anywhere that covers the concatenation.
+    // `test/ui/dialogTitles.test.tsx` checks the same dialog's structure, but
+    // cannot check its name: jsdom does not fold a descendant button's
+    // `aria-label` into the row's computed name, so the polluted name never
+    // appears there. The jsdom suite is not a superset of this one.
     await expect(
       page.getByRole('dialog', { name: 'Chart Assistant - AI Chat Interface', exact: true }),
     ).toBeVisible();

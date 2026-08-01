@@ -193,7 +193,13 @@ function dialogStructure(): {
       ? [...document.querySelectorAll('[id]')].filter(el => el.id === labelledBy).length
       : 0,
     nestedHeadings: headings
-      .filter(h => h.parentElement?.closest('h1,h2,h3,h4,h5,h6'))
+      .filter((h) => {
+        // Scoped to the dialog, as in the e2e helper: `closest` walks the whole
+        // ancestor chain, so an unscoped match could report a nesting that
+        // belongs to markup around the dialog rather than inside it.
+        const ancestor = h.parentElement?.closest('h1,h2,h3,h4,h5,h6');
+        return ancestor ? dialog.contains(ancestor) : false;
+      })
       .map(h => h.tagName),
     headings: headings.map(h => `${h.tagName}:${h.textContent?.trim()}`),
   };
