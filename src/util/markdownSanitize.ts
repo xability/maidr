@@ -121,13 +121,19 @@ export const MATHML_ATTRIBUTES: readonly string[] = [
  * MathML instead of the glyph spans beside it.
  *
  * The list used to also carry `role`, `ariaLabel`, `ariaBusy`, `ariaLive` and
- * `ariaAtomic`. Nothing in the pipeline emits any of them — the `role` and
- * `aria-label` that `TypingEffect` puts on `<pre>` and `<a>` are React props,
- * applied to the tree after it has been sanitised — and while they were
+ * `ariaAtomic`, on the reasoning that nothing in the pipeline emitted any of
+ * them — the `role` and `aria-label` `TypingEffect` puts on `<pre>` and `<a>`
+ * are React props, applied after sanitisation — and that while they were
  * misspelled they were inert. Correcting the spelling would have made them
- * live for the first time, so they are dropped instead: a response body cannot
- * reach an attribute today (the pipeline runs without `rehype-raw`, so raw HTML
- * is escaped to text), and this way it still could not were that to change.
+ * live for the first time, so they were dropped instead.
+ *
+ * That reasoning held only while footnotes were being dropped too. remark-gfm
+ * emits `ariaLabel` and `ariaDescribedBy` on the reference and backref links,
+ * so both are admitted now — on `a` alone rather than here. Which is the point
+ * this comment is really making: the narrow grant is what keeps an attribute
+ * from being available on every element that never needed it, and a response
+ * body still cannot reach one, since the pipeline runs without `rehype-raw`
+ * and raw HTML is escaped to text.
  */
 const GLOBAL_ATTRIBUTES: readonly string[] = [
   'className',
