@@ -173,13 +173,10 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             // MAIDR has none, so the class alone leaves a literal "Footnotes"
             // heading in the bubble. Applied here rather than as a global rule
             // because a global `.sr-only` would collide with the host page's.
-            h2: ({ node, className, ...props }) => (
-              <h2
-                {...props}
-                className={className}
-                style={className?.split(/\s+/).includes('sr-only') ? visuallyHidden : undefined}
-              />
-            ),
+            h2: ({ node, className, ...props }) => {
+              const hidden = (className ?? '').split(/\s+/).includes('sr-only');
+              return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;
+            },
           }}
         >
           {displayedText}

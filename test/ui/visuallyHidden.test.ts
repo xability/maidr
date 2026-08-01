@@ -46,20 +46,27 @@ describe('visuallyHidden', () => {
     // hidden element, it is a plain one — `TypingEffect`'s live region carried
     // it and rendered every finished chat message a second time, in full, on
     // any page that did not happen to define the class itself.
-    // Matches the quoted, braced and template forms — `className="sr-only"`,
-    // `className={'sr-only'}` and `` className={`sr-only`} `` — since only the
-    // first is the obvious way to write it.
-    //
-    // Compares whole class tokens rather than testing `\bsr-only\b`, which
-    // looks equivalent and is not: `-` is a non-word character, so that
-    // pattern also matches `not-sr-only` and `sr-only-thing` and would fail
-    // this suite over a class that has nothing to do with hiding anything.
-    const ASSIGNED_CLASS = /className=\{?\s*["'`]([^"'`]*)["'`]/g;
+    // Takes whatever `className=` is given — a quoted string, or a braced
+    // expression — and looks for the class in any string literal inside it.
+    // A braced expression is included so a conditional
+    // `className={hidden ? 'sr-only' : undefined}` is caught as well as a
+    // plain literal; `className={someVariable}` contains no literal and so
+    // matches nothing, which is what leaves the `h2` override below alone.
+    const CLASS_NAME = /className=(\{[^}]*\}|["'`][^"'`]*["'`])/g;
+    const STRING_LITERAL = /["'`]([^"'`]*)["'`]/g;
+
+    // Whole tokens, not `\bsr-only\b` — that looks equivalent and is not:
+    // `-` is a non-word character, so it sits beside the boundary and also
+    // matches `not-sr-only` and `sr-only-thing`, failing this suite over a
+    // class with nothing to do with hiding anything.
+    const assignsSrOnly = (expression: string): boolean =>
+      [...expression.matchAll(STRING_LITERAL)]
+        .some(([, value]) => value.split(/\s+/).includes('sr-only'));
 
     const offenders = sourceFiles().filter((file) => {
       const contents = readFileSync(join(ROOT, file), 'utf8');
-      return [...contents.matchAll(ASSIGNED_CLASS)]
-        .some(([, value]) => value.split(/\s+/).includes('sr-only'));
+      return [...contents.matchAll(CLASS_NAME)]
+        .some(([, expression]) => assignsSrOnly(expression));
     });
 
     expect(offenders).toEqual([]);
