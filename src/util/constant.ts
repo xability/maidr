@@ -39,10 +39,6 @@ export abstract class Constant {
   /** ID for the rotor navigation area */
   static readonly ROTOR_AREA = 'maidr-rotor-area';
 
-  // CSS classes.
-  /** CSS class for screen reader only content */
-  static readonly SR_ONLY_CLASS = 'maidr-sr-only';
-
   // HTML attributes.
   /** ARIA label attribute name */
   static readonly ARIA_LABEL = 'aria-label';

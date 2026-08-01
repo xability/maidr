@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import { containsLatex, ensureKatexStylesheet } from '@util/katex';
 import { createChatSanitizeSchema } from '@util/markdownSanitize';
 import React, { memo, useEffect, useMemo, useState } from 'react';
@@ -167,6 +168,14 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             img: ({ node, ...props }) => (
               <img {...props} alt={props.alt || 'Image in message'} />
             ),
+            // The footnotes heading arrives as `<h2 class="sr-only">`, which
+            // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
+            // Nothing can style pipeline-generated markup inline, so the class
+            // is matched here instead — see `visuallyHidden` for why not a rule.
+            h2: ({ node, className, ...props }) => {
+              const hidden = (className ?? '').split(/\s+/).includes('sr-only');
+              return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;
+            },
           }}
         >
           {displayedText}
@@ -174,7 +183,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
       </div>
       {/* Visually hidden live region for screen readers */}
       <div
-        className="sr-only"
+        style={visuallyHidden}
         aria-live={settings.general.ariaMode}
         aria-atomic="true"
       >
