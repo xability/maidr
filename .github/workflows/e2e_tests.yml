@@ -149,8 +149,14 @@ jobs:
             // the CURRENT run's URL, so matching on it could never find an
             // issue from a previous run — each scheduled failure would file
             // a brand-new issue instead of updating the rolling one.
+            //
+            // Pull requests are excluded for the same reason the retire loop
+            // below excludes them: listForRepo returns them, and one carrying
+            // this label and title would otherwise be adopted as the rolling
+            // issue and have its title and body overwritten.
             const existingIssue = issues.find(issue =>
-              issue.title.includes(isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
+              !issue.pull_request
+              && issue.title.startsWith(isFailure ? FAILURE_PREFIX : REPORT_PREFIX)
             );
 
             if (existingIssue) {
@@ -204,7 +210,7 @@ jobs:
               // Pull requests are excluded as well — listForRepo returns them
               // and they are not reports either.
               const mine = stale.filter(i =>
-                !i.pull_request && i.title.includes(FAILURE_PREFIX)
+                !i.pull_request && i.title.startsWith(FAILURE_PREFIX)
               );
 
               // Per issue, so one failure does not strand the rest. An
@@ -213,8 +219,22 @@ jobs:
               // kind of lie about the suite's state that this step exists to
               // stop telling. Retrying is left to the next run: the issue is
               // still open and still matches, so it gets picked up again.
+              // Close first, comment second. If the close fails the issue is
+              // still open and still matches, so the next green run retries
+              // it — and because no comment was posted, that retry does not
+              // stack a second "green again" note. The reverse order leaves
+              // the stale report standing while adding a comment per cycle,
+              // which is the wrong half to have succeeded.
               for (const issue of mine) {
                 try {
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+
                   await github.rest.issues.createComment({
                     owner,
                     repo,
@@ -229,14 +249,6 @@ jobs:
                       'tests fail again a fresh issue is filed rather than this',
                       'one reopened, so the history stays per-incident.'
                     ].join('\n')
-                  });
-
-                  await github.rest.issues.update({
-                    owner,
-                    repo,
-                    issue_number: issue.number,
-                    state: 'closed',
-                    state_reason: 'completed'
                   });
                 } catch (error) {
                   core.warning(`Could not retire #${issue.number}: ${error.message}`);

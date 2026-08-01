@@ -41,6 +41,8 @@ interface RunResult {
   usedUnpaginatedList: boolean;
   /** Warnings the script emitted instead of throwing. */
   warnings: string[];
+  /** Issue numbers whose title/body were rewritten as the rolling report. */
+  adopted: number[];
 }
 
 /** Issue numbers whose `issues.update` should reject, to test the catch. */
@@ -89,6 +91,7 @@ async function runScript(
     created: [],
     usedUnpaginatedList: false,
     warnings: [],
+    adopted: [],
   };
 
   // Honours `state` as well as `labels`, so a query that dropped
@@ -122,6 +125,8 @@ async function runScript(
           }
           if (params.state === 'closed') {
             result.closed.push(params.issue_number);
+          } else {
+            result.adopted.push(params.issue_number);
           }
         },
       },
@@ -241,6 +246,52 @@ describe('the scheduled e2e report step', () => {
       expect(result.warnings).toEqual([
         expect.stringContaining('#684') as unknown as string,
       ]);
+    });
+
+    // Closing comes before commenting, so a close that fails leaves no note
+    // behind. Otherwise the issue stays open, matches again next run, and
+    // collects a fresh "green again" comment every cycle.
+    it('should not comment on an issue it failed to close', async () => {
+      const result = await runScript(
+        'success',
+        [botIssue(683), botIssue(684)],
+        new Set([684]),
+      );
+
+      expect(result.commented).toEqual([683]);
+    });
+
+    // `includes` would match this; only `startsWith` does not. The bot's own
+    // titles always begin with the prefix, so nothing is lost by requiring it.
+    it('should leave a human issue that merely mentions the prefix', async () => {
+      const humanFiled: StubIssue = {
+        number: 501,
+        title: 'Investigate: test: Some e2e tests failed intermittently on Safari',
+        labels: ['test-failure'],
+      };
+
+      const result = await runScript('success', [humanFiled, botIssue(683)]);
+
+      expect(result.closed).toEqual([683]);
+      expect(result.commented).toEqual([683]);
+    });
+  });
+
+  describe('when it looks for the rolling issue', () => {
+    // The lookup rewrites the title and body of whatever it adopts, so a pull
+    // request adopted by mistake would be silently overwritten.
+    it('should not adopt a pull request as the rolling report', async () => {
+      const pr: StubIssue = {
+        number: 999,
+        title: 'Test Report - a pull request',
+        labels: ['test-report'],
+        pull_request: {},
+      };
+
+      const result = await runScript('success', [pr]);
+
+      expect(result.adopted).toEqual([]);
+      expect(result.created).toEqual([['test-report']]);
     });
   });
 
