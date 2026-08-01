@@ -170,9 +170,8 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             ),
             // The footnotes heading arrives as `<h2 class="sr-only">`, which
             // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
-            // MAIDR has none, so the class alone leaves a literal "Footnotes"
-            // heading in the bubble. Applied here rather than as a global rule
-            // because a global `.sr-only` would collide with the host page's.
+            // Nothing can style pipeline-generated markup inline, so the class
+            // is matched here instead — see `visuallyHidden` for why not a rule.
             h2: ({ node, className, ...props }) => {
               const hidden = (className ?? '').split(/\s+/).includes('sr-only');
               return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;

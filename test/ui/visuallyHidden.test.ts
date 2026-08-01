@@ -29,6 +29,11 @@ function sourceFiles(): string[] {
  * first `}` — so a template holding any interpolation is truncated there and
  * its class names are never seen. `` className={`${cond} sr-only`} `` reduces
  * to `` {`${cond} ``, which contains no complete string and reads as clean.
+ *
+ * The count skips over string contents, so a brace inside a literal cannot
+ * unbalance it. Both failures are the same kind and the reason this is worth
+ * the care: they do not report a wrong answer, they drop the expression and
+ * leave the guard looking clean.
  * @param contents - The source file to scan.
  * @returns Each expression, including its delimiters.
  */
@@ -42,9 +47,25 @@ function classNameExpressions(contents: string): string[] {
     if (opener === '{') {
       let depth = 0;
       for (let i = start; i < contents.length; i++) {
-        if (contents[i] === '{') {
+        const char = contents[i];
+
+        // Skip the contents of a string, so a brace inside one cannot move
+        // the depth. `className={cond ? 'a{b' : 'sr-only'}` otherwise never
+        // returns to depth 0, and the expression is dropped from the scan
+        // entirely rather than reported — the guard passing on the one shape
+        // it cannot read.
+        if (char === '"' || char === '\'' || char === '`') {
+          const close = contents.indexOf(char, i + 1);
+          if (close === -1) {
+            break;
+          }
+          i = close;
+          continue;
+        }
+
+        if (char === '{') {
           depth++;
-        } else if (contents[i] === '}') {
+        } else if (char === '}') {
           depth--;
           if (depth === 0) {
             expressions.push(contents.slice(start, i + 1));
