@@ -52,19 +52,38 @@ const ROOT = resolve(__dirname, '../..');
 const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
 
 /**
+ * Matches the header of a `script:` block scalar.
+ *
+ * Deliberately wider than the one form this file uses today. YAML also spells
+ * it `|-`, `|+` and `|2`, and a reformat that reached for any of those would
+ * otherwise report "no script block" — which reads like the step was deleted
+ * rather than like the header moved. Matching them means the failure names
+ * the real cause instead.
+ */
+const SCRIPT_HEADER = /^\s*script: \|[-+]?\d*\s*$/;
+
+/**
  * The github-script body from the report step, as it will run in CI.
  *
- * Takes everything indented past the `script: |` line, then removes that
- * indentation — which is what the YAML block scalar means.
+ * Takes everything indented past the `script:` line and removes that
+ * indentation, which is what a YAML block scalar means.
+ *
+ * The indentation is measured from the block's first line rather than assumed
+ * to be the header's plus two. That assumption holds for this file today, but
+ * it describes how the file happens to be formatted, not what YAML requires.
+ * Indenting the block deeper survived it — the extra spaces just rode along
+ * as harmless leading whitespace — but dedenting it sliced into the code and
+ * failed with "does not look like the report script", which points at the
+ * wrong thing. Measuring costs one line and neither case arises.
  */
 function reportScript(): string {
   const lines = readFileSync(WORKFLOW, 'utf8').split('\n');
   const starts = lines.reduce<number[]>(
-    (found, line, i) => (/^\s*script: \|\s*$/.test(line) ? [...found, i] : found),
+    (found, line, i) => (SCRIPT_HEADER.test(line) ? [...found, i] : found),
     [],
   );
   if (starts.length === 0) {
-    throw new Error(`No "script: |" block in ${WORKFLOW}`);
+    throw new Error(`No "script:" block scalar in ${WORKFLOW}`);
   }
   // Taking the first block is only unambiguous while there is one. A second
   // github-script step added above this one would otherwise be extracted
@@ -72,16 +91,22 @@ function reportScript(): string {
   // script. Fail loudly and make whoever adds it say which block they mean.
   if (starts.length > 1) {
     throw new Error(
-      `${WORKFLOW} has ${starts.length} "script: |" blocks; this test assumes `
+      `${WORKFLOW} has ${starts.length} "script:" blocks; this test assumes `
       + 'one and would silently extract the first. Select the report step '
       + 'explicitly before adding another.',
     );
   }
   const [start] = starts;
 
-  const indent = (lines[start].match(/^\s*/) ?? [''])[0].length + 2;
+  const rest = lines.slice(start + 1);
+  const first = rest.find(line => line.trim());
+  if (first === undefined) {
+    throw new Error(`The "script:" block in ${WORKFLOW} is empty`);
+  }
+  const indent = (first.match(/^\s*/) ?? [''])[0].length;
+
   const body: string[] = [];
-  for (const line of lines.slice(start + 1)) {
+  for (const line of rest) {
     if (line.trim() && !line.startsWith(' '.repeat(indent))) {
       break;
     }

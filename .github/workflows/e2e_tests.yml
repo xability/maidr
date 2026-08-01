@@ -258,6 +258,12 @@ jobs:
               // "could not retire" would report that as the other — claiming
               // the issue is still open and will be picked up later, when it
               // is closed and will not be.
+              // Anything can be thrown, and `.message` on a non-Error is
+              // undefined — which would leave the warning as the only record
+              // of the failure and strip the one useful part out of it.
+              const reason = error =>
+                error instanceof Error ? error.message : String(error);
+
               for (const issue of mine) {
                 try {
                   await github.rest.issues.update({
@@ -270,7 +276,7 @@ jobs:
                 } catch (error) {
                   core.warning(
                     `Could not close #${issue.number}, leaving it for the next `
-                    + `green run: ${error.message}`
+                    + `green run: ${reason(error)}`
                   );
                   continue;
                 }
@@ -294,7 +300,7 @@ jobs:
                 } catch (error) {
                   core.warning(
                     `Closed #${issue.number} but could not comment on it; the `
-                    + `run that fixed it is in this log only: ${error.message}`
+                    + `run that fixed it is in this log only: ${reason(error)}`
                   );
                 }
               }
