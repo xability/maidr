@@ -239,6 +239,11 @@ describe('mathML allowlist', () => {
  *
  * #678 wires up the ESM Jest project that closes that gap; this list is what
  * the survey should reproduce when it does.
+ *
+ * A transcript is also only as good as the corpus behind it. `ol[start]`,
+ * `a[title]` and `img[title]` are absent from a corpus whose lists all begin
+ * at 1 and whose links carry no title, and were missed on the first pass for
+ * exactly that reason.
  */
 const GFM_ELEMENTS: readonly string[] = [
   'a',
@@ -279,13 +284,17 @@ const GFM_PROPERTIES: readonly (readonly [string, string])[] = [
   ['a', 'dataFootnoteRef'],
   ['a', 'href'],
   ['a', 'id'],
+  ['a', 'title'],
   ['h2', 'id'],
   ['img', 'alt'],
   ['img', 'src'],
+  ['img', 'title'],
   ['input', 'checked'],
   ['input', 'disabled'],
   ['input', 'type'],
   ['li', 'id'],
+  // Emitted only when a numbered list does not begin at 1.
+  ['ol', 'start'],
   ['section', 'dataFootnotes'],
   ['td', 'align'],
   ['th', 'align'],
@@ -327,6 +336,15 @@ describe('GFM allowlist', () => {
     );
     expect(schema.attributes?.th).toContain('align');
     expect(schema.attributes?.td).toContain('align');
+  });
+
+  it('should keep a numbered list starting anywhere but 1', () => {
+    const schema = createChatSanitizeSchema();
+
+    // `start` is emitted only for a list that does not begin at 1, so losing
+    // it renumbers the list from 1 without dropping anything visible — the
+    // reader is given different numbers from the ones that were written.
+    expect(schema.attributes?.ol).toContain('start');
   });
 
   it('should admit a task-list checkbox only as a disabled checkbox', () => {
@@ -437,6 +455,7 @@ describe('createChatSanitizeSchema', () => {
     // default `protocols` filtering; see the test below.
     expect(schema.attributes?.a).toEqual([
       'href',
+      'title',
       'id',
       'ariaLabel',
       'ariaDescribedBy',

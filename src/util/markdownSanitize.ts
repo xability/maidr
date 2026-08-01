@@ -179,13 +179,18 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       // every dataset key a future plugin invents.
       'a': [
         'href',
+        // `[text](url "title")`. Text only — no protocol, nothing to filter.
+        'title',
         'id',
         'ariaLabel',
         'ariaDescribedBy',
         'dataFootnoteRef',
         'dataFootnoteBackref',
       ],
-      'img': ['src', 'alt'],
+      'img': ['src', 'alt', 'title'],
+      // `start` only appears when a numbered list does not begin at 1, so
+      // without it a list written "2." "3." silently renumbers from 1.
+      'ol': ['start'],
       // The footnotes block and the anchors its links resolve against.
       'section': ['dataFootnotes'],
       'h2': ['id'],
