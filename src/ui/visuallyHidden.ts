@@ -22,7 +22,12 @@ export const visuallyHidden: React.CSSProperties = {
   padding: 0,
   margin: '-1px',
   overflow: 'hidden',
+  // `clip` is deprecated and `clipPath` is its replacement, but both are here
+  // on purpose: this is the one idiom every browser still honours `clip` for,
+  // and dropping it would silently widen the set of engines where the element
+  // becomes visible. Belt and braces is the standard form of this pattern.
   clip: 'rect(0, 0, 0, 0)',
+  clipPath: 'inset(50%)',
   whiteSpace: 'nowrap',
   border: 0,
 };
