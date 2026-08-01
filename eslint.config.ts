@@ -87,21 +87,14 @@ const config: ReturnType<typeof antfu> = antfu({
     }],
   },
 }, {
-  // `sr-only` hides nothing here. MAIDR ships no stylesheet — `dist/maidr.css`
-  // is a placeholder and the UI is styled at runtime by emotion — so an element
-  // given that class is an ordinary visible one. `TypingEffect`'s live region
-  // carried it and rendered every finished chat message a second time, in full.
+  // `sr-only` hides nothing here — MAIDR ships no stylesheet to define it, so
+  // the class leaves an ordinary visible element. `src/ui/visuallyHidden.ts`
+  // holds the reasoning and the replacement.
   //
-  // Matched on the AST rather than by scanning source text. This started as a
-  // regex over `className=` in a test and took four rounds to stop being wrong
-  // — word boundaries around a hyphen, truncation at the first `}` inside a
-  // template, a brace inside a string literal — and every one of those failed
-  // by silently passing. The selector gets a real parse for free and runs on
-  // every file rather than only when that test does.
-  //
-  // The `sr-only` in `TypingEffect`'s `h2` override is untouched: it sits in a
-  // `style` attribute, reading the class the markdown pipeline set rather than
-  // assigning one.
+  // Matched on the AST because the source-text version of this guard was wrong
+  // three times over, each in a way that passed silently. Scoping to
+  // `className` also leaves `TypingEffect`'s `h2` override alone, since that
+  // reads the class in a `style` attribute rather than assigning one.
   files: ['src/**/*.ts', 'src/**/*.tsx'],
   rules: {
     'no-restricted-syntax': ['error', {
