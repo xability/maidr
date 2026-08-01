@@ -12,7 +12,9 @@ on:
 
 permissions:
   contents: read
-  issues: write # the report step files/updates a test-report issue
+  # The report step files and updates the rolling report issue, and on a green
+  # run also closes and comments on the failure issues it had filed.
+  issues: write
 
 jobs:
   test:

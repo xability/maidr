@@ -59,10 +59,25 @@ const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
  */
 function reportScript(): string {
   const lines = readFileSync(WORKFLOW, 'utf8').split('\n');
-  const start = lines.findIndex(line => /^\s*script: \|\s*$/.test(line));
-  if (start === -1) {
+  const starts = lines.reduce<number[]>(
+    (found, line, i) => (/^\s*script: \|\s*$/.test(line) ? [...found, i] : found),
+    [],
+  );
+  if (starts.length === 0) {
     throw new Error(`No "script: |" block in ${WORKFLOW}`);
   }
+  // Taking the first block is only unambiguous while there is one. A second
+  // github-script step added above this one would otherwise be extracted
+  // instead, and every case below would still pass — against the wrong
+  // script. Fail loudly and make whoever adds it say which block they mean.
+  if (starts.length > 1) {
+    throw new Error(
+      `${WORKFLOW} has ${starts.length} "script: |" blocks; this test assumes `
+      + 'one and would silently extract the first. Select the report step '
+      + 'explicitly before adding another.',
+    );
+  }
+  const [start] = starts;
 
   const indent = (lines[start].match(/^\s*/) ?? [''])[0].length + 2;
   const body: string[] = [];
@@ -316,6 +331,24 @@ describe('the scheduled e2e report step', () => {
 
       expect(result.adopted).toEqual([]);
       expect(result.created).toEqual([['test-report']]);
+    });
+
+    // The same guard, reached through the other branch of the prefix ternary.
+    // One line serves both paths today, so this is cheap insurance rather
+    // than new coverage — but the failure path is the one that runs when
+    // something is already wrong, and it had no PR case at all.
+    it('should not adopt a pull request on the failure path either', async () => {
+      const pr: StubIssue = {
+        number: 998,
+        title: 'test: Some e2e tests failed - a pull request',
+        labels: ['test-failure'],
+        pull_request: {},
+      };
+
+      const result = await runScript('failure', [pr]);
+
+      expect(result.adopted).toEqual([]);
+      expect(result.created).toEqual([['test-failure']]);
     });
   });
 
