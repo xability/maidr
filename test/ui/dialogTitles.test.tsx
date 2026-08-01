@@ -186,9 +186,14 @@ function dialogStructure(): {
   const headings = [...dialog.querySelectorAll('h1,h2,h3,h4,h5,h6')];
 
   return {
-    // Matched by property rather than by an `[id="…"]` selector: jsdom
-    // implements no `CSS.escape`, and React's `useId` produces ids containing
-    // characters a selector would have to escape.
+    // Matched by property rather than by an `[id="…"]` selector, because
+    // React's `useId` produces ids containing characters a selector would have
+    // to escape and there is nothing here to escape them with: this
+    // environment exposes no `CSS` object at all, so `CSS.escape` is a
+    // ReferenceError rather than a missing method. It comes from the jsdom
+    // that `jest-environment-jsdom` bundles (20.x), not the `jsdom` in
+    // devDependencies (22.x) — those are separate installs on separate major
+    // lines, so check the nested one before assuming a DOM API is available.
     idCarriers: labelledBy
       ? [...document.querySelectorAll('[id]')].filter(el => el.id === labelledBy).length
       : 0,
