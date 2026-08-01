@@ -22,6 +22,66 @@ function sourceFiles(): string[] {
     .filter(file => file.endsWith('.tsx') || file.endsWith('.ts'));
 }
 
+/**
+ * Every expression handed to a `className=` prop.
+ *
+ * Braces are counted rather than matched with `\{[^}]*\}`, which ends at the
+ * first `}` — so a template holding any interpolation is truncated there and
+ * its class names are never seen. `` className={`${cond} sr-only`} `` reduces
+ * to `` {`${cond} ``, which contains no complete string and reads as clean.
+ * @param contents - The source file to scan.
+ * @returns Each expression, including its delimiters.
+ */
+function classNameExpressions(contents: string): string[] {
+  const expressions: string[] = [];
+
+  for (const match of contents.matchAll(/className=/g)) {
+    const start = (match.index ?? 0) + match[0].length;
+    const opener = contents[start];
+
+    if (opener === '{') {
+      let depth = 0;
+      for (let i = start; i < contents.length; i++) {
+        if (contents[i] === '{') {
+          depth++;
+        } else if (contents[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            expressions.push(contents.slice(start, i + 1));
+            break;
+          }
+        }
+      }
+    } else if (opener === '"' || opener === '\'' || opener === '`') {
+      const end = contents.indexOf(opener, start + 1);
+      if (end !== -1) {
+        expressions.push(contents.slice(start, end + 1));
+      }
+    }
+  }
+
+  return expressions;
+}
+
+/**
+ * Whether an expression puts the `sr-only` class on an element.
+ *
+ * Compares whole tokens rather than testing `\bsr-only\b`, which looks
+ * equivalent and is not: `-` is a non-word character, so that pattern sits
+ * beside the boundary and also matches `not-sr-only` and `sr-only-thing` —
+ * failing this suite over a class with nothing to do with hiding anything.
+ *
+ * An expression with no string literal in it — `className={someVariable}` —
+ * matches nothing, which is what leaves the `h2` override alone. That
+ * override is the one place here that legitimately *reads* the class.
+ * @param expression - One `className=` expression.
+ * @returns True if any string literal in it carries the class.
+ */
+function assignsSrOnly(expression: string): boolean {
+  return [...expression.matchAll(/["'`]([^"'`]*)["'`]/g)]
+    .some(([, value]) => value.split(/\s+/).includes('sr-only'));
+}
+
 describe('visuallyHidden', () => {
   it('should keep hidden content in the accessibility tree', () => {
     // The whole point, and the easiest thing to lose while "simplifying":
@@ -46,27 +106,9 @@ describe('visuallyHidden', () => {
     // hidden element, it is a plain one — `TypingEffect`'s live region carried
     // it and rendered every finished chat message a second time, in full, on
     // any page that did not happen to define the class itself.
-    // Takes whatever `className=` is given — a quoted string, or a braced
-    // expression — and looks for the class in any string literal inside it.
-    // A braced expression is included so a conditional
-    // `className={hidden ? 'sr-only' : undefined}` is caught as well as a
-    // plain literal; `className={someVariable}` contains no literal and so
-    // matches nothing, which is what leaves the `h2` override below alone.
-    const CLASS_NAME = /className=(\{[^}]*\}|["'`][^"'`]*["'`])/g;
-    const STRING_LITERAL = /["'`]([^"'`]*)["'`]/g;
-
-    // Whole tokens, not `\bsr-only\b` — that looks equivalent and is not:
-    // `-` is a non-word character, so it sits beside the boundary and also
-    // matches `not-sr-only` and `sr-only-thing`, failing this suite over a
-    // class with nothing to do with hiding anything.
-    const assignsSrOnly = (expression: string): boolean =>
-      [...expression.matchAll(STRING_LITERAL)]
-        .some(([, value]) => value.split(/\s+/).includes('sr-only'));
-
     const offenders = sourceFiles().filter((file) => {
       const contents = readFileSync(join(ROOT, file), 'utf8');
-      return [...contents.matchAll(CLASS_NAME)]
-        .some(([, expression]) => assignsSrOnly(expression));
+      return classNameExpressions(contents).some(assignsSrOnly);
     });
 
     expect(offenders).toEqual([]);
