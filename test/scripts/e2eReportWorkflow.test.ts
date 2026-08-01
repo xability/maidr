@@ -126,7 +126,7 @@ function reportScript(): string {
 
 /** Runs the script against stubs and records what it asked GitHub to do. */
 async function runScript(
-  status: string,
+  status: string | undefined,
   issues: StubIssue[],
   failingUpdates: Failing = new Set(),
   failingComments: Failing = new Set(),
@@ -397,6 +397,27 @@ describe('the scheduled e2e report step', () => {
       const result = await runScript('cancelled', [botIssue(683)]);
 
       expect(result.closed).toEqual([]);
+    });
+
+    // What the workflow actually passes when the test step never ran: the
+    // env is `${{ steps.e2e.outcome }}`, and an unreached step's outcome is
+    // the empty string, not an absent variable. `!== 'success'` covers both,
+    // but only by accident of how it is written — an equality check against
+    // a failure list would not, and nothing here would have noticed.
+    // No fixtures: with an open failure issue present the script updates it
+    // instead of filing one, and `created` would be empty on both the success
+    // and failure paths — which is the same answer for the two cases this is
+    // meant to tell apart.
+    it('should treat an empty status as a failure', async () => {
+      const result = await runScript('', []);
+
+      expect(result.created).toEqual([['test-failure']]);
+    });
+
+    it('should treat an absent status as a failure', async () => {
+      const result = await runScript(undefined, []);
+
+      expect(result.created).toEqual([['test-failure']]);
     });
   });
 });
