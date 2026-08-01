@@ -122,10 +122,10 @@ export const MATHML_ATTRIBUTES: readonly string[] = [
  *
  * The list used to also carry `role`, `ariaLabel`, `ariaBusy`, `ariaLive` and
  * `ariaAtomic`, on the reasoning that nothing in the pipeline emitted any of
- * them — the `role` and `aria-label` `TypingEffect` puts on `<pre>` and `<a>`
- * are React props, applied after sanitisation — and that while they were
- * misspelled they were inert. Correcting the spelling would have made them
- * live for the first time, so they were dropped instead.
+ * them — the `role` and `aria-label` `TypingEffect` puts on `<pre>` are React
+ * props, applied after sanitisation — and that while they were misspelled
+ * they were inert. Correcting the spelling would have made them live for the
+ * first time, so they were dropped instead.
  *
  * That reasoning held only while footnotes were being dropped too. remark-gfm
  * emits `ariaLabel` and `ariaDescribedBy` on the reference and backref links,
