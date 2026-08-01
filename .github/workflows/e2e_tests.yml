@@ -164,6 +164,51 @@ jobs:
               });
             }
 
+            // A green run has to retire the failure issue as well as file its
+            // own report. Success only ever touched the `test-report` issue,
+            // so the rolling `test-failure` one outlived the fix: #683 stayed
+            // open listing WebKit failures that #679 and #684 had already
+            // fixed, and no number of green runs would have closed it.
+            //
+            // Every open one, not just the newest: the title carries a
+            // timestamp, and a run that failed before this step existed could
+            // have left more than one behind.
+            if (!isFailure) {
+              const stale = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: ['test-failure'],
+                state: 'open'
+              });
+
+              // listForRepo returns pull requests too; they are not reports.
+              for (const issue of stale.data.filter(i => !i.pull_request)) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body: [
+                    'The scheduled suite is green again.',
+                    '',
+                    `Commit: ${context.sha}`,
+                    `[View Workflow Run](${run_url})`,
+                    '',
+                    'Closed automatically by the run that passed. If these',
+                    'tests fail again a fresh issue is filed rather than this',
+                    'one reopened, so the history stays per-incident.'
+                  ].join('\n')
+                });
+
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'completed'
+                });
+              }
+            }
+
       # The test step ran with continue-on-error so the report above always
       # publishes; surface the real outcome as the workflow conclusion.
       - name: Propagate test outcome
