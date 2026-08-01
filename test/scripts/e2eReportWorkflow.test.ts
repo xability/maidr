@@ -45,8 +45,8 @@ interface RunResult {
   adopted: number[];
 }
 
-/** Issue numbers whose `issues.update` should reject, to test the catch. */
-type FailingUpdates = ReadonlySet<number>;
+/** Issue numbers whose API calls should reject, to test the catch blocks. */
+type Failing = ReadonlySet<number>;
 
 const ROOT = resolve(__dirname, '../..');
 const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
@@ -83,7 +83,8 @@ function reportScript(): string {
 async function runScript(
   status: string,
   issues: StubIssue[],
-  failingUpdates: FailingUpdates = new Set(),
+  failingUpdates: Failing = new Set(),
+  failingComments: Failing = new Set(),
 ): Promise<RunResult> {
   const result: RunResult = {
     closed: [],
@@ -117,6 +118,9 @@ async function runScript(
           result.created.push(params.labels);
         },
         createComment: async (params: { issue_number: number }) => {
+          if (failingComments.has(params.issue_number)) {
+            throw new Error('simulated API failure');
+          }
           result.commented.push(params.issue_number);
         },
         update: async (params: { issue_number: number; state?: string }) => {
@@ -244,7 +248,7 @@ describe('the scheduled e2e report step', () => {
       // The other two still close, and the step does not throw.
       expect(result.closed).toEqual([683, 685]);
       expect(result.warnings).toEqual([
-        expect.stringContaining('#684') as unknown as string,
+        expect.stringContaining('Could not close #684') as unknown as string,
       ]);
     });
 
@@ -259,6 +263,26 @@ describe('the scheduled e2e report step', () => {
       );
 
       expect(result.commented).toEqual([683]);
+    });
+
+    // The close and the comment are caught separately, and this is the case
+    // that tells them apart: the close worked, so the issue must stay closed
+    // rather than being reopened or retried. It also must not be reported as
+    // "could not retire" — it was retired; only the note was lost, and since
+    // the issue is closed no later run will look at it again.
+    it('should stay closed when only the comment fails', async () => {
+      const result = await runScript(
+        'success',
+        [botIssue(683), botIssue(684)],
+        new Set(),
+        new Set([684]),
+      );
+
+      expect(result.closed).toEqual([683, 684]);
+      expect(result.commented).toEqual([683]);
+      expect(result.warnings).toEqual([
+        expect.stringContaining('Closed #684') as unknown as string,
+      ]);
     });
 
     // `includes` would match this; only `startsWith` does not. The bot's own
