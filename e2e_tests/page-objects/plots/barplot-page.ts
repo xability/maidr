@@ -341,53 +341,6 @@ export class BarPlotPage extends BasePage {
   }
 
   /**
-   * Starts autoplay in a specific direction
-   * @param direction - The direction to autoplay ('forward' or 'reverse')
-   * @param infoSelector - The selector for the info element
-   * @param expectedContent - Expected content to wait for upon completion
-   * @param options - Optional timeout configuration
-   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
-   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
-   * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws BarPlotError if autoplay fails or times out
-   */
-  protected async startAutoplay(
-    direction: 'forward' | 'reverse',
-    infoSelector: string,
-    expectedContent?: string,
-    options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
-    const directionName = direction === 'forward' ? 'forward' : 'reverse';
-
-    try {
-      // Resolve once: it costs a page round-trip and cannot change mid-test.
-      // Inside the try so a failure is wrapped like every other step here.
-      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
-
-      await this.page.keyboard.down(modifier);
-      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.pressKey(arrowKey, `start ${directionName} autoplay`);
-
-      // Only the two modifiers are still held: `pressKey` above is a full
-      // press, so the arrow key was already released.
-      await this.page.keyboard.up(modifier);
-      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-
-      if (expectedContent) {
-        await this.waitForElementContent(
-          infoSelector,
-          expectedContent,
-          options,
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`, { cause: error });
-    }
-  }
-
-  /**
    * Starts forward autoplay and waits for completion
    * @param expectedContent - Expected content to wait for upon completion
    * @param options - Optional timeout configuration
@@ -400,7 +353,11 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start forward autoplay', { cause: error });
+    }
   }
 
   /**
@@ -416,6 +373,10 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start reverse autoplay', { cause: error });
+    }
   }
 }
