@@ -14,22 +14,51 @@ Four suites, four purposes.
 | ------------- | ------------------------------ | ------------------ | ------------------------ |
 | **Unit**      | Jest + ts-jest                 | `test/`            | `test/**/*.test.ts`      |
 | **Component** | Jest + jsdom + Testing Library | `test/ui/`         | `test/**/*.test.tsx`     |
-| **ESM**       | Jest, ESM project              | `test/`            | `test/**/*.esm-test.ts`  |
+| **ESM**       | Jest, ESM project              | `test/`            | `test/**/*.esm-test.ts?(x)` |
 | **E2E**       | Playwright                     | `e2e_tests/specs/` | `*.spec.ts`              |
 
 The first three are Jest projects in one `jest.config.ts`, so `npm test` runs
-them together.
+them together — but in one Jest process each, spawned in turn by
+`scripts/test.js`. They cannot share a process: `jest-resolve` memoises whether
+a file is ESM by path alone, ignoring the asking project's
+`extensionsToTreatAsEsm`, so the first project to load a shared `src/` module
+decides for the other and the loser fails with `Must use import to load ES
+Module`. Which one loses depends on scheduling, so the symptom is a suite that
+passes alone and fails in company. Adding a project means adding it to
+`PROJECTS` in the runner; `test/scripts/testRunnerProjects.test.ts` fails if you
+forget, because a project the runner omits simply never runs.
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
 `test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
-test in the directory matching the layer it covers.
+test in the directory matching the layer it covers. `test/scripts/` is the
+exception, and covers `scripts/` rather than a layer of the application: the
+build, the test runner, and the workflow bodies under `.github/`.
 
 ```bash
-npm test              # jest, with coverage
-npm run test:watch    # jest --watch
+npm test              # jest, with coverage, one process per project
+npm run test:watch    # jest --watch, `unit` only — pass --selectProjects for another
 npm run e2e           # playwright
 npm run e2e:ui        # playwright, interactive
 ```
+
+A watcher does not exit, so watch mode cannot run the projects in sequence and
+watches `unit` alone rather than reintroducing the clash. It says so when it
+starts. Every other run does the whole set, and does not stop at the first
+project to fail — `npm test` is CI's only test step, so stopping early would
+hide the rest until someone pushed a fix.
+
+`npm test -- <path>` still works on a file in one project only. One process per
+project turns Jest's aggregate "at least one test found" into a per-project
+question, so the runner asks Jest what the filter matches before running and
+tolerates a project matching nothing only when something matched somewhere. A
+filter that matches nothing at all still fails, and so does a project matching
+nothing on an unfiltered run.
+
+Coverage is per project, in `coverage/unit` and `coverage/esm`. Read them
+separately: `collectCoverageFrom` is repo-wide, so each report scores the whole
+of `src/` against the files that one project happens to load, and `coverage/esm`
+shows most of the tree at 0%. There is no combined number, and nothing is gated
+on one.
 
 ## Unit tests
 
@@ -91,10 +120,11 @@ import '@testing-library/jest-dom/jest-globals';
 
 ## ESM tests
 
-Name a file `*.esm-test.ts` when it needs to import an ESM-only package — the
-`unified`/`remark`/`rehype` stack is the case that exists. The default project
-compiles to CommonJS, so importing one from a `.test.ts` fails with
-`SyntaxError: Unexpected token 'export'`.
+Name a file `*.esm-test.ts` — or `*.esm-test.tsx` to render a component — when
+it needs to import an ESM-only package. The `unified`/`remark`/`rehype` stack
+is the case that exists, and `react-markdown` is what pulls `TypingEffect` in
+with it. The default project compiles to CommonJS, so importing one from a
+`.test.ts` fails with `SyntaxError: Unexpected token 'export'`.
 
 - `npm test` runs this project alongside the others; `scripts/test.js` supplies
   the `--experimental-vm-modules` flag Jest needs to import ESM at all.
@@ -106,6 +136,16 @@ compiles to CommonJS, so importing one from a `.test.ts` fails with
 - The point is checking that markup **survives**, not that a schema names it.
   `markdownSanitize.test.ts` can say the allowlist contains `table`; only this
   project can say a table came out the other end.
+- A `.esm-test.tsx` file is a component test that happens to live here, so the
+  component rules above apply in full — the `@jest-environment jsdom` docblock,
+  the accessibility contract rather than the markup, and a real store when the
+  component reads state with `useViewModelState`. What it adds is the last
+  step neither of the above reaches: the rendered element's accessible **name**.
+  `typingEffect.esm-test.tsx` is the example.
+- Anything reachable from a rendered component is loaded as real ESM, where a
+  bundler's extensions do not apply — `import { version } from './package.json'`
+  is the one that has already bitten, since a JSON module exports only
+  `default`. Import JSON as a default and read the field.
 
 ## E2E tests
 

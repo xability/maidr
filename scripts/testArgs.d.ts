@@ -1,0 +1,33 @@
+/**
+ * Hand-written declarations for `testArgs.js`.
+ *
+ * The module is plain JS so `scripts/test.js` (run directly by node) can import
+ * it; `tsconfig.json` sets `allowJs: false`, so a TypeScript test needs these
+ * to import it too. Keep both files in sync.
+ */
+
+/** Jest's project-selection flag. */
+export declare const SELECT: string;
+
+/** Project display names from `jest.config.ts`, in the order they should run. */
+export declare const PROJECTS: string[];
+
+/** The project `--watch` falls back to. */
+export declare const WATCH_DEFAULT: string;
+
+/** Split `--selectProjects` out of an argument list. */
+export declare function takeSelection(args: string[]): {
+  rest: string[];
+  selected: string[];
+  /** True if the flag appeared with no project name after it. */
+  dangling: boolean;
+};
+
+/** Whether any argument could be a path filter rather than a flag. */
+export declare function hasPathFilter(args: string[]): boolean;
+
+/** Whether a project matching no tests should be tolerated. */
+export declare function isNarrowed(
+  matched: string[] | null,
+  everything: string[] | null,
+): boolean;
