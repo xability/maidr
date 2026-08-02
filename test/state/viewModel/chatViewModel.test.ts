@@ -1,6 +1,6 @@
 import type { UnknownAction } from '@reduxjs/toolkit';
 import type { ChatState } from '@state/viewModel/chatViewModel';
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import chatReducer, { chatActions } from '@state/viewModel/chatViewModel';
 
 /**
@@ -31,6 +31,15 @@ function dispatch(...actions: UnknownAction[]): ChatState {
   );
 }
 
+// Restored here rather than at the end of the one test that fakes them: an
+// assertion that throws never reaches a trailing call, which would leave the
+// clock frozen for the rest of the file. Harmless as the cases stand — neither
+// of the others reads the clock — but the failure it would cause is the kind
+// that looks like it belongs to the test it surfaces in.
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe('chat message ids', () => {
   test('are distinct for messages added in the same millisecond', () => {
     // Frozen, so every id below is minted from one `Date.now()`. Without the
@@ -48,8 +57,6 @@ describe('chat message ids', () => {
     const ids = state.messages.map(message => message.id);
     expect(ids).toHaveLength(5);
     expect(new Set(ids).size).toBe(5);
-
-    jest.useRealTimers();
   });
 
   test('keep the prefix MessageBubble reads them by', () => {
