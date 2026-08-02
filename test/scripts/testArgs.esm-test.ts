@@ -1,5 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
-import { hasPathFilter, isNarrowed, takeSelection } from '../../scripts/testArgs';
+import {
+  hasPathFilter,
+  isNarrowed,
+  PROJECTS,
+  SELECT,
+  takeSelection,
+  WATCH_DEFAULT,
+} from '../../scripts/testArgs';
 
 /**
  * Tests for `scripts/testArgs.js`, the decisions `scripts/test.js` makes about
@@ -19,6 +26,36 @@ import { hasPathFilter, isNarrowed, takeSelection } from '../../scripts/testArgs
  * `mathStylesheet.test.ts` uses, gives up the type checking that
  * `scripts/testArgs.d.ts` provides here.
  */
+
+/** What `scripts/testArgs.d.ts` promises `takeSelection` returns. */
+interface Selection {
+  rest: string[];
+  selected: string[];
+  dangling: boolean;
+}
+
+describe('the declarations beside the module', () => {
+  it('should describe what the module actually returns', () => {
+    // `testArgs.d.ts` is hand-written and `tsc` never sees the JavaScript, so
+    // nothing catches the two disagreeing: changing `dangling` to `string` in
+    // the declarations type-checks the whole repo clean. The annotations below
+    // are that check — a declared type that no longer fits stops compiling
+    // here — and the runtime assertions are the other half, since annotations
+    // alone would be satisfied by declarations that are wrong in the same way
+    // the expectation is.
+    const selection: Selection = takeSelection([`${SELECT}=unit`]);
+    const narrowing: [boolean, boolean] = [hasPathFilter([]), isNarrowed([], [])];
+    const names: [string[], string, string] = [PROJECTS, WATCH_DEFAULT, SELECT];
+
+    expect(typeof selection.dangling).toBe('boolean');
+    expect(Array.isArray(selection.rest)).toBe(true);
+    expect(Array.isArray(selection.selected)).toBe(true);
+    expect(narrowing.every(value => typeof value === 'boolean')).toBe(true);
+    expect(Array.isArray(names[0]) && names[0].every(name => typeof name === 'string')).toBe(true);
+    expect(typeof names[1]).toBe('string');
+    expect(names[2]).toBe('--selectProjects');
+  });
+});
 
 describe('taking the project selection out of the arguments', () => {
   it('should leave an argument list that names no project alone', () => {
