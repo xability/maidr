@@ -44,6 +44,13 @@ starts. Every other run does the whole set, and does not stop at the first
 project to fail — `npm test` is CI's only test step, so stopping early would
 hide the rest until someone pushed a fix.
 
+`npm test -- <path>` still works on a file in one project only. One process per
+project turns Jest's aggregate "at least one test found" into a per-project
+question, so the runner asks Jest what the filter matches before running and
+tolerates a project matching nothing only when something matched somewhere. A
+filter that matches nothing at all still fails, and so does a project matching
+nothing on an unfiltered run.
+
 Coverage is per project, in `coverage/unit` and `coverage/esm`. Read them
 separately: `collectCoverageFrom` is repo-wide, so each report scores the whole
 of `src/` against the files that one project happens to load, and `coverage/esm`

@@ -34,10 +34,11 @@
  * process-wide, and nothing in a Jest config can scope it.
  *
  * Arguments are forwarded, so `npm test -- --watch` and
- * `npm test -- test/util` behave as they would with Jest directly. The one
- * exception is `--selectProjects`, which is intercepted so that naming several
- * projects still runs them one process each rather than putting them back in
- * one.
+ * `npm test -- test/util/version.test.ts` behave as they would with Jest
+ * directly. Two are intercepted to keep that true: `--selectProjects`, so that
+ * naming several projects still runs them one process each rather than putting
+ * them back in one, and a filter matching only one project's tests, which one
+ * process per project would otherwise fail on the other.
  */
 
 import { spawn } from 'node:child_process';
@@ -94,6 +95,35 @@ function runJest(args) {
       } else {
         resolve(code ?? 1);
       }
+    });
+  });
+}
+
+/**
+ * Test files matching these arguments, across every project at once.
+ *
+ * Safe as a single multi-project process, unlike an actual run: `--listTests`
+ * resolves paths and loads no module, so the memo described above never gets a
+ * chance to disagree with itself.
+ * @param {string[]} args - Arguments to match against.
+ * @returns {Promise<string[] | null>} Matching test file paths, or null if Jest
+ * could not be asked.
+ */
+function listTests(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [jest, '--listTests', ...args], {
+      stdio: ['inherit', 'pipe', 'inherit'],
+      env: { ...process.env, NODE_OPTIONS: nodeOptions },
+    });
+
+    let output = '';
+    child.stdout.on('data', (chunk) => {
+      output += chunk;
+    });
+
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => {
+      resolve(code === 0 ? output.split('\n').map(line => line.trim()).filter(Boolean) : null);
     });
   });
 }
@@ -187,6 +217,27 @@ if (watching) {
     );
   }
   exitCode = await runJest([...rest, '--selectProjects', project]);
+} else if (rest.length > 0) {
+  // A filter is normal for one project and not the other — `npm test --
+  // test/util/version.test.ts` matches nothing in `esm`, and one process per
+  // project turns Jest's aggregate "at least one test found" into a per-project
+  // one, so that run failed on the project that was never meant to match.
+  //
+  // Tolerance is granted only for a filter that genuinely narrows the set to a
+  // non-empty subset, which is what asking Jest twice establishes. Two other
+  // cases have to keep failing, and a rule of "any argument means be lenient"
+  // would let both through: a filter matching nothing at all is a typo, and a
+  // project matching nothing on an unfiltered run is a broken `testMatch` —
+  // which would otherwise mean its suites silently never ran.
+  //
+  // Both lists come from `--listTests`, so this costs two cheap resolutions and
+  // only on a run that passed arguments. A name filter (`-t`) does not narrow
+  // the file set and does not need to: Jest reports its tests as skipped rather
+  // than as none found.
+  const [matched, everything] = await Promise.all([listTests(rest), listTests([])]);
+  const lenient = matched !== null && everything !== null
+    && matched.length > 0 && matched.length < everything.length;
+  exitCode = await runProjects(lenient ? [...rest, '--passWithNoTests'] : rest, projects);
 } else {
   exitCode = await runProjects(rest, projects);
 }
