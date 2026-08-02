@@ -78,19 +78,28 @@ function namesFragment(element: Element): boolean {
 }
 
 /**
- * Turns a message id into something safe to put in an `id`, injectively.
+ * Turns a message id into an id-safe token that no other message id can share.
  *
- * A message id is `msg-1234` or `resp-1234-<model>`, and a model name really
- * does carry a dot — `gpt-5.5`, `gemini-3.5-flash`. Every character outside
- * `[A-Za-z0-9-]` becomes `_<hex>_`, underscore included, so no two message ids
- * can encode to the same token. Stripping instead would map `a.b` and `a-b`
- * together and quietly reintroduce the collision this exists to prevent.
+ * Every character outside `[A-Za-z0-9]` becomes `_<hex>_`. That is injective on
+ * its own — `_` is itself outside the set, so an underscore in the output only
+ * ever begins an escape — and it is exercised in practice: a response id is
+ * `resp-<time>-<provider>` and the providers are `OPENAI`, `ANTHROPIC_CLAUDE`,
+ * `GOOGLE_GEMINI` and `OLLAMA`, three of which carry an underscore.
+ *
+ * `-` is escaped along with everything else, which matters for a reason
+ * injectivity alone does not cover. The final id is
+ * `user-content-<token>-<id>`, so what has to be unique is the whole
+ * concatenation rather than the token: with `-` left intact, token `m` with id
+ * `x-y` and token `m-x` with id `y` both spell `user-content-m-x-y`. Escaping
+ * it keeps `-` out of every token, which makes the first one the boundary and
+ * the decomposition unique — the property the cross-message guarantee actually
+ * rests on.
  * @param messageId - The message's id.
- * @returns An id-safe token.
+ * @returns An id-safe token containing no separator.
  */
 function token(messageId: string): string {
   return messageId.replace(
-    /[^a-z0-9-]/gi,
+    /[^a-z0-9]/gi,
     character => `_${character.charCodeAt(0).toString(16)}_`,
   );
 }
@@ -115,12 +124,22 @@ function targets(element: Element): string[] {
     .filter((value): value is string => typeof value === 'string' && value !== '');
 }
 
-/** Every element in the tree, in document order. */
-function elements(node: Nodes): Element[] {
-  const found: Element[] = node.type === 'element' ? [node] : [];
+/**
+ * Every element in the tree, in document order.
+ *
+ * Accumulates into one array rather than spreading a new one at each level:
+ * this runs on every render, and the typing animation renders every 10 ms.
+ * @param node - Where to start.
+ * @param found - The array being filled.
+ * @returns `found`.
+ */
+function elements(node: Nodes, found: Element[] = []): Element[] {
+  if (node.type === 'element') {
+    found.push(node);
+  }
   if ('children' in node) {
     for (const child of node.children) {
-      found.push(...elements(child));
+      elements(child, found);
     }
   }
   return found;

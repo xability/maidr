@@ -91,11 +91,33 @@ describe('scoping a message\'s ids', () => {
     expect(first.filter(id => second.includes(id))).toEqual([]);
   });
 
+  it('should keep the scope and the id it prefixes tellable apart', async () => {
+    // What has to be unique is the whole `user-content-<token>-<id>`, not the
+    // token alone. With `-` left intact in a token, message `m` with id `x-y`
+    // and message `m-x` with id `y` would both spell `user-content-m-x-y` —
+    // the same cross-message collision this fixes, arriving through the
+    // separator instead of through the numbering.
+    const shorter: Root = {
+      type: 'root',
+      children: [{ type: 'element', tagName: 'p', properties: { id: 'x-y' }, children: [] }],
+    };
+    const longer: Root = {
+      type: 'root',
+      children: [{ type: 'element', tagName: 'p', properties: { id: 'y' }, children: [] }],
+    };
+
+    rehypeScopeIds({ messageId: 'm' })(shorter);
+    rehypeScopeIds({ messageId: 'm-x' })(longer);
+
+    expect(ids(shorter)).not.toEqual(ids(longer));
+  });
+
   it('should not let two different message ids encode to one scope', async () => {
-    // `resp-<time>-<model>` puts a model name in the id, and a model name can
-    // carry a dot or a slash. Stripping unsafe characters would map `a.b` and
-    // `a-b` onto the same scope and silently reintroduce the collision this
-    // exists to prevent, so they are escaped instead.
+    // Stripping unsafe characters rather than escaping them would map `a.b`,
+    // `a-b` and `a_b` onto one scope and silently reintroduce the collision
+    // this exists to prevent. The underscore case is the one that happens:
+    // a response id is `resp-<time>-<provider>`, and three of the four
+    // providers are spelled `ANTHROPIC_CLAUDE`, `GOOGLE_GEMINI`, `OPENAI`.
     const dotted = ids(await render(FOOTNOTE, 'resp-1-a.b'));
     const dashed = ids(await render(FOOTNOTE, 'resp-1-a-b'));
     const underscored = ids(await render(FOOTNOTE, 'resp-1-a_b'));
@@ -153,13 +175,13 @@ describe('the reference shapes hast can hold', () => {
   it('should move a list-valued reference with the id it names', () => {
     const referring = scope({ ariaLabelledBy: ['label'] });
 
-    expect(referring.properties?.ariaLabelledBy).toEqual(['user-content-msg-1-label']);
+    expect(referring.properties?.ariaLabelledBy).toEqual(['user-content-msg_2d_1-label']);
   });
 
   it('should move a string-valued reference with the id it names', () => {
     const referring = scope({ ariaDescribedBy: 'label' });
 
-    expect(referring.properties?.ariaDescribedBy).toBe('user-content-msg-1-label');
+    expect(referring.properties?.ariaDescribedBy).toBe('user-content-msg_2d_1-label');
   });
 
   it('should leave a reference to an id this message does not define', () => {
@@ -168,7 +190,7 @@ describe('the reference shapes hast can hold', () => {
     // Half known, half not — the unknown name belongs to the host page, and
     // scoping it would point it at nothing.
     expect(referring.properties?.ariaLabelledBy).toEqual([
-      'user-content-msg-1-label',
+      'user-content-msg_2d_1-label',
       'elsewhere',
     ]);
   });
@@ -203,8 +225,8 @@ describe('an anchor\'s name, which is a fragment target too', () => {
   it('should scope it, and point a link at where it went', () => {
     const { target, link } = scope('a');
 
-    expect(target.properties?.name).toBe('user-content-msg-1-here');
-    expect(link.properties?.href).toBe('#user-content-msg-1-here');
+    expect(target.properties?.name).toBe('user-content-msg_2d_1-here');
+    expect(link.properties?.href).toBe('#user-content-msg_2d_1-here');
   });
 
   it('should leave a form control\'s name alone', () => {
