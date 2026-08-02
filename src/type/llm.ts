@@ -84,6 +84,19 @@ export interface LlmResponse {
 }
 
 /**
+ * A model that was enabled when a message was created, as that message records
+ * it: the provider it came from, and the display name and version to show.
+ *
+ * Held on the message rather than read from settings at render time, so a
+ * message keeps saying which model answered it after the setting changes.
+ */
+export interface SelectedModel {
+  modelKey: Llm;
+  name: string;
+  version: string;
+}
+
+/**
  * Chat message in the conversation history with metadata and status.
  */
 export interface Message {
@@ -93,11 +106,7 @@ export interface Message {
   model?: Llm;
   timestamp: string;
   status: Status;
-  modelSelections?: {
-    modelKey: Llm;
-    name: string;
-    version: string;
-  }[];
+  modelSelections?: SelectedModel[];
   isWelcomeMessage?: boolean;
 }
 

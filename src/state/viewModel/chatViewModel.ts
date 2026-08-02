@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { Suggestion } from '@type/chat';
-import type { Llm, Message } from '@type/llm';
+import type { Llm, Message, SelectedModel } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
@@ -74,7 +74,7 @@ const chatSlice = createSlice({
       }),
     },
     addSystemMessage: {
-      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string; modelSelections?: SelectedModel[]; isWelcomeMessage?: boolean }>) => {
         state.messages.push({
           id: action.payload.id,
           text: action.payload.text,
@@ -85,7 +85,7 @@ const chatSlice = createSlice({
           isWelcomeMessage: action.payload.isWelcomeMessage,
         });
       },
-      prepare: (message: { text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }) => ({
+      prepare: (message: { text: string; timestamp: string; modelSelections?: SelectedModel[]; isWelcomeMessage?: boolean }) => ({
         payload: { ...message, id: nextId('system') },
       }),
     },
@@ -129,7 +129,7 @@ const chatSlice = createSlice({
     updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
       state.suggestions = action.payload;
     },
-    updateWelcomeMessage: (state, action: PayloadAction<{ text: string; modelSelections?: { modelKey: Llm; name: string; version: string }[] }>) => {
+    updateWelcomeMessage: (state, action: PayloadAction<{ text: string; modelSelections?: SelectedModel[] }>) => {
       // Find the welcome message (first system message with isWelcomeMessage flag)
       const welcomeMessageIndex = state.messages.findIndex(msg => msg.isWelcomeMessage);
       if (welcomeMessageIndex !== -1) {
@@ -218,9 +218,9 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
   /**
    * Retrieves data about enabled AI models including display names and versions.
-   * @returns {{ enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] }} Enabled models data.
+   * @returns {{ enabledModels: string[]; modelSelections: SelectedModel[] }} Enabled models data.
    */
-  private getEnabledModelsData(): { enabledModels: string[]; modelSelections: { modelKey: Llm; name: string; version: string }[] } {
+  private getEnabledModelsData(): { enabledModels: string[]; modelSelections: SelectedModel[] } {
     const llmModels = this.snapshot.settings.llm.models;
 
     const enabledModels = Object.entries(llmModels)
