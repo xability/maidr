@@ -93,7 +93,8 @@ function namesFragment(element: Element): boolean {
  * `x-y` and token `m-x` with id `y` both spell `user-content-m-x-y`. Escaping
  * it keeps `-` out of every token, which makes the first one the boundary and
  * the decomposition unique — the property the cross-message guarantee actually
- * rests on.
+ * rests on. `should keep the scope and the id it prefixes tellable apart`, in
+ * `test/util/footnoteScope.esm-test.ts`, is that pair as a test.
  * @param messageId - The message's id.
  * @returns An id-safe token containing no separator.
  */
