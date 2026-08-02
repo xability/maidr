@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
 import { visuallyHidden } from '@ui/visuallyHidden';
+import { rehypeScopeIds } from '@util/footnoteScope';
 import { containsLatex, ensureKatexStylesheet } from '@util/katex';
 import { createChatSanitizeSchema } from '@util/markdownSanitize';
 import React, { memo, useEffect, useMemo, useState } from 'react';
@@ -150,6 +151,13 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
             // allowlist rather than around it.
             ...mathPlugins,
             [rehypeSanitize, SANITIZE_SCHEMA],
+            // After it, and it has to be: the sanitiser renames `id` and the
+            // ARIA references but not `href`, so a footnote anchor is left
+            // naming where its target used to be. Scoping both sides here puts
+            // them back in agreement and makes the ids unique to this message,
+            // which they are not otherwise — footnotes are numbered per
+            // document and a transcript is one DOM. See `footnoteScope`.
+            [rehypeScopeIds, { messageId }],
           ]}
           remarkPlugins={[remarkGfm, remarkMath]}
           components={{

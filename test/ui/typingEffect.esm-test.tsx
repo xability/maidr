@@ -196,32 +196,54 @@ describe('footnote anchors', () => {
     expect(target(reference, 'aria-describedby')).not.toBeNull();
   });
 
-  // The two below are `it.failing` rather than skipped: #696 is a live bug
-  // that belongs to its own fix, so the cases run, the suite stays green while
-  // the bug stands, and they turn red the day it is fixed — which is the
-  // reminder to delete the marker and keep the assertion.
-  it.failing('should point the reference at the footnote it names (#696)', () => {
+  // These two were `it.failing` pins for #696 until the fix landed. Kept as
+  // assertions of the fixed behaviour rather than dropped, and strengthened:
+  // "the href resolves to something" is what the pin could say while the bug
+  // stood, and it would still pass if an anchor resolved to the wrong note.
+  it('should point the reference at the footnote it names', () => {
     renderMessages(FOOTNOTE);
 
-    // `mdast-util-to-hast` already prefixes footnote ids with `user-content-`,
-    // then `hast-util-sanitize` prefixes every `id` again — so the target
-    // becomes `user-content-user-content-fn-1` while the `href` stays
-    // `#user-content-fn-1`, because `href` is not in `clobber`. The link is
-    // announced normally and goes nowhere.
+    // The fault was that `hast-util-sanitize` renames `id` but not `href`, so
+    // the target moved to `user-content-user-content-fn-1` and the link kept
+    // naming `#user-content-fn-1`. Announced normally, went nowhere.
     const reference = screen.getByRole('link', { name: '1' });
+    const note = target(reference, 'href');
 
-    expect(target(reference, 'href')).not.toBeNull();
+    expect(note?.textContent).toContain('the note');
   });
 
-  it.failing('should give two messages distinct footnote ids (#696)', () => {
+  it('should send a backref to the reference that names it', () => {
+    renderMessages(FOOTNOTE);
+
+    const backref = screen.getByRole('link', { name: 'Back to reference 1' });
+    const reference = target(backref, 'href');
+
+    expect(reference?.textContent).toBe('1');
+  });
+
+  it('should give two messages distinct footnote ids', () => {
     const container = renderMessages(FOOTNOTE, 'other[^1]\n\n[^1]: second note\n');
 
     // Footnotes are numbered per document, and each message is its own
-    // document, so every message with a footnote emits the same ids. A chat
-    // transcript is one page, which makes them duplicates — and a duplicate
-    // id is the case a single-document test cannot see at all.
+    // document, so every message with a footnote emitted the same ids. A chat
+    // transcript is one page, which made them duplicates — the case a
+    // single-document test cannot see at all.
     const ids = Array.from(container.querySelectorAll('[id]')).map(element => element.id);
 
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('should keep a second message\'s footnote pointing inside that message', () => {
+    renderMessages(FOOTNOTE, 'other[^1]\n\n[^1]: second note\n');
+
+    // The reason duplicate ids mattered rather than merely being untidy:
+    // `getElementById` returns the first match in document order, so the
+    // second message's reference would have jumped to the first message's
+    // note. This is the assertion the id-uniqueness one exists to protect.
+    const references = screen.getAllByRole('link', { name: '1' });
+    expect(references).toHaveLength(2);
+
+    expect(target(references[0], 'href')?.textContent).toContain('the note');
+    expect(target(references[1], 'href')?.textContent).toContain('second note');
   });
 });
