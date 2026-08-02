@@ -36,6 +36,9 @@ const URL = 'https://example.com';
 /** A message with a footnote, whose rendered block is what several cases read. */
 const FOOTNOTE = 'text[^1]\n\n[^1]: the note\n';
 
+/** Distinguishes every message this file renders; see {@link renderMessages}. */
+let rendered = 0;
+
 /**
  * Renders assistant messages and runs the typing animation to completion.
  *
@@ -44,6 +47,20 @@ const FOOTNOTE = 'text[^1]\n\n[^1]: the note\n';
  * without advancing the clock the assertions would read a prefix of the
  * markdown rather than the message. Fake timers rather than a wait, so the
  * cost does not scale with the fixture.
+ *
+ * Message ids are unique across the file rather than restarting per call.
+ * `TypingEffect` remembers finished animations in a module-level set keyed on
+ * the id and the body, so that reopening the chat does not replay them, and
+ * nothing resets it between tests. Reusing an id meant the second case
+ * rendering a given fixture skipped the animation and read a settled component:
+ *
+ *     render('same', FOOTNOTE)   // without advancing: nothing on screen
+ *     render('same', FOOTNOTE)   // without advancing: the whole message
+ *
+ * Every assertion here is on the end state, so it changed no result — but it
+ * left one case exercising the animation and the rest coasting on it, in an
+ * order the file did not control. With ids distinct, neutering the clock
+ * advance below fails eight of the nine cases rather than some of them.
  *
  * A real store, not a stub — `TypingEffect` reads `settings.general.ariaMode`
  * through `useViewModelState`, which subscribes to the Redux slice, and a stub
@@ -65,7 +82,7 @@ function renderMessages(first: string, ...rest: string[]): HTMLElement {
   const { container } = render(
     <Provider store={createMaidrStore()}>
       {texts.map((text, index) => (
-        <TypingEffect key={index} text={text} isUser={false} messageId={`m${index}`} />
+        <TypingEffect key={index} text={text} isUser={false} messageId={`m${rendered++}`} />
       ))}
     </Provider>,
   );
