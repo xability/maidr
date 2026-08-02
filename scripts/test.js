@@ -43,9 +43,14 @@
 
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { isAbsolute } from 'node:path';
 import process from 'node:process';
+import { hasPathFilter, isNarrowed, takeSelection } from './testArgs.js';
 
 const FLAG = '--experimental-vm-modules';
+
+/** Jest's project-selection flag, added back one project at a time. */
+const SELECT = '--selectProjects';
 
 /**
  * Project display names from `jest.config.ts`, in the order they should run.
@@ -100,7 +105,7 @@ function runJest(args) {
 }
 
 /**
- * Test files matching these arguments, across every project at once.
+ * Test files matching these arguments, across every project asked for at once.
  *
  * Safe as a single multi-project process, unlike an actual run: `--listTests`
  * resolves paths and loads no module, so the memo described above never gets a
@@ -123,44 +128,15 @@ function listTests(args) {
 
     child.on('error', () => resolve(null));
     child.on('close', (code) => {
-      resolve(code === 0 ? output.split('\n').map(line => line.trim()).filter(Boolean) : null);
+      // Absolute paths only. `--selectProjects` makes Jest announce "Running
+      // one project: esm" on stdout alongside the list, and counting that as a
+      // test file made an empty result look like a match — which granted a
+      // scoped run the tolerance it was supposed to be denied.
+      resolve(code === 0
+        ? output.split('\n').map(line => line.trim()).filter(line => isAbsolute(line))
+        : null);
     });
   });
-}
-
-/**
- * Removes `--selectProjects` from the arguments and returns what it named.
- *
- * Taken out rather than passed through, because the runs below add the flag
- * back one project at a time. Jest's flag is variadic, so
- * `--selectProjects unit esm` would otherwise reach a single process and
- * reintroduce the clash this file exists to avoid — silently, since Jest is
- * happy to run it.
- * @param {string[]} args - The arguments as given.
- * @returns {{rest: string[], selected: string[]}} Arguments without the flag,
- * and the project names it named.
- */
-function takeSelection(args) {
-  const rest = [];
-  const selected = [];
-
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-
-    if (arg.startsWith('--selectProjects=')) {
-      selected.push(arg.slice('--selectProjects='.length));
-    } else if (arg === '--selectProjects') {
-      // Variadic: every following value up to the next flag belongs to it.
-      while (index + 1 < args.length && !args[index + 1].startsWith('-')) {
-        index++;
-        selected.push(args[index]);
-      }
-    } else {
-      rest.push(arg);
-    }
-  }
-
-  return { rest, selected };
 }
 
 /**
@@ -187,7 +163,7 @@ async function runProjects(args, projects) {
     console.error(`[test] project: ${project}`);
     const code = await runJest([
       ...args,
-      '--selectProjects',
+      SELECT,
       project,
       ...(ownsCoverage ? [] : ['--coverageDirectory', `coverage/${project}`]),
     ]);
@@ -216,27 +192,28 @@ if (watching) {
       + `[test] for another: npm run test:watch -- --selectProjects <${PROJECTS.join('|')}>`,
     );
   }
-  exitCode = await runJest([...rest, '--selectProjects', project]);
-} else if (rest.length > 0) {
+  exitCode = await runJest([...rest, SELECT, project]);
+} else if (hasPathFilter(rest)) {
   // A filter is normal for one project and not the other — `npm test --
   // test/util/version.test.ts` matches nothing in `esm`, and one process per
   // project turns Jest's aggregate "at least one test found" into a per-project
   // one, so that run failed on the project that was never meant to match.
   //
-  // Tolerance is granted only for a filter that genuinely narrows the set to a
-  // non-empty subset, which is what asking Jest twice establishes. Two other
-  // cases have to keep failing, and a rule of "any argument means be lenient"
-  // would let both through: a filter matching nothing at all is a typo, and a
-  // project matching nothing on an unfiltered run is a broken `testMatch` —
-  // which would otherwise mean its suites silently never ran.
+  // Both lists are scoped to the projects that will actually run, so a filter
+  // combined with `--selectProjects` is judged against that selection rather
+  // than against the whole repository — otherwise a filter naming a `unit` file
+  // would excuse an empty `esm` run that was explicitly asked for.
   //
-  // Both lists come from `--listTests`, so this costs two cheap resolutions and
-  // only on a run that passed arguments. A name filter (`-t`) does not narrow
-  // the file set and does not need to: Jest reports its tests as skipped rather
-  // than as none found.
-  const [matched, everything] = await Promise.all([listTests(rest), listTests([])]);
-  const lenient = matched !== null && everything !== null
-    && matched.length > 0 && matched.length < everything.length;
+  // Asking with `--listTests` costs two cheap resolutions, and only on a run
+  // that could narrow anything. A name filter (`-t`) does not need it: it
+  // narrows tests rather than files, and Jest reports the rest as skipped
+  // rather than as none found.
+  const scope = selected.length > 0 ? [SELECT, ...selected] : [];
+  const [matched, everything] = await Promise.all([
+    listTests([...rest, ...scope]),
+    listTests(scope),
+  ]);
+  const lenient = isNarrowed(matched, everything);
   exitCode = await runProjects(lenient ? [...rest, '--passWithNoTests'] : rest, projects);
 } else {
   exitCode = await runProjects(rest, projects);
