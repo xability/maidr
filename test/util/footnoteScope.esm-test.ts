@@ -173,3 +173,47 @@ describe('the reference shapes hast can hold', () => {
     ]);
   });
 });
+
+describe('an anchor\'s name, which is a fragment target too', () => {
+  /**
+   * Runs the plugin over a hand-built tree with one target and one link.
+   *
+   * `name` is in the sanitiser's `clobber` list alongside `id`, and the chat
+   * allowlist admits it nowhere — so, like `ariaLabelledBy`, this is the only
+   * way to reach it, and it is handled for the same reason: if it is ever
+   * allowed in, an `href` aimed at one must not be left dangling.
+   * @param tagName - The element carrying the `name`.
+   * @returns The target and the link, after scoping.
+   */
+  function scope(tagName: string): { target: Element; link: Element } {
+    const tree: Root = {
+      type: 'root',
+      children: [
+        { type: 'element', tagName, properties: { name: 'here' }, children: [] },
+        { type: 'element', tagName: 'a', properties: { href: '#here', id: 'link' }, children: [] },
+      ],
+    };
+
+    rehypeScopeIds({ messageId: 'msg-1' })(tree);
+    const found = elements(tree);
+
+    return { target: found[0], link: found[1] };
+  }
+
+  it('should scope it, and point a link at where it went', () => {
+    const { target, link } = scope('a');
+
+    expect(target.properties?.name).toBe('user-content-msg-1-here');
+    expect(link.properties?.href).toBe('#user-content-msg-1-here');
+  });
+
+  it('should leave a form control\'s name alone', () => {
+    const { target, link } = scope('input');
+
+    // On anything but an anchor, `name` is what a form submits under, not
+    // somewhere a link can go. Renaming it would change the submitted data to
+    // fix a link that does not exist — so the link is the one left alone.
+    expect(target.properties?.name).toBe('here');
+    expect(link.properties?.href).toBe('#here');
+  });
+});

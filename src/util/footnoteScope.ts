@@ -57,21 +57,62 @@ const CLOBBERED = defaultSchema.clobberPrefix ?? '';
 const ID_REFERENCES = ['ariaDescribedBy', 'ariaLabelledBy'] as const;
 
 /**
+ * Whether this element's `name` is a fragment target rather than a field name.
+ *
+ * `name` is in the sanitiser's `clobber` list for the same reason `id` is —
+ * a browser resolves `#foo` against an anchor's `name` as well as an `id` — so
+ * it has to be scoped alongside `id` or an `href` aimed at one would dangle
+ * exactly as this fixes for `id`.
+ *
+ * Only on an anchor, though. Everywhere else `name` is a form control's field
+ * name, and renaming that would change what a form submits rather than where a
+ * link goes. The chat schema admits neither today — `input` is pinned to
+ * `type`, `checked` and `disabled` precisely to keep `name` out — so this is
+ * about the plugin staying correct if one is ever allowed in, not about markup
+ * that reaches it now.
+ * @param element - The element to test.
+ * @returns True if `name` on this element names a fragment.
+ */
+function namesFragment(element: Element): boolean {
+  return element.tagName === 'a';
+}
+
+/**
  * Turns a message id into something safe to put in an `id`, injectively.
  *
- * A message id is `msg-1234` or `resp-1234-<model>`, and a model name can
- * carry a dot or a slash. Every character outside `[A-Za-z0-9-]` becomes
- * `_<hex>_`, which cannot be confused with a literal because `_` is itself
- * outside the set and so is escaped too. Two different message ids therefore
- * cannot encode to the same token, which is what the uniqueness rests on.
+ * A message id is `msg-1234` or `resp-1234-<model>`, and a model name really
+ * does carry a dot — `gpt-5.5`, `gemini-3.5-flash`. Every character outside
+ * `[A-Za-z0-9-]` becomes `_<hex>_`, underscore included, so no two message ids
+ * can encode to the same token. Stripping instead would map `a.b` and `a-b`
+ * together and quietly reintroduce the collision this exists to prevent.
  * @param messageId - The message's id.
  * @returns An id-safe token.
  */
 function token(messageId: string): string {
   return messageId.replace(
-    /[^\w-]|_/g,
+    /[^a-z0-9-]/gi,
     character => `_${character.charCodeAt(0).toString(16)}_`,
   );
+}
+
+/**
+ * The properties on this element that define a fragment target.
+ * @param element - The element to inspect.
+ * @returns `['id']`, or `['id', 'name']` on an anchor.
+ */
+function targetAttributes(element: Element): readonly string[] {
+  return namesFragment(element) ? ['id', 'name'] : ['id'];
+}
+
+/**
+ * The fragment targets this element defines.
+ * @param element - The element to inspect.
+ * @returns Every non-empty target name on it.
+ */
+function targets(element: Element): string[] {
+  return targetAttributes(element)
+    .map(attribute => element.properties?.[attribute])
+    .filter((value): value is string => typeof value === 'string' && value !== '');
 }
 
 /** Every element in the tree, in document order. */
@@ -130,10 +171,11 @@ export function rehypeScopeIds(options: { messageId: string }): (tree: Root) => 
     const all = elements(tree);
     const present = new Set<string>();
 
+    // Collected in a pass of its own, before anything is written, so the
+    // rewriting below cannot see a half-renamed tree and is order-independent.
     for (const element of all) {
-      const id = element.properties?.id;
-      if (typeof id === 'string' && id !== '') {
-        present.add(id);
+      for (const target of targets(element)) {
+        present.add(target);
       }
     }
 
@@ -154,8 +196,11 @@ export function rehypeScopeIds(options: { messageId: string }): (tree: Root) => 
         continue;
       }
 
-      if (typeof properties.id === 'string' && properties.id !== '') {
-        properties.id = scope + properties.id;
+      for (const attribute of targetAttributes(element)) {
+        const value = properties[attribute];
+        if (typeof value === 'string' && value !== '') {
+          properties[attribute] = scope + value;
+        }
       }
 
       for (const attribute of ID_REFERENCES) {
