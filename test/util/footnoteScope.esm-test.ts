@@ -121,3 +121,55 @@ describe('scoping a message\'s ids', () => {
     expect(hrefs(tree)).toEqual(['https://example.com']);
   });
 });
+
+describe('the reference shapes hast can hold', () => {
+  /**
+   * Runs the plugin over a hand-built tree.
+   *
+   * Not through the pipeline, on purpose. `ariaLabelledBy` is not in the chat
+   * allowlist, so the sanitiser strips it before the plugin could ever see it,
+   * and a rendered message therefore cannot exercise that branch — nor the
+   * string form below, since `mdast-util-to-hast` only ever emits the array.
+   * Both are handled because the plugin scopes ids in general rather than
+   * footnote ids in particular, and admitting either to the schema later must
+   * not quietly produce a reference pointing at an id that no longer exists.
+   * @param properties - Properties for the referring element.
+   * @returns The referring element after scoping.
+   */
+  function scope(properties: Element['properties']): Element {
+    const tree: Root = {
+      type: 'root',
+      children: [
+        { type: 'element', tagName: 'h2', properties: { id: 'label' }, children: [] },
+        { type: 'element', tagName: 'p', properties, children: [] },
+      ],
+    };
+
+    rehypeScopeIds({ messageId: 'msg-1' })(tree);
+
+    return elements(tree).filter(element => element.tagName === 'p')[0];
+  }
+
+  it('should move a list-valued reference with the id it names', () => {
+    const referring = scope({ ariaLabelledBy: ['label'] });
+
+    expect(referring.properties?.ariaLabelledBy).toEqual(['user-content-msg-1-label']);
+  });
+
+  it('should move a string-valued reference with the id it names', () => {
+    const referring = scope({ ariaDescribedBy: 'label' });
+
+    expect(referring.properties?.ariaDescribedBy).toBe('user-content-msg-1-label');
+  });
+
+  it('should leave a reference to an id this message does not define', () => {
+    const referring = scope({ ariaLabelledBy: ['label', 'elsewhere'] });
+
+    // Half known, half not — the unknown name belongs to the host page, and
+    // scoping it would point it at nothing.
+    expect(referring.properties?.ariaLabelledBy).toEqual([
+      'user-content-msg-1-label',
+      'elsewhere',
+    ]);
+  });
+});
