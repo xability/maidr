@@ -20,7 +20,16 @@ import jestConfig from '../../jest.config';
 
 const ROOT = resolve(__dirname, '../..');
 
-/** The `PROJECTS` list declared in the runner. */
+/**
+ * The `PROJECTS` list declared in the runner.
+ *
+ * The pattern reads across lines — `[^\]]` is a negated class rather than a
+ * dot — so reformatting the array one name per line stays checked. What it
+ * assumes is a literal: a computed list would stop matching, and the throw
+ * below is what makes that say so rather than surfacing as a comparison
+ * against an empty array.
+ * @returns The project names the runner will run.
+ */
 function runnerProjects(): string[] {
   const source = readFileSync(join(ROOT, 'scripts/test.js'), 'utf8');
   const declaration = /const PROJECTS = \[([^\]]*)\]/.exec(source);

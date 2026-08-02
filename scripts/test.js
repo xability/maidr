@@ -205,9 +205,12 @@ if (watching) {
   // would excuse an empty `esm` run that was explicitly asked for.
   //
   // Asking with `--listTests` costs two cheap resolutions, and only on a run
-  // that could narrow anything. A name filter (`-t`) does not need it: it
-  // narrows tests rather than files, and Jest reports the rest as skipped
-  // rather than as none found.
+  // that could narrow anything. A name filter (`-t some name`) reaches here
+  // too, because its value is indistinguishable from a path — and then finds
+  // nothing narrowed, since `--listTests` lists files and `-t` selects tests
+  // within them. Strict is the right answer for it: Jest reports a name that
+  // matches nothing as skipped tests rather than as none found, so there is
+  // nothing to excuse.
   const scope = selected.length > 0 ? [SELECT, ...selected] : [];
   const [matched, everything] = await Promise.all([
     listTests([...rest, ...scope]),

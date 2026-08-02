@@ -76,6 +76,15 @@ describe('deciding whether a run could narrow the test files', () => {
     // happen, because a path never begins with a dash.
     expect(hasPathFilter(['--maxWorkers', '2'])).toBe(true);
   });
+
+  it('should say yes for a name filter, whose value also looks like a path', () => {
+    // Worth pinning rather than leaving to the comment: a name filter does
+    // reach the check, and is answered there rather than being routed past it.
+    // `--listTests` lists files and `-t` selects tests within them, so nothing
+    // is narrowed and the run stays strict — which is right, since Jest reports
+    // a name matching nothing as skipped tests, not as none found.
+    expect(hasPathFilter(['-t', 'some name'])).toBe(true);
+  });
 });
 
 describe('deciding whether a project may match no tests', () => {
