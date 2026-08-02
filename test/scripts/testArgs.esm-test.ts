@@ -99,6 +99,19 @@ describe('taking the project selection out of the arguments', () => {
     });
   });
 
+  it('should report a dangling flag that another occurrence still names past', () => {
+    // Both true at once, and the runner has to read `selected` rather than
+    // `dangling` alone. Jest does not error on this — it runs both projects in
+    // one process, which is the clash the runner exists to prevent, and handing
+    // the arguments over untouched put it straight back:
+    // `Must use import to load ES Module: src/type/grammar.ts`.
+    expect(takeSelection(['--selectProjects', '--selectProjects', 'unit', 'esm'])).toEqual({
+      rest: [],
+      selected: ['unit', 'esm'],
+      dangling: true,
+    });
+  });
+
   it('should treat an empty equals form the same way', () => {
     // Jest gives `--selectProjects=` the same error as the bare flag, so it
     // takes the same route out. Passing the empty name through instead reached

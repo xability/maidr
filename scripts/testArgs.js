@@ -52,12 +52,16 @@ export const WATCH_DEFAULT = 'unit';
  *
  * `dangling` reports the flag naming no project — either `--selectProjects`
  * with nothing after it or `--selectProjects=` with nothing in it. Jest rejects
- * both with the same error, so the runner has to hand the arguments over
- * untouched rather than treat "named nothing" as "named everything". Putting
- * the bare flag back would not do, since Jest absorbs it silently once the
- * per-project flag is added alongside; and passing an empty name through would
- * reach Jest as a project that does not exist, which it reports as
- * `0 files checked across 0 projects` rather than as the mistake it is.
+ * both with the same error, so the runner hands the arguments over untouched
+ * rather than treating "named nothing" as "named everything". Putting the bare
+ * flag back would not do, since Jest absorbs it silently once the per-project
+ * flag is added alongside; and passing an empty name through would reach Jest
+ * as a project that does not exist, which it reports as `0 files checked across
+ * 0 projects` rather than as the mistake it is.
+ *
+ * It reports the flag, not the outcome: `--selectProjects --selectProjects unit`
+ * is dangling *and* names a project. The caller has to check `selected` before
+ * acting on it — Jest errors only when nothing at all was named.
  * @param {string[]} args - The arguments as given.
  * @returns {{rest: string[], selected: string[], dangling: boolean}} Arguments
  * without the flag, the project names it named, and whether it named none.

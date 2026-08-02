@@ -141,6 +141,16 @@ function listTests(args) {
  * the accessibility tests this runner was built for live in the project that
  * would be skipped.
  *
+ * Sequential rather than concurrent, which is a choice and not an oversight.
+ * The memo that forced the split is per process, so concurrent children would
+ * be equally correct — but the projects are nothing like equal (105 suites
+ * against 3: 21.5s and 4.5s here, 25.5s together), so the ceiling is about four
+ * seconds, and Jest already spreads its own workers across every core, so two
+ * runs at once would mostly contend for the cores the first is using. Against
+ * that, `stdio: 'inherit'` means concurrent runs interleave their output into
+ * one terminal, which is a poor trade for a CI log someone reads to find a
+ * failure.
+ *
  * Coverage is written per project, because two runs would otherwise write the
  * same directory and the second would silently replace the first. A caller who
  * names their own directory keeps it — and gets that overwrite back, since
@@ -176,11 +186,17 @@ const projects = selected.length > 0 ? selected : PROJECTS;
 const watching = rest.some(arg => arg === '--watch' || arg === '--watchAll');
 
 let exitCode;
-if (dangling) {
+if (dangling && selected.length === 0) {
   // `--selectProjects` with nothing after it. Jest rejects it and says so, and
   // the arguments go over untouched so that error is what the caller sees —
   // the alternative is reading "named no project" as "named every project" and
   // running the lot, which is the opposite of what was asked for.
+  //
+  // Only when *nothing* was named, though. `--selectProjects --selectProjects
+  // unit esm` leaves the flag dangling and still names two projects, and Jest
+  // does not error on that — it runs both, in one process, which is the clash
+  // this whole file exists to prevent. Handing those over untouched put it
+  // straight back: `Must use import to load ES Module: src/type/grammar.ts`.
   exitCode = await runJest(process.argv.slice(2));
 } else if (watching) {
   // A watcher does not exit, so the projects cannot be run in sequence. Rather
