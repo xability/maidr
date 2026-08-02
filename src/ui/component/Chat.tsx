@@ -210,6 +210,7 @@ const Chat: React.FC = () => {
     <Dialog
       id={id}
       role="dialog"
+      aria-labelledby={`${id}-title`}
       open={true}
       onClose={handleClose}
       maxWidth="md"
@@ -224,10 +225,25 @@ const Chat: React.FC = () => {
         },
       }}
     >
-      <DialogTitle component="h2" sx={{ p: 2 }}>
+      {/* A layout row, not a heading: it holds the close button as well as the
+          title, so naming the dialog after it appended "Close chat dialog" to
+          the name, and its `component="h2"` wrapped the heading below in a
+          second one. The explicit id keeps it from claiming the title's id —
+          MUI hands `DialogContext.titleId` (the `aria-labelledby` above) to
+          any `DialogTitle` that has none of its own. */}
+      <DialogTitle component="div" id={`${id}-titlebar`} sx={{ p: 2 }}>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid size="auto">
+            {/* The `aria-label` below predates #665 and is left alone on
+                purpose. It makes the accessible name longer than the visible
+                text, and since the dialog is now named after this heading,
+                editing it would change the dialog's name too — a behaviour
+                change beyond giving each dialog one title heading. It is not a
+                2.5.3 failure either: the visible text is a prefix of the name.
+                Whether the suffix should be heard when navigating by heading,
+                rather than only when the dialog opens, is its own question. */}
             <Typography
+              id={`${id}-title`}
               variant="h6"
               fontWeight="bold"
               component="h2"
