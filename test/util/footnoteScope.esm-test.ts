@@ -19,16 +19,36 @@ import { unified } from 'unified';
  * message is left alone.
  */
 
-/** The chain `TypingEffect` renders with, stopped at the tree. */
-async function render(markdown: string, messageId: string): Promise<Root> {
+/**
+ * The chain `TypingEffect` renders with, stopped at the tree.
+ * @param markdown - The message body.
+ * @param messageId - The message's id, which becomes the scope.
+ * @param clobberPrefix - What `remark-rehype` namespaces footnote ids with.
+ * Its own default unless a case is about not depending on it.
+ * @returns The rendered tree.
+ */
+async function render(
+  markdown: string,
+  messageId: string,
+  clobberPrefix?: string,
+): Promise<Root> {
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkRehype)
+    .use(remarkRehype, clobberPrefix === undefined ? {} : { clobberPrefix })
     .use(rehypeSanitize, createChatSanitizeSchema())
     .use(rehypeScopeIds, { messageId });
 
   return processor.run(processor.parse(markdown)) as Promise<Root>;
+}
+
+/** Fragment links in the tree that name an id it does not contain. */
+function dangling(tree: Root): string[] {
+  const present = ids(tree);
+
+  return hrefs(tree)
+    .filter(href => href.startsWith('#'))
+    .filter(href => !present.includes(href.slice(1)));
 }
 
 /** Every element in the tree. */
@@ -62,11 +82,21 @@ describe('scoping a message\'s ids', () => {
   it('should leave every fragment link naming an id that exists', async () => {
     const tree = await render(FOOTNOTE, 'msg-1');
 
-    const dangling = hrefs(tree)
-      .filter(href => href.startsWith('#'))
-      .filter(href => !ids(tree).includes(href.slice(1)));
+    expect(dangling(tree)).toEqual([]);
+  });
 
-    expect(dangling).toEqual([]);
+  it('should repair the link whatever remark-rehype namespaced it with', async () => {
+    // The repair looks for `<sanitiser's prefix><what the href names>`, and
+    // the sanitiser prefixes whatever remark-rehype produced — so the two
+    // defaults both being `user-content-` is a coincidence the repair does not
+    // rest on. Pinned because it reads like it might: a version bump moving one
+    // default and not the other would otherwise be a silent return of the
+    // dangling anchor, for footnotes only.
+    for (const prefix of ['user-content-', 'totally-different-', '']) {
+      const tree = await render(FOOTNOTE, 'msg-1', prefix);
+
+      expect(dangling(tree)).toEqual([]);
+    }
   });
 
   it('should keep the prefix that stops chat ids shadowing the page', async () => {
