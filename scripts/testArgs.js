@@ -12,7 +12,31 @@
  * imported there and a `.js` one cannot be typed without the `.d.ts`.
  */
 
-const SELECT = '--selectProjects';
+/** Jest's project-selection flag, added back one project at a time. */
+export const SELECT = '--selectProjects';
+
+/**
+ * Project display names from `jest.config.ts`, in the order they should run.
+ *
+ * Declared here rather than in the runner so a test can import them: the
+ * runner spawns Jest on load, and the alternative was reading them back out of
+ * its source with a regex, which then needed its own cases for reformatted
+ * arrays and computed lists. `test/scripts/testRunnerProjects.esm-test.ts`
+ * compares these against the config's `displayName`s.
+ *
+ * They cannot be read from the config directly. Jest loads `jest.config.ts` as
+ * CommonJS, and this module is ESM, so the config cannot import it — which is,
+ * once more, the split the runner exists to manage.
+ */
+export const PROJECTS = ['unit', 'esm'];
+
+/**
+ * The project `--watch` falls back to.
+ *
+ * A watcher does not exit, so the projects cannot be run in sequence; this is
+ * the one holding all but a couple of suites.
+ */
+export const WATCH_DEFAULT = 'unit';
 
 /**
  * Removes `--selectProjects` from an argument list and returns what it named.

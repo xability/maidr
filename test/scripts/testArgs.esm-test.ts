@@ -47,6 +47,27 @@ describe('taking the project selection out of the arguments', () => {
     });
   });
 
+  it('should swallow a path written after it, as jest does', () => {
+    // Deliberate, and matching Jest rather than improving on it. Given
+    // `--selectProjects unit test/util/version.test.ts`, Jest's own variadic
+    // parse takes the path as a second project name and the filter has no
+    // effect — `jest --listTests` with those arguments lists the whole `unit`
+    // project. Stopping at the first positional here would make the runner do
+    // something Jest does not, which is a worse surprise than the ambiguity.
+    // The `=` form is the way out for anyone who meant a filter.
+    expect(takeSelection(['--selectProjects', 'unit', 'test/util/version.test.ts'])).toEqual({
+      rest: [],
+      selected: ['unit', 'test/util/version.test.ts'],
+      dangling: false,
+    });
+
+    expect(takeSelection(['--selectProjects=unit', 'test/util/version.test.ts'])).toEqual({
+      rest: ['test/util/version.test.ts'],
+      selected: ['unit'],
+      dangling: false,
+    });
+  });
+
   it('should collect the equals form, including when it is repeated', () => {
     expect(takeSelection(['--selectProjects=unit', '--selectProjects=esm'])).toEqual({
       rest: [],

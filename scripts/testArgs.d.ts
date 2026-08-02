@@ -6,6 +6,15 @@
  * to import it too. Keep both files in sync.
  */
 
+/** Jest's project-selection flag. */
+export declare const SELECT: string;
+
+/** Project display names from `jest.config.ts`, in the order they should run. */
+export declare const PROJECTS: string[];
+
+/** The project `--watch` falls back to. */
+export declare const WATCH_DEFAULT: string;
+
 /** Split `--selectProjects` out of an argument list. */
 export declare function takeSelection(args: string[]): {
   rest: string[];

@@ -1,8 +1,13 @@
 import type { Config } from '@jest/types';
 import { pathsToModuleNameMapper } from 'ts-jest';
-import { compilerOptions } from './tsconfig.json';
+// Default import rather than `{ compilerOptions }`, for the reason given in
+// `src/util/version.ts`: named exports from a JSON module are a bundler
+// convenience and a real ES module for JSON exposes only `default`. This file
+// is loaded as ESM the moment a test in the `esm` project imports it, which
+// `test/scripts/testRunnerProjects.esm-test.ts` does.
+import tsconfig from './tsconfig.json';
 
-const moduleNameMapper = pathsToModuleNameMapper(compilerOptions.paths, {
+const moduleNameMapper = pathsToModuleNameMapper(tsconfig.compilerOptions.paths, {
   prefix: '<rootDir>/src/',
 });
 

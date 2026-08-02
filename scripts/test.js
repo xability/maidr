@@ -45,23 +45,16 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { isAbsolute } from 'node:path';
 import process from 'node:process';
-import { hasPathFilter, isNarrowed, takeSelection } from './testArgs.js';
+import {
+  hasPathFilter,
+  isNarrowed,
+  PROJECTS,
+  SELECT,
+  takeSelection,
+  WATCH_DEFAULT,
+} from './testArgs.js';
 
 const FLAG = '--experimental-vm-modules';
-
-/** Jest's project-selection flag, added back one project at a time. */
-const SELECT = '--selectProjects';
-
-/**
- * Project display names from `jest.config.ts`, in the order they should run.
- *
- * Duplicated here because this file is plain JavaScript and the config is
- * TypeScript. `test/scripts/testRunnerProjects.test.ts` fails if the two drift.
- */
-const PROJECTS = ['unit', 'esm'];
-
-/** The project `--watch` falls back to; see below. */
-const WATCH_DEFAULT = 'unit';
 
 // Appended rather than replaced: a contributor may already be setting
 // something here, and CI runners sometimes set memory limits this way.
@@ -150,7 +143,10 @@ function listTests(args) {
  *
  * Coverage is written per project, because two runs would otherwise write the
  * same directory and the second would silently replace the first. A caller who
- * names their own directory keeps it, and gets one report.
+ * names their own directory keeps it — and gets that overwrite back, since
+ * separate processes have nothing to merge with. It is an escape hatch for
+ * pointing the output somewhere else, not a way to get one combined report;
+ * there is no longer any such thing.
  * @param {string[]} args - Arguments to pass through to each run.
  * @param {string[]} projects - Project display names to run, in order.
  * @returns {Promise<number>} The first non-zero exit code, or 0.
