@@ -48,10 +48,19 @@ const FOOTNOTE = 'text[^1]\n\n[^1]: the note\n';
  * A real store, not a stub — `TypingEffect` reads `settings.general.ariaMode`
  * through `useViewModelState`, which subscribes to the Redux slice, and a stub
  * view model would never re-render it.
- * @param texts - Message bodies, rendered as sibling bubbles in one document.
+ * The first message is a separate parameter so that calling this with none is
+ * a type error rather than a runtime one. `Math.max()` of nothing is
+ * `-Infinity`, which reaches `advanceTimersByTime` as `TypeError: Negative
+ * ticks are not supported` — loud, but about the wrong thing. Defaulting the
+ * value instead would be worse than either: a call with no messages would
+ * render an empty document and quietly satisfy every "should not" assertion
+ * in the file.
+ * @param first - The message body to render.
+ * @param rest - Further bodies, rendered as sibling bubbles in one document.
  * @returns The container holding them.
  */
-function renderMessages(...texts: string[]): HTMLElement {
+function renderMessages(first: string, ...rest: string[]): HTMLElement {
+  const texts = [first, ...rest];
   const longest = Math.max(...texts.map(text => text.length));
   const { container } = render(
     <Provider store={createMaidrStore()}>

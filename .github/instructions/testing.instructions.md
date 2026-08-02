@@ -40,7 +40,15 @@ npm run e2e:ui        # playwright, interactive
 
 A watcher does not exit, so watch mode cannot run the projects in sequence and
 watches `unit` alone rather than reintroducing the clash. It says so when it
-starts.
+starts. Every other run does the whole set, and does not stop at the first
+project to fail — `npm test` is CI's only test step, so stopping early would
+hide the rest until someone pushed a fix.
+
+Coverage is per project, in `coverage/unit` and `coverage/esm`. Read them
+separately: `collectCoverageFrom` is repo-wide, so each report scores the whole
+of `src/` against the files that one project happens to load, and `coverage/esm`
+shows most of the tree at 0%. There is no combined number, and nothing is gated
+on one.
 
 ## Unit tests
 

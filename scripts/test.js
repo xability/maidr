@@ -34,7 +34,10 @@
  * process-wide, and nothing in a Jest config can scope it.
  *
  * Arguments are forwarded, so `npm test -- --watch` and
- * `npm test -- test/util` behave as they would with Jest directly.
+ * `npm test -- test/util` behave as they would with Jest directly. The one
+ * exception is `--selectProjects`, which is intercepted so that naming several
+ * projects still runs them one process each rather than putting them back in
+ * one.
  */
 
 import { spawn } from 'node:child_process';
@@ -96,49 +99,96 @@ function runJest(args) {
 }
 
 /**
- * Runs every project, each in its own process, and stops at the first failure.
+ * Removes `--selectProjects` from the arguments and returns what it named.
+ *
+ * Taken out rather than passed through, because the runs below add the flag
+ * back one project at a time. Jest's flag is variadic, so
+ * `--selectProjects unit esm` would otherwise reach a single process and
+ * reintroduce the clash this file exists to avoid — silently, since Jest is
+ * happy to run it.
+ * @param {string[]} args - The arguments as given.
+ * @returns {{rest: string[], selected: string[]}} Arguments without the flag,
+ * and the project names it named.
+ */
+function takeSelection(args) {
+  const rest = [];
+  const selected = [];
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+
+    if (arg.startsWith('--selectProjects=')) {
+      selected.push(arg.slice('--selectProjects='.length));
+    } else if (arg === '--selectProjects') {
+      // Variadic: every following value up to the next flag belongs to it.
+      while (index + 1 < args.length && !args[index + 1].startsWith('-')) {
+        index++;
+        selected.push(args[index]);
+      }
+    } else {
+      rest.push(arg);
+    }
+  }
+
+  return { rest, selected };
+}
+
+/**
+ * Runs each project in its own process and reports whether all of them passed.
+ *
+ * Every project runs even after one fails. Stopping early would be cheaper, but
+ * `npm test` is CI's only test step, so a failure in the first project would
+ * hide every failure in the rest until someone fixed it and pushed again — and
+ * the accessibility tests this runner was built for live in the project that
+ * would be skipped.
  *
  * Coverage is written per project, because two runs would otherwise write the
- * same directory and the second would silently replace the first.
+ * same directory and the second would silently replace the first. A caller who
+ * names their own directory keeps it, and gets one report.
  * @param {string[]} args - Arguments to pass through to each run.
+ * @param {string[]} projects - Project display names to run, in order.
  * @returns {Promise<number>} The first non-zero exit code, or 0.
  */
-async function runAll(args) {
-  for (const project of PROJECTS) {
+async function runProjects(args, projects) {
+  const ownsCoverage = args.some(arg => arg.startsWith('--coverageDirectory'));
+  let failure = 0;
+
+  for (const project of projects) {
     console.error(`[test] project: ${project}`);
     const code = await runJest([
       ...args,
       '--selectProjects',
       project,
-      '--coverageDirectory',
-      `coverage/${project}`,
+      ...(ownsCoverage ? [] : ['--coverageDirectory', `coverage/${project}`]),
     ]);
-    if (code !== 0) {
-      return code;
+    if (code !== 0 && failure === 0) {
+      failure = code;
     }
   }
-  return 0;
+
+  return failure;
 }
 
-const args = process.argv.slice(2);
-const chosen = args.some(arg => arg.startsWith('--selectProjects'));
-const watching = args.some(arg => arg === '--watch' || arg === '--watchAll');
+const { rest, selected } = takeSelection(process.argv.slice(2));
+const projects = selected.length > 0 ? selected : PROJECTS;
+const watching = rest.some(arg => arg === '--watch' || arg === '--watchAll');
 
 let exitCode;
-if (chosen) {
-  // The caller picked, so there is one process to run and nothing to decide.
-  exitCode = await runJest(args);
-} else if (watching) {
+if (watching) {
   // A watcher does not exit, so the projects cannot be run in sequence. Rather
-  // than run them together and reintroduce the clash above, watch the one that
-  // holds all but a couple of suites, and say so instead of quietly narrowing.
-  console.error(
-    `[test] watching the '${WATCH_DEFAULT}' project only — the projects cannot share a process.\n`
-    + `[test] for another: npm run test:watch -- --selectProjects <${PROJECTS.join('|')}>`,
-  );
-  exitCode = await runJest([...args, '--selectProjects', WATCH_DEFAULT]);
+  // than run them together and reintroduce the clash above, watch one — the
+  // caller's if they named exactly one, otherwise the project holding all but
+  // a couple of suites — and say so instead of quietly narrowing.
+  const project = selected.length === 1 ? selected[0] : WATCH_DEFAULT;
+  if (selected.length !== 1) {
+    console.error(
+      `[test] watching the '${project}' project only — the projects cannot share a process.\n`
+      + `[test] for another: npm run test:watch -- --selectProjects <${PROJECTS.join('|')}>`,
+    );
+  }
+  exitCode = await runJest([...rest, '--selectProjects', project]);
 } else {
-  exitCode = await runAll(args);
+  exitCode = await runProjects(rest, projects);
 }
 
 process.exit(exitCode);
