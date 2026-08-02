@@ -122,18 +122,19 @@ export const MATHML_ATTRIBUTES: readonly string[] = [
  *
  * The list used to also carry `role`, `ariaLabel`, `ariaBusy`, `ariaLive` and
  * `ariaAtomic`, on the reasoning that nothing in the pipeline emitted any of
- * them — the `role` and `aria-label` `TypingEffect` puts on `<pre>` and `<a>`
- * are React props, applied after sanitisation — and that while they were
- * misspelled they were inert. Correcting the spelling would have made them
- * live for the first time, so they were dropped instead.
+ * them — the `role` and `aria-label` `TypingEffect` puts on `<pre>` are React
+ * props, applied after sanitisation — and that while they were misspelled
+ * they were inert. Correcting the spelling would have made them live for the
+ * first time, so they were dropped instead.
  *
  * That reasoning held only while footnotes were being dropped too. remark-gfm
  * emits `ariaLabel` and `ariaDescribedBy` on the reference and backref links,
  * so both are admitted now — on `a` alone rather than here. Which is the point
  * this comment is really making: the narrow grant is what keeps an attribute
  * from being available on every element that never needed it, and a response
- * body still cannot reach one, since the pipeline runs without `rehype-raw`
- * and raw HTML is escaped to text.
+ * body still cannot reach one, since the pipeline runs without `rehype-raw`,
+ * so raw HTML in a response never becomes markup at all — a block of it is
+ * dropped outright, and an inline tag is removed while its text is kept.
  */
 const GLOBAL_ATTRIBUTES: readonly string[] = [
   'className',
@@ -170,9 +171,9 @@ export function createChatSanitizeSchema(): SanitizeSchema {
   return {
     attributes: {
       '*': [...GLOBAL_ATTRIBUTES],
-      // No `target`. Markdown has no syntax for it, raw HTML is escaped to
-      // text, and nothing in the plugin chain adds one, so it was allowing an
-      // attribute that could not arrive — and a `target="_blank"` without
+      // No `target`. Markdown has no syntax for it, raw HTML never becomes
+      // markup, and nothing in the plugin chain adds one, so it was allowing
+      // an attribute that could not arrive — and a `target="_blank"` without
       // `rel="noopener"` is reverse tabnabbing waiting for the day one could.
       // Same reasoning as the ARIA entries dropped from GLOBAL_ATTRIBUTES.
       // `id` and the two ARIA entries are the footnote wiring remark-gfm
@@ -224,9 +225,9 @@ export function createChatSanitizeSchema(): SanitizeSchema {
       // `height:1em;vertical-align:-0.25em`, `top:-4em`, `width:0.471em`. The
       // values are generated, never passed through: `\htmlStyle` and
       // `\htmlClass` are disabled by the untrusted defaults KaTeX renders with,
-      // and a raw `<span style>` in a response is escaped to text. So a
-      // response cannot reach a `url()` and turn a rendered equation into a
-      // tracking beacon.
+      // and a raw `<span style>` in a response never becomes an element — the
+      // pipeline runs without `rehype-raw`. So a response cannot reach a
+      // `url()` and turn a rendered equation into a tracking beacon.
       'span': ['style'],
       // KaTeX's visual layer. It sits inside an `aria-hidden` wrapper, so what
       // is lost here is rendering rather than announcement — but it is lost the
