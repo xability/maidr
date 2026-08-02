@@ -20,18 +20,29 @@ import jestConfig from '../../jest.config';
 
 const ROOT = resolve(__dirname, '../..');
 
+/** The runner's source. */
+function runnerSource(): string {
+  return readFileSync(join(ROOT, 'scripts/test.js'), 'utf8');
+}
+
 /**
- * The `PROJECTS` list declared in the runner.
+ * The `PROJECTS` list declared in a copy of the runner's source.
  *
  * The pattern reads across lines — `[^\]]` is a negated class rather than a
  * dot — so reformatting the array one name per line stays checked. What it
- * assumes is a literal: a computed list would stop matching, and the throw
- * below is what makes that say so rather than surfacing as a comparison
- * against an empty array.
+ * assumes is a bracketed literal: a list built by a call has no brackets, and
+ * the throw is what makes that say so rather than surfacing as a comparison
+ * against an empty array. A spread keeps its brackets and so is read rather
+ * than refused, returning only the names it spells out — which the comparison
+ * catches, being short by whatever the spread contributed.
+ *
+ * Taking the source as an argument is what lets those branches be tested,
+ * since they are the one place a regression here could be silent.
+ * @param source - The runner's source text.
  * @returns The project names the runner will run.
+ * @throws If the declaration is no longer a literal array this can read.
  */
-function runnerProjects(): string[] {
-  const source = readFileSync(join(ROOT, 'scripts/test.js'), 'utf8');
+export function parseProjects(source: string): string[] {
   const declaration = /const PROJECTS = \[([^\]]*)\]/.exec(source);
   if (!declaration) {
     throw new Error('scripts/test.js no longer declares a PROJECTS array');
@@ -40,9 +51,13 @@ function runnerProjects(): string[] {
   return Array.from(declaration[1].matchAll(/'([^']+)'/g), match => match[1]);
 }
 
-/** The project the runner watches when the caller does not choose one. */
-function watchDefault(): string {
-  const source = readFileSync(join(ROOT, 'scripts/test.js'), 'utf8');
+/**
+ * The project the runner watches when the caller does not choose one.
+ * @param source - The runner's source text.
+ * @returns The project name.
+ * @throws If the declaration is no longer a string literal this can read.
+ */
+export function parseWatchDefault(source: string): string {
   const declaration = /const WATCH_DEFAULT = '([^']+)'/.exec(source);
   if (!declaration) {
     throw new Error('scripts/test.js no longer declares WATCH_DEFAULT');
@@ -66,10 +81,43 @@ function configuredProjects(): string[] {
 
 describe('the test runner\'s project list', () => {
   it('should name every project the jest config declares', () => {
-    expect(runnerProjects()).toEqual(configuredProjects());
+    expect(parseProjects(runnerSource())).toEqual(configuredProjects());
   });
 
   it('should watch a project that exists', () => {
-    expect(runnerProjects()).toContain(watchDefault());
+    expect(parseProjects(runnerSource())).toContain(parseWatchDefault(runnerSource()));
+  });
+});
+
+describe('reading those declarations out of the source', () => {
+  it('should read an array written one name per line', () => {
+    // `[^\]]` is a negated class and not a dot, so the pattern already spans
+    // lines. Pinned because it reads like it would not.
+    expect(parseProjects('const PROJECTS = [\n  \'unit\',\n  \'esm\',\n];')).toEqual(['unit', 'esm']);
+  });
+
+  it('should refuse a list it cannot read rather than reporting an empty one', () => {
+    // The branch that matters most and the one nothing exercised: a list built
+    // by a call has no brackets to match, and without the throw both checks
+    // above would compare against `[]` and pass vacuously — the silent success
+    // this whole file exists to prevent, reappearing inside the guard itself.
+    expect(() => parseProjects('const PROJECTS = projectNames();')).toThrow(
+      'no longer declares a PROJECTS array',
+    );
+  });
+
+  it('should read a spread array as the names it spells out', () => {
+    // A spread still has brackets, so this reads rather than throws, and reads
+    // only the literals. Caught all the same, one line up: the comparison
+    // against the config's `displayName`s is short by whatever the spread
+    // contributed. Pinned because "computed lists throw" is the tidier claim
+    // and the wrong one — I wrote this case asserting it and it failed.
+    expect(parseProjects('const PROJECTS = [...BASE, \'esm\'];')).toEqual(['esm']);
+  });
+
+  it('should refuse a watch default it cannot read', () => {
+    expect(() => parseWatchDefault('const WATCH_DEFAULT = PROJECTS[0];')).toThrow(
+      'no longer declares WATCH_DEFAULT',
+    );
   });
 });

@@ -77,6 +77,18 @@ describe('taking the project selection out of the arguments', () => {
       dangling: true,
     });
   });
+
+  it('should treat an empty equals form the same way', () => {
+    // Jest gives `--selectProjects=` the same error as the bare flag, so it
+    // takes the same route out. Passing the empty name through instead reached
+    // Jest as a project that does not exist, which it reports as
+    // `0 files checked across 0 projects` — true, and no help at all.
+    expect(takeSelection(['--selectProjects='])).toEqual({
+      rest: [],
+      selected: [],
+      dangling: true,
+    });
+  });
 });
 
 describe('deciding whether a run could narrow the test files', () => {

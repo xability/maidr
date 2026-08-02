@@ -26,11 +26,14 @@ const SELECT = '--selectProjects';
  * `--selectProjects=a`. A comma-separated `--selectProjects=a,b` is not a form
  * Jest accepts either, and is left to fail as the unknown project name it is.
  *
- * `dangling` reports the flag appearing with no project after it. Jest rejects
- * that outright, so the runner has to hand the arguments over untouched rather
- * than treat "named nothing" as "named everything" — putting the bare flag back
- * would not do, since Jest absorbs it silently once the per-project flag is
- * added alongside.
+ * `dangling` reports the flag naming no project — either `--selectProjects`
+ * with nothing after it or `--selectProjects=` with nothing in it. Jest rejects
+ * both with the same error, so the runner has to hand the arguments over
+ * untouched rather than treat "named nothing" as "named everything". Putting
+ * the bare flag back would not do, since Jest absorbs it silently once the
+ * per-project flag is added alongside; and passing an empty name through would
+ * reach Jest as a project that does not exist, which it reports as
+ * `0 files checked across 0 projects` rather than as the mistake it is.
  * @param {string[]} args - The arguments as given.
  * @returns {{rest: string[], selected: string[], dangling: boolean}} Arguments
  * without the flag, the project names it named, and whether it named none.
@@ -44,7 +47,14 @@ export function takeSelection(args) {
     const arg = args[index];
 
     if (arg.startsWith(`${SELECT}=`)) {
-      selected.push(arg.slice(SELECT.length + 1));
+      const value = arg.slice(SELECT.length + 1);
+      // `--selectProjects=` names nothing, exactly as the bare flag does. Jest
+      // gives both the same error, so both take the same route out.
+      if (value === '') {
+        dangling = true;
+      } else {
+        selected.push(value);
+      }
     } else if (arg === SELECT) {
       const before = selected.length;
       // Variadic: every following value up to the next flag belongs to it.
