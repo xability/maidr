@@ -234,6 +234,14 @@ const Chat: React.FC = () => {
       <DialogTitle component="div" id={`${id}-titlebar`} sx={{ p: 2 }}>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid size="auto">
+            {/* The `aria-label` below predates #665 and is left alone on
+                purpose. It makes the accessible name longer than the visible
+                text, and since the dialog is now named after this heading,
+                editing it would change the dialog's name too — a behaviour
+                change beyond giving each dialog one title heading. It is not a
+                2.5.3 failure either: the visible text is a prefix of the name.
+                Whether the suffix should be heard when navigating by heading,
+                rather than only when the dialog opens, is its own question. */}
             <Typography
               id={`${id}-title`}
               variant="h6"
