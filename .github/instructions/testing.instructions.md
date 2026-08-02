@@ -7,13 +7,17 @@ applyTo: "test/**,e2e_tests/**,jest.config.ts,playwright.config.ts"
 
 # Testing
 
-Three suites, three purposes.
+Four suites, four purposes.
 
-| Suite         | Runner                         | Location           | Matches                |
-| ------------- | ------------------------------ | ------------------ | ---------------------- |
-| **Unit**      | Jest + ts-jest                 | `test/`            | `test/**/*.test.ts`    |
-| **Component** | Jest + jsdom + Testing Library | `test/ui/`         | `test/**/*.test.tsx`   |
-| **E2E**       | Playwright                     | `e2e_tests/specs/` | `*.spec.ts`            |
+| Suite         | Runner                         | Location           | Matches                  |
+| ------------- | ------------------------------ | ------------------ | ------------------------ |
+| **Unit**      | Jest + ts-jest                 | `test/`            | `test/**/*.test.ts`      |
+| **Component** | Jest + jsdom + Testing Library | `test/ui/`         | `test/**/*.test.tsx`     |
+| **ESM**       | Jest, ESM project              | `test/`            | `test/**/*.esm-test.ts`  |
+| **E2E**       | Playwright                     | `e2e_tests/specs/` | `*.spec.ts`              |
+
+The first three are Jest projects in one `jest.config.ts`, so `npm test` runs
+them together.
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
 `test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
@@ -83,6 +87,24 @@ import '@testing-library/jest-dom/jest-globals';
   lines — DefinitelyTyped has no release matching every jsdom major. Bumping
   one means checking `npm run type-check` still passes, or the break surfaces
   on an unrelated pull request.
+
+## ESM tests
+
+Name a file `*.esm-test.ts` when it needs to import an ESM-only package — the
+`unified`/`remark`/`rehype` stack is the case that exists. The default project
+compiles to CommonJS, so importing one from a `.test.ts` fails with
+`SyntaxError: Unexpected token 'export'`.
+
+- `npm test` runs this project alongside the others; `scripts/test.js` supplies
+  the `--experimental-vm-modules` flag Jest needs to import ESM at all.
+- Reach for it only when the CommonJS project cannot do the job. It is slower
+  to start, and a test that does not need the real stack does not need this.
+- Assert on the hast tree rather than serialised HTML. `react-markdown` renders
+  the tree to React elements and never produces an HTML string, so the tree is
+  the last thing on the path that actually exists.
+- The point is checking that markup **survives**, not that a schema names it.
+  `markdownSanitize.test.ts` can say the allowlist contains `table`; only this
+  project can say a table came out the other end.
 
 ## E2E tests
 

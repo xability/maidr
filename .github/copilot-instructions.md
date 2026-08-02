@@ -18,7 +18,7 @@ npm run dev:victory    # dev server against the Victory example
 npm run build          # production build
 npm run type-check     # tsc --noEmit
 npm run lint:fix       # eslint --fix
-npm test               # jest unit + component tests (test/**/*.test.ts?(x))
+npm test               # jest: unit, component and ESM projects
 npm run e2e            # playwright end-to-end tests
 npm run docs:serve     # build and preview the docs site
 ```
