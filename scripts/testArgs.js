@@ -25,13 +25,20 @@ const SELECT = '--selectProjects';
  * Both of Jest's spellings are handled: `--selectProjects a b` and a repeated
  * `--selectProjects=a`. A comma-separated `--selectProjects=a,b` is not a form
  * Jest accepts either, and is left to fail as the unknown project name it is.
+ *
+ * `dangling` reports the flag appearing with no project after it. Jest rejects
+ * that outright, so the runner has to hand the arguments over untouched rather
+ * than treat "named nothing" as "named everything" — putting the bare flag back
+ * would not do, since Jest absorbs it silently once the per-project flag is
+ * added alongside.
  * @param {string[]} args - The arguments as given.
- * @returns {{rest: string[], selected: string[]}} Arguments without the flag,
- * and the project names it named.
+ * @returns {{rest: string[], selected: string[], dangling: boolean}} Arguments
+ * without the flag, the project names it named, and whether it named none.
  */
 export function takeSelection(args) {
   const rest = [];
   const selected = [];
+  let dangling = false;
 
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
@@ -39,17 +46,19 @@ export function takeSelection(args) {
     if (arg.startsWith(`${SELECT}=`)) {
       selected.push(arg.slice(SELECT.length + 1));
     } else if (arg === SELECT) {
+      const before = selected.length;
       // Variadic: every following value up to the next flag belongs to it.
       while (index + 1 < args.length && !args[index + 1].startsWith('-')) {
         index++;
         selected.push(args[index]);
       }
+      dangling = dangling || selected.length === before;
     } else {
       rest.push(arg);
     }
   }
 
-  return { rest, selected };
+  return { rest, selected, dangling };
 }
 
 /**

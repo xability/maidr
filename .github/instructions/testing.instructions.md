@@ -29,7 +29,9 @@ forget, because a project the runner omits simply never runs.
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
 `test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
-test in the directory matching the layer it covers.
+test in the directory matching the layer it covers. `test/scripts/` is the
+exception, and covers `scripts/` rather than a layer of the application: the
+build, the test runner, and the workflow bodies under `.github/`.
 
 ```bash
 npm test              # jest, with coverage, one process per project

@@ -175,12 +175,18 @@ async function runProjects(args, projects) {
   return failure;
 }
 
-const { rest, selected } = takeSelection(process.argv.slice(2));
+const { rest, selected, dangling } = takeSelection(process.argv.slice(2));
 const projects = selected.length > 0 ? selected : PROJECTS;
 const watching = rest.some(arg => arg === '--watch' || arg === '--watchAll');
 
 let exitCode;
-if (watching) {
+if (dangling) {
+  // `--selectProjects` with nothing after it. Jest rejects it and says so, and
+  // the arguments go over untouched so that error is what the caller sees —
+  // the alternative is reading "named no project" as "named every project" and
+  // running the lot, which is the opposite of what was asked for.
+  exitCode = await runJest(process.argv.slice(2));
+} else if (watching) {
   // A watcher does not exit, so the projects cannot be run in sequence. Rather
   // than run them together and reintroduce the clash above, watch one — the
   // caller's if they named exactly one, otherwise the project holding all but

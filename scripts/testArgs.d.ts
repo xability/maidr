@@ -10,6 +10,8 @@
 export declare function takeSelection(args: string[]): {
   rest: string[];
   selected: string[];
+  /** True if the flag appeared with no project name after it. */
+  dangling: boolean;
 };
 
 /** Whether any argument could be a path filter rather than a flag. */

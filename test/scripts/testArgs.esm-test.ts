@@ -25,6 +25,7 @@ describe('taking the project selection out of the arguments', () => {
     expect(takeSelection(['--coverage', 'test/util'])).toEqual({
       rest: ['--coverage', 'test/util'],
       selected: [],
+      dangling: false,
     });
   });
 
@@ -34,6 +35,7 @@ describe('taking the project selection out of the arguments', () => {
     expect(takeSelection(['--selectProjects', 'unit', 'esm'])).toEqual({
       rest: [],
       selected: ['unit', 'esm'],
+      dangling: false,
     });
   });
 
@@ -41,6 +43,7 @@ describe('taking the project selection out of the arguments', () => {
     expect(takeSelection(['--selectProjects', 'unit', '--coverage', 'test/util'])).toEqual({
       rest: ['--coverage', 'test/util'],
       selected: ['unit'],
+      dangling: false,
     });
   });
 
@@ -48,6 +51,7 @@ describe('taking the project selection out of the arguments', () => {
     expect(takeSelection(['--selectProjects=unit', '--selectProjects=esm'])).toEqual({
       rest: [],
       selected: ['unit', 'esm'],
+      dangling: false,
     });
   });
 
@@ -57,6 +61,20 @@ describe('taking the project selection out of the arguments', () => {
     expect(takeSelection(['--selectProjects=unit,esm'])).toEqual({
       rest: [],
       selected: ['unit,esm'],
+      dangling: false,
+    });
+  });
+
+  it('should report the flag naming no project rather than reading it as all', () => {
+    // Jest rejects a bare `--selectProjects`. Without this the runner would
+    // read "named nothing" as "named everything" and run both projects, which
+    // is the opposite of what was asked for. Putting the bare flag back into
+    // `rest` does not work either: Jest absorbs it once the per-project flag is
+    // added alongside, so the run has to go over untouched.
+    expect(takeSelection(['--coverage', '--selectProjects'])).toEqual({
+      rest: ['--coverage'],
+      selected: [],
+      dangling: true,
     });
   });
 });
