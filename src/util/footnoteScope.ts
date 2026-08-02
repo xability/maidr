@@ -83,8 +83,9 @@ function namesFragment(element: Element): boolean {
  * Every character outside `[A-Za-z0-9]` becomes `_<hex>_`. That is injective on
  * its own — `_` is itself outside the set, so an underscore in the output only
  * ever begins an escape — and it is exercised in practice: a response id is
- * `resp-<time>-<provider>` and the providers are `OPENAI`, `ANTHROPIC_CLAUDE`,
- * `GOOGLE_GEMINI` and `OLLAMA`, three of which carry an underscore.
+ * `resp-<time>-<sequence>-<provider>` and two of the four providers —
+ * `ANTHROPIC_CLAUDE` and `GOOGLE_GEMINI`, against `OPENAI` and `OLLAMA` —
+ * carry an underscore.
  *
  * `-` is escaped along with everything else, which matters for a reason
  * injectivity alone does not cover. The final id is

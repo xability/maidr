@@ -22,39 +22,89 @@ const initialState: ChatState = {
   suggestions: [],
 };
 
+/**
+ * Distinguishes ids minted within the same millisecond.
+ *
+ * These used to be `Date.now()` alone, which is unique only if no two are
+ * created in the same tick — a bound nothing enforces, and one that anything
+ * adding two messages programmatically crosses. What made it matter is that
+ * #704 derives each message's DOM id scope from its message id, so two
+ * messages sharing one share a scope: their footnote ids collide again, and a
+ * reference resolves to the first match in document order, which is the other
+ * message's note. Everything still renders, so the failure is silent.
+ */
+let sequence = 0;
+
+/**
+ * A unique id for a message or a suggestion.
+ *
+ * The timestamp is kept for readability and ordering in devtools; the sequence
+ * is what actually carries the uniqueness, being monotonic for the life of the
+ * page. `kind` leads because `MessageBubble` distinguishes system messages by
+ * it (`message.id.startsWith('system-')`).
+ * @param kind - The id's leading segment.
+ * @returns An id no other call can produce.
+ */
+function nextId(kind: string): string {
+  sequence += 1;
+  return `${kind}-${Date.now()}-${sequence}`;
+}
+
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    addUserMessage: (state, action: PayloadAction<{ text: string; timestamp: string }>) => {
-      state.messages.push({
-        id: `msg-${Date.now()}`,
-        text: action.payload.text,
-        isUser: true,
-        timestamp: action.payload.timestamp,
-        status: 'SUCCESS',
-      });
+    // The three that add a message mint its id in `prepare` rather than in the
+    // reducer. `rules/viewmodel.md` asks reducers to assign the payload and
+    // nothing more, and an id is the one thing here that cannot come from the
+    // caller — so it is generated where Redux Toolkit puts non-determinism,
+    // leaving each reducer pure. The action creators' signatures are unchanged.
+    addUserMessage: {
+      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string }>) => {
+        state.messages.push({
+          id: action.payload.id,
+          text: action.payload.text,
+          isUser: true,
+          timestamp: action.payload.timestamp,
+          status: 'SUCCESS',
+        });
+      },
+      prepare: (message: { text: string; timestamp: string }) => ({
+        payload: { ...message, id: nextId('msg') },
+      }),
     },
-    addSystemMessage: (state, action: PayloadAction<{ text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }>) => {
-      state.messages.push({
-        id: `system-${Date.now()}`,
-        text: action.payload.text,
-        isUser: false,
-        timestamp: action.payload.timestamp,
-        status: 'SUCCESS',
-        modelSelections: action.payload.modelSelections,
-        isWelcomeMessage: action.payload.isWelcomeMessage,
-      });
+    addSystemMessage: {
+      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }>) => {
+        state.messages.push({
+          id: action.payload.id,
+          text: action.payload.text,
+          isUser: false,
+          timestamp: action.payload.timestamp,
+          status: 'SUCCESS',
+          modelSelections: action.payload.modelSelections,
+          isWelcomeMessage: action.payload.isWelcomeMessage,
+        });
+      },
+      prepare: (message: { text: string; timestamp: string; modelSelections?: { modelKey: Llm; name: string; version: string }[]; isWelcomeMessage?: boolean }) => ({
+        payload: { ...message, id: nextId('system') },
+      }),
     },
-    addPendingResponse: (state, action: PayloadAction<{ model: Llm; timestamp: string }>) => {
-      state.messages.push({
-        id: `resp-${Date.now()}-${action.payload.model}`,
-        text: 'Processing request...',
-        isUser: false,
-        model: action.payload.model,
-        timestamp: action.payload.timestamp,
-        status: 'PENDING',
-      });
+    addPendingResponse: {
+      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string }>) => {
+        state.messages.push({
+          id: action.payload.id,
+          text: 'Processing request...',
+          isUser: false,
+          model: action.payload.model,
+          timestamp: action.payload.timestamp,
+          status: 'PENDING',
+        });
+      },
+      // The model stays in the id, where it has always been, because it is what
+      // makes a pending response identifiable in devtools.
+      prepare: (response: { model: Llm; timestamp: string }) => ({
+        payload: { ...response, id: `${nextId('resp')}-${response.model}` },
+      }),
     },
     updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
       const message = state.messages.find(m =>
@@ -95,6 +145,16 @@ const chatSlice = createSlice({
   },
 });
 const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, updateWelcomeMessage, reset } = chatSlice.actions;
+
+/**
+ * The slice's action creators.
+ *
+ * Exported because the three that add a message mint the id in `prepare`, so
+ * dispatching those by action type — which is how the other view model tests
+ * reach their reducers — skips the only step that generates one. A test of the
+ * ids has to go through the creators.
+ */
+export const chatActions = chatSlice.actions;
 
 /**
  * View model for managing chat interface state and AI model interactions.
@@ -239,21 +299,19 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
 
       const { llm } = this.snapshot.settings;
       const expertise = llm.expertiseLevel;
-      const timestamp = Date.now();
-
       const baseSuggestions: Suggestion[] = [
         {
-          id: `suggestion-${timestamp}-1`,
+          id: nextId('suggestion'),
           text: 'Can you explain that in more detail?',
           type: 'clarification',
         },
         {
-          id: `suggestion-${timestamp}-2`,
+          id: nextId('suggestion'),
           text: 'What can you say about the current datapoint?',
           type: 'analysis',
         },
         {
-          id: `suggestion-${timestamp}-3`,
+          id: nextId('suggestion'),
           text: 'How does this compare to other data points?',
           type: 'analysis',
         },
@@ -263,12 +321,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       if (expertise === 'advanced') {
         baseSuggestions.push(
           {
-            id: `suggestion-${timestamp}-4`,
+            id: nextId('suggestion'),
             text: 'Can you perform a statistical analysis of this data?',
             type: 'analysis',
           },
           {
-            id: `suggestion-${timestamp}-5`,
+            id: nextId('suggestion'),
             text: 'What are the potential outliers in this dataset?',
             type: 'analysis',
           },

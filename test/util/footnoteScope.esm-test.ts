@@ -146,8 +146,8 @@ describe('scoping a message\'s ids', () => {
     // Stripping unsafe characters rather than escaping them would map `a.b`,
     // `a-b` and `a_b` onto one scope and silently reintroduce the collision
     // this exists to prevent. The underscore case is the one that happens:
-    // a response id is `resp-<time>-<provider>`, and three of the four
-    // providers are spelled `ANTHROPIC_CLAUDE`, `GOOGLE_GEMINI`, `OPENAI`.
+    // a response id is `resp-<time>-<sequence>-<provider>`, and two of the
+    // four providers are spelled `ANTHROPIC_CLAUDE` and `GOOGLE_GEMINI`.
     const dotted = ids(await render(FOOTNOTE, 'resp-1-a.b'));
     const dashed = ids(await render(FOOTNOTE, 'resp-1-a-b'));
     const underscored = ids(await render(FOOTNOTE, 'resp-1-a_b'));
