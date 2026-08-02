@@ -249,8 +249,12 @@ test.describe('dialog accessibility tree', () => {
     // cannot check its name: jsdom does not fold a descendant button's
     // `aria-label` into the row's computed name, so the polluted name never
     // appears there. The jsdom suite is not a superset of this one.
+    //
+    // #710 removed the heading's `aria-label`, so the name is now the visible
+    // text. `exact` still carries the assertion: without it this passes against
+    // a name with anything appended, which is the failure mode it exists for.
     await expect(
-      page.getByRole('dialog', { name: 'Chart Assistant - AI Chat Interface', exact: true }),
+      page.getByRole('dialog', { name: 'Chart Assistant', exact: true }),
     ).toBeVisible();
 
     const structure = await dialogStructure(page);

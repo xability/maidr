@@ -234,21 +234,21 @@ const Chat: React.FC = () => {
       <DialogTitle component="div" id={`${id}-titlebar`} sx={{ p: 2 }}>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid size="auto">
-            {/* The `aria-label` below predates #665 and is left alone on
-                purpose. It makes the accessible name longer than the visible
-                text, and since the dialog is now named after this heading,
-                editing it would change the dialog's name too — a behaviour
-                change beyond giving each dialog one title heading. It is not a
-                2.5.3 failure either: the visible text is a prefix of the name.
-                Whether the suffix should be heard when navigating by heading,
-                rather than only when the dialog opens, is its own question. */}
+            {/* No `aria-label` here, so the name is the visible text. This
+                heading names the dialog as well as itself (the
+                `aria-labelledby` above points at it), and it used to carry
+                `aria-label="Chart Assistant - AI Chat Interface"` — announcing
+                more than it showed, in both roles. The suffix restated what
+                `role="dialog"` already conveys, and among MAIDR's five dialogs
+                "Chart Assistant" is unambiguous on its own. Naming it after
+                what is on screen also serves voice control, which speaks the
+                visible text. */}
             <Typography
               id={`${id}-title`}
               variant="h6"
               fontWeight="bold"
               component="h2"
               sx={{ margin: 0 }}
-              aria-label="Chart Assistant - AI Chat Interface"
             >
               Chart Assistant
             </Typography>

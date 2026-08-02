@@ -48,7 +48,7 @@ import '@testing-library/jest-dom/jest-globals';
 // the same reason.
 jest.mock('@ui/components/MessageBubble', () => ({ MessageBubble: () => null }));
 
-const CHAT_NAME = 'Chart Assistant - AI Chat Interface';
+const CHAT_NAME = 'Chart Assistant';
 const CLOSE_BUTTON_NAME = 'Close chat dialog';
 
 const HELP_ITEMS: HelpMenuItem[] = [
@@ -294,14 +294,25 @@ describe('dialog titles', () => {
       ).toBeNull();
     });
 
-    it('should name the dialog after its heading', () => {
+    /**
+     * #710: the heading carried `aria-label="Chart Assistant - AI Chat
+     * Interface"`, so it announced more than it showed — both as a heading and
+     * as the dialog's name, since the dialog is named after it. Removing the
+     * label is what makes the two agree.
+     *
+     * Asserted as an equality between the visible text and the computed name
+     * rather than against the string alone: that is the contract, and it holds
+     * a re-added `aria-label` to account whatever wording it uses.
+     */
+    it('should announce the dialog as exactly what the heading shows', () => {
       renderChat();
 
       const dialog = screen.getByRole('dialog');
+      const title = document.getElementById(dialog.getAttribute('aria-labelledby') ?? '');
 
-      // Characterises the name as it stands; the reference above is what keeps
-      // the close button out of it.
-      expect(dialog).toHaveAccessibleName(CHAT_NAME);
+      expect(title?.textContent?.trim()).toBe(CHAT_NAME);
+      expect(title?.getAttribute('aria-label')).toBeNull();
+      expect(dialog).toHaveAccessibleName(title?.textContent?.trim() ?? '');
       expect(dialog.getAttribute('aria-label')).toBeNull();
     });
 
