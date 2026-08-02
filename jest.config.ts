@@ -49,17 +49,22 @@ const unit: Config.InitialProjectOptions = {
 const esm: Config.InitialProjectOptions = {
   displayName: 'esm',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   roots: ['<rootDir>/test'],
   moduleNameMapper,
-  testMatch: ['**/test/**/*.esm-test.ts'],
+  // `.tsx` is here for the same reason as in `unit`: a component that imports
+  // `react-markdown` — itself ESM-only — can only be rendered by this project.
+  // Such a file opts into jsdom with a `@jest-environment` docblock, so the
+  // environment stays `node` for the tests that do not need one.
+  testMatch: ['**/test/**/*.esm-test.ts', '**/test/**/*.esm-test.tsx'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
         moduleResolution: 'bundler',
         verbatimModuleSyntax: false,
+        jsx: 'react-jsx',
       },
     }],
   },
