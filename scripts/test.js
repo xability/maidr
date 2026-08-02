@@ -43,7 +43,6 @@
 
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { isAbsolute } from 'node:path';
 import process from 'node:process';
 import {
   hasPathFilter,
@@ -103,13 +102,21 @@ function runJest(args) {
  * Safe as a single multi-project process, unlike an actual run: `--listTests`
  * resolves paths and loads no module, so the memo described above never gets a
  * chance to disagree with itself.
+ *
+ * `--json` because the plain output is not only the list: with
+ * `--selectProjects`, Jest announces "Running one project: esm" on stdout
+ * alongside it, and reading that as a test file made an empty result look like
+ * a match — which granted a scoped run exactly the tolerance it was meant to be
+ * denied. Filtering the lines that look like absolute paths fixed it and left a
+ * guess about Jest's output in place; asking for a machine-readable list
+ * removes the guess.
  * @param {string[]} args - Arguments to match against.
  * @returns {Promise<string[] | null>} Matching test file paths, or null if Jest
  * could not be asked.
  */
 function listTests(args) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [jest, '--listTests', ...args], {
+    const child = spawn(process.execPath, [jest, '--listTests', '--json', ...args], {
       stdio: ['inherit', 'pipe', 'inherit'],
       env: { ...process.env, NODE_OPTIONS: nodeOptions },
     });
@@ -121,13 +128,19 @@ function listTests(args) {
 
     child.on('error', () => resolve(null));
     child.on('close', (code) => {
-      // Absolute paths only. `--selectProjects` makes Jest announce "Running
-      // one project: esm" on stdout alongside the list, and counting that as a
-      // test file made an empty result look like a match — which granted a
-      // scoped run the tolerance it was supposed to be denied.
-      resolve(code === 0
-        ? output.split('\n').map(line => line.trim()).filter(line => isAbsolute(line))
-        : null);
+      if (code !== 0) {
+        resolve(null);
+        return;
+      }
+
+      try {
+        const paths = JSON.parse(output);
+        // Anything but a list of paths means Jest answered a question other
+        // than the one asked, and guessing at it is what this call avoids.
+        resolve(Array.isArray(paths) ? paths : null);
+      } catch {
+        resolve(null);
+      }
     });
   });
 }
