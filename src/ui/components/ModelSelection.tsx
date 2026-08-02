@@ -1,4 +1,4 @@
-import type { Llm, LlmVersion } from '@type/llm';
+import type { Llm, LlmVersion, SelectedModel } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useModalContainer } from '@state/hook/useModalContainer';
@@ -8,11 +8,7 @@ import { resolveVersionOptions } from '@util/llm';
 import React from 'react';
 
 interface ModelSelectionProps {
-  enabledModels: Array<{
-    modelKey: Llm;
-    name: string;
-    version: string;
-  }>;
+  enabledModels: SelectedModel[];
 }
 
 interface ModelVersionSelectProps {

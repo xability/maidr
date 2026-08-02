@@ -1,8 +1,13 @@
 import type { Config } from '@jest/types';
 import { pathsToModuleNameMapper } from 'ts-jest';
-import { compilerOptions } from './tsconfig.json';
+// Default import rather than `{ compilerOptions }`, for the reason given in
+// `src/util/version.ts`: named exports from a JSON module are a bundler
+// convenience and a real ES module for JSON exposes only `default`. This file
+// is loaded as ESM the moment a test in the `esm` project imports it, which
+// `test/scripts/testRunnerProjects.esm-test.ts` does.
+import tsconfig from './tsconfig.json';
 
-const moduleNameMapper = pathsToModuleNameMapper(compilerOptions.paths, {
+const moduleNameMapper = pathsToModuleNameMapper(tsconfig.compilerOptions.paths, {
   prefix: '<rootDir>/src/',
 });
 
@@ -49,17 +54,22 @@ const unit: Config.InitialProjectOptions = {
 const esm: Config.InitialProjectOptions = {
   displayName: 'esm',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   roots: ['<rootDir>/test'],
   moduleNameMapper,
-  testMatch: ['**/test/**/*.esm-test.ts'],
+  // `.tsx` is here for the same reason as in `unit`: a component that imports
+  // `react-markdown` — itself ESM-only — can only be rendered by this project.
+  // Such a file opts into jsdom with a `@jest-environment` docblock, so the
+  // environment stays `node` for the tests that do not need one.
+  testMatch: ['**/test/**/*.esm-test.ts', '**/test/**/*.esm-test.tsx'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
         moduleResolution: 'bundler',
         verbatimModuleSyntax: false,
+        jsx: 'react-jsx',
       },
     }],
   },
