@@ -89,11 +89,17 @@ export interface LlmResponse {
  *
  * Held on the message rather than read from settings at render time, so a
  * message keeps saying which model answered it after the setting changes.
+ *
+ * `version` is `LlmVersion` to agree with `getValidVersion`, which produces it.
+ * That is naming, not narrowing: `OllamaVersion` is `string & Record<never,
+ * never>`, so the union accepts any string — deliberately, as the comment on
+ * that type explains, because versions come from live provider APIs. Nothing
+ * here validates a version; `getValidVersion` does, at runtime.
  */
 export interface SelectedModel {
   modelKey: Llm;
   name: string;
-  version: string;
+  version: LlmVersion;
 }
 
 /**
