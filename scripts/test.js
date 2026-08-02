@@ -1,10 +1,11 @@
 /**
- * Jest runner that supplies `--experimental-vm-modules`.
+ * Jest runner: supplies `--experimental-vm-modules`, and runs one Jest process
+ * per project.
  *
- * The `esm` project in `jest.config.ts` loads the unified/remark/rehype stack,
- * which is ESM-only. Jest can only import ESM when Node's VM modules API is
- * enabled, and that is a process-level flag rather than something a config can
- * turn on.
+ * **The flag.** The `esm` project in `jest.config.ts` loads the
+ * unified/remark/rehype stack, which is ESM-only. Jest can only import ESM when
+ * Node's VM modules API is enabled, and that is a process-level flag rather
+ * than something a config can turn on.
  *
  * `NODE_OPTIONS=… jest` in the npm script would be the one-liner, but that
  * syntax is not valid in the Windows shell npm uses, so the script would work
@@ -13,6 +14,24 @@
  * option and this repo already prefers a `scripts/` runner (see build.js).
  *
  * The flag is safe for the CommonJS project, which runs unchanged under it.
+ *
+ * **One process per project.** Jest can run `projects` in a single process, and
+ * did until a component test joined the `esm` project. It cannot once two
+ * projects load the same source file with different module semantics:
+ * `jest-resolve` memoises "is this file ESM?" keyed on the path alone, ignoring
+ * the asking project's `extensionsToTreatAsEsm` (see
+ * `jest-resolve/build/shouldLoadAsEsm.js`). So the first project to ask about
+ * `src/type/grammar.ts` answers for both, and whichever runs second fails with
+ * `Must use import to load ES Module` — or not, depending on the order Jest
+ * happened to schedule them in, which is why this surfaced as a suite that
+ * passed alone and failed together.
+ *
+ * It stayed hidden while the `esm` project imported one leaf module. Rendering
+ * a component pulls in the store, the view models and the grammar, so the two
+ * projects now share most of `src/`.
+ *
+ * Separate processes are the fix rather than a workaround: the memo is
+ * process-wide, and nothing in a Jest config can scope it.
  *
  * Arguments are forwarded, so `npm test -- --watch` and
  * `npm test -- test/util` behave as they would with Jest directly.
@@ -23,6 +42,17 @@ import { createRequire } from 'node:module';
 import process from 'node:process';
 
 const FLAG = '--experimental-vm-modules';
+
+/**
+ * Project display names from `jest.config.ts`, in the order they should run.
+ *
+ * Duplicated here because this file is plain JavaScript and the config is
+ * TypeScript. `test/scripts/testRunnerProjects.test.ts` fails if the two drift.
+ */
+const PROJECTS = ['unit', 'esm'];
+
+/** The project `--watch` falls back to; see below. */
+const WATCH_DEFAULT = 'unit';
 
 // Appended rather than replaced: a contributor may already be setting
 // something here, and CI runners sometimes set memory limits this way.
@@ -35,22 +65,80 @@ const nodeOptions = [process.env.NODE_OPTIONS, FLAG].filter(Boolean).join(' ');
 // process that needs it, without depending on a shim.
 const jest = createRequire(import.meta.url).resolve('jest/bin/jest');
 
-const child = spawn(process.execPath, [jest, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env: { ...process.env, NODE_OPTIONS: nodeOptions },
-});
+/**
+ * Runs Jest once and resolves with its exit code.
+ * @param {string[]} args - Arguments to pass to Jest.
+ * @returns {Promise<number>} The exit code; 1 for a signal or a failed spawn.
+ */
+function runJest(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [jest, ...args], {
+      stdio: 'inherit',
+      env: { ...process.env, NODE_OPTIONS: nodeOptions },
+    });
 
-child.on('error', (error) => {
-  console.error('[test] could not start jest:', error.message);
-  process.exit(1);
-});
+    child.on('error', (error) => {
+      console.error('[test] could not start jest:', error.message);
+      resolve(1);
+    });
 
-// Signals surface as a null code. Report them as a failure rather than as
-// success, which is what `process.exit(code)` alone would do.
-child.on('exit', (code, signal) => {
-  if (signal) {
-    console.error(`[test] jest terminated by ${signal}`);
-    process.exit(1);
+    // Signals surface as a null code. Report them as a failure rather than as
+    // success, which is what `resolve(code)` alone would do.
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        console.error(`[test] jest terminated by ${signal}`);
+        resolve(1);
+      } else {
+        resolve(code ?? 1);
+      }
+    });
+  });
+}
+
+/**
+ * Runs every project, each in its own process, and stops at the first failure.
+ *
+ * Coverage is written per project, because two runs would otherwise write the
+ * same directory and the second would silently replace the first.
+ * @param {string[]} args - Arguments to pass through to each run.
+ * @returns {Promise<number>} The first non-zero exit code, or 0.
+ */
+async function runAll(args) {
+  for (const project of PROJECTS) {
+    console.error(`[test] project: ${project}`);
+    const code = await runJest([
+      ...args,
+      '--selectProjects',
+      project,
+      '--coverageDirectory',
+      `coverage/${project}`,
+    ]);
+    if (code !== 0) {
+      return code;
+    }
   }
-  process.exit(code ?? 1);
-});
+  return 0;
+}
+
+const args = process.argv.slice(2);
+const chosen = args.some(arg => arg.startsWith('--selectProjects'));
+const watching = args.some(arg => arg === '--watch' || arg === '--watchAll');
+
+let exitCode;
+if (chosen) {
+  // The caller picked, so there is one process to run and nothing to decide.
+  exitCode = await runJest(args);
+} else if (watching) {
+  // A watcher does not exit, so the projects cannot be run in sequence. Rather
+  // than run them together and reintroduce the clash above, watch the one that
+  // holds all but a couple of suites, and say so instead of quietly narrowing.
+  console.error(
+    `[test] watching the '${WATCH_DEFAULT}' project only — the projects cannot share a process.\n`
+    + `[test] for another: npm run test:watch -- --selectProjects <${PROJECTS.join('|')}>`,
+  );
+  exitCode = await runJest([...args, '--selectProjects', WATCH_DEFAULT]);
+} else {
+  exitCode = await runAll(args);
+}
+
+process.exit(exitCode);
