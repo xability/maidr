@@ -29,9 +29,21 @@ forget, because a project the runner omits simply never runs.
 
 `test/` mirrors `src/` — `test/model/`, `test/service/`, `test/state/`,
 `test/command/`, `test/ui/`, `test/util/`, `test/adapters/`. Put a new unit
-test in the directory matching the layer it covers. `test/scripts/` is the
-exception, and covers `scripts/` rather than a layer of the application: the
-build, the test runner, and the workflow bodies under `.github/`.
+test in the directory matching the layer it covers.
+
+Not everything worth testing is a layer of the application, so a directory here
+may instead mirror one at the repository root, under the same name:
+
+- `test/scripts/` covers `scripts/` — the build, the test runner, and the
+  workflow bodies under `.github/`.
+- `test/cdnjs/` covers `cdnjs/`, the payload for the cdnjs listing, which
+  nothing in this repository reads and which therefore has nowhere else to be
+  checked.
+
+Both follow the same rule as the layer directories: the test lives in the
+directory named after what it covers. Add another only when the thing under
+test genuinely is not application code — a config file that has to stay in step
+with the build is; a new module of `src/` is not.
 
 ```bash
 npm test              # jest, with coverage, one process per project

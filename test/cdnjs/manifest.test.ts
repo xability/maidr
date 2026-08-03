@@ -127,9 +127,13 @@ const mirrored = manifest.autoupdate.fileMap.flatMap(entry => entry.files);
 /**
  * Whether a manifest value is missing, blank, or an empty container.
  *
- * Recurses, so an empty `files` array nested inside `autoupdate.fileMap`
- * counts — that is the one that would mirror nothing at all while the manifest
- * still validated.
+ * Recurses, and reports a container empty when *any* element is — so a blank
+ * entry in `keywords`, not only an absent list, fails the field it belongs to.
+ * That is deliberate: a half-filled list is the shape this is here to catch,
+ * and pinning the guilty element is worth less than failing on the field a
+ * reader can go and look at. Nested values count for the same reason, which is
+ * what makes an empty `files` array inside `autoupdate.fileMap` a failure —
+ * the one that would mirror nothing at all while the manifest still validated.
  * @param value - Any value read out of the manifest.
  * @returns True when the value carries nothing.
  */
