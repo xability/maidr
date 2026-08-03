@@ -134,9 +134,11 @@ const config: ReturnType<typeof antfu> = antfu({
 }, {
   // npm's `files` is order-sensitive: a negation only excludes what an earlier
   // pattern already included. Sorted ascending, `!dist/**/*.map` lands before
-  // `dist`, which then re-includes everything it just excluded — `npm pack
-  // --dry-run` goes from 36 files back to 80, and the 32 sourcemaps that are
-  // 77% of the published package return.
+  // `dist`, which then re-includes everything it just excluded, and every
+  // sourcemap is published again — verified with `npm pack --dry-run`, which
+  // is also the way to check this if the array is ever touched.
+  // `test/scripts/publishedPackage.test.ts` pins the ordering so the fix
+  // cannot be undone by an autofix.
   //
   // package.json takes no comments, so the warning has to live here. Upstream
   // scopes this rule to `pathPattern: '^files$'`, so turning it off costs

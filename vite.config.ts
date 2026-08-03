@@ -19,8 +19,11 @@ export default defineConfig({
       formats: ['umd'],
       fileName: () => `maidr.js`,
     },
-    // See the note in scripts/build.js: maps are emitted for local debugging
-    // but excluded from the published package, so no sourceMappingURL comment.
+    // See the note in scripts/build.js: the .map is still written, but without
+    // a `sourceMappingURL` comment devtools will not load it on its own — it is
+    // there for tooling pointed at it deliberately. The comment has to go
+    // because package.json no longer publishes the maps, and a bundle naming a
+    // map it does not ship resolves to a 404 for every CDN consumer.
     sourcemap: 'hidden',
     outDir: 'dist',
     emptyOutDir: true,
