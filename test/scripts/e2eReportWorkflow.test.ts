@@ -47,14 +47,24 @@ interface RunResult {
 /** Issue numbers whose API calls should reject, to test the catch blocks. */
 type Failing = ReadonlySet<number>;
 
-/** The github-script bindings the module is handed. */
+/**
+ * The github-script bindings the module is handed.
+ *
+ * `unknown` rather than the shapes `e2eReport.cjs` declares in JSDoc, because
+ * nothing type-checks this call against those: the root `tsconfig.json` sets
+ * `allowJs: false`, so the project ts-jest checks against never loads the
+ * module. Only `tsconfig.ci.json` does, and that one covers `scripts/ci/**`
+ * rather than `test/`. Restating the shapes here would be a second copy free
+ * to drift from the first, which is worse than admitting the gap.
+ */
 interface Bindings {
   github: unknown;
   context: unknown;
   core: unknown;
 }
 
-const MODULE = join(resolve(__dirname, '../..'), 'scripts/ci/e2eReport.cjs');
+const ROOT = resolve(__dirname, '../..');
+const MODULE = join(ROOT, 'scripts/ci/e2eReport.cjs');
 
 // eslint-disable-next-line ts/no-require-imports -- CommonJS module; see the docblock.
 const report = require(MODULE) as (api: Bindings) => Promise<void>;
@@ -402,7 +412,7 @@ describe('the scheduled e2e report step', () => {
  */
 describe('the workflow step', () => {
   const workflow = readFileSync(
-    join(resolve(__dirname, '../..'), '.github/workflows/e2e_tests.yml'),
+    join(ROOT, '.github/workflows/e2e_tests.yml'),
     'utf8',
   );
 
