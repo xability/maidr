@@ -47,8 +47,9 @@ effect once that pull request is merged.
 ## What is mirrored, and why only this
 
 ```
-dist/maidr.js        the library
-dist/maidr.css       the stylesheet every integration links by name
+dist/maidr.js        the library — the only file a page needs to link
+dist/maidr.css       a 406-byte placeholder, kept so that pages which still
+                     link it (as this README used to instruct) do not 404
 dist/maidr-math.css  KaTeX, fetched at runtime when a chat response has maths
 ```
 
