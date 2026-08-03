@@ -19,7 +19,9 @@ export default defineConfig({
       formats: ['umd'],
       fileName: () => `maidr.js`,
     },
-    sourcemap: true,
+    // See the note in scripts/build.js: maps are emitted for local debugging
+    // but excluded from the published package, so no sourceMappingURL comment.
+    sourcemap: 'hidden',
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {

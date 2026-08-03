@@ -354,7 +354,12 @@ function createViteConfig(config) {
         formats: config.formats,
         fileName: config.fileName,
       },
-      sourcemap: true,
+      // 'hidden' emits the .map next to the bundle but omits the
+      // `sourceMappingURL` comment. The maps are for debugging this repo
+      // locally; package.json excludes them from the published package
+      // (they were 77% of it), so a comment pointing at them would resolve
+      // to a 404 for every CDN consumer.
+      sourcemap: 'hidden',
       outDir,
       emptyOutDir: config.emptyOutDir,
       rollupOptions: { external: config.external, onwarn: onWarn },

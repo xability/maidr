@@ -131,6 +131,20 @@ const config: ReturnType<typeof antfu> = antfu({
       message: 'Do not build aria-label from children: it stringifies to "[object Object]" unless the child is a plain string, and aria-label replaces the accessible name the element already had.',
     }],
   },
+}, {
+  // npm's `files` is order-sensitive: a negation only excludes what an earlier
+  // pattern already included. Sorted ascending, `!dist/**/*.map` lands before
+  // `dist`, which then re-includes everything it just excluded — `npm pack
+  // --dry-run` goes from 36 files back to 80, and the 32 sourcemaps that are
+  // 77% of the published package return.
+  //
+  // package.json takes no comments, so the warning has to live here. Upstream
+  // scopes this rule to `pathPattern: '^files$'`, so turning it off costs
+  // nothing else — `keywords` and every other array stay unaffected.
+  files: ['package.json'],
+  rules: {
+    'jsonc/sort-array-values': 'off',
+  },
 });
 
 export default config;
