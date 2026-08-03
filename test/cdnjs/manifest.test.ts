@@ -79,21 +79,30 @@ const pkg = JSON.parse(
 /**
  * Ask the real build config which filenames it produces.
  *
- * `fileName` is invoked the way Vite invokes it — `(format, entryName)` — so a
- * callback that varies by format is resolved for each of the formats its
- * bundle declares, rather than being assumed to yield one name.
+ * `fileName` is invoked exactly the way Vite invokes it — `(format, entryName)`,
+ * with `entryName` derived from the entry file's base name, as
+ * `assertUniqueOutputFilenames` in `scripts/build.js` does. Passing anything
+ * else would make this agree with the build only for as long as every callback
+ * keeps ignoring its arguments, which is not a property worth resting on: a
+ * callback that varies by format is already resolved per format here, and one
+ * that starts varying by entry name would be resolved against a name Vite never
+ * passes.
  */
 function readBuildOutputs(): BuildOutputs {
   const source = `
+    import path from 'node:path';
     import { builds } from ${JSON.stringify(BUILD_SCRIPT)};
     import {
       CORE_STYLESHEET_FILENAME,
       MATH_STYLESHEET_FILENAME,
     } from ${JSON.stringify(MATH_PLUGIN)};
 
+    const entryNameOf = build =>
+      path.basename(build.entry, path.extname(build.entry));
+
     const namesOf = build => (build.formats ?? ['es', 'umd']).map(format =>
       typeof build.fileName === 'function'
-        ? build.fileName(format, build.name)
+        ? build.fileName(format, entryNameOf(build))
         : build.fileName);
 
     process.stdout.write(JSON.stringify({

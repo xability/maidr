@@ -20,7 +20,7 @@ JSON file.
 ## Submitting
 
 Fork [`cdnjs/packages`](https://github.com/cdnjs/packages) — **not**
-`cdnjs/cdnjs`, which is robot-only — and copy this file in verbatim:
+`cdnjs/cdnjs`, which is robot-only — and copy this file verbatim:
 
 ```bash
 cp cdnjs/maidr.json path/to/packages/packages/m/maidr.json
