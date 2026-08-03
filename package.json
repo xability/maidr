@@ -96,7 +96,7 @@
     "test": "node scripts/test.js",
     "test:watch": "node scripts/test.js --watch",
     "test:coverage": "node scripts/test.js --coverage",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc -p tsconfig.ci.json",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
     "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
     "docs:watch": "typedoc --watch",
