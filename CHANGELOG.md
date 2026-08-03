@@ -1,3 +1,24 @@
+## [3.75.1](https://github.com/xability/maidr/compare/v3.75.0...v3.75.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* **build:** stop emitting a core ES bundle that UMD overwrites ([#667](https://github.com/xability/maidr/issues/667)) ([45741bf](https://github.com/xability/maidr/commit/45741bfc41ab70ad7f87048d1fff96fc33b9c37d))
+* **chat:** announce the chat dialog as what its heading shows ([#712](https://github.com/xability/maidr/issues/712)) ([37bc537](https://github.com/xability/maidr/commit/37bc53712011dcca683ac44ecf17273d9860f09b))
+* **chat:** give every message an id no other message can have ([#706](https://github.com/xability/maidr/issues/706)) ([be7e255](https://github.com/xability/maidr/commit/be7e2556dea47a0943a2b87cc9abbfd9070cef70))
+* **chat:** hide the live region that was rendering every message twice ([#699](https://github.com/xability/maidr/issues/699)) ([a6e726f](https://github.com/xability/maidr/commit/a6e726fff1a83785cfde54d1999d0a175297ebe2))
+* **chat:** keep KaTeX's MathML through markdown sanitisation ([#675](https://github.com/xability/maidr/issues/675)) ([79bde6d](https://github.com/xability/maidr/commit/79bde6d2c6a920242720a0a73fb980bd0a3de3e3))
+* **chat:** keep tables, headings and task lists through sanitisation ([#695](https://github.com/xability/maidr/issues/695)) ([f5e2596](https://github.com/xability/maidr/commit/f5e25969ead420741af8c9677d5e4ca0c3f9ae1f))
+* **chat:** let a link's own text be its accessible name ([#700](https://github.com/xability/maidr/issues/700)) ([5ff73fe](https://github.com/xability/maidr/commit/5ff73fe812447d51e2639cf8ff864062ce31b6a9))
+* **chat:** make footnote anchors in a chat response resolve ([#704](https://github.com/xability/maidr/issues/704)) ([21d92bc](https://github.com/xability/maidr/commit/21d92bc8399b6650a6f4b6d6233853451203ea05))
+* **ui:** give each dialog exactly one title heading ([#666](https://github.com/xability/maidr/issues/666)) ([fa94af1](https://github.com/xability/maidr/commit/fa94af16b318d3bef60846b404a5c30668cafcb2))
+
+
+### Performance Improvements
+
+* **css:** ship only woff2 for inlined KaTeX fonts ([#668](https://github.com/xability/maidr/issues/668)) ([88ad49c](https://github.com/xability/maidr/commit/88ad49cfc30e45fed98d2338975c40e3f3f4a472))
+* **css:** split KaTeX out of maidr.css and load it on demand ([#673](https://github.com/xability/maidr/issues/673)) ([d023724](https://github.com/xability/maidr/commit/d0237241a7f3422ada411ac29ee9f151fd14c1f9))
+
 # [3.75.0](https://github.com/xability/maidr/compare/v3.74.0...v3.75.0) (2026-07-29)
 
 
