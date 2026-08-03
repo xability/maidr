@@ -26,11 +26,17 @@ Fork [`cdnjs/packages`](https://github.com/cdnjs/packages) — **not**
 cp cdnjs/maidr.json path/to/packages/packages/m/maidr.json
 ```
 
-Work on a branch rather than `master`, commit as
-`Add maidr w/ npm auto-update`, and open the pull request. CI runs
-`checker lint` against cdnjs's schema; `name`, `description`, `keywords`,
-`repository` and `autoupdate` are the required fields. Approval is at cdnjs
+Work on a branch rather than `master` — cdnjs asks for a descriptive name, so
+`add-maidr` — and commit as `Add maidr w/ npm auto-update`, which is their
+`Add <library> w/ npm/git auto-update` convention. Then open the pull request.
+CI validates the file against cdnjs's schema, and approval is at cdnjs
 maintainer discretion.
+
+The branch convention, the commit format and the minification cdnjs performs
+were read from
+[their CONTRIBUTING.md](https://github.com/cdnjs/packages/blob/master/CONTRIBUTING.md)
+on 2026-08-03. That process has changed before, so read it again rather than
+trusting this file if the submission happens much later.
 
 After the first release lands on cdnjs, nothing further is needed for
 subsequent releases: `autoupdate` pulls each new version straight from npm.
@@ -66,10 +72,14 @@ loading MAIDR from a CDN needs to fetch it by URL — which is what separates
 these three from the adapter bundles, whose users name them in a `<script>` tag
 and can be served by either CDN.
 
-`filename` names the file cdnjs offers as the default copy-paste URL. cdnjs
-generates the `.min.js` and `.min.css` variants itself, so `maidr.min.js` is a
-file it will have even though the build does not emit one; if its checker ever
-disagrees, `maidr.js` is the safe substitute.
+`filename` names the file cdnjs offers as the default copy-paste URL. It is
+`maidr.min.js`, a file cdnjs will have even though this build never emits one:
+their CONTRIBUTING.md commits to generating it — "for JavaScript and CSS files,
+we'll automatically generate minified versions of them and make them available
+at `filename.min.js` or `filename.min.css`" — and that generation is on unless a
+package opts out through the optional `optimization` property, which this
+manifest does not set. KaTeX's own cdnjs entry names `katex.min.js` on the same
+basis. Should their checker disagree anyway, `maidr.js` is the safe substitute.
 
 ## Keeping it honest
 
