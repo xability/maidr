@@ -111,12 +111,63 @@ function extractTextOrObject(value: { text?: string } | string | undefined | nul
   return value.text ?? undefined;
 }
 
-function extractTitle(layout: PlotlyLayout): string | undefined {
-  return extractTextOrObject(layout.title);
+/**
+ * A backstop for the English title placeholders, applied whenever `_dfltTitle`
+ * has not already settled the question — including when it is present and
+ * simply did not match. Every title placeholder in Plotly's English dictionary
+ * opens this way; the annotation default, which is not a title, does not.
+ */
+const PLACEHOLDER_TITLE_PATTERN = /^click to enter /i;
+
+/**
+ * The one `_dfltTitle` entry that stands in for something other than a title,
+ * and so has no business being compared against one. Its value — `new text` —
+ * is also short enough to be a label an author really wrote, where the title
+ * placeholders are not.
+ */
+const NON_TITLE_DFLT_SLOT = 'annotation';
+
+/**
+ * Reports whether a resolved title is one of Plotly's title placeholders — the
+ * text it substitutes for a title that was never given.
+ *
+ * Plotly only draws a placeholder in editable mode, so on an ordinary chart it
+ * is on screen for nobody; announcing it would tell a blind reader the chart
+ * has an axis name that sighted readers cannot see. `_fullLayout._dfltTitle`
+ * holds the exact strings Plotly substituted, translated when a locale is set,
+ * which is why they are compared against rather than hard-coded.
+ */
+function isPlaceholderTitle(text: string, layout: PlotlyLayout | undefined): boolean {
+  const dfltTitle = (layout as PlotlyFullLayout | undefined)?._dfltTitle;
+  if (dfltTitle) {
+    for (const [slot, placeholder] of Object.entries(dfltTitle)) {
+      if (slot !== NON_TITLE_DFLT_SLOT && placeholder === text)
+        return true;
+    }
+  }
+  return PLACEHOLDER_TITLE_PATTERN.test(text);
 }
 
-function extractAxisLabel(axis: PlotlyAxis | undefined): string | undefined {
-  return extractTextOrObject(axis?.title);
+/**
+ * Extracts a title only when Plotly resolved it from something the author
+ * actually supplied, discarding the placeholders.
+ */
+function extractGivenTitle(
+  value: { text?: string } | string | undefined | null,
+  layout: PlotlyLayout | undefined,
+): string | undefined {
+  const text = extractTextOrObject(value);
+  if (!text || isPlaceholderTitle(text, layout))
+    return undefined;
+  return text;
+}
+
+function extractTitle(layout: PlotlyLayout): string | undefined {
+  return extractGivenTitle(layout.title, layout);
+}
+
+function extractAxisLabel(axis: PlotlyAxis | undefined, layout: PlotlyLayout): string | undefined {
+  return extractGivenTitle(axis?.title, layout);
 }
 
 function getAxis(layout: PlotlyFullLayout, axisId: string): PlotlyAxis | undefined {
@@ -553,7 +604,7 @@ function resolveAxisLabel(layout: PlotlyFullLayout, axisId: string): string | un
     const axis = getAxis(layout, currentId);
     if (!axis)
       return undefined;
-    const label = extractAxisLabel(axis);
+    const label = extractAxisLabel(axis, layout);
     if (label)
       return label;
     if (!axis.matches || axis.matches === currentId)
@@ -850,7 +901,7 @@ function extractLayer(
       return extractBarLayer(trace, id, title, selectors, axes);
 
     case TraceType.HEATMAP:
-      return extractHeatmapLayer(trace, id, title, selectors, axes);
+      return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.HISTOGRAM:
       return extractHistogramLayer(trace, calcdata, id, title, selectors, axes, traceIndex, gd);
@@ -1208,6 +1259,7 @@ function extractHeatmapLayer(
   title: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
+  gd: PlotlyGraphDiv,
 ): MaidrLayer | null {
   if (!trace.z || trace.z.length === 0)
     return null;
@@ -1228,7 +1280,7 @@ function extractHeatmapLayer(
   };
 
   // Set the z axis label for z-values from the colorbar title, or default.
-  const fillLabel = extractColorbarTitle(trace) ?? 'Value';
+  const fillLabel = extractColorbarTitle(trace, gd._fullLayout ?? gd.layout) ?? 'Value';
   const heatmapAxes: MaidrLayer['axes'] = { ...axes, z: { label: fillLabel } };
 
   return {
@@ -1242,18 +1294,10 @@ function extractHeatmapLayer(
 }
 
 /**
- * Extracts the colorbar title from a plotly trace, if present.
- * Filters out Plotly's editable placeholder titles (e.g., "Click to enter Colorscale title").
+ * Extracts the colorbar title from a plotly trace, if the author gave one.
  */
-function extractColorbarTitle(trace: PlotlyTrace): string | undefined {
-  const title = extractTextOrObject(trace.colorbar?.title);
-
-  // Filter out Plotly's editable placeholder titles
-  if (title && title.toLowerCase().includes('click to enter')) {
-    return undefined;
-  }
-
-  return title;
+function extractColorbarTitle(trace: PlotlyTrace, layout: PlotlyLayout | undefined): string | undefined {
+  return extractGivenTitle(trace.colorbar?.title, layout);
 }
 
 // ---------------------------------------------------------------------------

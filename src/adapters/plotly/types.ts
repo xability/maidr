@@ -75,7 +75,33 @@ export interface PlotlyAnnotation {
 export interface PlotlyFullLayout extends PlotlyLayout {
   barmode?: string;
   barnorm?: string;
+  /**
+   * The placeholder titles Plotly resolves an *absent* title to. Plotly's own
+   * title renderer compares against this container to decide that a title is
+   * a placeholder, and only draws it in editable mode.
+   */
+  _dfltTitle?: PlotlyDfltTitle;
   [key: string]: unknown;
+}
+
+/**
+ * Plotly's placeholder title strings, one per title slot. Populated by
+ * plotly.js through its localisation dictionary, so the values are translated
+ * on a chart configured with a non-English locale.
+ *
+ * The slots below are the ones plotly.js 3.1.1 fills. The index signature
+ * carries the rest: a version that adds a slot should have it recognised as a
+ * placeholder rather than announced, and without it `Object.entries` widens
+ * each value to `any`.
+ */
+export interface PlotlyDfltTitle {
+  plot?: string;
+  subtitle?: string;
+  x?: string;
+  y?: string;
+  colorbar?: string;
+  annotation?: string;
+  [key: string]: string | undefined;
 }
 
 export interface PlotlyAxis {

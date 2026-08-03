@@ -501,6 +501,218 @@ describe('plotly extractor', () => {
     });
   });
 
+  describe('plotly editor placeholder titles', () => {
+    /**
+     * What plotly.js 3.1.1 puts in `_fullLayout` for a chart drawn with no
+     * layout at all. The placeholders are never rendered outside editable
+     * mode, so announcing them would describe axes no sighted reader sees.
+     */
+    const EN_DFLT_TITLE = {
+      plot: 'Click to enter Plot title',
+      subtitle: 'Click to enter Plot subtitle',
+      x: 'Click to enter X axis title',
+      y: 'Click to enter Y axis title',
+      colorbar: 'Click to enter Colorscale title',
+      annotation: 'new text',
+    };
+
+    it('omits axis labels and the figure title that plotly only filled in as placeholders', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1', 'Q2'], y: [120, 90] }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          title: { text: 'Click to enter Plot title' },
+          xaxis: { title: { text: 'Click to enter X axis title' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBeUndefined();
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x).toBeUndefined();
+      expect(axes?.y).toBeUndefined();
+    });
+
+    it('omits placeholders translated by a non-English plotly locale', () => {
+      // `_dfltTitle` is filled from plotly's localisation dictionary, so a
+      // fix that matched the English wording alone would pass the chart above
+      // and still fabricate axis names here.
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
+        layout: {
+          _dfltTitle: {
+            plot: 'Cliquez pour saisir le titre du graphique',
+            x: 'Cliquez pour saisir le titre de l\'axe X',
+            y: 'Cliquez pour saisir le titre de l\'axe Y',
+          },
+          title: { text: 'Cliquez pour saisir le titre du graphique' },
+          xaxis: { title: { text: 'Cliquez pour saisir le titre de l\'axe X' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Cliquez pour saisir le titre de l\'axe Y' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBeUndefined();
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x).toBeUndefined();
+      expect(axes?.y).toBeUndefined();
+    });
+
+    it('keeps the titles the author did supply', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          title: { text: 'Quarterly revenue' },
+          xaxis: { title: { text: 'Quarter' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBe('Quarterly revenue');
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x?.label).toBe('Quarter');
+      expect(axes?.y).toBeUndefined();
+    });
+
+    it('keeps a title matching the annotation placeholder, which stands in for no title', () => {
+      // `_dfltTitle.annotation` is 'new text' — not a title slot, and short
+      // enough to be a label an author really wrote.
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          title: { text: 'new text' },
+          xaxis: { title: { text: 'new text' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBe('new text');
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x?.label).toBe('new text');
+      expect(axes?.y).toBeUndefined();
+    });
+
+    it('follows a matches: chain past an inner axis holding only a placeholder', () => {
+      // Plotly Express keeps a facet's shared title on the outer axis and
+      // resolves every inner axis to the placeholder, so the inner title has
+      // to be discarded before the chain can be followed.
+      const gd = createGraphDiv({
+        traces: [
+          scatterTrace({}),
+          scatterTrace({ xaxis: 'x2', yaxis: 'y2' }),
+        ],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          xaxis: { domain: [0, 0.48], title: { text: 'Total Bill' } },
+          xaxis2: { domain: [0.52, 1], matches: 'x', title: { text: 'Click to enter X axis title' } },
+          yaxis: { domain: [0, 1], title: { text: 'Tip' } },
+          yaxis2: { domain: [0, 1], matches: 'y', title: { text: 'Click to enter Y axis title' } },
+        },
+        bgRects: [{ x: 0, y: 0 }, { x: 400, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const [left, right] = maidr!.subplots[0];
+      expect(left.layers[0].axes?.x?.label).toBe('Total Bill');
+      expect(right.layers[0].axes?.x?.label).toBe('Total Bill');
+      expect(right.layers[0].axes?.y?.label).toBe('Tip');
+    });
+
+    it('falls back to the heatmap default fill label for a placeholder colorbar title', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'heatmap',
+          z: [[1, 2], [3, 4]],
+          colorbar: { title: { text: 'Click to enter Colorscale title' } },
+        }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].axes?.z?.label).toBe('Value');
+    });
+
+    it('keeps a colorbar title the author did supply', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'heatmap',
+          z: [[1, 2], [3, 4]],
+          colorbar: { title: { text: 'Density' } },
+        }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].axes?.z?.label).toBe('Density');
+    });
+
+    it('still recognises the English placeholders when the layout carries no _dfltTitle', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
+        layout: {
+          title: { text: 'Click to enter Plot title' },
+          xaxis: { title: { text: 'Click to enter X axis title' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBeUndefined();
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x).toBeUndefined();
+      expect(axes?.y).toBeUndefined();
+    });
+
+    it('still recognises an English colorbar placeholder when the layout carries no _dfltTitle', () => {
+      // The third caller of the shared check, so the fallback is covered at
+      // every site rather than through the axis labels alone.
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'heatmap',
+          z: [[1, 2], [3, 4]],
+          colorbar: { title: { text: 'Click to enter Colorscale title' } },
+        }],
+        layout: {
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].axes?.z?.label).toBe('Value');
+    });
+  });
+
   describe('core-model integration', () => {
     /**
      * The model and normalizer resolve elements via page globals; point
