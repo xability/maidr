@@ -88,6 +88,11 @@ export interface PlotlyFullLayout extends PlotlyLayout {
  * Plotly's placeholder title strings, one per title slot. Populated by
  * plotly.js through its localisation dictionary, so the values are translated
  * on a chart configured with a non-English locale.
+ *
+ * The slots below are the ones plotly.js 3.1.1 fills. The index signature
+ * carries the rest: a version that adds a slot should have it recognised as a
+ * placeholder rather than announced, and without it `Object.entries` widens
+ * each value to `any`.
  */
 export interface PlotlyDfltTitle {
   plot?: string;
@@ -96,6 +101,7 @@ export interface PlotlyDfltTitle {
   y?: string;
   colorbar?: string;
   annotation?: string;
+  [key: string]: string | undefined;
 }
 
 export interface PlotlyAxis {
