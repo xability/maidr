@@ -33,6 +33,38 @@ const process = require('node:process');
  * @typedef {{ number: number, title: string, pull_request?: object }} Issue
  */
 
+/**
+ * The octokit surface this file uses, rather than the whole client.
+ *
+ * Narrowed by hand instead of importing `@octokit/types`: the point is to give
+ * `checkJs` something to check, and a handful of call signatures does that
+ * without adding a dependency to a file CI loads directly. `listForRepo` is
+ * `unknown` because it is only ever handed to `paginate` as a route, never
+ * called here.
+ * @typedef {object} Github
+ * @property {(route: unknown, params: object) => Promise<Issue[]>} paginate - Walks every page of a list endpoint.
+ * @property {{ issues: {
+ *   listForRepo: unknown,
+ *   create: (params: object) => Promise<unknown>,
+ *   update: (params: object) => Promise<unknown>,
+ *   createComment: (params: object) => Promise<unknown>,
+ * } }} rest - The REST endpoints this file calls.
+ */
+
+/**
+ * The workflow run context, narrowed to the fields the report embeds.
+ * @typedef {object} Context
+ * @property {{ owner: string, repo: string }} repo - Where the run happened.
+ * @property {number} runId - Identifies the run, for the report's link back to it.
+ * @property {string} sha - The commit under test.
+ * @property {string} ref - The ref the run was triggered on.
+ */
+
+/**
+ * The actions toolkit core, narrowed to the one call this file makes.
+ * @typedef {{ warning: (message: string) => void }} Core
+ */
+
 /** Where the Playwright reporter output is written by the test step. */
 const RESULTS_PATH = 'test-results.txt';
 
@@ -106,9 +138,9 @@ function results() {
 /**
  * Files or updates this run's report issue, and retires stale failures.
  * @param {object} api - The github-script bindings.
- * @param {any} api.github - The authenticated octokit client.
- * @param {any} api.context - The workflow run context.
- * @param {any} api.core - The actions toolkit core, for warnings.
+ * @param {Github} api.github - The authenticated octokit client.
+ * @param {Context} api.context - The workflow run context.
+ * @param {Core} api.core - The actions toolkit core, for warnings.
  * @returns {Promise<void>} Resolves once the issues are settled.
  */
 module.exports = async function report({ github, context, core }) {
