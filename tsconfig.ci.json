@@ -1,0 +1,16 @@
+{
+  // `scripts/ci/` is plain JavaScript that CI executes directly, so it cannot
+  // be TypeScript without a build step. The root config sets `allowJs: false`,
+  // which means tsc never loads it — turning that on repo-wide would pull in
+  // every other script here and in `eslint.config.ts`'s orbit.
+  //
+  // This checks that one directory instead, through its JSDoc. `npm run
+  // type-check` runs it after the root project.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true
+  },
+  "include": ["scripts/ci/**/*.cjs"]
+}

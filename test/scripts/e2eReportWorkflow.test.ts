@@ -1,23 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { runInNewContext } from 'node:vm';
 
 /**
- * Exercises the `github-script` body in the scheduled e2e workflow.
+ * Exercises the report step of the scheduled e2e workflow.
  *
- * That script only fires on `schedule`, so no pull request can run it. The
- * body is read out of the YAML rather than copied here, so what is tested is
- * what runs. Octokit is stubbed, and the stub caps an unpaginated
- * `listForRepo` at 30 the way the real API does — without that the pagination
- * cases would pass against either version.
+ * That step only fires on `schedule`, so no pull request can run it. It calls
+ * `scripts/ci/e2eReport.cjs`, which this imports directly — before #694 the
+ * body lived in a YAML block scalar and had to be read back out of the
+ * workflow, and every defect found in that extraction produced a *passing*
+ * suite that was testing the wrong thing (or nothing).
  *
- * Extracted textually rather than parsed: `js-yaml` and `yaml` are present
- * but only transitively, and a test resting on an undeclared dependency
- * breaks when something upstream stops pulling it in. That argument expires
- * if either becomes a direct devDependency for another reason — parse the
- * workflow then and delete `reportScript`, since block-scalar spelling and
- * indentation are a class of bug a parser does not have. Adding the
- * dependency solely to delete this is the trade that is not worth it.
+ * Octokit is stubbed, and the stub caps an unpaginated `listForRepo` at 30 the
+ * way the real API does — without that the pagination cases would pass against
+ * either version.
+ *
+ * `require` rather than `import`: the module is `.cjs` because github-script
+ * loads it with `require` and `package.json` is `"type": "module"`. This file
+ * runs in Jest's CommonJS project, so requiring it is the same resolution
+ * production gets.
  */
 
 interface StubIssue {
@@ -47,72 +47,17 @@ interface RunResult {
 /** Issue numbers whose API calls should reject, to test the catch blocks. */
 type Failing = ReadonlySet<number>;
 
-const ROOT = resolve(__dirname, '../..');
-const WORKFLOW = join(ROOT, '.github/workflows/e2e_tests.yml');
-
-/**
- * Matches the header of a `script:` block scalar.
- *
- * Wider than the form used today, since YAML also spells it `|-`, `|+`, `|2`,
- * and takes the two indicators in either order. Missing one of those would
- * report "no script block", which reads as though the step were deleted.
- *
- * Looser than the grammar too — it admits `|--`. This recognises a header so
- * the error can name the real cause; validating YAML is actionlint's job.
- */
-const SCRIPT_HEADER = /^\s*script: \|[-+\d]*\s*$/;
-
-/**
- * The github-script body from the report step, as it will run in CI.
- *
- * Takes everything indented past the `script:` line and removes that
- * indentation, which is what a YAML block scalar means. The indentation is
- * measured from the block's first line rather than assumed to be the header's
- * plus two — that assumption describes this file's current formatting, not
- * anything YAML requires, and dedenting the block would slice into the code.
- */
-function reportScript(): string {
-  const lines = readFileSync(WORKFLOW, 'utf8').split('\n');
-  const starts = lines.reduce<number[]>(
-    (found, line, i) => (SCRIPT_HEADER.test(line) ? [...found, i] : found),
-    [],
-  );
-  if (starts.length === 0) {
-    throw new Error(`No "script:" block scalar in ${WORKFLOW}`);
-  }
-  // Taking the first block is only unambiguous while there is one. A second
-  // github-script step added above this one would otherwise be extracted
-  // instead, and every case below would still pass — against the wrong
-  // script. Fail loudly and make whoever adds it say which block they mean.
-  if (starts.length > 1) {
-    throw new Error(
-      `${WORKFLOW} has ${starts.length} "script:" blocks; this test assumes `
-      + 'one and would silently extract the first. Select the report step '
-      + 'explicitly before adding another.',
-    );
-  }
-  const [start] = starts;
-
-  const rest = lines.slice(start + 1);
-  const first = rest.find(line => line.trim());
-  if (first === undefined) {
-    throw new Error(`The "script:" block in ${WORKFLOW} is empty`);
-  }
-  const indent = (first.match(/^\s*/) ?? [''])[0].length;
-
-  const body: string[] = [];
-  for (const line of rest) {
-    if (line.trim() && !line.startsWith(' '.repeat(indent))) {
-      break;
-    }
-    body.push(line.slice(indent));
-  }
-
-  if (!body.some(line => line.includes('github.rest.issues'))) {
-    throw new Error('Extracted block does not look like the report script');
-  }
-  return body.join('\n');
+/** The github-script bindings the module is handed. */
+interface Bindings {
+  github: unknown;
+  context: unknown;
+  core: unknown;
 }
+
+const MODULE = join(resolve(__dirname, '../..'), 'scripts/ci/e2eReport.cjs');
+
+// eslint-disable-next-line ts/no-require-imports -- CommonJS module; see the docblock.
+const report = require(MODULE) as (api: Bindings) => Promise<void>;
 
 /** Runs the script against stubs and records what it asked GitHub to do. */
 async function runScript(
@@ -183,29 +128,27 @@ async function runScript(
     ref: 'refs/heads/main',
   };
 
-  // `runInNewContext` rather than `new Function`: the same execution, without
-  // tripping `no-new-func`, and the sandbox makes the globals the script is
-  // allowed to see explicit. The script reads the reporter output through
-  // `fs`; an absent file is a case it already handles, which keeps this from
-  // needing a fixture.
-  // `Error` is shared rather than left to the sandbox's own. github-script
-  // runs the script and octokit in one realm, so a thrown error is an
-  // instance of the same constructor the script tests against. A fresh
-  // context gets its own, and `error instanceof Error` on an error the stubs
-  // built out here would be false — sending the script down its non-Error
-  // path on every failure case, and testing the branch production never
-  // takes. Passing it in makes the sandbox model production's single realm.
-  const sandbox = {
-    github,
-    context,
-    core,
-    require,
-    process: { env: { TEST_STATUS: status } },
-    Date,
-    Error,
-  };
+  // The module reads `TEST_STATUS` from the environment, as github-script's
+  // `env:` gives it. Set and restored per call rather than injected, because
+  // the module reads `process.env` directly and a stub would test a seam that
+  // does not exist in production.
+  const previous = process.env.TEST_STATUS;
+  if (status === undefined) {
+    delete process.env.TEST_STATUS;
+  } else {
+    process.env.TEST_STATUS = status;
+  }
 
-  await runInNewContext(`(async () => {\n${reportScript()}\n})()`, sandbox);
+  try {
+    await report({ github, context, core });
+  } finally {
+    if (previous === undefined) {
+      delete process.env.TEST_STATUS;
+    } else {
+      process.env.TEST_STATUS = previous;
+    }
+  }
+
   return result;
 }
 
@@ -440,5 +383,44 @@ describe('the scheduled e2e report step', () => {
 
       expect(result.created).toEqual([['test-failure']]);
     });
+  });
+});
+
+/**
+ * The seam the module split opened.
+ *
+ * Every case above imports the module directly, which is the point of #694 —
+ * but it also means they pass whether or not the workflow still calls it.
+ * Before the split the body was read out of the YAML, so deleting the step
+ * broke the suite; afterwards, gutting the step leaves all 17 green. Verified
+ * by gutting it: 1341 passed, 0 failed.
+ *
+ * So this asserts the one thing the others no longer can. It reads the raw
+ * YAML rather than parsing it, but nothing here depends on block-scalar
+ * spelling or indentation — the class of defect that made the old extraction
+ * worth deleting. It only asks whether the two files still name each other.
+ */
+describe('the workflow step', () => {
+  const workflow = readFileSync(
+    join(resolve(__dirname, '../..'), '.github/workflows/e2e_tests.yml'),
+    'utf8',
+  );
+
+  // The whole require expression, not just the path. A comment naming the
+  // module satisfies "mentions the path" — the comment above the step in this
+  // very workflow does — so that weaker form passed against a step whose call
+  // had been replaced by `core.info(...)`. Found by running exactly that.
+  //
+  // Resolved against the workspace, and that part is load-bearing:
+  // github-script resolves a relative `require` against the action's install
+  // directory, not the checkout, so a plain './scripts/…' would throw at
+  // runtime — on a schedule, where nobody is watching.
+  it('should still require the module these cases exercise', () => {
+    // eslint-disable-next-line no-template-curly-in-string -- literal YAML text, not a template.
+    expect(workflow).toContain('require(`${process.env.GITHUB_WORKSPACE}/scripts/ci/e2eReport.cjs`)');
+  });
+
+  it('should hand it the github-script bindings', () => {
+    expect(workflow).toContain('await report({ github, context, core })');
   });
 });
