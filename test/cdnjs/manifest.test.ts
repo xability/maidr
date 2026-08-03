@@ -123,14 +123,59 @@ function readBuildOutputs(): BuildOutputs {
 const outputs = readBuildOutputs();
 const mirrored = manifest.autoupdate.fileMap.flatMap(entry => entry.files);
 
-describe('cdnjs manifest metadata', () => {
-  it('should carry every field cdnjs requires', () => {
-    for (const field of ['name', 'description', 'keywords', 'repository', 'autoupdate'] as const) {
-      expect(manifest[field]).toBeDefined();
-    }
+/**
+ * Whether a manifest value is missing, blank, or an empty container.
+ *
+ * Recurses, so an empty `files` array nested inside `autoupdate.fileMap`
+ * counts — that is the one that would mirror nothing at all while the manifest
+ * still validated.
+ * @param value - Any value read out of the manifest.
+ * @returns True when the value carries nothing.
+ */
+function isEmpty(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length === 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.some(isEmpty);
+  }
+  if (typeof value === 'object') {
+    const entries = Object.values(value);
+    return entries.length === 0 || entries.some(isEmpty);
+  }
+  return false;
+}
 
-    expect(manifest.keywords.length).toBeGreaterThan(0);
-    expect(manifest.description.length).toBeGreaterThan(0);
+describe('cdnjs manifest metadata', () => {
+  // Deliberately not "the fields cdnjs requires". That list could not be
+  // confirmed against their schema — see `cdnjs/README.md` — and a test
+  // asserting an unverified external requirement claims an authority it does
+  // not have. What this repository can state is which fields its own listing
+  // is built from, and that adding or dropping one is a change to review
+  // rather than something to notice on cdnjs later.
+  it('should declare exactly the fields this listing is built from', () => {
+    expect(Object.keys(manifest).sort()).toEqual([
+      'autoupdate',
+      'description',
+      'filename',
+      'homepage',
+      'keywords',
+      'license',
+      'name',
+      'repository',
+    ]);
+  });
+
+  // Emptiness is the failure that survives every other check here: a blank
+  // description or an empty `files` array is still the right shape, still
+  // parses, and still reaches cdnjs looking filled in.
+  it('should leave none of those fields empty', () => {
+    for (const [field, value] of Object.entries(manifest)) {
+      expect({ field, empty: isEmpty(value) }).toEqual({ field, empty: false });
+    }
   });
 
   it('should describe the same package as package.json', () => {
