@@ -79,7 +79,8 @@
   },
   "main": "dist/maidr.js",
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "node scripts/build.js",

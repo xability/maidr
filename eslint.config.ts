@@ -131,6 +131,22 @@ const config: ReturnType<typeof antfu> = antfu({
       message: 'Do not build aria-label from children: it stringifies to "[object Object]" unless the child is a plain string, and aria-label replaces the accessible name the element already had.',
     }],
   },
+}, {
+  // npm's `files` is order-sensitive: a negation only excludes what an earlier
+  // pattern already included. Sorted ascending, `!dist/**/*.map` lands before
+  // `dist`, which then re-includes everything it just excluded, and every
+  // sourcemap is published again — verified with `npm pack --dry-run`, which
+  // is also the way to check this if the array is ever touched.
+  // `test/scripts/publishedPackage.test.ts` pins the ordering so the fix
+  // cannot be undone by an autofix.
+  //
+  // package.json takes no comments, so the warning has to live here. Upstream
+  // scopes this rule to `pathPattern: '^files$'`, so turning it off costs
+  // nothing else — `keywords` and every other array stay unaffected.
+  files: ['package.json'],
+  rules: {
+    'jsonc/sort-array-values': 'off',
+  },
 });
 
 export default config;

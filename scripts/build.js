@@ -315,7 +315,7 @@ export const builds = [
   },
 ];
 
-function createViteConfig(config) {
+export function createViteConfig(config) {
   const plugins = [];
   if (config.useReact)
     plugins.push(react());
@@ -354,7 +354,16 @@ function createViteConfig(config) {
         formats: config.formats,
         fileName: config.fileName,
       },
-      sourcemap: true,
+      // 'hidden' writes the .map beside each bundle but omits the
+      // `sourceMappingURL` comment, so devtools never fetches one on its own:
+      // these maps are for tooling that is pointed at them deliberately —
+      // analysing what a bundle is made of, or attaching a map by hand — not
+      // for stepping through a build by default.
+      //
+      // The comment has to go because package.json stops publishing the maps
+      // (they were 77% of the package). Shipping a bundle that still names a
+      // map it no longer ships would resolve to a 404 for every CDN consumer.
+      sourcemap: 'hidden',
       outDir,
       emptyOutDir: config.emptyOutDir,
       rollupOptions: { external: config.external, onwarn: onWarn },
