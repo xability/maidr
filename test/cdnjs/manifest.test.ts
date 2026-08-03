@@ -50,6 +50,7 @@ interface Manifest {
 interface PackageJson {
   name: string;
   description: string;
+  keywords: string[];
   homepage: string;
   license: string;
   repository: { url: string };
@@ -182,6 +183,9 @@ describe('cdnjs manifest metadata', () => {
     expect(manifest.name).toBe(pkg.name);
     expect(manifest.description).toBe(pkg.description);
     expect(manifest.homepage).toBe(pkg.homepage);
+    // Order included: these are two hand-maintained copies of one list, and
+    // "same set, different order" is a diff someone still has to read.
+    expect(manifest.keywords).toEqual(pkg.keywords);
   });
 
   // cdnjs redistributes the files, so a licence that disagrees with the one

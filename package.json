@@ -9,6 +9,14 @@
     "type": "git",
     "url": "https://github.com/xability/maidr"
   },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "data-visualization",
+    "sonification",
+    "braille",
+    "screen-reader"
+  ],
   "exports": {
     ".": {
       "default": "./dist/maidr.js"
