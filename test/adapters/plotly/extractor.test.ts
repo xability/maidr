@@ -583,6 +583,28 @@ describe('plotly extractor', () => {
       expect(axes?.y).toBeUndefined();
     });
 
+    it('keeps a title matching the annotation placeholder, which stands in for no title', () => {
+      // `_dfltTitle.annotation` is 'new text' — not a title slot, and short
+      // enough to be a label an author really wrote.
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
+        layout: {
+          _dfltTitle: EN_DFLT_TITLE,
+          title: { text: 'new text' },
+          xaxis: { title: { text: 'new text' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.title).toBe('new text');
+      const axes = maidr!.subplots[0][0].layers[0].axes;
+      expect(axes?.x?.label).toBe('new text');
+      expect(axes?.y).toBeUndefined();
+    });
+
     it('follows a matches: chain past an inner axis holding only a placeholder', () => {
       // Plotly Express keeps a facet's shared title on the outer axis and
       // resolves every inner axis to the placeholder, so the inner title has

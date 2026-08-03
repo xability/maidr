@@ -112,14 +112,24 @@ function extractTextOrObject(value: { text?: string } | string | undefined | nul
 }
 
 /**
- * Plotly's editor affordance, in case `_dfltTitle` is unavailable: every
- * placeholder in the English dictionary opens this way.
+ * A backstop for the English title placeholders, applied whenever `_dfltTitle`
+ * has not already settled the question — including when it is present and
+ * simply did not match. Every title placeholder in Plotly's English dictionary
+ * opens this way; the annotation default, which is not a title, does not.
  */
 const PLACEHOLDER_TITLE_PATTERN = /^click to enter /i;
 
 /**
- * Reports whether a resolved title is one of Plotly's placeholders — the text
- * it substitutes for a title that was never given.
+ * The one `_dfltTitle` entry that stands in for something other than a title,
+ * and so has no business being compared against one. Its value — `new text` —
+ * is also short enough to be a label an author really wrote, where the title
+ * placeholders are not.
+ */
+const NON_TITLE_DFLT_SLOT = 'annotation';
+
+/**
+ * Reports whether a resolved title is one of Plotly's title placeholders — the
+ * text it substitutes for a title that was never given.
  *
  * Plotly only draws a placeholder in editable mode, so on an ordinary chart it
  * is on screen for nobody; announcing it would tell a blind reader the chart
@@ -130,8 +140,8 @@ const PLACEHOLDER_TITLE_PATTERN = /^click to enter /i;
 function isPlaceholderTitle(text: string, layout: PlotlyLayout | undefined): boolean {
   const dfltTitle = (layout as PlotlyFullLayout | undefined)?._dfltTitle;
   if (dfltTitle) {
-    for (const placeholder of Object.values(dfltTitle)) {
-      if (placeholder === text)
+    for (const [slot, placeholder] of Object.entries(dfltTitle)) {
+      if (slot !== NON_TITLE_DFLT_SLOT && placeholder === text)
         return true;
     }
   }
