@@ -184,6 +184,17 @@ playwright-report/
 # Claude Code local developer settings
 .claude/settings.local.json
 
+# Isolated worktrees Claude Code creates for background agents. Each is a
+# full checkout — three of them came to 1.4 GB — and each contains its own
+# .git, so `git add -A` stages them as embedded repositories rather than
+# skipping them. That has already put three bogus submodule entries into a
+# commit once.
+.claude/worktrees/
+
+# Page snapshots written by the Playwright MCP server during a debugging
+# session. Scratch output, never part of a change.
+.playwright-mcp/
+
 # Site
 _site/
 
