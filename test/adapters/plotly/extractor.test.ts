@@ -676,6 +676,7 @@ describe('plotly extractor', () => {
       const gd = createGraphDiv({
         traces: [{ type: 'bar', x: ['Q1'], y: [120] }],
         layout: {
+          title: { text: 'Click to enter Plot title' },
           xaxis: { title: { text: 'Click to enter X axis title' }, domain: [0, 1] },
           yaxis: { title: { text: 'Click to enter Y axis title' }, domain: [0, 1] },
         },
@@ -684,9 +685,31 @@ describe('plotly extractor', () => {
 
       const maidr = extractPlotlyData(gd);
 
+      expect(maidr!.title).toBeUndefined();
       const axes = maidr!.subplots[0][0].layers[0].axes;
       expect(axes?.x).toBeUndefined();
       expect(axes?.y).toBeUndefined();
+    });
+
+    it('still recognises an English colorbar placeholder when the layout carries no _dfltTitle', () => {
+      // The third caller of the shared check, so the fallback is covered at
+      // every site rather than through the axis labels alone.
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'heatmap',
+          z: [[1, 2], [3, 4]],
+          colorbar: { title: { text: 'Click to enter Colorscale title' } },
+        }],
+        layout: {
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].axes?.z?.label).toBe('Value');
     });
   });
 
