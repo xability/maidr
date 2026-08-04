@@ -310,6 +310,17 @@ interface SubplotGroup {
   traceIndices: number[];
 }
 
+/** A trace within a subplot group, keyed to its calcdata and its global index. */
+interface TraceEntry {
+  trace: PlotlyTrace;
+  /** The MAIDR type it maps to, or `null` when MAIDR has no equivalent. */
+  maidrType: TraceType | null;
+  /** Index within the group, used to look up `group.calcdata`. */
+  calcIdx: number;
+  /** Index within `gd._fullData`. */
+  globalIdx: number;
+}
+
 function groupTracesBySubplot(
   traces: PlotlyTrace[],
   calcdata?: PlotlyCalcData[][],
@@ -402,22 +413,29 @@ function buildSubplotLayers(
   const layers: MaidrLayer[] = [];
 
   // Group traces that need multi-trace handling.
-  const lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const boxTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const barTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const otherTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+  const lineTraces: TraceEntry[] = [];
+  const boxTraces: TraceEntry[] = [];
+  const barTraces: TraceEntry[] = [];
+  const otherTraces: TraceEntry[] = [];
 
   for (let i = 0; i < group.traces.length; i++) {
     const trace = group.traces[i];
-    const maidrType = mapTraceType(trace);
-    if (maidrType === TraceType.LINE) {
-      lineTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-    } else if (maidrType === TraceType.BOX) {
-      boxTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-    } else if (maidrType === TraceType.BAR) {
-      barTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    // Resolved once per trace: mapping an unsupported type warns, and doing it
+    // again below would log the same line twice.
+    const entry: TraceEntry = {
+      trace,
+      maidrType: mapTraceType(trace),
+      calcIdx: i,
+      globalIdx: group.traceIndices[i],
+    };
+    if (entry.maidrType === TraceType.LINE) {
+      lineTraces.push(entry);
+    } else if (entry.maidrType === TraceType.BOX) {
+      boxTraces.push(entry);
+    } else if (entry.maidrType === TraceType.BAR) {
+      barTraces.push(entry);
     } else {
-      otherTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+      otherTraces.push(entry);
     }
   }
 
@@ -462,8 +480,7 @@ function buildSubplotLayers(
   }
 
   // Build individual layers for remaining traces.
-  for (const { trace, calcIdx, globalIdx } of otherTraces) {
-    const maidrType = mapTraceType(trace);
+  for (const { trace, maidrType, calcIdx, globalIdx } of otherTraces) {
     if (!maidrType)
       continue;
 

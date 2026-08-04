@@ -1,7 +1,7 @@
 import type { PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
@@ -114,6 +114,25 @@ describe('plotly extractor', () => {
       expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
       expect(layer.axes?.x?.label).toBe('Day');
       expect(layer.axes?.y?.label).toBe('Count');
+    });
+  });
+
+  describe('unsupported traces', () => {
+    it('warns once for a trace type MAIDR has no equivalent for', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const gd = createGraphDiv({
+        traces: [{ type: 'pie', y: [1, 2, 3] }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      extractPlotlyData(gd);
+
+      const skipped = warn.mock.calls.filter(([message]) =>
+        String(message).includes('Unsupported plotly trace type'),
+      );
+      expect(skipped).toHaveLength(1);
+
+      warn.mockRestore();
     });
   });
 
