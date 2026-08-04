@@ -258,6 +258,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const audio = state.audio;
 
+    // A gap carries no magnitude to pitch. Interpolating it would hand the
+    // oscillator a non-finite frequency, so sound it the way an out-of-bounds
+    // move already sounds — the point exists to navigate to, it just has no
+    // value, which is what the text layer announces as "missing".
+    if (typeof audio.freq.raw === 'number' && !Number.isFinite(audio.freq.raw)) {
+      this.playEmptyTone(audio.panning);
+      return;
+    }
+
     // Resolve palette entry from group index or candlestick trend
     let groupIndex = audio.group;
     if (audio.trend && groupIndex === undefined) {

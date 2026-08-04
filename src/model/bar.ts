@@ -9,6 +9,37 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
+/**
+ * Reads one bar's magnitude, keeping a gap distinguishable from a zero.
+ *
+ * A chart library reports a missing bar as `null` — plotly renders a
+ * zero-height rect and keeps the point, so the gap arrives here rather than
+ * being dropped. `Number(null)` is `0`, which makes an absent bar
+ * indistinguishable from one genuinely measured at zero: it sounds like a real
+ * low point, it can be reached as the row's minimum, and it pulls the range
+ * that every other bar's pitch is scaled against. `NaN` keeps it absent, which
+ * is what the text layer already announces it as.
+ *
+ * @param raw - The value from the point, on whichever axis carries magnitude
+ * @returns The magnitude, or `NaN` when the bar is a gap
+ */
+function toBarValue(raw: string | number | null | undefined): number {
+  if (raw === null || raw === undefined || raw === '') {
+    return Number.NaN;
+  }
+  return Number(raw);
+}
+
+/**
+ * Reports whether a bar value is a real measurement rather than a gap.
+ *
+ * @param value - A magnitude from `barValues`
+ * @returns True when the value can take part in a range or a comparison
+ */
+function isMeasured(value: number): boolean {
+  return Number.isFinite(value);
+}
+
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
   protected readonly movable: Movable;
 
@@ -29,13 +60,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
 
     this.barValues = points.map(row =>
       row.map(point =>
-        this.orientation === Orientation.VERTICAL
-          ? Number(point.y)
-          : Number(point.x),
+        toBarValue(
+          this.orientation === Orientation.VERTICAL ? point.y : point.x,
+        ),
       ),
     );
-    this.min = this.barValues.map(row => MathUtil.safeMin(row));
-    this.max = this.barValues.map(row => MathUtil.safeMax(row));
+    // A gap is not a measurement, so it must not set the row's range. Left in,
+    // it drags the minimum to 0 and every other bar's pitch along with it.
+    this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
+    this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovableGrid<T>(this.points);
   }

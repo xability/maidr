@@ -88,8 +88,10 @@ function createBarTraceState(values: number[][], row: number, col: number): Trac
     row,
     col,
     values,
-    min: values.map(items => Math.min(...items)),
-    max: values.map(items => Math.max(...items)),
+    // Gaps arrive as NaN and are excluded from the range, matching what
+    // AbstractBarPlot builds.
+    min: values.map(items => Math.min(...items.filter(Number.isFinite))),
+    max: values.map(items => Math.max(...items.filter(Number.isFinite))),
   };
 
   return {
@@ -568,6 +570,28 @@ describe('BrailleService display-size encoding', () => {
     service.toggle(state);
 
     expect(emitted.endsWith('\n')).toBe(true);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('renders a gap as a blank cell rather than the tallest bar', () => {
+    const { service } = createBrailleService(8);
+    // NaN loses every band comparison, so before the guard it fell through to
+    // the 75-100% glyph — a missing bar drawn as the highest one on the chart.
+    const state = createBarTraceState([[120, Number.NaN, 40]], 0, 0);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    const cells = emitted.replace(/\n/g, '');
+    expect(cells[1]).toBe(' ');
+    expect(cells[0]).toBe('⠉');
+    expect(cells[2]).toBe('⣀');
 
     disposable.dispose();
     service.dispose();
