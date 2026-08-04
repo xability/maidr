@@ -29,6 +29,7 @@ export abstract class TestConstants {
   static readonly HEATMAP_ID = 'heatmap';
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINEPLOT_ID = 'line';
+  static readonly STEPPLOT_ID = 'step';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
@@ -113,6 +114,9 @@ export abstract class TestConstants {
   static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: single line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // `StepTrace.state` overrides the inherited line plotType, so a step chart
+  // announces itself as a step plot rather than as a line one.
+  static readonly STEPPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: step. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `formatPlotType` in src/model/context.ts prefixes the box type with its

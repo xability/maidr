@@ -383,6 +383,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot'); return false;">Scatter plot</a></li>
     <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot'); return false;">Smooth plot</a></li>
     <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot'); return false;">Stacked Bar plot</a></li>
+    <li><a href="#" onclick="loadHTML('stepplot.html', 'Step plot (hypnogram)'); return false;">Step plot (hypnogram)</a></li>
     <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot'); return false;">Vertical box plot</a></li>
     <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
     <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>

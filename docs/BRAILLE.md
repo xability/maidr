@@ -178,6 +178,42 @@ In multiline braille displays, all data series are represented simultaneously. H
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
 
+## Step plot
+
+A step plot's braille is the line plot encoding above, unchanged: each data
+point becomes one Braille character whose dot height is its numeric `y` relative
+to the row's own range. The staircase corners the chart draws are not encoded —
+braille represents the samples, not the rendered geometry — so a run of equal
+levels reads as a run of identical characters and a transition reads as a change
+in dot height.
+
+### Known limitation: ordinal levels collapse
+
+The line encoder quarters each row's range into **four** buckets:
+
+- ⣀ represents values from 0% to 25%
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+
+A step plot whose Y axis is an ordinal scale with **five or more levels**
+therefore has more levels than the encoding has heights, and adjacent levels
+land on the same character. A hypnogram coded N3=1, N2=2, N1=3, REM=4, Awake=5
+quarters into bands of one unit, so N3 and N2 both render as ⣀ and cannot be
+told apart by touch alone.
+
+The exact stage name is still available: it comes from the text announcement,
+which reads the point's `label` ("Sleep stage is N2") rather than its numeric
+code. Use braille for the shape of the night — how long each run is, where the
+transitions fall — and the text output to name the level you are standing on.
+
+### Multiline Displays
+
+Step plots follow the line plot rules. In multiline braille displays, each
+series occupies its own line, so several step series can be compared at once. In
+single-line displays, the up and down arrow keys move between series and the
+braille representation updates to the current one.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.
