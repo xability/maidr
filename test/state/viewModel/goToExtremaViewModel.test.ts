@@ -8,13 +8,14 @@
  */
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
-import type { FormatterService } from '@service/formatter';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { ExtremaTarget } from '@type/extrema';
 import type { TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
+import { FormatterService } from '@service/formatter';
 import { createMaidrStore } from '@state/store';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
+import { TraceType } from '@type/grammar';
 
 function createAudioStub(): AudioService {
   return {
@@ -55,7 +56,6 @@ function createContextStub(active: unknown, layerId: string | null): Context {
 /** Formatter stub: x axis has a custom formatter mapping via `map`. */
 function createFormatterStub(map: Record<string, string>): FormatterService {
   return {
-    hasCustomFormatter: (_layerId: string, axis: string) => axis === 'x',
     formatSingleValue: (value: string | number) => map[String(value)] ?? String(value),
   } as unknown as FormatterService;
 }
@@ -81,21 +81,34 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     ]);
   });
 
-  test('falls back to String(value) when the layer has no custom x formatter', () => {
+  test('formats a layer with no author-supplied format, matching the announcement', () => {
+    // A real FormatterService, so this exercises the default path rather than
+    // a stub's idea of it: an axis with no `AxisFormat` still rounds, because
+    // that is what the announcement for the same point says. This used to be
+    // gated behind `hasCustomFormatter`, which could never answer false.
     const store = createMaidrStore();
-    const trace = createTraceStub([1, 2, 3]);
+    const trace = createTraceStub([57.14285714285714, 2, 3]);
     const context = createContextStub(trace, 'layer-1');
-    const formatter = {
-      hasCustomFormatter: () => false,
-      formatSingleValue: () => 'SHOULD_NOT_BE_USED',
-    } as unknown as FormatterService;
+    const formatter = new FormatterService({
+      id: 'chart',
+      subplots: [[{
+        layers: [{
+          id: 'layer-1',
+          type: TraceType.BAR,
+          axes: { x: { label: 'Quarter' }, y: { label: 'Share' } },
+          data: [],
+        }],
+      }]],
+    });
     const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
 
     expect(vm.getAvailableXValueOptions()).toEqual([
-      { value: 1, label: '1' },
+      { value: 57.14285714285714, label: '57.14' },
       { value: 2, label: '2' },
       { value: 3, label: '3' },
     ]);
+
+    formatter.dispose();
   });
 
   test('coerces a non-string formatter result to a string label', () => {
@@ -106,7 +119,6 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     // number rather than a string. The label must still be a string so
     // downstream string operations (e.g. filter's toLowerCase) don't throw.
     const formatter = {
-      hasCustomFormatter: () => true,
       formatSingleValue: (v: number) => (v * 100) as unknown as string,
     } as unknown as FormatterService;
     const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);

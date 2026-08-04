@@ -220,10 +220,15 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
   /**
    * Format extrema target labels by replacing raw xValues with formatted ones.
-   * When no custom formatter is configured the labels pass through unchanged.
+   *
+   * Every layer is formatted, not only those with an author-supplied
+   * `AxisFormat`: the default formatter rounds a long float to two decimals,
+   * which is what the announcement says, and a dialog label that disagreed with
+   * the announcement for the same point would be worse than either. A value the
+   * formatter leaves alone is detected below and passes through untouched.
    */
   private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
-    if (!this.formatter || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+    if (!this.formatter) {
       return targets;
     }
 
@@ -279,9 +284,10 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
 
     const layerId = this.activeLayerId();
-    // Same gate the extrema target labels use (formatTargetLabels): pass through
-    // unchanged when the active layer has no custom x formatter.
-    if (!this.formatter || layerId === null || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+    // Same rule the extrema target labels follow (formatTargetLabels): format
+    // whenever there is a formatter and a layer to look it up by, so these
+    // labels round the way the announcement does.
+    if (!this.formatter || layerId === null) {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 

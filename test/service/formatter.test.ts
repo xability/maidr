@@ -69,4 +69,25 @@ describe('formatterService', () => {
 
     service.dispose();
   });
+
+  it('applies the same formatting whether or not the axis configured one', () => {
+    // The service used to expose `hasCustomFormatter` for callers to branch on,
+    // but it compared the stored function against the `defaultFormat` export
+    // while always storing a fresh `wrapFormat` closure — so it answered true
+    // for every layer it knew. Callers now format unconditionally, and this
+    // pins the property that makes that safe: an unconfigured axis produces a
+    // sensible string rather than something a caller would need to skip.
+    const plain = new FormatterService(figure());
+    const configured = new FormatterService(figure({ type: 'fixed', decimals: 2 }));
+
+    expect(plain.formatSingleValue(57.14285714285714, 'layer-1', 'y')).toBe('57.14');
+    expect(configured.formatSingleValue(57.14285714285714, 'layer-1', 'y')).toBe('57.14');
+    // Strings and integers survive the unconfigured path untouched, which is
+    // what the removed gate was protecting.
+    expect(plain.formatSingleValue('Q1', 'layer-1', 'x')).toBe('Q1');
+    expect(plain.formatSingleValue(120, 'layer-1', 'x')).toBe('120');
+
+    plain.dispose();
+    configured.dispose();
+  });
 });
