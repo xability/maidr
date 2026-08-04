@@ -352,9 +352,13 @@ export class HighContrastService implements Disposable {
       }
     });
 
-    // Handle line chart exception
+    // Handle line chart exception. Step charts render as the same kind of
+    // stroked polyline, so they need the same treatment.
     if ('type' in this.context.instructionContext) {
-      if (this.context.instructionContext.type === 'line') {
+      if (
+        this.context.instructionContext.type === 'line'
+        || this.context.instructionContext.type === 'step'
+      ) {
         document.getElementById(this.context.id)?.classList.add('high-contrast');
       }
     }
@@ -405,9 +409,12 @@ export class HighContrastService implements Disposable {
       }
     });
 
-    // Handle line chart exception
+    // Handle line chart exception. Mirrors the add path above, including step.
     if ('type' in this.context.instructionContext) {
-      if (this.context.instructionContext.type === 'line') {
+      if (
+        this.context.instructionContext.type === 'line'
+        || this.context.instructionContext.type === 'step'
+      ) {
         document
           .getElementById(this.context.id)
           ?.classList

@@ -155,6 +155,7 @@ enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  STEP = 'step',
 }
 ```
 
@@ -208,6 +209,44 @@ const data: MaidrData = {
         { x: 1, y: 32, fill: '2023' },
         { x: 2, y: 35, fill: '2023' },
         { x: 3, y: 45, fill: '2023' },
+      ]],
+    }],
+  }]],
+};
+```
+
+### Step Chart
+
+A step chart holds its value across an interval and then jumps, so it is the
+right type for piecewise-constant data — a hypnogram's sleep stages, a status
+timeline, a rate that changes on fixed dates. Data is nested like a line chart,
+one inner array per series.
+
+`y` stays numeric: it drives sonification, braille and the min/max range.
+`label` names the ordinal level that number encodes and is announced in its
+place, so the chart reads "Sleep stage is REM" rather than "Sleep stage is 4".
+
+`stepDirection` is a layer property, not a per-point one: `'hv'` holds until the
+next x value then jumps (matplotlib `steps-post`, ggplot2's default), `'vh'`
+jumps at the current x value then holds (`steps-pre`), and `'mid'` jumps midway
+between the two x values (`steps-mid`). Omit it when your chart library does not
+report one — MAIDR then describes the chart without naming a direction:
+
+```typescript
+const data: MaidrData = {
+  id: 'hypnogram',
+  title: 'Sleep Stage Through One Night',
+  subplots: [[{
+    layers: [{
+      id: '0',
+      type: 'step',
+      stepDirection: 'hv',
+      axes: { x: { label: 'Time since lights out (h)' }, y: { label: 'Sleep stage' } },
+      data: [[
+        { x: 0, y: 5, label: 'Awake' },
+        { x: 0.5, y: 3, label: 'N1' },
+        { x: 1, y: 2, label: 'N2' },
+        { x: 1.5, y: 1, label: 'N3' },
       ]],
     }],
   }]],

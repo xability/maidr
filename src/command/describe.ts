@@ -677,10 +677,23 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // Single smooth/violin plot: 1D position within the curve
         this.announceSmoothPosition(x, cols);
       }
-    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+    } else if (
+      (traceType === TraceType.LINE || traceType === TraceType.STEP)
+      && state.groupCount
+      && state.groupCount > 1
+    ) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
-      this.announceMultiLinePosition(x, cols, y, rows, state.group);
+      // A step trace navigates identically — series on one axis, samples on
+      // the other — so it wants the same announcement, not the generic 2-D one.
+      this.announceMultiLinePosition(
+        x,
+        cols,
+        y,
+        rows,
+        state.group,
+        traceType === TraceType.STEP ? 'Series' : 'Line',
+      );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
@@ -853,7 +866,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * Announces position for multi-line plots.
    *
    * Lines are identified as "Line X of Y", not "Plot X of Y" — the whole
-   * multiline chart is the plot; its members are lines.
+   * multiline chart is the plot; its members are lines. A step chart passes
+   * "Series" instead, so the position announcement does not call something a
+   * line when every other surface of the same chart calls it a step.
    *
    * Verbose spells out both the line's ordinal and its group name:
    * "Line 1 of 3, Group is Series 1, Position is 3 of 10". Terse keeps only
@@ -868,10 +883,11 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     lineIndex: number,
     totalLines: number,
     group?: { label: string; value: string },
+    seriesNoun: string = 'Line',
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
-    const linePrefix = `Line ${linePos} of ${totalLines}`;
+    const linePrefix = `${seriesNoun} ${linePos} of ${totalLines}`;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;

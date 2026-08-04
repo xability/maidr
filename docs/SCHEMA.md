@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'violin_kde', 'violin_box',
+- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'step', 'violin_kde', 'violin_box',
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
@@ -305,6 +305,49 @@ The data property is defined as a list of objects where each object is a record 
           },
         ]
         //add multiple arrays for multiline plots
+      ]
+    }
+
+    //step: piecewise-constant data — the value is HELD across an interval and
+    //then jumps, rather than being interpolated the way a line implies.
+    //Data is nested exactly like `line`: one inner array per series.
+    //
+    //`y` stays NUMERIC — it drives sonification, braille and the min/max range.
+    //`label` is optional and names the ordinal level that `y` encodes; when
+    //present it is announced INSTEAD of the number, so a hypnogram says
+    //"Sleep stage is REM" rather than "Sleep stage is 4".
+    //
+    //`stepDirection` is a layer-level property (a sibling of `axes` and
+    //`data`), not a per-point one. It says where the jump happens between two
+    //consecutive samples:
+    //  "hv"  hold y[i] until x[i+1], then jump  (matplotlib 'steps-post',
+    //                                            ggplot2 direction 'hv')
+    //  "vh"  jump at x[i], then hold            (matplotlib 'steps-pre')
+    //  "mid" jump midway between the two x values (matplotlib 'steps-mid')
+    //Omit it entirely when the producing library does not report one — the
+    //description only names a direction the data actually authored.
+    maidr = {
+      "type": "step",
+      "stepDirection": "hv",
+      "data":[
+        [
+          {
+                      "x": 0.0,
+                      "y": 5,
+                      "label": "Awake"
+          },
+          {
+                      "x": 0.5,
+                      "y": 3,
+                      "label": "N1"
+          },
+          {
+                      "x": 1.0,
+                      "y": 2,
+                      "label": "N2"
+          }
+        ]
+        //add multiple arrays for multiple step series
       ]
     }
 

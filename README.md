@@ -33,7 +33,7 @@ and encourages a multi-modal exploration on visualization.
 
 To use maidr, follow these steps:
 
-1. **Import your plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT, Anthropic Claude, Google Gemini, or local models running on your own machine via [Ollama](https://ollama.com) (no API key required, suitable for sensitive data). The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, histogram, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
+1. **Import your plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT, Anthropic Claude, Google Gemini, or local models running on your own machine via [Ollama](https://ollama.com) (no API key required, suitable for sensitive data). The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, step plot, histogram, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
 
 2. **Create an HTML file**: Include the main script file `maidr.js`. No stylesheet link is needed — maidr styles its own interface at runtime, and fetches the stylesheet for mathematical notation on demand when it is actually required. Add the SVG of your plot to the main HTML body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
@@ -57,7 +57,7 @@ To use maidr, follow these steps:
 
 ## Data Schema
 
-The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, histograms, and segmented bar plots.
+The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, step plots, histograms, and segmented bar plots.
 For the full schema structure, object properties, and data formats, see the [Data Schema documentation](docs/SCHEMA.md).
 
 ## React Integration

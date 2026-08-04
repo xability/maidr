@@ -136,6 +136,22 @@ export class LinePlotError extends Error {
 }
 
 /**
+ * Error thrown when Step plot related operations fail
+ */
+export class StepPlotError extends Error {
+  /**
+   * Creates a new StepPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'StepPlotError';
+  }
+}
+
+/**
  * Error thrown when Heatmap related operations fail
  */
 export class HeatmapError extends Error {

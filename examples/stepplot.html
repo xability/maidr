@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Step Plot Example — Hypnogram</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A hypnogram is the motivating case for a step plot: the sleep stage is
+        an ordinal level (Awake / REM / N1 / N2 / N3) that is HELD across a
+        scoring epoch and then JUMPS, so the value between two samples is the
+        earlier one and never something interpolated.
+
+        The layer therefore carries:
+          - a numeric `y` (the stage code), which drives sonification, braille
+            and the min/max range, and
+          - a `label` per point (the stage name), which is announced in place
+            of that number.
+        `stepDirection: "hv"` is matplotlib's `steps-post` and ggplot2's
+        default `direction = "hv"`: hold until the next x value, then jump.
+
+        The line below is drawn as a genuine staircase with 2N - 1 vertices,
+        which is what matplotlib emits for `hv`; MAIDR maps the even-indexed
+        vertices back onto the 15 data points for highlighting.
+      -->
+      <svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt"
+        viewBox="0 0 720 432" version="1.1" id="step-hypnogram"
+        maidr='{&#10;  "id": "step-hypnogram",&#10;  "subplots": [&#10;    [&#10;      {&#10;        "id": "step-hypnogram-subplot",&#10;        "layers": [&#10;          {&#10;            "id": "step-hypnogram-layer",&#10;            "type": "step",&#10;            "title": "Hypnogram: Sleep Stage Through One Night",&#10;            "stepDirection": "hv",&#10;            "axes": {&#10;              "x": {&#10;                "label": "Time since lights out (h)"&#10;              },&#10;              "y": {&#10;                "label": "Sleep stage"&#10;              }&#10;            },&#10;            "selectors": [&#10;              "g[id=&apos;maidr-step-hypnogram&apos;] path"&#10;            ],&#10;            "data": [&#10;              [&#10;                {&#10;                  "x": 0,&#10;                  "y": 5,&#10;                  "label": "Awake"&#10;                },&#10;                {&#10;                  "x": 0.5,&#10;                  "y": 3,&#10;                  "label": "N1"&#10;                },&#10;                {&#10;                  "x": 1,&#10;                  "y": 2,&#10;                  "label": "N2"&#10;                },&#10;                {&#10;                  "x": 1.5,&#10;                  "y": 1,&#10;                  "label": "N3"&#10;                },&#10;                {&#10;                  "x": 2,&#10;                  "y": 1,&#10;                  "label": "N3"&#10;                },&#10;                {&#10;                  "x": 2.5,&#10;                  "y": 2,&#10;                  "label": "N2"&#10;                },&#10;                {&#10;                  "x": 3,&#10;                  "y": 4,&#10;                  "label": "REM"&#10;                },&#10;                {&#10;                  "x": 3.5,&#10;                  "y": 2,&#10;                  "label": "N2"&#10;                },&#10;                {&#10;                  "x": 4,&#10;                  "y": 1,&#10;                  "label": "N3"&#10;                },&#10;                {&#10;                  "x": 4.5,&#10;                  "y": 2,&#10;                  "label": "N2"&#10;                },&#10;                {&#10;                  "x": 5,&#10;                  "y": 4,&#10;                  "label": "REM"&#10;                },&#10;                {&#10;                  "x": 5.5,&#10;                  "y": 2,&#10;                  "label": "N2"&#10;                },&#10;                {&#10;                  "x": 6,&#10;                  "y": 4,&#10;                  "label": "REM"&#10;                },&#10;                {&#10;                  "x": 6.5,&#10;                  "y": 3,&#10;                  "label": "N1"&#10;                },&#10;                {&#10;                  "x": 7,&#10;                  "y": 5,&#10;                  "label": "Awake"&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="axes-background">
+              <path d="M 70 380  L 670 380  L 670 60  L 70 60  z " style="fill: #ffffff" />
+            </g>
+            <g id="axis_x">
+              <g>
+                <path d="M 90 380  L 90 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="90" y="400" text-anchor="middle" style="font: 12px sans-serif">0</text>
+              </g>
+              <g>
+                <path d="M 170 380  L 170 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="170" y="400" text-anchor="middle" style="font: 12px sans-serif">1</text>
+              </g>
+              <g>
+                <path d="M 250 380  L 250 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="250" y="400" text-anchor="middle" style="font: 12px sans-serif">2</text>
+              </g>
+              <g>
+                <path d="M 330 380  L 330 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="330" y="400" text-anchor="middle" style="font: 12px sans-serif">3</text>
+              </g>
+              <g>
+                <path d="M 410 380  L 410 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="410" y="400" text-anchor="middle" style="font: 12px sans-serif">4</text>
+              </g>
+              <g>
+                <path d="M 490 380  L 490 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="490" y="400" text-anchor="middle" style="font: 12px sans-serif">5</text>
+              </g>
+              <g>
+                <path d="M 570 380  L 570 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="570" y="400" text-anchor="middle" style="font: 12px sans-serif">6</text>
+              </g>
+              <g>
+                <path d="M 650 380  L 650 386  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="650" y="400" text-anchor="middle" style="font: 12px sans-serif">7</text>
+              </g>
+              <text x="370" y="418" text-anchor="middle" style="font: 13px sans-serif">Time since lights out (h)</text>
+            </g>
+            <g id="axis_y">
+              <g>
+                <path d="M 70 90  L 64 90  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="58" y="94" text-anchor="end" style="font: 12px sans-serif">Awake</text>
+              </g>
+              <g>
+                <path d="M 70 155  L 64 155  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="58" y="159" text-anchor="end" style="font: 12px sans-serif">REM</text>
+              </g>
+              <g>
+                <path d="M 70 220  L 64 220  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="58" y="224" text-anchor="end" style="font: 12px sans-serif">N1</text>
+              </g>
+              <g>
+                <path d="M 70 285  L 64 285  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="58" y="289" text-anchor="end" style="font: 12px sans-serif">N2</text>
+              </g>
+              <g>
+                <path d="M 70 350  L 64 350  " style="stroke: #000000; stroke-width: 0.8" />
+                <text x="58" y="354" text-anchor="end" style="font: 12px sans-serif">N3</text>
+              </g>
+              <text x="20" y="220" text-anchor="middle" transform="rotate(-90 20 220)" style="font: 13px sans-serif">Sleep stage</text>
+            </g>
+            <g id="maidr-step-hypnogram">
+              <path d="M 90 90  L 130 90  L 130 220  L 170 220  L 170 285  L 210 285  L 210 350  L 250 350  L 250 350  L 290 350  L 290 285  L 330 285  L 330 155  L 370 155  L 370 285  L 410 285  L 410 350  L 450 350  L 450 285  L 490 285  L 490 155  L 530 155  L 530 285  L 570 285  L 570 155  L 610 155  L 610 220  L 650 220  L 650 90  "
+                style="fill: none; stroke: #1f77b4; stroke-width: 1.8; stroke-linecap: butt; stroke-linejoin: miter" />
+            </g>
+            <g id="axes-spines">
+              <path d="M 70 60  L 70 380  L 670 380  "
+                style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square" />
+            </g>
+            <text x="370" y="40" text-anchor="middle" style="font: 16px sans-serif">Hypnogram: Sleep Stage Through One Night</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

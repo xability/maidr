@@ -11,6 +11,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
+  StepPoint,
   ViolinKdePoint,
 } from '@type/grammar';
 import { CANDLESTICK_SECTIONS } from '@model/candlestick';
@@ -27,6 +28,7 @@ const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
   TraceType.STACKED,
   TraceType.DODGED,
   TraceType.NORMALIZED,
+  TraceType.STEP,
   // Violin KDE data is ViolinKdePoint[][] (one group per violin) — unlike
   // heatmap, which uses object-shaped data and cannot be appended to.
   TraceType.VIOLIN_KDE,
@@ -44,6 +46,7 @@ export type LiveDataPoint
     | ScatterPoint
     | SegmentedPoint
     | SmoothPoint
+    | StepPoint
     | ViolinKdePoint;
 
 /**

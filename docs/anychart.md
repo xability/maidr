@@ -67,15 +67,18 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | MAIDR Type | AnyChart Series | Example |
 |-----------|----------------|---------|
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
-| Line | `line`, `spline`, `step-line`, `area`, `step-area`, `spline-area` | [Line chart](examples.html) |
+| Line | `line`, `spline`, `area`, `spline-area` | [Line chart](examples.html) |
+| Step | `step-line`, `step-area` | [Step plot](examples.html) |
 | Scatter | `scatter`, `marker`, `bubble` | [Scatter plot](examples.html) |
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
 
-Area series are represented as line traces — the filled-area visual is lost in the accessible representation. A console warning is emitted when this downgrade occurs.
+Area series are represented as line traces — the filled-area visual is lost in the accessible representation. A console warning is emitted when this downgrade occurs. `step-area` downgrades to a step trace rather than a line one, so it still warns about the lost fill.
 
 **Notes on chart-type detection:**
+
+- **Step** series (`step-line`, `step-area`) are piecewise constant — the value is held and then jumps — so they map to MAIDR's step trace rather than to a line, and are announced and navigated as step plots. AnyChart does not expose which step convention a series was drawn with, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
 - **Heatmap** charts use AnyChart's separate `anychart-heatmap.min.js` module and expose a chart-level data API (no `getSeriesCount()`). The adapter detects them via `chart.getType()` returning `'heatmap'` or `'heat'`, with a defensive fallback when `getType()` is unavailable.
 - **Candlestick** support also covers OHLC series. Both come from AnyChart's financial / stock module (`anychart-stock.min.js`). Each row is `[x, open, high, low, close]`; outlier and volume fields are not extracted by AnyChart's iterator API.

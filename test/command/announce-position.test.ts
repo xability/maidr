@@ -149,3 +149,58 @@ describe('AnnouncePositionCommand on multiline plots (terse)', () => {
     expect(terseText.length).toBeLessThan(verboseText.length);
   });
 });
+
+/**
+ * Builds a multi-series step trace state as `StepTrace` reports it: the same
+ * shape `LineTrace` produces, but typed `step` and naming itself `step`.
+ * @param options Cursor position and group, as for {@link multilineState}
+ * @returns A non-empty multi-series step trace state
+ */
+function multiStepState(options: MultilineOptions = {}): PlotState {
+  return {
+    ...(multilineState(options) as object),
+    traceType: TraceType.STEP,
+    plotType: 'step',
+  } as unknown as PlotState;
+}
+
+describe('AnnouncePositionCommand on multi-series step plots', () => {
+  it('calls a step series a series, not a line', () => {
+    // The instruction text and chartType for this same chart both say "step",
+    // so announcing "Line 1 of 3" here would have the chart contradict itself.
+    const { command, textViewModel } = createCommand(multiStepState());
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Series 1 of 3, Position is 3 of 10',
+    );
+  });
+
+  it('keeps the series wording in terse mode when the data names no group', () => {
+    const { command, textViewModel } = createCommand(multiStepState(), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Series 1 of 3, 22%');
+  });
+
+  it('still prefers an authored group name over the ordinal', () => {
+    const { command, textViewModel } = createCommand(
+      multiStepState({ group: { label: 'Night', value: 'Night 2' } }),
+      'terse',
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Night 2, 22%');
+  });
+
+  it('leaves a multiline chart saying line', () => {
+    const { command, textViewModel } = createCommand(multilineState());
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Line 1 of 3, Position is 3 of 10');
+  });
+});

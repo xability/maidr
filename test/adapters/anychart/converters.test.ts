@@ -9,6 +9,7 @@ import {
   anyChartsToMaidr,
   anyChartToMaidr,
   bindAnyCharts,
+  mapSeriesType,
 } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TraceType } from '@type/grammar';
@@ -609,5 +610,97 @@ describe('bindAnyCharts', () => {
 
     expect(bindAnyCharts([[chartA, chartB]], { id: 'fig' })).toBeNull();
     container.remove();
+  });
+});
+
+describe('mapSeriesType', () => {
+  let warnSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('maps the step-drawn series to a step trace, not a line one', () => {
+    // AnyChart draws these as staircases, so announcing and navigating them as
+    // interpolated lines misdescribes the data.
+    expect(mapSeriesType('step-line')).toBe(TraceType.STEP);
+    expect(mapSeriesType('step-area')).toBe(TraceType.STEP);
+  });
+
+  it('leaves the interpolated series as line traces', () => {
+    expect(mapSeriesType('line')).toBe(TraceType.LINE);
+    expect(mapSeriesType('spline')).toBe(TraceType.LINE);
+    expect(mapSeriesType('area')).toBe(TraceType.LINE);
+    expect(mapSeriesType('spline-area')).toBe(TraceType.LINE);
+  });
+
+  it('normalises the series name before looking it up', () => {
+    expect(mapSeriesType('Step_Line')).toBe(TraceType.STEP);
+    expect(mapSeriesType('STEP LINE')).toBe(TraceType.STEP);
+  });
+
+  it('warns that an area series loses its fill, whichever trace it becomes', () => {
+    // The warning keys on the source type rather than the mapped one, so
+    // step-area still warns now that it no longer maps to LINE.
+    mapSeriesType('step-area');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('step-area'));
+
+    warnSpy.mockClear();
+    mapSeriesType('area');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    warnSpy.mockClear();
+    mapSeriesType('step-line');
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null for a series type the adapter cannot represent', () => {
+    expect(mapSeriesType('pie')).toBeNull();
+  });
+});
+
+describe('selector resolution per trace type', () => {
+  /**
+   * Build a single-series chart of an arbitrary AnyChart series type.
+   * @param seriesType The AnyChart series type string
+   * @returns A mock chart instance carrying one series of that type
+   */
+  function chartOf(seriesType: string): AnyChartInstance {
+    return createChart({
+      title: seriesType,
+      series: [createSeries(seriesType, [
+        { x: 'A', value: 1 },
+        { x: 'B', value: 2 },
+      ])],
+    });
+  }
+
+  it('gives a step series the same stamped selector a line series gets', () => {
+    // stampLineAttributes writes data-maidr-anychart-line-point onto step
+    // series too — they are in LINE_LIKE_SERIES_TYPES — so a step layer that
+    // resolved to no selector would leave those stamped elements unreachable
+    // and the chart would announce correctly while never highlighting.
+    const line = anyChartToMaidr(chartOf('line'), { id: 'l' });
+    const step = anyChartToMaidr(chartOf('step-line'), { id: 's' });
+
+    const lineLayer = line?.subplots[0][0].layers[0];
+    const stepLayer = step?.subplots[0][0].layers[0];
+
+    expect(lineLayer?.type).toBe(TraceType.LINE);
+    expect(stepLayer?.type).toBe(TraceType.STEP);
+    expect(stepLayer?.selectors).toBeDefined();
+    expect(stepLayer?.selectors).toEqual(lineLayer?.selectors);
+  });
+
+  it('gives a step-area series a selector too', () => {
+    const stepArea = anyChartToMaidr(chartOf('step-area'), { id: 'sa' });
+    const layer = stepArea?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.STEP);
+    expect(layer?.selectors).toBeDefined();
   });
 });
