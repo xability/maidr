@@ -188,11 +188,8 @@ function autoInitPlotlyCharts(): void {
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
  *
- * A chart MAIDR cannot represent is examined once per set of inputs. Every DOM
- * mutation used to reconsider it and log the same warning again — 28 copies of
- * one warning on an idle page in the reported case — while a chart plotly
- * recomputed, whether swapped to other traces or given the points it was drawn
- * without, is examined afresh and can still become accessible.
+ * Which charts this looks at, and how often, is
+ * {@link claimPlotlyExamination}'s to decide.
  */
 function initPlotlyChart(gd: HTMLElement): void {
   if (gd.hasAttribute('data-maidr-auto'))

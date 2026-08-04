@@ -1499,7 +1499,9 @@ function buildViolinBoxLayer(
     orientation,
     ...(selectors ? { selectors } : {}),
     axes,
-    // The mean is navigable only where plotly draws a mean line for it.
+    // One list of sections serves every violin here, so a mean line on any of
+    // them makes the mean navigable on all — it is a statistic each of them
+    // has. Only the violins drawn with one carry a selector to highlight.
     violinOptions: { showMean: violins.some(violin => violin.meanSelector !== null) },
     data,
   };
