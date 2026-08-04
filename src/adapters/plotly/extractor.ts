@@ -441,14 +441,14 @@ function buildSubplotLayers(
     const barnorm = layout.barnorm ?? '';
 
     if (barmode === 'group') {
-      const layer = extractSegmentedBarLayer(barTraces, TraceType.DODGED, xLabel, yLabel, gd);
+      const layer = extractSegmentedBarLayer(barTraces, group, TraceType.DODGED, xLabel, yLabel, gd);
       if (layer)
         layers.push(layer);
     } else if (barmode === 'stack' || barmode === 'relative') {
       const type = barnorm === 'percent' || barnorm === 'fraction'
         ? TraceType.NORMALIZED
         : TraceType.STACKED;
-      const layer = extractSegmentedBarLayer(barTraces, type, xLabel, yLabel, gd);
+      const layer = extractSegmentedBarLayer(barTraces, group, type, xLabel, yLabel, gd);
       if (layer)
         layers.push(layer);
     } else {
@@ -898,7 +898,7 @@ function extractLayer(
       return extractScatterLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.BAR:
-      return extractBarLayer(trace, id, title, selectors, axes);
+      return extractBarLayer(trace, calcdata, id, title, selectors, axes);
 
     case TraceType.HEATMAP:
       return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
@@ -989,8 +989,43 @@ function extractScatterLayer(
 // Bar
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds one bar point, taking the value plotly actually drew from calcdata
+ * and putting it on the axis the orientation calls for. Shared by the
+ * single-trace and segmented bar extractors, which face the same `barnorm`
+ * question and must place the value the same way.
+ *
+ * The value comes from `cd.s`, the bar's own size after `barnorm` has been
+ * applied, so it is the percentage or fraction on screen rather than the raw
+ * input number. `cd.s` is orientation-independent — plotly keeps the position
+ * on `cd.p` for both vertical and horizontal bars. `cd.x`/`cd.y` are
+ * deliberately not used: for stacked bars they hold the running top of the
+ * stack, not the segment.
+ *
+ * Plotly stores the bar value on `x` for horizontal bars and on `y` for
+ * vertical, which already matches AbstractBarPlot's per-orientation reading
+ * (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap is
+ * needed — and the plotly x/y axes already line up with the layer axes. The
+ * raw value on that same axis is the fallback, used when calcdata is
+ * unavailable (a chart captured before plotly computed it) or holds a
+ * non-finite size.
+ */
+function barPoint(
+  cd: PlotlyCalcData | undefined,
+  x: string | number,
+  y: string | number,
+  isHorizontal: boolean,
+): BarPoint {
+  const size = cd?.s;
+  const drawn = typeof size === 'number' && Number.isFinite(size) ? size : undefined;
+  return isHorizontal
+    ? { x: drawn ?? x, y }
+    : { x, y: drawn ?? y };
+}
+
 function extractBarLayer(
   trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
   id: string,
   title: string | undefined,
   selectors: string | undefined,
@@ -1006,11 +1041,7 @@ function extractBarLayer(
   const data: BarPoint[] = [];
 
   for (let i = 0; i < len; i++) {
-    // Plotly stores the bar value on `x` for horizontal bars and on `y` for
-    // vertical, which already matches AbstractBarPlot's per-orientation reading
-    // (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap
-    // is needed — and the plotly x/y axes already line up with the layer axes.
-    data.push({ x: x[i], y: y[i] });
+    data.push(barPoint(calcdata[i], x[i], y[i], isHorizontal));
   }
 
   if (data.length === 0)
@@ -1437,6 +1468,7 @@ function extractCandlestickLayer(
  */
 function extractSegmentedBarLayer(
   barTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[],
+  group: SubplotGroup,
   type: TraceType,
   xLabel: string | undefined,
   yLabel: string | undefined,
@@ -1447,20 +1479,19 @@ function extractSegmentedBarLayer(
   // Check orientation from first trace (all traces in a group share orientation).
   const isHorizontal = barTraces[0]?.trace.orientation === 'h';
 
-  for (const { trace } of barTraces) {
+  for (const { trace, calcIdx } of barTraces) {
     const x = trace.x;
     const y = trace.y;
     if (!x || !y)
       continue;
 
+    const cd = group.calcdata[calcIdx] ?? [];
     const z = trace.name ?? `Series ${data.length + 1}`;
     const len = Math.min(x.length, y.length);
     const series: SegmentedPoint[] = [];
 
     for (let i = 0; i < len; i++) {
-      // Plotly stores the value on `x` for horizontal bars and on `y` for
-      // vertical, matching AbstractBarPlot's per-orientation reading — no swap.
-      series.push({ x: x[i], y: y[i], z });
+      series.push({ ...barPoint(cd[i], x[i], y[i], isHorizontal), z });
     }
 
     data.push(series);
