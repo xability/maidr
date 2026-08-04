@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { SegmentedPoint } from '@type/grammar';
+import type { BarPoint, SegmentedPoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it } from '@jest/globals';
@@ -1048,6 +1048,48 @@ describe('plotly extractor', () => {
 
       expect(data[0][0].y).toBe(120);
       expect(data[1][0].y).toBe(90);
+    });
+
+    it('normalizes a lone bar trace, which barnorm flattens to full-height bars', () => {
+      // Plotly normalizes a single trace against itself, so every bar is drawn
+      // at 100% — verified against plotly.js 2.35.2, where raw [120, 80, 40]
+      // renders three identical full-height bars. Announcing the raw numbers
+      // there describes three different heights that are not on screen.
+      // A lone bar trace takes the single-layer path, not the segmented one.
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1', 'Q2', 'Q3'], y: [120, 80, 40], name: 'East' }],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [[
+          { p: 0, s: 100, b: 0, y: 100 },
+          { p: 1, s: 100, b: 0, y: 100 },
+          { p: 2, s: 100, b: 0, y: 100 },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.BAR);
+      const data = layer.data as BarPoint[];
+      expect(data.map(point => point.y)).toEqual([100, 100, 100]);
+      expect(data.map(point => point.x)).toEqual(['Q1', 'Q2', 'Q3']);
+    });
+
+    it('leaves a lone bar trace without barnorm reading its raw values', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1', 'Q2', 'Q3'], y: [120, 80, 40], name: 'East' }],
+        layout: {},
+        calcdata: [[
+          { p: 0, s: 120, b: 0, y: 120 },
+          { p: 1, s: 80, b: 0, y: 80 },
+          { p: 2, s: 40, b: 0, y: 40 },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const data = maidr!.subplots[0][0].layers[0].data as BarPoint[];
+      expect(data.map(point => point.y)).toEqual([120, 80, 40]);
     });
 
     it('keeps calcdata aligned with the trace arrays across a gap in the data', () => {

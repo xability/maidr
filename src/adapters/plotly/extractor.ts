@@ -898,7 +898,7 @@ function extractLayer(
       return extractScatterLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.BAR:
-      return extractBarLayer(trace, id, title, selectors, axes);
+      return extractBarLayer(trace, calcdata, id, title, selectors, axes);
 
     case TraceType.HEATMAP:
       return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
@@ -989,8 +989,30 @@ function extractScatterLayer(
 // Bar
 // ---------------------------------------------------------------------------
 
+/**
+ * Reads the value plotly actually drew for one bar. Shared by the single-trace
+ * and segmented bar extractors, which face the same `barnorm` question.
+ *
+ * `cd.s` is the bar's own size after `barnorm` has been applied, so it is the
+ * percentage or fraction on screen rather than the raw input number. It is
+ * orientation-independent — plotly keeps the position on `cd.p` for both
+ * vertical and horizontal bars. `cd.x`/`cd.y` are deliberately not used: for
+ * stacked bars they hold the running top of the stack, not the segment.
+ *
+ * Falls back to the raw trace value when calcdata is unavailable (a chart
+ * captured before plotly computed it) or holds a non-finite size.
+ */
+function drawnBarValue(
+  cd: PlotlyCalcData | undefined,
+  raw: string | number,
+): string | number {
+  const size = cd?.s;
+  return typeof size === 'number' && Number.isFinite(size) ? size : raw;
+}
+
 function extractBarLayer(
   trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
   id: string,
   title: string | undefined,
   selectors: string | undefined,
@@ -1010,7 +1032,8 @@ function extractBarLayer(
     // vertical, which already matches AbstractBarPlot's per-orientation reading
     // (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap
     // is needed — and the plotly x/y axes already line up with the layer axes.
-    data.push({ x: x[i], y: y[i] });
+    const value = drawnBarValue(calcdata[i], isHorizontal ? x[i] : y[i]);
+    data.push(isHorizontal ? { x: value, y: y[i] } : { x: x[i], y: value });
   }
 
   if (data.length === 0)
@@ -1426,26 +1449,6 @@ function extractCandlestickLayer(
 // ---------------------------------------------------------------------------
 // Segmented bars (dodged / stacked / normalized)
 // ---------------------------------------------------------------------------
-
-/**
- * Reads the value plotly actually drew for one bar.
- *
- * `cd.s` is the bar's own size after `barnorm` has been applied, so it is the
- * percentage or fraction on screen rather than the raw input number. It is
- * orientation-independent — plotly keeps the position on `cd.p` for both
- * vertical and horizontal bars. `cd.x`/`cd.y` are deliberately not used: for
- * stacked bars they hold the running top of the stack, not the segment.
- *
- * Falls back to the raw trace value when calcdata is unavailable (a chart
- * captured before plotly computed it) or holds a non-finite size.
- */
-function drawnBarValue(
-  cd: PlotlyCalcData | undefined,
-  raw: string | number,
-): string | number {
-  const size = cd?.s;
-  return typeof size === 'number' && Number.isFinite(size) ? size : raw;
-}
 
 /**
  * Combines multiple plotly bar traces into a single MAIDR segmented bar layer.
