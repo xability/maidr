@@ -61,7 +61,7 @@ const PAGE_DESCRIPTIONS = {
   'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, and heatmap chart types.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, and mixed axis (bar + line) chart types.',
   'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, and candlestick chart types.',
-  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
+  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, and normalized chart types.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',

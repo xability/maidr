@@ -360,7 +360,8 @@ export interface SmoothPoint {
  * - `vh` — jump at `x[i]`, then hold until `x[i+1]` (matplotlib `steps-pre`).
  * - `mid` — jump at the midpoint of the two x values (matplotlib `steps-mid`).
  *
- * Defaults to `hv`, matching `ggplot2::geom_step()`.
+ * `hv` is what `ggplot2::geom_step()` draws by default, but MAIDR substitutes
+ * no default of its own: see {@link MaidrLayer.stepDirection}.
  */
 export type StepDirection = 'hv' | 'vh' | 'mid';
 
@@ -511,7 +512,9 @@ export interface MaidrLayer {
   violinOptions?: ViolinOptions;
   /**
    * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
-   * every other trace type. Omitted means `hv`.
+   * every other trace type. Omit it when the producing library does not report
+   * one: MAIDR does not substitute a default, so the description stays silent
+   * about the convention rather than naming one the data never authored.
    *
    * @example
    * stepDirection: 'hv'

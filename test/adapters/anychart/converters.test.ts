@@ -9,6 +9,7 @@ import {
   anyChartsToMaidr,
   anyChartToMaidr,
   bindAnyCharts,
+  mapSeriesType,
 } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TraceType } from '@type/grammar';
@@ -609,5 +610,55 @@ describe('bindAnyCharts', () => {
 
     expect(bindAnyCharts([[chartA, chartB]], { id: 'fig' })).toBeNull();
     container.remove();
+  });
+});
+
+describe('mapSeriesType', () => {
+  let warnSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('maps the step-drawn series to a step trace, not a line one', () => {
+    // AnyChart draws these as staircases, so announcing and navigating them as
+    // interpolated lines misdescribes the data.
+    expect(mapSeriesType('step-line')).toBe(TraceType.STEP);
+    expect(mapSeriesType('step-area')).toBe(TraceType.STEP);
+  });
+
+  it('leaves the interpolated series as line traces', () => {
+    expect(mapSeriesType('line')).toBe(TraceType.LINE);
+    expect(mapSeriesType('spline')).toBe(TraceType.LINE);
+    expect(mapSeriesType('area')).toBe(TraceType.LINE);
+    expect(mapSeriesType('spline-area')).toBe(TraceType.LINE);
+  });
+
+  it('normalises the series name before looking it up', () => {
+    expect(mapSeriesType('Step_Line')).toBe(TraceType.STEP);
+    expect(mapSeriesType('STEP LINE')).toBe(TraceType.STEP);
+  });
+
+  it('warns that an area series loses its fill, whichever trace it becomes', () => {
+    // The warning keys on the source type rather than the mapped one, so
+    // step-area still warns now that it no longer maps to LINE.
+    mapSeriesType('step-area');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('step-area'));
+
+    warnSpy.mockClear();
+    mapSeriesType('area');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    warnSpy.mockClear();
+    mapSeriesType('step-line');
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null for a series type the adapter cannot represent', () => {
+    expect(mapSeriesType('pie')).toBeNull();
   });
 });

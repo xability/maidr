@@ -345,7 +345,7 @@ The data property is defined as a list of objects where each object is a record 
                       "x": 1.0,
                       "y": 2,
                       "label": "N2"
-          },
+          }
         ]
         //add multiple arrays for multiple step series
       ]

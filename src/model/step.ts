@@ -187,8 +187,11 @@ export class StepTrace extends LineTrace {
    *
    * - `2N - 1` vertices (`hv`/`vh`): the even-indexed vertices are exactly the
    *   data points; the odd-indexed ones are the corners.
-   * - `2N` vertices (`mid`): each data point owns a horizontal pair, and sits
-   *   at its midpoint.
+   * - `2N` vertices (`mid`): each data point owns a horizontal pair. The
+   *   interior runs span midpoint to midpoint and are centred on their sample,
+   *   but the first and last runs are half-width — `steps-mid` starts at
+   *   `x[0]` and ends at `x[N-1]` rather than at a midpoint — so those two
+   *   samples sit at the outer end of their run, not at its centre.
    *
    * Any other count is left to the inherited handling — a library that
    * simplifies collinear vertices (a long flat run in a hypnogram is exactly
@@ -224,10 +227,18 @@ export class StepTrace extends LineTrace {
       for (let i = 0; i < expected; i++) {
         const left = coordinates[2 * i];
         const right = coordinates[2 * i + 1];
-        dataVertices.push({
-          x: (Number(left.x) + Number(right.x)) / 2,
-          y: Number(left.y),
-        });
+        // The outermost runs are half-width, so their sample is at the outer
+        // end rather than the centre; averaging there would offset the first
+        // and last highlight by a quarter of the sample interval.
+        let x: number;
+        if (i === 0) {
+          x = Number(left.x);
+        } else if (i === expected - 1) {
+          x = Number(right.x);
+        } else {
+          x = (Number(left.x) + Number(right.x)) / 2;
+        }
+        dataVertices.push({ x, y: Number(left.y) });
       }
       coordinates.length = 0;
       coordinates.push(...dataVertices);

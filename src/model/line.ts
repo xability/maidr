@@ -730,7 +730,7 @@ export class LineTrace extends AbstractTrace {
    * by interpolating along the surviving segments. Extra vertices are dropped
    * from the end, which is right for a straight polyline whose vertices are
    * its data points — subclasses whose rendered geometry has vertices that are
-   * not* data points (see {@link StepTrace}) override this.
+   * not data points (see {@link StepTrace}) override this.
    * @param coordinates - Vertices parsed from the path, mutated in place
    * @param row - Index of the series these coordinates belong to
    */

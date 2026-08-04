@@ -70,7 +70,7 @@ window.maidrLive.appendData(
 
 The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
 
-**Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
+**Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), step, scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
 
 ### Streaming candlesticks (stock ticker)
 

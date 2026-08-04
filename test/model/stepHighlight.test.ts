@@ -40,19 +40,67 @@ function staircasePath(): string {
 }
 
 /**
+ * Render a `steps-mid` staircase through {@link POINTS} the way matplotlib
+ * does (`cbook.pts_to_midstep`): the jump happens midway between two samples,
+ * so the x sequence is `x0, m0, m0, m1, m1, ..., m(N-2), m(N-2), x(N-1)` and
+ * each sample owns one horizontal run. That is `2N` vertices, and — the part
+ * an average over the run gets wrong — the first and last runs are half-width,
+ * with their sample at the outer end rather than at the centre.
+ * @returns The `d` attribute of the staircase path
+ */
+function midStaircasePath(): string {
+  const xs = [PIXEL_FOR_SAMPLE[0]];
+  for (let i = 0; i < POINTS.length - 1; i++) {
+    const midpoint = (PIXEL_FOR_SAMPLE[i] + PIXEL_FOR_SAMPLE[i + 1]) / 2;
+    xs.push(midpoint, midpoint);
+  }
+  xs.push(PIXEL_FOR_SAMPLE[POINTS.length - 1]);
+
+  const ys = POINTS.flatMap(point => [
+    PIXEL_FOR_LEVEL[point.y],
+    PIXEL_FOR_LEVEL[point.y],
+  ]);
+
+  return xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
+}
+
+/**
  * Create a step layer whose selector resolves against the document.
+ * @param stepDirection - The step convention the rendered path was drawn with
  * @returns Step layer definition for StepTrace
  */
-function createStepLayer(): MaidrLayer {
+function createStepLayer(stepDirection: 'hv' | 'mid' = 'hv'): MaidrLayer {
   return {
     id: 'test-step-layer',
     type: TraceType.STEP,
     title: 'Hypnogram',
     axes: { x: { label: 'Time' }, y: { label: 'Sleep stage' } },
-    stepDirection: 'hv',
+    stepDirection,
     selectors: ['g#step-series path'],
     data: [POINTS],
   };
+}
+
+/**
+ * Read back the highlight circles MAIDR synthesised for the rendered path.
+ * @returns One point per circle, in document order
+ */
+function highlightCircles(): { x: number; y: number }[] {
+  return Array.from(document.querySelectorAll('circle')).map(circle => ({
+    x: Number(circle.getAttribute('cx')),
+    y: Number(circle.getAttribute('cy')),
+  }));
+}
+
+/**
+ * Put a rendered staircase in the document for the trace to resolve against.
+ * @param pathD - The `d` attribute of the staircase path
+ */
+function renderStaircase(pathD: string): void {
+  document.body.innerHTML = `
+      <svg id="chart" xmlns="http://www.w3.org/2000/svg">
+        <g id="step-series"><path d="${pathD}"></path></g>
+      </svg>`;
 }
 
 /**
@@ -68,6 +116,9 @@ function defineSvgPathElement(): void {
   }
   Object.defineProperty(globalThis, 'SVGPathElement', {
     configurable: true,
+    // Writable so a suite that assigns its own stub — test/model/heatmap.test.ts
+    // does — is never blocked by ours having been defined first.
+    writable: true,
     value: class SVGPathElementShim {
       public static [Symbol.hasInstance](value: unknown): boolean {
         return value instanceof SVGElement && value.tagName === 'path';
@@ -79,10 +130,7 @@ function defineSvgPathElement(): void {
 describe('step trace highlight mapping', () => {
   beforeEach(() => {
     defineSvgPathElement();
-    document.body.innerHTML = `
-      <svg id="chart" xmlns="http://www.w3.org/2000/svg">
-        <g id="step-series"><path d="${staircasePath()}"></path></g>
-      </svg>`;
+    renderStaircase(staircasePath());
   });
 
   test('constructs against a rendered staircase without throwing', () => {
@@ -96,12 +144,7 @@ describe('step trace highlight mapping', () => {
 
   test('places one highlight per sample, on the sample, not on a step corner', () => {
     const trace = new StepTrace(createStepLayer());
-    const circles = Array.from(
-      document.querySelectorAll('circle'),
-    ).map(circle => ({
-      x: Number(circle.getAttribute('cx')),
-      y: Number(circle.getAttribute('cy')),
-    }));
+    const circles = highlightCircles();
 
     // 7 vertices are rendered for 4 samples; only the 4 samples get a circle.
     expect(circles).toHaveLength(POINTS.length);
@@ -115,6 +158,27 @@ describe('step trace highlight mapping', () => {
     // Trimming the surplus from the end — the inherited behaviour a step path
     // must not fall back to — would put sample 2 on the first corner instead.
     expect(circles[1]).not.toEqual({ x: PIXEL_FOR_SAMPLE[1], y: PIXEL_FOR_LEVEL[3] });
+
+    trace.dispose();
+  });
+
+  test('places every sample of a steps-mid staircase on its own x', () => {
+    renderStaircase(midStaircasePath());
+
+    const trace = new StepTrace(createStepLayer('mid'));
+    const circles = highlightCircles();
+
+    // 8 vertices are rendered for 4 samples. The two half-width end runs are
+    // the ones an average over the pair gets wrong: sample 0 would land a
+    // quarter of the sample interval to the right of x[0], and the last sample
+    // the same distance to the left of x[N-1].
+    expect(circles).toHaveLength(POINTS.length);
+    expect(circles).toEqual(
+      POINTS.map((point, i) => ({
+        x: PIXEL_FOR_SAMPLE[i],
+        y: PIXEL_FOR_LEVEL[point.y],
+      })),
+    );
 
     trace.dispose();
   });
