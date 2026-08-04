@@ -898,7 +898,10 @@ describe('plotly extractor', () => {
       ];
     }
 
-    /** Calcdata as plotly leaves it for the stack above under `barnorm`. */
+    /**
+     * Calcdata as plotly leaves it for the stack above under `barnorm`,
+     * mirroring what plotly.js 2.35.2 computes for these traces.
+     */
     function normalizedCalcdata(scale: number): PlotlyCalcData[][] {
       const east = [scale * 120 / 210, scale * 80 / 150];
       const west = [scale * 90 / 210, scale * 70 / 150];
@@ -912,6 +915,26 @@ describe('plotly extractor', () => {
         [
           { p: 0, s: west[0], b: east[0], y: scale },
           { p: 1, s: west[1], b: east[1], y: scale },
+        ],
+      ];
+    }
+
+    /**
+     * The same two series under `barmode: 'group'`. Plotly scales grouped bars
+     * under `barnorm` as well, but they stand side by side on a shared
+     * baseline, so each bar's top is its own size.
+     */
+    function groupedCalcdata(): PlotlyCalcData[][] {
+      const east = [100 * 120 / 210, 100 * 80 / 150];
+      const west = [100 * 90 / 210, 100 * 70 / 150];
+      return [
+        [
+          { p: 0, s: east[0], b: 0, y: east[0] },
+          { p: 1, s: east[1], b: 0, y: east[1] },
+        ],
+        [
+          { p: 0, s: west[0], b: 0, y: west[0] },
+          { p: 1, s: west[1], b: 0, y: west[1] },
         ],
       ];
     }
@@ -955,6 +978,22 @@ describe('plotly extractor', () => {
       expect(data[1][0].y).toBeCloseTo(0.428571, 5);
     });
 
+    it('normalizes grouped bars, which plotly scales under barnorm as well', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'group', barnorm: 'percent' },
+        calcdata: groupedCalcdata(),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.DODGED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+    });
+
     it('normalizes horizontal bars on the value axis, keeping the category on y', () => {
       const gd = createGraphDiv({
         traces: [
@@ -963,10 +1002,11 @@ describe('plotly extractor', () => {
         ],
         layout: { barmode: 'stack', barnorm: 'percent' },
         // For horizontal bars plotly keeps the size on `s` and moves the
-        // running total to `x`.
+        // running total to `x`. `y` holds the numeric position, not the
+        // category, which is why the label has to come from the trace.
         calcdata: [
-          [{ p: 0, s: 100 * 120 / 210, b: 0, x: 100 * 120 / 210 }, { p: 1, s: 100 * 80 / 150, b: 0, x: 100 * 80 / 150 }],
-          [{ p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, x: 100 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, x: 100 }],
+          [{ p: 0, s: 100 * 120 / 210, b: 0, x: 100 * 120 / 210, y: 0 }, { p: 1, s: 100 * 80 / 150, b: 0, x: 100 * 80 / 150, y: 1 }],
+          [{ p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, x: 100, y: 0 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, x: 100, y: 1 }],
         ],
       });
 
