@@ -1,4 +1,5 @@
-import type { PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
+import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
+import type { SegmentedPoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it } from '@jest/globals';
@@ -15,6 +16,8 @@ interface GraphDivOptions {
   layout: PlotlyFullLayout;
   /** Panel background rect positions rendered into the `.bglayer`. */
   bgRects?: { x: number; y: number }[];
+  /** Per-trace calculated data, as plotly leaves it on the graph div. */
+  calcdata?: PlotlyCalcData[][];
 }
 
 /** Builds a fake rendered Plotly graph div with `_fullData`/`_fullLayout`. */
@@ -43,6 +46,7 @@ function createGraphDiv(options: GraphDivOptions): PlotlyGraphDiv {
   const gd = div as PlotlyGraphDiv;
   gd._fullData = options.traces;
   gd._fullLayout = options.layout;
+  gd.calcdata = options.calcdata;
   return gd;
 }
 
@@ -879,6 +883,131 @@ describe('plotly extractor', () => {
         expect(subplotLayout.visualOrderMap.get('1,0')).toBe(3);
         expect(subplotLayout.visualOrderMap.get('1,1')).toBe(4);
       });
+    });
+  });
+
+  describe('segmented bars', () => {
+    /**
+     * Two series over two quarters, the shape from issue #720:
+     * Q1 totals 210 (120 East + 90 West), Q2 totals 150 (80 + 70).
+     */
+    function segmentedTraces(): PlotlyTrace[] {
+      return [
+        { type: 'bar', x: ['Q1', 'Q2'], y: [120, 80], name: 'East' },
+        { type: 'bar', x: ['Q1', 'Q2'], y: [90, 70], name: 'West' },
+      ];
+    }
+
+    /** Calcdata as plotly leaves it for the stack above under `barnorm`. */
+    function normalizedCalcdata(scale: number): PlotlyCalcData[][] {
+      const east = [scale * 120 / 210, scale * 80 / 150];
+      const west = [scale * 90 / 210, scale * 70 / 150];
+      return [
+        [
+          { p: 0, s: east[0], b: 0, y: east[0] },
+          { p: 1, s: east[1], b: 0, y: east[1] },
+        ],
+        // Plotly puts the running top of the stack on `y`; only `s` is this
+        // segment's own share.
+        [
+          { p: 0, s: west[0], b: east[0], y: scale },
+          { p: 1, s: west[1], b: east[1], y: scale },
+        ],
+      ];
+    }
+
+    function segmentedData(gd: PlotlyGraphDiv): SegmentedPoint[][] {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    }
+
+    it('announces the normalized percentage plotly drew, not the raw total', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: normalizedCalcdata(100),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.NORMALIZED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].x).toBe('Q1');
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[0][1].y).toBeCloseTo(53.333333, 5);
+      // The second series reads its own share, not the stack top of 100.
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+      expect(data[1][1].y).toBeCloseTo(46.666667, 5);
+    });
+
+    it('announces fractions when barnorm is fraction', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'fraction' },
+        calcdata: normalizedCalcdata(1),
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBeCloseTo(0.571429, 5);
+      expect(data[1][0].y).toBeCloseTo(0.428571, 5);
+    });
+
+    it('normalizes horizontal bars on the value axis, keeping the category on y', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', orientation: 'h', y: ['Q1', 'Q2'], x: [120, 80], name: 'East' },
+          { type: 'bar', orientation: 'h', y: ['Q1', 'Q2'], x: [90, 70], name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        // For horizontal bars plotly keeps the size on `s` and moves the
+        // running total to `x`.
+        calcdata: [
+          [{ p: 0, s: 100 * 120 / 210, b: 0, x: 100 * 120 / 210 }, { p: 1, s: 100 * 80 / 150, b: 0, x: 100 * 80 / 150 }],
+          [{ p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, x: 100 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, x: 100 }],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe('Q1');
+      expect(data[0][0].x).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBe('Q1');
+      expect(data[1][0].x).toBeCloseTo(42.857143, 5);
+    });
+
+    it('leaves an unnormalized stack reading its raw values', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack' },
+        calcdata: [
+          [{ p: 0, s: 120, b: 0, y: 120 }, { p: 1, s: 80, b: 0, y: 80 }],
+          [{ p: 0, s: 90, b: 120, y: 210 }, { p: 1, s: 70, b: 80, y: 150 }],
+        ],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.STACKED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].y).toBe(120);
+      // 210 is the stack top, not this segment.
+      expect(data[1][0].y).toBe(90);
+    });
+
+    it('falls back to the raw trace values when calcdata is unavailable', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'percent' },
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe(120);
+      expect(data[1][0].y).toBe(90);
     });
   });
 });
