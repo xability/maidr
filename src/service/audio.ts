@@ -4,6 +4,7 @@ import type { AudioState, PlotState, PointerGuidanceState } from '@type/state';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
+import { TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 import { resolvePointerGuidanceBeep } from './pointerGuidance';
@@ -244,9 +245,13 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    // Handle intersection logic for multiline plots
+    // Handle intersection logic for multiline plots. Step traces inherit
+    // LineTrace's intersection detection — two series sharing an exact (x, y)
+    // sample is a data property, not a path-geometry one — so they belong here
+    // too. Compared against the enum rather than a bare string so a renamed
+    // member breaks the build instead of silently disabling the chord.
     if (
-      state.traceType === 'line'
+      (state.traceType === TraceType.LINE || state.traceType === TraceType.STEP)
       && !state.empty
       && Array.isArray(state.intersections)
       && state.intersections.length > 1
