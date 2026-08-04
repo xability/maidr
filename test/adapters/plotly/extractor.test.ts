@@ -1,6 +1,6 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
 import type { BoxPoint, BoxSelector, ViolinKdePoint } from '@type/grammar';
-import { extractPlotlyData, plotlyExtractionInputs } from '@adapters/plotly/extractor';
+import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
@@ -140,43 +140,6 @@ describe('plotly extractor', () => {
         // A failed assertion must not leave the spy in place for later tests.
         warn.mockRestore();
       }
-    });
-  });
-
-  describe('extraction inputs', () => {
-    it('withholds them until plotly has computed the chart', () => {
-      const gd = createGraphDiv({
-        traces: [{ type: 'bar', x: ['a'], y: [1] }],
-        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
-      });
-
-      // Mid-render: the traces are wired up but their calc data is not.
-      expect(plotlyExtractionInputs(gd)).toBeNull();
-
-      gd.calcdata = [[{ x: 0, y: 1 }]];
-      expect(plotlyExtractionInputs(gd)).toEqual({
-        traces: gd._fullData,
-        calcdata: gd.calcdata,
-      });
-    });
-
-    it('hands back what plotly currently holds, so a recompute is visible', () => {
-      const gd = createGraphDiv({
-        traces: [{ type: 'pie', y: [1, 2] }],
-        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
-        calcdata: [[{}]],
-      });
-      const before = plotlyExtractionInputs(gd);
-
-      // What plotly does to a chart it recomputes: both are built afresh,
-      // whether the traces changed or only the points they were drawn from.
-      gd._fullData = [{ type: 'violin', y: [1, 2] }];
-      gd.calcdata = [[{ min: 1, max: 2 }]];
-      const after = plotlyExtractionInputs(gd);
-
-      expect(before!.traces).not.toBe(after!.traces);
-      expect(before!.calcdata).not.toBe(after!.calcdata);
-      expect(after!.traces).toBe(gd._fullData);
     });
   });
 

@@ -1,7 +1,6 @@
-import type { PlotlyExtractionInputs } from './adapters/plotly';
 import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg, plotlyExtractionInputs } from './adapters/plotly';
+import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -185,12 +184,6 @@ function autoInitPlotlyCharts(): void {
 }
 
 /**
- * What each chart MAIDR examined, and could not bind, was examined against.
- * Charts that bind carry `data-maidr-auto` and are never revisited.
- */
-const examinedPlotlyCharts = new WeakMap<Element, PlotlyExtractionInputs>();
-
-/**
  * Extracts data and initialises MAIDR for a fully-rendered Plotly chart.
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
@@ -211,17 +204,8 @@ function initPlotlyChart(gd: HTMLElement): void {
   if (!svg)
     return;
 
-  // A chart plotly is still computing cannot be judged yet, and nothing is
-  // recorded for it, so a later mutation examines it once it can be.
-  const inputs = plotlyExtractionInputs(gd);
-  if (!inputs)
+  if (!claimPlotlyExamination(gd))
     return;
-
-  const examined = examinedPlotlyCharts.get(gd);
-  if (examined?.traces === inputs.traces && examined?.calcdata === inputs.calcdata)
-    return;
-
-  examinedPlotlyCharts.set(gd, inputs);
 
   const maidrData = extractPlotlyData(gd);
   if (!maidrData)
