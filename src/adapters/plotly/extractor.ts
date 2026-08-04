@@ -80,31 +80,31 @@ export function extractPlotlyData(element: HTMLElement): Maidr | null {
   return { id, title, subplots: subplotGrid };
 }
 
+/** Everything {@link extractPlotlyData} reads a chart's schema out of. */
+export interface PlotlyExtractionInputs {
+  traces: unknown;
+  calcdata: unknown;
+}
+
 /**
- * Summarises what a rendered plotly chart holds, for a caller that needs to
- * know whether examining it again could reach a different verdict than before.
+ * Hands back the two things a verdict on a chart is reached from, for a caller
+ * that needs to know whether examining it again could reach a different one.
  *
- * That verdict turns on the trace types, and on plotly having computed the
- * data behind them: the signature is the trace types, and `null` stands for a
- * chart that cannot be judged yet because plotly has not populated its
- * internals or its calc data.
+ * Plotly builds both afresh whenever it recomputes a chart and leaves them
+ * alone otherwise — a pan or a zoom keeps them — so an unchanged pair means an
+ * unchanged verdict, and a chart replotted with other traces or with the
+ * points it was drawn without yields a new one. `null` stands for a chart that
+ * cannot be judged yet, its calc data still to come.
  *
  * @param element - Any element inside the plotly graph div, or the div itself.
- * @returns The trace types of a chart ready to be examined, else `null`.
+ * @returns The inputs of a chart ready to be examined, else `null`.
  */
-export function plotlyTraceSignature(element: HTMLElement): string | null {
+export function plotlyExtractionInputs(element: HTMLElement): PlotlyExtractionInputs | null {
   const gd = findGraphDiv(element);
-  const traces = gd?._fullData ?? gd?.data;
-  if (!gd || !traces)
+  if (!gd?._fullData || !gd.calcdata)
     return null;
 
-  // Calc data lands with the draw, and the box, histogram and violin layers
-  // are read from it — a chart caught mid-render would otherwise be judged on
-  // data that is not there yet.
-  if (!gd.calcdata || gd.calcdata.length < traces.length)
-    return null;
-
-  return traces.map(trace => trace.type ?? 'scatter').join(',');
+  return { traces: gd._fullData, calcdata: gd.calcdata };
 }
 
 /**

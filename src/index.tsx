@@ -1,6 +1,7 @@
+import type { PlotlyExtractionInputs } from './adapters/plotly';
 import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg, plotlyTraceSignature } from './adapters/plotly';
+import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg, plotlyExtractionInputs } from './adapters/plotly';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -184,22 +185,21 @@ function autoInitPlotlyCharts(): void {
 }
 
 /**
- * Records the traces a chart held when MAIDR examined it and could not bind
- * it. A chart that binds carries `data-maidr-auto` instead, which the plotly
- * stylesheet is scoped to; this one only records that the decision was made.
+ * What each chart MAIDR examined, and could not bind, was examined against.
+ * Charts that bind carry `data-maidr-auto` and are never revisited.
  */
-const PLOTLY_EXAMINED_ATTRIBUTE = 'data-maidr-examined';
+const examinedPlotlyCharts = new WeakMap<Element, PlotlyExtractionInputs>();
 
 /**
  * Extracts data and initialises MAIDR for a fully-rendered Plotly chart.
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
  *
- * The verdict on a chart MAIDR cannot represent is recorded against the traces
- * it was made about. An idle DOM mutation then reconsiders nothing — without
- * the mark, every one of them re-examined the chart and logged the same
- * warning again — while a chart replotted with different traces
- * (`Plotly.react`) is examined afresh and can still become accessible.
+ * A chart MAIDR cannot represent is examined once per set of inputs. Every DOM
+ * mutation used to reconsider it and log the same warning again — 28 copies of
+ * one warning on an idle page in the reported case — while a chart plotly
+ * recomputed, whether swapped to other traces or given the points it was drawn
+ * without, is examined afresh and can still become accessible.
  */
 function initPlotlyChart(gd: HTMLElement): void {
   if (gd.hasAttribute('data-maidr-auto'))
@@ -211,13 +211,17 @@ function initPlotlyChart(gd: HTMLElement): void {
   if (!svg)
     return;
 
-  // A chart plotly is still populating cannot be judged yet, and is left
-  // unmarked so a later mutation examines it once it can be.
-  const traces = plotlyTraceSignature(gd);
-  if (traces === null || gd.getAttribute(PLOTLY_EXAMINED_ATTRIBUTE) === traces)
+  // A chart plotly is still computing cannot be judged yet, and nothing is
+  // recorded for it, so a later mutation examines it once it can be.
+  const inputs = plotlyExtractionInputs(gd);
+  if (!inputs)
     return;
 
-  gd.setAttribute(PLOTLY_EXAMINED_ATTRIBUTE, traces);
+  const examined = examinedPlotlyCharts.get(gd);
+  if (examined?.traces === inputs.traces && examined?.calcdata === inputs.calcdata)
+    return;
+
+  examinedPlotlyCharts.set(gd, inputs);
 
   const maidrData = extractPlotlyData(gd);
   if (!maidrData)
