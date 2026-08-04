@@ -220,10 +220,16 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
   /**
    * Format extrema target labels by replacing raw xValues with formatted ones.
-   * When no custom formatter is configured the labels pass through unchanged.
+   *
+   * Every layer is formatted, not only those with an author-supplied
+   * `AxisFormat`: the default formatter rounds a long float to two decimals,
+   * which is what the announcement says, and a dialog label that disagreed with
+   * the announcement for the same point would be worse than either. A value the
+   * formatter leaves alone is detected below and passes through untouched.
    */
   private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
-    if (!this.formatter || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+    const formatter = this.formatter;
+    if (!formatter) {
       return targets;
     }
 
@@ -231,7 +237,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       if (target.xValue === undefined) {
         return target;
       }
-      const formatted = this.formatter!.formatSingleValue(target.xValue, layerId, 'x');
+      const formatted = formatter.formatSingleValue(target.xValue, layerId, 'x');
       const raw = String(target.xValue);
       if (formatted === raw) {
         return target;
@@ -269,7 +275,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * XValue (navigation matches on it); `label` is the x-axis formatted string so
    * the search options read the same as the terse layer text and the extrema
    * target labels (e.g. "Nov 3" rather than the raw "2019-11-03"). Falls back to
-   * String(value) when no custom x formatter is configured for the active layer.
+   * String(value) only when no formatter was injected or the active layer has
+   * no id — every known layer is formatted, configured or not.
    * @returns Array of {value, label} options for the search combobox.
    */
   public getAvailableXValueOptions(): XValueOption[] {
@@ -278,10 +285,12 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return [];
     }
 
+    const formatter = this.formatter;
     const layerId = this.activeLayerId();
-    // Same gate the extrema target labels use (formatTargetLabels): pass through
-    // unchanged when the active layer has no custom x formatter.
-    if (!this.formatter || layerId === null || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+    // Same rule the extrema target labels follow (formatTargetLabels): format
+    // whenever there is a formatter and a layer to look it up by, so these
+    // labels round the way the announcement does.
+    if (!formatter || layerId === null) {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 
@@ -291,7 +300,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // tolerance of formatTargetLabels.
     return rawValues.map(value => ({
       value,
-      label: String(this.formatter!.formatSingleValue(value, layerId, 'x')),
+      label: String(formatter.formatSingleValue(value, layerId, 'x')),
     }));
   }
 

@@ -117,22 +117,6 @@ export class FormatterService implements Disposable {
   }
 
   /**
-   * Checks if a layer has a custom formatter for the specified axis.
-   *
-   * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'z')
-   * @returns True if a custom formatter is configured
-   */
-  public hasCustomFormatter(layerId: string, axis: AxisType): boolean {
-    const layerFormatters = this.formatters.get(layerId);
-    if (!layerFormatters) {
-      return false;
-    }
-    // Check if the formatter is not the default
-    return layerFormatters[axis] !== defaultFormat;
-  }
-
-  /**
    * Formats a value (single or array) using the formatter for the specified layer and axis.
    *
    * This is the primary method for formatting values in the application.
