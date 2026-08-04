@@ -53,7 +53,7 @@ const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
   'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
-  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, heatmap, histogram, and candlestick charts.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, violin, heatmap, histogram, and candlestick charts.',
   'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
   'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
@@ -394,6 +394,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('plotly-scatter.html', 'Plotly Scatter Plot'); return false;">Scatter Plot</a></li>
     <li><a href="#" onclick="loadHTML('plotly-line.html', 'Plotly Line Chart'); return false;">Line Chart</a></li>
     <li><a href="#" onclick="loadHTML('plotly-box.html', 'Plotly Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-violin.html', 'Plotly Violin Plot'); return false;">Violin Plot</a></li>
     <li><a href="#" onclick="loadHTML('plotly-heatmap.html', 'Plotly Heatmap'); return false;">Heatmap</a></li>
     <li><a href="#" onclick="loadHTML('plotly-histogram.html', 'Plotly Histogram'); return false;">Histogram</a></li>
     <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>

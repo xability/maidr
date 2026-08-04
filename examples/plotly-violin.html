@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Violin Plot - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Violin Plot</h1>
+    <p>
+      A plotly.js violin plot auto-detected by MAIDR. Click on the chart and use
+      arrow keys to navigate. Page Up / Page Down switches between the box
+      summary and the density curve.
+    </p>
+
+    <div id="violin-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var trace1 = {
+        y: [2.3, 2.5, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.5, 5.0],
+        type: 'violin',
+        name: 'Setosa',
+        box: { visible: true },
+        meanline: { visible: true }
+      };
+
+      var trace2 = {
+        y: [4.7, 4.9, 5.0, 5.2, 5.5, 5.7, 5.9, 6.0, 6.3, 6.5, 6.7, 7.0],
+        type: 'violin',
+        name: 'Versicolor',
+        box: { visible: true },
+        meanline: { visible: true }
+      };
+
+      var trace3 = {
+        y: [6.0, 6.2, 6.3, 6.5, 6.7, 6.9, 7.1, 7.3, 7.5, 7.7, 7.9, 8.0],
+        type: 'violin',
+        name: 'Virginica',
+        box: { visible: true },
+        meanline: { visible: true }
+      };
+
+      var layout = {
+        title: { text: 'Iris Sepal Length Distribution' },
+        xaxis: { title: { text: 'Species' } },
+        yaxis: { title: { text: 'Sepal Length (cm)' } }
+      };
+
+      Plotly.newPlot('violin-chart', [trace1, trace2, trace3], layout);
+    </script>
+  </body>
+</html>
