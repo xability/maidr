@@ -262,6 +262,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // oscillator a non-finite frequency, so sound it the way an out-of-bounds
     // move already sounds — the point exists to navigate to, it just has no
     // value, which is what the text layer announces as "missing".
+    //
+    // Deliberately not scoped to bar traces: bars are where a gap reaches this
+    // today, but a non-finite magnitude from any trace would be just as
+    // unplayable, and this service has no business knowing which type sent it.
     if (typeof audio.freq.raw === 'number' && !Number.isFinite(audio.freq.raw)) {
       this.playEmptyTone(audio.panning);
       return;

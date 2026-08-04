@@ -20,14 +20,18 @@ import { MovableGrid } from './movable';
  * that every other bar's pitch is scaled against. `NaN` keeps it absent, which
  * is what the text layer already announces it as.
  *
- * An empty string counts as a gap for the same reason: `Number('')` is also
- * `0`, so a hand-authored figure with a blank cell would land in the same trap.
+ * A blank cell counts as a gap for the same reason: `Number('')` and
+ * `Number('  ')` are also `0`, so a hand-authored figure with an empty cell
+ * would land in the same trap.
  *
  * @param raw - The value from the point, on whichever axis carries magnitude
  * @returns The magnitude, or `NaN` when the bar is a gap
  */
 function toBarValue(raw: string | number | null | undefined): number {
-  if (raw === null || raw === undefined || raw === '') {
+  if (raw === null || raw === undefined) {
+    return Number.NaN;
+  }
+  if (typeof raw === 'string' && raw.trim() === '') {
     return Number.NaN;
   }
   return Number(raw);

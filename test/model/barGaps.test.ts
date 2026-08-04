@@ -2,6 +2,7 @@ import type { MaidrLayer } from '@type/grammar';
 import type { BarBrailleState, TraceState } from '@type/state';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { BarTrace } from '@model/bar';
+import { Histogram } from '@model/histogram';
 import { SegmentedTrace } from '@model/segmented';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
@@ -93,6 +94,16 @@ describe('bar plot gaps', () => {
     expect(audio.freq.max).toBe(120);
   });
 
+  it('treats a whitespace-only cell as blank too', () => {
+    // Number('  ') is 0 as surely as Number('') is.
+    const trace = new BarTrace(barLayer([120, '  ' as unknown as number, 40]));
+
+    const { audio } = stateOf(trace);
+
+    expect(audio.freq.min).toBe(40);
+    expect(audio.freq.max).toBe(120);
+  });
+
   it('describes a chart of nothing but gaps as missing, not as an infinity', () => {
     // safeMin/safeMax answer an empty set with ±Infinity, which is not
     // something to read out as a chart's minimum.
@@ -111,6 +122,46 @@ describe('bar plot gaps', () => {
     const trace = new BarTrace(barLayer([null, null]));
 
     expect(trace.getExtremaTargets()).toEqual([]);
+  });
+});
+
+describe('histogram gaps', () => {
+  it('describes a histogram of nothing but gaps as missing, not as an infinity', () => {
+    // Histogram is the third AbstractBarPlot subclass and overrides
+    // `description` too. Plotly's precomputed bin counts mean a gap is not
+    // reachable here today, but the guard is shared precisely so the next
+    // subclass to override the stats block cannot quietly reintroduce it.
+    const layer: MaidrLayer = {
+      id: 'bins',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Petal Length' }, y: { label: 'Frequency' } },
+      data: [
+        { x: 1, y: null as unknown as number, xMin: 0, xMax: 2, yMin: 0, yMax: 0 },
+        { x: 3, y: null as unknown as number, xMin: 2, xMax: 4, yMin: 0, yMax: 0 },
+      ],
+    };
+
+    const stats = new Histogram(layer).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
+  });
+
+  it('still reports a real range for ordinary bin counts', () => {
+    const layer: MaidrLayer = {
+      id: 'bins',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Petal Length' }, y: { label: 'Frequency' } },
+      data: [
+        { x: 1, y: 4, xMin: 0, xMax: 2, yMin: 0, yMax: 4 },
+        { x: 3, y: 33, xMin: 2, xMax: 4, yMin: 0, yMax: 33 },
+      ],
+    };
+
+    const stats = new Histogram(layer).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe(4);
+    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe(33);
   });
 });
 
