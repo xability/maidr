@@ -1158,6 +1158,11 @@ describe('plotly extractor', () => {
       expect(data[1][3].y).toBeCloseTo(33.333333, 5);
       expect(data[1][1].y).toBeCloseTo(100, 5);
       // A gap itself carries the raw value through, exactly as before the fix.
+      // Deliberately not filtered the way extractMultiLineLayer filters line
+      // gaps: plotly omits a null point from a line's DOM but keeps a
+      // zero-height rect for a bar's, so dropping it here would slide every
+      // later bar's highlight onto its neighbour. The text service already
+      // renders the null as "missing" rather than announcing it raw.
       expect(data[0][1].y).toBeNull();
       expect(data[1][2].y).toBeNull();
       // Category labels still come from the trace, so they survive the gaps.
