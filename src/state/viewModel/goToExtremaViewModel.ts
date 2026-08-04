@@ -228,7 +228,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * formatter leaves alone is detected below and passes through untouched.
    */
   private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
-    if (!this.formatter) {
+    const formatter = this.formatter;
+    if (!formatter) {
       return targets;
     }
 
@@ -236,7 +237,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       if (target.xValue === undefined) {
         return target;
       }
-      const formatted = this.formatter!.formatSingleValue(target.xValue, layerId, 'x');
+      const formatted = formatter.formatSingleValue(target.xValue, layerId, 'x');
       const raw = String(target.xValue);
       if (formatted === raw) {
         return target;
@@ -274,7 +275,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * XValue (navigation matches on it); `label` is the x-axis formatted string so
    * the search options read the same as the terse layer text and the extrema
    * target labels (e.g. "Nov 3" rather than the raw "2019-11-03"). Falls back to
-   * String(value) when no custom x formatter is configured for the active layer.
+   * String(value) only when no formatter was injected or the active layer has
+   * no id — every known layer is formatted, configured or not.
    * @returns Array of {value, label} options for the search combobox.
    */
   public getAvailableXValueOptions(): XValueOption[] {
@@ -283,11 +285,12 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return [];
     }
 
+    const formatter = this.formatter;
     const layerId = this.activeLayerId();
     // Same rule the extrema target labels follow (formatTargetLabels): format
     // whenever there is a formatter and a layer to look it up by, so these
     // labels round the way the announcement does.
-    if (!this.formatter || layerId === null) {
+    if (!formatter || layerId === null) {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 
@@ -297,7 +300,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // tolerance of formatTargetLabels.
     return rawValues.map(value => ({
       value,
-      label: String(this.formatter!.formatSingleValue(value, layerId, 'x')),
+      label: String(formatter.formatSingleValue(value, layerId, 'x')),
     }));
   }
 

@@ -1,7 +1,8 @@
 /**
  * Tests for GoToExtremaViewModel covering:
- *  - getAvailableXValueOptions(): raw value preserved, label x-axis formatted
- *    (matching the terse layer text) with clean fallback to String(value).
+ *  - getAvailableXValueOptions() and formatTargetLabels(): raw value preserved,
+ *    label x-axis formatted (matching the terse layer text) for every known
+ *    layer, falling back to String(value) only with no formatter or no layer id.
  *  - moveToIndex(): Home/End index clamping.
  *  - the menu open/close audio cues fired on toggle()/hide()/selectCurrent(),
  *    and the silence on dispose().
@@ -10,6 +11,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { ExtremaTarget } from '@type/extrema';
+import type { AxisFormat } from '@type/grammar';
 import type { TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { FormatterService } from '@service/formatter';
@@ -33,16 +35,37 @@ function createServiceStub(navigable: boolean = true): GoToExtremaService {
 }
 
 /** Builds a trace stub exposing the X-value navigation surface the VM ducks. */
-function createTraceStub(xValues: (string | number)[]): {
+function createTraceStub(
+  xValues: (string | number)[],
+  extremaTargets: ExtremaTarget[] = [],
+): {
   getAvailableXValues: () => (string | number)[];
   getExtremaTargets: () => ExtremaTarget[];
   navigateToExtrema: jest.Mock;
 } {
   return {
     getAvailableXValues: () => xValues,
-    getExtremaTargets: () => [],
+    getExtremaTargets: () => extremaTargets,
     navigateToExtrema: jest.fn(),
   };
+}
+
+/** A FormatterService over one layer, with no `AxisFormat` unless given. */
+function createRealFormatter(format?: AxisFormat): FormatterService {
+  return new FormatterService({
+    id: 'chart',
+    subplots: [[{
+      layers: [{
+        id: 'layer-1',
+        type: TraceType.BAR,
+        axes: {
+          x: { label: 'Quarter', ...(format ? { format } : {}) },
+          y: { label: 'Share' },
+        },
+        data: [],
+      }],
+    }]],
+  });
 }
 
 /** Context stub whose `active` is the trace and whose `state` carries layerId. */
@@ -89,17 +112,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const store = createMaidrStore();
     const trace = createTraceStub([57.14285714285714, 2, 3]);
     const context = createContextStub(trace, 'layer-1');
-    const formatter = new FormatterService({
-      id: 'chart',
-      subplots: [[{
-        layers: [{
-          id: 'layer-1',
-          type: TraceType.BAR,
-          axes: { x: { label: 'Quarter' }, y: { label: 'Share' } },
-          data: [],
-        }],
-      }]],
-    });
+    const formatter = createRealFormatter();
     const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
 
     expect(vm.getAvailableXValueOptions()).toEqual([
@@ -188,6 +201,78 @@ describe('GoToExtremaViewModel.moveToIndex', () => {
     const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'), createAudioStub());
     vm.moveToIndex(2);
     expect(store.getState().goToExtrema.selectedIndex).toBe(0); // unchanged initial
+  });
+});
+
+describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
+  test('rounds a long float in an extrema label for a layer with no format', () => {
+    // The sibling of the getAvailableXValueOptions case: this caller lost the
+    // same dead gate, and nothing asserted it. A real FormatterService over a
+    // layer with no `AxisFormat` still shortens the label, so the dialog and
+    // the announcement say the same number for the same point.
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Bar at 57.14285714285714',
+      xValue: 57.14285714285714,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter();
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      createAudioStub(),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.14');
+
+    formatter.dispose();
+  });
+
+  test('leaves a label alone when the formatter does not change the value', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Bar at Q1',
+      xValue: 'Q1',
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter();
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      createAudioStub(),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at Q1');
+
+    formatter.dispose();
+  });
+
+  test('still honours an author-supplied format on the same path', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Bar at 57.14285714285714',
+      xValue: 57.14285714285714,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 4 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      createAudioStub(),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.1429');
+
+    formatter.dispose();
   });
 });
 
