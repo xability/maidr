@@ -990,24 +990,37 @@ function extractScatterLayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Reads the value plotly actually drew for one bar. Shared by the single-trace
- * and segmented bar extractors, which face the same `barnorm` question.
+ * Builds one bar point, taking the value plotly actually drew from calcdata
+ * and putting it on the axis the orientation calls for. Shared by the
+ * single-trace and segmented bar extractors, which face the same `barnorm`
+ * question and must place the value the same way.
  *
- * `cd.s` is the bar's own size after `barnorm` has been applied, so it is the
- * percentage or fraction on screen rather than the raw input number. It is
- * orientation-independent — plotly keeps the position on `cd.p` for both
- * vertical and horizontal bars. `cd.x`/`cd.y` are deliberately not used: for
- * stacked bars they hold the running top of the stack, not the segment.
+ * The value comes from `cd.s`, the bar's own size after `barnorm` has been
+ * applied, so it is the percentage or fraction on screen rather than the raw
+ * input number. `cd.s` is orientation-independent — plotly keeps the position
+ * on `cd.p` for both vertical and horizontal bars. `cd.x`/`cd.y` are
+ * deliberately not used: for stacked bars they hold the running top of the
+ * stack, not the segment.
  *
- * Falls back to the raw trace value when calcdata is unavailable (a chart
- * captured before plotly computed it) or holds a non-finite size.
+ * Plotly stores the bar value on `x` for horizontal bars and on `y` for
+ * vertical, which already matches AbstractBarPlot's per-orientation reading
+ * (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap is
+ * needed — and the plotly x/y axes already line up with the layer axes. The
+ * raw value on that same axis is the fallback, used when calcdata is
+ * unavailable (a chart captured before plotly computed it) or holds a
+ * non-finite size.
  */
-function drawnBarValue(
+function barPoint(
   cd: PlotlyCalcData | undefined,
-  raw: string | number,
-): string | number {
+  x: string | number,
+  y: string | number,
+  isHorizontal: boolean,
+): BarPoint {
   const size = cd?.s;
-  return typeof size === 'number' && Number.isFinite(size) ? size : raw;
+  const drawn = typeof size === 'number' && Number.isFinite(size) ? size : undefined;
+  return isHorizontal
+    ? { x: drawn ?? x, y }
+    : { x, y: drawn ?? y };
 }
 
 function extractBarLayer(
@@ -1028,12 +1041,7 @@ function extractBarLayer(
   const data: BarPoint[] = [];
 
   for (let i = 0; i < len; i++) {
-    // Plotly stores the bar value on `x` for horizontal bars and on `y` for
-    // vertical, which already matches AbstractBarPlot's per-orientation reading
-    // (value from `point.x` when HORIZONTAL, from `point.y` otherwise). No swap
-    // is needed — and the plotly x/y axes already line up with the layer axes.
-    const value = drawnBarValue(calcdata[i], isHorizontal ? x[i] : y[i]);
-    data.push(isHorizontal ? { x: value, y: y[i] } : { x: x[i], y: value });
+    data.push(barPoint(calcdata[i], x[i], y[i], isHorizontal));
   }
 
   if (data.length === 0)
@@ -1483,10 +1491,7 @@ function extractSegmentedBarLayer(
     const series: SegmentedPoint[] = [];
 
     for (let i = 0; i < len; i++) {
-      // Plotly stores the value on `x` for horizontal bars and on `y` for
-      // vertical, matching AbstractBarPlot's per-orientation reading — no swap.
-      const value = drawnBarValue(cd[i], isHorizontal ? x[i] : y[i]);
-      series.push(isHorizontal ? { x: value, y: y[i], z } : { x: x[i], y: value, z });
+      series.push({ ...barPoint(cd[i], x[i], y[i], isHorizontal), z });
     }
 
     data.push(series);

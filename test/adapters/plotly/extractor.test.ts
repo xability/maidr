@@ -1092,6 +1092,30 @@ describe('plotly extractor', () => {
       expect(data.map(point => point.y)).toEqual([120, 80, 40]);
     });
 
+    it('reports a bar normalized to zero as 0, not as missing', () => {
+      // A 0% share is a real value: it has to reach the announcement rather
+      // than be dropped or replaced. Note this does not distinguish a
+      // falsy-check fallback from a nullish one — under `barnorm` a drawn 0
+      // implies a raw 0, so both would answer 0 here. What it pins is that
+      // the zero survives extraction at all.
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['Q1', 'Q2'], y: [0, 80], name: 'East' },
+          { type: 'bar', x: ['Q1', 'Q2'], y: [90, 70], name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [
+          [{ p: 0, s: 0, b: 0, y: 0 }, { p: 1, s: 100 * 80 / 150, b: 0, y: 100 * 80 / 150 }],
+          [{ p: 0, s: 100, b: 0, y: 100 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, y: 100 }],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe(0);
+      expect(data[1][0].y).toBe(100);
+    });
+
     it('keeps calcdata aligned with the trace arrays across a gap in the data', () => {
       // Plotly's bar calc() holds a missing point in place rather than
       // dropping it — the entry keeps its position and carries `s: undefined`
