@@ -66,6 +66,7 @@ type AnyChartTraceType
   = | TraceType.BAR
     | TraceType.LINE
     | TraceType.SCATTER
+    | TraceType.STEP
     | TraceType.BOX
     | TraceType.HEATMAP
     | TraceType.CANDLESTICK;
@@ -81,9 +82,13 @@ type AnyChartTraceType
  * - `"bar"` (horizontal) and `"column"` (vertical) both map to
  *   {@link TraceType.BAR}. MAIDR does not currently distinguish
  *   bar orientation at the trace-type level.
- * - Area-family types (`area`, `step-area`, `spline-area`) map to
- *   {@link TraceType.LINE}. The fill is lost in the conversion; a
- *   runtime warning is emitted so developers are aware.
+ * - Area-family types (`area`, `step-area`, `spline-area`) map to their
+ *   unfilled equivalent — {@link TraceType.LINE}, or {@link TraceType.STEP}
+ *   for `step-area`. The fill is lost in the conversion; a runtime warning is
+ *   emitted so developers are aware.
+ * - The step-drawn types (`step-line`, `step-area`) map to
+ *   {@link TraceType.STEP} so they are announced and navigated as the
+ *   piecewise-constant series they are, rather than as interpolated lines.
  */
 export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
   const normalized = anyChartType.toLowerCase().replace(/[_\s]/g, '-');
@@ -94,10 +99,12 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'column': TraceType.BAR,
     'line': TraceType.LINE,
     'spline': TraceType.LINE,
-    'step-line': TraceType.LINE,
-    // Area types are represented as LINE; the fill is lost.
+    // Step-drawn series are piecewise constant, not interpolated.
+    'step-line': TraceType.STEP,
+    // Area types lose their fill and are represented by the corresponding
+    // unfilled trace.
     'area': TraceType.LINE,
-    'step-area': TraceType.LINE,
+    'step-area': TraceType.STEP,
     'spline-area': TraceType.LINE,
     'scatter': TraceType.SCATTER,
     'marker': TraceType.SCATTER,
@@ -111,11 +118,12 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
 
   const traceType = mapping[normalized] ?? null;
 
-  // Warn when an area series is silently downgraded to a line trace.
-  if (traceType === TraceType.LINE && AREA_TYPES.has(normalized)) {
+  // Warn when an area series loses its fill. Checked on the source type, not
+  // the mapped one, so `step-area` (now a STEP trace) still warns.
+  if (traceType !== null && AREA_TYPES.has(normalized)) {
     console.warn(
-      `[maidr/anychart] AnyChart "${anyChartType}" series mapped to LINE trace. `
-      + 'The filled-area visual will be represented as a line for accessibility.',
+      `[maidr/anychart] AnyChart "${anyChartType}" series mapped to ${traceType} trace. `
+      + 'The filled-area visual will be represented as an unfilled series for accessibility.',
     );
   }
 
@@ -1886,6 +1894,26 @@ function buildLineLayer(
   };
 }
 
+/**
+ * Build a step layer from an AnyChart `step-line` / `step-area` series.
+ *
+ * The point shape is identical to a line series — AnyChart varies only how the
+ * segments are drawn. `stepDirection` is deliberately not emitted: AnyChart
+ * exposes it as a per-series setting that the raw series rows do not carry, so
+ * claiming a direction here would be a guess.
+ * @param series - The AnyChart series to convert
+ * @param seriesIndex - Index of the series within its chart, used as the layer id
+ * @param selectors - CSS selectors for highlighting, when resolvable
+ * @returns The MAIDR step layer
+ */
+function buildStepLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  return { ...buildLineLayer(series, seriesIndex, selectors), type: TraceType.STEP };
+}
+
 function buildScatterLayer(
   series: AnyChartSeries,
   seriesIndex: number,
@@ -2178,6 +2206,8 @@ function buildLayer(
       return buildBarLayer(series, seriesIndex, selectors);
     case TraceType.LINE:
       return buildLineLayer(series, seriesIndex, selectors);
+    case TraceType.STEP:
+      return buildStepLayer(series, seriesIndex, selectors);
     case TraceType.SCATTER:
       return buildScatterLayer(series, seriesIndex, selectors);
     case TraceType.BOX:

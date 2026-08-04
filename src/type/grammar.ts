@@ -354,6 +354,34 @@ export interface SmoothPoint {
 }
 
 /**
+ * Where a step chart jumps between two consecutive samples.
+ *
+ * - `hv` — hold `y[i]` until `x[i+1]`, then jump (matplotlib `steps-post`).
+ * - `vh` — jump at `x[i]`, then hold until `x[i+1]` (matplotlib `steps-pre`).
+ * - `mid` — jump at the midpoint of the two x values (matplotlib `steps-mid`).
+ *
+ * Defaults to `hv`, matching `ggplot2::geom_step()`.
+ */
+export type StepDirection = 'hv' | 'vh' | 'mid';
+
+/**
+ * Data point for step charts. Extends {@link LinePoint} with the name of an
+ * ordinal level, so charts whose y axis is a category rather than a magnitude
+ * — a hypnogram's sleep stages, a status timeline's states — can announce
+ * "REM" instead of the numeric level that encodes it.
+ *
+ * `y` stays numeric because it drives sonification, braille and the min/max
+ * range; `label` is the human-readable name of that level.
+ *
+ * @example
+ * { x: 1.5, y: 3, label: 'REM' }
+ */
+export interface StepPoint extends LinePoint {
+  /** Ordinal level name announced in place of the raw numeric `y`. */
+  label?: string;
+}
+
+/**
  * Canonical axis configuration. Every axis (x, y, z) must be specified as an
  * object of this shape. The `label` is optional and falls back to built-in
  * defaults ('X', 'Y', 'Level') when omitted.
@@ -481,6 +509,14 @@ export interface MaidrLayer {
    * Controls which summary statistics are shown in the violin box overlay.
    */
   violinOptions?: ViolinOptions;
+  /**
+   * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
+   * every other trace type. Omitted means `hv`.
+   *
+   * @example
+   * stepDirection: 'hv'
+   */
+  stepDirection?: StepDirection;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -491,6 +527,7 @@ export interface MaidrLayer {
     | ScatterPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
+    | StepPoint[][]
     | ViolinKdePoint[][];
 }
 
@@ -525,6 +562,7 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  STEP = 'step',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
 }

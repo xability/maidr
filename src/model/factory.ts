@@ -10,6 +10,7 @@ import { LineTrace } from './line';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
+import { StepTrace } from './step';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
 
@@ -47,6 +48,9 @@ export abstract class TraceFactory {
 
       case TraceType.SMOOTH:
         return createSmoothTrace(layer);
+
+      case TraceType.STEP:
+        return new StepTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:

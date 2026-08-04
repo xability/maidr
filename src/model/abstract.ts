@@ -43,6 +43,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.SCATTER]: 'Scatter Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',
+  [TraceType.STEP]: 'Step Plot',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',
 };

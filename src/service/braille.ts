@@ -1105,6 +1105,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.SMOOTH, asGeneric(new LineBrailleEncoder())],
       [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],
+      // A step chart's braille state is LineTrace's verbatim — a per-row
+      // height profile — so the line encoder renders it correctly.
+      [TraceType.STEP, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_KDE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_BOX, asGeneric(new BoxBrailleEncoder())],
     ]);
