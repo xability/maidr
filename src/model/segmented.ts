@@ -4,7 +4,7 @@ import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractBarPlot } from './bar';
+import { AbstractBarPlot, isMeasured } from './bar';
 
 const SUM = 'Sum';
 const UNDEFINED = 'undefined';
@@ -19,7 +19,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const summaryValues = new Array<number>();
     const summaryPoints = new Array<SegmentedPoint>();
     for (let i = 0; i < this.barValues[0].length; i++) {
-      const sum = this.barValues.reduce((sum, row) => sum + row[i], 0);
+      // Sum the measured segments only. Adding a gap in would make the total
+      // NaN, and NaN spreads: it would seed MathUtil.minMax below and, through
+      // safeMin/safeMax over every row, hand the whole chart a NaN pitch range.
+      // A category is only a gap in the total when every segment in it is one.
+      const segments = this.barValues.map(row => row[i]).filter(isMeasured);
+      const sum = segments.length > 0
+        ? segments.reduce((total, value) => total + value, 0)
+        : Number.NaN;
       summaryValues.push(sum);
 
       const point = this.orientation === Orientation.VERTICAL
@@ -38,7 +45,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.points.push(summaryPoints);
     this.barValues.push(summaryValues);
 
-    const { min: summaryMin, max: summaryMax } = MathUtil.minMax(summaryValues);
+    const { min: summaryMin, max: summaryMax } = MathUtil.minMax(
+      summaryValues.filter(isMeasured),
+    );
     this.min.push(summaryMin);
     this.max.push(summaryMax);
   }
@@ -62,6 +71,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const groupValues = this.barValues[currentGroup];
 
     if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+
+    // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
+    // return ±Infinity, which indexOf cannot find. There is no extreme to
+    // navigate to; offering one would move the cursor to column -1.
+    if (!isMeasured(groupMin) || !isMeasured(groupMax)) {
       return targets;
     }
 

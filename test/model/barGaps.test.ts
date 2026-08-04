@@ -2,6 +2,7 @@ import type { MaidrLayer } from '@type/grammar';
 import type { BarBrailleState, TraceState } from '@type/state';
 import { describe, expect, it } from '@jest/globals';
 import { BarTrace } from '@model/bar';
+import { SegmentedTrace } from '@model/segmented';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -19,7 +20,7 @@ function barLayer(values: (number | null)[]): MaidrLayer {
 }
 
 /** Narrows the trace state union to the populated case. */
-function stateOf(trace: BarTrace): Extract<TraceState, { empty: false }> {
+function stateOf(trace: BarTrace | SegmentedTrace): Extract<TraceState, { empty: false }> {
   const state = trace.state;
   if (state.empty || state.type !== 'trace') {
     throw new Error('expected a populated trace state');
@@ -80,5 +81,75 @@ describe('bar plot gaps', () => {
 
     const min = targets.find(target => target.label.toLowerCase().includes('min'));
     expect(min?.value).toBe(40);
+  });
+
+  it('offers no extreme for a row that is entirely gaps', () => {
+    // The range is empty, so safeMin/safeMax return ±Infinity, which indexOf
+    // cannot find — the target would have carried pointIndex -1 and moved the
+    // cursor off the row.
+    const trace = new BarTrace(barLayer([null, null]));
+
+    expect(trace.getExtremaTargets()).toEqual([]);
+  });
+});
+
+/**
+ * Builds a two-series stacked layer. `SegmentedTrace` appends a Total row
+ * summing the series, which is where a gap has the furthest to spread.
+ */
+function stackedLayer(east: (number | null)[], west: (number | null)[]): MaidrLayer {
+  const series = (values: (number | null)[], name: string): { x: string; y: number; z: string }[] =>
+    values.map((y, index) => ({ x: `Q${index + 1}`, y: y as number, z: name }));
+
+  return {
+    id: 'stack',
+    type: TraceType.STACKED,
+    axes: { x: { label: 'Quarter' }, y: { label: 'Revenue' } },
+    data: [series(east, 'East'), series(west, 'West')],
+  };
+}
+
+describe('segmented bar gaps', () => {
+  it('keeps a gapped segment from turning the whole chart\'s pitch range to NaN', () => {
+    // The Total row sums each category. Adding a gap straight in makes that
+    // sum NaN, which seeds MathUtil.minMax and then spreads through
+    // safeMin/safeMax over every row — so a single missing segment handed the
+    // oscillator a NaN frequency for every real bar on the chart.
+    const trace = new SegmentedTrace(stackedLayer([null, 80], [90, 70]));
+
+    const state = stateOf(trace);
+
+    expect(Number.isFinite(state.audio.freq.min)).toBe(true);
+    expect(Number.isFinite(state.audio.freq.max)).toBe(true);
+  });
+
+  it('totals the measured segments of a category with a gap', () => {
+    const trace = new SegmentedTrace(stackedLayer([null, 80], [90, 70]));
+
+    const { braille } = stateOf(trace);
+    const totals = (braille as BarBrailleState).values.at(-1);
+
+    // Q1 has one real segment (90) and one gap; Q2 has both.
+    expect(totals?.[0]).toBe(90);
+    expect(totals?.[1]).toBe(150);
+  });
+
+  it('leaves a category with no measured segment as a gap in the total', () => {
+    const trace = new SegmentedTrace(stackedLayer([null, 80], [null, 70]));
+
+    const { braille } = stateOf(trace);
+    const totals = (braille as BarBrailleState).values.at(-1);
+
+    expect(Number.isFinite(totals?.[0] as number)).toBe(false);
+    expect(totals?.[1]).toBe(150);
+  });
+
+  it('leaves a stack with no gaps totalling exactly as before', () => {
+    const trace = new SegmentedTrace(stackedLayer([120, 80], [90, 70]));
+
+    const { braille } = stateOf(trace);
+    const totals = (braille as BarBrailleState).values.at(-1);
+
+    expect(totals).toEqual([210, 150]);
   });
 });

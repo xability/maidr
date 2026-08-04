@@ -33,10 +33,13 @@ function toBarValue(raw: string | number | null | undefined): number {
 /**
  * Reports whether a bar value is a real measurement rather than a gap.
  *
+ * Exported for `SegmentedTrace`, which builds a summary row from these values
+ * and has to keep gaps out of it for the same reason.
+ *
  * @param value - A magnitude from `barValues`
  * @returns True when the value can take part in a range or a comparison
  */
-function isMeasured(value: number): boolean {
+export function isMeasured(value: number): boolean {
   return Number.isFinite(value);
 }
 
@@ -398,6 +401,13 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Use pre-computed min/max values instead of recalculating
     const groupMin = this.min[currentGroup];
     const groupMax = this.max[currentGroup];
+
+    // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
+    // return ±Infinity, which indexOf cannot find. There is no extreme to
+    // navigate to; offering one would move the cursor to column -1.
+    if (!isMeasured(groupMin) || !isMeasured(groupMax)) {
+      return targets;
+    }
 
     // Find indices of min/max values
     const maxIndex = groupValues.indexOf(groupMax);
