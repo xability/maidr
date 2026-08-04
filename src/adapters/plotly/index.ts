@@ -5,5 +5,5 @@
  * modules. Internal helpers remain private to each module.
  */
 
-export { extractPlotlyData } from './extractor';
+export { extractPlotlyData, plotlyTraceSignature } from './extractor';
 export { disconnectPlotlyObservers, isPlotlyPlot, normalizePlotlySvg } from './normalizer';

@@ -1,6 +1,6 @@
 import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg, plotlyTraceSignature } from './adapters/plotly';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -184,8 +184,8 @@ function autoInitPlotlyCharts(): void {
 }
 
 /**
- * Marks a rendered chart MAIDR has already examined, whatever the outcome.
- * A chart that binds also carries `data-maidr-auto`, which the plotly
+ * Records the traces a chart held when MAIDR examined it and could not bind
+ * it. A chart that binds carries `data-maidr-auto` instead, which the plotly
  * stylesheet is scoped to; this one only records that the decision was made.
  */
 const PLOTLY_EXAMINED_ATTRIBUTE = 'data-maidr-examined';
@@ -195,22 +195,29 @@ const PLOTLY_EXAMINED_ATTRIBUTE = 'data-maidr-examined';
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
  *
- * A chart whose traces MAIDR cannot represent is examined once: without the
- * mark, every later DOM mutation reconsiders it and logs the same warning
- * again.
+ * The verdict on a chart MAIDR cannot represent is recorded against the traces
+ * it was made about. An idle DOM mutation then reconsiders nothing — without
+ * the mark, every one of them re-examined the chart and logged the same
+ * warning again — while a chart replotted with different traces
+ * (`Plotly.react`) is examined afresh and can still become accessible.
  */
 function initPlotlyChart(gd: HTMLElement): void {
-  if (gd.hasAttribute(PLOTLY_EXAMINED_ATTRIBUTE))
+  if (gd.hasAttribute('data-maidr-auto'))
     return;
 
   // Require the SVG to exist. Replacing the graph div in the DOM would
   // break Plotly's rendering pipeline — only the SVG is safe to adopt.
-  // A chart that has not rendered yet stays unmarked so it is revisited.
   const svg = gd.querySelector<SVGSVGElement>('svg.main-svg');
   if (!svg)
     return;
 
-  gd.setAttribute(PLOTLY_EXAMINED_ATTRIBUTE, '1');
+  // A chart plotly is still populating cannot be judged yet, and is left
+  // unmarked so a later mutation examines it once it can be.
+  const traces = plotlyTraceSignature(gd);
+  if (traces === null || gd.getAttribute(PLOTLY_EXAMINED_ATTRIBUTE) === traces)
+    return;
+
+  gd.setAttribute(PLOTLY_EXAMINED_ATTRIBUTE, traces);
 
   const maidrData = extractPlotlyData(gd);
   if (!maidrData)
@@ -236,8 +243,10 @@ function observeForPlotlyDivs(): void {
     return;
 
   plotlyDivObserver = new MutationObserver(() => {
+    // Charts MAIDR bound are done with; every other one is offered to
+    // `initPlotlyChart`, which decides from the traces it holds now.
     const divs = document.querySelectorAll<HTMLElement>(
-      `.js-plotly-plot:not([${PLOTLY_EXAMINED_ATTRIBUTE}])`,
+      '.js-plotly-plot:not([data-maidr-auto])',
     );
     if (divs.length === 0)
       return;

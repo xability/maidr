@@ -1,6 +1,6 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
 import type { BoxPoint, BoxSelector, ViolinKdePoint } from '@type/grammar';
-import { extractPlotlyData } from '@adapters/plotly/extractor';
+import { extractPlotlyData, plotlyTraceSignature } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
@@ -129,14 +129,47 @@ describe('plotly extractor', () => {
         layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
       });
 
-      extractPlotlyData(gd);
+      try {
+        extractPlotlyData(gd);
 
-      const skipped = warn.mock.calls.filter(([message]) =>
-        String(message).includes('Unsupported plotly trace type'),
-      );
-      expect(skipped).toHaveLength(1);
+        const skipped = warn.mock.calls.filter(([message]) =>
+          String(message).includes('Unsupported plotly trace type'),
+        );
+        expect(skipped).toHaveLength(1);
+      } finally {
+        // A failed assertion must not leave the spy in place for later tests.
+        warn.mockRestore();
+      }
+    });
+  });
 
-      warn.mockRestore();
+  describe('trace signature', () => {
+    it('withholds a signature until plotly has computed the chart', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['a'], y: [1] }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      // Mid-render: the traces are wired up but their calc data is not.
+      expect(plotlyTraceSignature(gd)).toBeNull();
+
+      gd.calcdata = [[{ x: 0, y: 1 }]];
+      expect(plotlyTraceSignature(gd)).toBe('bar');
+    });
+
+    it('changes when a chart is replotted with different traces', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'pie', y: [1, 2] }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+        calcdata: [[{}]],
+      });
+      const before = plotlyTraceSignature(gd);
+
+      // What `Plotly.react` does to a chart swapped in place.
+      gd._fullData = [{ type: 'violin', y: [1, 2] }];
+
+      expect(before).toBe('pie');
+      expect(plotlyTraceSignature(gd)).toBe('violin');
     });
   });
 
@@ -980,6 +1013,38 @@ describe('plotly extractor', () => {
         svg_x: 30,
         svg_y: 300,
       });
+    });
+
+    it('leaves out a position plotly computed no density for', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'violin',
+          x: ['a', 'b', 'c'],
+          y: [1, 2, 3],
+          name: 'g1',
+          box: { visible: true },
+        }],
+        layout: violinLayout({
+          xaxis: { domain: [0, 1], _categories: ['a', 'b', 'c'], c2p: value => 110 + 220 * value },
+        }),
+        calcdata: [[
+          violinCalc({ pos: 0, posCenterPx: 110 }),
+          { pos: 1, posCenterPx: 330 },
+          violinCalc({ pos: 2, posCenterPx: 550 }),
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+      const group = '.subplot.xy .violinlayer > g:nth-child(1)';
+
+      // No violin of zeroes for the position without a curve, and the third
+      // violin still points at the third element plotly rendered.
+      expect((boxLayer.data as BoxPoint[]).map(point => point.z)).toEqual(['g1, a', 'g1, c']);
+      expect(kdeLayer.selectors).toEqual([
+        `${group} > path.violin:nth-child(1)`,
+        `${group} > path.violin:nth-child(3)`,
+      ]);
     });
 
     it('skips a violin chart whose calc data plotly has not computed', () => {

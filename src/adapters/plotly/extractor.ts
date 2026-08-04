@@ -81,6 +81,33 @@ export function extractPlotlyData(element: HTMLElement): Maidr | null {
 }
 
 /**
+ * Summarises what a rendered plotly chart holds, for a caller that needs to
+ * know whether examining it again could reach a different verdict than before.
+ *
+ * That verdict turns on the trace types, and on plotly having computed the
+ * data behind them: the signature is the trace types, and `null` stands for a
+ * chart that cannot be judged yet because plotly has not populated its
+ * internals or its calc data.
+ *
+ * @param element - Any element inside the plotly graph div, or the div itself.
+ * @returns The trace types of a chart ready to be examined, else `null`.
+ */
+export function plotlyTraceSignature(element: HTMLElement): string | null {
+  const gd = findGraphDiv(element);
+  const traces = gd?._fullData ?? gd?.data;
+  if (!gd || !traces)
+    return null;
+
+  // Calc data lands with the draw, and the box, histogram and violin layers
+  // are read from it — a chart caught mid-render would otherwise be judged on
+  // data that is not there yet.
+  if (!gd.calcdata || gd.calcdata.length < traces.length)
+    return null;
+
+  return traces.map(trace => trace.type ?? 'scatter').join(',');
+}
+
+/**
  * Finds the `.js-plotly-plot` ancestor (or self) of the given element.
  */
 export function findGraphDiv(element: HTMLElement): PlotlyGraphDiv | null {
@@ -1354,13 +1381,13 @@ function collectViolins(
 ): ViolinEntry[] {
   const violins: ViolinEntry[] = [];
 
-  // Plotly drops the group of an empty trace, so only traces that render
-  // advance the `nth-child` index.
+  // Plotly drops the group of a trace it drew nothing for, so only traces that
+  // render advance the `nth-child` index.
   let renderedTraces = 0;
 
   for (const { trace, calcIdx } of violinTraces) {
     const cds = group.calcdata[calcIdx] ?? [];
-    if (cds.length === 0 || !cds[0].density?.length)
+    if (!cds.some(cd => cd.density?.length))
       continue;
 
     renderedTraces += 1;
@@ -1371,6 +1398,12 @@ function collectViolins(
 
     for (let i = 0; i < count; i++) {
       const cd = cds[i];
+      // A position without a computed density would become a violin of
+      // zeroes. Skipping it leaves the others' `nth-child` indices alone,
+      // since plotly renders an element per calc entry either way.
+      if (!cd.density?.length)
+        continue;
+
       violins.push({
         label: resolveViolinLabel(trace, cd, posAxis, count),
         cd,

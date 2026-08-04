@@ -181,8 +181,6 @@ export interface PlotlyDensitySample {
 export interface PlotlyCalcMeta {
   /** Offset from the position-axis centre, non-zero for grouped box/violin traces. */
   bPos?: number;
-  /** Set when the trace holds no plottable points; plotly then draws nothing. */
-  empty?: boolean;
 }
 
 export interface PlotlyCalcPoint {
