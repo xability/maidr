@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BoxPoint, BoxSelector, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -16,7 +16,7 @@ interface GraphDivOptions {
   layout: PlotlyFullLayout;
   /** Panel background rect positions rendered into the `.bglayer`. */
   bgRects?: { x: number; y: number }[];
-  /** Plotly's computed per-trace calc data, indexed like `traces`. */
+  /** Per-trace calculated data, as plotly leaves it on the graph div. */
   calcdata?: PlotlyCalcData[][];
 }
 
@@ -1319,6 +1319,290 @@ describe('plotly extractor', () => {
         expect(figure.subplots[0][0].traceTypes).toEqual(['violin_box', 'violin_kde']);
         expect(figure.state).toMatchObject({ empty: false });
       });
+    });
+  });
+
+  describe('segmented bars', () => {
+    /**
+     * Two series over two quarters, the shape from issue #720:
+     * Q1 totals 210 (120 East + 90 West), Q2 totals 150 (80 + 70).
+     */
+    function segmentedTraces(): PlotlyTrace[] {
+      return [
+        { type: 'bar', x: ['Q1', 'Q2'], y: [120, 80], name: 'East' },
+        { type: 'bar', x: ['Q1', 'Q2'], y: [90, 70], name: 'West' },
+      ];
+    }
+
+    /**
+     * Calcdata as plotly leaves it for the stack above under `barnorm`,
+     * mirroring what plotly.js 2.35.2 computes for these traces.
+     */
+    function normalizedCalcdata(scale: number): PlotlyCalcData[][] {
+      const east = [scale * 120 / 210, scale * 80 / 150];
+      const west = [scale * 90 / 210, scale * 70 / 150];
+      return [
+        [
+          { p: 0, s: east[0], b: 0, y: east[0] },
+          { p: 1, s: east[1], b: 0, y: east[1] },
+        ],
+        // Plotly puts the running top of the stack on `y`; only `s` is this
+        // segment's own share.
+        [
+          { p: 0, s: west[0], b: east[0], y: scale },
+          { p: 1, s: west[1], b: east[1], y: scale },
+        ],
+      ];
+    }
+
+    /**
+     * The same two series under `barmode: 'group'`. Plotly scales grouped bars
+     * under `barnorm` as well, but they stand side by side on a shared
+     * baseline, so each bar's top is its own size.
+     */
+    function groupedCalcdata(): PlotlyCalcData[][] {
+      const east = [100 * 120 / 210, 100 * 80 / 150];
+      const west = [100 * 90 / 210, 100 * 70 / 150];
+      return [
+        [
+          { p: 0, s: east[0], b: 0, y: east[0] },
+          { p: 1, s: east[1], b: 0, y: east[1] },
+        ],
+        [
+          { p: 0, s: west[0], b: 0, y: west[0] },
+          { p: 1, s: west[1], b: 0, y: west[1] },
+        ],
+      ];
+    }
+
+    function segmentedData(gd: PlotlyGraphDiv): SegmentedPoint[][] {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    }
+
+    it('announces the normalized percentage plotly drew, not the raw total', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: normalizedCalcdata(100),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.NORMALIZED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].x).toBe('Q1');
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[0][1].y).toBeCloseTo(53.333333, 5);
+      // The second series reads its own share, not the stack top of 100.
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+      expect(data[1][1].y).toBeCloseTo(46.666667, 5);
+    });
+
+    it('announces fractions when barnorm is fraction', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'fraction' },
+        calcdata: normalizedCalcdata(1),
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBeCloseTo(0.571429, 5);
+      expect(data[1][0].y).toBeCloseTo(0.428571, 5);
+    });
+
+    it('normalizes grouped bars, which plotly scales under barnorm as well', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'group', barnorm: 'percent' },
+        calcdata: groupedCalcdata(),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.DODGED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+    });
+
+    it('normalizes horizontal bars on the value axis, keeping the category on y', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', orientation: 'h', y: ['Q1', 'Q2'], x: [120, 80], name: 'East' },
+          { type: 'bar', orientation: 'h', y: ['Q1', 'Q2'], x: [90, 70], name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        // For horizontal bars plotly keeps the size on `s` and moves the
+        // running total to `x`. `y` holds the numeric position, not the
+        // category, which is why the label has to come from the trace.
+        calcdata: [
+          [{ p: 0, s: 100 * 120 / 210, b: 0, x: 100 * 120 / 210, y: 0 }, { p: 1, s: 100 * 80 / 150, b: 0, x: 100 * 80 / 150, y: 1 }],
+          [{ p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, x: 100, y: 0 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, x: 100, y: 1 }],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe('Q1');
+      expect(data[0][0].x).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBe('Q1');
+      expect(data[1][0].x).toBeCloseTo(42.857143, 5);
+    });
+
+    it('leaves an unnormalized stack reading its raw values', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack' },
+        calcdata: [
+          [{ p: 0, s: 120, b: 0, y: 120 }, { p: 1, s: 80, b: 0, y: 80 }],
+          [{ p: 0, s: 90, b: 120, y: 210 }, { p: 1, s: 70, b: 80, y: 150 }],
+        ],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.STACKED);
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0].y).toBe(120);
+      // 210 is the stack top, not this segment.
+      expect(data[1][0].y).toBe(90);
+    });
+
+    it('falls back to the raw trace values when calcdata is unavailable', () => {
+      const gd = createGraphDiv({
+        traces: segmentedTraces(),
+        layout: { barmode: 'stack', barnorm: 'percent' },
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe(120);
+      expect(data[1][0].y).toBe(90);
+    });
+
+    it('normalizes a lone bar trace, which barnorm flattens to full-height bars', () => {
+      // Plotly normalizes a single trace against itself, so every bar is drawn
+      // at 100% — verified against plotly.js 2.35.2, where raw [120, 80, 40]
+      // renders three identical full-height bars. Announcing the raw numbers
+      // there describes three different heights that are not on screen.
+      // A lone bar trace takes the single-layer path, not the segmented one.
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1', 'Q2', 'Q3'], y: [120, 80, 40], name: 'East' }],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [[
+          { p: 0, s: 100, b: 0, y: 100 },
+          { p: 1, s: 100, b: 0, y: 100 },
+          { p: 2, s: 100, b: 0, y: 100 },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layer = maidr!.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.BAR);
+      const data = layer.data as BarPoint[];
+      expect(data.map(point => point.y)).toEqual([100, 100, 100]);
+      expect(data.map(point => point.x)).toEqual(['Q1', 'Q2', 'Q3']);
+    });
+
+    it('leaves a lone bar trace without barnorm reading its raw values', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Q1', 'Q2', 'Q3'], y: [120, 80, 40], name: 'East' }],
+        layout: {},
+        calcdata: [[
+          { p: 0, s: 120, b: 0, y: 120 },
+          { p: 1, s: 80, b: 0, y: 80 },
+          { p: 2, s: 40, b: 0, y: 40 },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const data = maidr!.subplots[0][0].layers[0].data as BarPoint[];
+      expect(data.map(point => point.y)).toEqual([120, 80, 40]);
+    });
+
+    it('reports a bar normalized to zero as 0, not as missing', () => {
+      // A 0% share is a real value: it has to reach the announcement rather
+      // than be dropped or replaced. Note this does not distinguish a
+      // falsy-check fallback from a nullish one — under `barnorm` a drawn 0
+      // implies a raw 0, so both would answer 0 here. What it pins is that
+      // the zero survives extraction at all.
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['Q1', 'Q2'], y: [0, 80], name: 'East' },
+          { type: 'bar', x: ['Q1', 'Q2'], y: [90, 70], name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [
+          [{ p: 0, s: 0, b: 0, y: 0 }, { p: 1, s: 100 * 80 / 150, b: 0, y: 100 * 80 / 150 }],
+          [{ p: 0, s: 100, b: 0, y: 100 }, { p: 1, s: 100 * 70 / 150, b: 100 * 80 / 150, y: 100 }],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      expect(data[0][0].y).toBe(0);
+      expect(data[1][0].y).toBe(100);
+    });
+
+    it('keeps calcdata aligned with the trace arrays across a gap in the data', () => {
+      // Plotly's bar calc() holds a missing point in place rather than
+      // dropping it — the entry keeps its position and carries `s: undefined`
+      // (BADNUM) — so `cd[i]` stays in step with `x[i]`/`y[i]`. Verified
+      // against plotly.js 2.35.2: four input points, four calcdata entries,
+      // four rendered bars. Were an entry dropped instead, every value after
+      // the gap would slide onto the wrong quarter.
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      // Plotly's runtime data admits null; the hand-written trace type does not.
+      const withGaps = (values: (number | null)[]): number[] => values as number[];
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: quarters, y: withGaps([120, null, 60, 40]), name: 'East' },
+          { type: 'bar', x: quarters, y: withGaps([90, 70, null, 20]), name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [
+          [
+            { p: 0, s: 100 * 120 / 210, b: 0, y: 100 * 120 / 210 },
+            { p: 1 },
+            // West is absent at Q3, so East is the whole stack there.
+            { p: 2, s: 100, b: 0, y: 100 },
+            { p: 3, s: 100 * 40 / 60, b: 0, y: 100 * 40 / 60 },
+          ],
+          [
+            { p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, y: 100 },
+            { p: 1, s: 100, b: 0, y: 100 },
+            { p: 2 },
+            { p: 3, s: 100 * 20 / 60, b: 100 * 40 / 60, y: 100 },
+          ],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      // The points after each gap keep their own share. A one-entry shift
+      // would report 66.67 at Q3 and 100 at Q4 instead.
+      expect(data[0][2].y).toBeCloseTo(100, 5);
+      expect(data[0][3].y).toBeCloseTo(66.666667, 5);
+      expect(data[1][3].y).toBeCloseTo(33.333333, 5);
+      expect(data[1][1].y).toBeCloseTo(100, 5);
+      // A gap itself carries the raw value through, exactly as before the fix.
+      // Deliberately not filtered the way extractMultiLineLayer filters line
+      // gaps: plotly omits a null point from a line's DOM but keeps a
+      // zero-height rect for a bar's, so dropping it here would slide every
+      // later bar's highlight onto its neighbour. The text service already
+      // renders the null as "missing" rather than announcing it raw.
+      expect(data[0][1].y).toBeNull();
+      expect(data[1][2].y).toBeNull();
+      // Category labels still come from the trace, so they survive the gaps.
+      expect(data[0].map(point => point.x)).toEqual(quarters);
     });
   });
 });
