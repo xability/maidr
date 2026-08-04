@@ -1,8 +1,8 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
@@ -121,6 +121,28 @@ describe('plotly extractor', () => {
     });
   });
 
+  describe('unsupported traces', () => {
+    it('warns once for a trace type MAIDR has no equivalent for', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const gd = createGraphDiv({
+        traces: [{ type: 'pie', y: [1, 2, 3] }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      try {
+        extractPlotlyData(gd);
+
+        const skipped = warn.mock.calls.filter(([message]) =>
+          String(message).includes('Unsupported plotly trace type'),
+        );
+        expect(skipped).toHaveLength(1);
+      } finally {
+        // A failed assertion must not leave the spy in place for later tests.
+        warn.mockRestore();
+      }
+    });
+  });
+
   describe('2x2 subplot grids', () => {
     it('arranges panels row-major in visual order regardless of trace order', () => {
       // Traces deliberately scrambled: bottom-right first, top-left second, …
@@ -229,7 +251,7 @@ describe('plotly extractor', () => {
           scatterTrace({ name: 'B', xaxis: 'x2', yaxis: 'y2' }),
           scatterTrace({ name: 'C', xaxis: 'x3', yaxis: 'y3' }),
           scatterTrace({ name: 'D', xaxis: 'x4', yaxis: 'y4' }),
-          { type: 'violin', y: [1, 2, 3], xaxis: 'x5', yaxis: 'y5' },
+          { type: 'pie', y: [1, 2, 3], xaxis: 'x5', yaxis: 'y5' },
         ],
         layout: twoByTwoLayout({
           xaxis5: { domain: [0, 0.45] },
@@ -717,6 +739,337 @@ describe('plotly extractor', () => {
     });
   });
 
+  describe('violin traces', () => {
+    /**
+     * One violin's calc data, shaped like plotly's: the box statistics from
+     * the shared box calc, the KDE samples (`t` is the value-axis coordinate,
+     * `v` the density there) and the pixel centre plotly records while drawing.
+     */
+    function violinCalc(overrides: Partial<PlotlyCalcData> = {}): PlotlyCalcData {
+      return {
+        pos: 0,
+        min: 1,
+        q1: 2,
+        med: 3,
+        q3: 4,
+        max: 9,
+        mean: 3.6,
+        posCenterPx: 110,
+        density: [
+          { v: 0.1, t: 1 },
+          { v: 0.3, t: 3 },
+          { v: 0.05, t: 9 },
+        ],
+        ...overrides,
+      };
+    }
+
+    /** Categorical position axis on x, value axis on y (plotly's default). */
+    function violinLayout(extra: Partial<PlotlyFullLayout> = {}): PlotlyFullLayout {
+      return {
+        xaxis: {
+          domain: [0, 1],
+          title: { text: 'Group' },
+          _categories: ['A', 'B'],
+          c2p: value => 110 + 220 * value,
+        },
+        yaxis: {
+          domain: [0, 1],
+          title: { text: 'Value' },
+          c2p: value => 300 - 20 * value,
+        },
+        ...extra,
+      };
+    }
+
+    it('emits the box layer and the KDE layer, box first', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } }],
+        layout: violinLayout(),
+        calcdata: [[violinCalc()]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.VIOLIN_BOX,
+        TraceType.VIOLIN_KDE,
+      ]);
+      expect(new Set(layers.map(layer => layer.id)).size).toBe(2);
+      for (const layer of layers) {
+        expect(layer.orientation).toBe('vert');
+        expect(layer.axes?.x?.label).toBe('Group');
+        expect(layer.axes?.y?.label).toBe('Value');
+      }
+    });
+
+    it('reads the quartile summary and the KDE curve from plotly calc data', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } }],
+        layout: violinLayout(),
+        calcdata: [[violinCalc()]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      expect(boxLayer.data as BoxPoint[]).toEqual([{
+        z: 'A',
+        lowerOutliers: [],
+        min: 1,
+        q1: 2,
+        q2: 3,
+        q3: 4,
+        max: 9,
+        upperOutliers: [],
+        mean: 3.6,
+      }]);
+
+      // Highlight circles are placed on the violin's centre line, at the
+      // value-axis pixel of each density sample.
+      expect(kdeLayer.data as ViolinKdePoint[][]).toEqual([[
+        { x: 'A', y: 1, density: 0.1, svg_x: 110, svg_y: 280 },
+        { x: 'A', y: 3, density: 0.3, svg_x: 110, svg_y: 240 },
+        { x: 'A', y: 9, density: 0.05, svg_x: 110, svg_y: 120 },
+      ]]);
+    });
+
+    it('points each layer at the elements plotly draws for that violin', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } }],
+        layout: violinLayout(),
+        calcdata: [[violinCalc()]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+      const group = '.subplot.xy .violinlayer > g:nth-child(1)';
+
+      expect(kdeLayer.selectors).toEqual([`${group} > path.violin:nth-child(1)`]);
+      // The inner boxes follow every violin outline in the trace's group.
+      expect(boxLayer.selectors as BoxSelector[]).toEqual([{
+        lowerOutliers: [],
+        min: `${group} > path.box:nth-child(2)`,
+        iq: `${group} > path.box:nth-child(2)`,
+        q2: `${group} > path.box:nth-child(2)`,
+        max: `${group} > path.box:nth-child(2)`,
+        upperOutliers: [],
+      }]);
+    });
+
+    it('names each violin of a categorical trace after its category', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'violin',
+          x: ['a', 'a', 'b', 'b'],
+          y: [1, 2, 3, 4],
+          name: 'g1',
+          box: { visible: true },
+        }],
+        layout: violinLayout({
+          xaxis: { domain: [0, 1], _categories: ['a', 'b'], c2p: value => 110 + 220 * value },
+        }),
+        calcdata: [[
+          violinCalc({ pos: 0, posCenterPx: 110 }),
+          violinCalc({ pos: 1, posCenterPx: 330 }),
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+      const group = '.subplot.xy .violinlayer > g:nth-child(1)';
+
+      expect((boxLayer.data as BoxPoint[]).map(point => point.z)).toEqual(['g1, a', 'g1, b']);
+      expect(kdeLayer.selectors).toEqual([
+        `${group} > path.violin:nth-child(1)`,
+        `${group} > path.violin:nth-child(2)`,
+      ]);
+      expect((boxLayer.selectors as BoxSelector[]).map(selector => selector.iq)).toEqual([
+        `${group} > path.box:nth-child(3)`,
+        `${group} > path.box:nth-child(4)`,
+      ]);
+    });
+
+    it('gathers the violins of several traces into one pair of layers', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } },
+          { type: 'violin', y: [2, 3, 4], name: 'B', box: { visible: true } },
+        ],
+        layout: violinLayout(),
+        calcdata: [
+          [violinCalc({ pos: 0, posCenterPx: 110 })],
+          [violinCalc({ pos: 1, posCenterPx: 330 })],
+        ],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      expect((boxLayer.data as BoxPoint[]).map(point => point.z)).toEqual(['A', 'B']);
+      expect(kdeLayer.selectors).toEqual([
+        '.subplot.xy .violinlayer > g:nth-child(1) > path.violin:nth-child(1)',
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
+      ]);
+    });
+
+    it('keeps the highlight of the violins that do have an inner box', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } },
+          { type: 'violin', y: [2, 3, 4], name: 'B' },
+        ],
+        layout: violinLayout(),
+        calcdata: [
+          [violinCalc({ pos: 0, posCenterPx: 110 })],
+          [violinCalc({ pos: 1, posCenterPx: 330 })],
+        ],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer] = maidr!.subplots[0][0].layers;
+
+      // One trace drawing no box does not cost the other one its highlight;
+      // the second selector points at a position that holds no `path.box`.
+      expect((boxLayer.selectors as BoxSelector[]).map(selector => selector.iq)).toEqual([
+        '.subplot.xy .violinlayer > g:nth-child(1) > path.box:nth-child(2)',
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.box:nth-child(2)',
+      ]);
+    });
+
+    it('places a violin from its position when plotly recorded no pixel centre', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A' }],
+        layout: violinLayout(),
+        calcdata: [[{
+          ...violinCalc({ pos: 1 }),
+          posCenterPx: undefined,
+          // Grouped violins sit either side of the category centre.
+          t: { bPos: 0.5 },
+        }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      // c2p(pos + bPos) = 110 + 220 * 1.5
+      expect((kdeLayer.data as ViolinKdePoint[][])[0][0].svg_x).toBe(440);
+    });
+
+    it('keeps the statistics but drops the selectors when no inner box is drawn', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A' }],
+        layout: violinLayout(),
+        calcdata: [[violinCalc()]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      expect(boxLayer.data).toHaveLength(1);
+      expect(boxLayer.selectors).toBeUndefined();
+      expect(kdeLayer.selectors).toHaveLength(1);
+    });
+
+    it('makes the mean navigable where plotly draws a mean line', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'violin',
+          y: [1, 2, 3],
+          name: 'A',
+          box: { visible: true },
+          meanline: { visible: true },
+        }],
+        layout: violinLayout(),
+        calcdata: [[violinCalc()]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer] = maidr!.subplots[0][0].layers;
+
+      expect(boxLayer.violinOptions).toEqual({ showMean: true });
+      expect((boxLayer.selectors as BoxSelector[])[0].mean)
+        .toBe('.subplot.xy .violinlayer > g:nth-child(1) > path.mean:nth-child(3)');
+    });
+
+    it('emits a horizontal violin bottom-first, with the axes swapped', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'violin',
+          x: [1, 2, 3],
+          orientation: 'h',
+          name: 'A',
+          box: { visible: true },
+        }],
+        layout: {
+          xaxis: { domain: [0, 1], title: { text: 'Value' }, c2p: value => 20 + 10 * value },
+          yaxis: { domain: [0, 1], title: { text: 'Group' }, _categories: ['A', 'B'], c2p: value => 300 - 100 * value },
+        },
+        calcdata: [[
+          violinCalc({ pos: 0, posCenterPx: 300 }),
+          violinCalc({ pos: 1, posCenterPx: 200 }),
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      expect(boxLayer.orientation).toBe('horz');
+      // The core reverses horizontal rows into visual order, so the topmost
+      // violin is emitted first and comes back as plotly's last one.
+      expect((boxLayer.data as BoxPoint[]).map(point => point.z)).toEqual(['A, B', 'A, A']);
+      expect((kdeLayer.data as ViolinKdePoint[][])[1][0]).toEqual({
+        x: 'A, A',
+        y: 1,
+        density: 0.1,
+        svg_x: 30,
+        svg_y: 300,
+      });
+    });
+
+    it('leaves out a position plotly computed no density for', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'violin',
+          x: ['a', 'b', 'c'],
+          y: [1, 2, 3],
+          name: 'g1',
+          box: { visible: true },
+        }],
+        layout: violinLayout({
+          xaxis: { domain: [0, 1], _categories: ['a', 'b', 'c'], c2p: value => 110 + 220 * value },
+        }),
+        calcdata: [[
+          violinCalc({ pos: 0, posCenterPx: 110 }),
+          { pos: 1, posCenterPx: 330 },
+          violinCalc({ pos: 2, posCenterPx: 550 }),
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+      const group = '.subplot.xy .violinlayer > g:nth-child(1)';
+
+      // No violin of zeroes for the position without a curve, and the third
+      // violin still points at the third element plotly rendered.
+      expect((boxLayer.data as BoxPoint[]).map(point => point.z)).toEqual(['g1, a', 'g1, c']);
+      expect(kdeLayer.selectors).toEqual([
+        `${group} > path.violin:nth-child(1)`,
+        `${group} > path.violin:nth-child(3)`,
+      ]);
+    });
+
+    it('skips a violin chart whose calc data plotly has not computed', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A' }],
+        layout: violinLayout(),
+      });
+
+      expect(extractPlotlyData(gd)).toBeNull();
+    });
+  });
+
   describe('core-model integration', () => {
     /**
      * The model and normalizer resolve elements via page globals; point
@@ -725,27 +1078,34 @@ describe('plotly extractor', () => {
     function withDomGlobals(gd: PlotlyGraphDiv, fn: (doc: Document) => void): void {
       const doc = gd.ownerDocument;
       const win = doc.defaultView!;
-      const testGlobals = globalThis as {
-        document?: Document;
-        MutationObserver?: typeof MutationObserver;
-        requestAnimationFrame?: (callback: FrameRequestCallback) => number;
+      // jsdom implements only part of the SVG DOM, so stand in for the element
+      // classes it lacks: the model's `instanceof` checks then resolve and
+      // match nothing, leaving highlight elements a browser-only concern.
+      const svgClass = (name: string): unknown =>
+        (win as unknown as Record<string, unknown>)[name] ?? class {};
+      const overrides: Record<string, unknown> = {
+        document: doc,
+        window: win,
+        MutationObserver: win.MutationObserver,
+        requestAnimationFrame: () => 0,
+        SVGUseElement: svgClass('SVGUseElement'),
+        SVGPathElement: svgClass('SVGPathElement'),
+        SVGPolygonElement: svgClass('SVGPolygonElement'),
       };
-      const saved = {
-        document: testGlobals.document,
-        MutationObserver: testGlobals.MutationObserver,
-        requestAnimationFrame: testGlobals.requestAnimationFrame,
-      };
-      testGlobals.document = doc;
-      testGlobals.MutationObserver = win.MutationObserver;
-      testGlobals.requestAnimationFrame = () => 0;
+      const testGlobals = globalThis as Record<string, unknown>;
+      const saved = new Map<string, unknown>();
+      for (const [key, value] of Object.entries(overrides)) {
+        saved.set(key, testGlobals[key]);
+        testGlobals[key] = value;
+      }
       try {
         fn(doc);
       } finally {
-        for (const key of Object.keys(saved) as (keyof typeof saved)[]) {
-          if (saved[key] === undefined) {
+        for (const [key, value] of saved) {
+          if (value === undefined) {
             delete testGlobals[key];
           } else {
-            (testGlobals as Record<string, unknown>)[key] = saved[key];
+            testGlobals[key] = value;
           }
         }
       }
@@ -882,6 +1242,82 @@ describe('plotly extractor', () => {
         expect(subplotLayout.visualOrderMap.get('0,1')).toBe(2);
         expect(subplotLayout.visualOrderMap.get('1,0')).toBe(3);
         expect(subplotLayout.visualOrderMap.get('1,1')).toBe(4);
+      });
+    });
+
+    it('the emitted violin Maidr constructs a two-layer Figure with resolvable selectors', () => {
+      const violinCalcData = (pos: number, posCenterPx: number): PlotlyCalcData => ({
+        pos,
+        posCenterPx,
+        min: 1,
+        q1: 2,
+        med: 3,
+        q3: 4,
+        max: 9,
+        mean: 3.6,
+        density: [{ v: 0.1, t: 1 }, { v: 0.3, t: 3 }],
+      });
+
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } },
+          { type: 'violin', y: [2, 3, 4], name: 'B', box: { visible: true } },
+        ],
+        layout: {
+          xaxis: { domain: [0, 1], _categories: ['A', 'B'], c2p: value => 110 + 220 * value },
+          yaxis: { domain: [0, 1], c2p: value => 300 - 20 * value },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+      gd.calcdata = [[violinCalcData(0, 110)], [violinCalcData(1, 330)]];
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      // Rebuild the layer plotly renders for these two traces: every violin
+      // outline of a trace, then its inner boxes, inside one group per trace.
+      const doc = gd.ownerDocument;
+      const svg = gd.querySelector('svg.main-svg')!;
+      const subplot = doc.createElementNS(SVG_NS, 'g');
+      subplot.setAttribute('class', 'subplot xy');
+      const violinLayer = doc.createElementNS(SVG_NS, 'g');
+      violinLayer.setAttribute('class', 'violinlayer mlayer');
+      for (let trace = 0; trace < 2; trace++) {
+        const traceGroup = doc.createElementNS(SVG_NS, 'g');
+        traceGroup.setAttribute('class', 'trace violins');
+        for (const className of ['violin', 'box']) {
+          const path = doc.createElementNS(SVG_NS, 'path');
+          path.setAttribute('class', className);
+          // jsdom has no layout engine; the model reads getBBox() off the
+          // inner box to place the Q1/Q3 highlight lines.
+          Object.defineProperty(path, 'getBBox', {
+            value: () => ({ x: 100, y: 200, width: 20, height: 60 }),
+            configurable: true,
+          });
+          traceGroup.appendChild(path);
+        }
+        violinLayer.appendChild(traceGroup);
+      }
+      subplot.appendChild(violinLayer);
+      svg.appendChild(subplot);
+
+      const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
+      const selectors = [
+        ...(kdeLayer.selectors as string[]),
+        ...(boxLayer.selectors as BoxSelector[]).map(selector => selector.iq),
+      ];
+      for (const selector of selectors) {
+        expect(doc.querySelectorAll(selector)).toHaveLength(1);
+      }
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Both violin traces are constructed, and the box layer is the one
+        // the user lands on.
+        expect(figure.subplots[0][0].traceTypes).toEqual(['violin_box', 'violin_kde']);
+        expect(figure.state).toMatchObject({ empty: false });
       });
     });
   });

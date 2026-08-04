@@ -1,6 +1,6 @@
 import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -187,19 +187,25 @@ function autoInitPlotlyCharts(): void {
  * Extracts data and initialises MAIDR for a fully-rendered Plotly chart.
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
+ *
+ * Which charts this looks at, and how often, is
+ * {@link claimPlotlyExamination}'s to decide.
  */
 function initPlotlyChart(gd: HTMLElement): void {
   if (gd.hasAttribute('data-maidr-auto'))
-    return;
-
-  const maidrData = extractPlotlyData(gd);
-  if (!maidrData)
     return;
 
   // Require the SVG to exist. Replacing the graph div in the DOM would
   // break Plotly's rendering pipeline — only the SVG is safe to adopt.
   const svg = gd.querySelector<SVGSVGElement>('svg.main-svg');
   if (!svg)
+    return;
+
+  if (!claimPlotlyExamination(gd))
+    return;
+
+  const maidrData = extractPlotlyData(gd);
+  if (!maidrData)
     return;
 
   gd.setAttribute('data-maidr-auto', '1');
@@ -222,6 +228,8 @@ function observeForPlotlyDivs(): void {
     return;
 
   plotlyDivObserver = new MutationObserver(() => {
+    // Charts MAIDR bound are done with; every other one is offered to
+    // `initPlotlyChart`, which decides from the traces it holds now.
     const divs = document.querySelectorAll<HTMLElement>(
       '.js-plotly-plot:not([data-maidr-auto])',
     );

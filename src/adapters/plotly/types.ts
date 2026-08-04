@@ -30,6 +30,11 @@ export interface PlotlyTrace {
   lowerfence?: number[];
   upperfence?: number[];
   mean?: number[];
+  // Violin-specific
+  /** Inner box overlay. Plotly draws `path.box` only when `visible` is true. */
+  box?: { visible?: boolean };
+  /** Mean line overlay drawn across the violin. */
+  meanline?: { visible?: boolean };
   // Candlestick-specific
   open?: number[];
   high?: number[];
@@ -123,6 +128,13 @@ export interface PlotlyAxis {
   _offset?: number;
   /** Computed pixel length of the axis within the SVG (plotly internal). */
   _length?: number;
+  /** Category labels in axis order, indexed by a categorical coordinate. */
+  _categories?: (number | string)[];
+  /**
+   * Converts a data coordinate to a pixel position within the plot area
+   * (plotly internal, available once the chart has been drawn).
+   */
+  c2p?: (value: number) => number;
 }
 
 export interface PlotlyCalcData {
@@ -146,10 +158,29 @@ export interface PlotlyCalcData {
   uo?: number; // upper outlier threshold
   pts?: PlotlyCalcPoint[];
   pts2?: PlotlyCalcPoint[];
+  // Violin calc data
+  /** KDE samples: `t` is the value-axis coordinate, `v` the density there. */
+  density?: PlotlyDensitySample[];
+  /** Pixel centre of this violin on the position axis, set when plotly draws it. */
+  posCenterPx?: number;
+  /** Per-trace calc metadata; plotly stores it on the first entry of a trace. */
+  t?: PlotlyCalcMeta;
   // Heatmap
   z?: number[][];
   trace?: PlotlyTrace;
   [key: string]: unknown;
+}
+
+export interface PlotlyDensitySample {
+  /** Density at this position. */
+  v: number;
+  /** Value-axis coordinate of the sample. */
+  t: number;
+}
+
+export interface PlotlyCalcMeta {
+  /** Offset from the position-axis centre, non-zero for grouped box/violin traces. */
+  bPos?: number;
 }
 
 export interface PlotlyCalcPoint {

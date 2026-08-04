@@ -64,6 +64,7 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Scatter | `type: 'scatter'`, `mode: 'markers'` | [Scatter plot](examples.html) |
 | Line | `type: 'scatter'`, `mode: 'lines'` | [Line chart](examples.html) |
 | Box Plot | `type: 'box'` | [Box plot](examples.html) |
+| Violin Plot | `type: 'violin'` | [Violin plot](examples.html) |
 | Heatmap | `type: 'heatmap'` | [Heatmap](examples.html) |
 | Histogram | `type: 'histogram'` | [Histogram](examples.html) |
 | Candlestick | `type: 'candlestick'` | [Candlestick](examples.html) |
@@ -156,6 +157,37 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   });
 </script>
 ```
+
+### Violin Plot
+
+A violin becomes two layers in one subplot: the quartile summary (`violin_box`)
+you land on, and the density curve (`violin_kde`) behind it. `PageUp` and
+`PageDown` switch between them. Both come from Plotly's own calculations, so
+the numbers announced are the ones the chart was drawn from.
+
+```html
+<div id="violin-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('violin-chart', [
+    { y: [2.3, 2.5, 2.8, 3.0, 3.2, 3.4, 3.6, 4.0, 4.5], type: 'violin', name: 'Setosa', box: { visible: true }, meanline: { visible: true } },
+    { y: [4.7, 4.9, 5.2, 5.5, 5.9, 6.0, 6.3, 6.5, 7.0], type: 'violin', name: 'Versicolor', box: { visible: true }, meanline: { visible: true } }
+  ], {
+    title: { text: 'Iris Sepal Length Distribution' },
+    xaxis: { title: { text: 'Species' } },
+    yaxis: { title: { text: 'Sepal Length (cm)' } }
+  });
+</script>
+```
+
+The inner box (`box: { visible: true }`) and the mean line
+(`meanline: { visible: true }`) are optional: without them the statistics stay
+navigable, they simply have no drawn element to highlight, and the mean is left
+out of the sections.
+
+Those two settings are per trace, while the sections a violin plot offers are
+one list for the whole plot. So when only some traces draw a mean line, every
+violin still has a mean to read — it is a statistic of each of them — and only
+the ones drawn with a mean line highlight it.
 
 ### Heatmap
 

@@ -22,6 +22,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  ViolinKdePoint,
 } from '../../type/grammar';
 import type {
   PlotlyAnnotation,
@@ -271,6 +272,11 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'box':
       return TraceType.BOX;
 
+    // A violin becomes two layers (`violin_box` + `violin_kde`); the KDE type
+    // stands for the pair while traces are grouped.
+    case 'violin':
+      return TraceType.VIOLIN_KDE;
+
     case 'heatmap':
     case 'heatmapgl':
       return TraceType.HEATMAP;
@@ -308,6 +314,17 @@ interface SubplotGroup {
   traces: PlotlyTrace[];
   calcdata: PlotlyCalcData[][];
   traceIndices: number[];
+}
+
+/** A trace within a subplot group, keyed to its calcdata and its global index. */
+interface TraceEntry {
+  trace: PlotlyTrace;
+  /** The MAIDR type it maps to, or `null` when MAIDR has no equivalent. */
+  maidrType: TraceType | null;
+  /** Index within the group, used to look up `group.calcdata`. */
+  calcIdx: number;
+  /** Index within `gd._fullData`. */
+  globalIdx: number;
 }
 
 function groupTracesBySubplot(
@@ -402,22 +419,32 @@ function buildSubplotLayers(
   const layers: MaidrLayer[] = [];
 
   // Group traces that need multi-trace handling.
-  const lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const boxTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const barTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
-  const otherTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[] = [];
+  const lineTraces: TraceEntry[] = [];
+  const boxTraces: TraceEntry[] = [];
+  const barTraces: TraceEntry[] = [];
+  const violinTraces: TraceEntry[] = [];
+  const otherTraces: TraceEntry[] = [];
 
   for (let i = 0; i < group.traces.length; i++) {
     const trace = group.traces[i];
-    const maidrType = mapTraceType(trace);
-    if (maidrType === TraceType.LINE) {
-      lineTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-    } else if (maidrType === TraceType.BOX) {
-      boxTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
-    } else if (maidrType === TraceType.BAR) {
-      barTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+    // Resolved once per trace: mapping an unsupported type warns, and doing it
+    // again below would log the same line twice.
+    const entry: TraceEntry = {
+      trace,
+      maidrType: mapTraceType(trace),
+      calcIdx: i,
+      globalIdx: group.traceIndices[i],
+    };
+    if (entry.maidrType === TraceType.LINE) {
+      lineTraces.push(entry);
+    } else if (entry.maidrType === TraceType.BOX) {
+      boxTraces.push(entry);
+    } else if (entry.maidrType === TraceType.BAR) {
+      barTraces.push(entry);
+    } else if (entry.maidrType === TraceType.VIOLIN_KDE) {
+      violinTraces.push(entry);
     } else {
-      otherTraces.push({ trace, calcIdx: i, globalIdx: group.traceIndices[i] });
+      otherTraces.push(entry);
     }
   }
 
@@ -433,6 +460,12 @@ function buildSubplotLayers(
     const layer = extractMultiBoxLayer(boxTraces, group, xLabel, yLabel, gd);
     if (layer)
       layers.push(layer);
+  }
+
+  // Build the violin pair: every violin in the subplot shares one box layer
+  // and one KDE layer.
+  if (violinTraces.length > 0) {
+    layers.push(...extractViolinLayers(violinTraces, group, layout, xLabel, yLabel));
   }
 
   // Build bar layers: grouped/stacked/normalized for multiple bar traces.
@@ -462,8 +495,7 @@ function buildSubplotLayers(
   }
 
   // Build individual layers for remaining traces.
-  for (const { trace, calcIdx, globalIdx } of otherTraces) {
-    const maidrType = mapTraceType(trace);
+  for (const { trace, maidrType, calcIdx, globalIdx } of otherTraces) {
     if (!maidrType)
       continue;
 
@@ -1278,6 +1310,304 @@ function extractSingleBoxData(
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Violin
+// ---------------------------------------------------------------------------
+
+/** One violin — a single position within a plotly violin trace. */
+interface ViolinEntry {
+  /** Category label announced for this violin. */
+  label: string;
+  /** The calcdata entry plotly computed for it. */
+  cd: PlotlyCalcData;
+  /** Centre of the violin on the position axis, in plot-area pixels. */
+  posCenterPx: number | undefined;
+  /** Selector for the KDE outline `path.violin`. */
+  kdeSelector: string;
+  /** Selector for the inner box `path.box`, which matches only if drawn. */
+  boxSelector: string;
+  /** Whether this violin's trace draws that inner box. */
+  hasBox: boolean;
+  /** Selector for the mean line, when plotly draws one. */
+  meanSelector: string | null;
+}
+
+/**
+ * Builds the `violin_box` + `violin_kde` layer pair for a subplot's violin
+ * traces.
+ *
+ * Plotly has already computed both halves: `cd.density` holds the KDE samples
+ * and the quartiles sit on the same calcdata entry, so nothing is recomputed
+ * here. The box layer comes first because MAIDR shows a subplot's first layer
+ * on entry, and the summary is the better starting point.
+ */
+function extractViolinLayers(
+  violinTraces: TraceEntry[],
+  group: SubplotGroup,
+  layout: PlotlyFullLayout,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+): MaidrLayer[] {
+  const isHorizontal = violinTraces[0].trace.orientation === 'h';
+  const posAxis = getAxis(layout, isHorizontal ? group.yAxisId : group.xAxisId);
+  const valueAxis = getAxis(layout, isHorizontal ? group.xAxisId : group.yAxisId);
+
+  const violins = collectViolins(violinTraces, group, posAxis);
+  if (violins.length === 0)
+    return [];
+
+  // The core reverses the rows of a horizontal violin plot into visual order,
+  // so emit them reversed to keep plotly's own bottom-to-top order afterwards.
+  if (isHorizontal)
+    violins.reverse();
+
+  const id = String(violinTraces[0].globalIdx);
+  const orientation = isHorizontal ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+
+  return [
+    buildViolinBoxLayer(violins, `${id}-box`, orientation, xLabel, yLabel),
+    buildViolinKdeLayer(violins, `${id}-kde`, orientation, isHorizontal, valueAxis, xLabel, yLabel),
+  ];
+}
+
+/**
+ * Flattens the subplot's violin traces into one violin per calcdata entry,
+ * in the order plotly renders them, and builds each one's selectors.
+ *
+ * A trace holds several violins when its categories come from a `x`/`y`
+ * array, and plotly draws them as siblings inside the trace's group:
+ * every `path.violin` first, then every `path.box`, then every `path.mean`.
+ */
+function collectViolins(
+  violinTraces: TraceEntry[],
+  group: SubplotGroup,
+  posAxis: PlotlyAxis | undefined,
+): ViolinEntry[] {
+  const violins: ViolinEntry[] = [];
+
+  // Plotly drops the group of a trace it drew nothing for, so only traces that
+  // render advance the `nth-child` index.
+  let renderedTraces = 0;
+
+  for (const { trace, calcIdx } of violinTraces) {
+    const cds = group.calcdata[calcIdx] ?? [];
+    if (!cds.some(cd => cd.density?.length))
+      continue;
+
+    renderedTraces += 1;
+    const traceGroup = `${subplotCssPrefix(trace.xaxis, trace.yaxis)}.violinlayer > g:nth-child(${renderedTraces})`;
+    const count = cds.length;
+    const hasBox = trace.box?.visible === true;
+    const hasMean = trace.meanline?.visible === true;
+
+    for (let i = 0; i < count; i++) {
+      const cd = cds[i];
+      // A position without a computed density would become a violin of
+      // zeroes. Skipping it leaves the others' `nth-child` indices alone,
+      // since plotly renders an element per calc entry either way.
+      if (!cd.density?.length)
+        continue;
+
+      violins.push({
+        label: resolveViolinLabel(trace, cd, posAxis, count),
+        cd,
+        posCenterPx: resolveViolinCenter(cd, cds[0].t?.bPos, posAxis),
+        kdeSelector: `${traceGroup} > path.violin:nth-child(${i + 1})`,
+        // Written whether or not this trace draws the box: the position it
+        // would occupy holds no `path.box` otherwise, so the selector simply
+        // finds nothing and leaves the violins that do have one alone.
+        boxSelector: `${traceGroup} > path.box:nth-child(${count + i + 1})`,
+        hasBox,
+        // Plotly renders the mean inside the box as `path.mean`, and as
+        // `path.meanline` when there is no box to draw it in.
+        meanSelector: hasMean
+          ? (hasBox
+              ? `${traceGroup} > path.mean:nth-child(${2 * count + i + 1})`
+              : `${traceGroup} > path.meanline:nth-child(${count + i + 1})`)
+          : null,
+      });
+    }
+  }
+
+  return violins;
+}
+
+/**
+ * Names a violin after its category, falling back to the trace name.
+ *
+ * A trace that draws a single violin is a group of its own — plotly even
+ * derives the category from `trace.name` — so the trace name is the label
+ * there. A trace that draws several is one series across categories, and both
+ * parts are needed to tell its violins apart.
+ */
+function resolveViolinLabel(
+  trace: PlotlyTrace,
+  cd: PlotlyCalcData,
+  posAxis: PlotlyAxis | undefined,
+  violinsInTrace: number,
+): string {
+  const category = resolveViolinCategory(cd.pos, posAxis);
+  if (violinsInTrace > 1 && category) {
+    return trace.name ? `${trace.name}, ${category}` : category;
+  }
+  return trace.name ?? category ?? '';
+}
+
+function resolveViolinCategory(
+  pos: number | string | undefined,
+  posAxis: PlotlyAxis | undefined,
+): string | undefined {
+  if (typeof pos === 'string')
+    return pos;
+  if (pos === undefined)
+    return undefined;
+
+  const categories = posAxis?._categories;
+  if (categories && pos >= 0 && pos < categories.length)
+    return String(categories[pos]);
+  return String(pos);
+}
+
+/**
+ * Resolves the violin's centre on the position axis, in the plot-area pixel
+ * space its `path.violin` is drawn in. Plotly stores it while drawing;
+ * `bPos` — the offset that separates grouped violins — reproduces it
+ * otherwise.
+ */
+function resolveViolinCenter(
+  cd: PlotlyCalcData,
+  bPos: number | undefined,
+  posAxis: PlotlyAxis | undefined,
+): number | undefined {
+  if (typeof cd.posCenterPx === 'number')
+    return cd.posCenterPx;
+  if (typeof cd.pos !== 'number' || !posAxis?.c2p)
+    return undefined;
+  return posAxis.c2p(cd.pos + (bPos ?? 0));
+}
+
+/**
+ * Builds the `violin_box` layer: the quartile summary of every violin.
+ *
+ * Selectors are emitted only when plotly draws the inner box for all of them —
+ * a violin without one has no element to highlight, and the statistics stay
+ * navigable regardless.
+ */
+function buildViolinBoxLayer(
+  violins: ViolinEntry[],
+  id: string,
+  orientation: Orientation,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+): MaidrLayer {
+  const data: BoxPoint[] = violins.map(({ label, cd }) => ({
+    z: label,
+    // Violin box layers have no outlier sections — the KDE curve covers the
+    // tails of the distribution.
+    lowerOutliers: [],
+    min: cd.min ?? cd.lf ?? 0,
+    q1: cd.q1 ?? 0,
+    q2: cd.med ?? 0,
+    q3: cd.q3 ?? 0,
+    max: cd.max ?? cd.uf ?? 0,
+    upperOutliers: [],
+    ...(cd.mean !== undefined ? { mean: cd.mean } : {}),
+  }));
+
+  const axes: MaidrLayer['axes'] = {};
+  if (xLabel)
+    axes.x = { label: xLabel };
+  if (yLabel)
+    axes.y = { label: yLabel };
+
+  const selectors = buildViolinBoxSelectors(violins);
+
+  return {
+    id,
+    type: TraceType.VIOLIN_BOX,
+    orientation,
+    ...(selectors ? { selectors } : {}),
+    axes,
+    // One list of sections serves every violin here, so a mean line on any of
+    // them makes the mean navigable on all — it is a statistic each of them
+    // has. Only the violins drawn with one carry a selector to highlight.
+    violinOptions: { showMean: violins.some(violin => violin.meanSelector !== null) },
+    data,
+  };
+}
+
+/**
+ * Builds one {@link BoxSelector} per violin, or `undefined` when the chart
+ * draws no inner box at all — there is nothing to highlight then, and the core
+ * skips highlighting rather than tracking elements that do not exist.
+ *
+ * A chart that draws some of them still gets a selector per violin, so the
+ * ones with a box keep their highlight and the rest match nothing.
+ */
+function buildViolinBoxSelectors(violins: ViolinEntry[]): BoxSelector[] | undefined {
+  if (!violins.some(violin => violin.hasBox))
+    return undefined;
+
+  return violins.map(violin => ({
+    lowerOutliers: [],
+    // Plotly draws the whole box — whiskers, quartile box and median — as a
+    // single path, so every section highlights the same element.
+    min: violin.boxSelector,
+    iq: violin.boxSelector,
+    q2: violin.boxSelector,
+    max: violin.boxSelector,
+    upperOutliers: [],
+    ...(violin.meanSelector ? { mean: violin.meanSelector } : {}),
+  }));
+}
+
+/**
+ * Builds the `violin_kde` layer from plotly's density samples, ordered from
+ * the bottom of each curve upwards.
+ *
+ * Highlight circles are appended next to the `path.violin` element, which
+ * plotly draws in plot-area coordinates — the same space `c2p` returns — so
+ * the centre line of the violin locates each point.
+ */
+function buildViolinKdeLayer(
+  violins: ViolinEntry[],
+  id: string,
+  orientation: Orientation,
+  isHorizontal: boolean,
+  valueAxis: PlotlyAxis | undefined,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+): MaidrLayer {
+  const data: ViolinKdePoint[][] = violins.map(({ label, cd, posCenterPx }) =>
+    (cd.density ?? []).map((sample) => {
+      const point: ViolinKdePoint = { x: label, y: sample.t, density: sample.v };
+
+      const valuePx = valueAxis?.c2p?.(sample.t);
+      if (valuePx !== undefined && posCenterPx !== undefined) {
+        point.svg_x = isHorizontal ? valuePx : posCenterPx;
+        point.svg_y = isHorizontal ? posCenterPx : valuePx;
+      }
+
+      return point;
+    }),
+  );
+
+  const axes: MaidrLayer['axes'] = {};
+  if (xLabel)
+    axes.x = { label: xLabel };
+  if (yLabel)
+    axes.y = { label: yLabel };
+
+  return {
+    id,
+    type: TraceType.VIOLIN_KDE,
+    orientation,
+    selectors: violins.map(violin => violin.kdeSelector),
+    axes,
+    data,
+  };
 }
 
 // ---------------------------------------------------------------------------
