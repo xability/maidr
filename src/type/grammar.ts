@@ -378,7 +378,11 @@ export type StepDirection = 'hv' | 'vh' | 'mid';
  * { x: 1.5, y: 3, label: 'REM' }
  */
 export interface StepPoint extends LinePoint {
-  /** Ordinal level name announced in place of the raw numeric `y`. */
+  /**
+   * Ordinal level name announced in place of the raw numeric `y`. An empty
+   * string counts as absent, so a producer that emits `''` for an unnamed
+   * level gets the numeric announcement rather than a blank one.
+   */
   label?: string;
 }
 
