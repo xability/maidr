@@ -51,16 +51,30 @@ function getHistogramDisplayValue(layer: MaidrLayer | undefined, index: number):
   const dataPoint = layer.data[index];
 
   if (dataPoint && 'xMin' in dataPoint && 'xMax' in dataPoint) {
-    const xMin = defaultFormat(dataPoint.xMin as number);
-    const xMax = defaultFormat(dataPoint.xMax as number);
-    return `${xMin} through ${xMax}`;
+    return `${announced(dataPoint.xMin)} through ${announced(dataPoint.xMax)}`;
   }
 
   if (dataPoint && 'x' in dataPoint) {
-    return defaultFormat(dataPoint.x as number);
+    return announced(dataPoint.x);
   }
 
   throw new Error(`Data point at index ${index} has invalid format`);
+}
+
+/**
+ * Renders one datum the way MAIDR announces it.
+ *
+ * `MaidrLayer['data']` is a wide union, so narrowing rather than asserting
+ * keeps this honest about a point whose field is neither a number nor a
+ * string — `defaultFormat` only accepts those two.
+ *
+ * @param value - A raw field from a data point
+ * @returns The value as it reaches the screen reader
+ */
+function announced(value: unknown): string {
+  return typeof value === 'number' || typeof value === 'string'
+    ? defaultFormat(value)
+    : String(value);
 }
 
 test.describe('Histogram', () => {
