@@ -1049,5 +1049,53 @@ describe('plotly extractor', () => {
       expect(data[0][0].y).toBe(120);
       expect(data[1][0].y).toBe(90);
     });
+
+    it('keeps calcdata aligned with the trace arrays across a gap in the data', () => {
+      // Plotly's bar calc() holds a missing point in place rather than
+      // dropping it — the entry keeps its position and carries `s: undefined`
+      // (BADNUM) — so `cd[i]` stays in step with `x[i]`/`y[i]`. Verified
+      // against plotly.js 2.35.2: four input points, four calcdata entries,
+      // four rendered bars. Were an entry dropped instead, every value after
+      // the gap would slide onto the wrong quarter.
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      // Plotly's runtime data admits null; the hand-written trace type does not.
+      const withGaps = (values: (number | null)[]): number[] => values as number[];
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: quarters, y: withGaps([120, null, 60, 40]), name: 'East' },
+          { type: 'bar', x: quarters, y: withGaps([90, 70, null, 20]), name: 'West' },
+        ],
+        layout: { barmode: 'stack', barnorm: 'percent' },
+        calcdata: [
+          [
+            { p: 0, s: 100 * 120 / 210, b: 0, y: 100 * 120 / 210 },
+            { p: 1 },
+            // West is absent at Q3, so East is the whole stack there.
+            { p: 2, s: 100, b: 0, y: 100 },
+            { p: 3, s: 100 * 40 / 60, b: 0, y: 100 * 40 / 60 },
+          ],
+          [
+            { p: 0, s: 100 * 90 / 210, b: 100 * 120 / 210, y: 100 },
+            { p: 1, s: 100, b: 0, y: 100 },
+            { p: 2 },
+            { p: 3, s: 100 * 20 / 60, b: 100 * 40 / 60, y: 100 },
+          ],
+        ],
+      });
+
+      const data = segmentedData(gd);
+
+      // The points after each gap keep their own share. A one-entry shift
+      // would report 66.67 at Q3 and 100 at Q4 instead.
+      expect(data[0][2].y).toBeCloseTo(100, 5);
+      expect(data[0][3].y).toBeCloseTo(66.666667, 5);
+      expect(data[1][3].y).toBeCloseTo(33.333333, 5);
+      expect(data[1][1].y).toBeCloseTo(100, 5);
+      // A gap itself carries the raw value through, exactly as before the fix.
+      expect(data[0][1].y).toBeNull();
+      expect(data[1][2].y).toBeNull();
+      // Category labels still come from the trace, so they survive the gaps.
+      expect(data[0].map(point => point.x)).toEqual(quarters);
+    });
   });
 });
