@@ -1,7 +1,6 @@
 import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { MathUtil } from '@util/math';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
@@ -25,8 +24,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bins', value: points.length },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      ...this.rangeStats(),
       { label: 'Bin range', value: `${binRangeMin} to ${binRangeMax}` },
     ];
 

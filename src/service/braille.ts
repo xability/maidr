@@ -404,7 +404,11 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
         // ⠤ (25-50%), ⠒ (50-75%), ⠉ (75-100%). The lowest band uses the
         // dots-7-8 bottom glyph so it is distinguishable on a braille display
         // from the second band rather than collapsing into three levels.
-        if (value === 0)
+        //
+        // A gap arrives as NaN, which loses every comparison below and would
+        // otherwise fall through to the tallest glyph — a missing bar drawn as
+        // the highest one. It reads as blank, as a zero does.
+        if (value === 0 || !Number.isFinite(value))
           return ' ';
         if (value <= low)
           return '⣀';

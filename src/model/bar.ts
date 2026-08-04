@@ -9,6 +9,47 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
+/**
+ * Reads one bar's magnitude, keeping a gap distinguishable from a zero.
+ *
+ * A chart library reports a missing bar as `null` — plotly renders a
+ * zero-height rect and keeps the point, so the gap arrives here rather than
+ * being dropped. `Number(null)` is `0`, which makes an absent bar
+ * indistinguishable from one genuinely measured at zero: it sounds like a real
+ * low point, it can be reached as the row's minimum, and it pulls the range
+ * that every other bar's pitch is scaled against. `NaN` keeps it absent, which
+ * is what the text layer already announces it as.
+ *
+ * A blank cell counts as a gap for the same reason: `Number('')` and
+ * `Number('  ')` are also `0`, so a hand-authored figure with an empty cell
+ * would land in the same trap.
+ *
+ * @param raw - The value from the point, on whichever axis carries magnitude
+ * @returns The magnitude, or `NaN` when the bar is a gap
+ */
+function toBarValue(raw: string | number | null | undefined): number {
+  if (raw === null || raw === undefined) {
+    return Number.NaN;
+  }
+  if (typeof raw === 'string' && raw.trim() === '') {
+    return Number.NaN;
+  }
+  return Number(raw);
+}
+
+/**
+ * Reports whether a bar value is a real measurement rather than a gap.
+ *
+ * Exported for `SegmentedTrace`, which builds a summary row from these values
+ * and has to keep gaps out of it for the same reason.
+ *
+ * @param value - A magnitude from `barValues`
+ * @returns True when the value can take part in a range or a comparison
+ */
+export function isMeasured(value: number): boolean {
+  return Number.isFinite(value);
+}
+
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
   protected readonly movable: Movable;
 
@@ -29,13 +70,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
 
     this.barValues = points.map(row =>
       row.map(point =>
-        this.orientation === Orientation.VERTICAL
-          ? Number(point.y)
-          : Number(point.x),
+        toBarValue(
+          this.orientation === Orientation.VERTICAL ? point.y : point.x,
+        ),
       ),
     );
-    this.min = this.barValues.map(row => MathUtil.safeMin(row));
-    this.max = this.barValues.map(row => MathUtil.safeMax(row));
+    // A gap is not a measurement, so it must not set the row's range. Left in,
+    // it drags the minimum to 0 and every other bar's pitch along with it.
+    this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
+    this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovableGrid<T>(this.points);
   }
@@ -106,6 +149,28 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
+   * The chart's min and max description stats.
+   *
+   * A chart of nothing but gaps has no range at all, and `safeMin`/`safeMax`
+   * answer an empty set with positive and negative Infinity. Report that the
+   * way every other modality reports an absent value rather than announcing an
+   * infinity.
+   *
+   * Shared so `SegmentedTrace`, which replaces the whole stats block rather
+   * than extending it, cannot drift back to announcing an infinity.
+   *
+   * @returns The min and max stats, in that order
+   */
+  protected rangeStats(): DescriptionState['stats'] {
+    const chartMin = MathUtil.safeMin(this.min);
+    const chartMax = MathUtil.safeMax(this.max);
+    return [
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
+    ];
+  }
+
+  /**
    * Gets the description state for the bar plot trace.
    * @returns The description state containing chart metadata and data table
    */
@@ -113,8 +178,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     const isVertical = this.orientation === Orientation.VERTICAL;
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bars', value: this.points[0].length },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      ...this.rangeStats(),
     ];
 
     if (this.points.length > 1) {
@@ -365,6 +429,13 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Use pre-computed min/max values instead of recalculating
     const groupMin = this.min[currentGroup];
     const groupMax = this.max[currentGroup];
+
+    // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
+    // return ±Infinity, which indexOf cannot find. There is no extreme to
+    // navigate to; offering one would move the cursor to column -1.
+    if (!isMeasured(groupMin) || !isMeasured(groupMax)) {
+      return targets;
+    }
 
     // Find indices of min/max values
     const maxIndex = groupValues.indexOf(groupMax);

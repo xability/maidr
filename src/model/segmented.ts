@@ -4,10 +4,26 @@ import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractBarPlot } from './bar';
+import { AbstractBarPlot, isMeasured } from './bar';
 
 const SUM = 'Sum';
 const UNDEFINED = 'undefined';
+
+/**
+ * Whether a cell is one the chart library may have left out of the DOM.
+ *
+ * The `skipZeros` alignment below counts a gap as a zero, which is what it did
+ * before gaps became `NaN` — `Number(null)` was `0`, so both matched the same
+ * check. Keeping that reading is deliberate: this path decides which rendered
+ * element belongs to which datum, not what a value means, and treating a gap
+ * differently here would shift every later highlight in the row by one.
+ *
+ * @param value - A magnitude from `barValues`
+ * @returns True when the cell may have no element of its own
+ */
+function isDomOmittable(value: number): boolean {
+  return value === 0 || !isMeasured(value);
+}
 
 export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   public constructor(layer: MaidrLayer) {
@@ -19,7 +35,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const summaryValues = new Array<number>();
     const summaryPoints = new Array<SegmentedPoint>();
     for (let i = 0; i < this.barValues[0].length; i++) {
-      const sum = this.barValues.reduce((sum, row) => sum + row[i], 0);
+      // Sum the measured segments only. Adding a gap in would make the total
+      // NaN, and NaN spreads: it would seed MathUtil.minMax below and, through
+      // safeMin/safeMax over every row, hand the whole chart a NaN pitch range.
+      // A category is only a gap in the total when every segment in it is one.
+      const segments = this.barValues.map(row => row[i]).filter(isMeasured);
+      const sum = segments.length > 0
+        ? segments.reduce((total, value) => total + value, 0)
+        : Number.NaN;
       summaryValues.push(sum);
 
       const point = this.orientation === Orientation.VERTICAL
@@ -38,7 +61,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     this.points.push(summaryPoints);
     this.barValues.push(summaryValues);
 
-    const { min: summaryMin, max: summaryMax } = MathUtil.minMax(summaryValues);
+    const { min: summaryMin, max: summaryMax } = MathUtil.minMax(
+      summaryValues.filter(isMeasured),
+    );
     this.min.push(summaryMin);
     this.max.push(summaryMax);
   }
@@ -62,6 +87,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const groupValues = this.barValues[currentGroup];
 
     if (!groupValues || groupValues.length === 0) {
+      return targets;
+    }
+
+    // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
+    // return ±Infinity, which indexOf cannot find. There is no extreme to
+    // navigate to; offering one would move the cursor to column -1.
+    if (!isMeasured(groupMin) || !isMeasured(groupMax)) {
       return targets;
     }
 
@@ -209,8 +241,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bars', value: this.points[0].length },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      ...this.rangeStats(),
       { label: 'Number of groups', value: dataPoints.length },
       { label: `${this.z} categories`, value: zCategories.join(', ') },
     ];
@@ -300,7 +331,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         // no `domMapping` hint is supplied by an adapter.
         for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
           for (let c = 0; c < this.barValues[r].length; c++) {
-            if (skipZeros && this.barValues[r][c] === 0) {
+            if (skipZeros && isDomOmittable(this.barValues[r][c])) {
               svgElements[r].push(Svg.createEmptyElement());
             } else if (domIndex >= domElements.length) {
               svgElements[r].push(Svg.createEmptyElement());
@@ -318,7 +349,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
           if (isForward) {
             for (let r = 0; r < this.barValues.length; r++) {
-              if (skipZeros && this.barValues[r][c] === 0) {
+              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
                 svgElements[r].push(Svg.createEmptyElement());
               } else if (domIndex >= domElements.length) {
                 svgElements[r].push(Svg.createEmptyElement());
@@ -328,7 +359,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
             }
           } else {
             for (let r = this.barValues.length - 1; r >= 0; r--) {
-              if (skipZeros && this.barValues[r][c] === 0) {
+              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
                 svgElements[r].push(Svg.createEmptyElement());
               } else if (domIndex >= domElements.length) {
                 svgElements[r].push(Svg.createEmptyElement());
@@ -360,7 +391,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
             continue;
           }
           for (let c = 0; c < this.barValues[r].length; c++) {
-            if (skipZeros && this.barValues[r][c] === 0) {
+            if (skipZeros && isDomOmittable(this.barValues[r][c])) {
               svgElements[r].push(Svg.createEmptyElement());
             } else if (domIndex >= domElements.length) {
               // Fill with empty element instead of returning empty array
@@ -378,7 +409,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
           if (isForward) {
             for (let r = 0; r < this.barValues.length; r++) {
-              if (skipZeros && this.barValues[r][c] === 0) {
+              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
                 svgElements[r].push(Svg.createEmptyElement());
               } else if (domIndex >= domElements.length) {
                 // Fill with empty element instead of returning empty array
@@ -389,7 +420,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
             }
           } else {
             for (let r = this.barValues.length - 1; r >= 0; r--) {
-              if (skipZeros && this.barValues[r][c] === 0) {
+              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
                 svgElements[r].push(Svg.createEmptyElement());
               } else if (domIndex >= domElements.length) {
                 // Fill with empty element instead of returning empty array
