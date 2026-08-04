@@ -36,6 +36,14 @@ describe('defaultFormat', () => {
     expect(defaultFormat(-0.000987654)).toBe('-0.000988');
   });
 
+  it('keeps exponential notation where JavaScript already used it', () => {
+    // Below ~1e-6 the fallback's toPrecision returns an exponent, but so does
+    // plain stringification — `String(1.234e-7)` is already `'1.234e-7'`. Only
+    // the mantissa gets shorter, so nothing switches notation because of this.
+    expect(defaultFormat(0.0000001234)).toBe('1.23e-7');
+    expect(defaultFormat(-0.0000001234)).toBe('-1.23e-7');
+  });
+
   it('passes strings through untouched', () => {
     expect(defaultFormat('Q1')).toBe('Q1');
     expect(defaultFormat('57.14285714285714')).toBe('57.14285714285714');
