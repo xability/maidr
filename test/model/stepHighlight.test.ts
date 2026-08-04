@@ -182,4 +182,41 @@ describe('step trace highlight mapping', () => {
 
     trace.dispose();
   });
+  test('keeps an irregularly spaced steps-mid sample inside its own run', () => {
+    // Interior runs of a steps-mid path span midpoint to midpoint, so their
+    // centre is the sample only when the spacing either side is equal. With
+    // uneven spacing the highlight is offset — the guarantee that matters is
+    // that it stays within the sample's own horizontal run rather than
+    // drifting onto a neighbour's, so it still reads as the right sample.
+    const unevenX = [10, 20, 60, 80];
+    const midpoints = unevenX.slice(0, -1).map((x, i) => (x + unevenX[i + 1]) / 2);
+    const xs = [unevenX[0]];
+    for (const midpoint of midpoints) {
+      xs.push(midpoint, midpoint);
+    }
+    xs.push(unevenX[unevenX.length - 1]);
+    const ys = POINTS.flatMap(point => [
+      PIXEL_FOR_LEVEL[point.y],
+      PIXEL_FOR_LEVEL[point.y],
+    ]);
+    renderStaircase(xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' '));
+
+    const trace = new StepTrace(createStepLayer('mid'));
+    const circles = highlightCircles();
+
+    expect(circles).toHaveLength(POINTS.length);
+    // The two half-width end runs are read off directly, so they are exact.
+    expect(circles[0].x).toBe(unevenX[0]);
+    expect(circles[POINTS.length - 1].x).toBe(unevenX[unevenX.length - 1]);
+
+    circles.forEach((circle, i) => {
+      const runStart = i === 0 ? unevenX[0] : midpoints[i - 1];
+      const runEnd = i === POINTS.length - 1 ? unevenX[unevenX.length - 1] : midpoints[i];
+      expect(circle.x).toBeGreaterThanOrEqual(runStart);
+      expect(circle.x).toBeLessThanOrEqual(runEnd);
+      expect(circle.y).toBe(PIXEL_FOR_LEVEL[POINTS[i].y]);
+    });
+
+    trace.dispose();
+  });
 });

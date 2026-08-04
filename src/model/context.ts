@@ -677,8 +677,13 @@ export class Context implements Disposable {
           effectivePlotType = 'single line';
         }
 
+        // Gated on the group count itself rather than on the plot type naming
+        // itself 'multiline', so a trace that reports groups under its own
+        // name — a multi-series step chart calls itself 'step' — still says
+        // how many it has. Unchanged for line charts: LineTrace only sets
+        // groupCount when there is more than one series.
         const groupCountText
-          = effectivePlotType === 'multiline' && state.groupCount
+          = state.groupCount && state.groupCount > 1
             ? ` with ${state.groupCount} groups`
             : '';
 

@@ -196,3 +196,51 @@ describe('step trace transition navigation', () => {
     expect(trace.col).toBe(0);
   });
 });
+
+describe('multi-series step trace', () => {
+  const NIGHT_TWO: StepPoint[] = [
+    { x: 0, y: 2, label: 'REM' },
+    { x: 1, y: 3, label: 'Awake' },
+    { x: 2, y: 1, label: 'N2' },
+    { x: 3, y: 1, label: 'N2' },
+  ];
+
+  test('reports its group count so the instruction can name it', () => {
+    // Context.getInstruction appends " with N groups" from groupCount. A step
+    // trace calls itself 'step' rather than 'multiline', so the count is the
+    // only thing telling a listener there is more than one night here.
+    const trace = new StepTrace(createStepLayer([HYPNOGRAM, NIGHT_TWO]));
+    trace.moveOnce('FORWARD');
+
+    const state = nonEmptyState(trace);
+    expect(state.plotType).toBe('step');
+    expect(state.groupCount).toBe(2);
+  });
+
+  test('offers the transitions unit when only one series ever changes level', () => {
+    const flat: StepPoint[] = [
+      { x: 0, y: 1, label: 'N2' },
+      { x: 1, y: 1, label: 'N2' },
+    ];
+    const changing: StepPoint[] = [
+      { x: 0, y: 1, label: 'N2' },
+      { x: 1, y: 2, label: 'REM' },
+    ];
+
+    expect(new StepTrace(createStepLayer([flat, changing])).getRotorFilterUnits())
+      .toHaveLength(1);
+  });
+
+  test('keeps transition jumps within the series the cursor is on', () => {
+    const trace = new StepTrace(createStepLayer([HYPNOGRAM, NIGHT_TWO]));
+    trace.moveOnce('FORWARD');
+    trace.moveToIndex(1, 0);
+
+    // NIGHT_TWO changes at columns 1 and 2, where HYPNOGRAM changes at 1 and 3.
+    expect(trace.moveToRotorFilter('transition', 'right')).toBe(true);
+    expect(trace.col).toBe(1);
+    expect(trace.moveToRotorFilter('transition', 'right')).toBe(true);
+    expect(trace.col).toBe(2);
+    expect(trace.moveToRotorFilter('transition', 'right')).toBe(false);
+  });
+});

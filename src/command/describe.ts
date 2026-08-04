@@ -677,9 +677,15 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // Single smooth/violin plot: 1D position within the curve
         this.announceSmoothPosition(x, cols);
       }
-    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+    } else if (
+      (traceType === TraceType.LINE || traceType === TraceType.STEP)
+      && state.groupCount
+      && state.groupCount > 1
+    ) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
+      // A step trace navigates identically — series on one axis, samples on
+      // the other — so it wants the same announcement, not the generic 2-D one.
       this.announceMultiLinePosition(x, cols, y, rows, state.group);
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird

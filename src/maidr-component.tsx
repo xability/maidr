@@ -87,6 +87,15 @@ function getInitialInstruction(data: MaidrData): string {
     } else {
       plotType = 'single line';
     }
+  } else if (traceType === TraceType.STEP && Array.isArray(firstLayer?.data)) {
+    // A step trace keeps calling itself 'step' whatever its series count —
+    // only the group count is added, matching what StepTrace reports once the
+    // model exists. The two builders have to agree or the announcement
+    // changes when the user clicks.
+    const groupCount = firstLayer.data.length;
+    if (groupCount > 1) {
+      groupCountText = ` with ${groupCount} groups`;
+    }
   }
 
   const displayType = formatPlotType(plotType, firstLayer?.orientation);

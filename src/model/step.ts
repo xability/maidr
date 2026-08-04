@@ -188,10 +188,18 @@ export class StepTrace extends LineTrace {
    * - `2N - 1` vertices (`hv`/`vh`): the even-indexed vertices are exactly the
    *   data points; the odd-indexed ones are the corners.
    * - `2N` vertices (`mid`): each data point owns a horizontal pair. The
-   *   interior runs span midpoint to midpoint and are centred on their sample,
-   *   but the first and last runs are half-width — `steps-mid` starts at
-   *   `x[0]` and ends at `x[N-1]` rather than at a midpoint — so those two
-   *   samples sit at the outer end of their run, not at its centre.
+   *   first and last runs are half-width — `steps-mid` starts at `x[0]` and
+   *   ends at `x[N-1]` rather than at a midpoint — so those two samples sit at
+   *   the outer end of their run and are read off directly. An interior run
+   *   spans midpoint to midpoint, and its centre is the sample only when the
+   *   spacing either side is equal: in general the centre is
+   *   `(x[i-1] + 2x[i] + x[i+1]) / 4`, off by a quarter of the local second
+   *   difference. The highlight therefore always lands inside the sample's own
+   *   run — never on a neighbour's — but on an irregularly sampled `mid` chart
+   *   it is not exactly on the sample. Recovering `x[i]` exactly would mean
+   *   iterating `x[i+1] = 2m[i] - x[i]` from one end, which is numerically
+   *   unstable over a long series; a bounded sub-run offset is the better
+   *   trade.
    *
    * Any other count is left to the inherited handling — a library that
    * simplifies collinear vertices (a long flat run in a hypnogram is exactly
