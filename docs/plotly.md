@@ -184,6 +184,11 @@ The inner box (`box: { visible: true }`) and the mean line
 navigable, they simply have no drawn element to highlight, and the mean is left
 out of the sections.
 
+Those two settings are per trace, while the sections a violin plot offers are
+one list for the whole plot. So when only some traces draw a mean line, every
+violin still has a mean to read — it is a statistic of each of them — and only
+the ones drawn with a mean line highlight it.
+
 ### Heatmap
 
 ```html
