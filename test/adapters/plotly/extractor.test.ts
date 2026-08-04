@@ -951,6 +951,49 @@ describe('plotly extractor', () => {
       ]);
     });
 
+    it('keeps the highlight of the violins that do have an inner box', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3], name: 'A', box: { visible: true } },
+          { type: 'violin', y: [2, 3, 4], name: 'B' },
+        ],
+        layout: violinLayout(),
+        calcdata: [
+          [violinCalc({ pos: 0, posCenterPx: 110 })],
+          [violinCalc({ pos: 1, posCenterPx: 330 })],
+        ],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [boxLayer] = maidr!.subplots[0][0].layers;
+
+      // One trace drawing no box does not cost the other one its highlight;
+      // the second selector points at a position that holds no `path.box`.
+      expect((boxLayer.selectors as BoxSelector[]).map(selector => selector.iq)).toEqual([
+        '.subplot.xy .violinlayer > g:nth-child(1) > path.box:nth-child(2)',
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.box:nth-child(2)',
+      ]);
+    });
+
+    it('places a violin from its position when plotly recorded no pixel centre', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'violin', y: [1, 2, 3], name: 'A' }],
+        layout: violinLayout(),
+        calcdata: [[{
+          ...violinCalc({ pos: 1 }),
+          posCenterPx: undefined,
+          // Grouped violins sit either side of the category centre.
+          t: { bPos: 0.5 },
+        }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const [, kdeLayer] = maidr!.subplots[0][0].layers;
+
+      // c2p(pos + bPos) = 110 + 220 * 1.5
+      expect((kdeLayer.data as ViolinKdePoint[][])[0][0].svg_x).toBe(440);
+    });
+
     it('keeps the statistics but drops the selectors when no inner box is drawn', () => {
       const gd = createGraphDiv({
         traces: [{ type: 'violin', y: [1, 2, 3], name: 'A' }],

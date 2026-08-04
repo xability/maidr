@@ -1322,8 +1322,10 @@ interface ViolinEntry {
   posCenterPx: number | undefined;
   /** Selector for the KDE outline `path.violin`. */
   kdeSelector: string;
-  /** Selector for the inner box `path.box`, when plotly draws one. */
-  boxSelector: string | null;
+  /** Selector for the inner box `path.box`, which matches only if drawn. */
+  boxSelector: string;
+  /** Whether this violin's trace draws that inner box. */
+  hasBox: boolean;
   /** Selector for the mean line, when plotly draws one. */
   meanSelector: string | null;
 }
@@ -1409,9 +1411,11 @@ function collectViolins(
         cd,
         posCenterPx: resolveViolinCenter(cd, cds[0].t?.bPos, posAxis),
         kdeSelector: `${traceGroup} > path.violin:nth-child(${i + 1})`,
-        boxSelector: hasBox
-          ? `${traceGroup} > path.box:nth-child(${count + i + 1})`
-          : null,
+        // Written whether or not this trace draws the box: the position it
+        // would occupy holds no `path.box` otherwise, so the selector simply
+        // finds nothing and leaves the violins that do have one alone.
+        boxSelector: `${traceGroup} > path.box:nth-child(${count + i + 1})`,
+        hasBox,
         // Plotly renders the mean inside the box as `path.mean`, and as
         // `path.meanline` when there is no box to draw it in.
         meanSelector: hasMean
@@ -1529,30 +1533,28 @@ function buildViolinBoxLayer(
 }
 
 /**
- * Builds one {@link BoxSelector} per violin, or `undefined` when any violin
- * lacks a drawn inner box — the core needs one selector per data row.
+ * Builds one {@link BoxSelector} per violin, or `undefined` when the chart
+ * draws no inner box at all — there is nothing to highlight then, and the core
+ * skips highlighting rather than tracking elements that do not exist.
+ *
+ * A chart that draws some of them still gets a selector per violin, so the
+ * ones with a box keep their highlight and the rest match nothing.
  */
 function buildViolinBoxSelectors(violins: ViolinEntry[]): BoxSelector[] | undefined {
-  const selectors: BoxSelector[] = [];
+  if (!violins.some(violin => violin.hasBox))
+    return undefined;
 
-  for (const violin of violins) {
-    if (violin.boxSelector === null)
-      return undefined;
-
-    selectors.push({
-      lowerOutliers: [],
-      // Plotly draws the whole box — whiskers, quartile box and median — as a
-      // single path, so every section highlights the same element.
-      min: violin.boxSelector,
-      iq: violin.boxSelector,
-      q2: violin.boxSelector,
-      max: violin.boxSelector,
-      upperOutliers: [],
-      ...(violin.meanSelector ? { mean: violin.meanSelector } : {}),
-    });
-  }
-
-  return selectors;
+  return violins.map(violin => ({
+    lowerOutliers: [],
+    // Plotly draws the whole box — whiskers, quartile box and median — as a
+    // single path, so every section highlights the same element.
+    min: violin.boxSelector,
+    iq: violin.boxSelector,
+    q2: violin.boxSelector,
+    max: violin.boxSelector,
+    upperOutliers: [],
+    ...(violin.meanSelector ? { mean: violin.meanSelector } : {}),
+  }));
 }
 
 /**
