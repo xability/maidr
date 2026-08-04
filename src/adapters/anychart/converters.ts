@@ -289,7 +289,10 @@ const LINE_ATTR = 'data-maidr-anychart-line-point';
 /**
  * AnyChart series types that render as a connected line and therefore need
  * markers enabled for per-point highlighting. Area variants are included
- * because {@link mapSeriesType} downgrades them to {@link TraceType.LINE}.
+ * because {@link mapSeriesType} maps them to their unfilled equivalent, and
+ * the step variants because a staircase is still a stroked polyline whose
+ * points need markers — {@link resolveSelector} gives STEP the same
+ * attribute selector as LINE for exactly that reason.
  */
 const LINE_LIKE_SERIES_TYPES = new Set([
   'line',
@@ -405,10 +408,12 @@ function sanitizePanelToken(value: string): string {
  * attributes. When the caller does not supply selectors, we therefore rely
  * on per-element attributes that the adapter stamps during render:
  * - BAR: {@link stampBarAttributes} writes `data-maidr-anychart-bar`.
- * - LINE: {@link stampLineAttributes} writes
+ * - LINE and STEP: {@link stampLineAttributes} writes
  *   `data-maidr-anychart-line-point` using a class-free geometric DOM walk
  *   (markers must be enabled, which {@link enableLineMarkersIfNeeded}
- *   ensures by mutating the series and forcing a redraw).
+ *   ensures by mutating the series and forcing a redraw). Step series are
+ *   stamped by the same pass — they are in {@link LINE_LIKE_SERIES_TYPES} —
+ *   so they share the LINE selector rather than having one of their own.
  * - BOX: handled inside {@link buildBoxLayer} — it constructs a
  *   `BoxSelector[]` referring to the per-part attributes
  *   ({@link BOX_ATTR} + {@link BOX_PART_ATTR}) stamped by
@@ -419,7 +424,7 @@ function sanitizePanelToken(value: string): string {
  */
 function resolveSelector(
   seriesIndex: number,
-  traceType: TraceType,
+  traceType: AnyChartTraceType,
   options?: AnyChartBinderOptions,
   panel?: PanelContext,
 ): string | string[] | undefined {
@@ -441,19 +446,29 @@ function resolveSelector(
   // and the attribute value (token prefix) are scoped to the panel.
   const scope = panelScope(panel);
   const stamp = panelStampPrefix(panel);
-  if (traceType === TraceType.BAR)
-    return `${scope}[${BAR_ATTR}^="${stamp}${seriesIndex}-"]`;
-  if (traceType === TraceType.LINE)
-    return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
-  if (traceType === TraceType.SCATTER)
-    return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
-  // Heatmaps are single-series (no series-index prefix); the chart-level
-  // builder constructs the selector itself, so this branch only matters as
-  // a defensive default when the heatmap path is bypassed.
-  if (traceType === TraceType.HEATMAP)
-    return `${scope}[${HEATMAP_ATTR}]`;
-
-  return undefined;
+  // Exhaustive over AnyChartTraceType, mirroring buildLayer, so adding a
+  // member to that union is a compile error here rather than a silent
+  // `undefined` — which is a missing selector, which is a chart that
+  // announces correctly but never highlights.
+  switch (traceType) {
+    case TraceType.BAR:
+      return `${scope}[${BAR_ATTR}^="${stamp}${seriesIndex}-"]`;
+    case TraceType.LINE:
+    case TraceType.STEP:
+      return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
+    case TraceType.SCATTER:
+      return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
+    // Heatmaps are single-series (no series-index prefix); the chart-level
+    // builder constructs the selector itself, so this branch only matters as
+    // a defensive default when the heatmap path is bypassed.
+    case TraceType.HEATMAP:
+      return `${scope}[${HEATMAP_ATTR}]`;
+    // Both own their selector construction in their layer builder — see the
+    // BOX note above; candlestick likewise emits a CandlestickSelector.
+    case TraceType.BOX:
+    case TraceType.CANDLESTICK:
+      return undefined;
+  }
 }
 
 /**
