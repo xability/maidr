@@ -201,7 +201,16 @@ export class StepTrace extends LineTrace {
     coordinates: LinePoint[],
     row: number,
   ): void {
-    const expected = this.stepPoints[row]?.length ?? 0;
+    // `this.points`, not `this.stepPoints`, and that is load-bearing: this
+    // method runs during `super(layer)` — LineTrace's constructor calls
+    // mapToSvgElements, which reaches this override — so `stepPoints` has not
+    // been assigned yet and reading it throws, leaving MAIDR unmounted and the
+    // chart unusable. `points` is the same array, is assigned by LineTrace
+    // before mapToSvgElements, and is what the base class itself indexes here.
+    // Optional-chaining `stepPoints` instead would not fix it: `expected` would
+    // be 0 during construction and fall through to the trim-from-the-end
+    // branch, silently highlighting the wrong vertices.
+    const expected = this.points[row]?.length ?? 0;
 
     if (expected > 1 && coordinates.length === 2 * expected - 1) {
       const dataVertices = coordinates.filter((_, index) => index % 2 === 0);
