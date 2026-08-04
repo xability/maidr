@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
+import { defaultFormat } from '../../src/util/format';
 import { HistogramPage } from '../page-objects/plots/histogram-page';
 import { TestConstants } from '../utils/constants';
 import { extractMaidrData } from '../utils/maidr-data';
@@ -24,6 +25,15 @@ async function setupHistogramPage(
 
 /**
  * Safely extracts the display value from a histogram data point
+ *
+ * Values are put through {@link defaultFormat}, the same formatter the
+ * announcement goes through, rather than stringified raw. The iris bin edges
+ * in the fixture carry float artefacts — `1.5900000000000003` — and MAIDR
+ * announces the rounded `1.59`. Importing the real formatter rather than
+ * copying its rounding keeps this expectation tied to the app's contract: a
+ * change in default precision updates the spec with it, while landing on the
+ * wrong bin still fails.
+ *
  * @param layer - The histogram layer containing data points
  * @param index - Index of the data point to extract value from
  * @returns The formatted string value suitable for display comparison
@@ -41,13 +51,13 @@ function getHistogramDisplayValue(layer: MaidrLayer | undefined, index: number):
   const dataPoint = layer.data[index];
 
   if (dataPoint && 'xMin' in dataPoint && 'xMax' in dataPoint) {
-    const xMin = String(dataPoint.xMin);
-    const xMax = String(dataPoint.xMax);
+    const xMin = defaultFormat(dataPoint.xMin as number);
+    const xMax = defaultFormat(dataPoint.xMax as number);
     return `${xMin} through ${xMax}`;
   }
 
   if (dataPoint && 'x' in dataPoint) {
-    return String(dataPoint.x);
+    return defaultFormat(dataPoint.x as number);
   }
 
   throw new Error(`Data point at index ${index} has invalid format`);

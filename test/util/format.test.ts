@@ -3,9 +3,17 @@ import { defaultFormat, FormatUtil } from '@util/format';
 
 describe('defaultFormat', () => {
   it('shortens a computed share to something a screen reader can speak', () => {
-    // The value from issue #720: 120 of 210, under `barnorm: 'percent'`.
+    // 120 of 210 under `barnorm: 'percent'` — the chart from #720, whose fix
+    // made these shares announceable at all and left them at full precision.
     expect(defaultFormat(57.14285714285714)).toBe('57.14');
     expect(defaultFormat(42.857142857142854)).toBe('42.86');
+  });
+
+  it('drops the decimal point when rounding reaches a whole number', () => {
+    // Nothing is padded, so a computed value can come out looking like one
+    // that was read verbatim.
+    expect(defaultFormat(99.999)).toBe('100');
+    expect(defaultFormat(0.004)).toBe('0.004');
   });
 
   it('leaves an integer exactly as it was', () => {
@@ -33,9 +41,12 @@ describe('defaultFormat', () => {
     expect(defaultFormat('57.14285714285714')).toBe('57.14285714285714');
   });
 
-  it('leaves non-finite numbers to the missing-value wrapper', () => {
+  it('does not attempt to round a non-finite number', () => {
+    // Only NaN goes on to be rendered as `missing` by wrapFormat; Infinity is
+    // announced as-is, which is pre-existing behaviour this does not change.
     expect(defaultFormat(Number.NaN)).toBe('NaN');
     expect(defaultFormat(Number.POSITIVE_INFINITY)).toBe('Infinity');
+    expect(FormatUtil.wrapFormat(defaultFormat)(Number.POSITIVE_INFINITY)).toBe('Infinity');
   });
 
   it('is still overridden by an explicit axis format', () => {

@@ -48,6 +48,11 @@ export const defaultFormat: FormatFunction = (value: number | string): string =>
 
   // Rounding erased the value (0.00012 -> 0). Announcing `0` for something that
   // is not zero is worse than the extra digits, so keep it visible instead.
+  //
+  // The check catches the negative case as well, and relies on it: a small
+  // negative rounds to `-0`, and `-0 !== 0` is false in IEEE-754, so it lands
+  // here rather than being announced as a signed zero. Comparing against
+  // `Object.is(rounded, 0)` instead would let `-0` through.
   return `${Number(value.toPrecision(DEFAULT_SIGNIFICANT_DIGITS))}`;
 };
 
