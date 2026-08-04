@@ -83,6 +83,26 @@ describe('bar plot gaps', () => {
     expect(min?.value).toBe(40);
   });
 
+  it('treats a blank cell as a gap, since Number("") is also 0', () => {
+    const trace = new BarTrace(barLayer([120, '' as unknown as number, 40]));
+
+    const { audio } = stateOf(trace);
+
+    expect(audio.freq.min).toBe(40);
+    expect(audio.freq.max).toBe(120);
+  });
+
+  it('describes a chart of nothing but gaps as missing, not as an infinity', () => {
+    // safeMin/safeMax answer an empty set with ±Infinity, which is not
+    // something to read out as a chart's minimum.
+    const trace = new BarTrace(barLayer([null, null]));
+
+    const stats = trace.description.stats;
+
+    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
+  });
+
   it('offers no extreme for a row that is entirely gaps', () => {
     // The range is empty, so safeMin/safeMax return ±Infinity, which indexOf
     // cannot find — the target would have carried pointIndex -1 and moved the

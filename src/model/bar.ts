@@ -20,6 +20,9 @@ import { MovableGrid } from './movable';
  * that every other bar's pitch is scaled against. `NaN` keeps it absent, which
  * is what the text layer already announces it as.
  *
+ * An empty string counts as a gap for the same reason: `Number('')` is also
+ * `0`, so a hand-authored figure with a blank cell would land in the same trap.
+ *
  * @param raw - The value from the point, on whichever axis carries magnitude
  * @returns The magnitude, or `NaN` when the bar is a gap
  */
@@ -147,10 +150,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    */
   public get description(): DescriptionState {
     const isVertical = this.orientation === Orientation.VERTICAL;
+    // A chart of nothing but gaps has no range at all, and safeMin/safeMax
+    // answer an empty set with ±Infinity. Report it the way every other
+    // modality reports an absent value rather than announcing an infinity.
+    const chartMin = MathUtil.safeMin(this.min);
+    const chartMax = MathUtil.safeMax(this.max);
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bars', value: this.points[0].length },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
     ];
 
     if (this.points.length > 1) {

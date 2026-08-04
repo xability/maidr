@@ -126,6 +126,24 @@ const INITIAL_STATE: PlotState = { empty: true, type: 'figure' };
 // An empty subplot state routes update() to the default-panning empty tone.
 const EMPTY_SUBPLOT_STATE = { empty: true, type: 'subplot' } as unknown as PlotState;
 
+/**
+ * A populated single-bar trace state carrying the given magnitude, so the
+ * pitched path and the gap path can be told apart by oscillator count.
+ * @param raw - The magnitude the bar reports
+ * @returns A non-empty trace state for update()
+ */
+function barStateWithRaw(raw: number): PlotState {
+  return {
+    empty: false,
+    type: 'trace',
+    traceType: 'bar',
+    audio: {
+      freq: { min: 40, max: 120, raw },
+      panning: { x: 0, y: 0, rows: 1, cols: 1 },
+    },
+  } as unknown as PlotState;
+}
+
 describe('AudioService empty-state tone', () => {
   it('update() with an empty state plays the five-oscillator empty tone', async () => {
     const ctx = installAudioContextMock();
@@ -230,6 +248,35 @@ describe('AudioService empty-state tone', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(ctx.oscillators.length).toBe(before + EMPTY_TONE_OSCILLATORS);
+    service.dispose();
+  });
+
+  it('sounds a bar with no magnitude as empty rather than pitching it', async () => {
+    // A gap in bar data reaches here as a non-finite raw (see
+    // AbstractBarPlot's toBarValue). Interpolating it would hand the
+    // oscillator a NaN frequency; the point still exists to navigate to, it
+    // just has no value — which is what the empty tone already means.
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.update(barStateWithRaw(Number.NaN));
+
+    expect(ctx.oscillators.length).toBe(before + EMPTY_TONE_OSCILLATORS);
+    service.dispose();
+  });
+
+  it('still pitches a bar measured at zero, which is a real value', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.update(barStateWithRaw(0));
+
+    // One oscillator for a single pitched tone, not the five-harmonic cue.
+    expect(ctx.oscillators.length).toBe(before + 1);
     service.dispose();
   });
 });
