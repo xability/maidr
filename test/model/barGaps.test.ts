@@ -245,6 +245,29 @@ describe('segmented bar gaps', () => {
     expect(totals?.[1]).toBe(150);
   });
 
+  it('announces the Total of an all-gap category as absent, not as a number', () => {
+    // The Total row is navigable, and its point carries the computed sum
+    // rather than a raw null. A non-finite sum is what routes it through
+    // FormatUtil.wrapFormat's missing-value path, the same way a null does —
+    // confirmed in a browser, where this cell reads "Revenue is missing".
+    const trace = new SegmentedTrace(stackedLayer([null, 80], [null, 70]));
+
+    // Last row is the Total; first column is the all-gap category.
+    trace.moveToIndex(2, 0);
+    const { text } = stateOf(trace);
+
+    expect(Number.isFinite(text.cross?.value as number)).toBe(false);
+  });
+
+  it('announces a Total that does have measured segments as its sum', () => {
+    const trace = new SegmentedTrace(stackedLayer([null, 80], [90, 70]));
+
+    trace.moveToIndex(2, 0);
+    const { text } = stateOf(trace);
+
+    expect(text.cross?.value).toBe(90);
+  });
+
   it('describes a stack of nothing but gaps as missing, not as an infinity', () => {
     // SegmentedTrace replaces the whole stats block rather than extending it,
     // so the guard has to be shared or this drifts back on its own.
