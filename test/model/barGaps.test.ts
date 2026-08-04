@@ -1,9 +1,10 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { BarBrailleState, TraceState } from '@type/state';
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import { BarTrace } from '@model/bar';
 import { SegmentedTrace } from '@model/segmented';
 import { TraceType } from '@type/grammar';
+import { JSDOM } from 'jsdom';
 
 /**
  * Builds a single-series bar layer. A gap is passed as `null`, which is how a
@@ -129,6 +130,86 @@ function stackedLayer(east: (number | null)[], west: (number | null)[]): MaidrLa
   };
 }
 
+describe('segmented bar gap DOM alignment', () => {
+  /**
+   * Provisions the globals `Svg.selectAllElements` and the rect branch of
+   * `mapToSvgElements` reach for, mirroring test/model/heatmap.test.ts.
+   */
+  function installDom(html: string): void {
+    const dom = new JSDOM(html);
+    const g = globalThis as unknown as Record<string, unknown>;
+    g.document = dom.window.document;
+    g.SVGElement = dom.window.SVGElement;
+    g.SVGRectElement = dom.window.SVGRectElement ?? dom.window.SVGElement;
+    g.SVGPathElement = dom.window.SVGPathElement ?? class SVGPathElementStub {};
+  }
+
+  function uninstallDom(): void {
+    const g = globalThis as unknown as Record<string, unknown>;
+    delete g.document;
+    delete g.SVGElement;
+    delete g.SVGRectElement;
+    delete g.SVGPathElement;
+  }
+
+  afterEach(() => {
+    uninstallDom();
+  });
+
+  const FIVE_RECTS = `<!doctype html><svg xmlns="http://www.w3.org/2000/svg">${
+    ['e0', 'e1', 'e2', 'e3', 'e4']
+      .map(id => `<rect class="bar" id="${id}"/>`)
+      .join('')
+  }</svg>`;
+
+  /**
+   * Reads the id of the rect the trace would highlight at a position.
+   * @param values - Two series of three categories
+   * @param row - Series index
+   * @param col - Category index
+   * @returns The rect's id, or undefined when the cell has no rendered element
+   */
+  function highlightedIdAt(
+    values: [(number | null)[], (number | null)[]],
+    row: number,
+    col: number,
+  ): string | undefined {
+    // A fresh document per call: selecting elements inserts hidden clones, so
+    // a second trace built against the same DOM would see more rects than the
+    // chart has.
+    installDom(FIVE_RECTS);
+
+    const layer = stackedLayer(values[0], values[1]);
+    layer.selectors = 'rect.bar';
+    const trace = new SegmentedTrace(layer);
+
+    trace.moveToIndex(row, col);
+    const highlight = stateOf(trace).highlight as { empty?: boolean; elements?: SVGElement };
+    return (highlight.elements as unknown as Element | undefined)?.id || undefined;
+  }
+
+  it('lets a gap stand in for an omitted element rather than consuming a real one', () => {
+    // Six data cells but five rendered rects, so `skipZeros` is on: the chart
+    // library left one element out. The default DOM order walks each category
+    // through the series in reverse, so with the gap standing aside the row
+    // reads West e0, East e1 | West e2, East gap | West e3, East e4.
+    //
+    // Were the gap to take a rect instead, it would consume e3 and East at Q3
+    // would run past the end of the list — the cell the user is on would
+    // highlight nothing at all.
+    expect(highlightedIdAt([[120, null, 60], [90, 70, 20]], 0, 2)).toBe('e4');
+  });
+
+  it('aligns a gap exactly as a real zero does', () => {
+    // The two must agree: this path is about which rects exist, not about what
+    // a value means, and a zero has always been read as possibly-omitted.
+    const withGap = highlightedIdAt([[120, null, 60], [90, 70, 20]], 0, 2);
+    const withZero = highlightedIdAt([[120, 0, 60], [90, 70, 20]], 0, 2);
+
+    expect(withGap).toBe(withZero);
+  });
+});
+
 describe('segmented bar gaps', () => {
   it('keeps a gapped segment from turning the whole chart\'s pitch range to NaN', () => {
     // The Total row sums each category. Adding a gap straight in makes that
@@ -162,6 +243,17 @@ describe('segmented bar gaps', () => {
 
     expect(Number.isFinite(totals?.[0] as number)).toBe(false);
     expect(totals?.[1]).toBe(150);
+  });
+
+  it('describes a stack of nothing but gaps as missing, not as an infinity', () => {
+    // SegmentedTrace replaces the whole stats block rather than extending it,
+    // so the guard has to be shared or this drifts back on its own.
+    const trace = new SegmentedTrace(stackedLayer([null, null], [null, null]));
+
+    const stats = trace.description.stats;
+
+    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
   });
 
   it('leaves a stack with no gaps totalling exactly as before', () => {

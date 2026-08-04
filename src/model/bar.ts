@@ -145,20 +145,36 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
+   * The chart's min and max description stats.
+   *
+   * A chart of nothing but gaps has no range at all, and `safeMin`/`safeMax`
+   * answer an empty set with positive and negative Infinity. Report that the
+   * way every other modality reports an absent value rather than announcing an
+   * infinity.
+   *
+   * Shared so `SegmentedTrace`, which replaces the whole stats block rather
+   * than extending it, cannot drift back to announcing an infinity.
+   *
+   * @returns The min and max stats, in that order
+   */
+  protected rangeStats(): DescriptionState['stats'] {
+    const chartMin = MathUtil.safeMin(this.min);
+    const chartMax = MathUtil.safeMax(this.max);
+    return [
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
+    ];
+  }
+
+  /**
    * Gets the description state for the bar plot trace.
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
     const isVertical = this.orientation === Orientation.VERTICAL;
-    // A chart of nothing but gaps has no range at all, and safeMin/safeMax
-    // answer an empty set with ±Infinity. Report it the way every other
-    // modality reports an absent value rather than announcing an infinity.
-    const chartMin = MathUtil.safeMin(this.min);
-    const chartMax = MathUtil.safeMax(this.max);
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bars', value: this.points[0].length },
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
+      ...this.rangeStats(),
     ];
 
     if (this.points.length > 1) {
