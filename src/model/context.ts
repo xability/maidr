@@ -5,29 +5,12 @@ import type { Figure, Subplot, Trace } from './plot';
 import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
-import { Orientation } from '@type/grammar';
 import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
+import { formatPlotType } from '@util/orientation';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
-
-/**
- * Build a human-readable plot type string with optional orientation prefix.
- * Returns just the type when orientation is absent/empty (no extra whitespace).
- */
-function formatPlotType(plotType: string, orientation?: Orientation | string): string {
-  if (!orientation) {
-    return plotType;
-  }
-  if (orientation === Orientation.HORIZONTAL || orientation === 'horz') {
-    return `horizontal ${plotType}`;
-  }
-  if (orientation === Orientation.VERTICAL || orientation === 'vert') {
-    return `vertical ${plotType}`;
-  }
-  return plotType;
-}
 
 type Plot = Figure | Subplot | Trace;
 
