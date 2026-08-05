@@ -277,10 +277,18 @@ const LINE_CLASSES = new Set([
   'SmoothedXLineSeries',
   'SmoothedYLineSeries',
   'SmoothedXYLineSeries',
+]);
+
+/**
+ * Series amCharts draws as a staircase. The values are piecewise constant —
+ * held across an interval and then jumped — so describing one as a line would
+ * tell a reader the value moved gradually between samples when it did not.
+ */
+const STEP_CLASSES = new Set([
   'StepLineSeries',
 ]);
 
-export type SeriesKind = 'bar' | 'line' | 'histogram' | 'heatmap' | 'unknown';
+export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'unknown';
 
 /**
  * Determine the MAIDR trace kind for a given amCharts series.
@@ -305,6 +313,10 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   if (LINE_CLASSES.has(className)) {
     // A "line" series with value-only axes (no category) is still a line in MAIDR.
     return 'line';
+  }
+
+  if (STEP_CLASSES.has(className)) {
+    return 'step';
   }
 
   // Default to bar for category-based series.

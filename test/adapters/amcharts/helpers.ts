@@ -68,6 +68,19 @@ export function fakeLineSeries(
   });
 }
 
+/** A step-line series, drawn as a staircase rather than an interpolated line. */
+export function fakeStepSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'StepLineSeries',
+    name,
+    settings: { categoryXField: 'category' },
+    data: points,
+  });
+}
+
 function fakeAxis(label?: string): AmAxis {
   const title = label != null
     ? { get: (key: string) => (key === 'text' ? label : undefined) }

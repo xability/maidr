@@ -8,6 +8,7 @@ import {
   fakeContainerEl,
   fakeLineSeries,
   fakeRoot,
+  fakeStepSeries,
 } from './helpers';
 
 const BAR_DATA = [
@@ -117,6 +118,43 @@ describe('fromAmCharts (single chart)', () => {
 
   it('throws when the root contains no chart', () => {
     expect(() => fromAmCharts(fakeRoot([]))).toThrow(/no XYChart found/);
+  });
+
+  it('binds a StepLineSeries as a step layer, not a line', () => {
+    const chart = fakeChart({
+      series: [fakeStepSeries('Stage', BAR_DATA)],
+      xLabel: 'Day',
+      yLabel: 'Stage',
+    });
+
+    const result = fromAmCharts(fakeRoot([chart]));
+
+    const layer = result.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.STEP);
+    expect(layer.title).toBe('Stage');
+    // amCharts reports no convention, so MAIDR names none rather than guessing.
+    expect(layer.stepDirection).toBeUndefined();
+    expect(layer.data).toEqual([[
+      { x: 'Sat', y: 87, z: 'Stage' },
+      { x: 'Sun', y: 76, z: 'Stage' },
+    ]]);
+  });
+
+  it('keeps step series out of the line layer when a chart has both', () => {
+    const chart = fakeChart({
+      series: [
+        fakeLineSeries('Trend', BAR_DATA),
+        fakeStepSeries('Stage', BAR_DATA),
+      ],
+    });
+
+    const result = fromAmCharts(fakeRoot([chart]));
+
+    const layers = result.subplots[0][0].layers;
+    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+      [TraceType.LINE, 'Trend'],
+      [TraceType.STEP, 'Stage'],
+    ]);
   });
 
   it('fromXYChart matches the fromAmCharts single-chart output', () => {
