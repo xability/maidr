@@ -28,6 +28,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
 } from '../../type/grammar';
 import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -53,7 +54,8 @@ let chartCounter = 0;
  *
  * Supported Highcharts series types:
  * - `bar`, `column` → {@link TraceType.BAR}
- * - `line`, `spline`, `area`, `areaspline` → {@link TraceType.LINE}
+ * - `line`, `spline`, `area`, `areaspline` → {@link TraceType.LINE}, or
+ *   {@link TraceType.STEP} when the series sets `step`
  * - `scatter` → {@link TraceType.SCATTER}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
@@ -171,9 +173,35 @@ export function buildSubplot(
     }
   }
 
-  // Convert line series together as a single multi-line layer (MAIDR expects LinePoint[][]).
-  if (lineSeries.length > 0) {
-    const layer = convertLineSeries(lineSeries, chart, containerId);
+  // Convert line series together as a single multi-line layer (MAIDR expects
+  // LinePoint[][]). A series drawn with `step` is piecewise constant rather
+  // than interpolated, so it becomes a step layer instead — one per convention,
+  // since a layer carries a single `stepDirection` for all of its series.
+  const stepSeries = new Map<StepDirection, HighchartsSeries[]>();
+  const plainLineSeries: HighchartsSeries[] = [];
+  for (const series of lineSeries) {
+    const direction = stepDirectionOf(series);
+    if (direction === undefined) {
+      plainLineSeries.push(series);
+      continue;
+    }
+    const bucket = stepSeries.get(direction);
+    if (bucket) {
+      bucket.push(series);
+    } else {
+      stepSeries.set(direction, [series]);
+    }
+  }
+
+  if (plainLineSeries.length > 0) {
+    const layer = convertLineSeries(plainLineSeries, chart, containerId);
+    if (layer) {
+      layers.push(layer);
+    }
+  }
+
+  for (const [direction, series] of stepSeries) {
+    const layer = convertLineSeries(series, chart, containerId, direction);
     if (layer) {
       layers.push(layer);
     }
@@ -689,10 +717,51 @@ function convertSeries(
   }
 }
 
+/**
+ * Where each Highcharts `step` value puts the riser, in {@link StepDirection}
+ * terms. Highcharts names the side the horizontal segment sits on: `left`
+ * holds the current value until the next x and jumps there (`hv`), `right`
+ * jumps at the current x and holds the new value across (`vh`), and `center`
+ * jumps midway between the two (`mid`).
+ */
+const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
+  left: 'hv',
+  center: 'mid',
+  right: 'vh',
+};
+
+/**
+ * The step convention a line series draws, or `undefined` when it draws an
+ * ordinary interpolated line.
+ * @param series - The Highcharts series
+ * @returns The step direction, or undefined when the series is not stepped
+ */
+function stepDirectionOf(series: HighchartsSeries): StepDirection | undefined {
+  const step = series.options.step;
+  if (step === undefined || step === false) {
+    return undefined;
+  }
+  // Highcharts' legacy boolean is its 'left' default.
+  return step === true ? 'hv' : STEP_DIRECTION_BY_OPTION[step];
+}
+
+/**
+ * Converts line-family series into one merged layer.
+ *
+ * Step series reuse this because their points are identical — Highcharts
+ * varies only how it draws between them.
+ * @param seriesList - The series to merge, all drawn the same way
+ * @param chart - The owning chart
+ * @param containerId - The chart container's id, used for selectors
+ * @param stepDirection - Set when these series are stepped, making the layer
+ * a step layer that announces this convention
+ * @returns The layer, or null when the list is empty
+ */
 function convertLineSeries(
   seriesList: HighchartsSeries[],
   chart: HighchartsChart,
   containerId: string,
+  stepDirection?: StepDirection,
 ): MaidrLayer | null {
   if (seriesList.length === 0)
     return null;
@@ -717,13 +786,14 @@ function convertLineSeries(
 
   return {
     id: seriesList.map(s => String(s.index)).join('-'),
-    type: TraceType.LINE,
+    type: stepDirection ? TraceType.STEP : TraceType.LINE,
     title: layerTitle,
     selectors,
     axes: {
       x: getAxisLabel(first, 'x'),
       y: getAxisLabel(first, 'y'),
     },
+    ...(stepDirection ? { stepDirection } : {}),
     data,
   };
 }
