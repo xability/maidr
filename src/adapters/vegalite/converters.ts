@@ -579,8 +579,6 @@ const STEP_DIRECTION_BY_INTERPOLATE: Record<string, StepDirection> = {
 /**
  * The step convention a spec's mark draws, or `undefined` when it draws an
  * ordinary interpolated line.
- * @param spec - The (single-view or layer) spec being converted
- * @returns The step direction, or undefined when the mark is not stepped
  */
 function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
   if (!spec.mark || typeof spec.mark === 'string')

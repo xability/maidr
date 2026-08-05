@@ -429,10 +429,6 @@ function emptyMergedSeries(): MergedSeries {
 
 /**
  * Adds one series' points, name and selector to the layer it will merge into.
- * @param merged - The accumulator for that layer
- * @param series - The amCharts series being read
- * @param points - Its extracted points
- * @param containerEl - The chart's container, used to resolve the selector
  */
 function collectSeries(
   merged: MergedSeries,
@@ -460,11 +456,6 @@ function collectSeries(
  * positions the staircase from the axis cell rather than reporting a
  * convention, so naming one here would be a guess. MAIDR then stays silent
  * about it rather than describing a chart amCharts did not draw.
- * @param merged - Every series merging into this layer
- * @param type - The layer type, LINE or STEP
- * @param xLabel - The x axis label
- * @param yLabel - The y axis label
- * @returns The merged layer
  */
 function buildLineLayer(
   merged: MergedSeries,

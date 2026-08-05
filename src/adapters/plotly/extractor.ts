@@ -335,8 +335,6 @@ const STEP_SHAPE_DIRECTION: Partial<Record<string, StepDirection>> = {
 
 /**
  * Whether plotly draws this `line.shape` as a piecewise-constant staircase.
- * @param shape - The trace's `line.shape`, if it set one
- * @returns True for the step-wise shapes
  */
 function isStepShape(shape?: string): boolean {
   return shape !== undefined && STEP_SHAPES.has(shape);
@@ -345,8 +343,6 @@ function isStepShape(shape?: string): boolean {
 /**
  * The step convention a trace authored, or `undefined` when plotly's shape has
  * no {@link StepDirection} equivalent.
- * @param trace - The plotly trace
- * @returns The step direction, or undefined when none applies
  */
 function stepDirectionOf(trace: PlotlyTrace): StepDirection | undefined {
   const shape = trace.line?.shape;
@@ -1173,15 +1169,6 @@ function extractBarLayer(
  * varies only how the segments between samples are drawn, not the samples
  * themselves — so `step` differs from `line` here by its layer type and the
  * convention it announces.
- * @param lineTraces - The traces to merge, all of the same layer type
- * @param xLabel - The x axis label, when the layout names one
- * @param yLabel - The y axis label, when the layout names one
- * @param gd - The plotly graph div, used to resolve selectors
- * @param step - Set when building a step layer
- * @param step.type - The layer type, always {@link TraceType.STEP}
- * @param step.stepDirection - The convention plotly's shape authored, where
- * MAIDR can name it
- * @returns The layer, or null when no trace carried usable data
  */
 function extractMultiLineLayer(
   lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[],

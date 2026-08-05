@@ -733,8 +733,6 @@ const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
 /**
  * The step convention a line series draws, or `undefined` when it draws an
  * ordinary interpolated line.
- * @param series - The Highcharts series
- * @returns The step direction, or undefined when the series is not stepped
  */
 function stepDirectionOf(series: HighchartsSeries): StepDirection | undefined {
   const step = series.options.step;
@@ -750,12 +748,6 @@ function stepDirectionOf(series: HighchartsSeries): StepDirection | undefined {
  *
  * Step series reuse this because their points are identical — Highcharts
  * varies only how it draws between them.
- * @param seriesList - The series to merge, all drawn the same way
- * @param chart - The owning chart
- * @param containerId - The chart container's id, used for selectors
- * @param stepDirection - Set when these series are stepped, making the layer
- * a step layer that announces this convention
- * @returns The layer, or null when the list is empty
  */
 function convertLineSeries(
   seriesList: HighchartsSeries[],

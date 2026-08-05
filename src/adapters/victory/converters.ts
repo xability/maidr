@@ -175,8 +175,6 @@ const STEP_DIRECTION_BY_INTERPOLATION: Record<string, StepDirection> = {
 /**
  * The step convention a line's `interpolation` prop draws, or `undefined`
  * when it draws an ordinary interpolated line.
- * @param interpolation - The component's `interpolation` prop
- * @returns The step direction, or undefined when it is not a step
  */
 function stepDirectionOf(interpolation: unknown): StepDirection | undefined {
   // Victory also accepts a function here, for a custom d3 curve factory.

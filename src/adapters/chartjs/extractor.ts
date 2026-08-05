@@ -700,9 +700,6 @@ const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
  * The step convention a line dataset draws, or `undefined` when it draws an
  * ordinary interpolated line. A dataset's own `stepped` wins over the chart's
  * `elements.line` default, which is how Chart.js resolves it.
- * @param dataset - The dataset being read
- * @param chart - The chart it belongs to, for the element default
- * @returns The step direction, or undefined when the dataset is not stepped
  */
 function stepDirectionOf(
   dataset: ChartJsDataset,
