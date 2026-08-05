@@ -27,6 +27,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
 } from '@type/grammar';
 import type { FacetDescriptor, RepeatCellMapping, RepeatDescriptor } from './facets';
 import type {
@@ -180,16 +181,20 @@ function coalesceSiblingLineLayers(
   while (i < entries.length) {
     const current = entries[i];
 
-    if (current.layer.type !== TraceType.LINE) {
+    if (current.layer.type !== TraceType.LINE && current.layer.type !== TraceType.STEP) {
       out.push(current.layer);
       i += 1;
       continue;
     }
 
-    // Walk forward gathering consecutive LINE layers whose axes match.
+    // Walk forward gathering consecutive line-family layers whose axes match.
+    // A step layer only joins a run of steps that jump the same way: the
+    // merged layer announces one convention, so a run mixing two would
+    // describe one of them wrongly.
     const run: ConvertedLayer[] = [current];
     let j = i + 1;
-    while (j < entries.length && entries[j].layer.type === TraceType.LINE
+    while (j < entries.length && entries[j].layer.type === current.layer.type
+      && entries[j].layer.stepDirection === current.layer.stepDirection
       && axesAreCompatible(current.layer.axes, entries[j].layer.axes)) {
       run.push(entries[j]);
       j += 1;
@@ -558,6 +563,33 @@ function getMarkType(spec: VegaLiteSpec): string | null {
 }
 
 /**
+ * Where each stepping `interpolate` value puts the riser, in
+ * {@link StepDirection} terms. Vega-Lite hands these to the matching d3
+ * curve, so `step-after` rises after the horizontal run at the next x
+ * (`hv`), `step-before` rises first at the current x (`vh`), and plain
+ * `step` rises at the midpoint (`mid`). Every other value — `linear`,
+ * `monotone`, `basis`, absent — interpolates and is not a step.
+ */
+const STEP_DIRECTION_BY_INTERPOLATE: Record<string, StepDirection> = {
+  'step': 'mid',
+  'step-before': 'vh',
+  'step-after': 'hv',
+};
+
+/**
+ * The step convention a spec's mark draws, or `undefined` when it draws an
+ * ordinary interpolated line.
+ * @param spec - The (single-view or layer) spec being converted
+ * @returns The step direction, or undefined when the mark is not stepped
+ */
+function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
+  if (!spec.mark || typeof spec.mark === 'string')
+    return undefined;
+  const { interpolate } = spec.mark;
+  return interpolate === undefined ? undefined : STEP_DIRECTION_BY_INTERPOLATE[interpolate];
+}
+
+/**
  * Map a Vega-Lite mark type + encoding to a MAIDR trace type.
  *
  * Some marks produce different MAIDR types depending on encoding:
@@ -565,10 +597,12 @@ function getMarkType(spec: VegaLiteSpec): string | null {
  *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
  *   - `rect`                           → HEATMAP
  *   - `tick`                           → SCATTER (individual value marks)
+ *   - `line`/`area` with a stepping `interpolate` → STEP
  */
 function resolveTraceType(
   mark: string,
   encoding?: VegaLiteEncoding,
+  stepDirection?: StepDirection,
 ): TraceType | null {
   switch (mark) {
     case 'bar': {
@@ -593,14 +627,13 @@ function resolveTraceType(
       return TraceType.BAR;
     }
     case 'line':
-      return TraceType.LINE;
+    case 'area':
+      return stepDirection ? TraceType.STEP : TraceType.LINE;
     case 'point':
     case 'circle':
     case 'square':
     case 'tick':
       return TraceType.SCATTER;
-    case 'area':
-      return TraceType.LINE;
     case 'rect':
       return TraceType.HEATMAP;
     case 'boxplot':
@@ -1322,7 +1355,8 @@ function convertLayerSpec(
     ...spec.encoding,
   };
 
-  const traceType = resolveTraceType(mark, encoding);
+  const stepDirection = getStepDirection(spec);
+  const traceType = resolveTraceType(mark, encoding, stepDirection);
 
   if (!traceType)
     return null;
@@ -1402,7 +1436,10 @@ function convertLayerSpec(
       }
       break;
     }
-    case TraceType.LINE: {
+    // A step mark is a line Vega-Lite draws as a staircase: same points,
+    // same one-path-per-series geometry, so the extraction is identical.
+    case TraceType.LINE:
+    case TraceType.STEP: {
       const lineData = extractLineData(rows, encoding);
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
@@ -1463,6 +1500,9 @@ function convertLayerSpec(
     data,
   };
 
+  if (stepDirection && traceType === TraceType.STEP) {
+    layer.stepDirection = stepDirection;
+  }
   if (orientation) {
     layer.orientation = orientation;
   }

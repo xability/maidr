@@ -94,7 +94,13 @@ export interface VegaLiteSpec {
   description?: string;
   data?: unknown;
   transform?: VegaLiteTransform[];
-  mark?: string | { type: string };
+  /**
+   * The mark, as a shorthand string or a mark def. `interpolate` is how
+   * Vega-Lite joins consecutive points: the `step`, `step-before` and
+   * `step-after` values draw a piecewise-constant staircase, the rest
+   * interpolate.
+   */
+  mark?: string | { type: string; interpolate?: string };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];
   hconcat?: VegaLiteSpec[];
