@@ -3,7 +3,7 @@
  * JSON schema format.
  *
  * Supported chart types (those with a genuine MAIDR trace-type equivalent):
- * - Native: bar (plain/stacked/dodged), line, scatter, bubble
+ * - Native: bar (plain/stacked/dodged), line (plain or stepped), scatter, bubble
  * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap)
  *
  * Unsupported types (pie, doughnut, radar, polarArea, treemap, sankey, etc.)
@@ -11,7 +11,7 @@
  * chart, because MAIDR has no semantically equivalent trace for them.
  */
 
-import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, ScatterPoint, SegmentedPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, ScatterPoint, SegmentedPoint, StepDirection } from '../../type/grammar';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 
@@ -89,7 +89,8 @@ export function extractChartData(
     };
   }
 
-  const layers = extractLayers(chart, chartType, pluginOptions);
+  const localDatasets: LocalDatasetIndices = new Map();
+  const layers = extractLayers(chart, chartType, pluginOptions, localDatasets);
 
   return {
     maidr: {
@@ -98,7 +99,7 @@ export function extractChartData(
       subplots: [[{ layers }]],
       ...(onNavigate ? { onNavigate } : {}),
     },
-    layerDatasetIndices: singleSubplotDatasetIndices(chart, layers),
+    layerDatasetIndices: singleSubplotDatasetIndices(chart, layers, localDatasets),
   };
 }
 
@@ -353,7 +354,8 @@ function extractPanelSubplots(
 
   for (const panel of layout.panels) {
     const view = createPanelView(chart, panel, layout.axisKind);
-    const layers = extractLayers(view, chartType, pluginOptions);
+    const localDatasets: LocalDatasetIndices = new Map();
+    const layers = extractLayers(view, chartType, pluginOptions, localDatasets);
     // Never emit a subplot with no layers — it crashes the core Figure model.
     if (layers.length === 0)
       continue;
@@ -362,7 +364,7 @@ function extractPanelSubplots(
     for (const layer of layers) {
       const localId = layer.id;
       layer.id = `${panelIndex}_${localId}`;
-      layerDatasetIndices.set(layer.id, layerDatasets(layer, localId, panel));
+      layerDatasetIndices.set(layer.id, layerDatasets(layer, localId, panel, localDatasets));
     }
 
     // The first layer's title is the panel's display name in subplot
@@ -396,7 +398,15 @@ function layerDatasets(
   layer: MaidrLayer,
   localId: string,
   panel: PanelPartition,
+  localDatasets: LocalDatasetIndices,
 ): number[] {
+  // A layer backed by only some of the panel's datasets says which, in panel
+  // positions; translate those into indices within the whole chart.
+  const declared = localDatasets.get(localId);
+  if (declared) {
+    return declared.map(local => panel.datasetIndices[local] ?? 0);
+  }
+
   if (layer.type === TraceType.SCATTER) {
     // Scatter emits one layer per dataset with local id = partition position.
     const localIndex = Number.parseInt(localId, 10) || 0;
@@ -413,15 +423,17 @@ function layerDatasets(
 function singleSubplotDatasetIndices(
   chart: ChartJsChart,
   layers: MaidrLayer[],
+  localDatasets: LocalDatasetIndices,
 ): Map<string, number[]> {
   const allIndices = chart.data.datasets.map((_, index) => index);
   const map = new Map<string, number[]>();
   for (const layer of layers) {
+    const declared = localDatasets.get(layer.id);
     map.set(
       layer.id,
-      layer.type === TraceType.SCATTER
+      declared ?? (layer.type === TraceType.SCATTER
         ? [Number.parseInt(layer.id, 10) || 0]
-        : allIndices,
+        : allIndices),
     );
   }
   return map;
@@ -524,16 +536,25 @@ function isStacked(chart: ChartJsChart): boolean {
 // Layer extraction dispatcher
 // ---------------------------------------------------------------------------
 
+/**
+ * Positions within the datasets an extractor was given — the whole chart, or
+ * one panel's partition of it — backing each layer id it emitted, in MAIDR row
+ * order. Only filled in where a layer is backed by some of those datasets
+ * rather than all of them; callers fall back to the per-type default.
+ */
+type LocalDatasetIndices = Map<string, number[]>;
+
 function extractLayers(
   chart: ChartJsChart,
   chartType: string,
   pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
   switch (chartType) {
     case 'bar':
       return extractBarLayers(chart, pluginOptions);
     case 'line':
-      return extractLineLayers(chart, pluginOptions);
+      return extractLineLayers(chart, pluginOptions, datasetIndices);
     case 'scatter':
     case 'bubble':
       return extractScatterLayers(chart, pluginOptions);
@@ -656,41 +677,113 @@ function extractSegmentedBarLayers(
 // Line chart extraction
 // ---------------------------------------------------------------------------
 
+/**
+ * Where each Chart.js `stepped` value puts the riser, in {@link StepDirection}
+ * terms, read off `_steppedLineTo`: `'after'` draws the riser at the previous
+ * x and then runs flat at the new level (`vh`), while `'before'` runs flat at
+ * the old level up to the next x and rises there (`hv`).
+ */
+const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
+  before: 'hv',
+  after: 'vh',
+  middle: 'mid',
+};
+
+/**
+ * The step convention a line dataset draws, or `undefined` when it draws an
+ * ordinary interpolated line. A dataset's own `stepped` wins over the chart's
+ * `elements.line` default, which is how Chart.js resolves it.
+ * @param dataset - The dataset being read
+ * @param chart - The chart it belongs to, for the element default
+ * @returns The step direction, or undefined when the dataset is not stepped
+ */
+function stepDirectionOf(
+  dataset: ChartJsDataset,
+  chart: ChartJsChart,
+): StepDirection | undefined {
+  const stepped = dataset.stepped ?? chart.options.elements?.line?.stepped;
+  if (stepped === undefined || stepped === false) {
+    return undefined;
+  }
+  // Chart.js documents the bare `true` as its 'before' default.
+  return stepped === true ? 'hv' : STEP_DIRECTION_BY_OPTION[stepped];
+}
+
 function extractLineLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
   const data = chart.data;
   const labels = data.labels ?? [];
 
-  // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
-  // the plugin re-derives the original Chart.js indices for highlight alignment.
-  const lineData: LinePoint[][] = data.datasets.map((dataset, dsIdx) => {
-    const linePoints: LinePoint[] = [];
-    dataset.data.forEach((value, i) => {
-      const num = toFiniteNumber(value);
-      if (num === null)
-        return;
-      linePoints.push({
-        x: labels[i] ?? i,
-        y: num,
-        z: dataset.label ?? `Line ${dsIdx + 1}`,
-      });
-    });
-    return linePoints;
-  });
-
-  return [
-    {
+  // A chart with no datasets still emits its (empty) line layer, as callers
+  // downstream expect one layer per line chart.
+  if (data.datasets.length === 0) {
+    return [{
       id: '0',
       type: TraceType.LINE,
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
-      data: lineData,
-    },
-  ];
+      data: [],
+    }];
+  }
+
+  // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
+  // the plugin re-derives the original Chart.js indices for highlight alignment.
+  const linePoints = (dataset: ChartJsDataset, dsIdx: number): LinePoint[] => {
+    const points: LinePoint[] = [];
+    dataset.data.forEach((value, i) => {
+      const num = toFiniteNumber(value);
+      if (num === null)
+        return;
+      points.push({
+        x: labels[i] ?? i,
+        y: num,
+        z: dataset.label ?? `Line ${dsIdx + 1}`,
+      });
+    });
+    return points;
+  };
+
+  // A stepped dataset is piecewise constant rather than interpolated, so it
+  // belongs to a step layer instead — one per convention, since a layer
+  // announces a single `stepDirection` for all of its series. Datasets keep
+  // their chart order within whichever layer they land in.
+  const groups = new Map<StepDirection | '', number[]>();
+  for (let dsIdx = 0; dsIdx < data.datasets.length; dsIdx++) {
+    const key = stepDirectionOf(data.datasets[dsIdx], chart) ?? '';
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.push(dsIdx);
+    } else {
+      groups.set(key, [dsIdx]);
+    }
+  }
+
+  const axes = {
+    x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+    y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+  };
+
+  const layers: MaidrLayer[] = [];
+  // Plain lines first, so a mixed chart keeps the line layer where it was.
+  const ordered = [...groups].sort(([a], [b]) => Number(a !== '') - Number(b !== ''));
+  for (const [direction, indices] of ordered) {
+    const id = String(layers.length);
+    datasetIndices?.set(id, indices);
+    layers.push({
+      id,
+      type: direction === '' ? TraceType.LINE : TraceType.STEP,
+      axes,
+      ...(direction === '' ? {} : { stepDirection: direction }),
+      data: indices.map(dsIdx => linePoints(data.datasets[dsIdx], dsIdx)),
+    });
+  }
+
+  return layers;
 }
 
 // ---------------------------------------------------------------------------

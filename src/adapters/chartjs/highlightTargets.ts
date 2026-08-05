@@ -139,7 +139,8 @@ export function computeTargetMaps(
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
       }
-      case TraceType.LINE: {
+      case TraceType.LINE:
+      case TraceType.STEP: {
         // One MAIDR row per backing dataset, in MAIDR row order.
         const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
         barLineIndices.set(
