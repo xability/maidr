@@ -12,11 +12,17 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Neither fork PRs nor Dependabot PRs are given repository secrets, so
+    # CLAUDE_CODE_OAUTH_TOKEN resolves empty and the job fails rather than
+    # reviewing anything -- as it did on
+    # dependabot/npm_and_yarn/npm_and_yarn-4ea3fa4d3d. Skip cleanly instead.
+    # pull_request_target is deliberately not used as the workaround: it runs
+    # with write-scoped secrets on attacker-controlled input, and the action
+    # does not treat it as an entity context, so its own write-permission
+    # check never runs.
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
     permissions:
