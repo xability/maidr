@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, MaidrLayer, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -138,6 +138,154 @@ describe('plotly extractor', () => {
         expect(skipped).toHaveLength(1);
       } finally {
         // A failed assertion must not leave the spy in place for later tests.
+        warn.mockRestore();
+      }
+    });
+  });
+
+  describe('step traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { domain: [0, 1] as [number, number] },
+      yaxis: { domain: [0, 1] as [number, number] },
+    };
+
+    function stepTrace(shape: string, overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'lines',
+        x: [1, 2, 3],
+        y: [10, 10, 20],
+        line: { shape },
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it.each([
+      ['hv', 'hv'],
+      ['vh', 'vh'],
+      ['hvh', 'mid'],
+    ])('binds line.shape %s as a step layer jumping %s', (shape, direction) => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace(shape)],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe(direction);
+      expect(layer.data).toEqual([[
+        { x: 1, y: 10, z: 'Series 1' },
+        { x: 2, y: 10, z: 'Series 1' },
+        { x: 3, y: 20, z: 'Series 1' },
+      ]]);
+    });
+
+    it('leaves vhv without a direction, since no convention describes it', () => {
+      // `vhv` runs flat at the mean of the two levels rather than at either
+      // one, so naming any of hv/vh/mid would describe a chart plotly did not
+      // draw. It is still a staircase, so it still binds as a step.
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace('vhv')],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBeUndefined();
+    });
+
+    it.each(['linear', 'spline'])('keeps an interpolated %s shape a line', (shape) => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace(shape)],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.LINE);
+      expect(layer.stepDirection).toBeUndefined();
+    });
+
+    it('keeps a line with no shape at all a line', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [{ type: 'scatter', mode: 'lines', x: [1, 2], y: [3, 4] }],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.LINE);
+    });
+
+    it('ignores line.shape on a markers-only trace, which draws no line', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace('hv', { mode: 'markers' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.SCATTER);
+    });
+
+    it('highlights the markers of a lines+markers step, as a line does', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace('hv', { mode: 'lines+markers' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe('.subplot.xy .trace.scatter .point');
+    });
+
+    it('merges step traces sharing a convention into one layer', () => {
+      const gd = createGraphDiv({
+        traces: [
+          stepTrace('hv', { name: 'A' }),
+          stepTrace('hv', { name: 'B', y: [5, 15, 15] }),
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const layer = onlyLayer(gd);
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe('hv');
+      expect(layer.data).toHaveLength(2);
+    });
+
+    it('splits step traces that jump differently, so neither is mislabelled', () => {
+      const gd = createGraphDiv({
+        traces: [
+          stepTrace('hv', { name: 'A' }),
+          stepTrace('vh', { name: 'B' }),
+          { type: 'scatter', mode: 'lines', x: [1, 2], y: [3, 4], name: 'C' },
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers.map(layer => [layer.type, layer.stepDirection])).toEqual([
+        [TraceType.LINE, undefined],
+        [TraceType.STEP, 'hv'],
+        [TraceType.STEP, 'vh'],
+      ]);
+    });
+
+    it('does not warn about a step trace, which is supported', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const gd = createGraphDiv({
+        traces: [stepTrace('hv')],
+        layout: SINGLE_PANEL,
+      });
+
+      try {
+        extractPlotlyData(gd);
+
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
         warn.mockRestore();
       }
     });
@@ -1158,6 +1306,36 @@ describe('plotly extractor', () => {
         if (!state.empty) {
           expect(state.size).toBe(4);
         }
+      });
+    });
+
+    it('a plotly step chart reaches the core as a step trace', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'lines',
+          x: [1, 2, 3, 4],
+          y: [10, 10, 20, 20],
+          line: { shape: 'hv' },
+          name: 'Level',
+        }],
+        layout: {
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // 'step', not 'line': the trace a reader actually navigates, with the
+        // transition rotor and the step convention that come with it.
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.STEP]);
       });
     });
 

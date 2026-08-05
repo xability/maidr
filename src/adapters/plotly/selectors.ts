@@ -48,7 +48,10 @@ export function generatePlotlySelectors(
     case TraceType.NORMALIZED:
       return `${prefix}.trace.bars .point > path`;
 
+    // A step trace is a scatter trace plotly drew as a staircase, so its
+    // markers — when it has any — are the same `.point` elements.
     case TraceType.LINE:
+    case TraceType.STEP:
       return lineSelector(prefix, traceData?.mode);
 
     case TraceType.BOX:
