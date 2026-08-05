@@ -105,7 +105,7 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 |------------|---------------------------|---------|
 | Bar | `bar`, `column` | [highcharts-bar.html](highcharts-bar.html) |
 | Line | `line`, `spline`, `area`, `areaspline` | [highcharts-line.html](highcharts-line.html) |
-| Step | any of the above + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](highcharts-line.html) |
+| Step | `line`, `spline`, `area`, `areaspline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](highcharts-line.html) |
 | Scatter | `scatter` | [highcharts-scatter.html](highcharts-scatter.html) |
 | Box Plot | `boxplot` | [highcharts-box.html](highcharts-box.html) |
 | Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](highcharts-heatmap.html) |
