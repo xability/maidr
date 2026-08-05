@@ -18,6 +18,7 @@ import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
+import { resolveOrientation } from '@util/orientation';
 import { Svg } from '@util/svg';
 
 export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
@@ -442,7 +443,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       text: this.text,
       autoplay: this.autoplay,
       highlight: this.highlight,
-      orientation: this.layer.orientation,
+      // The effective orientation, not the declared one: a trace type that has
+      // an orientation is navigated as vertical when the JSON omits it, and
+      // the announcement has to say so rather than stay silent.
+      orientation: resolveOrientation(this.type, this.layer.orientation),
     };
   }
 

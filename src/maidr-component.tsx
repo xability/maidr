@@ -1,7 +1,8 @@
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
-import { Orientation, TraceType } from '@type/grammar';
+import { TraceType } from '@type/grammar';
+import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { useCallback, useMemo, useRef } from 'react';
 import { useMaidrController } from './state/hook/useMaidrController';
 import { createMaidrStore } from './state/store';
@@ -44,23 +45,6 @@ export interface MaidrProps {
  * Once the Controller is created on focus-in, {@link DisplayService} overwrites
  * these attributes with the authoritative values.
  */
-/**
- * Build a human-readable plot type string with optional orientation prefix.
- * Returns just the type when orientation is absent/empty (no extra whitespace).
- */
-function formatPlotType(plotType: string, orientation?: string): string {
-  if (!orientation) {
-    return plotType;
-  }
-  if (orientation === Orientation.HORIZONTAL || orientation === 'horz') {
-    return `horizontal ${plotType}`;
-  }
-  if (orientation === Orientation.VERTICAL || orientation === 'vert') {
-    return `vertical ${plotType}`;
-  }
-  return plotType;
-}
-
 function getInitialInstruction(data: MaidrData): string {
   const subplots = data.subplots;
   const subplotCount = subplots.flat().length;
@@ -98,7 +82,12 @@ function getInitialInstruction(data: MaidrData): string {
     }
   }
 
-  const displayType = formatPlotType(plotType, firstLayer?.orientation);
+  // Resolved the same way the trace model resolves it, so the pre-activation
+  // announcement and the one DisplayService writes on focus-in agree.
+  const displayType = formatPlotType(
+    plotType,
+    resolveOrientation(traceType, firstLayer?.orientation),
+  );
 
   if (layerCount > 1) {
     return `This is a maidr plot containing ${layerCount} layers, and this is layer 1 of ${layerCount}: ${displayType} plot. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
