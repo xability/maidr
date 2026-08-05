@@ -402,6 +402,13 @@ function layerDatasets(
 ): number[] {
   // A layer backed by only some of the panel's datasets says which, in panel
   // positions; translate those into indices within the whole chart.
+  //
+  // The `?? 0` is unreachable while the invariant holds: an extractor fills
+  // `localDatasets` by walking the very datasets it was handed — this panel's
+  // partition — so every position it declares indexes `datasetIndices`. It is
+  // a fallback rather than a throw because a stray index would misroute one
+  // highlight, and taking the chart's whole accessibility layer down over that
+  // is the worse failure.
   const declared = localDatasets.get(localId);
   if (declared) {
     return declared.map(local => panel.datasetIndices[local] ?? 0);
