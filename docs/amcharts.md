@@ -93,8 +93,11 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Stacked Bar | multiple `ColumnSeries` | `stacked: true` |
 | 100% Stacked (Normalized) | multiple `ColumnSeries` | `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Line (single & multi-series) | `LineSeries` | line series class |
+| Step (single & multi-series) | `StepLineSeries` | step-line series class |
 | Histogram | `ColumnSeries` | value X axis + `openValueXField` bin edges |
 | Heatmap | `ColumnSeries` | category X **and** category Y axes + `value` field |
+
+A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
 > Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
 

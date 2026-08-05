@@ -63,6 +63,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 |---|---|---|---|
 | `VictoryBar` | Bar chart | ✅ | |
 | `VictoryLine` | Line chart | ✅ | |
+| `VictoryLine` | Step chart | ✅ | With `interpolation="step"`, `"stepBefore"` or `"stepAfter"`. |
 | `VictoryScatter` | Scatter plot | ✅ | |
 | `VictoryStack` | Stacked bar chart | ✅ | Each child `<VictoryBar name="...">` becomes one series. |
 | `VictoryHistogram` | Histogram | ⚠️ | The adapter derives equal-width bins from the raw values, which may not exactly match Victory's rendered bins. |

@@ -63,6 +63,7 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Bar | `type: 'bar'` | [Bar chart](examples.html) |
 | Scatter | `type: 'scatter'`, `mode: 'markers'` | [Scatter plot](examples.html) |
 | Line | `type: 'scatter'`, `mode: 'lines'` | [Line chart](examples.html) |
+| Step | `type: 'scatter'`, `mode: 'lines'`, `line: { shape: 'hv' \| 'vh' \| 'hvh' \| 'vhv' }` | [Step chart](examples.html) |
 | Box Plot | `type: 'box'` | [Box plot](examples.html) |
 | Violin Plot | `type: 'violin'` | [Violin plot](examples.html) |
 | Heatmap | `type: 'heatmap'` | [Heatmap](examples.html) |
@@ -71,6 +72,17 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
+
+**Notes on chart-type detection:**
+
+- A line trace whose `line.shape` is one of the step-wise shapes is piecewise
+  constant — the value is held and then jumps — so it maps to MAIDR's step
+  trace rather than to a line, and is announced and navigated as a step plot
+  (including the Transitions rotor, which moves only between the points where
+  the level changes). `hv` and `vh` carry across to MAIDR's `stepDirection`
+  unchanged, and `hvh` becomes `mid`. `vhv` binds as a step but names no
+  convention: its flat segments sit at the mean of the two levels rather than
+  at either one, which none of MAIDR's three conventions describes.
 
 ## Code Examples
 

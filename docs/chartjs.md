@@ -73,6 +73,7 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Stacked Bar | `'bar'` with `scales.x.stacked` / `scales.y.stacked` | — | [Stacked bar](examples.html) |
 | Dodged Bar | `'bar'` with multiple datasets (no stacking) | — | [Dodged bar](examples.html) |
 | Line | `'line'` | — | [Line chart](examples.html) |
+| Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
 | Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
