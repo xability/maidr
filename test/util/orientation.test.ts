@@ -25,12 +25,18 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    TraceType.CANDLESTICK_DELTA,
     TraceType.HEATMAP,
     TraceType.LINE,
     TraceType.SCATTER,
     TraceType.SMOOTH,
     TraceType.STEP,
   ];
+
+  test('answers for every trace type', () => {
+    const covered = [...orientedTypes, ...unorientedTypes];
+    expect(covered.sort()).toEqual(Object.values(TraceType).sort());
+  });
 
   test.each(unorientedTypes)('reports no orientation for %s', (type) => {
     expect(resolveOrientation(type)).toBeUndefined();

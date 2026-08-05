@@ -1,29 +1,41 @@
 import { Orientation, TraceType } from '@type/grammar';
 
 /**
- * Trace types whose model navigates along an orientation.
+ * Whether each trace type's model navigates along an orientation.
  *
- * Every trace in this set resolves `layer.orientation` to a concrete
+ * A type marked true resolves `layer.orientation` to a concrete
  * {@link Orientation} at construction — falling back to
  * {@link Orientation.VERTICAL} when the MAIDR JSON omits it — and swaps its
  * main and cross axes accordingly. Orientation is therefore never unknown for
- * these types, only undeclared, which is why {@link resolveOrientation} can
+ * those types, only undeclared, which is why {@link resolveOrientation} can
  * report it for every one of them.
  *
- * Types that are absent here have no orientation at all: a scatter, heatmap,
- * line, step, or smooth trace reads the same way whichever way it is drawn.
+ * A type marked false has no orientation at all: a scatter, heatmap, line,
+ * step, or smooth trace reads the same way whichever way it is drawn.
+ *
+ * Keyed by every {@link TraceType} so a new trace type cannot be added without
+ * answering the question here — the same reason `CHART_TYPE_LABEL` in
+ * `src/model/abstract.ts` is a full record rather than a partial one.
  */
-const ORIENTED_TRACE_TYPES: ReadonlySet<string> = new Set<string>([
-  TraceType.BAR,
-  TraceType.BOX,
-  TraceType.CANDLESTICK,
-  TraceType.DODGED,
-  TraceType.HISTOGRAM,
-  TraceType.NORMALIZED,
-  TraceType.STACKED,
-  TraceType.VIOLIN_BOX,
-  TraceType.VIOLIN_KDE,
-]);
+const IS_ORIENTED: Record<TraceType, boolean> = {
+  [TraceType.BAR]: true,
+  [TraceType.BOX]: true,
+  [TraceType.CANDLESTICK]: true,
+  // Built at runtime from a candlestick and a reference line, never declared
+  // in the JSON; it is navigated by field and candle, not by an orientation.
+  [TraceType.CANDLESTICK_DELTA]: false,
+  [TraceType.DODGED]: true,
+  [TraceType.HEATMAP]: false,
+  [TraceType.HISTOGRAM]: true,
+  [TraceType.LINE]: false,
+  [TraceType.NORMALIZED]: true,
+  [TraceType.SCATTER]: false,
+  [TraceType.SMOOTH]: false,
+  [TraceType.STACKED]: true,
+  [TraceType.STEP]: false,
+  [TraceType.VIOLIN_BOX]: true,
+  [TraceType.VIOLIN_KDE]: true,
+};
 
 /**
  * Resolves the orientation a trace is actually navigated by.
@@ -46,7 +58,7 @@ export function resolveOrientation(
   traceType: string,
   declared?: Orientation,
 ): Orientation | undefined {
-  if (!ORIENTED_TRACE_TYPES.has(traceType)) {
+  if (!IS_ORIENTED[traceType as TraceType]) {
     return undefined;
   }
   return declared === Orientation.HORIZONTAL
