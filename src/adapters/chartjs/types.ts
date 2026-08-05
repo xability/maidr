@@ -68,6 +68,13 @@ export interface ChartJsDataset {
   yAxisID?: string;
   backgroundColor?: string | string[];
   borderColor?: string | string[];
+  /**
+   * Step interpolation for a line dataset. `'before'` (and the legacy `true`)
+   * hold the current value until the next x and jump there, `'after'` jumps at
+   * the current x and holds the new value across, `'middle'` jumps midway.
+   * `false` or absent draws an ordinary interpolated line.
+   */
+  stepped?: boolean | 'before' | 'after' | 'middle';
 }
 
 /**
@@ -77,6 +84,10 @@ export interface ChartJsOptions {
   indexAxis?: 'x' | 'y';
   scales?: Record<string, ChartJsScale>;
   plugins?: Record<string, unknown>;
+  /** Chart-wide element defaults; a dataset's own setting wins over these. */
+  elements?: {
+    line?: { stepped?: ChartJsDataset['stepped'] };
+  };
 }
 
 /**

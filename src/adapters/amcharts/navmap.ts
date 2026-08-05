@@ -58,6 +58,8 @@ export interface SeriesGroups {
   barSeriesList: AmXYSeries[];
   /** Merged into a single multi-line LINE layer (one entry per line). */
   lineSeriesList: AmXYSeries[];
+  /** Merged into a single STEP layer, the staircase counterpart of the above. */
+  stepSeriesList: AmXYSeries[];
   /** One HISTOGRAM layer each, in series order. */
   histogramSeries: AmXYSeries[];
   /** One HEATMAP layer each, in series order. */
@@ -212,6 +214,9 @@ function addEntryResolvers(
   const lineSeries = groups.lineSeriesList
     .map(series => ({ series, items: filterLineItems(series) }))
     .filter(entry => entry.items.length > 0);
+  const stepSeries = groups.stepSeriesList
+    .map(series => ({ series, items: filterLineItems(series) }))
+    .filter(entry => entry.items.length > 0);
   const histogramSeries = groups.histogramSeries
     .map(series => ({ series, items: filterHistogramItems(series) }))
     .filter(entry => entry.items.length > 0);
@@ -237,9 +242,13 @@ function addEntryResolvers(
         register(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
         break;
       }
-      case TraceType.LINE: {
+      case TraceType.LINE:
+      case TraceType.STEP: {
+        // A step layer holds its own series, so it indexes its own list —
+        // sharing one would misplace every highlight on a chart with both.
+        const seriesList = layer.type === TraceType.STEP ? stepSeries : lineSeries;
         register(layer.id, (row, col) => {
-          const entry = lineSeries[row];
+          const entry = seriesList[row];
           const dataItem = entry?.items[col];
           return entry && dataItem
             ? [{ series: entry.series, dataItem, kind: 'point' }]

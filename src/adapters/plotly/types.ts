@@ -17,6 +17,12 @@ export interface PlotlyTrace {
   name?: string;
   uid?: string;
   visible?: boolean | 'legendonly';
+  /**
+   * Line styling. `shape` is how plotly joins consecutive samples: `linear`
+   * and `spline` interpolate, while `hv`, `vh`, `hvh` and `vhv` draw a
+   * piecewise-constant staircase.
+   */
+  line?: { shape?: string };
   x?: (number | string)[];
   y?: (number | string)[];
   z?: number[][];

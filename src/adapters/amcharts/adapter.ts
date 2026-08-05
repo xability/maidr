@@ -231,9 +231,11 @@ function buildChartLayers(
   const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes.values[0], 'y');
 
   const layers: MaidrLayer[] = [];
-  const lineLayers: LinePoint[][] = [];
-  let lineLayerSelectors: string[] | undefined;
-  const lineSeriesNames: string[] = [];
+  // Line and step series each merge into one layer of their own type. The
+  // points are extracted identically — amCharts varies only how it draws
+  // between them — so they differ here only in which bucket they land in.
+  const lineSeries = emptyMergedSeries();
+  const stepSeries = emptyMergedSeries();
 
   // Collect bar series for grouped handling (stacked/dodged/normalized).
   const barSeriesList: AmXYSeries[] = [];
@@ -260,21 +262,12 @@ function buildChartLayers(
         layers.push(buildHeatmapLayer(data, xLabel, yLabel));
         break;
       }
-      case 'line': {
+      case 'line':
+      case 'step': {
         const points = extractLinePoints(series);
         if (points.length === 0)
           break;
-        lineLayers.push(points);
-
-        const name = seriesName(series);
-        if (name)
-          lineSeriesNames.push(name);
-
-        const sel = buildLineSelector(series, containerEl);
-        if (sel) {
-          lineLayerSelectors ??= [];
-          lineLayerSelectors.push(sel);
-        }
+        collectSeries(kind === 'step' ? stepSeries : lineSeries, series, points, containerEl);
         break;
       }
       default:
@@ -297,12 +290,13 @@ function buildChartLayers(
     }
   }
 
-  // Merge all line series into a single multi-line layer.
-  if (lineLayers.length > 0) {
-    const lineTitle = lineSeriesNames.length > 0
-      ? lineSeriesNames.join(', ')
-      : undefined;
-    layers.push(buildLineLayer(lineLayers, lineLayerSelectors, xLabel, yLabel, lineTitle));
+  // Merge all line series into a single multi-line layer, and likewise the
+  // step series into a step layer of their own.
+  if (lineSeries.data.length > 0) {
+    layers.push(buildLineLayer(lineSeries, TraceType.LINE, xLabel, yLabel));
+  }
+  if (stepSeries.data.length > 0) {
+    layers.push(buildLineLayer(stepSeries, TraceType.STEP, xLabel, yLabel));
   }
 
   return layers;
@@ -417,20 +411,68 @@ function buildHeatmapLayer(
   };
 }
 
+/**
+ * Series that merge into one layer, gathered as the chart is walked.
+ */
+interface MergedSeries {
+  /** One entry per series, in chart order. */
+  data: LinePoint[][];
+  /** Names of the series that have one, joined into the layer title. */
+  names: string[];
+  /** Highlight selectors, for the series whose path could be resolved. */
+  selectors?: string[];
+}
+
+function emptyMergedSeries(): MergedSeries {
+  return { data: [], names: [] };
+}
+
+/**
+ * Adds one series' points, name and selector to the layer it will merge into.
+ */
+function collectSeries(
+  merged: MergedSeries,
+  series: AmXYSeries,
+  points: LinePoint[],
+  containerEl: HTMLElement,
+): void {
+  merged.data.push(points);
+
+  const name = seriesName(series);
+  if (name)
+    merged.names.push(name);
+
+  const sel = buildLineSelector(series, containerEl);
+  if (sel) {
+    merged.selectors ??= [];
+    merged.selectors.push(sel);
+  }
+}
+
+/**
+ * Builds the merged line or step layer.
+ *
+ * `stepDirection` is deliberately not emitted for a step layer: amCharts
+ * positions the staircase from the axis cell rather than reporting a
+ * convention, so naming one here would be a guess. MAIDR then stays silent
+ * about it rather than describing a chart amCharts did not draw.
+ */
 function buildLineLayer(
-  data: LinePoint[][],
-  selectors: string[] | undefined,
+  merged: MergedSeries,
+  type: TraceType.LINE | TraceType.STEP,
   xLabel: string,
   yLabel: string,
-  title?: string,
 ): MaidrLayer {
+  const title = merged.names.length > 0 ? merged.names.join(', ') : undefined;
+  const selectors = merged.selectors;
+
   return {
-    id: `line-${uid()}`,
-    type: TraceType.LINE,
+    id: `${type === TraceType.STEP ? 'step' : 'line'}-${uid()}`,
+    type,
     ...(title ? { title } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
-    data,
+    data: merged.data,
   };
 }
 

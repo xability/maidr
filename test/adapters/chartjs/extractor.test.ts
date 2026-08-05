@@ -1,4 +1,5 @@
-import type { ChartJsChart, ChartJsData, ChartJsOptions, ChartJsRuntimeScale } from '@adapters/chartjs/types';
+import type { ChartJsChart, ChartJsData, ChartJsDataset, ChartJsOptions, ChartJsRuntimeScale } from '@adapters/chartjs/types';
+import type { LinePoint } from '@type/grammar';
 import { extractChartData, extractMaidrData } from '@adapters/chartjs/extractor';
 import { TraceType } from '@type/grammar';
 
@@ -116,6 +117,125 @@ describe('chart.js extractor', () => {
       expect(maidr.subplots).toHaveLength(1);
       expect(maidr.subplots[0]).toHaveLength(1);
       expect(maidr.subplots[0][0].layers[0].id).toBe('0');
+    });
+  });
+
+  describe('stepped line datasets', () => {
+    const steppedChart = (
+      stepped: ChartJsDataset['stepped'],
+      options?: ChartJsOptions,
+    ): ChartJsChart => createChart({
+      type: 'line',
+      data: {
+        labels: ['a', 'b', 'c'],
+        datasets: [{ label: 'Stage', data: [1, 1, 2], stepped }],
+      },
+      options,
+    });
+
+    it.each([
+      ['before', 'hv'],
+      ['after', 'vh'],
+      ['middle', 'mid'],
+    ] as const)('binds stepped %s as a step layer jumping %s', (stepped, direction) => {
+      const layer = extractChartData(steppedChart(stepped)).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe(direction);
+      expect(layer.data as LinePoint[][]).toEqual([[
+        { x: 'a', y: 1, z: 'Stage' },
+        { x: 'b', y: 1, z: 'Stage' },
+        { x: 'c', y: 2, z: 'Stage' },
+      ]]);
+    });
+
+    it('reads the bare boolean as the before default it stands for', () => {
+      const layer = extractChartData(steppedChart(true)).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe('hv');
+    });
+
+    it.each([undefined, false] as const)('keeps an unstepped line a line (%s)', (stepped) => {
+      const layer = extractChartData(steppedChart(stepped)).maidr.subplots[0][0].layers[0];
+
+      expect(layer.id).toBe('0');
+      expect(layer.type).toBe(TraceType.LINE);
+      expect(layer.stepDirection).toBeUndefined();
+    });
+
+    it('falls back to the chart-wide elements.line default', () => {
+      const chart = steppedChart(undefined, { elements: { line: { stepped: 'middle' } } });
+
+      const layer = extractChartData(chart).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe('mid');
+    });
+
+    it('lets a dataset\'s own setting win over the chart-wide default', () => {
+      const chart = steppedChart(false, { elements: { line: { stepped: 'before' } } });
+
+      expect(extractChartData(chart).maidr.subplots[0][0].layers[0].type).toBe(TraceType.LINE);
+    });
+
+    it('splits mixed datasets into layers that each route to their own data', () => {
+      const chart = createChart({
+        type: 'line',
+        data: {
+          labels: ['a', 'b'],
+          datasets: [
+            { label: 'Trend', data: [1, 2] },
+            { label: 'Before', data: [3, 4], stepped: 'before' },
+            { label: 'After', data: [5, 6], stepped: 'after' },
+            { label: 'Trend 2', data: [7, 8] },
+          ],
+        },
+      });
+
+      const { maidr, layerDatasetIndices } = extractChartData(chart);
+
+      const layers = maidr.subplots[0][0].layers;
+      expect(layers.map(layer => [layer.id, layer.type, layer.stepDirection])).toEqual([
+        ['0', TraceType.LINE, undefined],
+        ['1', TraceType.STEP, 'hv'],
+        ['2', TraceType.STEP, 'vh'],
+      ]);
+      // Each layer's MAIDR rows must route back to the datasets it holds, or
+      // every highlight on a mixed chart lands on the wrong series.
+      expect(layerDatasetIndices.get('0')).toEqual([0, 3]);
+      expect(layerDatasetIndices.get('1')).toEqual([1]);
+      expect(layerDatasetIndices.get('2')).toEqual([2]);
+    });
+
+    it('routes step rows to chart datasets inside an axis-stacked panel', () => {
+      const chart = createChart({
+        type: 'line',
+        data: {
+          labels: ['a', 'b'],
+          datasets: [
+            { label: 'Top line', data: [1, 2] },
+            { label: 'Top step', data: [3, 4], stepped: 'before' },
+            { label: 'Bottom', data: [5, 6], yAxisID: 'y2' },
+          ],
+        },
+        options: {
+          scales: { x: {}, y: { stack: 'panels' }, y2: { stack: 'panels' } },
+        },
+        scales: {
+          x: { axis: 'x', left: 0, right: 400, top: 300, bottom: 320 },
+          y: { axis: 'y', left: 0, right: 40, top: 0, bottom: 140 },
+          y2: { axis: 'y', left: 0, right: 40, top: 160, bottom: 300 },
+        },
+      });
+
+      const { maidr, layerDatasetIndices } = extractChartData(chart);
+
+      // y-stacks are emitted bottom row first, so the two-layer panel is last.
+      const topLayers = maidr.subplots[1][0].layers;
+      expect(topLayers.map(layer => layer.type)).toEqual([TraceType.LINE, TraceType.STEP]);
+      expect(layerDatasetIndices.get(topLayers[0].id)).toEqual([0]);
+      expect(layerDatasetIndices.get(topLayers[1].id)).toEqual([1]);
     });
   });
 

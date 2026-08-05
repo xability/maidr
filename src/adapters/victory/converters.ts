@@ -10,6 +10,7 @@ import type {
   MaidrLayer,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
 } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
 import type {
@@ -158,6 +159,32 @@ function extractBarData(
 }
 
 /**
+ * Where each stepping `interpolation` puts the riser, in
+ * {@link StepDirection} terms. Victory hands these straight to the matching
+ * d3 curve, so `stepAfter` runs flat and rises at the next x (`hv`),
+ * `stepBefore` rises first at the current x (`vh`), and `step` rises at the
+ * midpoint (`mid`). Every other interpolation — `linear`, `natural`,
+ * `monotoneX`, absent — interpolates and is not a step.
+ */
+const STEP_DIRECTION_BY_INTERPOLATION: Partial<Record<string, StepDirection>> = {
+  step: 'mid',
+  stepBefore: 'vh',
+  stepAfter: 'hv',
+};
+
+/**
+ * The step convention a line's `interpolation` prop draws, or `undefined`
+ * when it draws an ordinary interpolated line.
+ */
+function stepDirectionOf(interpolation: unknown): StepDirection | undefined {
+  // Victory also accepts a function here, for a custom d3 curve factory.
+  // Nothing about such a curve is inspectable, so it stays a line.
+  return typeof interpolation === 'string'
+    ? STEP_DIRECTION_BY_INTERPOLATION[interpolation]
+    : undefined;
+}
+
+/**
  * Extracts data from a VictoryLine element.
  */
 function extractLineData(
@@ -174,7 +201,16 @@ function extractLineData(
     y: Number(getY(d)),
   }));
 
-  return { data: { kind: 'line', points: [points] }, count: rawData.length };
+  const stepDirection = stepDirectionOf(props.interpolation);
+
+  return {
+    data: {
+      kind: 'line',
+      points: [points],
+      ...(stepDirection ? { stepDirection } : {}),
+    },
+    count: rawData.length,
+  };
 }
 
 /**
@@ -702,9 +738,10 @@ export function toMaidrLayer(
     case 'line':
       return {
         id: layer.id,
-        type: TraceType.LINE,
+        type: data.stepDirection ? TraceType.STEP : TraceType.LINE,
         axes,
         selectors: selector ? [selector as string] : undefined,
+        ...(data.stepDirection ? { stepDirection: data.stepDirection } : {}),
         data: data.points,
       };
 

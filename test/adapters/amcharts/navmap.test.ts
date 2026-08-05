@@ -9,6 +9,7 @@ function emptyGroups(): SeriesGroups {
   return {
     barSeriesList: [],
     lineSeriesList: [],
+    stepSeriesList: [],
     histogramSeries: [],
     heatmapSeries: [],
   };

@@ -6,6 +6,7 @@ import type {
   LinePoint,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
 } from '@type/grammar';
 import type { ReactNode } from 'react';
 
@@ -76,7 +77,11 @@ export type VictoryComponentType
  */
 export type VictoryLayerData
   = | { kind: 'bar'; points: BarPoint[] }
-    | { kind: 'line'; points: LinePoint[][] }
+    /**
+     * A `VictoryLine`. `stepDirection` is set when its `interpolation` draws
+     * a staircase, making the layer a step rather than a line.
+     */
+    | { kind: 'line'; points: LinePoint[][]; stepDirection?: StepDirection }
     | { kind: 'scatter'; points: ScatterPoint[] }
     | { kind: 'box'; points: BoxPoint[] }
     | { kind: 'candlestick'; points: CandlestickPoint[] }

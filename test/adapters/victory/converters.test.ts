@@ -308,6 +308,44 @@ describe('toMaidrLayer', () => {
     expect(layer.axes?.x).toEqual({ label: 'X' });
   });
 
+  it.each([
+    ['step', 'mid'],
+    ['stepBefore', 'vh'],
+    ['stepAfter', 'hv'],
+  ])('converts an interpolation %s line into a step layer jumping %s', (interpolation, direction) => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryLine, { data: lineData, interpolation })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv path');
+
+    expect(layer.type).toBe(TraceType.STEP);
+    expect(layer.stepDirection).toBe(direction);
+    expect(layer.data).toEqual([[{ x: 1, y: 10 }, { x: 2, y: 20 }]]);
+  });
+
+  it.each([undefined, 'linear', 'monotoneX'])(
+    'keeps an interpolated line a line (%s)',
+    (interpolation) => {
+      const [info] = extractVictoryLayers(
+        chart({}, createElement(VictoryLine, { data: lineData, interpolation })),
+      );
+
+      const layer = toMaidrLayer(info, '#mv path');
+
+      expect(layer.type).toBe(TraceType.LINE);
+      expect(layer.stepDirection).toBeUndefined();
+    },
+  );
+
+  it('keeps a line a line when interpolation is a custom curve function', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryLine, { data: lineData, interpolation: () => null })),
+    );
+
+    expect(toMaidrLayer(info, '#mv path').type).toBe(TraceType.LINE);
+  });
+
   it('converts a segmented layer to stacked type', () => {
     const points: SegmentedPoint[][] = [[{ x: 'A', y: 1, z: 'S1' }]];
     const info: VictoryLayerInfo = {

@@ -22,6 +22,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
   ViolinKdePoint,
 } from '../../type/grammar';
 import type {
@@ -264,7 +265,7 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
   switch (type) {
     case 'scatter':
     case 'scattergl':
-      return mapScatterMode(trace.mode);
+      return mapScatterMode(trace);
 
     case 'bar':
       return TraceType.BAR;
@@ -293,15 +294,59 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
   }
 }
 
-function mapScatterMode(mode?: string): TraceType {
+function mapScatterMode(trace: PlotlyTrace): TraceType {
+  const mode = trace.mode;
   if (!mode)
     return TraceType.SCATTER;
   // When both lines and markers exist, prefer LINE for navigational context.
   if (mode.includes('lines'))
-    return TraceType.LINE;
+    return isStepShape(trace.line?.shape) ? TraceType.STEP : TraceType.LINE;
   if (mode.includes('markers'))
     return TraceType.SCATTER;
   return TraceType.SCATTER;
+}
+
+/**
+ * The `line.shape` values plotly draws as a staircase rather than as an
+ * interpolated line. `linear`, `spline` and an absent shape are not here:
+ * those really do move gradually between samples.
+ */
+const STEP_SHAPES = new Set(['hv', 'vh', 'hvh', 'vhv']);
+
+/**
+ * Where each staircase shape jumps, in {@link StepDirection} terms.
+ *
+ * `vhv` is deliberately absent rather than mapped to `mid`. It is the one
+ * shape whose horizontal segments do not sit at a sample's own value: it
+ * rises at `x[i]`, runs flat at the *mean* of `y[i]` and `y[i+1]` across the
+ * interval, then rises again at `x[i+1]`. None of the three conventions
+ * describes that, and `mid` would actively mislead — it promises a jump
+ * midway between x values, where `vhv` jumps at the x values themselves. The
+ * trace still binds as a step (the data is piecewise constant, and the
+ * transition rotor is the navigation it wants); only the spoken convention is
+ * withheld, which is what {@link MaidrLayer.stepDirection} being optional is
+ * for.
+ */
+const STEP_SHAPE_DIRECTION: Partial<Record<string, StepDirection>> = {
+  hv: 'hv',
+  vh: 'vh',
+  hvh: 'mid',
+};
+
+/**
+ * Whether plotly draws this `line.shape` as a piecewise-constant staircase.
+ */
+function isStepShape(shape?: string): boolean {
+  return shape !== undefined && STEP_SHAPES.has(shape);
+}
+
+/**
+ * The step convention a trace authored, or `undefined` when plotly's shape has
+ * no {@link StepDirection} equivalent.
+ */
+function stepDirectionOf(trace: PlotlyTrace): StepDirection | undefined {
+  const shape = trace.line?.shape;
+  return shape === undefined ? undefined : STEP_SHAPE_DIRECTION[shape];
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +465,11 @@ function buildSubplotLayers(
 
   // Group traces that need multi-trace handling.
   const lineTraces: TraceEntry[] = [];
+  // Step traces are grouped by the convention they authored, because a layer
+  // carries one `stepDirection` for all of its series: merging an `hv` trace
+  // with a `vh` one would describe one of them wrongly. Keyed by direction,
+  // with '' for the shapes that report none, so those stay together too.
+  const stepTraces = new Map<StepDirection | '', TraceEntry[]>();
   const boxTraces: TraceEntry[] = [];
   const barTraces: TraceEntry[] = [];
   const violinTraces: TraceEntry[] = [];
@@ -437,6 +487,14 @@ function buildSubplotLayers(
     };
     if (entry.maidrType === TraceType.LINE) {
       lineTraces.push(entry);
+    } else if (entry.maidrType === TraceType.STEP) {
+      const key = stepDirectionOf(trace) ?? '';
+      const bucket = stepTraces.get(key);
+      if (bucket) {
+        bucket.push(entry);
+      } else {
+        stepTraces.set(key, [entry]);
+      }
     } else if (entry.maidrType === TraceType.BOX) {
       boxTraces.push(entry);
     } else if (entry.maidrType === TraceType.BAR) {
@@ -451,6 +509,16 @@ function buildSubplotLayers(
   // Build multi-line layer if applicable.
   if (lineTraces.length > 0) {
     const layer = extractMultiLineLayer(lineTraces, xLabel, yLabel, gd);
+    if (layer)
+      layers.push(layer);
+  }
+
+  // One step layer per authored convention (usually exactly one).
+  for (const [direction, traces] of stepTraces) {
+    const layer = extractMultiLineLayer(traces, xLabel, yLabel, gd, {
+      type: TraceType.STEP,
+      stepDirection: direction === '' ? undefined : direction,
+    });
     if (layer)
       layers.push(layer);
   }
@@ -1094,11 +1162,20 @@ function extractBarLayer(
 // Line (multi-series)
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds one line-shaped layer from every line (or step) trace in a subplot.
+ *
+ * Step traces reuse this because their point shape is identical — plotly
+ * varies only how the segments between samples are drawn, not the samples
+ * themselves — so `step` differs from `line` here by its layer type and the
+ * convention it announces.
+ */
 function extractMultiLineLayer(
   lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[],
   xLabel: string | undefined,
   yLabel: string | undefined,
   gd: PlotlyGraphDiv,
+  step?: { type: TraceType.STEP; stepDirection?: StepDirection },
 ): MaidrLayer | null {
   const data: LinePoint[][] = [];
   const legend: string[] = [];
@@ -1143,17 +1220,18 @@ function extractMultiLineLayer(
   // All line traces in the same subplot share the same unscoped selector
   // (e.g. `.subplot.xy .trace.scatter .point`), so any trace index works here.
   const selectors = generatePlotlySelectors(
-    TraceType.LINE,
+    step?.type ?? TraceType.LINE,
     lineTraces[0].globalIdx,
     gd,
   );
 
   return {
     id: String(lineTraces[0].globalIdx),
-    type: TraceType.LINE,
+    type: step?.type ?? TraceType.LINE,
     title: legend.length === 1 ? legend[0] : undefined,
     selectors,
     axes,
+    ...(step?.stepDirection ? { stepDirection: step.stepDirection } : {}),
     data,
   };
 }

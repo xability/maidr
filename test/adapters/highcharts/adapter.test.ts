@@ -1,3 +1,4 @@
+import type { HighchartsChart, HighchartsSeries } from '@adapters/highcharts/types';
 import type { BarPoint, HeatmapData, LinePoint, SegmentedPoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { TraceType } from '@type/grammar';
@@ -100,6 +101,86 @@ describe('highchartsToMaidr', () => {
 
       expect(result.subplots).toHaveLength(1);
       expect(result.subplots[0]).toHaveLength(1);
+    });
+  });
+
+  describe('stepped line series', () => {
+    function steppedChart(step: HighchartsSeries['options']['step']): HighchartsChart {
+      return fakeChart({
+        type: 'line',
+        series: [fakeSeries({
+          index: 0,
+          type: 'line',
+          name: 'Stage',
+          options: { step },
+          data: categoryPoints([1, 1, 2], ['a', 'b', 'c']),
+        })],
+      });
+    }
+
+    it.each([
+      ['left', 'hv'],
+      ['center', 'mid'],
+      ['right', 'vh'],
+    ] as const)('binds step %s as a step layer jumping %s', (step, direction) => {
+      const layer = highchartsToMaidr(steppedChart(step)).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe(direction);
+      expect(layer.data as LinePoint[][]).toEqual([[
+        { x: 'a', y: 1, z: 'Stage' },
+        { x: 'b', y: 1, z: 'Stage' },
+        { x: 'c', y: 2, z: 'Stage' },
+      ]]);
+    });
+
+    it('reads the legacy boolean as the left default it stands for', () => {
+      const layer = highchartsToMaidr(steppedChart(true)).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe('hv');
+    });
+
+    it.each([undefined, false] as const)('keeps an unstepped line a line (%s)', (step) => {
+      const layer = highchartsToMaidr(steppedChart(step)).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.LINE);
+      expect(layer.stepDirection).toBeUndefined();
+    });
+
+    it('splits lines and steps that are drawn differently into their own layers', () => {
+      const chart = fakeChart({
+        type: 'line',
+        series: [
+          fakeSeries({ index: 0, type: 'line', name: 'Trend', data: categoryPoints([1, 2], ['a', 'b']) }),
+          fakeSeries({ index: 1, type: 'line', name: 'Left', options: { step: 'left' }, data: categoryPoints([3, 4], ['a', 'b']) }),
+          fakeSeries({ index: 2, type: 'line', name: 'Right', options: { step: 'right' }, data: categoryPoints([5, 6], ['a', 'b']) }),
+        ],
+      });
+
+      const layers = highchartsToMaidr(chart).subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.type, layer.stepDirection, layer.title])).toEqual([
+        [TraceType.LINE, undefined, 'Trend'],
+        [TraceType.STEP, 'hv', 'Left'],
+        [TraceType.STEP, 'vh', 'Right'],
+      ]);
+    });
+
+    it('merges steps sharing a convention into one layer', () => {
+      const chart = fakeChart({
+        type: 'line',
+        series: [
+          fakeSeries({ index: 0, type: 'line', name: 'A', options: { step: 'left' }, data: categoryPoints([1, 2], ['a', 'b']) }),
+          fakeSeries({ index: 1, type: 'line', name: 'B', options: { step: 'left' }, data: categoryPoints([3, 4], ['a', 'b']) }),
+        ],
+      });
+
+      const layers = highchartsToMaidr(chart).subplots[0][0].layers;
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.STEP);
+      expect(layers[0].data).toHaveLength(2);
     });
   });
 

@@ -175,11 +175,13 @@ function createHighlightCallback(
 function groupSeries(chart: AmXYChart): {
   barSeriesList: AmXYSeries[];
   lineSeriesList: AmXYSeries[];
+  stepSeriesList: AmXYSeries[];
   histogramSeries: AmXYSeries[];
   heatmapSeries: AmXYSeries[];
 } {
   const barSeriesList: AmXYSeries[] = [];
   const lineSeriesList: AmXYSeries[] = [];
+  const stepSeriesList: AmXYSeries[] = [];
   const histogramSeries: AmXYSeries[] = [];
   const heatmapSeries: AmXYSeries[] = [];
 
@@ -190,6 +192,9 @@ function groupSeries(chart: AmXYChart): {
         break;
       case 'line':
         lineSeriesList.push(series);
+        break;
+      case 'step':
+        stepSeriesList.push(series);
         break;
       case 'histogram':
         histogramSeries.push(series);
@@ -202,7 +207,7 @@ function groupSeries(chart: AmXYChart): {
     }
   }
 
-  return { barSeriesList, lineSeriesList, histogramSeries, heatmapSeries };
+  return { barSeriesList, lineSeriesList, stepSeriesList, histogramSeries, heatmapSeries };
 }
 
 // ---------------------------------------------------------------------------

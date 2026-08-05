@@ -95,6 +95,7 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `bar` | `color`/`fill`, `stack: null` or `false` | Dodged (grouped) bar | [vegalite-binddodged.html](https://github.com/xability/maidr/blob/main/examples/vegalite-binddodged.html) |
 | `bar` | `color`/`fill`, `stack: 'normalize'` | Normalized stacked bar | [vegalite-bindnormalized.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) |
 | `line`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
+| `line`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
 | `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
 | `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |

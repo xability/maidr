@@ -86,6 +86,12 @@ export interface HighchartsSeries {
   options: {
     type?: string;
     stacking?: string;
+    /**
+     * Where a line series' staircase rises, when it draws one. Highcharts
+     * resolves `plotOptions` into here, so this is set however the chart
+     * asked for it. Legacy `true` means `'left'`.
+     */
+    step?: 'left' | 'center' | 'right' | boolean;
     /** Set by Highcharts on internal series (e.g. the Highstock navigator). */
     isInternal?: boolean;
     /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
