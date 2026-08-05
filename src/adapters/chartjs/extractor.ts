@@ -690,7 +690,7 @@ function extractSegmentedBarLayers(
  * x and then runs flat at the new level (`vh`), while `'before'` runs flat at
  * the old level up to the next x and rises there (`hv`).
  */
-const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
+const STEP_DIRECTION_BY_OPTION: Partial<Record<string, StepDirection>> = {
   before: 'hv',
   after: 'vh',
   middle: 'mid',

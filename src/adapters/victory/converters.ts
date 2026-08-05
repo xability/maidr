@@ -166,7 +166,7 @@ function extractBarData(
  * midpoint (`mid`). Every other interpolation — `linear`, `natural`,
  * `monotoneX`, absent — interpolates and is not a step.
  */
-const STEP_DIRECTION_BY_INTERPOLATION: Record<string, StepDirection> = {
+const STEP_DIRECTION_BY_INTERPOLATION: Partial<Record<string, StepDirection>> = {
   step: 'mid',
   stepBefore: 'vh',
   stepAfter: 'hv',

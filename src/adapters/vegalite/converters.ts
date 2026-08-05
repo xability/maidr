@@ -570,7 +570,7 @@ function getMarkType(spec: VegaLiteSpec): string | null {
  * `step` rises at the midpoint (`mid`). Every other value — `linear`,
  * `monotone`, `basis`, absent — interpolates and is not a step.
  */
-const STEP_DIRECTION_BY_INTERPOLATE: Record<string, StepDirection> = {
+const STEP_DIRECTION_BY_INTERPOLATE: Partial<Record<string, StepDirection>> = {
   'step': 'mid',
   'step-before': 'vh',
   'step-after': 'hv',

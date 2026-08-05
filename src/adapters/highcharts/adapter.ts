@@ -724,7 +724,7 @@ function convertSeries(
  * jumps at the current x and holds the new value across (`vh`), and `center`
  * jumps midway between the two (`mid`).
  */
-const STEP_DIRECTION_BY_OPTION: Record<string, StepDirection> = {
+const STEP_DIRECTION_BY_OPTION: Partial<Record<string, StepDirection>> = {
   left: 'hv',
   center: 'mid',
   right: 'vh',
