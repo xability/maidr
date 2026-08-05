@@ -33,6 +33,11 @@ const ORIENTED_TRACE_TYPES: ReadonlySet<string> = new Set<string>([
  * of a key in the JSON. A bar chart whose layer omits `orientation` is
  * navigated as a vertical bar chart, so it is announced as one.
  *
+ * `traceType` is a plain string rather than a `TraceType`: the pre-activation
+ * builder in `maidr-component.tsx` reads it straight off the JSON, where an
+ * absent or unknown type is possible, and an unknown type simply has no
+ * orientation.
+ *
  * @param traceType - The layer's `type`, as declared in the MAIDR JSON
  * @param declared - The layer's `orientation`, when the JSON declares one
  * @returns The effective orientation, or undefined for types that have none
@@ -51,7 +56,11 @@ export function resolveOrientation(
 
 /**
  * Builds a human-readable plot type string with optional orientation prefix.
- * Returns just the type when orientation is absent/empty (no extra whitespace).
+ * Returns just the type when there is no orientation (no extra whitespace).
+ *
+ * Takes the resolved orientation, not the raw layer field — pass
+ * {@link resolveOrientation}'s result so an undeclared orientation still
+ * announces the one the trace is navigated by.
  *
  * @param plotType - The display name of the plot type, e.g. `bar`
  * @param orientation - The orientation to prefix with, when there is one
@@ -59,16 +68,12 @@ export function resolveOrientation(
  */
 export function formatPlotType(
   plotType: string,
-  orientation?: Orientation | string,
+  orientation?: Orientation,
 ): string {
   if (!orientation) {
     return plotType;
   }
-  if (orientation === Orientation.HORIZONTAL) {
-    return `horizontal ${plotType}`;
-  }
-  if (orientation === Orientation.VERTICAL) {
-    return `vertical ${plotType}`;
-  }
-  return plotType;
+  return orientation === Orientation.HORIZONTAL
+    ? `horizontal ${plotType}`
+    : `vertical ${plotType}`;
 }

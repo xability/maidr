@@ -56,7 +56,7 @@ describe('formatPlotType', () => {
     expect(formatPlotType('single line', undefined)).toBe('single line');
   });
 
-  test('returns the bare type for an unrecognized orientation', () => {
-    expect(formatPlotType('bar', 'sideways')).toBe('bar');
+  test('prefixes what resolveOrientation returns for an oriented type', () => {
+    expect(formatPlotType('bar', resolveOrientation(TraceType.BAR))).toBe('vertical bar');
   });
 });
