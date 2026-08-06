@@ -113,6 +113,15 @@ describe('violinBoxTrace description summary', () => {
     expect(stat(trace, 'Highest maximum')).toBe(12060);
   });
 
+  test('trims a padded group name rather than announcing the padding', () => {
+    const padded = [group('  A  ', 5, 10, 15, 20, 25), group('B', 1, 4, 6, 8, 12)];
+    const trace = new ViolinBoxTrace(makeViolinBoxLayer(padded));
+
+    // The blank check already judges the name by its trimmed form, so the
+    // printed name has to match, or "25 (  A  )" reads the padding as a pause.
+    expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
+  });
+
   test('still counts the groups and lists the sections', () => {
     const trace = new ViolinBoxTrace(makeViolinBoxLayer([
       group('A', 5, 10, 15, 20, 25),

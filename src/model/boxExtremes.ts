@@ -55,14 +55,12 @@ export function extremeStat(
     beats(valueOf(point), valueOf(best)) ? point : best,
   );
   const value = valueOf(winner);
-  return {
-    label,
-    value: grouped && hasName(winner) ? `${value} (${winner.z})` : value,
-  };
+  const name = grouped ? groupName(winner) : null;
+  return { label, value: name === null ? value : `${value} (${name})` };
 }
 
 /**
- * True when a group carries a name worth printing next to its value.
+ * Reads the name to print next to a group's value, or null when it has none.
  *
  * `BoxPoint.z` is typed as a string, but not every producer fills it — the
  * violin layers carry their group under `fill` and leave `z` undefined at
@@ -70,12 +68,20 @@ export function extremeStat(
  * out "326 (undefined)" is worse than reading out "326", so an unnamed group
  * falls back to the bare value.
  *
+ * The name comes back trimmed, since that is the form the blank check judges
+ * it by: padding is not part of the name, and announcing "326 (  Group 1  )"
+ * would read the padding out as a pause.
+ *
  * @param point - The group whose name is being printed.
- * @returns True when the group has a non-blank name.
+ * @returns The trimmed name, or null when the group is unnamed or blank.
  */
-function hasName(point: BoxPoint): boolean {
+function groupName(point: BoxPoint): string | null {
   const name = point.z as string | undefined;
-  return typeof name === 'string' && name.trim() !== '';
+  if (typeof name !== 'string') {
+    return null;
+  }
+  const trimmed = name.trim();
+  return trimmed === '' ? null : trimmed;
 }
 
 /**
