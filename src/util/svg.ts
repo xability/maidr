@@ -95,13 +95,36 @@ export abstract class Svg {
   }
 
   /**
+   * Reports whether a value can be handed to `querySelector`/`querySelectorAll`.
+   *
+   * Selectors reach MAIDR through parsed JSON and are cast to `string` at the
+   * call site, so the declared type gives no runtime protection. A producer
+   * that resolves no elements for a layer emits `[]`, which is truthy — it
+   * passes every `if (!selector)` guard in the model layer and only fails once
+   * the DOM coerces it to `''` and throws `SyntaxError`. That exception escapes
+   * figure construction, so one unresolvable layer leaves the whole figure
+   * inert. Treating an unusable query as "matches nothing" keeps the failure
+   * local: that layer loses its highlight, every other layer still works.
+   *
+   * @param query - The value supplied as a CSS selector
+   * @returns True when the value is a non-empty selector string
+   */
+  private static isUsableSelector(query: unknown): query is string {
+    return typeof query === 'string' && query.trim() !== '';
+  }
+
+  /**
    * Selects all SVG elements matching a query and optionally clones them.
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query elements
    * @param shouldClone - Whether to clone elements and insert them as hidden copies (default: true)
-   * @returns Array of selected (or cloned) SVG elements
+   * @returns Array of selected (or cloned) SVG elements, empty when the query is not a usable selector
    */
   public static selectAllElements<T extends SVGElement>(query: string, shouldClone: boolean = true): T[] {
+    if (!this.isUsableSelector(query)) {
+      return [];
+    }
+
     return Array
       .from(document.querySelectorAll<T>(query))
       .map((element) => {
@@ -122,21 +145,25 @@ export abstract class Svg {
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query the element
    * @param shouldClone - Whether to clone the element and insert it as a hidden copy (default: true)
-   * @returns The selected (or cloned) SVG element
+   * @returns The selected (or cloned) SVG element, or null when nothing matches or the query is not a usable selector
    */
-  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
+  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T | null {
+    if (!this.isUsableSelector(query)) {
+      return null;
+    }
+
     const element = document.querySelector<T>(query);
     if (!shouldClone) {
-      return element as T;
+      return element;
     }
 
-    const clone = element?.cloneNode(true) as T;
-    clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    if (clone) {
-      this.markOwned(clone);
+    if (!element) {
+      return null;
     }
 
-    element?.insertAdjacentElement(Constant.AFTER_END, clone);
+    const clone = this.markOwned(element.cloneNode(true) as T);
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
   }
 
@@ -156,12 +183,16 @@ export abstract class Svg {
    * @template T - The type of SVG element to select
    * @param query - CSS selector string
    * @param n - Zero-based index into the query results
-   * @returns The Nth matching element, or null if no Nth match exists
+   * @returns The Nth matching element, or null if no Nth match exists or the query is not a usable selector
    */
   public static selectNthElement<T extends SVGElement>(
     query: string,
     n: number,
   ): T | null {
+    if (!this.isUsableSelector(query)) {
+      return null;
+    }
+
     const all = document.querySelectorAll<T>(query);
     return all[n] ?? null;
   }

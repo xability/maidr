@@ -221,6 +221,14 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     }
 
     const queried = Svg.selectAllElements(selector);
+    // Nothing resolved — report no highlight for this layer rather than fall
+    // through to the zero-bar alignment below, which would stand a full row of
+    // detached placeholders in for elements that do not exist. `SegmentedTrace`
+    // bails on the same condition.
+    if (queried.length === 0) {
+      return null;
+    }
+
     const svgElements = [queried];
 
     if (svgElements.length !== this.points.length) {

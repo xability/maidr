@@ -157,7 +157,9 @@ export class Heatmap extends AbstractTrace {
         }
         const row: SVGElement[] = [];
         for (let c = 0; c < numCols; c++) {
-          const el = document.querySelector<SVGElement>(rowSelectors[c]);
+          // Routed through `Svg` rather than `document` so a grid cell holding
+          // an unusable selector degrades to "no highlight" instead of throwing.
+          const el = Svg.selectElement<SVGElement>(rowSelectors[c], false);
           if (!el) {
             return null;
           }
