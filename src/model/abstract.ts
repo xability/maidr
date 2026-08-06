@@ -12,6 +12,7 @@ import type {
   HighlightState,
   PointerGuidanceState,
   TextState,
+  TraceEmptyState,
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
@@ -450,7 +451,20 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     };
   }
 
-  protected get outOfBoundsState(): TraceState {
+  /**
+   * The state pushed to observers when navigation leaves the data.
+   *
+   * Declared as `TraceEmptyState` rather than the whole `TraceState` union
+   * because that is what every implementation actually returns — the accessor
+   * exists so {@link AbstractPlot.notifyOutOfBounds} has an empty state to
+   * push. Narrowing it here is what lets the braille and highlight callers
+   * hand the value straight on: those states accept the empty trace shape but
+   * not a populated one, so a wider declaration would force each of them to
+   * cast, and a cast is exactly what stops the compiler from noticing if an
+   * override ever starts returning a populated state.
+   * @returns The empty trace state, positioned for out-of-bounds audio panning.
+   */
+  protected get outOfBoundsState(): TraceEmptyState {
     return {
       empty: true,
       type: 'trace',
@@ -466,7 +480,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected get highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     return {
