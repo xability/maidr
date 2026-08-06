@@ -179,15 +179,14 @@ export class BoxTrace extends AbstractTrace {
    * Minimum and Maximum columns of the very table underneath.
    */
   private rangeStats(): DescriptionState['stats'] {
-    const grouped = this.points.length > 1;
     return [
       this.extremeStat(
-        grouped ? 'Lowest minimum' : 'Minimum',
+        { single: 'Minimum', grouped: 'Lowest minimum' },
         p => p.min,
         (candidate, current) => candidate < current,
       ),
       this.extremeStat(
-        grouped ? 'Highest maximum' : 'Maximum',
+        { single: 'Maximum', grouped: 'Highest maximum' },
         p => p.max,
         (candidate, current) => candidate > current,
       ),
@@ -198,16 +197,29 @@ export class BoxTrace extends AbstractTrace {
    * Builds one range row: the winning value across groups, named with the group
    * it belongs to once there is more than one group to tell apart.
    *
-   * @param label - Row label to show in the summary.
+   * Both halves of the row — which label to use and whether the value carries a
+   * group name — hang off the one `grouped` check here, so a row can never pair
+   * a lone-group label with a group-suffixed value.
+   *
+   * Boxes tie on a whisker end readily, several bottoming out at the same floor
+   * being the ordinary case, and `beats` is strict, so the earliest group in
+   * navigation order wins: the group named is the first one the user reaches.
+   *
+   * @param labels - Row label for the one-group and the several-group case.
+   * @param labels.single - Label used when the chart holds a single box.
+   * @param labels.grouped - Label used when the chart holds several boxes.
    * @param valueOf - Reads the whisker end being compared from a group.
    * @param beats - True when the candidate value outranks the current winner.
    * @returns The summary row, or a `missing` row when no group has the value.
    */
   private extremeStat(
-    label: string,
+    labels: { single: string; grouped: string },
     valueOf: (point: BoxPoint) => number,
     beats: (candidate: number, current: number) => boolean,
   ): DescriptionState['stats'][number] {
+    const grouped = this.points.length > 1;
+    const label = grouped ? labels.grouped : labels.single;
+
     const measured = this.points.filter(point => Number.isFinite(valueOf(point)));
     if (measured.length === 0) {
       return { label, value: 'missing' };
@@ -217,10 +229,7 @@ export class BoxTrace extends AbstractTrace {
       beats(valueOf(point), valueOf(best)) ? point : best,
     );
     const value = valueOf(winner);
-    return {
-      label,
-      value: this.points.length > 1 ? `${value} (${winner.z})` : value,
-    };
+    return { label, value: grouped ? `${value} (${winner.z})` : value };
   }
 
   public override dispose(): void {

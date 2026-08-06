@@ -106,6 +106,20 @@ describe('boxTrace description summary', () => {
     expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
   });
 
+  test('names the first group in navigation order when boxes tie', () => {
+    const trace = new BoxTrace(makeBoxLayer([
+      group('A', 1, 10, 15, 20, 25),
+      group('B', 1, 4, 6, 8, 25),
+      group('C', 7, 9, 14, 22, 19),
+    ]));
+
+    // Boxes bottoming out at the same floor is the ordinary case, so the rule
+    // has to be stated: the earliest group wins, which is the first one the
+    // user reaches by navigating.
+    expect(stat(trace, 'Lowest minimum')).toBe('1 (A)');
+    expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
+  });
+
   test('still counts and names the groups', () => {
     const trace = new BoxTrace(makeBoxLayer([
       group('A', 5, 10, 15, 20, 25),
