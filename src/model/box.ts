@@ -132,19 +132,29 @@ export class BoxTrace extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
       { label: 'Group names', value: groupNames },
-      { label: 'Min', value: this.min },
-      { label: 'Max', value: this.max },
+      ...this.rangeStats(),
     ];
 
-    const headers = ['Group', 'Min', 'Q1', 'Q2', 'Q3', 'Max'];
-    const rows: (string | number)[][] = this.points.map(p => [
-      p.z,
-      p.min,
-      p.q1,
-      p.q2,
-      p.q3,
-      p.max,
-    ]);
+    // Both the headers and the cells walk `this.sections`, so every section the
+    // user can navigate to — the outliers included — gets a column, and the two
+    // stay aligned if the section list ever changes.
+    const headers = ['Group', ...this.sections];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    const rows: (string | number)[][] = this.points.map((point, pointIdx) => {
+      const sectionValues = this.sections.map((_, sectionIdx) => {
+        const value = isHorizontal
+          ? this.boxValues[pointIdx]?.[sectionIdx]
+          : this.boxValues[sectionIdx]?.[pointIdx];
+        // Outlier sections hold an array of values; a group with none renders
+        // as a blank cell rather than an empty-looking `[]`.
+        if (Array.isArray(value)) {
+          return value.join(', ');
+        }
+        return value ?? '';
+      });
+      return [point.z, ...sectionValues];
+    });
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -153,6 +163,73 @@ export class BoxTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Builds the two range rows of the summary.
+   *
+   * Every box carries its own whisker ends, so a single chart-wide Min/Max pair
+   * reads as though a chart of several boxes had one minimum and one maximum. A
+   * lone group reports its whisker ends plainly; several report each extreme
+   * attributed to the group it came from, and the per-group breakdown is left
+   * to the data table below.
+   *
+   * These are whisker ends, not the trace-wide `min`/`max` used for
+   * sonification: those fold the outliers in, which would contradict the
+   * Minimum and Maximum columns of the very table underneath.
+   */
+  private rangeStats(): DescriptionState['stats'] {
+    return [
+      this.extremeStat(
+        { single: 'Minimum', grouped: 'Lowest minimum' },
+        p => p.min,
+        (candidate, current) => candidate < current,
+      ),
+      this.extremeStat(
+        { single: 'Maximum', grouped: 'Highest maximum' },
+        p => p.max,
+        (candidate, current) => candidate > current,
+      ),
+    ];
+  }
+
+  /**
+   * Builds one range row: the winning value across groups, named with the group
+   * it belongs to once there is more than one group to tell apart.
+   *
+   * Both halves of the row — which label to use and whether the value carries a
+   * group name — hang off the one `grouped` check here, so a row can never pair
+   * a lone-group label with a group-suffixed value.
+   *
+   * Boxes tie on a whisker end readily, several bottoming out at the same floor
+   * being the ordinary case, and `beats` is strict, so the earliest group in
+   * navigation order wins: the group named is the first one the user reaches.
+   *
+   * @param labels - Row label for the one-group and the several-group case.
+   * @param labels.single - Label used when the chart holds a single box.
+   * @param labels.grouped - Label used when the chart holds several boxes.
+   * @param valueOf - Reads the whisker end being compared from a group.
+   * @param beats - True when the candidate value outranks the current winner.
+   * @returns The summary row, or a `missing` row when no group has the value.
+   */
+  private extremeStat(
+    labels: { single: string; grouped: string },
+    valueOf: (point: BoxPoint) => number,
+    beats: (candidate: number, current: number) => boolean,
+  ): DescriptionState['stats'][number] {
+    const grouped = this.points.length > 1;
+    const label = grouped ? labels.grouped : labels.single;
+
+    const measured = this.points.filter(point => Number.isFinite(valueOf(point)));
+    if (measured.length === 0) {
+      return { label, value: 'missing' };
+    }
+
+    const winner = measured.reduce((best, point) =>
+      beats(valueOf(point), valueOf(best)) ? point : best,
+    );
+    const value = valueOf(winner);
+    return { label, value: grouped ? `${value} (${winner.z})` : value };
   }
 
   public override dispose(): void {
