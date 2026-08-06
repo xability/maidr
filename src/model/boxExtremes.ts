@@ -1,5 +1,6 @@
 import type { BoxPoint } from '@type/grammar';
 import type { DescriptionState } from '@type/state';
+import { defaultFormat } from '@util/format';
 
 /**
  * Labels for a range row, one for each shape the summary can take.
@@ -56,7 +57,14 @@ export function extremeStat(
   );
   const value = valueOf(winner);
   const name = grouped ? groupName(winner) : null;
-  return { label, value: name === null ? value : `${value} (${name})` };
+  if (name === null) {
+    // A bare number travels on for DescriptionService to round.
+    return { label, value };
+  }
+  // Composing the group name onto the value makes this a string, past the
+  // point where the service can round what is inside it, so the number is
+  // rounded here with the same `defaultFormat` the service would have used.
+  return { label, value: `${defaultFormat(value)} (${name})` };
 }
 
 /**
