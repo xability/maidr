@@ -240,7 +240,16 @@ export class MoveToTraceContextCommand implements Command {
     const before = this.context.state;
     const lobby = before.type === 'figure' && !before.empty ? before : null;
 
-    this.context.enterSubplot();
+    const entered = this.context.enterSubplot();
+    if (lobby && !entered) {
+      // The focused panel has no layers to descend into. Stay in the lobby so
+      // every other panel remains reachable, and say why nothing happened
+      // instead of leaving the keypress silent. An empty panel has no trace to
+      // carry a title, so it is announced by position alone.
+      this.cue.announceEmpty(lobby.index, lobby.size, '');
+      return;
+    }
+
     const brailleEnabled = this.brailleService.isEnabled;
     if (brailleEnabled) {
       const state = this.context.state;

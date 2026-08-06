@@ -186,8 +186,13 @@ describe('context.replaceFigure', () => {
     const subplot = oldFigure.subplots[0][0];
     subplot.isInitialEntry = false;
     subplot.row = 1;
-    subplot.activeTrace.isInitialEntry = false;
-    subplot.activeTrace.col = 2;
+    // activeTrace is nullable for layerless subplots; this fixture has layers.
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      throw new Error('fixture subplot should have an active trace');
+    }
+    trace.isInitialEntry = false;
+    trace.col = 2;
 
     // Simulate a streaming tick: one more point in every layer.
     const newFigure = new Figure(createMultiLayer(4));

@@ -536,8 +536,13 @@ describe('isAppendedPointFocused', () => {
     const figure = createMultiLayerFigure();
     const subplot = figure.subplots[0][0];
     subplot.row = 2; // user on the multiline layer
-    subplot.activeTrace.isInitialEntry = false;
-    subplot.activeTrace.row = 0; // user on series 0
+    // activeTrace is nullable for layerless subplots; this fixture has layers.
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      throw new Error('fixture subplot should have an active trace');
+    }
+    trace.isInitialEntry = false;
+    trace.row = 0; // user on series 0
 
     expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 2, nested: true, row: 0 }))).toBe(true);
     expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 2, nested: true, row: 1 }))).toBe(false);
@@ -547,8 +552,13 @@ describe('isAppendedPointFocused', () => {
     const figure = createMultiLayerFigure();
     const subplot = figure.subplots[0][0];
     subplot.row = 0; // user on the candle layer
-    subplot.activeTrace.isInitialEntry = false;
-    subplot.activeTrace.row = 2; // user on the "high" section
+    // activeTrace is nullable for layerless subplots; this fixture has layers.
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      throw new Error('fixture subplot should have an active trace');
+    }
+    trace.isInitialEntry = false;
+    trace.row = 2; // user on the "high" section
 
     // Announce coordinates target the close section (row 4) — still focused.
     expect(isAppendedPointFocused(figure, createAppended({ layerIndex: 0, row: 4 }))).toBe(true);

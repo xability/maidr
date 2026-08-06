@@ -74,6 +74,22 @@ export class SubplotCue {
   }
 
   /**
+   * Announces that the focused subplot has no layers to enter, respecting the
+   * current text mode (OFF -> TextService returns null -> nothing is spoken).
+   * Plays no enter tone: nothing was entered, and a rising cue would signal a
+   * transition that did not happen.
+   * @param {number} index - 1-based visual position of the empty subplot.
+   * @param {number} size - Total number of subplots in the figure.
+   * @param {string} title - The subplot's authored title ('' when none).
+   */
+  public announceEmpty(index: number, size: number, title: string): void {
+    const message = this.textService.emptySubplotText(index, size, title);
+    if (message) {
+      this.notificationService.notify(message);
+    }
+  }
+
+  /**
    * Full "returned to the figure lobby" cue: plays the exit tone, then (in
    * TERSE/VERBOSE mode) announces the lobby position; in OFF mode only the tone
    * plays. The caller must run the navigation transition (exitSubplot) BEFORE
