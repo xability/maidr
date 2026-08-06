@@ -279,13 +279,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
   protected override get highlight(): HighlightState {
     if (this.highlightValues === null || this.row === this.barValues.length - 1) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     // Defensive check: ensure row and col exist in highlightValues
     const rowElements = this.highlightValues[this.row];
     if (!rowElements || !rowElements[this.col]) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     return {

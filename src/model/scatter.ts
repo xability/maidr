@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
@@ -272,7 +272,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     }
 
     // Normal row/col mode: braille not supported (return empty state)
-    return this.outOfBoundsState as BrailleState;
+    return this.outOfBoundsState;
   }
 
   protected get audio(): AudioState {
@@ -435,7 +435,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
       if (this.isInGridCellMode && this.cellSvgGroups.length > 0) {
         const elements = this.cellSvgGroups[this.cellPointIndex];
         if (!elements || elements.length === 0) {
-          return this.outOfBoundsState as HighlightState;
+          return this.outOfBoundsState;
         }
         return {
           empty: false,
@@ -445,7 +445,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
 
       // Grid cell overview - highlight all points in cell
       if (cell.svgElements.length === 0) {
-        return this.outOfBoundsState as HighlightState;
+        return this.outOfBoundsState;
       }
       return {
         empty: false,
@@ -454,14 +454,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
     }
 
     if (this.highlightValues === null) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     const elements = this.mode === NavMode.COL
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     return {
@@ -478,7 +478,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable {
    * Returns out-of-bounds state with correct position for grid mode panning.
    * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
    */
-  protected override get outOfBoundsState(): TraceState {
+  protected override get outOfBoundsState(): TraceEmptyState {
     // Use grid position when in grid mode for correct panning
     if (this.isInGridMode && this.gridCells) {
       return {
