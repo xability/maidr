@@ -1,8 +1,42 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { DescriptionStat, DescriptionState } from '@type/state';
+import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
+import { defaultFormat } from '@util/format';
+
+/**
+ * Rounds one cell or summary value for display.
+ *
+ * A non-finite number comes back as the number it is, so the dialog's own
+ * `isDisplayable` check can blank the cell. Handing back `defaultFormat`'s
+ * output instead would give it the literal text `"NaN"`, which that check
+ * blanks as a *number* but would happily print as a *string*.
+ *
+ * A cell holding several values — a box plot's outliers — is rounded value by
+ * value and joined, which is why traces hand those over as an array rather than
+ * a string they joined themselves. A non-finite entry is dropped instead of
+ * blanked: `join` would coerce it back into that same `"NaN"` text, and a
+ * joined cell has no way to hand a blank back for one entry of it.
+ *
+ * A string is already display text and `defaultFormat` returns it untouched.
+ *
+ * @param value - The value as the trace reported it.
+ * @returns The rounded value, a number when it is non-finite, or the joined
+ * and rounded entries when the cell holds several values.
+ */
+function roundCell(value: string | number | number[]): string | number {
+  if (Array.isArray(value)) {
+    return value
+      .filter(entry => Number.isFinite(entry))
+      .map(entry => defaultFormat(entry))
+      .join(', ');
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return value;
+  }
+  return defaultFormat(value);
+}
 
 /**
  * Service for managing the chart description modal.
@@ -21,7 +55,7 @@ export class DescriptionService {
    * Gets the description state from the currently active trace.
    * @returns The description state or null if no active trace
    */
-  public getDescription(): DescriptionState | null {
+  public getDescription(): DisplayDescriptionState | null {
     const active = this.context.active;
     if (active instanceof AbstractTrace) {
       const description = active.description;
@@ -37,6 +71,7 @@ export class DescriptionService {
       const subplots = this.context.getSubplotSummaries();
       return {
         ...description,
+        ...this.rounded(description),
         title,
         ...(subplots.length > 0 && { subplots }),
       };
@@ -66,6 +101,38 @@ export class DescriptionService {
   }
 
   /**
+   * Rounds the numbers a trace put in its description down to what a screen
+   * reader can reasonably speak.
+   *
+   * A trace reports the values it holds, and a computed one carries its full
+   * float: the box plot examples describe a whisker at `21.957700280519678`,
+   * which is seventeen digits to listen through for two digits of meaning. The
+   * same `defaultFormat` the announcements already use (see #727) is applied
+   * here, so the dialog and the spoken text agree on how a value reads.
+   *
+   * Only what the dialog shows is shortened, and only on the way out — the
+   * trace keeps its own numbers. Sonification, braille, and extrema read those
+   * directly and never pass through here.
+   *
+   * @param description - The description as the trace built it.
+   * @returns The stats and data table with their numbers rounded.
+   */
+  private rounded(
+    description: DescriptionState,
+  ): Pick<DisplayDescriptionState, 'stats' | 'dataTable'> {
+    return {
+      stats: description.stats.map(stat => ({
+        ...stat,
+        value: roundCell(stat.value),
+      })),
+      dataTable: {
+        headers: description.dataTable.headers,
+        rows: description.dataTable.rows.map(row => row.map(roundCell)),
+      },
+    };
+  }
+
+  /**
    * Builds a figure-level description for a multi-panel figure's lobby view.
    * Surfaces the authored figure title, subplot count, any authored
    * subtitle/caption, and the authored figure-wide axes (e.g. a facet grid's
@@ -77,7 +144,7 @@ export class DescriptionService {
    * @param size - The number of subplots in the figure.
    * @returns The figure-level description state.
    */
-  private getFigureDescription(size: number): DescriptionState {
+  private getFigureDescription(size: number): DisplayDescriptionState {
     const figureTitle = this.context.figureTitle;
     const title = this.context.isAuthoredTitle(figureTitle) ? figureTitle : '';
 

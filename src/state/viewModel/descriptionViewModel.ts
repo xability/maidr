@@ -1,6 +1,6 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { DescriptionService } from '@service/description';
-import type { DescriptionState } from '@type/state';
+import type { DisplayDescriptionState } from '@type/state';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
@@ -9,7 +9,7 @@ import { AbstractViewModel } from './viewModel';
  * State interface for the chart description modal.
  */
 export interface DescriptionMenuState {
-  data: DescriptionState | null;
+  data: DisplayDescriptionState | null;
 }
 
 const initialState: DescriptionMenuState = {
@@ -20,7 +20,7 @@ const descriptionSlice = createSlice({
   name: 'description',
   initialState,
   reducers: {
-    setDescription(state, action: PayloadAction<DescriptionState | null>): void {
+    setDescription(state, action: PayloadAction<DisplayDescriptionState | null>): void {
       state.data = action.payload;
     },
     reset(): DescriptionMenuState {

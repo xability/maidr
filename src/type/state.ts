@@ -392,10 +392,20 @@ export interface DescriptionState {
   };
   /** Chart-specific summary statistics */
   stats: DescriptionStat[];
-  /** Data table for raw data display */
+  /**
+   * Data table for raw data display.
+   *
+   * A cell holds a `number[]` when one row carries several numbers for a
+   * column — a box plot's outliers are the only case today. Traces hand those
+   * over unjoined so `DescriptionService` can round each one before joining
+   * them for display; a pre-joined string would arrive as opaque text. The
+   * array form is numeric on purpose: a column of several *strings* has no
+   * caller, and widening it would mean rounding logic for a shape nothing
+   * produces.
+   */
   dataTable: {
     headers: string[];
-    rows: (string | number)[][];
+    rows: (string | number | number[])[][];
   };
   /**
    * List of all subplots in the figure, populated only when the figure has
@@ -403,6 +413,21 @@ export interface DescriptionState {
    * without having to navigate through them.
    */
   subplots?: SubplotSummary[];
+}
+
+/**
+ * A description whose values have been rounded for display — what
+ * `DescriptionService` hands the ViewModel, and what the dialog renders.
+ *
+ * The one difference from {@link DescriptionState} is the cell type: a
+ * multi-value cell has been rounded value by value and joined by the time it
+ * gets here, so the view never has to deal with an array.
+ */
+export interface DisplayDescriptionState extends Omit<DescriptionState, 'dataTable'> {
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
 }
 
 /**

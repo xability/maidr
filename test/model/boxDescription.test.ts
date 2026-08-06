@@ -149,11 +149,11 @@ describe('boxTrace description data table', () => {
       'Maximum',
       'Upper outlier(s)',
     ]);
+    // Outlier cells travel as arrays; DescriptionService rounds each value and
+    // joins them, and a group with no outliers ends up a blank cell.
     expect(rows).toEqual([
-      ['A', '-2, 0', 5, 10, 15, 20, 25, '31'],
-      // A group with no outliers leaves the cell blank rather than showing an
-      // empty list.
-      ['B', '', 1, 4, 6, 8, 12, ''],
+      ['A', [-2, 0], 5, 10, 15, 20, 25, [31]],
+      ['B', [], 1, 4, 6, 8, 12, []],
     ]);
   });
 
@@ -167,8 +167,8 @@ describe('boxTrace description data table', () => {
     // A horizontal box plot reverses its groups so navigation starts at the
     // lower-left box; the table follows that same order.
     expect(rows).toEqual([
-      ['B', '-1', 1, 4, 6, 8, 12, ''],
-      ['A', '', 5, 10, 15, 20, 25, '30'],
+      ['B', [-1], 1, 4, 6, 8, 12, []],
+      ['A', [], 5, 10, 15, 20, 25, [30]],
     ]);
   });
 });

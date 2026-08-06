@@ -164,14 +164,11 @@ export class ViolinBoxTrace extends AbstractTrace {
     const headers = ['Group', ...this.sections];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
-    const rows: (string | number)[][] = this.points.map((point, pointIdx) => {
+    const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
         const value = isHorizontal
           ? this.boxValues[pointIdx]?.[sectionIdx]
           : this.boxValues[sectionIdx]?.[pointIdx];
-        if (Array.isArray(value)) {
-          return value.join(', ');
-        }
         return value ?? '';
       });
       return [point.z, ...sectionValues];

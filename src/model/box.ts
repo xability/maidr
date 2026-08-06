@@ -142,16 +142,13 @@ export class BoxTrace extends AbstractTrace {
     const headers = ['Group', ...this.sections];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
-    const rows: (string | number)[][] = this.points.map((point, pointIdx) => {
+    const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
         const value = isHorizontal
           ? this.boxValues[pointIdx]?.[sectionIdx]
           : this.boxValues[sectionIdx]?.[pointIdx];
-        // Outlier sections hold an array of values; a group with none renders
-        // as a blank cell rather than an empty-looking `[]`.
-        if (Array.isArray(value)) {
-          return value.join(', ');
-        }
+        // Outlier sections hold an array, which travels on unjoined so the
+        // description service can round each value before joining them.
         return value ?? '';
       });
       return [point.z, ...sectionValues];
