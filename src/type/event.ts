@@ -67,6 +67,38 @@ export enum Scope {
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
 
 /**
+ * Scopes the user opens on top of the chart and dismisses with Escape, as
+ * opposed to the scopes they navigate the data in. Entering one is a mode
+ * toggle: the plot instruction is not re-announced on the way back out.
+ */
+export const MODAL_SCOPES: ReadonlySet<Focus> = new Set<Focus>([
+  Scope.BRAILLE,
+  Scope.CANDLESTICK_DELTA_SETTINGS,
+  Scope.CHAT,
+  Scope.COMMAND_PALETTE,
+  Scope.DESCRIPTION,
+  Scope.GO_TO_EXTREMA,
+  Scope.HELP,
+  Scope.REVIEW,
+  Scope.SETTINGS,
+]);
+
+/**
+ * The modal scopes that render as a dialog overlaying the chart, derived from
+ * {@link MODAL_SCOPES} so a scope cannot be added to one list and forgotten in
+ * the other.
+ *
+ * `BRAILLE` and `REVIEW` are the two exclusions: they render as an inline text
+ * field beside the chart rather than as an overlay, so anything that describes
+ * a dialog — the open/close audio cue, for one — would misdescribe them.
+ */
+export const DIALOG_SCOPES: ReadonlySet<Focus> = new Set<Focus>(
+  Array.from(MODAL_SCOPES).filter(
+    scope => scope !== Scope.BRAILLE && scope !== Scope.REVIEW,
+  ),
+);
+
+/**
  * Type representing valid keyboard shortcut keys for a given scope.
  */
 export type Keys = keyof Keymap[Scope];

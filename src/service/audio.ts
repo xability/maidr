@@ -906,17 +906,19 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Plays the "menu open" cue — a short rising two-note tick — when the Go-To
-   * modal opens. A navigational affordance, so it plays in any audio mode
-   * except OFF (mirroring playWarningToneIfEnabled).
+   * Plays the "menu open" cue — a short rising two-note tick — when a dialog
+   * opens: Go To Extrema, help, settings, chat, the chart description, the
+   * command palette, or the candlestick reference picker all share it. A
+   * navigational affordance, so it plays in any audio mode except OFF
+   * (mirroring playWarningToneIfEnabled).
    */
   public playMenuOpenTone(): void {
     this.playMenuTone(MENU_OPEN_FREQUENCIES);
   }
 
   /**
-   * Plays the "menu close" cue — a short falling two-note tick — when the Go-To
-   * modal is dismissed. Plays in any audio mode except OFF.
+   * Plays the "menu close" cue — a short falling two-note tick — when a dialog
+   * is dismissed. Plays in any audio mode except OFF.
    */
   public playMenuCloseTone(): void {
     this.playMenuTone(MENU_CLOSE_FREQUENCIES);

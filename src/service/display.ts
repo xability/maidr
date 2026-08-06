@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
-import { Emitter, Scope } from '@type/event';
+import { Emitter, MODAL_SCOPES, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 
@@ -197,16 +197,7 @@ export class DisplayService implements Disposable {
    */
   public toggleFocus(focus: Focus): void {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
-    this.isReturningFromModeToggle
-      = focus === 'BRAILLE'
-        || focus === 'REVIEW'
-        || focus === 'GO_TO_EXTREMA'
-        || focus === 'COMMAND_PALETTE'
-        || focus === 'DESCRIPTION'
-        || focus === 'SETTINGS'
-        || focus === 'CHAT'
-        || focus === 'HELP'
-        || focus === 'CANDLESTICK_DELTA_SETTINGS';
+    this.isReturningFromModeToggle = MODAL_SCOPES.has(focus);
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {

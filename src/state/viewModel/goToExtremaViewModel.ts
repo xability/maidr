@@ -1,5 +1,4 @@
 import type { Context } from '@model/context';
-import type { AudioService } from '@service/audio';
 import type { FormatterService } from '@service/formatter';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { AppStore } from '@state/store';
@@ -75,20 +74,17 @@ const { show, hide, updateSelectedIndex } = goToExtremaSlice.actions;
 export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly context: Context;
-  private readonly audioService: AudioService;
   private readonly formatter?: FormatterService;
 
   public constructor(
     store: AppStore,
     goToExtremaService: GoToExtremaService,
     context: Context,
-    audioService: AudioService,
     formatter?: FormatterService,
   ) {
     super(store);
     this.goToExtremaService = goToExtremaService;
     this.context = context;
-    this.audioService = audioService;
     this.formatter = formatter;
   }
 
@@ -123,25 +119,19 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       // Store the targets and description in the state
       this.store.dispatch(show({ targets: formattedTargets, description }));
 
-      // Then change scope to show the modal
+      // Then change scope to show the modal. The scope change is what plays
+      // the shared "menu open" cue, from DisplayViewModel.
       this.goToExtremaService.toggle(state);
-
-      // Play the "menu open" cue now that the modal is actually shown.
-      this.audioService.playMenuOpenTone();
     }
   }
 
   public hide(): void {
     this.store.dispatch(hide());
 
-    // Return scope to TRACE so plot navigation works again
+    // Return scope to TRACE so plot navigation works again. Leaving the
+    // GO_TO_EXTREMA scope is what plays the shared "menu close" cue, from
+    // DisplayViewModel, so every dismissal path sounds it exactly once.
     this.goToExtremaService.returnToTraceScope();
-
-    // Play the "menu close" cue. Every user-initiated dismissal (backdrop, X
-    // button, Esc, re-pressing G, selecting a target/option) funnels through
-    // this method, so the cue fires exactly once per close. dispose() dispatches
-    // the hide action directly (not via this method), so focus-out is silent.
-    this.audioService.playMenuCloseTone();
   }
 
   public get activeContext(): Context {
