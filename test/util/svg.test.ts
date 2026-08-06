@@ -17,6 +17,7 @@
  * throws.
  */
 
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import { Svg } from '@util/svg';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -75,8 +76,21 @@ describe('svg selector guards', () => {
       expect(Svg.selectElement(value)).toBeNull();
     });
 
+    it('returns null when a well-formed selector matches nothing', () => {
+      // `null`, not `undefined`: the declared return type is `T | null`, and
+      // the clone path used to fall through to an undefined clone.
+      expect(Svg.selectElement('#absent > rect')).toBeNull();
+      expect(Svg.selectElement('#absent > rect', false)).toBeNull();
+    });
+
     it('still resolves a valid selector', () => {
       expect(Svg.selectElement('#bars > rect', false)).not.toBeNull();
+    });
+
+    it('marks the clone it inserts as MAIDR-owned', () => {
+      const clone = Svg.selectElement('#bars > rect');
+      expect(clone).not.toBeNull();
+      expect(Svg.isOwned(clone as SVGElement)).toBe(true);
     });
   });
 

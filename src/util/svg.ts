@@ -145,25 +145,25 @@ export abstract class Svg {
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query the element
    * @param shouldClone - Whether to clone the element and insert it as a hidden copy (default: true)
-   * @returns The selected (or cloned) SVG element, or null when the query is not a usable selector
+   * @returns The selected (or cloned) SVG element, or null when nothing matches or the query is not a usable selector
    */
-  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
+  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T | null {
     if (!this.isUsableSelector(query)) {
-      return null as unknown as T;
+      return null;
     }
 
     const element = document.querySelector<T>(query);
     if (!shouldClone) {
-      return element as T;
+      return element;
     }
 
-    const clone = element?.cloneNode(true) as T;
-    clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    if (clone) {
-      this.markOwned(clone);
+    if (!element) {
+      return null;
     }
 
-    element?.insertAdjacentElement(Constant.AFTER_END, clone);
+    const clone = this.markOwned(element.cloneNode(true) as T);
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
   }
 
