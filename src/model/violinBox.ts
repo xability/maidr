@@ -9,6 +9,7 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { extremeStat, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -157,8 +158,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
       { label: 'Sections', value: this.sections.join(', ') },
-      { label: 'Min', value: this.min },
-      { label: 'Max', value: this.max },
+      ...this.rangeStats(),
     ];
 
     const headers = ['Group', ...this.sections];
@@ -184,6 +184,42 @@ export class ViolinBoxTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Builds the range rows of the summary.
+   *
+   * Each violin carries its own ends, so a single chart-wide Min/Max pair reads
+   * as though a chart of several violins had one minimum and one maximum. Each
+   * extreme is instead attributed to the violin it came from, and the per-group
+   * breakdown is left to the data table below.
+   *
+   * Only sections the violin actually draws get a row. The minimum is always
+   * drawn, but the maximum rides on `showExtrema`, and naming a maximum the
+   * user cannot navigate to would describe a section that is not there.
+   *
+   * @returns The range rows, minus any whose section this violin omits.
+   */
+  private rangeStats(): DescriptionState['stats'] {
+    const stats = [
+      extremeStat(
+        this.points,
+        { single: 'Minimum', grouped: 'Lowest minimum' },
+        p => p.min,
+        isLower,
+      ),
+    ];
+
+    if (this.sections.includes(BoxplotSection.MAX)) {
+      stats.push(extremeStat(
+        this.points,
+        { single: 'Maximum', grouped: 'Highest maximum' },
+        p => p.max,
+        isHigher,
+      ));
+    }
+
+    return stats;
   }
 
   public override dispose(): void {
