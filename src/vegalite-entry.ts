@@ -1647,10 +1647,10 @@ export function bindVegaLite(
   const layers = collectLayers(maidr);
 
   // A schema with no usable layer at all is the converter's fallback for
-  // unsupported specs (a lone `{ layers: [] }` subplot). That shape
-  // crashes MAIDR core the moment the chart receives focus
-  // (`Subplot.activeTrace` on an empty traces array), so skip binding
-  // entirely — the chart still renders, it just isn't navigable.
+  // unsupported specs (a lone `{ layers: [] }` subplot). Core tolerates that
+  // shape now, but binding it would only give the user a figure that reports
+  // itself as empty on every keystroke, so skip binding entirely — the chart
+  // still renders, it just isn't navigable.
   if (layers.length === 0) {
     console.warn(
       '[maidr/vegalite] Spec produced no accessible layers; skipping MAIDR '

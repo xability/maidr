@@ -253,6 +253,12 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted figure description text
    */
   private formatFigureText(index: number, size: number, traceTypes: string[], subplotTitle: string): string {
+    // A subplot authored with an empty `layers` array contributes no trace
+    // types. Say the panel is empty instead of building "a multi-layered plot
+    // containing  plots" and inviting an ENTER that cannot do anything.
+    if (traceTypes.length === 0) {
+      return this.emptySubplotText(index, size, subplotTitle) ?? Constant.EMPTY;
+    }
     // Terse: keep lobby navigation quick to scan by reading back just the
     // focused subplot's own title (e.g. a facet label) — no "Subplot N"
     // framing. Only when the subplot has no authored title does it fall back
@@ -308,6 +314,33 @@ export class TextService implements Observer<PlotState>, Disposable {
     const titlePart = title ? `, ${title}` : '';
     const suffix = plotType ? `, ${plotType} plot` : '';
     return `Entered subplot ${index} of ${size}${titlePart}${suffix}.`;
+  }
+
+  /**
+   * Builds the wording for a subplot that has nothing to describe — one the
+   * producer authored with an empty `layers` array, which is legitimate for an
+   * unoccupied cell in a non-rectangular grid or a panel whose geom MAIDR does
+   * not support yet. Respects the current text mode:
+   *  - OFF: `null`;
+   *  - TERSE: "<title or Subplot N>, empty";
+   *  - VERBOSE: "Subplot 2 of 4 is empty, nothing to describe.".
+   *
+   * Shared by the lobby navigation text ({@link formatFigureText}) and the
+   * refused-entry cue, so both name the panel the same way.
+   * @param index - 1-based visual position of the subplot.
+   * @param size - Total number of subplots in the figure.
+   * @param title - The subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public emptySubplotText(index: number, size: number, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    if (this.mode === TextMode.TERSE) {
+      return `${this.terseSubplotLabel(index, title)}, empty`;
+    }
+    const titlePart = title ? `, ${title}` : '';
+    return `Subplot ${index} of ${size}${titlePart} is empty, nothing to describe.`;
   }
 
   /**

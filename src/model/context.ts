@@ -84,7 +84,14 @@ export class Context implements Disposable {
    */
   private isFigureLevel(figure: Figure): boolean {
     const figureState = figure.state;
-    return figureState.empty || figureState.size !== 1;
+    if (figureState.empty || figureState.size !== 1) {
+      return true;
+    }
+    // A lone subplot authored with an empty `layers` array reports the empty
+    // state variant: it has no trace to descend into. Keep such a figure at
+    // figure level so the stack never exposes a bare Subplot and the figure
+    // still describes itself instead of reaching for a trace that is not there.
+    return figureState.subplot.empty;
   }
 
   /**
@@ -95,8 +102,15 @@ export class Context implements Disposable {
    * @returns The instruction context element
    */
   private initializePlotContext(figure: Figure): Plot {
-    // Set the context to figure level.
-    if (this.isFigureLevel(figure)) {
+    // Read the trace only when the figure is not already figure level: a
+    // figure-level check must not touch the subplot (an empty figure state has
+    // no subplot to read).
+    const trace = this.isFigureLevel(figure) ? null : figure.activeSubplot.activeTrace;
+
+    // Set the context to figure level. A null trace lands here too: that is
+    // what isFigureLevel() already decides for a subplot with no layers, and
+    // repeating it narrows the trace to non-null below.
+    if (!trace) {
       this.plotContext.push(figure);
       this.scopeContext.push(Scope.SUBPLOT);
       return figure;
@@ -104,16 +118,17 @@ export class Context implements Disposable {
 
     // Set the context to subplot level.
     this.scopeContext.push(Scope.TRACE);
-    const subplotState = figure.activeSubplot.state;
+    const subplot = figure.activeSubplot;
+    const subplotState = subplot.state;
     if (subplotState.empty || subplotState.size !== 1) {
-      this.plotContext.push(figure.activeSubplot);
-      this.plotContext.push(figure.activeSubplot.activeTrace);
-      return figure.activeSubplot;
+      this.plotContext.push(subplot);
+      this.plotContext.push(trace);
+      return subplot;
     }
 
     // Set the context to trace level (single-layer plot)
-    this.plotContext.push(figure.activeSubplot.activeTrace);
-    return figure.activeSubplot.activeTrace;
+    this.plotContext.push(trace);
+    return trace;
   }
 
   /**
@@ -178,9 +193,11 @@ export class Context implements Disposable {
         subplotRow: subplot.row,
         subplotCol: subplot.col,
         subplotEntry: subplot.isInitialEntry,
-        traceRow: trace.row,
-        traceCol: trace.col,
-        traceEntry: trace.isInitialEntry,
+        // A layerless subplot has no trace cursor to capture; the figure and
+        // subplot positions are still worth preserving across the update.
+        traceRow: trace?.row ?? 0,
+        traceCol: trace?.col ?? 0,
+        traceEntry: trace?.isInitialEntry ?? true,
         shape: this.describeShape(figure),
       };
     } catch {
@@ -228,9 +245,17 @@ export class Context implements Disposable {
     const subplot = figure.activeSubplot;
     subplot.isInitialEntry = snapshot.subplotEntry;
     subplot.row = clamp(snapshot.subplotRow, subplot.traces.length - 1);
-    subplot.col = clamp(snapshot.subplotCol, subplot.traces[subplot.row].length - 1);
+    subplot.col = clamp(snapshot.subplotCol, (subplot.traces[subplot.row]?.length ?? 0) - 1);
 
     const trace = subplot.activeTrace;
+    if (!trace) {
+      // The rebuilt model's active subplot has no layers, so there is no trace
+      // to restore onto and no depth below the lobby to restore to. Park at
+      // figure level, which is where such a figure initializes anyway.
+      this.plotContext.push(figure);
+      return;
+    }
+
     if (!snapshot.traceEntry) {
       trace.isInitialEntry = false;
       this.restoreTracePosition(trace, snapshot, options);
@@ -285,14 +310,16 @@ export class Context implements Disposable {
    * choice made at construction time.
    */
   private resolveInstructionContext(figure: Figure): Plot {
-    if (this.isFigureLevel(figure)) {
+    const trace = this.isFigureLevel(figure) ? null : figure.activeSubplot.activeTrace;
+    if (!trace) {
       return figure;
     }
-    const subplotState = figure.activeSubplot.state;
+    const subplot = figure.activeSubplot;
+    const subplotState = subplot.state;
     if (subplotState.empty || subplotState.size !== 1) {
-      return figure.activeSubplot;
+      return subplot;
     }
-    return figure.activeSubplot.activeTrace;
+    return trace;
   }
 
   public dispose(): void {
@@ -561,16 +588,36 @@ export class Context implements Disposable {
     }
   }
 
-  public enterSubplot(): void {
+  /**
+   * Descends from the multi-panel lobby into the focused subplot, pushing the
+   * Subplot and its active Trace together so the stack never exposes a bare
+   * Subplot.
+   *
+   * @returns True when the subplot was entered; false when the active element
+   *   is not the figure, or the focused subplot has no layers to enter — the
+   *   caller then stays in the lobby and announces that the panel is empty.
+   */
+  public enterSubplot(): boolean {
     const activeState = this.active.state;
-    if (activeState.type === 'figure') {
-      const activeFigure = this.active as Figure;
-      this.plotContext.push(activeFigure.activeSubplot);
-      const trace = activeFigure.activeSubplot.activeTrace;
-      trace.resetToInitialEntry();
-      this.plotContext.push(trace);
-      this.toggleScope(Scope.TRACE);
+    if (activeState.type !== 'figure') {
+      return false;
     }
+
+    const activeFigure = this.active as Figure;
+    const subplot = activeFigure.activeSubplot;
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      // A subplot authored with an empty `layers` array has nothing to enter.
+      // Refusing keeps the user in the lobby with every other panel reachable,
+      // rather than pushing a Subplot with no Trace under it.
+      return false;
+    }
+
+    this.plotContext.push(subplot);
+    trace.resetToInitialEntry();
+    this.plotContext.push(trace);
+    this.toggleScope(Scope.TRACE);
+    return true;
   }
 
   public exitSubplot(): void {

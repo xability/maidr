@@ -278,3 +278,19 @@ export class ViolinPlotError extends Error {
     this.name = 'ViolinPlotError';
   }
 }
+
+/**
+ * Error thrown when operations on the empty-subplot regression fixture fail
+ */
+export class EmptySubplotError extends Error {
+  /**
+   * Creates a new EmptySubplotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'EmptySubplotError';
+  }
+}

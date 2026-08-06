@@ -96,8 +96,9 @@ describe('MoveToTraceContextCommand entry cue', () => {
       plotType: 'bar',
     } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = traceState;
+      return true;
     });
 
     const audioService = createMockAudioService();
@@ -126,11 +127,12 @@ describe('MoveToTraceContextCommand entry cue', () => {
       size: 3,
     } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: true,
       } as unknown as PlotState;
+      return true;
     });
 
     const notificationService = createMockNotificationService();
@@ -154,12 +156,13 @@ describe('MoveToTraceContextCommand entry cue', () => {
       size: 4,
     } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: false,
         plotType: 'bar',
       } as unknown as PlotState;
+      return true;
     });
 
     const audioService = createMockAudioService();
@@ -182,12 +185,13 @@ describe('MoveToTraceContextCommand entry cue', () => {
   test('announces a terse entry message (no title) in terse mode', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: false,
         plotType: 'bar',
       } as unknown as PlotState;
+      return true;
     });
 
     const notificationService = createMockNotificationService();
@@ -208,13 +212,14 @@ describe('MoveToTraceContextCommand entry cue', () => {
   test('announces the subplot title in terse mode when the subplot has one', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: false,
         plotType: 'bar',
         title: 'Sales in North',
       } as unknown as PlotState;
+      return true;
     });
 
     const notificationService = createMockNotificationService();
@@ -234,13 +239,14 @@ describe('MoveToTraceContextCommand entry cue', () => {
   test('announces the full title in verbose mode when the subplot has one', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: false,
         plotType: 'bar',
         title: 'Sales in North',
       } as unknown as PlotState;
+      return true;
     });
 
     const notificationService = createMockNotificationService();
@@ -260,12 +266,13 @@ describe('MoveToTraceContextCommand entry cue', () => {
   test('plays the tone but announces nothing in OFF text mode', () => {
     const figureState = { type: 'figure', empty: false, index: 2, size: 4 } as unknown as PlotState;
     const context = { state: figureState, isAuthoredTitle } as unknown as Context;
-    (context as { enterSubplot: () => void }).enterSubplot = jest.fn(() => {
+    (context as { enterSubplot: () => boolean }).enterSubplot = jest.fn(() => {
       (context as { state: PlotState }).state = {
         type: 'trace',
         empty: false,
         plotType: 'bar',
       } as unknown as PlotState;
+      return true;
     });
 
     const audioService = createMockAudioService();
