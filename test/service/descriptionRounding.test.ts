@@ -108,6 +108,22 @@ describe('descriptionService value rounding', () => {
     expect(cells[7]).toBe('156.38');
   });
 
+  test('drops a non-finite outlier instead of joining the text "NaN" in', () => {
+    const description = describeTrace(
+      boxTrace(
+        { min: 5, q1: 10, q2: 15, q3: 20, max: 25 },
+        { lower: [-2.5551, Number.NaN, -1], upper: [Number.NaN] },
+      ),
+    );
+
+    // `join` coerces a non-finite number back into the very text the scalar
+    // guard exists to avoid, and a joined cell cannot hand a blank back for
+    // one entry, so the entry goes.
+    const cells = row(description, 'A');
+    expect(cells[1]).toBe('-2.56, -1');
+    expect(cells[7]).toBe('');
+  });
+
   test('leaves an integer alone rather than padding it with decimals', () => {
     const description = describeTrace(boxTrace({
       min: 5,

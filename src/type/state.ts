@@ -395,10 +395,13 @@ export interface DescriptionState {
   /**
    * Data table for raw data display.
    *
-   * A cell holds an array when one row carries several values for a column —
-   * a box plot's outliers are the case. Traces hand the values over unjoined
-   * so `DescriptionService` can round each one before joining them for
-   * display; a pre-joined string would arrive as opaque text.
+   * A cell holds a `number[]` when one row carries several numbers for a
+   * column — a box plot's outliers are the only case today. Traces hand those
+   * over unjoined so `DescriptionService` can round each one before joining
+   * them for display; a pre-joined string would arrive as opaque text. The
+   * array form is numeric on purpose: a column of several *strings* has no
+   * caller, and widening it would mean rounding logic for a shape nothing
+   * produces.
    */
   dataTable: {
     headers: string[];

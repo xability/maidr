@@ -8,20 +8,29 @@ import { defaultFormat } from '@util/format';
 /**
  * Rounds one cell or summary value for display.
  *
+ * A non-finite number comes back as the number it is, so the dialog's own
+ * `isDisplayable` check can blank the cell. Handing back `defaultFormat`'s
+ * output instead would give it the literal text `"NaN"`, which that check
+ * blanks as a *number* but would happily print as a *string*.
+ *
  * A cell holding several values — a box plot's outliers — is rounded value by
  * value and joined, which is why traces hand those over as an array rather than
- * a string they joined themselves.
+ * a string they joined themselves. A non-finite entry is dropped instead of
+ * blanked: `join` would coerce it back into that same `"NaN"` text, and a
+ * joined cell has no way to hand a blank back for one entry of it.
  *
- * A non-finite number is left as the number it is. `defaultFormat` would turn
- * it into the literal text `"NaN"`, and the dialog's own `isDisplayable` check
- * blanks a non-finite *number* but would happily print that *string*.
+ * A string is already display text and `defaultFormat` returns it untouched.
  *
  * @param value - The value as the trace reported it.
- * @returns The value rounded for display, or unchanged if it is not a number.
+ * @returns The rounded value, a number when it is non-finite, or the joined
+ * and rounded entries when the cell holds several values.
  */
 function roundCell(value: string | number | number[]): string | number {
   if (Array.isArray(value)) {
-    return value.map(roundCell).join(', ');
+    return value
+      .filter(entry => Number.isFinite(entry))
+      .map(entry => defaultFormat(entry))
+      .join(', ');
   }
   if (typeof value === 'number' && !Number.isFinite(value)) {
     return value;
@@ -101,8 +110,9 @@ export class DescriptionService {
    * same `defaultFormat` the announcements already use (see #727) is applied
    * here, so the dialog and the spoken text agree on how a value reads.
    *
-   * Only the announcement is shortened. Sonification, braille, and extrema all
-   * read the trace's own numbers and never pass through here.
+   * Only what the dialog shows is shortened, and only on the way out — the
+   * trace keeps its own numbers. Sonification, braille, and extrema read those
+   * directly and never pass through here.
    *
    * @param description - The description as the trace built it.
    * @returns The stats and data table with their numbers rounded.
