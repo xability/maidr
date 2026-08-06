@@ -460,7 +460,9 @@ export function isAppendedPointFocused(
   if (activeSubplot.activeLayerIndex !== appended.layerIndex) {
     return false;
   }
-  if (appended.nested && activeSubplot.activeTrace.row !== appended.row) {
+  // A subplot with no layers has no active trace, and therefore no series the
+  // append could be landing on — optional chaining makes that read as unfocused.
+  if (appended.nested && activeSubplot.activeTrace?.row !== appended.row) {
     return false;
   }
   return true;

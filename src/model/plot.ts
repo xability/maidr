@@ -351,7 +351,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   protected get dimension(): Dimension {
     return {
       rows: this.values.length,
-      cols: this.values[this.row].length,
+      // Optional index: a subplot authored with an empty `layers` array has
+      // no rows at all, so there is no row length to read.
+      cols: this.values[this.row]?.length ?? 0,
     };
   }
 
@@ -444,11 +446,19 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
-   * Gets the currently active trace based on row and column position
-   * @returns The active trace
+   * Gets the currently active trace based on row and column position.
+   *
+   * Nullable because a subplot is allowed to have no layers at all: producers
+   * legitimately emit `layers: []` for an unoccupied grid cell in a
+   * non-rectangular layout, or for a panel whose geom MAIDR does not support
+   * yet. Callers must treat `null` as "this panel has nothing to describe"
+   * rather than assume a trace is always there — before this was nullable, an
+   * empty `layers` array threw here during figure construction and left the
+   * whole figure inert.
+   * @returns The active trace, or `null` when the subplot has no layers.
    */
-  public get activeTrace(): Trace {
-    return this.traces[this.row][this.col];
+  public get activeTrace(): Trace | null {
+    return this.traces[this.row]?.[this.col] ?? null;
   }
 
   /**
@@ -481,12 +491,21 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   public get state(): SubplotState {
+    const trace = this.activeTrace;
+    // A subplot with no layers has no trace state to report. Fall through to
+    // the empty variant the state union already defines, so `Context` and the
+    // observing services take their existing "nothing to describe" branches
+    // instead of walking into a trace that does not exist.
+    if (trace === null) {
+      return this.outOfBoundsState;
+    }
+
     return {
       empty: false,
       type: 'subplot',
       size: this.size,
       index: this.row + 1,
-      trace: this.activeTrace.state,
+      trace: trace.state,
       highlight: this.highlight,
     };
   }
@@ -507,7 +526,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
           y: this.row,
           x: this.col,
           rows: this.values.length,
-          cols: this.values[this.row].length,
+          cols: this.values[this.row]?.length ?? 0,
         },
       };
     }

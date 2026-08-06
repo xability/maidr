@@ -46,6 +46,12 @@ export class MovableGrid<Element> extends AbstractMovable {
   }
 
   public moveOnce(direction: MovableDirection): boolean {
+    // An element-less grid (e.g. a subplot authored with an empty `layers`
+    // array) has nowhere to move and no row to clamp against.
+    if (this.elements.length === 0) {
+      return false;
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       return true;
@@ -76,6 +82,10 @@ export class MovableGrid<Element> extends AbstractMovable {
   }
 
   public moveToExtreme(direction: MovableDirection): boolean {
+    if (this.elements.length === 0) {
+      return false;
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -127,7 +137,8 @@ export class MovableGrid<Element> extends AbstractMovable {
       case 'DOWNWARD':
         return this.row > 0;
       case 'FORWARD':
-        return this.col < this.elements[this.row].length - 1;
+        // Optional index: an element-less grid has no row to measure.
+        return this.col < (this.elements[this.row]?.length ?? 0) - 1;
       case 'BACKWARD':
         return this.col > 0;
     }
