@@ -164,12 +164,11 @@ export class Controller implements Disposable {
       store,
       this.goToExtremaService,
       this.context,
-      this.audioService,
       this.formatterService,
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.descriptionViewModel = new DescriptionViewModel(store, this.descriptionService);
-    this.displayViewModel = new DisplayViewModel(store, this.displayService);
+    this.displayViewModel = new DisplayViewModel(store, this.displayService, this.audioService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 

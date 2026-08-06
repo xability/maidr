@@ -1,6 +1,6 @@
 /**
- * Tests for AudioService.playMenuOpenTone / playMenuCloseTone — the Go-To modal
- * open/close cues. Each cue is a short two-note arpeggio, so a successful cue
+ * Tests for AudioService.playMenuOpenTone / playMenuCloseTone — the shared
+ * dialog open/close cues. Each cue is a short two-note arpeggio, so a successful cue
  * creates exactly two oscillators. The cue must be silent when audio is OFF or
  * when the volume is 0. On a suspended AudioContext the cue is deferred behind
  * resume() and only the most recent deferred cue plays (last one wins); it is

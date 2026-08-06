@@ -4,11 +4,10 @@
  *    label x-axis formatted (matching the terse layer text) for every known
  *    layer, falling back to String(value) only with no formatter or no layer id.
  *  - moveToIndex(): Home/End index clamping.
- *  - the menu open/close audio cues fired on toggle()/hide()/selectCurrent(),
- *    and the silence on dispose().
+ *  - the scope transitions on toggle()/hide()/selectCurrent() that DisplayViewModel
+ *    turns into the menu open/close cues, and the silence on dispose().
  */
 import type { Context } from '@model/context';
-import type { AudioService } from '@service/audio';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { ExtremaTarget } from '@type/extrema';
 import type { AxisFormat } from '@type/grammar';
@@ -18,13 +17,6 @@ import { FormatterService } from '@service/formatter';
 import { createMaidrStore } from '@state/store';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { TraceType } from '@type/grammar';
-
-function createAudioStub(): AudioService {
-  return {
-    playMenuOpenTone: jest.fn(),
-    playMenuCloseTone: jest.fn(),
-  } as unknown as AudioService;
-}
 
 function createServiceStub(navigable: boolean = true): GoToExtremaService {
   return {
@@ -96,7 +88,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const trace = createTraceStub(['2019-11-03', '2019-11-04']);
     const context = createContextStub(trace, 'layer-1');
     const formatter = createFormatterStub({ '2019-11-03': 'Nov 3', '2019-11-04': 'Nov 4' });
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, formatter);
 
     expect(vm.getAvailableXValueOptions()).toEqual([
       { value: '2019-11-03', label: 'Nov 3' },
@@ -113,7 +105,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const trace = createTraceStub([57.14285714285714, 2, 3]);
     const context = createContextStub(trace, 'layer-1');
     const formatter = createRealFormatter();
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, formatter);
 
     expect(vm.getAvailableXValueOptions()).toEqual([
       { value: 57.14285714285714, label: '57.14' },
@@ -134,7 +126,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const formatter = {
       formatSingleValue: (v: number) => (v * 100) as unknown as string,
     } as unknown as FormatterService;
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, formatter);
 
     const options = vm.getAvailableXValueOptions();
     expect(options).toEqual([{ value: 5, label: '500' }, { value: 6, label: '600' }]);
@@ -145,7 +137,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const store = createMaidrStore();
     const trace = createTraceStub(['2019-11-03']);
     const context = createContextStub(trace, 'layer-1');
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub());
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context);
 
     expect(vm.getAvailableXValueOptions()).toEqual([{ value: '2019-11-03', label: '2019-11-03' }]);
   });
@@ -155,7 +147,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const trace = createTraceStub(['2019-11-03']);
     const context = createContextStub(trace, null); // empty trace state -> no layerId
     const formatter = createFormatterStub({ '2019-11-03': 'Nov 3' });
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub(), formatter);
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, formatter);
 
     expect(vm.getAvailableXValueOptions()).toEqual([{ value: '2019-11-03', label: '2019-11-03' }]);
   });
@@ -163,7 +155,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
   test('returns [] when the active trace does not support X-value navigation', () => {
     const store = createMaidrStore();
     const context = createContextStub({}, 'layer-1'); // active has no getAvailableXValues
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, createAudioStub());
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context);
 
     expect(vm.getAvailableXValueOptions()).toEqual([]);
   });
@@ -172,7 +164,7 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
 describe('GoToExtremaViewModel.moveToIndex', () => {
   function withTargets(count: number): { store: ReturnType<typeof createMaidrStore>; vm: GoToExtremaViewModel } {
     const store = createMaidrStore();
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'), createAudioStub());
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'));
     const targets = Array.from({ length: count }, (_, i) => ({ label: `t${i}` }));
     store.dispatch({ type: 'goToExtrema/show', payload: { targets, description: '' } });
     return { store, vm };
@@ -198,7 +190,7 @@ describe('GoToExtremaViewModel.moveToIndex', () => {
 
   test('is a no-op when there are no targets', () => {
     const store = createMaidrStore();
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'), createAudioStub());
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'));
     vm.moveToIndex(2);
     expect(store.getState().goToExtrema.selectedIndex).toBe(0); // unchanged initial
   });
@@ -220,7 +212,6 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
       store,
       createServiceStub(true),
       createContextStub(trace, 'layer-1'),
-      createAudioStub(),
       formatter,
     );
 
@@ -242,7 +233,6 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
       store,
       createServiceStub(true),
       createContextStub(trace, 'layer-1'),
-      createAudioStub(),
       formatter,
     );
 
@@ -264,7 +254,6 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
       store,
       createServiceStub(true),
       createContextStub(trace, 'layer-1'),
-      createAudioStub(),
       formatter,
     );
 
@@ -276,51 +265,65 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
   });
 });
 
-describe('GoToExtremaViewModel menu audio cues', () => {
-  test('toggle() plays the open cue once when the trace is extrema-navigable', () => {
+describe('GoToExtremaViewModel scope transitions (what drives the menu cues)', () => {
+  // The open/close cues now come from DisplayViewModel, keyed off the scope
+  // change, so what this view model owes them is the scope change itself on
+  // every path — and none on disposal, which is what keeps focus-out silent.
+  test('toggle() enters the modal scope when the trace is extrema-navigable', () => {
     const store = createMaidrStore();
-    const audio = createAudioStub();
+    const service = createServiceStub(true);
     const trace = createTraceStub(['2019-11-03']);
-    const vm = new GoToExtremaViewModel(store, createServiceStub(true), createContextStub(trace, 'layer-1'), audio);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
 
     vm.toggle(TRACE_STATE);
 
-    expect(audio.playMenuOpenTone).toHaveBeenCalledTimes(1);
-    expect(audio.playMenuCloseTone).not.toHaveBeenCalled();
+    expect(service.toggle).toHaveBeenCalledTimes(1);
+    expect(service.returnToTraceScope).not.toHaveBeenCalled();
   });
 
-  test('hide() plays the close cue once', () => {
+  test('toggle() does not enter the modal scope when the trace is not navigable', () => {
     const store = createMaidrStore();
-    const audio = createAudioStub();
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'), audio);
+    const service = createServiceStub(false);
+    const trace = createTraceStub(['2019-11-03']);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
+
+    vm.toggle(TRACE_STATE);
+
+    expect(service.toggle).not.toHaveBeenCalled();
+  });
+
+  test('hide() leaves the modal scope once', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub();
+    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
 
     vm.hide();
 
-    expect(audio.playMenuCloseTone).toHaveBeenCalledTimes(1);
-    expect(audio.playMenuOpenTone).not.toHaveBeenCalled();
+    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
+    expect(service.toggle).not.toHaveBeenCalled();
   });
 
-  test('selectCurrent() closes the modal (plays the close cue) and navigates', () => {
+  test('selectCurrent() leaves the modal scope and navigates', () => {
     const store = createMaidrStore();
-    const audio = createAudioStub();
+    const service = createServiceStub(true);
     const trace = createTraceStub(['2019-11-03']);
-    const vm = new GoToExtremaViewModel(store, createServiceStub(true), createContextStub(trace, 'layer-1'), audio);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
     store.dispatch({ type: 'goToExtrema/show', payload: { targets: [{ label: 't0' }], description: '' } });
 
     vm.selectCurrent();
 
-    expect(audio.playMenuCloseTone).toHaveBeenCalledTimes(1);
+    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
     expect(trace.navigateToExtrema).toHaveBeenCalledTimes(1);
   });
 
-  test('dispose() does not play any cue (focus-out is silent)', () => {
+  test('dispose() does not change scope (focus-out is silent)', () => {
     const store = createMaidrStore();
-    const audio = createAudioStub();
-    const vm = new GoToExtremaViewModel(store, createServiceStub(), createContextStub({}, 'layer-1'), audio);
+    const service = createServiceStub();
+    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
 
     vm.dispose();
 
-    expect(audio.playMenuOpenTone).not.toHaveBeenCalled();
-    expect(audio.playMenuCloseTone).not.toHaveBeenCalled();
+    expect(service.toggle).not.toHaveBeenCalled();
+    expect(service.returnToTraceScope).not.toHaveBeenCalled();
   });
 });
