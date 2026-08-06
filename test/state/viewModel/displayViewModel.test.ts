@@ -13,7 +13,7 @@ import type { Focus } from '@type/event';
 import { describe, expect, jest, test } from '@jest/globals';
 import { createMaidrStore } from '@state/store';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
-import { Emitter, Scope } from '@type/event';
+import { DIALOG_SCOPES, Emitter, Scope } from '@type/event';
 
 function createAudioStub(): AudioService {
   return {
@@ -49,8 +49,14 @@ function setup(): {
   return { audio, focus, viewModel };
 }
 
-/** Every scope that renders as a dialog and so earns the shared cue. */
-const DIALOG_SCOPES: Focus[] = [
+/**
+ * Every scope that renders as a dialog and so earns the shared cue, spelled
+ * out rather than read from `DIALOG_SCOPES` so the cases below assert what the
+ * cue is *for* — importing the set under test would make them agree with it by
+ * construction. The first case ties the two together, so a scope added to one
+ * and not the other fails here rather than going uncovered.
+ */
+const EXPECTED_DIALOG_SCOPES: Focus[] = [
   Scope.CANDLESTICK_DELTA_SETTINGS,
   Scope.CHAT,
   Scope.COMMAND_PALETTE,
@@ -61,7 +67,11 @@ const DIALOG_SCOPES: Focus[] = [
 ];
 
 describe('DisplayViewModel dialog audio cues', () => {
-  test.each(DIALOG_SCOPES)('plays the open cue when %s becomes focused', (scope) => {
+  test('covers exactly the scopes the view model treats as dialogs', () => {
+    expect(Array.from(DIALOG_SCOPES).sort()).toEqual([...EXPECTED_DIALOG_SCOPES].sort());
+  });
+
+  test.each(EXPECTED_DIALOG_SCOPES)('plays the open cue when %s becomes focused', (scope) => {
     const { audio, focus } = setup();
 
     focus(Scope.TRACE);
@@ -71,7 +81,7 @@ describe('DisplayViewModel dialog audio cues', () => {
     expect(audio.playMenuCloseTone).not.toHaveBeenCalled();
   });
 
-  test.each(DIALOG_SCOPES)('plays the close cue when the focus leaves %s', (scope) => {
+  test.each(EXPECTED_DIALOG_SCOPES)('plays the close cue when the focus leaves %s', (scope) => {
     const { audio, focus } = setup();
 
     focus(Scope.TRACE);

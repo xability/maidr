@@ -5,28 +5,7 @@ import type { AppStore } from '@state/store';
 import type { Focus } from '@type/event';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
-import { Scope } from '@type/event';
-
-/**
- * Focus scopes that render as a dialog — a surface that overlays the chart,
- * traps the keyboard until dismissed, and closes with Escape. Entering one
- * plays the menu open cue and leaving it plays the menu close cue, so every
- * dialog sounds the same as the Go To Extrema modal that first had the cue.
- *
- * `BRAILLE` and `REVIEW` are deliberately absent: they render as an inline
- * text field next to the chart rather than as an overlay, so a dialog cue
- * would describe them wrongly. `CANDLESTICK_DELTA` is plot navigation, not a
- * dialog, and already has its own enter/exit arpeggio.
- */
-const DIALOG_SCOPES: ReadonlySet<Focus> = new Set<Focus>([
-  Scope.CANDLESTICK_DELTA_SETTINGS,
-  Scope.CHAT,
-  Scope.COMMAND_PALETTE,
-  Scope.DESCRIPTION,
-  Scope.GO_TO_EXTREMA,
-  Scope.HELP,
-  Scope.SETTINGS,
-]);
+import { DIALOG_SCOPES } from '@type/event';
 
 /**
  * Represents the state of a tooltip UI element.
@@ -124,8 +103,13 @@ export class DisplayViewModel extends AbstractViewModel<DisplayState> {
   }
 
   /**
-   * Plays the shared dialog cue for a focus transition: the open cue when a
-   * dialog scope becomes focused, the close cue when the focus leaves one.
+   * Plays the shared dialog cue for a focus transition. The cue describes the
+   * scope being entered, so it is the open cue whenever a dialog scope takes
+   * focus, and the close cue only when the focus leaves a dialog for a scope
+   * that is not one. Moving straight from one dialog to another therefore
+   * sounds a single open cue rather than a close followed by an open; no
+   * shortcut reaches a second dialog from inside the first today, so that is a
+   * rule for the case rather than a description of one that occurs.
    *
    * Every dialog opens and closes by routing through
    * {@link DisplayService.toggleFocus}, so keying the cue off the focus
