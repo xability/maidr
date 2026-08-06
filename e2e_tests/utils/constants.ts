@@ -73,6 +73,7 @@ export abstract class TestConstants {
    * Keyboard key constants
    */
   static readonly TAB_KEY = 'Tab';
+  static readonly ENTER_KEY = 'Enter';
   static readonly LEFT_ARROW_KEY = 'ArrowLeft';
   static readonly RIGHT_ARROW_KEY = 'ArrowRight';
   static readonly UP_ARROW_KEY = 'ArrowUp';
