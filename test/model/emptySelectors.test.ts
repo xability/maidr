@@ -77,6 +77,13 @@ function createMaidr(): Maidr {
  */
 function highlightIsEmptyAfterMove(subplot: Subplot): boolean {
   const trace = subplot.activeTrace;
+  // `activeTrace` is nullable since #751 — a subplot authored with `layers: []`
+  // genuinely has no trace. Every fixture here authors one, so a null means the
+  // fixture is wrong rather than the behaviour under test.
+  if (!trace) {
+    throw new Error('fixture subplot should have an active trace');
+  }
+
   trace.moveOnce('FORWARD');
   trace.moveOnce('FORWARD');
 
