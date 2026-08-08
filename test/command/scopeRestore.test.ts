@@ -7,6 +7,7 @@ import { AnnounceXCommand } from '@command/describe';
 import { EnterGridCellCommand } from '@command/gridCell';
 import { MoveToSubplotContextCommand } from '@command/move';
 import { SubplotCue } from '@command/subplotCue';
+import { ExitLabelScopeCommand } from '@command/toggle';
 import { describe, expect, jest, test } from '@jest/globals';
 import { TextService } from '@service/text';
 import { Scope } from '@type/event';
@@ -20,6 +21,7 @@ function createMockContext(overrides: Record<string, unknown> = {}): Context {
   return {
     scope: Scope.TRACE,
     exitSubplot: jest.fn(),
+    toggleScope: jest.fn(),
     active: {},
     state: { type: 'trace', empty: false, xAxis: 'Month' },
     enterGridCell: jest.fn(() => true),
@@ -178,5 +180,55 @@ describe('EnterGridCellCommand', () => {
     new EnterGridCellCommand(context, notification).execute();
 
     expect(notification.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('exitLabelScopeCommand', () => {
+  function createExitCommand(scope: Scope): {
+    command: ExitLabelScopeCommand;
+    context: Context;
+    displayService: DisplayService;
+  } {
+    const context = createMockContext({ scope });
+    const displayService = createMockDisplayService();
+    return {
+      command: new ExitLabelScopeCommand(context, displayService),
+      context,
+      displayService,
+    };
+  }
+
+  test.each([Scope.TRACE_LABEL, Scope.FIGURE_LABEL])(
+    'returns to the scope on the focus stack when escaping %s',
+    (scope) => {
+      const { command, displayService } = createExitCommand(scope);
+
+      command.execute();
+
+      expect(displayService.exitLabelScope).toHaveBeenCalled();
+    },
+  );
+
+  test.each([Scope.TRACE, Scope.SUBPLOT, Scope.BRAILLE])(
+    'does nothing when escape arrives outside label mode (%s)',
+    (scope) => {
+      const { command, displayService } = createExitCommand(scope);
+
+      command.execute();
+
+      expect(displayService.exitLabelScope).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not hardcode a return scope, so braille mode is preserved', () => {
+    // Regression: the previous binding built ToggleScopeCommand(context, TRACE),
+    // dropping a braille reader into trace scope with the cursor still in the
+    // braille field. Exiting must defer to the focus stack instead.
+    const { command, context, displayService } = createExitCommand(Scope.TRACE_LABEL);
+
+    command.execute();
+
+    expect(displayService.exitLabelScope).toHaveBeenCalled();
+    expect(context.toggleScope).not.toHaveBeenCalled();
   });
 });
