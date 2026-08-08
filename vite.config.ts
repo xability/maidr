@@ -38,6 +38,14 @@ export default defineConfig({
   },
   define: {
     'process.env': {},
+    // Rolldown, which vite 8 bundles instead of rollup, only substitutes a
+    // `define` key when it matches the whole member expression. `process.env`
+    // alone therefore leaves `process.env.NODE_ENV` -- React's development
+    // guard -- untouched, and the bundle dies on load with "process is not
+    // defined" before MAIDR can attach to a chart. Rollup replaced the prefix
+    // and left `({}).NODE_ENV` behind, so spelling the full expression out
+    // keeps the value it has always had: `undefined`.
+    'process.env.NODE_ENV': 'undefined',
   },
   resolve: {
     alias: {
