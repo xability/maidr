@@ -82,6 +82,9 @@
     "dist",
     "!dist/**/*.map"
   ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "build": "node scripts/build.js",
     "build:preview": "npm run build && npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js",
