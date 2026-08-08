@@ -190,10 +190,10 @@ function dialogStructure(): {
     // React's `useId` produces ids containing characters a selector would have
     // to escape and there is nothing here to escape them with: this
     // environment exposes no `CSS` object at all, so `CSS.escape` is a
-    // ReferenceError rather than a missing method. It comes from the jsdom
-    // that `jest-environment-jsdom` bundles (20.x), not the `jsdom` in
-    // devDependencies (22.x) — those are separate installs on separate major
-    // lines, so check the nested one before assuming a DOM API is available.
+    // ReferenceError rather than a missing method. `jest-environment-jsdom`
+    // and the `jsdom` devDependency now resolve to one deduped install (26.x),
+    // so there is a single jsdom to reason about — it still ships no `CSS`,
+    // so keep checking before assuming a DOM API is available.
     idCarriers: labelledBy
       ? [...document.querySelectorAll('[id]')].filter(el => el.id === labelledBy).length
       : 0,
