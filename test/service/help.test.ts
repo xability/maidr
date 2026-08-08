@@ -80,6 +80,19 @@ describe('help menu generation', () => {
     expect(leaked).toEqual([]);
   });
 
+  it.each(HELP_SCOPES)('$scope lists each key once', ({ scope }) => {
+    // generateNestedScopeHelp drops a nested command by matching the keymap's
+    // property name against the parent's, so a shared command renamed in one
+    // keymap and not the other would start emitting a second row for the same
+    // key instead of failing anywhere.
+    const seen = new Set<string>();
+    const duplicated = menuFor(scope)
+      .map(item => item.key)
+      .filter(key => !seen.add(key));
+
+    expect(duplicated).toEqual([]);
+  });
+
   it('gives braille mode a menu of its own, not the trace menu', () => {
     const braille = menuFor(Scope.BRAILLE).map(item => item.key);
     const trace = menuFor(Scope.TRACE).map(item => item.key);
