@@ -37,9 +37,14 @@ relevant keymap.
 
 1. Create the class in `src/command/`.
 2. Add the `case` to `CommandFactory`.
-3. Bind the key in `SCOPED_KEYMAP` for **every** scope it applies to.
-4. Add an entry to `src/service/help.ts` — an undiscoverable shortcut does not
-   exist for the people who need it most.
+3. Bind the key in `SCOPED_KEYMAP` for **every** scope it applies to, giving
+   `key()` a description — an undiscoverable shortcut does not exist for the
+   people who need it most.
+
+The help menu is generated from those descriptions, so there is no second list
+to update. Pass `helpKey` when the raw hotkey reads badly (`ctrl+,` → `ctrl + ,`)
+and `showInHelp: false` for bindings that are plumbing rather than shortcuts a
+user would look up, such as a modal's own `Escape`.
 
 Watch for platform modifiers (Cmd vs Ctrl) and for keys already claimed by the
 browser or the screen reader.

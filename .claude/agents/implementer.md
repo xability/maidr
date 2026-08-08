@@ -49,8 +49,8 @@ observer, and dispose it in `Controller.dispose()`. Add a ViewModel in
 UI state.
 
 **New command** — class in `src/command/`; `case` in `CommandFactory`; binding
-in `SCOPED_KEYMAP` for every scope it applies to; entry in
-`src/service/help.ts`.
+in `SCOPED_KEYMAP` for every scope it applies to, with a description that
+`src/service/help.ts` turns into the help-menu entry.
 
 **New UI component** — in `src/ui/component/`, reading state through
 `useViewModelState(key)` and sending actions back through `useViewModel(key)`.
