@@ -8,32 +8,103 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  DescriptionState,
   HighlightState,
+  PointerGuidanceState,
   TextState,
+  TraceEmptyState,
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
 import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
+import { Constant } from '@util/constant';
+import { resolveOrientation } from '@util/orientation';
+import { Svg } from '@util/svg';
 
-const DEFAULT_SUBPLOT_TITLE = 'unavailable';
+export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
 
 const DEFAULT_X_AXIS = 'X';
 const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_FILL_AXIS = 'unavailable';
+const DEFAULT_Z_AXIS = 'Level';
+
+/**
+ * Maps internal TraceType identifiers to human-readable chart type labels
+ * for display in the chart description modal and other user-facing surfaces.
+ */
+const CHART_TYPE_LABEL: Record<TraceType, string> = {
+  [TraceType.BAR]: 'Bar Chart',
+  [TraceType.BOX]: 'Box Plot',
+  [TraceType.CANDLESTICK]: 'Candlestick Chart',
+  [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
+  [TraceType.DODGED]: 'Dodged Bar Chart',
+  [TraceType.HEATMAP]: 'Heatmap',
+  [TraceType.HISTOGRAM]: 'Histogram',
+  [TraceType.LINE]: 'Line Chart',
+  [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
+  [TraceType.SCATTER]: 'Scatter Plot',
+  [TraceType.SMOOTH]: 'Smooth Line Chart',
+  [TraceType.STACKED]: 'Stacked Bar Chart',
+  [TraceType.STEP]: 'Step Plot',
+  [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
+  [TraceType.VIOLIN_KDE]: 'Violin Plot',
+};
 
 export interface Dimension {
   rows: number;
   cols: number;
 }
 
+/**
+ * Display metadata for the rotor's two compare modes. `label` is the rotor
+ * unit name announced when cycling modes; `noun` is the phrase used in
+ * "No {noun} found ..." boundary messages.
+ */
+export interface CompareModeInfo {
+  lower: { label: string; noun: string };
+  higher: { label: string; noun: string };
+}
+
+/**
+ * Display metadata for a trace-specific rotor "filter" unit — a navigation
+ * mode that walks only the points matching some predicate (e.g. only bullish
+ * candlesticks). Unlike the two built-in compare units (lower/higher value),
+ * a trace can expose any number of filter units.
+ *
+ * - `key`: stable identifier the trace uses to recognise the unit when the
+ *   rotor asks it to move (see {@link AbstractTrace.moveToRotorFilter}).
+ * - `label`: the rotor unit name announced when cycling with Alt+Shift+Up/Down.
+ * - `noun`: the phrase used in "No {noun} found ..." boundary messages.
+ */
+export interface RotorFilterUnit {
+  key: string;
+  label: string;
+  noun: string;
+}
+
+export interface NearestPoint {
+  element: SVGElement;
+  row: number;
+  col: number;
+  centerX: number;
+  centerY: number;
+}
+
 export abstract class AbstractPlot<State> implements Movable, Observable<State>, Disposable {
   protected readonly observers: Observer<State>[];
   protected isWarning: boolean;
 
+  /**
+   * True while {@link AbstractTrace.getStateAt} computes state at a
+   * temporarily moved cursor. Enforces (structurally, not just by
+   * documentation) that state getters never notify observers.
+   */
+  protected isComputingStateAt: boolean;
+
   protected constructor() {
     this.observers = new Array<Observer<State>>();
     this.isWarning = false;
+    this.isComputingStateAt = false;
   }
   protected abstract get dimension(): Dimension;
 
@@ -53,14 +124,6 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 
   public set isInitialEntry(value: boolean) {
     this.movable.isInitialEntry = value;
-  }
-
-  public get isOutOfBounds(): boolean {
-    return this.movable.isOutOfBounds;
-  }
-
-  public set isOutOfBounds(value: boolean) {
-    this.movable.isOutOfBounds = value;
   }
 
   public get row(): number {
@@ -113,6 +176,11 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Notifies all registered observers with the current state.
    */
   public notifyStateUpdate(): void {
+    if (this.isComputingStateAt) {
+      throw new Error(
+        'notifyStateUpdate() fired during getStateAt(): state getters must stay side-effect free',
+      );
+    }
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
@@ -241,17 +309,51 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Moves the element to the specified (x, y) point.
-   *
-   * This base implementation is intentionally left empty. Subclasses should override
-   * this method to provide specific logic for moving to a point, such as updating
-   * highlight values or managing selection boxes.
-   *
-   * @param _x - The x-coordinate to move to.
-   * @param _y - The y-coordinate to move to.
+   * Returns true if this trace supports compare (lower/higher value) navigation.
+   * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
+   * currently have).
    */
-  public moveToPoint(_x: number, _y: number): void {
-    // implement basic stuff, assuming something like highlightValues that holds the points and boxes
+  public supportsCompareMode(): boolean {
+    return true;
+  }
+
+  /**
+   * Returns the display name for the default data navigation mode.
+   * Override to provide a trace-specific name (e.g., "ROW AND COLUMN NAVIGATION" for scatter).
+   */
+  public dataModeName(): string {
+    return Constant.DATA_MODE;
+  }
+
+  /**
+   * Returns the rotor's compare-mode labels and boundary-message nouns.
+   * Override to rename the two compare units for a trace-specific semantic
+   * (e.g., the candlestick delta layer uses "above line" / "below line").
+   */
+  public compareModeInfo(): CompareModeInfo {
+    return {
+      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
+      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+    };
+  }
+
+  /**
+   * Moves the active point to the (x, y) pointer location and returns
+   * directional guidance toward the nearest data geometry.
+   *
+   * Combines navigation and guidance into a single call so traces compute
+   * `findNearestPoint` only once per pointer event. Default returns null
+   * for non-trace contexts.
+   *
+   * @param _x - Screen-space x position of the pointer/finger
+   * @param _y - Screen-space y position of the pointer/finger
+   * @returns Guidance state, or null when unavailable
+   */
+  public moveToPointAndGetPointerGuidance(
+    _x: number,
+    _y: number,
+  ): PointerGuidanceState | null {
+    return null;
   }
 }
 
@@ -262,7 +364,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
-  protected readonly fill: string;
+  protected readonly z: string;
 
   protected readonly navigationService: NavigationService;
 
@@ -276,20 +378,29 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    this.xAxis = layer.axes?.x ?? DEFAULT_X_AXIS;
-    this.yAxis = layer.axes?.y ?? DEFAULT_Y_AXIS;
-    this.fill = layer.axes?.fill ?? DEFAULT_FILL_AXIS;
+    this.xAxis = layer.axes?.x?.label ?? DEFAULT_X_AXIS;
+    this.yAxis = layer.axes?.y?.label ?? DEFAULT_Y_AXIS;
+    this.z = layer.axes?.z?.label ?? DEFAULT_Z_AXIS;
   }
 
   /**
    * Cleans up trace resources including values and highlighted SVG elements.
+   *
+   * Only removes elements MAIDR created (hidden clones, synthetic markers);
+   * traces that highlight the chart's original live elements in place (e.g.
+   * heatmap cells, line dots) merely drop their references so the visible
+   * chart geometry survives focusout and live-data rebuilds.
    */
-  public dispose(): void {
+  public override dispose(): void {
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
         row.forEach((el) => {
           const elements = Array.isArray(el) ? el : [el];
-          elements.forEach(element => element.remove());
+          elements.forEach((element) => {
+            if (Svg.isOwned(element)) {
+              element.remove();
+            }
+          });
         }),
       );
       this.highlightValues.length = 0;
@@ -326,17 +437,34 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       title: this.title,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
-      fill: this.fill,
+      z: this.z,
       hasMultiPoints: this.hasMultiPoints,
       audio: this.audio,
       braille: this.braille,
       text: this.text,
       autoplay: this.autoplay,
       highlight: this.highlight,
+      // The effective orientation, not the declared one: a trace type that has
+      // an orientation is navigated as vertical when the JSON omits it, and
+      // the announcement has to say so rather than stay silent.
+      orientation: resolveOrientation(this.type, this.layer.orientation),
     };
   }
 
-  protected get outOfBoundsState(): TraceState {
+  /**
+   * The state pushed to observers when navigation leaves the data.
+   *
+   * Declared as `TraceEmptyState` rather than the whole `TraceState` union
+   * because that is what every implementation actually returns — the accessor
+   * exists so {@link AbstractPlot.notifyOutOfBounds} has an empty state to
+   * push. Narrowing it here is what lets the braille and highlight callers
+   * hand the value straight on: those states accept the empty trace shape but
+   * not a populated one, so a wider declaration would force each of them to
+   * cast, and a cast is exactly what stops the compiler from noticing if an
+   * override ever starts returning a populated state.
+   * @returns The empty trace state, positioned for out-of-bounds audio panning.
+   */
+  protected get outOfBoundsState(): TraceEmptyState {
     return {
       empty: true,
       type: 'trace',
@@ -352,7 +480,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected get highlight(): HighlightState {
     if (this.highlightValues === null || this.isInitialEntry) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     return {
@@ -430,13 +558,52 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return {};
   }
 
-  private get autoplay(): AutoplayState {
+  protected get autoplay(): AutoplayState {
     return {
       UPWARD: this.dimension.rows,
       DOWNWARD: this.dimension.rows,
       FORWARD: this.dimension.cols,
       BACKWARD: this.dimension.cols,
     };
+  }
+
+  /**
+   * Computes the trace state at an arbitrary position without moving the
+   * user's cursor or notifying observers. Used by monitor mode to sonify
+   * and announce a newly appended point while the user stays put.
+   *
+   * The state getters read `this.row`/`this.col` internally, so the cursor
+   * is moved temporarily and always restored in a finally block — this
+   * method is the single owner of that pattern.
+   *
+   * Re-entrancy hazard: this is only safe because the entire call chain is
+   * synchronous (no await points), so timers (e.g. autoplay ticks) cannot
+   * interleave before the finally-restore, and state getters never notify
+   * observers. If a getter ever becomes async or triggers notifications,
+   * callers could observe the temporary cursor.
+   *
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  public getStateAt(row: number, col: number): TraceState {
+    const previous = {
+      row: this.row,
+      col: this.col,
+      isInitialEntry: this.isInitialEntry,
+    };
+    this.isComputingStateAt = true;
+    try {
+      this.isInitialEntry = false;
+      this.row = row;
+      this.col = col;
+      return this.state;
+    } finally {
+      this.isComputingStateAt = false;
+      this.row = previous.row;
+      this.col = previous.col;
+      this.isInitialEntry = previous.isInitialEntry;
+    }
   }
 
   public resetToInitialEntry(): void {
@@ -455,7 +622,32 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected abstract get text(): TextState;
 
-  protected abstract get dimension(): Dimension;
+  public abstract get description(): DescriptionState;
+
+  /**
+   * Returns a human-readable label for this trace's chart type
+   * (e.g., 'Bar Chart', 'Scatter Plot') for display in the description modal.
+   * Falls back to the raw layer type if no mapping is registered.
+   */
+  protected getChartTypeLabel(): string {
+    return CHART_TYPE_LABEL[this.layer.type] ?? this.layer.type;
+  }
+
+  /**
+   * Builds the axes object for the description state, including z only when
+   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * instead of constructing the axes object inline so charts without a real
+   * z dimension don't surface the placeholder default.
+   */
+  protected getDescriptionAxes(): DescriptionState['axes'] {
+    return {
+      x: this.xAxis,
+      y: this.yAxis,
+      ...(this.layer.axes?.z?.label && { z: this.z }),
+    };
+  }
+
+  protected abstract override get dimension(): Dimension;
 
   protected abstract get highlightValues():
     | (SVGElement[] | SVGElement)[][]
@@ -486,7 +678,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Common post-navigation cleanup that should be called by subclasses
    * after they update their internal state
    */
-  protected finalizeExtremaNavigation(): void {
+  protected finalizeNavigation(): void {
     // Ensure we're not in initial entry state after navigation
     if (this.isInitialEntry) {
       this.isInitialEntry = false;
@@ -497,6 +689,75 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
     // Notify observers of state change
     this.notifyStateUpdate();
+  }
+
+  /**
+   * Returns true if this trace supports intersection navigation mode.
+   * Opt-in per trace type: override to return true (possibly conditionally,
+   * e.g. based on data shape) for trace types that expose point intersections
+   * between series. Intersection navigation is a trace-level capability — it
+   * has no meaning at the figure or subplot level, which is why it lives on
+   * AbstractTrace rather than AbstractPlot.
+   */
+  public supportsIntersectionMode(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the next point intersection (right arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToNextIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Move to the previous point intersection (left arrow in intersection rotor mode).
+   * Default is a no-op returning false; subclasses that advertise
+   * {@link supportsIntersectionMode} must override to provide real behavior.
+   */
+  public moveToPrevIntersection(): boolean {
+    return false;
+  }
+
+  /**
+   * Trace-specific rotor filter units appended to the rotor cycle after the
+   * built-in data/compare/grid/intersection modes. Each unit restricts
+   * navigation to points matching a predicate (e.g. only bullish candles).
+   * Default: none. Override to opt in (e.g. {@link Candlestick} exposes
+   * bullish/bearish/neutral units). The returned list is treated as
+   * read-only by the rotor service.
+   */
+  public getRotorFilterUnits(): readonly RotorFilterUnit[] {
+    return [];
+  }
+
+  /**
+   * Moves within an active rotor filter unit along the filtered axis.
+   *
+   * Called by {@link RotorNavigationService} when the current rotor mode is
+   * one of this trace's {@link getRotorFilterUnits}. Filter units navigate a
+   * single axis, so only `left`/`right` are dispatched here — the service
+   * announces `up`/`down` as unavailable without calling the model (matching
+   * intersection mode). Implementations should move to the nearest point
+   * matching the unit identified by `key` and notify observers, returning
+   * true; when no such point exists they should call {@link notifyRotorBounds}
+   * and return false.
+   *
+   * Default is a no-op that reports bounds, so a trace advertising a filter
+   * unit but forgetting to implement movement fails safe (announces "no
+   * point found") rather than moving unexpectedly.
+   * @param _key - The {@link RotorFilterUnit.key} of the active unit
+   * @param _direction - The direction to search
+   * @returns True if the cursor moved, false otherwise
+   */
+  public moveToRotorFilter(
+    _key: string,
+    _direction: 'left' | 'right',
+  ): boolean {
+    this.notifyRotorBounds();
+    return false;
   }
 
   /**
@@ -636,27 +897,93 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return this.id;
   }
 
+  /**
+   * The trace's chart type. Lightweight alternative to reading
+   * `state.traceType`, which eagerly computes the full audio/braille/text/
+   * highlight state just to expose this one string.
+   */
+  public get traceType(): TraceType {
+    return this.type;
+  }
+
   protected abstract findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null;
+  ): NearestPoint | null;
 
   /**
-   * Moves to the nearest point at the specified coordinates (used for hover functionality).
-   * @param x - The x-coordinate
-   * @param y - The y-coordinate
+   * Moves the active point to the pointer location and returns directional
+   * guidance toward the nearest data geometry in a single call.
+   *
+   * Combining both operations avoids running `findNearestPoint` twice per
+   * `pointermove` event — important on dense plots where the scan is the
+   * hot path.
+   *
+   * @param x - Screen-space x position of the pointer/finger
+   * @param y - Screen-space y position of the pointer/finger
+   * @returns Guidance state relative to nearest point, or null when unavailable
    */
-  public moveToPoint(x: number, y: number): void {
+  public override moveToPointAndGetPointerGuidance(
+    x: number,
+    y: number,
+  ): PointerGuidanceState | null {
     const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
+    if (!nearest) {
+      return null;
     }
+
+    const onCurve = this.isPointInBounds(x, y, nearest);
+    this.moveToNearest(x, y, nearest, onCurve);
+
+    if (onCurve) {
+      return { onCurve: true };
+    }
+
+    // Fields describe where the curve center sits relative to the cursor.
+    // Screen-space: y grows downward, so a smaller y is higher on screen —
+    // `y < centerY` puts the curve center below the cursor. The vertical
+    // tie-break collapses to 'above'; at single-pixel precision the user
+    // can't perceive the difference, and forcing strict inequality avoids
+    // a third "centered" state that pitch mapping would need to handle.
+    // Horizontally we DO distinguish ties: heatmap centers are computed
+    // pixel integers users can hit exactly, and panning left at the moment
+    // the cursor crosses centerX would be a misleading directional cue.
+    return {
+      onCurve: false,
+      distancePx: Math.hypot(nearest.centerX - x, nearest.centerY - y),
+      curveVertical: y < nearest.centerY ? 'below' : 'above',
+      curveHorizontal: x === nearest.centerX
+        ? 'center'
+        : x < nearest.centerX ? 'right' : 'left',
+    };
+  }
+
+  /**
+   * Moves the trace to the nearest point when the pointer is within its
+   * bounds and the trace is not already focused on that point.
+   *
+   * `onCurve` is intentionally non-optional: the caller has already paid
+   * the cost of {@link isPointInBounds} to assemble guidance state, and
+   * forcing subclasses to accept the value makes the contract explicit so a
+   * future override cannot silently recompute (or worse, ignore) it.
+   *
+   * Subclasses override this to customise hover-driven navigation:
+   * - Box / ViolinBox no-op the move while still surfacing guidance.
+   * - Scatter switches into column navigation mode before delegating.
+   */
+  protected moveToNearest(
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
+    }
+    if (this.row === nearest.row && this.col === nearest.col) {
+      return;
+    }
+    this.moveToIndex(nearest.row, nearest.col);
   }
 
   /**
@@ -676,7 +1003,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       element,
       row: _row,
       col: _col,
-    }: { element: SVGElement; row: number; col: number },
+    }: NearestPoint,
   ): boolean {
     // check if x y is within r distance of the bounding box of the element
     const bbox = element.getBoundingClientRect();

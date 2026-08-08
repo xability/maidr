@@ -1,7 +1,8 @@
 import type { Message } from '@type/llm';
 import { AccountCircle } from '@mui/icons-material';
 import { Avatar, Box, Button, CircularProgress, Typography } from '@mui/material';
-import React from 'react';
+import { getModelDisplayName } from '@util/llm';
+import React, { memo } from 'react';
 import { ModelIcon } from './ModelIcon';
 import { ModelSelection } from './ModelSelection';
 import { TypingEffect } from './TypingEffect';
@@ -13,20 +14,7 @@ interface MessageBubbleProps {
   onTypingUpdate?: () => void;
 }
 
-function getModelDisplayName(model?: string): string {
-  switch (model) {
-    case 'OPENAI':
-      return 'OpenAI';
-    case 'ANTHROPIC_CLAUDE':
-      return 'Anthropic Claude';
-    case 'GOOGLE_GEMINI':
-      return 'Google Gemini';
-    default:
-      return 'AI Assistant';
-  }
-}
-
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled, _onOpenSettings, onTypingUpdate }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disabled, _onOpenSettings, onTypingUpdate }) => {
   const getLLMAvatar = (): React.ReactElement => {
     return message.isUser ? <AccountCircle /> : <ModelIcon model={message.model} />;
   };
@@ -81,7 +69,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
               {getModelDisplayName(message.model)}
             </Typography>
           )}
-          <TypingEffect text={message.text} isUser={message.isUser} onTypingUpdate={onTypingUpdate} />
+          <TypingEffect messageId={message.id} text={message.text} isUser={message.isUser} onTypingUpdate={onTypingUpdate} />
 
           {message.isWelcomeMessage && message.modelSelections && (
             <ModelSelection enabledModels={message.modelSelections} />
@@ -129,4 +117,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, disabled,
       </Box>
     </Box>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';

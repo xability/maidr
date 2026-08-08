@@ -18,6 +18,35 @@ export abstract class Svg {
   private static SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
   /**
+   * Attribute stamped on every element MAIDR creates (hidden clones, markers,
+   * overlay shapes). Distinguishes MAIDR-owned elements from the chart's own
+   * live geometry so disposal can remove the former without deleting the latter.
+   */
+  private static readonly OWNED_ATTRIBUTE = 'data-maidr-owned';
+
+  /**
+   * Marks an element as created (and therefore owned) by MAIDR.
+   * Public so trace code that clones or synthesizes highlight elements
+   * outside this utility can participate in ownership-aware disposal.
+   * @param element - The element to mark
+   * @returns The same element, for chaining
+   */
+  public static markOwned<T extends SVGElement>(element: T): T {
+    element.setAttribute(this.OWNED_ATTRIBUTE, 'true');
+    return element;
+  }
+
+  /**
+   * Returns true if the element was created by MAIDR (safe to remove on
+   * disposal). Original chart elements referenced for in-place highlighting
+   * are not owned and must never be removed.
+   * @param element - The element to check
+   */
+  public static isOwned(element: Element): boolean {
+    return element.hasAttribute(this.OWNED_ATTRIBUTE);
+  }
+
+  /**
    * Converts an SVG element to a Base64-encoded JPEG data URL.
    * @param svg - The SVG element to convert
    * @returns A promise resolving to the Base64 data URL, or empty string on error
@@ -66,13 +95,36 @@ export abstract class Svg {
   }
 
   /**
+   * Reports whether a value can be handed to `querySelector`/`querySelectorAll`.
+   *
+   * Selectors reach MAIDR through parsed JSON and are cast to `string` at the
+   * call site, so the declared type gives no runtime protection. A producer
+   * that resolves no elements for a layer emits `[]`, which is truthy — it
+   * passes every `if (!selector)` guard in the model layer and only fails once
+   * the DOM coerces it to `''` and throws `SyntaxError`. That exception escapes
+   * figure construction, so one unresolvable layer leaves the whole figure
+   * inert. Treating an unusable query as "matches nothing" keeps the failure
+   * local: that layer loses its highlight, every other layer still works.
+   *
+   * @param query - The value supplied as a CSS selector
+   * @returns True when the value is a non-empty selector string
+   */
+  private static isUsableSelector(query: unknown): query is string {
+    return typeof query === 'string' && query.trim() !== '';
+  }
+
+  /**
    * Selects all SVG elements matching a query and optionally clones them.
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query elements
    * @param shouldClone - Whether to clone elements and insert them as hidden copies (default: true)
-   * @returns Array of selected (or cloned) SVG elements
+   * @returns Array of selected (or cloned) SVG elements, empty when the query is not a usable selector
    */
   public static selectAllElements<T extends SVGElement>(query: string, shouldClone: boolean = true): T[] {
+    if (!this.isUsableSelector(query)) {
+      return [];
+    }
+
     return Array
       .from(document.querySelectorAll<T>(query))
       .map((element) => {
@@ -82,6 +134,7 @@ export abstract class Svg {
 
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+        this.markOwned(clone);
         element.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
@@ -92,19 +145,56 @@ export abstract class Svg {
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query the element
    * @param shouldClone - Whether to clone the element and insert it as a hidden copy (default: true)
-   * @returns The selected (or cloned) SVG element
+   * @returns The selected (or cloned) SVG element, or null when nothing matches or the query is not a usable selector
    */
-  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T {
-    const element = document.querySelector<T>(query);
-    if (!shouldClone) {
-      return element as T;
+  public static selectElement<T extends SVGElement>(query: string, shouldClone: boolean = true): T | null {
+    if (!this.isUsableSelector(query)) {
+      return null;
     }
 
-    const clone = element?.cloneNode(true) as T;
-    clone?.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    const element = document.querySelector<T>(query);
+    if (!shouldClone) {
+      return element;
+    }
 
-    element?.insertAdjacentElement(Constant.AFTER_END, clone);
+    if (!element) {
+      return null;
+    }
+
+    const clone = this.markOwned(element.cloneNode(true) as T);
+    clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
+  }
+
+  /**
+   * Select the Nth element matching a query, in document order.
+   *
+   * Useful when a single CSS selector matches multiple sibling elements
+   * (e.g. multi-series Vega-Lite line charts where each series renders as
+   * a separate `<g class="mark-line role-mark layer_0_marks">` group, all
+   * with the same class). CSS `:nth-child(N)` cannot address the Nth
+   * matching group when classes differ; this helper does it via JS.
+   *
+   * Always returns the live DOM element (no cloning side-effects), since
+   * the indexed-selection use case is for resolving live DOM nodes that
+   * downstream code (highlight pipeline, etc.) operates on directly.
+   *
+   * @template T - The type of SVG element to select
+   * @param query - CSS selector string
+   * @param n - Zero-based index into the query results
+   * @returns The Nth matching element, or null if no Nth match exists or the query is not a usable selector
+   */
+  public static selectNthElement<T extends SVGElement>(
+    query: string,
+    n: number,
+  ): T | null {
+    if (!this.isUsableSelector(query)) {
+      return null;
+    }
+
+    const all = document.querySelectorAll<T>(query);
+    return all[n] ?? null;
   }
 
   /**
@@ -117,7 +207,7 @@ export abstract class Svg {
     element.setAttribute(Constant.FILL, Constant.TRANSPARENT);
     element.setAttribute(Constant.STROKE, Constant.TRANSPARENT);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    return element;
+    return this.markOwned(element);
   }
 
   /**
@@ -141,13 +231,25 @@ export abstract class Svg {
     element.setAttribute(Constant.STROKE, color);
     element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
     element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(element);
 
-    parent.parentElement?.insertAdjacentElement(Constant.AFTER_END, element);
+    parent.parentElement?.appendChild(element);
     return element;
   }
 
   /**
+   * Minimum span (in SVG user units) used when getBBox() returns a
+   * zero-width or zero-height bounding box — e.g. a vertical `<path>`
+   * line drawn for the IQ range inside a violin plot.
+   */
+  private static readonly MIN_LINE_SPAN = 10;
+
+  /**
    * Creates a line element along a specified edge of an SVG element's bounding box.
+   *
+   * When the bounding box has zero width (vertical path) or zero height
+   * (horizontal path), a minimum span is used so the resulting line is visible.
+   *
    * @param box - The SVG element to create a line along
    * @param edge - The edge position ('top', 'bottom', 'left', or 'right')
    * @returns The newly created line element
@@ -155,19 +257,44 @@ export abstract class Svg {
   public static createLineElement(box: SVGElement, edge: Edge): SVGElement {
     const svg = box as SVGGraphicsElement;
     const bBox = svg.getBBox();
+
+    // Ensure non-zero dimensions so edge lines are always visible.
+    // A vertical <path> (width=0) needs a minimum width for top/bottom edges;
+    // a horizontal <path> (height=0) needs a minimum height for left/right edges.
+    const effectiveWidth = bBox.width || this.MIN_LINE_SPAN;
+    const effectiveHeight = bBox.height || this.MIN_LINE_SPAN;
+    const cx = bBox.x + bBox.width / 2;
+    const cy = bBox.y + bBox.height / 2;
+
     let x1: number, y1: number, x2: number, y2: number;
     switch (edge) {
       case 'top':
-        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
+        if (bBox.width === 0) {
+          [x1, y1, x2, y2] = [cx - effectiveWidth / 2, bBox.y, cx + effectiveWidth / 2, bBox.y];
+        } else {
+          [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
+        }
         break;
       case 'bottom':
-        [x1, y1, x2, y2] = [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
+        if (bBox.width === 0) {
+          [x1, y1, x2, y2] = [cx - effectiveWidth / 2, bBox.y + bBox.height, cx + effectiveWidth / 2, bBox.y + bBox.height];
+        } else {
+          [x1, y1, x2, y2] = [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
+        }
         break;
       case 'left':
-        [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
+        if (bBox.height === 0) {
+          [x1, y1, x2, y2] = [bBox.x, cy - effectiveHeight / 2, bBox.x, cy + effectiveHeight / 2];
+        } else {
+          [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
+        }
         break;
       case 'right':
-        [x1, y1, x2, y2] = [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
+        if (bBox.height === 0) {
+          [x1, y1, x2, y2] = [bBox.x + bBox.width, cy - effectiveHeight / 2, bBox.x + bBox.width, cy + effectiveHeight / 2];
+        } else {
+          [x1, y1, x2, y2] = [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
+        }
         break;
     }
 
@@ -180,6 +307,7 @@ export abstract class Svg {
     line.setAttribute(Constant.STROKE, style.stroke);
     line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
     line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(line);
 
     box.insertAdjacentElement(Constant.AFTER_END, line);
     return line;
@@ -214,12 +342,41 @@ export abstract class Svg {
 
   /**
    * Creates a highlighted clone of an SVG element with enhanced visibility.
+   *
+   * When the element has a zero-size bounding box (e.g. a single-point
+   * ``<path d="M x y">`` used for median markers in violin plots), a
+   * visible ``<circle>`` is created at that position instead.
+   *
    * @param element - The SVG element to highlight
    * @param fallbackColor - Color to use if original color cannot be determined
    * @returns The highlighted clone element
    */
   public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
-    const clone = element.cloneNode(true) as SVGElement;
+    // Handle zero-size elements (e.g. single-point <path> for median markers
+    // in violin plots). Create a circle marker instead of cloning.
+    try {
+      const bbox = (element as SVGGraphicsElement).getBBox();
+      if (bbox.width === 0 && bbox.height === 0) {
+        const style = window.getComputedStyle(element);
+        const strokeWidth = Number.parseFloat(style.strokeWidth || '2');
+        const radius = Math.max(strokeWidth * 1.5, 4);
+        const circle = document.createElementNS(this.SVG_NAMESPACE, 'circle') as SVGElement;
+        circle.setAttribute('cx', String(bbox.x));
+        circle.setAttribute('cy', String(bbox.y));
+        circle.setAttribute('r', String(radius));
+        circle.setAttribute(Constant.FILL, fallbackColor);
+        circle.setAttribute(Constant.STROKE, fallbackColor);
+        circle.setAttribute(Constant.STROKE_WIDTH, '2');
+        circle.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+        this.markOwned(circle);
+        element.insertAdjacentElement(Constant.AFTER_END, circle);
+        return circle;
+      }
+    } catch {
+      // getBBox may fail for elements not in the DOM; fall through to normal path.
+    }
+
+    const clone = this.markOwned(element.cloneNode(true) as SVGElement);
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
 
@@ -358,6 +515,15 @@ export abstract class Svg {
         }
       }
       const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+      // Stash the element's original stroke attributes before overwriting
+      // so removeSubplotHighlightSvg can restore them instead of stripping
+      // any pre-existing attribute-based border. Guard against re-saving on
+      // repeated highlight calls, which would otherwise capture the
+      // highlight values as the "original".
+      if (!bg.hasAttribute('data-maidr-orig-stroke')) {
+        bg.setAttribute('data-maidr-orig-stroke', bg.getAttribute('stroke') ?? '');
+        bg.setAttribute('data-maidr-orig-stroke-width', bg.getAttribute('stroke-width') ?? '');
+      }
       bg.setAttribute('stroke', highlightColor);
       bg.setAttribute('stroke-width', '4');
     }
@@ -369,9 +535,31 @@ export abstract class Svg {
    */
   public static removeSubplotHighlightSvg(group: SVGElement): void {
     const bg = group.querySelector('rect, path') as SVGElement | null;
-    if (bg) {
-      bg.removeAttribute('stroke');
-      bg.removeAttribute('stroke-width');
+    if (!bg) {
+      return;
+    }
+    // Restore the original stroke attributes saved when the highlight was
+    // applied. Only elements we highlighted carry the data- markers; for
+    // those, re-apply the saved value if one existed, otherwise remove the
+    // attribute we added. Elements we never highlighted are left untouched
+    // so their own attribute-based borders survive.
+    if (bg.hasAttribute('data-maidr-orig-stroke')) {
+      const origStroke = bg.getAttribute('data-maidr-orig-stroke') ?? '';
+      if (origStroke === '') {
+        bg.removeAttribute('stroke');
+      } else {
+        bg.setAttribute('stroke', origStroke);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke');
+    }
+    if (bg.hasAttribute('data-maidr-orig-stroke-width')) {
+      const origStrokeWidth = bg.getAttribute('data-maidr-orig-stroke-width') ?? '';
+      if (origStrokeWidth === '') {
+        bg.removeAttribute('stroke-width');
+      } else {
+        bg.setAttribute('stroke-width', origStrokeWidth);
+      }
+      bg.removeAttribute('data-maidr-orig-stroke-width');
     }
   }
 }

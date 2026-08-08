@@ -7,7 +7,10 @@
   "exclude": [
     "**/*.test.ts",
     "**/*.spec.ts",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "test-react-app/**",
+    "examples/**",
+    "_site/**"
   ],
   "name": "MAIDR Documentation",
   "includeVersion": true,

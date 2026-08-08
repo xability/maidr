@@ -10,7 +10,7 @@ import { Scope } from '@type/event';
 /**
  * Represents a single command item in the command palette.
  */
-interface CommandItem {
+export interface CommandItem {
   key: string;
   description: string;
   commandKey: Keys;
@@ -19,11 +19,30 @@ interface CommandItem {
 /**
  * Represents the state of the command palette interface.
  */
-interface CommandPaletteState {
+export interface CommandPaletteState {
   visible: boolean;
   commands: CommandItem[];
   selectedIndex: number;
   search: string;
+}
+
+/**
+ * Filters commands by the palette search text (matching description or key).
+ * Single source of truth shared by the view model's selection/execution logic
+ * and CommandPalette.tsx's rendered list, so the two can never diverge.
+ * @param commands - The full command list
+ * @param search - The current search text
+ * @returns The commands matching the search, or all commands when it is blank
+ */
+export function filterCommands(commands: CommandItem[], search: string): CommandItem[] {
+  if (!search.trim()) {
+    return commands;
+  }
+  const searchLower = search.toLowerCase();
+  return commands.filter(command =>
+    command.description.toLowerCase().includes(searchLower)
+    || command.key.toLowerCase().includes(searchLower),
+  );
 }
 
 const initialState: CommandPaletteState = {
@@ -62,10 +81,16 @@ const commandPaletteSlice = createSlice({
 const { show, hide, updateSelectedIndex, updateSearch } = commandPaletteSlice.actions;
 
 /**
+ * Callback type for executing commands.
+ */
+export type ExecuteCommandCallback = (commandKey: Keys) => void;
+
+/**
  * View model for managing command palette state and navigation.
  */
 export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteState> {
   private readonly commandPaletteService: CommandPaletteService;
+  private executeCommandCallback: ExecuteCommandCallback | null = null;
 
   /**
    * Creates a new CommandPaletteViewModel instance.
@@ -78,9 +103,18 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   }
 
   /**
+   * Sets the command execution callback.
+   * Called after CommandExecutor is created due to circular dependency.
+   * @param {ExecuteCommandCallback} callback - The callback to execute commands.
+   */
+  public setExecuteCommandCallback(callback: ExecuteCommandCallback): void {
+    this.executeCommandCallback = callback;
+  }
+
+  /**
    * Disposes the view model and hides the command palette.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }
@@ -114,9 +148,9 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
     const scopeKeymap = SCOPED_KEYMAP.TRACE; // Default to TRACE scope
     const commands = Object.entries(scopeKeymap)
       .filter(([commandKey]) => !commandKey.startsWith('ALLOW_'))
-      .map(([commandKey, key]) => ({
-        key,
-        description: this.toTitleCase(commandKey.replace(/_/g, ' ').toLowerCase()),
+      .map(([commandKey, entry]) => ({
+        key: entry.helpKey ?? entry.hotkey,
+        description: entry.description,
         commandKey: commandKey as Keys,
       }));
 
@@ -136,19 +170,66 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   }
 
   /**
+   * Executes a command and closes the palette.
+   * This is the single entry point for command execution from the palette.
+   * @param {Keys} commandKey - The command key to execute.
+   */
+  public executeAndClose(commandKey: Keys): void {
+    if (!this.executeCommandCallback) {
+      throw new Error('Command execution callback not set. Call setExecuteCommandCallback first.');
+    }
+
+    const callback = this.executeCommandCallback;
+
+    // Hide the palette first (returns to TRACE scope)
+    this.hide();
+
+    // Small delay to ensure scope has changed before executing
+    setTimeout(() => {
+      callback(commandKey);
+    }, 0);
+  }
+
+  /**
+   * Returns the commands currently visible in the palette after applying the
+   * active search filter. Mirrors the predicate used by CommandPalette.tsx so
+   * selection bounds and Enter-to-execute stay aligned with what is rendered.
+   * @returns {CommandItem[]} The filtered command list.
+   */
+  private getFilteredCommands(): CommandItem[] {
+    const { commands, search } = this.state;
+    return filterCommands(commands, search);
+  }
+
+  /**
+   * Selects and executes the currently highlighted command.
+   */
+  public selectCurrent(): void {
+    const filtered = this.getFilteredCommands();
+    const { selectedIndex } = this.state;
+
+    if (filtered.length > 0 && selectedIndex >= 0) {
+      const command = filtered[selectedIndex];
+      if (command) {
+        this.executeAndClose(command.commandKey);
+      }
+    }
+  }
+
+  /**
    * Moves the selection up in the command list.
    */
   public moveUp(): void {
-    const currentState = this.state;
+    const filtered = this.getFilteredCommands();
 
-    if (currentState.commands.length > 0) {
+    if (filtered.length > 0) {
       // If we're on the first option (index 0), don't move up - let the component handle going back to search
-      if (currentState.selectedIndex === 0) {
+      if (this.state.selectedIndex === 0) {
         return; // Component will handle this case
       }
 
       // If no option is selected, start from the last option
-      const currentIndex = currentState.selectedIndex >= 0 ? currentState.selectedIndex : currentState.commands.length - 1;
+      const currentIndex = this.state.selectedIndex >= 0 ? this.state.selectedIndex : filtered.length - 1;
       const newIndex = Math.max(0, currentIndex - 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
@@ -158,12 +239,12 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
    * Moves the selection down in the command list.
    */
   public moveDown(): void {
-    const currentState = this.state;
+    const filtered = this.getFilteredCommands();
 
-    if (currentState.commands.length > 0) {
+    if (filtered.length > 0) {
       // If no option is selected, start from the first option
-      const currentIndex = currentState.selectedIndex >= 0 ? currentState.selectedIndex : -1;
-      const newIndex = Math.min(currentState.commands.length - 1, currentIndex + 1);
+      const currentIndex = this.state.selectedIndex >= 0 ? this.state.selectedIndex : -1;
+      const newIndex = Math.min(filtered.length - 1, currentIndex + 1);
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
   }
@@ -178,54 +259,11 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
   }
 
   /**
-   * Selects the currently highlighted command without executing it.
-   */
-  public selectCurrent(): void {
-    const currentState = this.state;
-
-    if (currentState.commands.length > 0 && currentState.selectedIndex !== undefined) {
-      // Don't automatically execute the command, just return it
-      // The actual execution should be handled by the component
-      // this.handleCommandSelect(command);
-    }
-  }
-
-  /**
    * Updates the search filter text for the command palette.
    * @param {string} search - The search text to filter commands.
    */
   public updateSearch(search: string): void {
     this.store.dispatch(updateSearch(search));
-  }
-
-  /**
-   * Executes the specified command and hides the command palette.
-   * @param {Keys} _commandKey - The command key to execute.
-   */
-  public executeCommand(_commandKey: Keys): void {
-    // Execute the command via CommandExecutor
-    // This will be called by the CommandPalette component
-    this.hide();
-  }
-
-  /**
-   * Handles command selection and hides the palette.
-   * @param {CommandItem} _command - The selected command item.
-   */
-  private handleCommandSelect(_command: CommandItem): void {
-    // Execute the selected command
-    // This will be handled by the CommandPalette component
-    this.hide();
-  }
-
-  /**
-   * Converts a string to title case format.
-   * @param {string} str - The string to convert.
-   * @returns {string} The title-cased string.
-   */
-  private toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, txt =>
-      txt.charAt(0).toUpperCase() + txt.slice(1));
   }
 }
 

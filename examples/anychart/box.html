@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Box Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // Box plot: each row is [x, lowest, q1, median, q3, highest].
+        const chart = anychart.box([
+          ['Set A', 760, 801, 848, 895, 965],
+          ['Set B', 733, 853, 939, 980, 1080],
+          ['Set C', 714, 762, 817, 870, 918],
+          ['Set D', 724, 802, 806, 871, 950],
+          ['Set E', 834, 836, 864, 882, 910],
+        ]);
+
+        chart.title('Distribution Summary');
+        chart.xAxis().title('Group');
+        chart.yAxis().title('Value');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-box',
+          title: 'Distribution Summary',
+          axes: { x: 'Group', y: 'Value' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Box Plot</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <p>
+      <strong>Note:</strong> AnyChart's iterator API does not expose outlier
+      arrays, so the MAIDR representation reports only the five-number summary
+      (min, Q1, median, Q3, max).
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

@@ -1,15 +1,19 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
+import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
+import type { MonitorService } from '@service/monitor';
+import type { NotificationService } from '@service/notification';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { Scope } from '@type/event';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 
 /**
  * Command to toggle the braille display on or off.
@@ -17,25 +21,44 @@ import type { Command } from './command';
 export class ToggleBrailleCommand implements Command {
   private readonly context: Context;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly notificationService: NotificationService;
+  private readonly audioService: AudioService;
 
   /**
    * Creates an instance of ToggleBrailleCommand.
    * @param {Context} context - The application context.
    * @param {BrailleViewModel} brailleViewModel - The braille view model.
+   * @param {NotificationService} notificationService - Announces the unsupported warning.
+   * @param {AudioService} audioService - Plays the warning tone.
    */
-  public constructor(context: Context, brailleViewModel: BrailleViewModel) {
+  public constructor(
+    context: Context,
+    brailleViewModel: BrailleViewModel,
+    notificationService: NotificationService,
+    audioService: AudioService,
+  ) {
     this.context = context;
     this.brailleViewModel = brailleViewModel;
+    this.notificationService = notificationService;
+    this.audioService = audioService;
   }
 
   /**
-   * Toggles the braille display if the current state is a trace state.
+   * Toggles the braille display when a trace is active. Above the trace level
+   * (e.g. the multi-panel figure lobby) there is no data series to render as
+   * braille, so instead of silently ignoring the key it announces a warning and
+   * plays a warning tone — mirroring how `l t` warns when text mode is off.
    */
   public execute(): void {
     const state = this.context.state;
     if (state.type === 'trace') {
       this.brailleViewModel.toggle(state);
+      return;
     }
+    this.notificationService.notify(
+      'Braille is not available here. Press Enter to select a subplot first.',
+    );
+    this.audioService.playWarningTone();
   }
 }
 
@@ -101,13 +124,12 @@ export class ToggleReviewCommand implements Command {
   }
 
   /**
-   * Toggles the review mode if the current state is a trace state.
+   * Toggles review mode for the active plot element. Works at the trace level
+   * (data descriptions) and at the multi-panel figure lobby (subplot navigation
+   * text); the ReviewService formats whatever plot state is active.
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      this.reviewViewModel.toggle(state);
-    }
+    this.reviewViewModel.toggle(this.context.state);
   }
 }
 
@@ -289,28 +311,74 @@ export class CommandPaletteSelectCommand implements Command {
 
 /**
  * Command to toggle a specific scope in the application context.
+ * For label scopes (TRACE_LABEL, FIGURE_LABEL), uses DisplayService to
+ * properly manage the focus stack and preserve the previous scope.
  */
 export class ToggleScopeCommand implements Command {
   private readonly context: Context;
   private readonly scope: Scope;
+  private readonly textViewModel?: TextViewModel;
+  private readonly displayService?: DisplayService;
 
   /**
    * Creates an instance of ToggleScopeCommand.
    * @param {Context} context - The application context.
    * @param {Scope} scope - The scope to toggle.
+   * @param {TextViewModel} [textViewModel] - Optional text view model for text-off warnings.
+   * @param {DisplayService} [displayService] - Optional display service for label scope management.
    */
-  public constructor(context: Context, scope: Scope) {
+  public constructor(
+    context: Context,
+    scope: Scope,
+    textViewModel?: TextViewModel,
+    displayService?: DisplayService,
+  ) {
     this.context = context;
     this.scope = scope;
+    this.textViewModel = textViewModel;
+    this.displayService = displayService;
   }
 
   /**
    * Toggles the specified scope in the context.
+   * For label scopes, uses DisplayService to preserve the previous scope on the stack.
    */
   public execute(): void {
-    this.context.toggleScope(this.scope);
+    this.textViewModel?.warnIfTextOff();
+
+    // For label scopes, use DisplayService to preserve the previous scope
+    if (
+      (this.scope === Scope.TRACE_LABEL || this.scope === Scope.FIGURE_LABEL)
+      && this.displayService
+    ) {
+      this.displayService.enterLabelScope(this.scope);
+    } else {
+      this.context.toggleScope(this.scope);
+    }
   }
 }
+/**
+ * Command to toggle the chart description modal on or off.
+ */
+export class ToggleDescriptionCommand implements Command {
+  private readonly descriptionViewModel: DescriptionViewModel;
+
+  /**
+   * Creates an instance of ToggleDescriptionCommand.
+   * @param {DescriptionViewModel} descriptionViewModel - The description view model.
+   */
+  public constructor(descriptionViewModel: DescriptionViewModel) {
+    this.descriptionViewModel = descriptionViewModel;
+  }
+
+  /**
+   * Toggles the chart description modal.
+   */
+  public execute(): void {
+    this.descriptionViewModel.toggle();
+  }
+}
+
 export class ToggleHighContrast implements Command {
   private readonly highContrastService: HighContrastService;
 
@@ -320,5 +388,28 @@ export class ToggleHighContrast implements Command {
 
   public execute(): void {
     this.highContrastService.toggleHighContrast();
+  }
+}
+
+/**
+ * Command to toggle monitor mode for live charts. While monitoring is on,
+ * newly appended data points are auto-sonified and announced.
+ */
+export class ToggleMonitorCommand implements Command {
+  private readonly monitorService: MonitorService;
+
+  /**
+   * Creates an instance of ToggleMonitorCommand.
+   * @param {MonitorService} monitorService - The monitor service.
+   */
+  public constructor(monitorService: MonitorService) {
+    this.monitorService = monitorService;
+  }
+
+  /**
+   * Toggles monitor mode.
+   */
+  public execute(): void {
+    this.monitorService.toggle();
   }
 }

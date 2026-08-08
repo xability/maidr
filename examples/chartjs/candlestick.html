@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Candlestick Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <!--
+      Candlestick charts need a time scale on the x-axis. We use Luxon as
+      the date library and the matching Chart.js date adapter. Load order
+      matters: luxon -> chartjs-adapter-luxon -> chartjs-chart-financial.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Candlestick</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="candlestick-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // OHLC data: each row carries open (o), high (h), low (l), close (c)
+      // for one trading day. The MAIDR extractor derives `trend` from
+      // (close vs open) and `volatility` from (high - low). Volume is
+      // not provided by the Chart.js financial plugin and is recorded as
+      // 0 in the MAIDR payload.
+      const day = (n) => luxon.DateTime.fromISO('2024-01-' + String(n).padStart(2, '0')).toMillis();
+
+      new Chart(document.getElementById('candlestick-chart'), {
+        type: 'candlestick',
+        data: {
+          datasets: [{
+            label: 'Stock Price',
+            data: [
+              { x: day(1), o: 100, h: 110, l: 95, c: 105 },
+              { x: day(2), o: 105, h: 115, l: 100, c: 112 },
+              { x: day(3), o: 112, h: 118, l: 108, c: 109 },
+              { x: day(4), o: 109, h: 114, l: 104, c: 113 },
+              { x: day(5), o: 113, h: 120, l: 110, c: 118 },
+            ],
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Weekly Stock Price' },
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'day' },
+              title: { display: true, text: 'Day' },
+            },
+            y: { title: { display: true, text: 'Price ($)' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -8,7 +8,7 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for the help menu containing available help items.
  */
-interface HelpMenuState {
+export interface HelpMenuState {
   items: HelpMenuItem[];
 }
 
@@ -58,7 +58,7 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
   /**
    * Disposes the view model and resets help menu state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

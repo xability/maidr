@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Candlestick Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- Financial charts (stock) include the candlestick series type. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-stock.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // Candlestick rows: [x, open, high, low, close].
+        const chart = anychart.candlestick([
+          ['2024-01-01', 100, 110, 95, 108],
+          ['2024-01-02', 108, 115, 105, 112],
+          ['2024-01-03', 112, 113, 100, 102],
+          ['2024-01-04', 102, 108, 98, 106],
+          ['2024-01-05', 106, 120, 104, 118],
+          ['2024-01-08', 118, 122, 112, 114],
+          ['2024-01-09', 114, 116, 108, 110],
+        ]);
+
+        chart.title('Daily OHLC Prices');
+        chart.xAxis().title('Date');
+        chart.yAxis().title('Price (USD)');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-candlestick',
+          title: 'Daily OHLC Prices',
+          axes: { x: 'Date', y: 'Price (USD)' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Candlestick</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

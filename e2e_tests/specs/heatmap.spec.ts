@@ -3,6 +3,7 @@ import type { HeatmapData, Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { HeatmapPage } from '../page-objects/plots/heatmap-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a heatmap page
@@ -21,34 +22,6 @@ async function setupHeatmapPage(
   return heatmapPage;
 }
 
-/**
- * Helper function to extract MAIDR data from the page
- * @param page - The Playwright page
- * @param plotId - The ID of the plot to extract data from
- * @returns The extracted MAIDR data
- * @throws Error if data extraction fails
- */
-async function extractMaidrData(page: Page, plotId: string): Promise<Maidr> {
-  return await page.evaluate((id) => {
-    const svgElement = document.querySelector(`svg`);
-    if (!svgElement) {
-      throw new Error(`SVG element with ID ${id} not found`);
-    }
-
-    const maidrDataAttr = svgElement.getAttribute('maidr-data');
-    if (!maidrDataAttr) {
-      throw new Error('maidr-data attribute not found on SVG element');
-    }
-
-    try {
-      return JSON.parse(maidrDataAttr);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-    }
-  }, plotId);
-}
-
 test.describe('Heatmap', () => {
   let maidrData: Maidr;
   let heatmapLayer: MaidrLayer;
@@ -63,7 +36,7 @@ test.describe('Heatmap', () => {
       await heatmapPage.navigateToHeatmap();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await extractMaidrData(page, TestConstants.HEATMAP_ID);
+      maidrData = await extractMaidrData(page);
       heatmapLayer = maidrData.subplots[0][0].layers[0];
       heatmapData = heatmapLayer.data as HeatmapData;
     } catch (error) {
@@ -164,7 +137,7 @@ test.describe('Heatmap', () => {
 
       await heatmapPage.toggleXAxisTitle();
       const xAxisTitle = await heatmapPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(heatmapLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(heatmapLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -172,7 +145,7 @@ test.describe('Heatmap', () => {
 
       await heatmapPage.toggleYAxisTitle();
       const yAxisTitle = await heatmapPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(heatmapLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(heatmapLayer?.axes?.y?.label ?? '');
     });
   });
 

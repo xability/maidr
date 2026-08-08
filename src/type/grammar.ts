@@ -95,31 +95,151 @@ export interface AxisFormat {
 }
 
 /**
- * Configuration for formatting values across all axes in a layer.
+ * Configuration options for violin plot display.
+ * Controls which summary statistics are shown in the violin box overlay.
+ * Sent from the Python backend alongside violin_kde and violin_box layers.
  */
-export interface FormatConfig {
-  x?: AxisFormat;
-  y?: AxisFormat;
-  fill?: AxisFormat;
+export interface ViolinOptions {
+  /** Show median line marker. Default: true */
+  showMedian?: boolean;
+  /** Show mean value marker. Default: false */
+  showMean?: boolean;
+  /** Show extrema (min/max) markers. Default: true */
+  showExtrema?: boolean;
+}
+
+/**
+ * Data point for violin KDE (kernel density estimation) curves.
+ * Library-agnostic — no SVG coordinates embedded in data.
+ * The density field falls back to width if absent.
+ */
+export interface ViolinKdePoint {
+  /** Categorical label for the violin (e.g., "setosa") */
+  x: string | number;
+  /** Position along the density axis */
+  y: number;
+  /** KDE density value at this point. Falls back to `width` if absent. */
+  density?: number;
+  /** Half-width of the violin at this Y level (used as density fallback) */
+  width?: number;
+  /** SVG viewport x-coordinate for highlight positioning (provided by backend) */
+  svg_x?: number;
+  /** SVG viewport y-coordinate for highlight positioning (provided by backend) */
+  svg_y?: number;
 }
 
 /**
  * Root MAIDR data structure containing figure metadata and subplot grid.
+ * This is the type for the `data` prop passed to the `<Maidr>` React component.
+ *
+ * @example
+ * ```typescript
+ * const data: Maidr = {
+ *   id: 'my-chart',
+ *   title: 'Sales by Quarter',
+ *   subplots: [[{
+ *     layers: [{
+ *       id: '0',
+ *       type: 'bar',
+ *       axes: { x: 'Quarter', y: 'Revenue' },
+ *       data: [{ x: 'Q1', y: 120 }, { x: 'Q2', y: 200 }],
+ *     }],
+ *   }]],
+ * };
+ * ```
  */
+/**
+ * Callback invoked when the active data point changes during navigation.
+ * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+ *
+ * @param info - Object containing the current navigation position
+ * @param info.layerId - The ID of the active layer/trace
+ * @param info.row - The current row index (e.g., dataset index)
+ * @param info.col - The current column index (e.g., data point index)
+ */
+export type NavigateCallback = (info: { layerId: string; row: number; col: number }) => void;
+
 export interface Maidr {
+  /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
+  /** Chart title displayed in text descriptions. */
   title?: string;
+  /** Chart subtitle. */
   subtitle?: string;
+  /** Chart caption. */
   caption?: string;
+  /**
+   * Optional figure-wide axis labels shared across every subplot — e.g. a facet
+   * grid whose panels all sit on one common X and Y axis drawn at the figure
+   * margins. Only `label` is honored at the figure level, so the type is
+   * narrowed to `Pick<AxisConfig, 'label'>` (a layer's `min` / `max` /
+   * `tickStep` / `format` have no figure-wide meaning and would be silently
+   * ignored — the narrower type surfaces that as a compile error instead).
+   *
+   * When present and authored, the figure lobby's `l x` / `l y` announce these
+   * as the figure-wide label; when omitted they fall back to the focused
+   * subplot's own axis, so existing charts are unaffected.
+   *
+   * @example
+   * axes: { x: { label: "Year" }, y: { label: "Revenue" } }
+   */
+  axes?: {
+    x?: Pick<AxisConfig, 'label'>;
+    y?: Pick<AxisConfig, 'label'>;
+  };
+  /**
+   * 2D grid of subplots. Each row is an array of subplots.
+   * For a single chart, use `[[{ layers: [...] }]]`.
+   */
   subplots: MaidrSubplot[][];
+  /**
+   * Enables live/realtime mode for this chart. When true:
+   * - React consumers can update the `data` prop to replace the chart data in place.
+   * - Script-tag consumers can push updates via `window.maidrLive.setData()` /
+   *   `window.maidrLive.appendData()`.
+   * - The 'M' key toggles monitor mode, which auto-sonifies and announces
+   *   newly appended data points.
+   *
+   * Static charts (the default) are unaffected.
+   */
+  live?: boolean;
+  /**
+   * Sliding window size for streaming data. When set, appending a data point
+   * beyond this width drops the oldest point(s), keeping at most `maxWidth`
+   * points per series. Only applies to `appendData` updates.
+   */
+  maxWidth?: number;
+  /**
+   * Optional callback invoked when the active data point changes.
+   * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,
+   * since canvas elements cannot be targeted with CSS selectors.
+   *
+   * This field is not serializable as JSON; it is only available when constructing
+   * MAIDR data programmatically (e.g., via the Chart.js plugin or React API).
+   */
+  onNavigate?: NavigateCallback;
 }
 
 /**
  * Subplot data structure containing optional legend and trace layers.
+ * A subplot groups one or more layers (traces) that share the same coordinate space.
+ *
+ * @example
+ * ```typescript
+ * const subplot: MaidrSubplot = {
+ *   layers: [
+ *     { id: '0', type: 'bar', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *     { id: '1', type: 'line', axes: { x: 'X', y: 'Y' }, data: [...] },
+ *   ],
+ * };
+ * ```
  */
 export interface MaidrSubplot {
+  /** Legend labels for multi-series plots. */
   legend?: string[];
+  /** CSS selector for the subplot container element. */
   selector?: string;
+  /** Array of trace layers in this subplot. */
   layers: MaidrLayer[];
 }
 
@@ -135,7 +255,7 @@ export interface BarPoint {
  * Data point for boxplots containing quartiles, min/max, and outliers.
  */
 export interface BoxPoint {
-  fill: string;
+  z: string;
   lowerOutliers: number[];
   min: number;
   q1: number;
@@ -143,6 +263,8 @@ export interface BoxPoint {
   q3: number;
   max: number;
   upperOutliers: number[];
+  /** Mean value for violin plots when mean display is enabled. */
+  mean?: number;
 }
 
 /**
@@ -155,6 +277,12 @@ export interface BoxSelector {
   q2: string;
   max: string;
   upperOutliers: string[];
+  /** CSS selector for mean marker element in violin plots. */
+  mean?: string;
+  /** Optional direct CSS selector for Q1 element (bypasses iq edge derivation). */
+  q1?: string;
+  /** Optional direct CSS selector for Q3 element (bypasses iq edge derivation). */
+  q3?: string;
 }
 
 /**
@@ -166,7 +294,8 @@ export interface CandlestickPoint {
   high: number;
   low: number;
   close: number;
-  volume: number;
+  /** Optional volume data. May be undefined when source (e.g., Google Charts) doesn't provide it. */
+  volume?: number;
   trend: CandlestickTrend;
   volatility: number;
 }
@@ -196,7 +325,7 @@ export interface HistogramPoint extends BarPoint {
 export interface LinePoint {
   x: number | string;
   y: number;
-  fill?: string;
+  z?: string;
 }
 
 /**
@@ -211,7 +340,7 @@ export interface ScatterPoint {
  * Data point for segmented/grouped bar charts with fill color identifier.
  */
 export interface SegmentedPoint extends BarPoint {
-  fill: string;
+  z: string;
 }
 
 /**
@@ -222,6 +351,81 @@ export interface SmoothPoint {
   y: number;
   svg_x: number;
   svg_y: number;
+}
+
+/**
+ * Where a step chart jumps between two consecutive samples.
+ *
+ * - `hv` — hold `y[i]` until `x[i+1]`, then jump (matplotlib `steps-post`).
+ * - `vh` — jump at `x[i]`, then hold until `x[i+1]` (matplotlib `steps-pre`).
+ * - `mid` — jump at the midpoint of the two x values (matplotlib `steps-mid`).
+ *
+ * `hv` is what `ggplot2::geom_step()` draws by default, but MAIDR substitutes
+ * no default of its own: see {@link MaidrLayer.stepDirection}.
+ */
+export type StepDirection = 'hv' | 'vh' | 'mid';
+
+/**
+ * Data point for step charts. Extends {@link LinePoint} with the name of an
+ * ordinal level, so charts whose y axis is a category rather than a magnitude
+ * — a hypnogram's sleep stages, a status timeline's states — can announce
+ * "REM" instead of the numeric level that encodes it.
+ *
+ * `y` stays numeric because it drives sonification, braille and the min/max
+ * range; `label` is the human-readable name of that level.
+ *
+ * @example
+ * { x: 1.5, y: 3, label: 'REM' }
+ */
+export interface StepPoint extends LinePoint {
+  /**
+   * Ordinal level name announced in place of the raw numeric `y`. An empty
+   * string counts as absent, so a producer that emits `''` for an unnamed
+   * level gets the numeric announcement rather than a blank one.
+   */
+  label?: string;
+}
+
+/**
+ * Canonical axis configuration. Every axis (x, y, z) must be specified as an
+ * object of this shape. The `label` is optional and falls back to built-in
+ * defaults ('X', 'Y', 'Level') when omitted.
+ *
+ * Grid navigation properties (`min`, `max`, `tickStep`) are currently consumed
+ * by scatter-plot traces only; they are silently ignored by other trace types.
+ *
+ * Formatting configuration lives inline as `format` on each axis, allowing
+ * different formatters per axis without a separate top-level block.
+ *
+ * @example
+ * // Simple label
+ * axes: { x: { label: "Date" }, y: { label: "Price" } }
+ *
+ * @example
+ * // With grid navigation (scatter)
+ * axes: {
+ *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+ *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
+ * }
+ *
+ * @example
+ * // With formatting
+ * axes: {
+ *   x: { label: "Date" },
+ *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+ * }
+ */
+export interface AxisConfig {
+  /** Axis label displayed in text descriptions. Defaults applied when absent. */
+  label?: string;
+  /** Minimum value for grid navigation (scatter only). */
+  min?: number;
+  /** Maximum value for grid navigation (scatter only). */
+  max?: number;
+  /** Step size for grid navigation (scatter only). */
+  tickStep?: number;
+  /** Optional per-axis value formatting applied in text descriptions. */
+  format?: AxisFormat;
 }
 
 /**
@@ -251,7 +455,7 @@ export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
+  selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in
@@ -278,38 +482,48 @@ export interface MaidrLayer {
     iqrDirection?: 'forward' | 'reverse';
   };
   /**
-   * Axis configuration including labels and optional formatting.
+   * Axis configuration. Every axis (x, y, z) is specified as an {@link AxisConfig}
+   * object with an optional `label`, optional grid navigation properties
+   * (`min`, `max`, `tickStep`), and optional per-axis `format`.
    *
    * @example
-   * // Basic axis labels
-   * axes: { x: "Date", y: "Price" }
+   * // Basic labels
+   * axes: { x: { label: "Date" }, y: { label: "Price" } }
    *
    * @example
-   * // With formatting
+   * // With per-axis formatting
    * axes: {
-   *   x: "Date",
-   *   y: "Price",
-   *   format: {
-   *     y: { type: "currency", decimals: 2 }
-   *   }
+   *   x: { label: "Date" },
+   *   y: { label: "Price", format: { type: "currency", decimals: 2 } }
+   * }
+   *
+   * @example
+   * // With grid navigation (scatter)
+   * axes: {
+   *   x: { label: "Sepal Length", min: 4.3, max: 7.9, tickStep: 0.7 },
+   *   y: { label: "Sepal Width",  min: 2,   max: 4.4, tickStep: 0.5 }
    * }
    */
   axes?: {
-    x?: string;
-    y?: string;
-    fill?: string;
-    /**
-     * Optional formatting configuration for axis values.
-     * When provided, values displayed in text descriptions will be formatted.
-     *
-     * @example
-     * format: {
-     *   x: { function: "return new Date(value).toLocaleDateString()" },
-     *   y: { type: "currency", decimals: 2 }
-     * }
-     */
-    format?: FormatConfig;
+    x?: AxisConfig;
+    y?: AxisConfig;
+    z?: AxisConfig;
   };
+  /**
+   * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
+   * Controls which summary statistics are shown in the violin box overlay.
+   */
+  violinOptions?: ViolinOptions;
+  /**
+   * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
+   * every other trace type. Omit it when the producing library does not report
+   * one: MAIDR does not substitute a default, so the description stays silent
+   * about the convention rather than naming one the data never authored.
+   *
+   * @example
+   * stepDirection: 'hv'
+   */
+  stepDirection?: StepDirection;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -318,16 +532,35 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | ScatterPoint[]
-    | SegmentedPoint[][];
+    | SegmentedPoint[][]
+    | SmoothPoint[][]
+    | StepPoint[][]
+    | ViolinKdePoint[][];
 }
 
 /**
  * Enumeration of supported plot trace types.
+ * Use these values for the `type` field in {@link MaidrLayer}.
+ *
+ * @example
+ * ```typescript
+ * import { TraceType } from 'maidr/react';
+ * const layer = { id: '0', type: TraceType.BAR, ... };
+ * // Or use the string value directly:
+ * const layer2 = { id: '0', type: 'bar', ... };
+ * ```
  */
 export enum TraceType {
   BAR = 'bar',
   BOX = 'box',
   CANDLESTICK = 'candlestick',
+  /**
+   * Virtual layer comparing candlestick OHLC fields against a reference
+   * line (e.g. a moving average). Never declared in MAIDR JSON — created at
+   * runtime by the candlestick delta feature (Alt+L to toggle, Ctrl+Shift+L
+   * to pick the reference line).
+   */
+  CANDLESTICK_DELTA = 'candlestick_delta',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
@@ -336,4 +569,7 @@ export enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  STEP = 'step',
+  VIOLIN_BOX = 'violin_box',
+  VIOLIN_KDE = 'violin_kde',
 }

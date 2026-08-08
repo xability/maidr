@@ -2,8 +2,8 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState, TraceState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -11,8 +11,19 @@ import { AbstractTrace } from './abstract';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
-const SVG_PATH_LINE_POINT_REGEX
-  = /[ML]\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g;
+/**
+ * Regex for extracting data point coordinates from SVG path `d` attribute.
+ *
+ * Matches M/L commands (direct endpoints) with comma or whitespace separators,
+ * and C (cubic bezier) commands — extracting the endpoint (last coordinate pair).
+ *
+ * M/L: `M65,231.42` or `L 100 200` → captures (65, 231.42) or (100, 200)
+ * C:   `C81,215,97,199,113,182`    → captures endpoint (113, 182)
+ */
+const SVG_PATH_ML_REGEX
+  = /[ML]\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_C_REGEX
+  = /C\s*(?:-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+){2}(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
 
 /**
  * Represents a line trace plot with support for single and multi-line navigation
@@ -39,6 +50,34 @@ export class LineTrace extends AbstractTrace {
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
 
+  // Cache for intersection results, keyed by row index
+  // Invalidated when active row changes
+  private intersectionCache: Map<number, Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
+  }>> = new Map();
+
+  // Single-entry memo for findIntersections(), keyed by the active (row, col).
+  // moveOnce and the audio/text/state getters each request the intersections
+  // for the same position several times per notifyStateUpdate; caching the
+  // last position keeps the O(lines x points) exact-match scan to once per
+  // move. The trace is rebuilt on live-data updates, so instance-level caching
+  // stays correct across appends.
+  private currentIntersectionsCache: { key: string; value: AudioState[] } | null = null;
+
+  // highlightCenters holds viewport coordinates from getBoundingClientRect(),
+  // which shift when the page scrolls or the window resizes. Rather than
+  // recompute every rect on each pointermove, mark the cache stale on
+  // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
+  private highlightCentersDirty = false;
+
+  private readonly invalidateHighlightCenters = (): void => {
+    this.highlightCentersDirty = true;
+  };
+
   public constructor(layer: MaidrLayer) {
     super(layer);
 
@@ -50,12 +89,130 @@ export class LineTrace extends AbstractTrace {
     this.min = this.lineValues.map(row => MathUtil.safeMin(row));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string[]);
+    // `layer.selectors` is `string | string[] | ...` per the schema. When a
+    // single-line binder (e.g. the D3 smooth/line binders) emits a bare
+    // string, wrap it in an array so the per-line length check inside
+    // `mapToSvgElements` (`selectors.length !== this.lineValues.length`)
+    // compares array length to line count, not character count.
+    const normalizedSelectors: string[] | undefined = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : (layer.selectors as string[] | undefined);
+    this.highlightValues = this.mapToSvgElements(normalizedSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGraph(this.buildGraph());
+
+    // Invalidate the cached pointer-hover centers when the viewport moves.
+    // Capture phase catches scrolling of any ancestor container, not just window.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.addEventListener('resize', this.invalidateHighlightCenters);
+    }
   }
 
-  public dispose(): void {
+  /**
+   * Resolves the z label: honor the user-provided spec label, otherwise fall
+   * back to the LineTrace-specific default ("Group") rather than the generic
+   * "Level" inherited from `AbstractTrace`.
+   */
+  private get groupLabel(): string {
+    return this.layer.axes?.z?.label ?? TYPE;
+  }
+
+  /**
+   * Name a line carries in the spec, or `undefined` when the data authors
+   * none. Consumers that have nothing meaningful to say without a real name
+   * (e.g. the position announcement) can then stay silent about groups.
+   */
+  private authoredGroupNameAt(row: number): string | undefined {
+    const authored = this.points[row]?.[0]?.z;
+    return authored === undefined || authored === null || authored === ''
+      ? undefined
+      : String(authored);
+  }
+
+  /**
+   * Human-readable name of a single line: the authored name when the spec
+   * provides one, otherwise a positional fallback ("Line 2").
+   */
+  private groupNameAt(row: number): string {
+    return this.authoredGroupNameAt(row) ?? `Line ${row + 1}`;
+  }
+
+  /**
+   * Label and name of the line the cursor sits on. Resolved from the row
+   * rather than from `text.z`, which is replaced by the intersection summary
+   * when several lines meet at the current point.
+   */
+  private get currentGroup(): { label: string; value: string } | undefined {
+    const value = this.authoredGroupNameAt(this.row);
+    return value === undefined ? undefined : { label: this.groupLabel, value };
+  }
+
+  /**
+   * Gets the line series with human-readable labels. Used by the candlestick
+   * delta feature to list reference-line candidates (e.g., moving averages).
+   * @returns One entry per series with its label and points
+   */
+  public getSeries(): { label: string; points: readonly LinePoint[] }[] {
+    return this.points.map((line, index) => ({
+      label: String(
+        line[0]?.z
+        ?? (this.points.length > 1 ? `Line ${index + 1}` : this.title),
+      ),
+      points: line,
+    }));
+  }
+
+  /**
+   * Gets the description state for the line trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const isMultiline = this.points.length > 1;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of lines', value: this.points.length },
+      { label: 'Points per line', value: this.points[0].length },
+      { label: 'Min value', value: MathUtil.safeMin(this.min) },
+      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+    ];
+
+    if (isMultiline) {
+      const lineNames = this.points
+        .map((_line, i) => this.groupNameAt(i))
+        .join(', ');
+      stats.push({ label: 'Line names', value: lineNames });
+    }
+
+    let headers: string[];
+    let rows: (string | number)[][];
+
+    if (isMultiline) {
+      headers = [this.xAxis, this.yAxis, 'Line'];
+      rows = this.points.flatMap((line, i) => {
+        const lineName = this.groupNameAt(i);
+        return line.map(p => [p.x, p.y, lineName]);
+      });
+    } else {
+      headers = [this.xAxis, this.yAxis];
+      rows = this.points[0].map(p => [p.x, p.y]);
+    }
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
+  public override dispose(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.removeEventListener('resize', this.invalidateHighlightCenters);
+    }
+
     this.points.length = 0;
 
     this.min.length = 0;
@@ -156,41 +313,43 @@ export class LineTrace extends AbstractTrace {
 
     // Check for intersections at current point
     const intersections = this.findIntersections();
-    let fillData:
-      | { fill: { label: string; value: string } }
+    let zData:
+      | { z: { label: string; value: string } }
       | Record<string, never> = {};
+
+    const zLabel = this.groupLabel;
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
       let lineTypes = intersections.map((intersection) => {
         const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.fill || `l${lineIndex + 1}`;
+        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
       });
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevFill
-          = this.points[this.previousRow][0]?.fill || `l${this.previousRow + 1}`;
-        if (lineTypes.includes(prevFill)) {
-          lineTypes = [prevFill, ...lineTypes.filter(l => l !== prevFill)];
+        const prevZ
+          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        if (lineTypes.includes(prevZ)) {
+          lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
       }
 
-      fillData = {
-        fill: {
-          label: TYPE,
+      zData = {
+        z: {
+          label: zLabel,
           value: `intersection at (${lineTypes.join(', ')})`,
         },
       };
     } else {
-      // Single line or no intersection - use normal fill data
-      fillData = point.fill ? { fill: { label: TYPE, value: point.fill } } : {};
+      // Single line or no intersection - use normal z data
+      zData = point.z ? { z: { label: zLabel, value: point.z } } : {};
     }
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
-      ...fillData,
+      ...zData,
     };
   }
 
@@ -201,7 +360,7 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.movable.handleInitialEntry();
       this.previousRow = null;
@@ -289,6 +448,20 @@ export class LineTrace extends AbstractTrace {
    * @returns Array of AudioState for all intersecting lines
    */
   private findIntersections(): AudioState[] {
+    // A crossing requires at least two lines; single-line charts can never
+    // produce one, so skip the O(points) scan entirely.
+    if (this.points.length < 2) {
+      return [];
+    }
+
+    // Reuse the last result while the cursor stays on the same point — the
+    // exact-match scan is deterministic for a fixed (row, col) and immutable
+    // data, so the value cannot change between the repeated calls per move.
+    const key = `${this.row},${this.col}`;
+    if (this.currentIntersectionsCache && this.currentIntersectionsCache.key === key) {
+      return this.currentIntersectionsCache.value;
+    }
+
     const currentX = this.points[this.row][this.col].x;
     const currentY = this.points[this.row][this.col].y;
     const intersections: AudioState[] = [];
@@ -317,10 +490,11 @@ export class LineTrace extends AbstractTrace {
       }
     }
 
+    this.currentIntersectionsCache = { key, value: intersections };
     return intersections;
   }
 
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       const [row, col] = target;
       return (
@@ -421,10 +595,81 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
 
+    // Try element-based approach first (e.g. Recharts individual dot circles).
+    // If the selector matches multiple DOM elements whose count equals the
+    // expected data points, use them directly — no path parsing needed.
+    const elementBased = this.mapViaDomElements(selectors);
+    if (elementBased) {
+      return elementBased;
+    }
+
+    // Fall back to path-based approach: parse coordinates from a single
+    // <path> or <polyline> element per series and create synthetic circles.
+    return this.mapViaPathParsing(selectors);
+  }
+
+  /**
+   * Element-based SVG mapping: select all matching elements per selector
+   * and use them directly for highlighting (like BarTrace does).
+   * Works when the charting library renders individual dot/circle elements.
+   */
+  private mapViaDomElements(selectors: string[]): SVGElement[][] | null {
     const svgElements: SVGElement[][] = [];
     let allFailed = true;
+
     for (let r = 0; r < selectors.length; r++) {
-      const lineElement = Svg.selectElement(selectors[r], false);
+      // Pass shouldClone=false so we DON'T mutate the DOM by inserting a
+      // hidden clone after every match. Inserting a clone shifts
+      // :nth-child(N) indices for subsequent iterations: a multi-series
+      // line chart with sibling <path> elements in the same <g> ends up
+      // with iteration r=1 matching the clone of path0 (instead of path1)
+      // and r=2 matching the clone of clone of path0, etc. The downstream
+      // mapViaPathParsing then reads series 0's `d` for every series, so
+      // all highlights collapse onto series 0 even though navigation
+      // announcement (which uses lineValues, not the DOM) is correct.
+      // Highlighting always re-clones via Svg.createHighlightElement, so
+      // we don't need the pre-cloned hidden elements.
+      const elements = Svg.selectAllElements(selectors[r], false);
+      if (elements.length === 0 || elements.length !== this.lineValues[r].length) {
+        svgElements.push([]);
+        continue;
+      }
+      allFailed = false;
+      svgElements.push(elements);
+    }
+
+    return allFailed ? null : svgElements;
+  }
+
+  /**
+   * Path-based SVG mapping: find a single <path> or <polyline> per selector,
+   * parse data point coordinates from its attributes, and create synthetic
+   * circle elements for highlighting.
+   *
+   * Supports M/L commands (linear paths) and C commands (cubic bezier curves).
+   */
+  private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
+    const svgElements: SVGElement[][] = [];
+    let allFailed = true;
+
+    // Detect selector layout:
+    //   - Standard case (e.g. matplotlib/seaborn multi-line): each series has
+    //     a UNIQUE selector that resolves to exactly one <path> (e.g.
+    //     "g[id='maidr-<uuid-A>'] path", "g[id='maidr-<uuid-B>'] path", ...).
+    //   - Color-hue case (e.g. Vega-Lite single mark with a color encoding):
+    //     all entries in `selectors` are IDENTICAL — Vega renders N sibling
+    //     `<g class="mark-line role-mark layer_0_marks">` groups, each with
+    //     exactly one `<path>`, so a single shared selector matches all N.
+    // For the standard case, selectNthElement(selectors[r], r) would ask for
+    // the r-th match of a selector that has only 1 match, returning null for
+    // r >= 1 and crashing the highlight pipeline downstream. So branch on
+    // selector uniqueness.
+    const uniqueSelectors = new Set(selectors).size === selectors.length;
+
+    for (let r = 0; r < selectors.length; r++) {
+      const lineElement = uniqueSelectors
+        ? Svg.selectElement(selectors[r], false)
+        : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
         continue;
@@ -433,16 +678,7 @@ export class LineTrace extends AbstractTrace {
       const coordinates: LinePoint[] = [];
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        SVG_PATH_LINE_POINT_REGEX.lastIndex = 0;
-        let match: RegExpExecArray | null
-          = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        while (match !== null) {
-          coordinates.push({
-            x: Number.parseFloat(match[1]),
-            y: Number.parseFloat(match[2]),
-          });
-          match = SVG_PATH_LINE_POINT_REGEX.exec(pathD);
-        }
+        this.extractPathCoordinates(pathD, coordinates);
       } else if (lineElement instanceof SVGPolylineElement) {
         const pointsAttr
           = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
@@ -455,20 +691,12 @@ export class LineTrace extends AbstractTrace {
           });
         }
       }
-      if (coordinates.length !== this.lineValues[r].length) {
-        if (coordinates.length < this.lineValues[r].length) {
-          while (coordinates.length < this.lineValues[r].length) {
-            coordinates.push({ x: Number.NaN, y: Number.NaN });
-          }
-        } else if (coordinates.length > this.lineValues[r].length) {
-          coordinates.length = this.lineValues[r].length;
-        }
-      }
+      this.reconcilePathCoordinates(coordinates, r);
 
       const linePointElements: SVGElement[] = [];
       let lineFailed = false;
       for (const coordinate of coordinates) {
-        if (Number.isNaN(coordinate.x) || Number.isNaN(coordinate.y)) {
+        if (Number.isNaN(Number(coordinate.x)) || Number.isNaN(coordinate.y)) {
           lineFailed = true;
           break;
         }
@@ -492,17 +720,117 @@ export class LineTrace extends AbstractTrace {
     return svgElements;
   }
 
-  public get state(): TraceState {
+  /**
+   * Reconciles the vertices parsed out of a rendered `<path>` with the number
+   * of data points in a series, mutating `coordinates` in place so it ends up
+   * one entry per data point in data order.
+   *
+   * SVG renderers (e.g. Plotly) may simplify a path by dropping collinear
+   * vertices, leaving fewer coordinates than data points; those are recovered
+   * by interpolating along the surviving segments. Extra vertices are dropped
+   * from the end, which is right for a straight polyline whose vertices are
+   * its data points — subclasses whose rendered geometry has vertices that are
+   * not data points (see {@link StepTrace}) override this.
+   * @param coordinates - Vertices parsed from the path, mutated in place
+   * @param row - Index of the series these coordinates belong to
+   */
+  protected reconcilePathCoordinates(coordinates: LinePoint[], row: number): void {
+    const expected = this.lineValues[row].length;
+    if (coordinates.length === expected) {
+      return;
+    }
+
+    if (coordinates.length >= 2 && coordinates.length < expected) {
+      const pathXMin = Number(coordinates[0].x);
+      const pathXMax = Number(coordinates[coordinates.length - 1].x);
+      const dataPoints = this.points[row];
+      const dataXMin = Number(dataPoints[0].x);
+      const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
+      const dataXRange = dataXMax - dataXMin;
+
+      const full: LinePoint[] = [];
+      for (let i = 0; i < expected; i++) {
+        const dataX = Number(dataPoints[i].x);
+        const svgX = dataXRange > 0
+          ? pathXMin + ((dataX - dataXMin) / dataXRange) * (pathXMax - pathXMin)
+          : pathXMin;
+
+        // Find y by interpolating along the simplified path segments
+        let svgY = Number(coordinates[0].y);
+        for (let j = 0; j < coordinates.length - 1; j++) {
+          const cjx = Number(coordinates[j].x);
+          const cj1x = Number(coordinates[j + 1].x);
+          if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
+            const segLen = cj1x - cjx;
+            const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
+            svgY = Number(coordinates[j].y) + t * (Number(coordinates[j + 1].y) - Number(coordinates[j].y));
+            break;
+          }
+        }
+        full.push({ x: svgX, y: svgY });
+      }
+      coordinates.length = 0;
+      coordinates.push(...full);
+    } else if (coordinates.length < expected) {
+      while (coordinates.length < expected) {
+        coordinates.push({ x: Number.NaN, y: Number.NaN });
+      }
+    } else {
+      coordinates.length = expected;
+    }
+  }
+
+  /**
+   * Extracts data point coordinates from an SVG path `d` attribute.
+   * Handles M/L (move/line) and C (cubic bezier) commands.
+   * For C commands, the endpoint (3rd coordinate pair) is extracted.
+   */
+  private extractPathCoordinates(pathD: string, coordinates: LinePoint[]): void {
+    // Extract M/L endpoints
+    SVG_PATH_ML_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null = SVG_PATH_ML_REGEX.exec(pathD);
+    const indexed: { index: number; x: number; y: number }[] = [];
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_ML_REGEX.exec(pathD);
+    }
+
+    // Extract C cubic bezier endpoints (3rd pair of each C command)
+    SVG_PATH_C_REGEX.lastIndex = 0;
+    match = SVG_PATH_C_REGEX.exec(pathD);
+    while (match !== null) {
+      indexed.push({
+        index: match.index,
+        x: Number.parseFloat(match[1]),
+        y: Number.parseFloat(match[2]),
+      });
+      match = SVG_PATH_C_REGEX.exec(pathD);
+    }
+
+    // Sort by position in path string to preserve point order
+    indexed.sort((a, b) => a.index - b.index);
+    for (const point of indexed) {
+      coordinates.push({ x: point.x, y: point.y });
+    }
+  }
+
+  public override get state(): TraceState {
     const baseState = super.state;
     if (baseState.empty)
       return baseState;
 
     const isMultiline = this.points.length > 1;
+    const group = isMultiline ? this.currentGroup : undefined;
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
       plotType: isMultiline ? 'multiline' : 'single line',
       ...(isMultiline && { groupCount: this.points.length }),
+      ...(group && { group }),
     };
 
     // Check for intersection at current (x, y)
@@ -552,7 +880,14 @@ export class LineTrace extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
+    // Rebuild stale centers lazily: scroll/resize invalidated the cached
+    // viewport coordinates (see invalidateHighlightCenters).
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -578,12 +913,392 @@ export class LineTrace extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
   /**
+   * Check if two line segments intersect and return the intersection point
+   * Uses parametric line intersection formula
+   * @param p1 Start point of first segment
+   * @param p1.x X coordinate of start point of first segment
+   * @param p1.y Y coordinate of start point of first segment
+   * @param p2 End point of first segment
+   * @param p2.x X coordinate of end point of first segment
+   * @param p2.y Y coordinate of end point of first segment
+   * @param p3 Start point of second segment
+   * @param p3.x X coordinate of start point of second segment
+   * @param p3.y Y coordinate of start point of second segment
+   * @param p4 End point of second segment
+   * @param p4.x X coordinate of end point of second segment
+   * @param p4.y Y coordinate of end point of second segment
+   * @returns Intersection point {x, y} if segments intersect, null otherwise
+   */
+  private getSegmentIntersection(
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    p4: { x: number; y: number },
+  ): { x: number; y: number } | null {
+    const x1 = p1.x;
+    const y1 = p1.y;
+    const x2 = p2.x;
+    const y2 = p2.y;
+    const x3 = p3.x;
+    const y3 = p3.y;
+    const x4 = p4.x;
+    const y4 = p4.y;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+    // Lines are parallel (no intersection or infinite intersections)
+    if (Math.abs(denom) < 1e-10) {
+      return null;
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    // Check if intersection is within both segments (t and u must be in [0, 1])
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const intersectX = x1 + t * (x2 - x1);
+      const intersectY = y1 + t * (y2 - y1);
+      return { x: intersectX, y: intersectY };
+    }
+
+    return null;
+  }
+
+  /** Tolerance for comparing intersection coordinates (for deduplication) */
+  private static readonly INTERSECTION_EPSILON = 1e-6;
+
+  /**
+   * Lazily-built mapping from non-numeric x values (e.g. the date strings of
+   * a candlestick moving-average layer) to ordinal positions on a shared x
+   * domain. Lines may start/end at different offsets (a long-window moving
+   * average starts later than a short-window one), so per-line column indices
+   * are not comparable across lines; instead each line's x sequence is merged
+   * into one ordered domain, preserving relative order. Built once per
+   * instance — trace data is immutable (live-data updates rebuild the trace).
+   *
+   * Complexity: near-linear when lines are consistent subsequences of one
+   * shared domain (the moving-average case — indexOf hits at the merge cursor
+   * and splice appends). Lines that disagree on relative order degrade toward
+   * O(points × domain) in the worst case; acceptable for a one-time build.
+   */
+  private xOrdinalMap: Map<string, number> | null = null;
+
+  private getXOrdinalMap(): Map<string, number> {
+    if (this.xOrdinalMap) {
+      return this.xOrdinalMap;
+    }
+
+    const domain: string[] = [];
+    const seen = new Set<string>();
+    for (const line of this.points) {
+      let insertAt = 0;
+      for (const point of line) {
+        const key = String(point.x);
+        if (seen.has(key)) {
+          // Already placed. If it sits at/after the merge cursor, advance
+          // past it; if it sits before the cursor the lines disagree on
+          // order — keep the earlier position.
+          const existing = domain.indexOf(key, insertAt);
+          if (existing !== -1) {
+            insertAt = existing + 1;
+          }
+        } else {
+          seen.add(key);
+          domain.splice(insertAt, 0, key);
+          insertAt += 1;
+        }
+      }
+    }
+
+    this.xOrdinalMap = new Map(domain.map((key, index) => [key, index]));
+    return this.xOrdinalMap;
+  }
+
+  /**
+   * Numeric x coordinate for intersection geometry. Numeric (or numeric
+   * string) x values pass through unchanged; categorical values (e.g.
+   * '2019-11-05') resolve to their ordinal position on the shared x domain so
+   * segment-intersection math works on date/category axes too — Number()
+   * alone yields NaN for them, which used to make every intersection check
+   * fail. Mixing numeric and categorical x values across lines is
+   * unsupported, matching the exact-match detection in findIntersections.
+   * @param x The point's raw x value
+   * @returns A finite coordinate, or NaN for an unknown value
+   */
+  private numericX(x: number | string): number {
+    const numeric = Number(x);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    return this.getXOrdinalMap().get(String(x)) ?? Number.NaN;
+  }
+
+  /**
+   * Find all points where the current line intersects with other lines
+   * Uses line segment intersection algorithm to find crossings between data points
+   * Results are cached per row and invalidated when the active row changes
+   * @returns Array of intersection info containing nearest point index and intersecting line indices
+   */
+  private findAllIntersectionsForCurrentLine(): Array<{
+    pointIndex: number;
+    x: number;
+    y: number;
+    intersectingLines: number[];
+    intersectionKind: 'point' | 'slope';
+  }> {
+    const currentGroup = this.row;
+
+    // Return cached results if available
+    if (this.intersectionCache.has(currentGroup)) {
+      return this.intersectionCache.get(currentGroup)!;
+    }
+
+    if (currentGroup < 0 || currentGroup >= this.points.length) {
+      return [];
+    }
+
+    // Only check for intersections if there are multiple lines
+    if (this.points.length <= 1) {
+      return [];
+    }
+
+    const currentLinePoints = this.points[currentGroup];
+    if (currentLinePoints.length < 2) {
+      return [];
+    }
+
+    // Collect all raw intersections first
+    const rawIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      otherLine: number;
+    }> = [];
+
+    // Numeric coordinates for segment math; categorical x values resolve to
+    // ordinal positions on the shared domain (see numericX).
+    const numericLines = this.points.map(line =>
+      line.map(point => ({ x: this.numericX(point.x), y: Number(point.y) })),
+    );
+    const currentLine = numericLines[currentGroup];
+
+    // A line sorted by ascending x lets the scan below skip segment pairs
+    // whose x-ranges cannot overlap. NaN-safe: a NaN coordinate fails the
+    // comparison and marks the line unsorted, forcing the exhaustive scan.
+    const isSortedByX = (line: { x: number }[]): boolean => {
+      for (let i = 0; i < line.length - 1; i++) {
+        if (!(line[i + 1].x >= line[i].x)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    const currentSorted = isSortedByX(currentLine);
+
+    const checkSegmentPair = (
+      segIndex: number,
+      otherLine: number,
+      otherSegIndex: number,
+    ): void => {
+      const seg1Start = currentLine[segIndex];
+      const seg1End = currentLine[segIndex + 1];
+      const seg2Start = numericLines[otherLine][otherSegIndex];
+      const seg2End = numericLines[otherLine][otherSegIndex + 1];
+
+      const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
+      if (!intersection) {
+        return;
+      }
+
+      // Find the nearest point on the current line to navigate to
+      // Use Euclidean distance for accuracy with nearly vertical segments
+      const distToStart = Math.hypot(intersection.x - seg1Start.x, intersection.y - seg1Start.y);
+      const distToEnd = Math.hypot(intersection.x - seg1End.x, intersection.y - seg1End.y);
+      const nearestPointIndex = distToStart <= distToEnd ? segIndex : segIndex + 1;
+
+      rawIntersections.push({
+        pointIndex: nearestPointIndex,
+        x: intersection.x,
+        y: intersection.y,
+        otherLine,
+      });
+    };
+
+    for (let otherLine = 0; otherLine < this.points.length; otherLine++) {
+      if (otherLine === currentGroup) {
+        continue;
+      }
+
+      const otherPoints = numericLines[otherLine];
+      if (otherPoints.length < 2) {
+        continue;
+      }
+
+      if (currentSorted && isSortedByX(otherPoints)) {
+        // Both lines sorted by x: sweep with a forward-only cursor so each
+        // current segment is only tested against other segments whose
+        // x-range overlaps — O(n + matches) instead of O(n²), which matters
+        // for daily financial series with thousands of points.
+        let cursor = 0;
+        for (let segIndex = 0; segIndex < currentLine.length - 1; segIndex++) {
+          const segXMin = currentLine[segIndex].x;
+          const segXMax = currentLine[segIndex + 1].x;
+          while (cursor < otherPoints.length - 1 && otherPoints[cursor + 1].x < segXMin) {
+            cursor++;
+          }
+          for (let k = cursor; k < otherPoints.length - 1 && otherPoints[k].x <= segXMax; k++) {
+            checkSegmentPair(segIndex, otherLine, k);
+          }
+        }
+      } else {
+        // Fallback exhaustive scan for unsorted (or NaN-containing) lines.
+        for (let segIndex = 0; segIndex < currentLine.length - 1; segIndex++) {
+          for (let otherSegIndex = 0; otherSegIndex < otherPoints.length - 1; otherSegIndex++) {
+            checkSegmentPair(segIndex, otherLine, otherSegIndex);
+          }
+        }
+      }
+    }
+
+    // Group intersections using tolerance-based deduplication
+    const groupedIntersections: Array<{
+      pointIndex: number;
+      x: number;
+      y: number;
+      intersectingLines: Set<number>;
+    }> = [];
+
+    for (const raw of rawIntersections) {
+      // Find existing group within tolerance
+      const existingGroup = groupedIntersections.find(
+        g => Math.abs(g.x - raw.x) < LineTrace.INTERSECTION_EPSILON
+          && Math.abs(g.y - raw.y) < LineTrace.INTERSECTION_EPSILON,
+      );
+
+      if (existingGroup) {
+        existingGroup.intersectingLines.add(raw.otherLine);
+      } else {
+        const intersectingLines = new Set<number>();
+        intersectingLines.add(raw.otherLine);
+        groupedIntersections.push({
+          pointIndex: raw.pointIndex,
+          x: raw.x,
+          y: raw.y,
+          intersectingLines,
+        });
+      }
+    }
+
+    // Convert to final format and sort by x coordinate
+    // Note: intersectingLines excludes currentGroup (only other lines)
+    const result = groupedIntersections
+      .map(entry => ({
+        pointIndex: entry.pointIndex,
+        x: entry.x,
+        y: entry.y,
+        intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
+        // Classify once during target generation so UI can announce the right
+        // type. The precomputed numeric lines are passed through so
+        // classification doesn't re-coerce every point per intersection —
+        // Number() on categorical x strings is expensive at daily-series scale.
+        intersectionKind: this.classifyIntersectionKind(
+          numericLines,
+          currentGroup,
+          Array.from(entry.intersectingLines),
+          entry.x,
+          entry.y,
+        ),
+      }))
+      .sort((a, b) => a.x - b.x);
+
+    // Cache the result
+    this.intersectionCache.set(currentGroup, result);
+
+    return result;
+  }
+
+  /**
+   * Get a formatted label for intersecting lines
+   * Note: intersectingLines should only contain OTHER lines (not the current line)
+   * since the user is already on the current line.
+   * @param intersectingLines Array of line indices that intersect (excluding current line)
+   * @returns Formatted string of line names (e.g., "Line A, Line B")
+   */
+  private getIntersectionLabel(intersectingLines: number[]): string {
+    return intersectingLines.map((lineIndex) => {
+      // Access first point to get the line's z/name
+      // Falls back to "Line N" if z is not defined
+      const firstPoint = this.points[lineIndex][0];
+      return firstPoint?.z || `Line ${lineIndex + 1}`;
+    }).join(', ');
+  }
+
+  /**
+   * Check whether a line contains a sampled point at the given coordinate.
+   * Operates on the precomputed numeric coordinates (see numericX) so the
+   * comparison is consistent with the segment math on categorical x axes and
+   * avoids re-coercing raw values on every call.
+   * @param numericLines Precomputed numeric coordinates for all lines
+   * @param lineIndex The line index to inspect
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @returns True if the coordinate exists in the line's sampled points
+   */
+  private hasPointAtCoordinate(
+    numericLines: { x: number; y: number }[][],
+    lineIndex: number,
+    x: number,
+    y: number,
+  ): boolean {
+    if (lineIndex < 0 || lineIndex >= numericLines.length) {
+      return false;
+    }
+
+    return numericLines[lineIndex].some(point =>
+      Math.abs(point.x - x) < LineTrace.INTERSECTION_EPSILON
+      && Math.abs(point.y - y) < LineTrace.INTERSECTION_EPSILON,
+    );
+  }
+
+  /**
+   * Classify an intersection as either point-based (sampled in SVG data) or
+   * slope-based (created by segment crossing between sampled points).
+   * @param numericLines Precomputed numeric coordinates for all lines
+   * @param currentLine The current active line index
+   * @param intersectingLines Other lines participating in this intersection
+   * @param x Intersection x coordinate
+   * @param y Intersection y coordinate
+   * @returns Intersection kind
+   */
+  private classifyIntersectionKind(
+    numericLines: { x: number; y: number }[][],
+    currentLine: number,
+    intersectingLines: number[],
+    x: number,
+    y: number,
+  ): 'point' | 'slope' {
+    // Point intersection requires both lines to contain the sampled coordinate.
+    const currentHasPoint = this.hasPointAtCoordinate(numericLines, currentLine, x, y);
+    if (!currentHasPoint) {
+      return 'slope';
+    }
+
+    const otherHasPoint = intersectingLines.some(lineIndex =>
+      this.hasPointAtCoordinate(numericLines, lineIndex, x, y),
+    );
+
+    return otherHasPoint ? 'point' : 'slope';
+  }
+
+  /**
    * Get extrema targets for the current line plot
-   * Returns min and max values within the current group
+   * Returns min, max values, and intersection points within the current group
    * @returns Array of extrema targets for navigation
    */
   public override getExtremaTargets(): ExtremaTarget[] {
@@ -622,6 +1337,7 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'max',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[maxIndex]?.x,
       });
     }
 
@@ -634,6 +1350,40 @@ export class LineTrace extends AbstractTrace {
         segment: 'line',
         type: 'min',
         navigationType: 'point',
+        xValue: this.points[this.row]?.[minIndex]?.x,
+      });
+    }
+
+    // Add intersection targets for multiline plots
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    for (const intersection of intersections) {
+      // intersectingLines only contains OTHER lines (not current line)
+      const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
+      // Format the intersection coordinates for display. On categorical x
+      // axes intersection.x is an ordinal position (see numericX), so show
+      // the x label of the nearest sampled point instead.
+      const nearestX = this.points[this.row]?.[intersection.pointIndex]?.x;
+      const xDisplay = nearestX !== undefined && !Number.isFinite(Number(nearestX))
+        ? String(nearestX)
+        : intersection.x.toFixed(2);
+      const coordsDisplay = `x=${xDisplay}, y=${intersection.y.toFixed(2)}`;
+      const intersectionLabel = intersection.intersectionKind === 'point'
+        ? 'Point intersection'
+        : 'Slope intersection';
+
+      targets.push({
+        label: `${intersectionLabel} at ${coordsDisplay}`,
+        value: intersection.y,
+        pointIndex: intersection.pointIndex,
+        segment: 'intersection',
+        type: 'intersection',
+        intersectionKind: intersection.intersectionKind,
+        navigationType: 'point',
+        intersectingLines: intersection.intersectingLines,
+        display: {
+          coords: coordsDisplay,
+          otherLines: otherLineNames,
+        },
       });
     }
 
@@ -649,7 +1399,7 @@ export class LineTrace extends AbstractTrace {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -669,7 +1419,7 @@ export class LineTrace extends AbstractTrace {
    * Update the visual position of the current point
    * This method should be called when navigation changes
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
@@ -689,7 +1439,7 @@ export class LineTrace extends AbstractTrace {
    * @param xValue The X value to move to
    * @returns true if the position was found and set, false otherwise
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     // Handle initial entry properly
     if (this.isInitialEntry) {
       this.movable.handleInitialEntry();
@@ -697,7 +1447,7 @@ export class LineTrace extends AbstractTrace {
     return super.moveToXValue(xValue);
   }
 
-  public moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;
@@ -725,23 +1475,80 @@ export class LineTrace extends AbstractTrace {
     return false;
   }
 
-  public compare(a: number, b: number, type: 'lower' | 'higher'): boolean {
-    if (type === 'lower') {
-      return a < b;
-    }
-    if (type === 'higher') {
-      return a > b;
-    }
-    return false;
-  }
-
-  public moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
+  public override moveUpRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
 
-  public moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
+  public override moveDownRotor(_mode?: 'lower' | 'higher'): boolean {
     this.moveOnce('DOWNWARD');
+    return true;
+  }
+
+  /**
+   * Intersection navigation mode is available only when the plot has
+   * multiple lines. `points` is a 2-D array whose outer dimension is the line
+   * index, so `length > 1` means at least two lines exist — a prerequisite for
+   * any crossing between sampled series to be possible.
+   */
+  public override supportsIntersectionMode(): boolean {
+    return this.points.length > 1;
+  }
+
+  /**
+   * Collect point-type intersections for the current line, sorted by
+   * pointIndex (column), with duplicate pointIndexes removed so that
+   * navigation advances one data point at a time.
+   *
+   * Sort rationale: {@link findAllIntersectionsForCurrentLine} sorts its
+   * results by continuous x-coordinate, which can differ from `pointIndex`
+   * order when an intersection falls between sampled points (the "nearest
+   * point" mapping is non-monotonic in those cases). Rotor navigation moves
+   * by column, so we sort explicitly by pointIndex here.
+   *
+   * Performance note: the underlying {@link findAllIntersectionsForCurrentLine}
+   * caches results per active row, so repeated calls while the cursor stays on
+   * the same line are O(n) over the cached intersection list (typically small).
+   */
+  private getPointIntersectionIndices(): number[] {
+    const intersections = this.findAllIntersectionsForCurrentLine();
+    const seen = new Set<number>();
+    for (const intersection of intersections) {
+      if (intersection.intersectionKind === 'point') {
+        seen.add(intersection.pointIndex);
+      }
+    }
+    return [...seen].sort((a, b) => a - b);
+  }
+
+  public override moveToNextIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    const target = indices.find(index => index > this.col);
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
+    return true;
+  }
+
+  public override moveToPrevIntersection(): boolean {
+    const indices = this.getPointIntersectionIndices();
+    // Walk the sorted indices backwards to find the largest value < col.
+    // A reverse loop avoids both Array.prototype.findLast (ES2023) and the
+    // array allocation that [...indices].reverse() would introduce.
+    let target: number | undefined;
+    for (let i = indices.length - 1; i >= 0; i--) {
+      if (indices[i] < this.col) {
+        target = indices[i];
+        break;
+      }
+    }
+    if (target === undefined) {
+      return false;
+    }
+    this.col = target;
+    this.finalizeNavigation();
     return true;
   }
 }

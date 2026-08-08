@@ -6,6 +6,11 @@
  */
 import type { PlaywrightTestConfig } from '@playwright/test';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// The package is ESM ("type": "module"), so CommonJS `__dirname` does not
+// exist here; derive it from the module URL instead.
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Get the project root directory path
@@ -14,7 +19,7 @@ import path from 'node:path';
 function getProjectRoot(): string {
   // This path should point to the root of maidr-ts project
   // where the examples directory is located
-  const rootPath = path.resolve(__dirname, '../..');
+  const rootPath = path.resolve(configDir, '../..');
 
   return rootPath;
 }
@@ -25,7 +30,7 @@ function getProjectRoot(): string {
  */
 const config: PlaywrightTestConfig = {
   // Set the test directory to match your project structure
-  testDir: path.join(__dirname, '..', 'specs'),
+  testDir: path.join(configDir, '..', 'specs'),
 
   // Test file pattern - include both spec.ts patterns
   testMatch: '**/*.spec.ts',
@@ -50,8 +55,13 @@ const config: PlaywrightTestConfig = {
     // Browser settings
     viewport: null,
 
-    // Capture traces and screenshots on failure
-    trace: 'on-first-retry',
+    // Capture traces and screenshots on failure.
+    //
+    // `retain-on-failure`, not `on-first-retry`: there are no retries any more,
+    // so a trace keyed to a retry attempt would never be written and a real
+    // failure would leave only a screenshot. A failure is now always the first
+    // and only attempt, which is exactly when the trace is worth having.
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
 

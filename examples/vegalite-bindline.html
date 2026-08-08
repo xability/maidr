@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Line Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Line Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="line-chart"
+      aria-label="Line chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Monthly Average Temperature',
+        data: {
+          values: [
+            { month: 'Jan', temp: 28 },
+            { month: 'Feb', temp: 32 },
+            { month: 'Mar', temp: 45 },
+            { month: 'Apr', temp: 55 },
+            { month: 'May', temp: 68 },
+            { month: 'Jun', temp: 78 },
+            { month: 'Jul', temp: 82 },
+            { month: 'Aug', temp: 80 },
+            { month: 'Sep', temp: 72 },
+            { month: 'Oct', temp: 58 },
+            { month: 'Nov', temp: 42 },
+            { month: 'Dec', temp: 30 },
+          ],
+        },
+        mark: 'line',
+        encoding: {
+          x: { field: 'month', type: 'ordinal', title: 'Month' },
+          y: { field: 'temp', type: 'quantitative', title: 'Temperature (F)' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#line-chart', spec, { id: 'temp-line' })
+        .catch((err) => console.error('[vegalite-bindline]', err));
+    </script>
+  </body>
+</html>

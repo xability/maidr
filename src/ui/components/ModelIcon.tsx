@@ -1,5 +1,5 @@
 import type { Llm } from '@type/llm';
-import { SmartToy } from '@mui/icons-material';
+import { Computer, SmartToy } from '@mui/icons-material';
 import { SvgIcon } from '@mui/material';
 import React from 'react';
 
@@ -34,6 +34,9 @@ export const ModelIcon: React.FC<ModelIconProps> = ({ model, fontSize = 'small' 
           <path d="M4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8-8-3.59-8-8m8-10c-5.51 0-10 4.49-10 10s4.49 10 10 10 10-4.49 10-10S17.51 2 12 2m2.5 10c0 1.38-1.12 2.5-2.5 2.5S9.5 13.38 9.5 12 10.62 9.5 12 9.5s2.5 1.12 2.5 2.5M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6m0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4" />
         </SvgIcon>
       );
+    case 'OLLAMA':
+      // Local model running on the user's own machine.
+      return <Computer fontSize={fontSize} />;
     default:
       return <SmartToy fontSize={fontSize} />;
   }

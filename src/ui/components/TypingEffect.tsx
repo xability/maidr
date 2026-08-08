@@ -1,23 +1,57 @@
 import { Box } from '@mui/material';
 import { useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { visuallyHidden } from '@ui/visuallyHidden';
+import { rehypeScopeIds } from '@util/footnoteScope';
+import { containsLatex, ensureKatexStylesheet } from '@util/katex';
+import { createChatSanitizeSchema } from '@util/markdownSanitize';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import 'katex/dist/katex.min.css';
+
+/** The `rehypePlugins` prop's own type, so nothing has to be imported for it. */
+type RehypePlugins = NonNullable<
+  React.ComponentProps<typeof ReactMarkdown>['rehypePlugins']
+>;
+
+/** Stable empty list, so a message without maths never re-renders on identity. */
+const NO_MATH_PLUGINS: RehypePlugins = [];
+
+/** Built once: the allowlist is the same for every message on the page. */
+const SANITIZE_SCHEMA = createChatSanitizeSchema();
 
 interface TypingEffectProps {
   text: string;
   isUser: boolean;
+  messageId: string;
   onTypingUpdate?: () => void;
 }
 
-export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypingUpdate }) => {
+// Tracks messages whose typing animation has already finished, so reopening the
+// chat dialog (which remounts every bubble) does not replay the animation for
+// historical messages. Keyed by message id + final text so the genuine
+// "Processing request..." -> response transition still animates.
+const completedAnimations = new Set<string>();
+
+// Keep the module-level set bounded over long sessions. Evicting the oldest
+// entries only means a very old message would re-animate if shown again.
+const MAX_COMPLETED_ANIMATIONS = 500;
+
+function markAnimationCompleted(key: string): void {
+  completedAnimations.add(key);
+  if (completedAnimations.size > MAX_COMPLETED_ANIMATIONS) {
+    const oldest = completedAnimations.values().next().value;
+    if (oldest !== undefined) {
+      completedAnimations.delete(oldest);
+    }
+  }
+}
+
+export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, messageId, onTypingUpdate }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
-  const messageRef = useRef<HTMLDivElement>(null);
+  const [mathPlugins, setMathPlugins] = useState<RehypePlugins>(NO_MATH_PLUGINS);
   const settings = useViewModelState('settings');
   const inIframe = useMemo(() => {
     try {
@@ -32,13 +66,60 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypi
       : {}
   ), [inIframe]);
 
+  // Keyed off the whole message rather than what has been typed so far: the
+  // fetch starts the moment the response arrives, and has the length of the
+  // animation to finish before the equation is on screen.
+  const needsMath = useMemo(() => containsLatex(text), [text]);
+
+  // KaTeX — ~340 kB of stylesheet and the larger part of its JS — is loaded
+  // only for the messages that actually contain maths. Until it arrives the
+  // equation renders as its own source text, which is legible and, more to the
+  // point, is exactly what the live region below announces either way.
+  //
+  // `mathPlugins` tracks "KaTeX has been loaded", not "this message has maths",
+  // so it is deliberately never cleared: should `text` stop matching (a streamed
+  // response can gain and lose a delimiter pair mid-flight), rehype-katex is a
+  // no-op on markdown that remark-math produced no maths nodes for. Dropping it
+  // would re-render the bubble to reach the same output.
   useEffect(() => {
-    if (isUser || inIframe) {
+    if (!needsMath) {
+      return;
+    }
+
+    let cancelled = false;
+    ensureKatexStylesheet();
+    import('rehype-katex')
+      .then(({ default: rehypeKatex }) => {
+        if (!cancelled) {
+          setMathPlugins([rehypeKatex]);
+        }
+      })
+      .catch((error) => {
+        console.error('[maidr] could not load KaTeX to render maths', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [needsMath]);
+
+  useEffect(() => {
+    // Skip the animation for user messages, iframe embeds, and any message
+    // whose animation already completed (e.g. historical messages shown again
+    // after the dialog is reopened) — show the full text immediately.
+    // Separated by an escaped NUL, which neither a message id nor a body
+    // can contain, so no pair of messages can collide on one key.
+    const animationKey = `${messageId}\0${text}`;
+    if (isUser || inIframe || completedAnimations.has(animationKey)) {
       setDisplayedText(text);
       setIsTyping(false);
       return;
     }
 
+    // Genuinely new content: (re)start the animation. Ensure isTyping is true so
+    // the cursor shows and the live region stays quiet while text streams in
+    // (e.g. when text changes from "Processing request..." to the response).
+    setIsTyping(true);
     let currentIndex = 0;
     const typingSpeed = 10; // Slightly slower for better scroll compatibility
     const typingInterval = setInterval(() => {
@@ -51,20 +132,14 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypi
           onTypingUpdate();
         }
       } else {
+        markAnimationCompleted(animationKey);
         setIsTyping(false);
         clearInterval(typingInterval);
       }
     }, typingSpeed);
 
     return () => clearInterval(typingInterval);
-  }, [text, isUser, inIframe]);
-
-  useEffect(() => {
-    if (!isTyping && messageRef.current) {
-      const messageContent = messageRef.current.textContent || '';
-      messageRef.current.setAttribute('aria-label', `AI message: ${messageContent}`);
-    }
-  }, [isTyping]);
+  }, [text, isUser, inIframe, messageId]);
 
   return (
     <Box style={containerStyle}>
@@ -72,50 +147,43 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypi
       <div className={`chat-message-content ${isUser ? 'user' : ''}`}>
         <ReactMarkdown
           rehypePlugins={[
-            rehypeKatex,
-            [rehypeSanitize, {
-              attributes: {
-                '*': ['className', 'aria-label', 'aria-hidden', 'role', 'aria-busy', 'aria-live', 'aria-atomic'],
-                'a': ['href', 'target'],
-                'img': ['src', 'alt'],
-                'math': ['display'],
-                'span': ['style'],
-                'svg': ['aria-hidden', 'role', 'xmlns', 'width', 'height', 'viewBox'],
-                'path': ['d'],
-              },
-              tagNames: [
-                'p',
-                'br',
-                'b',
-                'i',
-                'em',
-                'strong',
-                'a',
-                'pre',
-                'code',
-                'ul',
-                'ol',
-                'li',
-                'blockquote',
-                'img',
-                'math',
-                'span',
-                'svg',
-                'path',
-              ],
-            }],
+            // Before rehypeSanitize, so KaTeX's own markup goes through the
+            // allowlist rather than around it.
+            ...mathPlugins,
+            [rehypeSanitize, SANITIZE_SCHEMA],
+            // After it, and it has to be: the sanitiser renames `id` and the
+            // ARIA references but not `href`, so a footnote anchor is left
+            // naming where its target used to be. Scoping both sides here puts
+            // them back in agreement and makes the ids unique to this message,
+            // which they are not otherwise — footnotes are numbered per
+            // document and a transcript is one DOM. See `footnoteScope`.
+            [rehypeScopeIds, { messageId }],
           ]}
           remarkPlugins={[remarkGfm, remarkMath]}
           components={{
             pre: ({ node, ...props }) => (
               <pre {...props} role="text" aria-label="Code block" />
             ),
-            a: ({ node, ...props }) => (
-              <a {...props} aria-label={`Link: ${props.children}`} />
-            ),
+            // No `a` override. A link's accessible name comes from its own
+            // text, which is right in every case and needs no help: the one
+            // this used to build — `Link: ${children}` — was a worse copy of
+            // that when children was a string, and `[object Object]` when it
+            // was anything else. `aria-label` replaces the name rather than
+            // supplementing it, so there was no fallback to the visible text.
+            //
+            // Dropping it also lets the footnote backref keep the label
+            // remark-gfm gives it, without a fallback expression to get wrong.
             img: ({ node, ...props }) => (
               <img {...props} alt={props.alt || 'Image in message'} />
             ),
+            // The footnotes heading arrives as `<h2 class="sr-only">`, which
+            // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
+            // Nothing can style pipeline-generated markup inline, so the class
+            // is matched here instead — see `visuallyHidden` for why not a rule.
+            h2: ({ node, className, ...props }) => {
+              const hidden = (className ?? '').split(/\s+/).includes('sr-only');
+              return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;
+            },
           }}
         >
           {displayedText}
@@ -123,7 +191,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypi
       </div>
       {/* Visually hidden live region for screen readers */}
       <div
-        className="sr-only"
+        style={visuallyHidden}
         aria-live={settings.general.ariaMode}
         aria-atomic="true"
       >
@@ -140,4 +208,6 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({ text, isUser, onTypi
       )}
     </Box>
   );
-};
+});
+
+TypingEffect.displayName = 'TypingEffect';

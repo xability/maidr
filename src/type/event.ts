@@ -2,6 +2,20 @@ import type { Keymap } from '@service/keybinding';
 import type { Disposable } from './disposable';
 
 /**
+ * Configuration for a single keyboard binding entry.
+ */
+export interface KeybindingEntry {
+  /** The hotkey string (e.g., 's', 'ctrl+up', 'shift+/') */
+  hotkey: string;
+  /** Human-readable description for the help menu */
+  description: string;
+  /** Override the key display in help menu (e.g., 'cmd + up' instead of 'cmd+up') */
+  helpKey?: string;
+  /** Whether to show this entry in the help menu (default: true) */
+  showInHelp?: boolean;
+}
+
+/**
  * Standard DOM event types used throughout the application.
  */
 export enum DomEventType {
@@ -29,9 +43,15 @@ export type Status
  */
 export enum Scope {
   BRAILLE = 'BRAILLE',
+  /** Navigating the virtual candlestick-vs-reference-line delta layer. */
+  CANDLESTICK_DELTA = 'CANDLESTICK_DELTA',
+  /** The reference-line picker (Ctrl+Shift+L) for the candlestick delta layer. */
+  CANDLESTICK_DELTA_SETTINGS = 'CANDLESTICK_DELTA_SETTINGS',
   CHAT = 'CHAT',
   COMMAND_PALETTE = 'COMMAND_PALETTE',
+  DESCRIPTION = 'DESCRIPTION',
   GO_TO_EXTREMA = 'GO_TO_EXTREMA',
+  GRID_CELL = 'GRID_CELL',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
   SUBPLOT = 'SUBPLOT',
@@ -45,6 +65,38 @@ export enum Scope {
  * Focusable scopes excluding label-only scopes that cannot receive keyboard focus.
  */
 export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
+
+/**
+ * Scopes the user opens on top of the chart and dismisses with Escape, as
+ * opposed to the scopes they navigate the data in. Entering one is a mode
+ * toggle: the plot instruction is not re-announced on the way back out.
+ */
+export const MODAL_SCOPES: ReadonlySet<Focus> = new Set<Focus>([
+  Scope.BRAILLE,
+  Scope.CANDLESTICK_DELTA_SETTINGS,
+  Scope.CHAT,
+  Scope.COMMAND_PALETTE,
+  Scope.DESCRIPTION,
+  Scope.GO_TO_EXTREMA,
+  Scope.HELP,
+  Scope.REVIEW,
+  Scope.SETTINGS,
+]);
+
+/**
+ * The modal scopes that render as a dialog overlaying the chart, derived from
+ * {@link MODAL_SCOPES} so a scope cannot be added to one list and forgotten in
+ * the other.
+ *
+ * `BRAILLE` and `REVIEW` are the two exclusions: they render as an inline text
+ * field beside the chart rather than as an overlay, so anything that describes
+ * a dialog — the open/close audio cue, for one — would misdescribe them.
+ */
+export const DIALOG_SCOPES: ReadonlySet<Focus> = new Set<Focus>(
+  Array.from(MODAL_SCOPES).filter(
+    scope => scope !== Scope.BRAILLE && scope !== Scope.REVIEW,
+  ),
+);
 
 /**
  * Type representing valid keyboard shortcut keys for a given scope.

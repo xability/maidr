@@ -1,35 +1,25 @@
+import type { CommandItem } from '@state/viewModel/commandPaletteViewModel';
 import type { Keys } from '@type/event';
 import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
-import { useCommandExecutor } from '@state/hook/useCommandExecutor';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-interface CommandItem {
-  key: string;
-  description: string;
-  commandKey: Keys;
-}
+import { filterCommands } from '@state/viewModel/commandPaletteViewModel';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 const CommandPalette: React.FC = () => {
   const commandPaletteViewModel = useViewModel('commandPalette');
   const state = useViewModelState('commandPalette');
-  const { executeCommand } = useCommandExecutor();
-  const [announcement] = useState('');
+  const { modalRef, container } = useModalContainer();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const enterPressedRef = useRef(false);
 
-  // Filter commands based on search
-  const filteredCommands = useMemo(() => {
-    if (!state.search.trim()) {
-      return state.commands;
-    }
-    const searchLower = state.search.toLowerCase();
-    return state.commands.filter((command: CommandItem) =>
-      command.description.toLowerCase().includes(searchLower)
-      || command.key.toLowerCase().includes(searchLower),
-    );
-  }, [state.commands, state.search]);
+  // Filter commands with the same predicate the view model uses for
+  // selection bounds and Enter-to-execute, so the two can never diverge.
+  const filteredCommands = useMemo(
+    () => filterCommands(state.commands, state.search),
+    [state.commands, state.search],
+  );
 
   // Ensure search input gets focus when dialog opens or when returning to search
   useEffect(() => {
@@ -43,11 +33,16 @@ const CommandPalette: React.FC = () => {
     }
   }, [state.visible]);
 
-  // Focus search input when returning to search (selectedIndex becomes -1)
+  // Focus the search input when returning to search (selectedIndex becomes -1),
+  // e.g. after ArrowUp from the first option. Deferred with a timeout — mirroring
+  // the mount effect above — so focus lands after the dialog has settled and
+  // does not interfere with close transitions.
   useEffect(() => {
-    // Only handle focus when dialog first opens, not when returning to search
-    if (state.visible && searchInputRef.current && state.selectedIndex === -1) {
-      // Don't auto-focus when returning to search to avoid dialog close issues
+    if (state.visible && state.selectedIndex === -1) {
+      const timeoutId = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
   }, [state.selectedIndex, state.visible]);
 
@@ -80,10 +75,9 @@ const CommandPalette: React.FC = () => {
   }, [commandPaletteViewModel]);
 
   const handleCommandSelect = useCallback((commandKey: Keys) => {
-    // Execute the command first, then close
-    executeCommand(commandKey);
-    handleClose();
-  }, [executeCommand, handleClose]);
+    // Delegate to ViewModel which handles close + execute
+    commandPaletteViewModel.executeAndClose(commandKey);
+  }, [commandPaletteViewModel]);
 
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     commandPaletteViewModel.updateSearch(event.target.value);
@@ -100,6 +94,8 @@ const CommandPalette: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       role="dialog"
       aria-modal="true"
       aria-labelledby="command-palette-title"
@@ -124,7 +120,7 @@ const CommandPalette: React.FC = () => {
         </Box>
 
         <TextField
-          ref={searchInputRef}
+          inputRef={searchInputRef}
           fullWidth
           placeholder="Search commands..."
           value={state.search}
@@ -234,21 +230,6 @@ const CommandPalette: React.FC = () => {
             </ListItemButton>
           ))}
         </List>
-
-        {announcement && (
-          <div
-            aria-live="assertive"
-            style={{
-              position: 'absolute',
-              left: '-10000px',
-              width: '1px',
-              height: '1px',
-              overflow: 'hidden',
-            }}
-          >
-            {announcement}
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

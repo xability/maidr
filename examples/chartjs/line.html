@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Line Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Line Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="line-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('line-chart'), {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [
+            {
+              label: 'Revenue',
+              data: [120, 200, 150, 240, 310, 280],
+              borderColor: '#2ca02c',
+              tension: 0.2,
+            },
+            {
+              label: 'Expenses',
+              data: [90, 130, 110, 170, 200, 190],
+              borderColor: '#d62728',
+              tension: 0.2,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Monthly Revenue vs Expenses' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Month' } },
+            y: { title: { display: true, text: 'USD (thousands)' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

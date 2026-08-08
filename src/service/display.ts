@@ -2,7 +2,7 @@ import type { Context } from '@model/context';
 import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
-import { Emitter } from '@type/event';
+import { Emitter, MODAL_SCOPES, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
 
@@ -49,6 +49,7 @@ export class DisplayService implements Disposable {
   private isReturningFromModeToggle: boolean = false;
   private textChangeDisposer: Disposable | null = null;
   private hasClearedOnFirstNav: boolean = false;
+  private pendingFocusChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Creates a new DisplayService instance.
@@ -84,10 +85,21 @@ export class DisplayService implements Disposable {
   public dispose(): void {
     this.addInstruction();
 
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+      this.pendingFocusChangeTimer = null;
+    }
+
     this.textChangeDisposer?.dispose();
     this.textChangeDisposer = null;
 
     this.onChangeEmitter.dispose();
+
+    // NOTE: Plotly MutationObservers (stroke mirror + layout) are chart-lifetime
+    // resources installed once by normalizePlotlySvg, not per focus session.
+    // They must NOT be disconnected here: DisplayService.dispose() runs on every
+    // focusout, and tearing them down would permanently break subplot highlight
+    // mirroring on refocus. True teardown belongs to chart unmount / page unload.
   }
 
   /**
@@ -140,19 +152,52 @@ export class DisplayService implements Disposable {
   }
 
   /**
+   * Enters label scope (TRACE_LABEL or FIGURE_LABEL) while preserving
+   * the current scope on the stack. This allows proper restoration
+   * when exiting label scope.
+   *
+   * Note: Label scopes are not pushed to focusStack (which only holds Focus types).
+   * The previous scope is preserved in focusStack and used when exiting.
+   * @param {Scope} labelScope - The label scope to enter (TRACE_LABEL or FIGURE_LABEL)
+   */
+  public enterLabelScope(labelScope: Scope): void {
+    // Don't modify focusStack - label scopes aren't Focus types
+    // Just switch the hotkeys scope; focusStack retains the previous scope
+    this.context.toggleScope(labelScope);
+  }
+
+  /**
+   * Exits label scope and returns to the previous scope that was
+   * active before entering label mode.
+   *
+   * Uses the focusStack to determine the correct scope to return to,
+   * which preserves the scope that was active before entering label mode
+   * (e.g., TRACE, BRAILLE, etc.).
+   */
+  public exitLabelScope(): void {
+    // Get the previous scope from focusStack (or default to TRACE if empty)
+    const previousScope = this.focusStack.peek() ?? Scope.TRACE;
+    this.context.toggleScope(previousScope);
+  }
+
+  /**
+   * Syncs the focusStack to match the current scope without triggering
+   * a full focus change event. Use this when the scope has changed via
+   * Context (e.g., entering a subplot) but focusStack needs to stay in sync.
+   * @param {Focus} scope - The scope to set as the current focus
+   */
+  public syncFocusStack(scope: Focus): void {
+    this.focusStack.clear();
+    this.focusStack.push(scope);
+  }
+
+  /**
    * Toggles focus between different scopes and manages the focus stack.
    * @param {Focus} focus - The focus scope to toggle to
    */
   public toggleFocus(focus: Focus): void {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
-    this.isReturningFromModeToggle
-      = focus === 'BRAILLE'
-        || focus === 'REVIEW'
-        || focus === 'GO_TO_EXTREMA'
-        || focus === 'COMMAND_PALETTE'
-        || focus === 'SETTINGS'
-        || focus === 'CHAT'
-        || focus === 'HELP';
+    this.isReturningFromModeToggle = MODAL_SCOPES.has(focus);
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {
@@ -163,9 +208,66 @@ export class DisplayService implements Disposable {
       this.focusStack.push(focus);
     }
 
-    const newScope = this.focusStack.peek()!;
+    let newScope = this.focusStack.peek()!;
+
+    // When returning from a modal, the focusStack base may be stale.
+    // For example, the user may have entered a subplot (SUBPLOT → TRACE)
+    // before opening the modal, but the focusStack base was never updated.
+    // Derive the correct navigation scope from the context's active plot element.
+    if (this.isReturningFromModeToggle && (newScope === 'SUBPLOT' || newScope === 'TRACE')) {
+      const activeType = this.context.state.type;
+      const correctScope = (activeType === 'trace' ? Scope.TRACE : Scope.SUBPLOT) as Focus;
+      if (newScope !== correctScope) {
+        this.focusStack.clear();
+        this.focusStack.push(correctScope);
+        newScope = correctScope;
+      }
+    }
+
     this.context.toggleScope(newScope);
     this.updateFocus(newScope);
+  }
+
+  /**
+   * Resets the focus stack to the given scope and moves focus to the plot
+   * element. Does not fire a display change event — the caller must call
+   * {@link notifyFocusChange} after completing any follow-up scope
+   * transitions (e.g. exitSubplot) to avoid emitting a stale intermediate
+   * scope.
+   * @param {Focus} targetScope - The scope the focus stack should reflect
+   *   after the modal is dismissed. The stack is reset to this value so it
+   *   stays in sync with the hotkeys scope set by the caller.
+   *
+   * **Important:** The caller must ensure the hotkeys scope is set to
+   * `targetScope` (e.g. via `context.exitSubplot()`) before or immediately
+   * after this call. This method only updates the focus stack and DOM focus;
+   * it does not change the hotkeys scope.
+   */
+  public dismissModalScope(targetScope: Focus): void {
+    this.plot.focus();
+    this.focusStack.clear();
+    this.focusStack.push(targetScope);
+  }
+
+  /**
+   * Fires a deferred display change event with the given scope. The
+   * deferral (setTimeout 0) gives screen readers one event-loop cycle to
+   * process the preceding focus change before React unmounts the modal
+   * element (e.g. the braille textarea). Without this, NVDA/JAWS exit
+   * focus mode when the focused element disappears from the DOM.
+   *
+   * Cancels any previously pending notification to avoid stale events
+   * from rapid repeated calls.
+   * @param {Focus} scope - The scope to emit as the new display focus
+   */
+  public notifyFocusChange(scope: Focus): void {
+    if (this.pendingFocusChangeTimer !== null) {
+      clearTimeout(this.pendingFocusChangeTimer);
+    }
+    this.pendingFocusChangeTimer = setTimeout(() => {
+      this.pendingFocusChangeTimer = null;
+      this.onChangeEmitter.fire({ value: scope });
+    }, 0);
   }
 
   /**
@@ -173,7 +275,9 @@ export class DisplayService implements Disposable {
    * @param {Focus} newScope - The new focus scope
    */
   private updateFocus(newScope: Focus): void {
-    if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
+    // CANDLESTICK_DELTA is plot navigation (like TRACE), so the plot element
+    // must (re)take DOM focus when the virtual delta layer becomes active.
+    if (newScope === 'TRACE' || newScope === 'SUBPLOT' || newScope === 'CANDLESTICK_DELTA') {
       this.plot.tabIndex = 0;
       setTimeout((): void => {
         // Only run first-entry init when NOT returning from a modal

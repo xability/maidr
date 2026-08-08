@@ -1,0 +1,559 @@
+# MAIDR Data Schema
+
+This document describes the JSON data schema used to define plots in maidr.
+
+## Schema Structure
+
+Your JSON schema should be a single `maidr` object with the following properties, or an array of objects if multiple plots exist on the page.
+
+A single plot:
+
+```javascript
+// a single plot
+<script>
+var maidr = {
+  id: "barplot_1",
+  subplots: [
+  [
+    {
+      id: "barplot_1", //add the same id to the svg component
+      layers: [
+        {
+          id: "bar_layer1",
+          type: "bar",
+          title: "Sample Bar plot",
+          axes: {
+            x: { label: "Category" },
+            y: { label: "Value" }
+          },
+          data: [
+            {
+              "x": "A",
+              "y": 10
+            },
+            {
+              "x": "B",
+              "y": 24
+            },
+            {
+              "x": "C",
+              "y": 15
+            },
+            {
+              "x": "D",
+              "y": 7
+            }
+          ]
+        }
+      ]
+    }
+  ]
+]
+}
+</script>
+```
+
+Or multiple plots:
+```javascript
+<script>
+    var maidr = {
+      "id": "multipanel_plot",
+      "subplots": [
+        [
+          {
+            "id": "line1",
+            "layers": [
+              {
+                "id": "line_layer",
+                "type": "line",
+                "title": "Line Plot: Random Data",
+                "axes": {
+                  "x": { "label": "X-axis" },
+                  "y": { "label": "Values" }
+                },
+                "data": [
+                  []
+                ],
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "id": "bar1",
+            "layers": [
+              {
+                "id": "bar1_layer",
+                "type": "bar",
+                "title": "Bar Plot: Random Values",
+                "axes": {
+                  "x": { "label": "Categories" },
+                  "y": { "label": "Values" }
+                },
+                "data": []
+                }
+            ]
+          }
+        ],
+        [
+          {
+            "id": "bar2",
+            "layers": [
+              {
+                "id": "bar2_layer",
+                "type": "bar",
+                "title": "Bar Plot 2: Random Values",
+                "axes": {
+                  "x": { "label": "Categories" },
+                  "y": { "label": "Values" }
+                },
+                "data": []
+              }
+            ]
+          }
+        ]
+      ]
+    }
+  </script>
+```
+
+## Object Properties
+
+Use the following to define the object properties:
+
+- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'step', 'violin_kde', 'violin_box',
+- `id`: the id that you added as an attribute of your main SVG.
+- `title`: the title of the plot. (optional)
+- `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
+- `data`: the main data for your plot. See below.
+
+### Top-Level Figure Properties
+
+The top-level `maidr` object also accepts optional figure-wide metadata that
+applies across all subplots:
+
+- `title`, `subtitle`, `caption` (string): figure-level text. In a multi-panel
+  figure, `l t` in the lobby announces the figure `title`, falling back to the
+  focused subplot's own title when no figure title is authored.
+- `axes` (object): figure-wide axis labels shared by every subplot — e.g. a
+  facet grid whose panels all sit on one common X and Y axis. Only `label` is
+  honored at the figure level (the type is `Pick<AxisConfig, 'label'>`, so a
+  layer's `min` / `max` / `tickStep` / `format` have no figure-wide meaning):
+
+  ```javascript
+  var maidr = {
+    id: "facet_grid",
+    title: "Sales by Region",
+    axes: { x: { label: "Year" }, y: { label: "Revenue" } },
+    subplots: [ /* ... */ ]
+  };
+  ```
+
+  In the multi-panel lobby, `l x` / `l y` announce the figure-wide label when
+  authored ("Figure X label is Year"); otherwise they fall back to the focused
+  subplot's own axis ("Subplot 2, X label is ..."). Omitting `axes` keeps the
+  existing behavior, so this is fully backward compatible. Only `x` and `y` are
+  read at the figure level — there is no figure-wide `z`, since the Z axis is
+  inherently per-trace, so `l z` in the lobby always reports the focused
+  subplot's own Z label.
+
+### Top-Level Properties for Live Charts
+
+The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.html) guide):
+
+- `live` (boolean): enables live mode — in-place data updates via `window.maidrLive.setData()` / `appendData()` and the **M** monitor-mode key.
+- `maxWidth` (number): sliding window size; appending a point beyond this width drops the oldest point(s), keeping at most `maxWidth` points per series.
+
+```javascript
+var maidr = {
+  id: "live_chart",
+  live: true,
+  maxWidth: 50,
+  subplots: [ /* ... */ ]
+};
+```
+
+## Data Formats by Plot Type
+
+The data property is defined as a list of objects where each object is a record with fields x and y.
+
+```javascript
+
+   let maidr;
+
+   // barplot maidr.data structure: a simple array of values
+   maidr = {
+     "data": [
+                  {
+                    "x": "A",
+                    "y": 5.982192824845484
+                  },
+                  {
+                    "x": "B",
+                    "y": 9.309858198175455
+                  },
+                  {
+                    "x": "C",
+                    "y": 7.3531284491571505
+                  },
+                ]
+   };
+
+  // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
+  maidr = {
+  "data": [
+              {
+                "lowerOutliers": [
+                  40.0,
+                  50.0
+                ],
+                "min": 71.35451232573614,
+                "q1": 92.62315416457983,
+                "q2": 99.64912548800726,
+                "q3": 107.6684972253361,
+                "max": 118.19391634772752,
+                "upperOutliers": [
+                  150.0,
+                  160.0
+                ],
+                "fill": "Group 1"
+              },
+
+            ],
+
+            "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
+  }
+
+  //candlestick
+  maidr = {
+    "data":[
+              {
+                'value': '2023-02-16',
+                'open': 151.61,
+                'high': 151.82,
+                'low': 151.59,
+                'close': 151.8,
+                'volume': 0
+              },
+    ]
+  }
+
+  //dodged_bar
+  maidr = {
+    "data":[
+      [
+        {
+          "x":"Adelie",
+          "fill":"Below",
+          "y":70
+        }
+      ],
+      [ {
+          "x":"Adelie",
+          "fill":"Above",
+          "y":90
+        }]
+    ]
+  }
+
+   // heatmap maidr.data structure: a 2D array of values
+  maidr = {
+        "data": {
+              "points": [
+                [ 60.5, 86.7, 89.3 ],
+                [ 18.6, 67.6, 83.9 ],
+                [ 18.5, 65.4, 78.7 ],
+              ],
+              "x": [
+                "CoLA",
+                "MNLI",
+                "MRPC",
+              ],
+              "y": [
+                "BERT",
+                "BiLSTM",
+                "BiLSTM+Attn",
+              ]
+            }
+   }
+
+    //histogram
+    maidr = {
+      "data":[
+              {
+                  "y": 4.0,
+                  "x": 1.1475,
+                  "xMin": 1.0,
+                  "xMax": 1.295,
+                  "yMin": 0,
+                  "yMax": 4.0
+              }
+          ]
+    }
+
+    //line
+    maidr = {
+      "data":[
+        [
+          {
+                      "x": 1.0,
+                      "y": 2.0
+          },
+          {
+                      "x": 2.0,
+                      "y": 4.0
+          },
+        ]
+        //add multiple arrays for multiline plots
+      ]
+    }
+
+    //step: piecewise-constant data — the value is HELD across an interval and
+    //then jumps, rather than being interpolated the way a line implies.
+    //Data is nested exactly like `line`: one inner array per series.
+    //
+    //`y` stays NUMERIC — it drives sonification, braille and the min/max range.
+    //`label` is optional and names the ordinal level that `y` encodes; when
+    //present it is announced INSTEAD of the number, so a hypnogram says
+    //"Sleep stage is REM" rather than "Sleep stage is 4".
+    //
+    //`stepDirection` is a layer-level property (a sibling of `axes` and
+    //`data`), not a per-point one. It says where the jump happens between two
+    //consecutive samples:
+    //  "hv"  hold y[i] until x[i+1], then jump  (matplotlib 'steps-post',
+    //                                            ggplot2 direction 'hv')
+    //  "vh"  jump at x[i], then hold            (matplotlib 'steps-pre')
+    //  "mid" jump midway between the two x values (matplotlib 'steps-mid')
+    //Omit it entirely when the producing library does not report one — the
+    //description only names a direction the data actually authored.
+    maidr = {
+      "type": "step",
+      "stepDirection": "hv",
+      "data":[
+        [
+          {
+                      "x": 0.0,
+                      "y": 5,
+                      "label": "Awake"
+          },
+          {
+                      "x": 0.5,
+                      "y": 3,
+                      "label": "N1"
+          },
+          {
+                      "x": 1.0,
+                      "y": 2,
+                      "label": "N2"
+          }
+        ]
+        //add multiple arrays for multiple step series
+      ]
+    }
+
+   // scatterplot
+   maidr = {
+     data: [
+       {
+                      "x": 1.0,
+                      "y": 2.0
+        },
+     ],
+   };
+
+   // smooth line maidr.data: an object containing x and y properties, each with an array of float values
+   // note that data is an array here as scatterplots are often combine with line plots
+   maidr = {
+      "data":[
+        [
+          {
+                      "x": 4.7,
+                      "y": 3.12,
+                      "svg_x": 404.51,
+                      "svg_y": 390.012
+          },
+        ]
+      ]
+    }
+
+   // violin_box: summary statistics overlay for violin plots
+   // data is an array of BoxPoint objects, one per violin
+   maidr = {
+      "type": "violin_box",
+      "data": [
+              {
+                "fill": "Ideal",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 878,
+                "q2": 1810,
+                "q3": 4678,
+                "max": 18806,
+                "upperOutliers": [18806],
+                "mean": 3458
+              },
+              {
+                "fill": "Premium",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 1046,
+                "q2": 3185,
+                "q3": 6296,
+                "max": 18823,
+                "upperOutliers": []
+              }
+            ]
+   }
+
+   // violin_kde: KDE density curve for violin plots
+   // data is a 2D array: data[violinIndex][curvePosition] = ViolinKdePoint
+   // points come in left/right pairs at each Y level (do NOT deduplicate)
+   maidr = {
+      "type": "violin_kde",
+      "data": [
+              [
+                { "x": "Ideal", "y": -501.7, "svg_x": 100.41, "svg_y": 281.84, "width": 0.044 },
+                { "x": "Ideal", "y": -501.7, "svg_x": 103.84, "svg_y": 281.84, "width": 0.044 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 98.25,  "svg_y": 279.41, "width": 0.100 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 105.99, "svg_y": 279.41, "width": 0.100 }
+              ],
+              [
+                { "x": "Premium", "y": -400.0, "svg_x": 200.0, "svg_y": 270.0, "width": 0.035 },
+                { "x": "Premium", "y": -400.0, "svg_x": 205.0, "svg_y": 270.0, "width": 0.035 }
+              ]
+            ]
+   }
+
+```
+
+## Multilayer Plots
+
+If multiple plots are overlaid on the same SVG, provide the data corresponding to every plot in the layers array.
+
+```javascript
+maidr = {
+  "id": "multilayer_plot",
+  "subplots": [
+    [
+      {
+        "id": "445f4f08-b8a5-4204-8c55-0851eda7daec",
+        "layers": [
+          {
+            "id": "f548e01f-ed13-469c-9e0a-cea420ec8b3f",
+            "type": "bar",
+            "title": "",
+            "axes": {
+              "x": { "label": "X values" },
+              "y": { "label": "Bar values" }
+            },
+            "data": [
+              {
+                "x": "0",
+                "y": 3.0
+              },
+              {
+                "x": "1",
+                "y": 5.0
+              },
+            ],
+          },
+          {
+            "id": "f022d8e9-4aff-4ab0-9959-904fd07c9bd2",
+            "type": "line",
+            "title": "Multilayer Plot Example",
+            "axes": {
+              "x": { "label": "X values" },
+              "y": { "label": "Line values" }
+            },
+            "data": [
+              [
+                {
+                  "x": 0.0,
+                  "y": 10.0,
+                  "fill": "Line Data"
+                },
+                {
+                  "x": 1.0,
+                  "y": 8.0,
+                  "fill": "Line Data"
+                },
+              ]
+            ],
+          }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+### Violin Plot (Multilayer)
+
+Violin plots use two layers in the same subplot: `violin_box` for summary statistics and `violin_kde` for the KDE density curve. Put `violin_box` first so it is the default view. Users switch between layers with `PageUp`/`PageDown`.
+
+For the full data contract and field reference, see [VIOLIN_PLOT_SPEC.md](./VIOLIN_PLOT_SPEC.md).
+
+```javascript
+maidr = {
+  "id": "violin_plot",
+  "subplots": [
+    [
+      {
+        "layers": [
+          {
+            "id": "box-layer",
+            "type": "violin_box",
+            "title": "Diamond Price Distribution by Cut Quality",
+            "axes": {
+              "x": { "label": "Cut Quality" },
+              "y": { "label": "Price (USD)" }
+            },
+            "selectors": [
+              {
+                "lowerOutliers": [],
+                "min": "#box1 .whisker-min",
+                "iq": "#box1 .iqr-rect",
+                "q2": "#box1 .median-line",
+                "max": "#box1 .whisker-max",
+                "upperOutliers": []
+              }
+            ],
+            "data": [
+              {
+                "fill": "Ideal",
+                "lowerOutliers": [],
+                "min": 326,
+                "q1": 878,
+                "q2": 1810,
+                "q3": 4678,
+                "max": 18806,
+                "upperOutliers": []
+              }
+            ]
+          },
+          {
+            "id": "kde-layer",
+            "type": "violin_kde",
+            "title": "Diamond Price Distribution by Cut Quality",
+            "axes": {
+              "x": { "label": "Cut Quality" },
+              "y": { "label": "Price (USD)" }
+            },
+            "selectors": [
+              "#violin-group-1 path"
+            ],
+            "data": [
+              [
+                { "x": "Ideal", "y": -501.7, "svg_x": 100.4, "svg_y": 281.8, "width": 0.044 },
+                { "x": "Ideal", "y": -501.7, "svg_x": 103.8, "svg_y": 281.8, "width": 0.044 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 98.3,  "svg_y": 279.4, "width": 0.100 },
+                { "x": "Ideal", "y": -294.2, "svg_x": 106.0, "svg_y": 279.4, "width": 0.100 }
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  ]
+}
+```

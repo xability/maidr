@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { StackedBarplotPage } from '../page-objects/plots/stackedBarplot-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a Stacked Barplot page
@@ -102,26 +103,7 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.navigateToStackedBarplot();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.STACKED_BARPLOT_ID);
+      maidrData = await extractMaidrData(page);
 
       stackedBarplotLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getStackedBarplotDataLength(stackedBarplotLayer);
@@ -223,7 +205,7 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await stackedBarplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(stackedBarplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -231,7 +213,7 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await stackedBarplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(stackedBarplotLayer?.axes?.y?.label ?? '');
     });
   });
 

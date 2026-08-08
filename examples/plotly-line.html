@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Line Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Multi-Line Chart</h1>
+    <p>
+      A plotly.js multi-line chart auto-detected by MAIDR.
+      Click on the chart and use arrow keys to navigate.
+    </p>
+
+    <div id="line-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var trace1 = {
+        x: [1, 2, 3, 4, 5, 6, 7],
+        y: [10, 15, 13, 17, 22, 19, 25],
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Series A'
+      };
+
+      var trace2 = {
+        x: [1, 2, 3, 4, 5, 6, 7],
+        y: [16, 5, 11, 9, 14, 20, 12],
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Series B'
+      };
+
+      var layout = {
+        title: { text: 'Weekly Sales Comparison' },
+        xaxis: { title: { text: 'Week' } },
+        yaxis: { title: { text: 'Sales ($K)' } }
+      };
+
+      Plotly.newPlot('line-chart', [trace1, trace2], layout);
+    </script>
+  </body>
+</html>

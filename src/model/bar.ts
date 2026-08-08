@@ -1,13 +1,54 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
+
+/**
+ * Reads one bar's magnitude, keeping a gap distinguishable from a zero.
+ *
+ * A chart library reports a missing bar as `null` — plotly renders a
+ * zero-height rect and keeps the point, so the gap arrives here rather than
+ * being dropped. `Number(null)` is `0`, which makes an absent bar
+ * indistinguishable from one genuinely measured at zero: it sounds like a real
+ * low point, it can be reached as the row's minimum, and it pulls the range
+ * that every other bar's pitch is scaled against. `NaN` keeps it absent, which
+ * is what the text layer already announces it as.
+ *
+ * A blank cell counts as a gap for the same reason: `Number('')` and
+ * `Number('  ')` are also `0`, so a hand-authored figure with an empty cell
+ * would land in the same trap.
+ *
+ * @param raw - The value from the point, on whichever axis carries magnitude
+ * @returns The magnitude, or `NaN` when the bar is a gap
+ */
+function toBarValue(raw: string | number | null | undefined): number {
+  if (raw === null || raw === undefined) {
+    return Number.NaN;
+  }
+  if (typeof raw === 'string' && raw.trim() === '') {
+    return Number.NaN;
+  }
+  return Number(raw);
+}
+
+/**
+ * Reports whether a bar value is a real measurement rather than a gap.
+ *
+ * Exported for `SegmentedTrace`, which builds a summary row from these values
+ * and has to keep gaps out of it for the same reason.
+ *
+ * @param value - A magnitude from `barValues`
+ * @returns True when the value can take part in a range or a comparison
+ */
+export function isMeasured(value: number): boolean {
+  return Number.isFinite(value);
+}
 
 export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace {
   protected readonly movable: Movable;
@@ -15,9 +56,6 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected readonly points: T[][];
   protected readonly barValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
-  protected highlightCenters:
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null;
 
   protected readonly orientation: Orientation;
   protected readonly min: number[];
@@ -32,22 +70,23 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
 
     this.barValues = points.map(row =>
       row.map(point =>
-        this.orientation === Orientation.VERTICAL
-          ? Number(point.y)
-          : Number(point.x),
+        toBarValue(
+          this.orientation === Orientation.VERTICAL ? point.y : point.x,
+        ),
       ),
     );
-    this.min = this.barValues.map(row => MathUtil.safeMin(row));
-    this.max = this.barValues.map(row => MathUtil.safeMax(row));
+    // A gap is not a measurement, so it must not set the row's range. Left in,
+    // it drags the minimum to 0 and every other bar's pitch along with it.
+    this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
+    this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
-    this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<T>(this.points);
   }
 
   /**
    * Cleans up bar plot resources including points and min/max arrays.
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
 
     this.min.length = 0;
@@ -59,9 +98,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected get audio(): AudioState {
     const isVertical = this.orientation === Orientation.VERTICAL;
 
-    const value = isVertical
-      ? this.barValues[this.row][this.col]
-      : this.barValues[this.col][this.row];
+    // barValues is already orientation-normalized to [row][col], so the value
+    // is always read as [row][col]; only the visual pan coordinates swap.
+    const value = this.barValues[this.row][this.col];
 
     return {
       freq: {
@@ -72,10 +111,10 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       panning: {
         x: isVertical ? this.col : this.row,
         y: isVertical ? this.row : this.col,
-        rows: isVertical ? this.barValues.length : this.barValues[this.col].length,
+        rows: isVertical ? this.barValues.length : this.barValues[this.row].length,
         cols: isVertical ? this.barValues[this.row].length : this.barValues.length,
       },
-      group: isVertical ? this.row : this.col,
+      group: this.row,
     };
   }
 
@@ -109,6 +148,62 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
   }
 
+  /**
+   * The chart's min and max description stats.
+   *
+   * A chart of nothing but gaps has no range at all, and `safeMin`/`safeMax`
+   * answer an empty set with positive and negative Infinity. Report that the
+   * way every other modality reports an absent value rather than announcing an
+   * infinity.
+   *
+   * Shared so `SegmentedTrace`, which replaces the whole stats block rather
+   * than extending it, cannot drift back to announcing an infinity.
+   *
+   * @returns The min and max stats, in that order
+   */
+  protected rangeStats(): DescriptionState['stats'] {
+    const chartMin = MathUtil.safeMin(this.min);
+    const chartMax = MathUtil.safeMax(this.max);
+    return [
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
+    ];
+  }
+
+  /**
+   * Gets the description state for the bar plot trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const isVertical = this.orientation === Orientation.VERTICAL;
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of bars', value: this.points[0].length },
+      ...this.rangeStats(),
+    ];
+
+    if (this.points.length > 1) {
+      stats.push({ label: 'Number of groups', value: this.points.length });
+    }
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis]
+      : [this.yAxis, this.xAxis];
+
+    const rows: (string | number)[][] = this.points[0].map((p) => {
+      const main = isVertical ? p.x : p.y;
+      const cross = isVertical ? p.y : p.x;
+      return [main, cross];
+    });
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
   protected get dimension(): Dimension {
     return {
       rows: this.barValues.length,
@@ -125,13 +220,52 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       return null;
     }
 
-    const svgElements = [Svg.selectAllElements(selector)];
-    if (svgElements.length !== this.points.length) {
+    const queried = Svg.selectAllElements(selector);
+    // Nothing resolved — report no highlight for this layer rather than fall
+    // through to the zero-bar alignment below, which would stand a full row of
+    // detached placeholders in for elements that do not exist. `SegmentedTrace`
+    // bails on the same condition.
+    if (queried.length === 0) {
       return null;
     }
+
+    const svgElements = [queried];
+
+    if (svgElements.length !== this.points.length) {
+      // Discard the just-inserted hidden clones so they don't leak into the
+      // DOM (dispose only removes elements reachable via highlightValues).
+      queried.forEach(el => el.remove());
+      return null;
+    }
+
     for (let row = 0; row < this.points.length; row++) {
-      if (svgElements[row].length !== this.points[row].length) {
-        return null;
+      if (svgElements[row].length === this.points[row].length) {
+        continue; // exact match — nothing to do
+      }
+
+      // SVG renderers (e.g. Plotly) may omit zero-height bars from the DOM.
+      // When fewer SVG elements than data points exist, align them by
+      // assigning each non-zero data point the next queried element and
+      // inserting an invisible placeholder for zero-value points.
+      if (svgElements[row].length < this.points[row].length) {
+        const aligned: SVGElement[] = [];
+        let svgIdx = 0;
+        for (let col = 0; col < this.points[row].length; col++) {
+          const value = this.orientation === Orientation.VERTICAL
+            ? Number(this.points[row][col].y)
+            : Number(this.points[row][col].x);
+          if (value !== 0 && svgIdx < svgElements[row].length) {
+            aligned.push(svgElements[row][svgIdx++]);
+          } else {
+            aligned.push(Svg.createEmptyElement());
+          }
+        }
+        svgElements[row] = aligned;
+      } else {
+        // Discard the just-inserted hidden clones so they don't leak into the
+        // DOM (dispose only removes elements reachable via highlightValues).
+        queried.forEach(el => el.remove());
+        return null; // more SVG elements than data points — unexpected
       }
     }
 
@@ -139,47 +273,16 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
-   * Maps SVG elements to their center coordinates for proximity detection.
-   * @returns Array of center points with element references or null if no elements exist
-   */
-  protected mapSvgElementsToCenters():
-    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
-    | null {
-    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
-
-    if (!svgElements) {
-      return null;
-    }
-
-    const centers: {
-      x: number;
-      y: number;
-      row: number;
-      col: number;
-      element: SVGElement;
-    }[] = [];
-    for (let row = 0; row < svgElements.length; row++) {
-      for (let col = 0; col < svgElements[row].length; col++) {
-        const element = svgElements[row][col];
-        const targetElement = Array.isArray(element) ? element[0] : element;
-        const bbox = targetElement.getBoundingClientRect();
-        if (targetElement) {
-          centers.push({
-            x: bbox.x + bbox.width / 2,
-            y: bbox.y + bbox.height / 2,
-            row,
-            col,
-            element: targetElement,
-          });
-        }
-      }
-    }
-
-    return centers;
-  }
-
-  /**
-   * Finds the nearest bar element at the specified coordinates.
+   * Finds the bar element under the specified coordinates.
+   *
+   * Unlike line/scatter/box traces (which return the nearest center regardless
+   * of cursor position), bar charts hit-test against each bar's bounding box
+   * and return null when the cursor is between bars. As a consequence, pointer
+   * guidance beeps fire only when the pointer is inside a bar — there is no
+   * directional guidance toward the closest bar from outside. This is
+   * intentional: bars are area marks (not points), and "nearest bar" from
+   * an arbitrary position is rarely the user's intent.
+   *
    * @param x - The x-coordinate
    * @param y - The y-coordinate
    * @returns Object containing the element and its position, or null if not found
@@ -187,32 +290,91 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     // we differ from the base implementation (which is to loop through centers and return one),
     // as sometimes the closest center is not the bar we clicked on
     // so instead, we just do the hard thing and loop through all highlightValues
-    if (!this.highlightValues) {
+    if (!this.highlightValues || this.highlightValues.length === 0) {
       return null;
     }
 
     // loop through all highlightValues, and check bounding boxes against x, y
     for (let row = 0; row < this.highlightValues.length; row++) {
-      for (let col = 0; col < this.highlightValues[row].length; col++) {
-        const element = this.highlightValues[row][col];
+      const rowElements = this.highlightValues[row];
+      // Skip undefined or empty rows
+      if (!rowElements || rowElements.length === 0) {
+        continue;
+      }
+      for (let col = 0; col < rowElements.length; col++) {
+        const element = rowElements[col];
+        // Skip undefined elements
+        if (!element) {
+          continue;
+        }
         const targetElement = Array.isArray(element) ? element[0] : element;
+        // Skip if targetElement is invalid or an empty placeholder
+        if (!targetElement || !targetElement.getBoundingClientRect) {
+          continue;
+        }
         const bbox = targetElement.getBoundingClientRect();
+        // Skip elements with no size (empty placeholders)
+        if (bbox.width === 0 && bbox.height === 0) {
+          continue;
+        }
         if (
           x >= bbox.x
           && x <= bbox.x + bbox.width
           && y >= bbox.y
           && y <= bbox.y + bbox.height
         ) {
-          return { element: targetElement, row, col };
+          return {
+            element: targetElement,
+            row,
+            col,
+            centerX: bbox.x + bbox.width / 2,
+            centerY: bbox.y + bbox.height / 2,
+          };
         }
       }
     }
 
     return null;
+  }
+
+  /**
+   * Shared rotor compare-search across the bars in the current row.
+   * Steps through {@link barValues} from the current column in the given
+   * direction, moving to the first bar whose value satisfies the comparison.
+   * @param direction - The direction to search (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a matching bar was found, false otherwise
+   */
+  protected compareSearchInRow(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    const currentGroup = this.row;
+    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
+      return false;
+    }
+
+    const groupValues = this.barValues[currentGroup];
+    if (!groupValues || groupValues.length === 0) {
+      return false;
+    }
+
+    const currentIndex = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    let i = currentIndex + step;
+
+    while (i >= 0 && i < groupValues.length) {
+      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
+        this.col = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+      i += step;
+    }
+    this.notifyRotorBounds();
+    return false;
   }
 }
 
@@ -231,7 +393,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param element.col - The column position of the element
    * @returns True if coordinates are within bounds, false otherwise
    */
-  public isPointInBounds(
+  public override isPointInBounds(
     x: number,
     y: number,
     { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
@@ -276,9 +438,26 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     const groupMin = this.min[currentGroup];
     const groupMax = this.max[currentGroup];
 
+    // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
+    // return ±Infinity, which indexOf cannot find. There is no extreme to
+    // navigate to; offering one would move the cursor to column -1.
+    if (!isMeasured(groupMin) || !isMeasured(groupMax)) {
+      return targets;
+    }
+
     // Find indices of min/max values
     const maxIndex = groupValues.indexOf(groupMax);
     const minIndex = groupValues.indexOf(groupMin);
+
+    // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
+    const maxPoint = this.points[currentGroup]?.[maxIndex];
+    const minPoint = this.points[currentGroup]?.[minIndex];
+    const maxXValue = maxPoint
+      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
+      : undefined;
+    const minXValue = minPoint
+      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
+      : undefined;
 
     // Add max target
     targets.push({
@@ -288,6 +467,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'max',
       navigationType: 'point',
+      xValue: maxXValue,
     });
 
     // Add min target
@@ -298,6 +478,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       segment: 'bar',
       type: 'min',
       navigationType: 'point',
+      xValue: minXValue,
     });
 
     return targets;
@@ -312,7 +493,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     this.col = target.pointIndex;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -337,7 +518,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
   /**
    * Updates the visual position of the current point ensuring it's within bounds.
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
@@ -351,30 +532,6 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @returns True if a target was found, false otherwise
    */
   public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const currentGroup = this.row;
-    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
-      return false;
-    }
-
-    const groupValues = this.barValues[currentGroup];
-    if (!groupValues || groupValues.length === 0) {
-      return false;
-    }
-
-    const currentIndex = this.col;
-    const step = direction === 'right' ? 1 : -1;
-    let i = currentIndex + step;
-
-    while (i >= 0 && i < groupValues.length) {
-      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
-        this.col = i;
-        this.updateVisualPointPosition();
-        this.notifyStateUpdate();
-        return true;
-      }
-      i += step;
-    }
-    this.notifyRotorBounds();
-    return false;
+    return this.compareSearchInRow(direction, type);
   }
 }

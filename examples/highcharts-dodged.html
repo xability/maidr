@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Dodged Bar - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Grouped (Dodged) Bar Chart</h1>
+    <p>
+      A Highcharts grouped column chart made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate categories; up/down to switch between groups.
+    </p>
+
+    <div id="dodged-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('dodged-chart', {
+        chart: { type: 'column' },
+        title: { text: 'Quarterly Sales by Product' },
+        xAxis: {
+          categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+          title: { text: 'Quarter' },
+        },
+        yAxis: { title: { text: 'Revenue ($M)' } },
+        // No `stacking` option = grouped (dodged) by default in Highcharts.
+        series: [
+          { name: 'Product A', data: [20, 14, 23, 25] },
+          { name: 'Product B', data: [15, 18, 20, 22] },
+          { name: 'Product C', data: [12, 16, 18, 20] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'dodged-chart' });
+      document.getElementById('dodged-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

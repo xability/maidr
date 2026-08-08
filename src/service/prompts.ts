@@ -43,10 +43,10 @@ export interface PromptContext {
   maidrJson: string;
   currentPositionText: string;
   message: string;
-  expertiseLevel: 'basic' | 'intermediate' | 'advanced' | 'custom';
+  expertiseLevel: 'basic' | 'intermediate' | 'advanced';
 }
 
-const SYSTEM_PROMPTS: Record<Exclude<PromptContext['expertiseLevel'], 'custom'>, string> = {
+const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
   basic: BASIC_SYSTEM_PROMPT,
   intermediate: INTERMEDIATE_SYSTEM_PROMPT,
   advanced: ADVANCED_SYSTEM_PROMPT,
@@ -55,25 +55,22 @@ const SYSTEM_PROMPTS: Record<Exclude<PromptContext['expertiseLevel'], 'custom'>,
 /**
  * Selects the appropriate system prompt based on the user's expertise level.
  * @param expertiseLevel - The expertise level of the user
- * @returns The corresponding system prompt string, or empty string for custom level
+ * @returns The corresponding system prompt string
  */
 function selectPromptByLevel(expertiseLevel: PromptContext['expertiseLevel']): string {
-  if (expertiseLevel === 'custom') {
-    return '';
-  }
   return SYSTEM_PROMPTS[expertiseLevel];
 }
 
 /**
  * Formats the system prompt by combining base prompt with custom instructions.
+ * A 'custom' expertise selection is mapped to 'advanced' upstream (see
+ * ChatService.getLlmResponse), so the base prompt is always one of the three
+ * levels above with the custom instruction appended.
  * @param customInstruction - Additional custom instructions to append
  * @param expertiseLevel - The expertise level to determine base prompt
  * @returns The formatted system prompt string
  */
 export function formatSystemPrompt(customInstruction: string, expertiseLevel: PromptContext['expertiseLevel']): string {
-  if (expertiseLevel === 'custom') {
-    return customInstruction;
-  }
   const basePrompt = selectPromptByLevel(expertiseLevel);
   return `${basePrompt}\n\n${customInstruction}`;
 }
@@ -84,8 +81,17 @@ export function formatSystemPrompt(customInstruction: string, expertiseLevel: Pr
  * @returns The formatted user prompt string
  */
 export function formatUserPrompt(context: PromptContext): string {
-  return USER_PROMPT_TEMPLATE
-    .replace('{maidrJson}', context.maidrJson)
-    .replace('{currentPositionText}', context.currentPositionText)
-    .replace('{message}', context.message);
+  const values: Record<string, string> = {
+    maidrJson: context.maidrJson,
+    currentPositionText: context.currentPositionText,
+    message: context.message,
+  };
+  // Single pass with a function replacer: string replacements would let `$$`,
+  // `$&`, `$'` and `` $` `` sequences in the chart data or the user message
+  // corrupt the prompt, and chained .replace calls could re-substitute a
+  // placeholder that literally appears in an earlier value.
+  return USER_PROMPT_TEMPLATE.replace(
+    /\{(maidrJson|currentPositionText|message)\}/g,
+    (_, key: string) => values[key],
+  );
 }

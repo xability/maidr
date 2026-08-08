@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Faceted Bar Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Faceted Bar Chart (small multiples)</h1>
+    <p>
+      Click on the chart and use arrow keys to move between panels. Press 'ENTER' to
+      drill into a panel, then arrow keys to navigate its bars and 'ESC' to return
+      to panel navigation.
+    </p>
+    <div id="chart"></div>
+
+    <script>
+      // Sales by weekday, faceted by region — the canonical D3 small-multiples
+      // idiom: one translated <g class="panel"> per d3.groups() entry.
+      const flat = [
+        { region: 'North', day: 'Mon', sales: 42 }, { region: 'North', day: 'Tue', sales: 58 },
+        { region: 'North', day: 'Wed', sales: 71 }, { region: 'North', day: 'Thu', sales: 49 },
+        { region: 'South', day: 'Mon', sales: 65 }, { region: 'South', day: 'Tue', sales: 39 },
+        { region: 'South', day: 'Wed', sales: 44 }, { region: 'South', day: 'Thu', sales: 80 },
+        { region: 'East', day: 'Mon', sales: 30 }, { region: 'East', day: 'Tue', sales: 52 },
+        { region: 'East', day: 'Wed', sales: 61 }, { region: 'East', day: 'Thu', sales: 47 },
+        { region: 'West', day: 'Mon', sales: 74 }, { region: 'West', day: 'Tue', sales: 68 },
+        { region: 'West', day: 'Wed', sales: 35 }, { region: 'West', day: 'Thu', sales: 56 },
+      ];
+      const grouped = d3.groups(flat, d => d.region); // [ [key, values], ... ]
+
+      // 2x2 grid of panels
+      const panelWidth = 260;
+      const panelHeight = 200;
+      const margin = { top: 30, right: 15, bottom: 35, left: 40 };
+      const innerW = panelWidth - margin.left - margin.right;
+      const innerH = panelHeight - margin.top - margin.bottom;
+      const columns = 2;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-facet-chart')
+        .attr('width', panelWidth * columns)
+        .attr('height', panelHeight * Math.ceil(grouped.length / columns));
+
+      const x = d3.scaleBand()
+        .domain(['Mon', 'Tue', 'Wed', 'Thu'])
+        .range([0, innerW])
+        .padding(0.2);
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(flat, d => d.sales)])
+        .nice()
+        .range([innerH, 0]);
+
+      // One <g class="panel"> per region, translated into a 2x2 grid. The
+      // d3.groups() [key, values] tuple stays bound to the panel element, so
+      // the MAIDR binder can read the facet key for the panel title.
+      const panels = svg.selectAll('g.panel')
+        .data(grouped)
+        .join('g')
+        .attr('class', 'panel')
+        .attr('transform', (d, i) => {
+          const col = i % columns;
+          const row = Math.floor(i / columns);
+          return `translate(${col * panelWidth + margin.left}, ${row * panelHeight + margin.top})`;
+        });
+
+      panels.append('text')
+        .attr('x', innerW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text(d => d[0]);
+
+      panels.each(function ([, values]) {
+        const panel = d3.select(this);
+        panel.selectAll('rect.bar')
+          .data(values)
+          .join('rect')
+          .attr('class', 'bar')
+          .attr('x', d => x(d.day))
+          .attr('y', d => y(d.sales))
+          .attr('width', x.bandwidth())
+          .attr('height', d => innerH - y(d.sales))
+          .attr('fill', '#4682b4');
+        panel.append('g')
+          .attr('transform', `translate(0, ${innerH})`)
+          .call(d3.axisBottom(x));
+        panel.append('g')
+          .call(d3.axisLeft(y).ticks(4));
+      });
+
+      // === MAIDR Integration ===
+      // One call binds all panels: each g.panel becomes a navigable MAIDR
+      // subplot, with per-panel selector scoping handled automatically.
+      const svgElement = document.getElementById('d3-facet-chart');
+      const result = maidrD3.bindD3Facets(svgElement, {
+        panelSelector: 'g.panel',
+        chartType: 'bar',
+        config: {
+          selector: 'rect.bar',
+          title: 'Sales by Day, faceted by Region',
+          axes: { x: 'Day', y: 'Sales' },
+          x: 'day',
+          y: 'sales',
+        },
+        // Panel title from the d3.groups() key bound to each panel.
+        panelTitle: d => `Region: ${d[0]}`,
+        // The grid shape is inferred from panel geometry; pass an explicit
+        // layout ('row' | 'column' | { columns: 2 }) to override.
+      });
+      // The binder auto-applies `maidr-data` to the SVG. Pass `autoApply: false`
+      // in the config above if you want to handle the attribute yourself.
+      void result;
+    </script>
+  </body>
+</html>

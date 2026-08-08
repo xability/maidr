@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Bar Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="bar-chart"></canvas>
+    </div>
+
+    <script>
+      // Register the MAIDR plugin globally — every Chart.js chart on the page
+      // becomes accessible automatically.
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('bar-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          datasets: [{
+            label: 'Daily Activity Count',
+            data: [45, 72, 89, 64, 53, 95, 38],
+            backgroundColor: '#4682b4',
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Daily Activity Count' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Day of Week' } },
+            y: { title: { display: true, text: 'Count' }, beginAtZero: true },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Horizontal Box Plot Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <!--
+      This example validates the horizontal orientation fix for boxplots.
+      When x is quantitative and y is nominal, the converter should set
+      orientation = Orientation.HORIZONTAL so that announcements and
+      DOM pairing are correct.
+    -->
+    <h1>MAIDR + Vega-Lite Horizontal Box Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="box-chart-horizontal"
+      aria-label="Horizontal box plot loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Horizontal box plot: x is quantitative (score), y is nominal (group).
+      // This spec should trigger orientation = Orientation.HORIZONTAL in
+      // convertLayerSpec, ensuring correct axis labels in announcements.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Score Distribution by Group (Horizontal)',
+        description: 'Horizontal box plot showing score distributions.',
+        data: {
+          values: [
+            // Group A: tight bulk 60–80 + 2 lower & 2 upper outliers
+            ...Array.from({ length: 28 }, () => ({
+              group: 'A',
+              score: 60 + Math.round(Math.random() * 20),
+            })),
+            { group: 'A', score: 30 },
+            { group: 'A', score: 35 },
+            { group: 'A', score: 95 },
+            { group: 'A', score: 98 },
+            // Group B: tight bulk 65–75 + 1 lower & 2 upper outliers
+            ...Array.from({ length: 28 }, () => ({
+              group: 'B',
+              score: 65 + Math.round(Math.random() * 10),
+            })),
+            { group: 'B', score: 40 },
+            { group: 'B', score: 92 },
+            { group: 'B', score: 96 },
+            // Group C: bulk 50–70 + 2 lower & 1 upper outlier
+            ...Array.from({ length: 28 }, () => ({
+              group: 'C',
+              score: 50 + Math.round(Math.random() * 20),
+            })),
+            { group: 'C', score: 20 },
+            { group: 'C', score: 25 },
+            { group: 'C', score: 100 },
+          ],
+        },
+        mark: { type: 'boxplot', extent: 'min-max' },
+        encoding: {
+          // X is quantitative (the value axis)
+          x: { field: 'score', type: 'quantitative', title: 'Score' },
+          // Y is nominal (the category axis)
+          y: { field: 'group', type: 'nominal', title: 'Group' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#box-chart-horizontal', spec, { id: 'scores-box-horizontal' })
+        .catch((err) => console.error('[vegalite-bindbox-horizontal]', err));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Heatmap - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/heatmap.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Heatmap</h1>
+    <p>
+      A Highcharts heatmap made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate cells.
+    </p>
+
+    <div id="heatmap-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('heatmap-chart', {
+        chart: { type: 'heatmap' },
+        title: { text: 'Activity Heatmap' },
+        xAxis: { categories: ['Mon', 'Tue', 'Wed'] },
+        yAxis: { categories: ['Morning', 'Afternoon', 'Evening'] },
+        colorAxis: { min: 0, minColor: '#FFFFFF', maxColor: '#7CB5EC' },
+        series: [{
+          name: 'Activity',
+          data: [
+            [0, 0, 1], [0, 1, 20], [0, 2, 30],
+            [1, 0, 20], [1, 1, 1], [1, 2, 60],
+            [2, 0, 30], [2, 1, 60], [2, 2, 1],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'heatmap-chart' });
+      document.getElementById('heatmap-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

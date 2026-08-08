@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { LinePlotPage } from '../page-objects/plots/lineplot-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a lineplot page
@@ -93,26 +94,7 @@ test.describe('Line Plot', () => {
       await linePlotPage.navigateToLinePlot();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.LINEPLOT_ID);
+      maidrData = await extractMaidrData(page);
 
       linePlotLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getLinePlotDataLength(linePlotLayer);
@@ -198,14 +180,14 @@ test.describe('Line Plot', () => {
       const linePlotPage = await setupLinePlotPage(page);
       await linePlotPage.toggleXAxisTitle();
       const xAxisTitle = await linePlotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(linePlotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(linePlotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
       const linePlotPage = await setupLinePlotPage(page);
       await linePlotPage.toggleYAxisTitle();
       const yAxisTitle = await linePlotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(linePlotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(linePlotLayer?.axes?.y?.label ?? '');
     });
   });
 

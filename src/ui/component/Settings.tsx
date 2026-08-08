@@ -2,6 +2,8 @@ import type { SelectChangeEvent } from '@mui/material';
 import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
+  BrailleDisplayKind,
+  BrailleDisplayPreset,
   GeneralSettings,
   HoverMode,
   LlmModelSettings,
@@ -16,6 +18,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -32,40 +35,149 @@ import {
   Typography,
 } from '@mui/material';
 import { LlmValidationService } from '@service/llmValidation';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import {
+  MAX_BRAILLE_LINES,
+  MAX_BRAILLE_SIZE,
+} from '@type/settings';
+import {
+  clampBrailleLines,
+  clampBrailleSize,
+  formatMultiLinePreset,
+  formatSingleLinePreset,
+  isBrailleDisplayKind,
+  MULTI_LINE_BRAILLE_PRESETS,
+  parseManualBrailleInput,
+  selectBrailleDisplayKind,
+  selectBraillePreset,
+  SINGLE_LINE_BRAILLE_PRESETS,
+} from '@util/braillePreset';
+import { copyToClipboard } from '@util/clipboard';
+import {
+  collectDiagnostics,
+  describeMaidrSource,
+  formatDiagnostics,
+  redactScriptUrl,
+} from '@util/diagnostics';
+import { resolveVersionOptions } from '@util/llm';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
-function getValidVersion(
-  modelKey: Llm,
-  currentVersion: string | undefined,
-): LlmVersion {
-  const config = MODEL_VERSIONS[modelKey];
-  const validOptions = config.options as readonly LlmVersion[];
-  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-    return config.default;
-  }
-  return currentVersion as LlmVersion;
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
+const COPY_STATUS_MESSAGE: Record<CopyStatus, string> = {
+  idle: '',
+  copied: 'Copied to clipboard',
+  failed: 'Could not copy — select the values above and copy them manually',
+};
+
+interface CopyState {
+  readonly status: CopyStatus;
+  /**
+   * Counts attempts so a repeat copy still reaches the user. Setting the same
+   * status twice changes no text, and unchanged text is no DOM mutation — a
+   * live region announces on the mutation, not on the state update, so without
+   * this a second successful copy would be silent to a screen reader.
+   */
+  readonly attempt: number;
 }
+
+// Letter portion of the dialog accelerator keys. Shared between the
+// keydown handler and the aria-keyshortcuts attributes so the two
+// cannot drift apart and announce a shortcut that no longer fires.
+const SAVE_SHORTCUT_KEY = 's';
+const CANCEL_SHORTCUT_KEY = 'c';
 
 interface SettingRowProps {
   label: string;
   input: React.ReactNode;
   alignLabel?: 'center' | 'flex-start';
+  // When set, the visible label gets this id so the input can use
+  // aria-labelledby instead of aria-label, avoiding duplicate
+  // announcement of the same text by screen readers.
+  labelId?: string;
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center' }) => (
+const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center', labelId }) => (
   <Grid container spacing={1} alignItems={alignLabel} className="settings-grid-container" sx={{ py: 1 }}>
     <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={alignLabel === 'flex-start' ? { py: 1 } : undefined}>
-      <Typography variant="body2" fontWeight="normal">
+      <Typography id={labelId} variant="body2" fontWeight="normal">
         {label}
       </Typography>
     </Grid>
     <Grid size={{ xs: 12, sm: 6, md: 8 }}>{input}</Grid>
   </Grid>
 );
+
+interface BraillePresetSelectProps {
+  rowLabel: string;
+  placeholder: string;
+  presets: readonly BrailleDisplayPreset[];
+  selectedPresetId: string | null;
+  formatPreset: (preset: BrailleDisplayPreset) => string;
+  onPresetChange: (presetId: string) => void;
+  hint?: string;
+}
+
+const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
+  rowLabel,
+  placeholder,
+  presets,
+  selectedPresetId,
+  formatPreset,
+  onPresetChange,
+  hint,
+}) => {
+  const labelId = useId();
+  const hintId = useId();
+  const { modalRef, container } = useModalContainer();
+  return (
+    <SettingRow
+      label={rowLabel}
+      labelId={labelId}
+      input={(
+        <FormControl fullWidth>
+          <Select
+            value={selectedPresetId ?? ''}
+            onChange={e => onPresetChange(e.target.value)}
+            fullWidth
+            size="small"
+            displayEmpty
+            slotProps={{
+              input: {
+                'aria-labelledby': labelId,
+                'aria-required': true,
+                ...(hint ? { 'aria-describedby': hintId } : {}),
+              },
+            }}
+            MenuProps={{ disablePortal: true, ref: modalRef, container }}
+          >
+            <MenuItem value="" disabled>
+              {placeholder}
+            </MenuItem>
+            {presets.map(preset => (
+              <MenuItem key={preset.id} value={preset.id}>
+                {formatPreset(preset)}
+              </MenuItem>
+            ))}
+          </Select>
+          {hint && (
+            <Typography
+              id={hintId}
+              variant="caption"
+              sx={{ mt: 0.5, color: 'text.secondary' }}
+            >
+              {hint}
+            </Typography>
+          )}
+        </FormControl>
+      )}
+    />
+  );
+};
 
 interface LlmModelSettingRowProps {
   modelKey: Llm;
@@ -83,53 +195,94 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeVersion,
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
+  const { modalRef, container } = useModalContainer();
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
+  // Models available to this credential, probed from the provider's models
+  // API (or the local Ollama server) when the credential validates; replaces
+  // the curated suggestion list so users pick from what actually exists.
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+  // Ollama is a local server: the credential field holds its base URL and
+  // "validation" means reachability, so most labels differ from the cloud
+  // providers' API-key wording.
+  const isOllama = modelKey === 'OLLAMA';
+  const credentialLabel = isOllama ? 'Server URL' : 'API Key';
 
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
     if (isValidating)
-      return 'Validating API key...';
-    if (isValid === false)
-      return `${modelSettings.name} API key is invalid`;
+      return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
+    if (isValid === false) {
+      return isOllama
+        ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
+        : `${modelSettings.name} API key is invalid`;
+    }
     if (isValid === true)
-      return `${modelSettings.name} API key is valid`;
+      return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
     return '';
   };
 
-  const validateApiKey = async (apiKey: string): Promise<void> => {
+  // The debounce only spaces out request starts; it cannot cancel a request
+  // already in flight. isStale lets a superseded cycle (newer keystroke or
+  // unmount) discard its response so a slow early probe can never overwrite
+  // the state of a newer one.
+  const validateApiKey = async (apiKey: string, isStale: () => boolean): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
-      setIsValid(null);
+      if (!isStale()) {
+        setIsValid(null);
+        setAvailableModels([]);
+        // Also clear the spinner: a superseded in-flight request skips its
+        // own finally-cleanup as stale, so this cycle owns the state.
+        setIsValidating(false);
+      }
       return;
     }
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(
-        modelKey,
-        apiKey,
-      );
-      setIsValid(result.isValid);
+      // A single probe answers both credential validity and the live list of
+      // models the credential can access, for every provider.
+      const probe = await LlmValidationService.probeProvider(modelKey, apiKey);
+      if (isStale()) {
+        return;
+      }
+      setIsValid(probe.isValid);
+      setAvailableModels(probe.models);
     } catch (error) {
-      setIsValid(false);
+      if (!isStale()) {
+        setIsValid(false);
+        setAvailableModels([]);
+      }
     } finally {
-      setIsValidating(false);
+      if (!isStale()) {
+        setIsValidating(false);
+      }
     }
   };
 
   useEffect(() => {
+    let cancelled = false;
     const debounceTimer = setTimeout(() => {
-      validateApiKey(modelSettings.apiKey);
+      validateApiKey(modelSettings.apiKey, () => cancelled);
     }, 500);
 
-    return () => clearTimeout(debounceTimer);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+    };
   }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    return config.options.map((version) => {
-      const label = config.labels[version as keyof typeof config.labels];
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      availableModels,
+      validVersion,
+    );
+    return options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;
       return (
         <MenuItem
@@ -168,13 +321,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 size="small"
                 value={modelSettings.apiKey}
                 onChange={e => onChangeKey(modelKey, e.target.value)}
-                placeholder={`Enter ${modelSettings.name} API Key`}
-                type="password"
+                placeholder={
+                  isOllama
+                    ? 'Enter Ollama server URL (e.g. http://localhost:11434)'
+                    : `Enter ${modelSettings.name} API Key`
+                }
+                type={isOllama ? 'text' : 'password'}
                 error={isValid === false}
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} API Key`,
+                    'aria-label': `${modelSettings.name} ${credentialLabel}`,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -184,11 +341,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                           aria-live="polite"
                           aria-label={
                             isValidating
-                              ? 'Validating API key'
+                              ? isOllama
+                                ? 'Checking Ollama server'
+                                : 'Validating API key'
                               : isValid === true
-                                ? 'API key is valid'
+                                ? isOllama
+                                  ? 'Ollama server is reachable'
+                                  : 'API key is valid'
                                 : isValid === false
-                                  ? 'API key is invalid'
+                                  ? isOllama
+                                    ? 'Ollama server is unreachable'
+                                    : 'API key is invalid'
                                   : ''
                           }
                         >
@@ -235,6 +398,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 }}
                 MenuProps={{
                   disablePortal: true,
+                  ref: modalRef,
+                  container,
                   PaperProps: {
                     className: 'settings-menu-paper',
                   },
@@ -242,6 +407,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               >
                 {renderMenuItems()}
               </Select>
+              {isValid === true
+                && availableModels.length > 0
+                && !availableModels.includes(validVersion) && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  role="status"
+                  sx={{ mt: 0.5 }}
+                >
+                  {`"${validVersion}" is not in ${modelSettings.name}'s current model list — it may have been retired. Consider selecting another model.`}
+                </Typography>
+              )}
             </FormControl>
           </Grid>
         </Grid>
@@ -254,11 +431,42 @@ const Settings: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
+  const dialog = useModalContainer();
+  const expertiseMenu = useModalContainer();
   const { general, llm } = viewModel.state;
 
-  const [generalSettings, setGeneralSettings]
-    = useState<GeneralSettings>(general);
+  // SettingsService normalizes braille display fields at construction
+  // before any consumer reads them, so the component-side state already
+  // arrives in a coherent shape and does not need to re-normalize here.
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
+
+  const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
+  const titleId = `${id}-title`;
+  const copyStatusId = `${id}-copy-status`;
+  // The bundle source and the browser cannot change while the dialog is open,
+  // so the DOM scan behind this runs once per mount rather than per render.
+  const diagnostics = useMemo(() => collectDiagnostics(), []);
+  // Displayed with the same redaction the copied block uses: a screenshot of
+  // this dialog is handed to a maintainer just as readily as the pasted text,
+  // so both have to drop the OS username and any signed-URL token.
+  const sourceUrl = useMemo(
+    () => (diagnostics.source.url ? redactScriptUrl(diagnostics.source.url) : null),
+    [diagnostics],
+  );
+
+  const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
+    let status: CopyStatus;
+    try {
+      await copyToClipboard(formatDiagnostics(diagnostics));
+      status = 'copied';
+    } catch (error) {
+      console.error('[Settings] Failed to copy diagnostics', error);
+      status = 'failed';
+    }
+    // Always a fresh object, so an unchanged status still re-renders.
+    setCopyState(prev => ({ status, attempt: prev.attempt + 1 }));
+  }, [diagnostics]);
 
   useEffect(() => {
     viewModel.load();
@@ -269,20 +477,47 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   }, [general, llm]);
 
-  const handleGeneralChange = (
-    key: keyof GeneralSettings,
-    value: string | number | AriaMode | boolean | HoverMode,
+  const handleGeneralChange = <K extends keyof GeneralSettings>(
+    key: K,
+    value: GeneralSettings[K],
   ): void => {
-    // Expanded value type for ariaMode
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value,
     }));
   };
 
-  const handleLlmChange = (
-    key: keyof LlmSettings,
-    value: string | 'basic' | 'intermediate' | 'advanced' | 'custom',
+  const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
+    setGeneralSettings((prev) => {
+      const slice = selectBrailleDisplayKind(kind, prev.brailleDisplayPresetId);
+      return { ...prev, ...slice };
+    });
+  }, []);
+
+  const handleBraillePresetChange = useCallback(
+    (kind: 'single' | 'multi', presetId: string): void => {
+      const slice = selectBraillePreset(kind, presetId);
+      if (!slice) {
+        return;
+      }
+      setGeneralSettings(prev => ({ ...prev, ...slice }));
+    },
+    [],
+  );
+
+  const handleSingleLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('single', presetId),
+    [handleBraillePresetChange],
+  );
+
+  const handleMultiLinePresetChange = useCallback(
+    (presetId: string) => handleBraillePresetChange('multi', presetId),
+    [handleBraillePresetChange],
+  );
+
+  const handleLlmChange = <K extends keyof LlmSettings>(
+    key: K,
+    value: LlmSettings[K],
   ): void => {
     setLlmSettings(prev => ({
       ...prev,
@@ -317,14 +552,40 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
-  const handleClose = (): void => {
+  const handleClose = useCallback((): void => {
     viewModel.toggle();
-  };
+  }, [viewModel]);
 
-  const handleSave = (): void => {
-    viewModel.saveAndClose({ general: generalSettings, llm: llmSettings });
-    chatViewModel.refreshInitialMessage();
-  };
+  // MUI's Modal calls stopPropagation() on the Escape keydown before it can
+  // reach the document-level hotkeys-js listener, so the SETTINGS scope keymap
+  // never sees the key — Escape has to be handled by the dialog itself.
+  // Only `escapeKeyDown` closes: a backdrop click stays inert so a stray click
+  // outside the dialog cannot discard unsaved edits.
+  const handleDialogClose = useCallback(
+    (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
+      if (reason === 'escapeKeyDown') {
+        handleClose();
+      }
+    },
+    [handleClose],
+  );
+
+  const handleSave = useCallback((): void => {
+    // Clamp before persisting so a Save click before the field blurs
+    // can't bypass the [1, MAX] bound. The onChange path intentionally
+    // skips range clamping during typing so users can edit through
+    // intermediate out-of-range states; this is the commit point.
+    const safeGeneral: GeneralSettings = {
+      ...generalSettings,
+      brailleDisplaySize: clampBrailleSize(generalSettings.brailleDisplaySize),
+      brailleDisplayLines: clampBrailleLines(generalSettings.brailleDisplayLines),
+    };
+    viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
+    // Update the welcome bubble's model info in place instead of resetting the
+    // chat slice, so saving a setting (e.g. volume) never discards an ongoing
+    // conversation.
+    chatViewModel.updateWelcomeMessage();
+  }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -344,22 +605,64 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
+  // Dialog-scoped: KeybindingService's hotkeys.filter blocks shortcuts while
+  // focus is in a non-MAIDR <input>, which would silently break Alt+s / Alt+c
+  // inside the manual cells/lines fields.
+  const handleDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      const altOnly = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+      if (!altOnly) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === SAVE_SHORTCUT_KEY) {
+        if (!isCustomInstructionValid) {
+          return;
+        }
+        e.preventDefault();
+        handleSave();
+      } else if (key === CANCEL_SHORTCUT_KEY) {
+        e.preventDefault();
+        handleClose();
+      }
+    },
+    [isCustomInstructionValid, handleSave, handleClose],
+  );
+
   return (
     <Dialog
       id={id}
       role="dialog"
-      aria-label="Settings"
+      // Names the dialog. `aria-label` cannot do it here: MUI applies
+      // `role` and `aria-labelledby` to the paper — the `role="dialog"`
+      // element — but spreads everything else, `aria-label` included, onto
+      // the modal root, which is `role="presentation"` and names nothing.
+      // Passing the id also settles the reference MUI derives from it for
+      // `DialogContext`; left to generate its own, it points the paper at a
+      // `DialogTitle` that need not exist.
+      aria-labelledby={titleId}
       open={true}
+      onClose={handleDialogClose}
       maxWidth="sm"
       fullWidth
       disablePortal
+      ref={dialog.modalRef}
+      container={dialog.container}
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
+      onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
+      {/* Renders as an `h2`, so the dialog also gains the top-level heading
+          it lacked — the section headings below were the only ones in it,
+          leaving nothing to land on when navigating by heading. */}
+      <DialogTitle id={titleId} className="settings-dialog-title">
+        Settings
+      </DialogTitle>
+
       <DialogContent className="settings-dialog-content">
         <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
+          <Typography variant="h6" component="h3" fontWeight="bold" gutterBottom>
             General Settings
           </Typography>
         </Grid>
@@ -522,31 +825,152 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Braille Display Size"
+              label="Braille Display"
+              alignLabel="flex-start"
+              labelId={`${id}-braille-kind-label`}
               input={(
                 <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.brailleDisplaySize}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'brailleDisplaySize',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Braille Display Size',
-                        },
-                      },
+                  <RadioGroup
+                    row
+                    value={generalSettings.brailleDisplayKind}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (isBrailleDisplayKind(v)) {
+                        handleBrailleKindChange(v);
+                      }
                     }}
-                  />
+                    aria-labelledby={`${id}-braille-kind-label`}
+                  >
+                    <FormControlLabel
+                      value="single"
+                      control={<Radio size="small" />}
+                      label="Single line"
+                    />
+                    <FormControlLabel
+                      value="multi"
+                      control={<Radio size="small" />}
+                      label="Multi-line"
+                    />
+                    <FormControlLabel
+                      value="manual"
+                      control={<Radio size="small" />}
+                      label="Configure manually"
+                    />
+                  </RadioGroup>
                 </FormControl>
               )}
             />
           </Grid>
+          {generalSettings.brailleDisplayKind === 'single' && (
+            <Grid size={12}>
+              <BraillePresetSelect
+                rowLabel="Single-Line Display"
+                placeholder="Select a single-line display"
+                presets={SINGLE_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={formatSingleLinePreset}
+                onPresetChange={handleSingleLinePresetChange}
+                hint={'Don\'t see your display? Choose "Configure manually".'}
+              />
+            </Grid>
+          )}
+          {generalSettings.brailleDisplayKind === 'multi' && (
+            <Grid size={12}>
+              <BraillePresetSelect
+                rowLabel="Multi-Line Display"
+                placeholder="Select a multi-line display"
+                presets={MULTI_LINE_BRAILLE_PRESETS}
+                selectedPresetId={generalSettings.brailleDisplayPresetId}
+                formatPreset={formatMultiLinePreset}
+                onPresetChange={handleMultiLinePresetChange}
+                hint={'Don\'t see your display? Choose "Configure manually".'}
+              />
+            </Grid>
+          )}
+          {generalSettings.brailleDisplayKind === 'manual' && (
+            <Grid
+              size={12}
+              role="group"
+              aria-label="Manual braille display configuration"
+            >
+              <Grid size={12}>
+                <SettingRow
+                  label="Braille Display Size"
+                  input={(
+                    <FormControl fullWidth>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        size="small"
+                        value={generalSettings.brailleDisplaySize}
+                        onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleSize);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplaySize', next);
+                          }
+                        }}
+                        helperText={`Cells per row on a physical braille display (1-${MAX_BRAILLE_SIZE}).`}
+                        slotProps={{
+                          input: {
+                            inputProps: {
+                              'aria-label': 'Braille Display Size',
+                              'min': 1,
+                              'max': MAX_BRAILLE_SIZE,
+                              'step': 1,
+                            },
+                          },
+                        }}
+                      />
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              <Grid size={12}>
+                <SettingRow
+                  label="Braille Display Lines"
+                  input={(
+                    <FormControl fullWidth>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        size="small"
+                        value={generalSettings.brailleDisplayLines}
+                        onChange={(e) => {
+                          const next = parseManualBrailleInput(e.target.value);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const next = parseManualBrailleInput(e.target.value, clampBrailleLines);
+                          if (next !== null) {
+                            handleGeneralChange('brailleDisplayLines', next);
+                          }
+                        }}
+                        helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
+                        slotProps={{
+                          input: {
+                            inputProps: {
+                              'aria-label': 'Braille Display Lines',
+                              'min': 1,
+                              'max': MAX_BRAILLE_LINES,
+                              'step': 1,
+                            },
+                          },
+                        }}
+                      />
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+            </Grid>
+          )}
           <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"
@@ -566,6 +990,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Minimum Frequency',
+                          'min': 0,
                         },
                       },
                     }}
@@ -593,6 +1018,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Maximum Frequency',
+                          'min': 0,
                         },
                       },
                     }}
@@ -704,6 +1130,7 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <Typography
               variant="h6"
+              component="h3"
               fontWeight="bold"
               gutterBottom
               className="settings-section-title"
@@ -751,6 +1178,8 @@ const Settings: React.FC = () => {
                     }}
                     MenuProps={{
                       disablePortal: true,
+                      ref: expertiseMenu.modalRef,
+                      container: expertiseMenu.container,
                       PaperProps: {
                         className: 'llm-model-setting-select-menu',
                       },
@@ -819,6 +1248,117 @@ const Settings: React.FC = () => {
         <Grid size={12}>
           <Divider className="settings-divider" />
         </Grid>
+
+        {/* About */}
+        <Grid container spacing={0.5} className="settings-section">
+          <Grid size={12}>
+            <Typography
+              variant="h6"
+              component="h3"
+              fontWeight="bold"
+              gutterBottom
+              className="settings-section-title"
+            >
+              About
+            </Typography>
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="maidr.js Version"
+              input={(
+                <Typography variant="body2">{diagnostics.version}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Loaded From"
+              alignLabel={sourceUrl ? 'flex-start' : 'center'}
+              input={(
+                <>
+                  <Typography variant="body2">
+                    {describeMaidrSource(diagnostics.source)}
+                  </Typography>
+                  {sourceUrl && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'text.secondary', wordBreak: 'break-all' }}
+                    >
+                      {sourceUrl}
+                    </Typography>
+                  )}
+                </>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Browser"
+              input={(
+                <Typography variant="body2">{diagnostics.browser}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Operating System"
+              input={(
+                <Typography variant="body2">
+                  {diagnostics.operatingSystem}
+                </Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Diagnostics"
+              input={(
+                <Grid container spacing={1} alignItems="center">
+                  <Grid size="auto">
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      size="small"
+                      onClick={handleCopyDiagnostics}
+                      aria-label="Copy diagnostics to clipboard"
+                      aria-describedby={copyStatusId}
+                    >
+                      Copy diagnostics
+                    </Button>
+                  </Grid>
+                  <Grid size="auto">
+                    {/* Rendered even while empty: a live region has to be in
+                        the DOM before its text changes for the update to be
+                        announced. */}
+                    <Typography
+                      id={copyStatusId}
+                      variant="caption"
+                      role="status"
+                      aria-live="polite"
+                      sx={{
+                        color: copyState.status === 'failed'
+                          ? 'error.main'
+                          : 'text.secondary',
+                      }}
+                    >
+                      {/* Keyed by attempt so React swaps the node on every
+                          copy. Re-rendering the same text would leave the
+                          region untouched, and an untouched live region is
+                          never announced. */}
+                      <span key={copyState.attempt}>
+                        {COPY_STATUS_MESSAGE[copyState.status]}
+                      </span>
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+            />
+          </Grid>
+        </Grid>
+
+        <Grid size={12}>
+          <Divider className="settings-divider" />
+        </Grid>
       </DialogContent>
 
       {/* Footer Actions */}
@@ -851,6 +1391,7 @@ const Settings: React.FC = () => {
               color="inherit"
               onClick={handleClose}
               aria-label="Close Settings with no changes"
+              aria-keyshortcuts={`Alt+${CANCEL_SHORTCUT_KEY}`}
             >
               Close
             </Button>
@@ -867,6 +1408,7 @@ const Settings: React.FC = () => {
                   : ''
               }
               aria-label="Save & Close Settings"
+              aria-keyshortcuts={`Alt+${SAVE_SHORTCUT_KEY}`}
             >
               Save & Close
             </Button>

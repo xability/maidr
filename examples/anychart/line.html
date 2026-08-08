@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Line Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.line([
+          ['Mon', 4.2],
+          ['Tue', 5.1],
+          ['Wed', 6.3],
+          ['Thu', 5.8],
+          ['Fri', 7.4],
+          ['Sat', 8.9],
+          ['Sun', 7.7],
+        ]);
+
+        chart.title('Average Daily Sales');
+        chart.xAxis().title('Day');
+        chart.yAxis().title('Sales (thousands)');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-line',
+          title: 'Average Daily Sales',
+          axes: { x: 'Day', y: 'Sales (thousands)' },
+          // The adapter auto-enables markers on line series and stamps a
+          // stable `data-maidr-anychart-line-point` attribute on each marker
+          // so MAIDR's highlight layer can locate each data point. No manual
+          // `selectors` entry is required; pass `selectors` only to override
+          // the auto-detection.
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Line Chart</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

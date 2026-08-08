@@ -16,12 +16,13 @@
             "type": "box",
             "title": "Vertical Box Plot: Groups and Values",
             "axes": {
-              "x": "Group",
-              "y": "Values",
-              "format": {
-                "y": { "type": "fixed", "decimals": 2 }
+              "x": {
+                "label": "Group"
+              },
+              "y": {
+                "label": "Values",
+                "format": { "type": "fixed", "decimals": 2 }
               }
-
             },
             "data": [
               {
@@ -38,7 +39,7 @@
                   150,
                   160
                 ],
-                "fill": "Group 1"
+                "z": "Group 1"
               },
               {
                 "lowerOutliers": [
@@ -54,7 +55,7 @@
                   180,
                   190
                 ],
-                "fill": "Group 2"
+                "z": "Group 2"
               },
               {
                 "lowerOutliers": [
@@ -76,7 +77,7 @@
                   200,
                   210
                 ],
-                "fill": "Group 3"
+                "z": "Group 3"
               }
             ],
             "selectors": [
@@ -129,7 +130,7 @@
 
 <body>
   <div>
-    <link rel="stylesheet" href="../src/ui/css/styles.css" />
+    <link rel="stylesheet" href="../dist/maidr.css" />
     <script type="text/javascript" src="../dist/maidr.js"></script>
     <div>
       <svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="460.8pt"

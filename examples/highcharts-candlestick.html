@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Candlestick - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highstock.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Candlestick Chart</h1>
+    <p>
+      A Highcharts candlestick chart (OHLC) made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate trading days; left/right to move between open / high / low / close.
+    </p>
+
+    <div id="candlestick-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('candlestick-chart', {
+        chart: { type: 'candlestick' },
+        title: { text: 'Stock Price' },
+        xAxis: {
+          categories: ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'],
+          title: { text: 'Date' },
+        },
+        yAxis: { title: { text: 'Price ($)' } },
+        series: [{
+          name: 'AAPL',
+          data: [
+            // [open, high, low, close]
+            [150.0, 153.0, 149.0, 152.5],
+            [152.5, 154.0, 151.0, 151.0],
+            [151.0, 154.5, 150.0, 153.0],
+            [153.0, 155.0, 152.0, 154.5],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'candlestick-chart' });
+      document.getElementById('candlestick-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

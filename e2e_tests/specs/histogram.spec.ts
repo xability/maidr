@@ -1,8 +1,10 @@
 import type { Page } from '@playwright/test';
 import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
+import { defaultFormat } from '../../src/util/format';
 import { HistogramPage } from '../page-objects/plots/histogram-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a histogram page
@@ -23,6 +25,15 @@ async function setupHistogramPage(
 
 /**
  * Safely extracts the display value from a histogram data point
+ *
+ * Values are put through {@link defaultFormat}, the same formatter the
+ * announcement goes through, rather than stringified raw. The iris bin edges
+ * in the fixture carry float artefacts — `1.5900000000000003` — and MAIDR
+ * announces the rounded `1.59`. Importing the real formatter rather than
+ * copying its rounding keeps this expectation tied to the app's contract: a
+ * change in default precision updates the spec with it, while landing on the
+ * wrong bin still fails.
+ *
  * @param layer - The histogram layer containing data points
  * @param index - Index of the data point to extract value from
  * @returns The formatted string value suitable for display comparison
@@ -40,16 +51,30 @@ function getHistogramDisplayValue(layer: MaidrLayer | undefined, index: number):
   const dataPoint = layer.data[index];
 
   if (dataPoint && 'xMin' in dataPoint && 'xMax' in dataPoint) {
-    const xMin = String(dataPoint.xMin);
-    const xMax = String(dataPoint.xMax);
-    return `${xMin} through ${xMax}`;
+    return `${announced(dataPoint.xMin)} through ${announced(dataPoint.xMax)}`;
   }
 
   if (dataPoint && 'x' in dataPoint) {
-    return String(dataPoint.x);
+    return announced(dataPoint.x);
   }
 
   throw new Error(`Data point at index ${index} has invalid format`);
+}
+
+/**
+ * Renders one datum the way MAIDR announces it.
+ *
+ * `MaidrLayer['data']` is a wide union, so narrowing rather than asserting
+ * keeps this honest about a point whose field is neither a number nor a
+ * string — `defaultFormat` only accepts those two.
+ *
+ * @param value - A raw field from a data point
+ * @returns The value as it reaches the screen reader
+ */
+function announced(value: unknown): string {
+  return typeof value === 'number' || typeof value === 'string'
+    ? defaultFormat(value)
+    : String(value);
 }
 
 test.describe('Histogram', () => {
@@ -66,26 +91,7 @@ test.describe('Histogram', () => {
       await histogramPage.navigateToHistogram();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.HISTOGRAM_ID);
+      maidrData = await extractMaidrData(page);
 
       histogramLayer = maidrData.subplots[0][0].layers[0];
       dataLength = (histogramLayer.data as { x: string; y: number }[]).length;
@@ -185,7 +191,7 @@ test.describe('Histogram', () => {
       await histogramPage.toggleXAxisTitle();
 
       const xAxisTitle = await histogramPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(histogramLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(histogramLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -193,7 +199,7 @@ test.describe('Histogram', () => {
       await histogramPage.toggleYAxisTitle();
 
       const yAxisTitle = await histogramPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(histogramLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(histogramLayer?.axes?.y?.label ?? '');
     });
   });
 

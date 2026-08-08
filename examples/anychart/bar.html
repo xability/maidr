@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Bar Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.bar([
+          ['Sat', 87],
+          ['Sun', 76],
+          ['Thu', 62],
+          ['Fri', 19],
+        ]);
+
+        chart.title('The Number of Tips by Day');
+        chart.xAxis().title('Day');
+        chart.yAxis().title('Count');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-bar',
+          title: 'The Number of Tips by Day',
+          axes: { x: 'Day', y: 'Count' },
+          // The adapter stamps a stable `data-maidr-anychart-bar` attribute
+          // on each rendered bar, so no manual `selectors` entry is required
+          // for highlighting to work. Pass `selectors` only to override the
+          // auto-detection (e.g. for non-bar overlays).
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Bar Chart</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

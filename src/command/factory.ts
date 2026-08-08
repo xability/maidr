@@ -1,13 +1,20 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
+import type { BrailleService } from '@service/braille';
+import type { CandlestickDeltaService } from '@service/candlestickDelta';
+import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { MonitorService } from '@service/monitor';
+import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
+import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
@@ -28,14 +35,23 @@ import {
   StopAutoplayCommand,
 } from './autoplay';
 import {
+  CandlestickDeltaRefCloseCommand,
+  CandlestickDeltaRefMoveDownCommand,
+  CandlestickDeltaRefMoveUpCommand,
+  CandlestickDeltaRefSelectCommand,
+  ExitCandlestickDeltaCommand,
+  SelectCandlestickDeltaReferenceCommand,
+  ToggleCandlestickDeltaLayerCommand,
+} from './candlestickDelta';
+import {
+  AnnounceCaptionCommand,
+  AnnouncePointCommand,
   AnnouncePositionCommand,
-  DescribeCaptionCommand,
-  DescribeFillCommand,
-  DescribePointCommand,
-  DescribeSubtitleCommand,
-  DescribeTitleCommand,
-  DescribeXCommand,
-  DescribeYCommand,
+  AnnounceSubtitleCommand,
+  AnnounceTitleCommand,
+  AnnounceXCommand,
+  AnnounceYCommand,
+  AnnounceZCommand,
 } from './describe';
 import { GoToExtremaToggleCommand } from './goTo';
 import {
@@ -45,6 +61,13 @@ import {
   GoToExtremaSelectCommand,
 } from './goToExtremaNavigation';
 import {
+  EnterGridCellCommand,
+  ExitGridCellCommand,
+  GridCellMoveLeftCommand,
+  GridCellMoveRightCommand,
+} from './gridCell';
+import {
+  ExitBrailleAndSubplotCommand,
   MoveDownCommand,
   MoveLeftCommand,
   MoveRightCommand,
@@ -66,6 +89,7 @@ import {
   RotorNavigationNextNavUnitCommand,
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
+import { SubplotCue } from './subplotCue';
 import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
@@ -75,8 +99,10 @@ import {
   ToggleBrailleCommand,
   ToggleChatCommand,
   ToggleCommandPaletteCommand,
+  ToggleDescriptionCommand,
   ToggleHelpCommand,
   ToggleHighContrast,
+  ToggleMonitorCommand,
   ToggleReviewCommand,
   ToggleScopeCommand,
   ToggleSettingsCommand,
@@ -85,26 +111,40 @@ import {
 
 /**
  * Factory for creating command instances based on key input.
+ *
+ * Note: `PointerGuidanceCommand` is intentionally not produced here. It is
+ * wired directly by `Mousebindingservice` because its contract carries raw
+ * pointer coordinates (`clientX`/`clientY`) per event, which doesn't fit the
+ * keyword-based `Keys` lookup this factory uses.
  */
 export class CommandFactory {
   private readonly context: Context;
 
   private readonly audioService: AudioService;
   private readonly autoplayService: AutoplayService;
+  private readonly brailleService: BrailleService;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
+  private readonly displayService: DisplayService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
+  private readonly monitorService: MonitorService;
+  private readonly notificationService: NotificationService;
   private readonly rotorService: RotorNavigationService;
   private readonly textService: TextService;
 
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly candlestickDeltaViewModel: CandlestickDeltaViewModel;
   private readonly chatViewModel: ChatViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
+  private readonly descriptionViewModel: DescriptionViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
+
+  private readonly subplotCue: SubplotCue;
 
   /**
    * Creates an instance of CommandFactory.
@@ -115,14 +155,23 @@ export class CommandFactory {
 
     this.audioService = commandContext.audioService;
     this.autoplayService = commandContext.autoplayService;
+    this.brailleService = commandContext.brailleService;
+    this.candlestickDeltaService = commandContext.candlestickDeltaService;
+    this.displayService = commandContext.displayService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
+    this.monitorService = commandContext.monitorService;
+    this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
     this.textService = commandContext.textService;
 
+    this.subplotCue = new SubplotCue(this.audioService, this.notificationService, this.textService);
+
     this.brailleViewModel = commandContext.brailleViewModel;
+    this.candlestickDeltaViewModel = commandContext.candlestickDeltaViewModel;
     this.chatViewModel = commandContext.chatViewModel;
     this.commandPaletteViewModel = commandContext.commandPaletteViewModel;
+    this.descriptionViewModel = commandContext.descriptionViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
@@ -176,24 +225,28 @@ export class CommandFactory {
         return new MoveToRightExtremeCommand(this.context);
 
       case 'MOVE_TO_TRACE_CONTEXT':
-        return new MoveToTraceContextCommand(this.context);
+        return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.subplotCue);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context);
+        return new MoveToSubplotContextCommand(this.context, this.displayService, this.subplotCue);
+      case 'EXIT_BRAILLE_AND_SUBPLOT':
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.subplotCue);
       case 'MOVE_TO_NEXT_TRACE':
-        return new MoveToNextTraceCommand(this.context);
+        return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService);
       case 'MOVE_TO_PREV_TRACE':
-        return new MoveToPrevTraceCommand(this.context);
+        return new MoveToPrevTraceCommand(this.context, this.candlestickDeltaService);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.brailleViewModel);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel, this.notificationService, this.audioService);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
       case 'TOGGLE_HIGH_CONTRAST':
         return new ToggleHighContrast(this.highContrastService);
+      case 'TOGGLE_MONITOR':
+        return new ToggleMonitorCommand(this.monitorService);
 
       case 'TOGGLE_HELP':
         return new ToggleHelpCommand(this.helpViewModel);
@@ -201,8 +254,24 @@ export class CommandFactory {
         return new ToggleChatCommand(this.chatViewModel);
       case 'TOGGLE_COMMAND_PALETTE':
         return new ToggleCommandPaletteCommand(this.commandPaletteViewModel);
+      case 'TOGGLE_DESCRIPTION':
+        return new ToggleDescriptionCommand(this.descriptionViewModel);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
+      case 'TOGGLE_CANDLESTICK_DELTA_LAYER':
+        return new ToggleCandlestickDeltaLayerCommand(this.candlestickDeltaViewModel);
+      case 'SELECT_CANDLESTICK_DELTA_REFERENCE':
+        return new SelectCandlestickDeltaReferenceCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_MOVE_UP':
+        return new CandlestickDeltaRefMoveUpCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_MOVE_DOWN':
+        return new CandlestickDeltaRefMoveDownCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_SELECT':
+        return new CandlestickDeltaRefSelectCommand(this.candlestickDeltaViewModel);
+      case 'CANDLESTICK_DELTA_REF_CLOSE':
+        return new CandlestickDeltaRefCloseCommand(this.candlestickDeltaViewModel);
+      case 'EXIT_CANDLESTICK_DELTA':
+        return new ExitCandlestickDeltaCommand(this.candlestickDeltaService);
 
       case 'GO_TO_EXTREMA_MOVE_UP':
         return new GoToExtremaMoveUpCommand(this.goToExtremaViewModel);
@@ -225,40 +294,43 @@ export class CommandFactory {
         return new CommandPaletteSelectCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_CLOSE':
         return new CommandPaletteCloseCommand(this.commandPaletteViewModel);
-      case 'DESCRIBE_X':
-        return new DescribeXCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_Y':
-        return new DescribeYCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_FILL':
-        return new DescribeFillCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_POINT':
-        return new DescribePointCommand(
+      case 'ANNOUNCE_X':
+        return new AnnounceXCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
+      case 'ANNOUNCE_Y':
+        return new AnnounceYCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
+      case 'ANNOUNCE_Z':
+        return new AnnounceZCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
+      case 'ANNOUNCE_POINT':
+        return new AnnouncePointCommand(
           this.context,
           this.audioService,
           this.highlightService,
           this.brailleViewModel,
           this.textViewModel,
           this.textService,
+          this.displayService,
         );
-      case 'DESCRIBE_TITLE':
-        return new DescribeTitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_SUBTITLE':
-        return new DescribeSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService);
-      case 'DESCRIBE_CAPTION':
-        return new DescribeCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService);
+      case 'ANNOUNCE_TITLE':
+        return new AnnounceTitleCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
+      case 'ANNOUNCE_SUBTITLE':
+        return new AnnounceSubtitleCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
+      case 'ANNOUNCE_CAPTION':
+        return new AnnounceCaptionCommand(this.context, this.textViewModel, this.audioService, this.textService, this.displayService);
       case 'ANNOUNCE_POSITION':
         return new AnnouncePositionCommand(
           this.context,
           this.textService,
           this.textViewModel,
           this.audioService,
+          this.displayService,
         );
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
+        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL, this.textViewModel, this.displayService);
       case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.SUBPLOT);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL);
+        return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL, this.textViewModel, this.displayService);
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE);
       case 'AUTOPLAY_UPWARD':
@@ -287,6 +359,17 @@ export class CommandFactory {
           this.context,
           this.rotorNavigationViewModel,
         );
+
+      // Grid cell navigation
+      case 'ENTER_GRID_CELL':
+        return new EnterGridCellCommand(this.context, this.notificationService);
+      case 'EXIT_GRID_CELL':
+        return new ExitGridCellCommand(this.context);
+      case 'GRID_CELL_MOVE_LEFT':
+        return new GridCellMoveLeftCommand(this.context);
+      case 'GRID_CELL_MOVE_RIGHT':
+        return new GridCellMoveRightCommand(this.context);
+
       default:
         throw new Error(`Invalid command name: ${command}`);
     }

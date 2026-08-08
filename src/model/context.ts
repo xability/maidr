@@ -1,24 +1,59 @@
 import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState } from '@type/state';
+import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
+import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
+import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
+import { formatPlotType } from '@util/orientation';
 import { Stack } from '@util/stack';
 import hotkeys from 'hotkeys-js';
+import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
 
 type Plot = Figure | Subplot | Trace;
 
+/**
+ * Snapshot of the navigation state captured before a live data update,
+ * used to restore the user's position on the rebuilt model.
+ */
+interface NavigationSnapshot {
+  depth: number;
+  figureRow: number;
+  figureCol: number;
+  figureEntry: boolean;
+  subplotRow: number;
+  subplotCol: number;
+  subplotEntry: boolean;
+  traceRow: number;
+  traceCol: number;
+  traceEntry: boolean;
+  /** Per-row subplot counts plus the active subplot's layer count. */
+  shape: string;
+}
+
+/**
+ * Options for {@link Context.replaceFigure}.
+ */
+export interface ReplaceFigureOptions {
+  /**
+   * Number of columns the active trace's data shifted left due to a
+   * sliding-window trim, so the cursor can stay on the same data point.
+   */
+  activeColShift?: number;
+}
+
 export class Context implements Disposable {
   public readonly id: string;
-  public readonly instructionContext: Plot;
   public readonly selectorList: string[] = [];
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
   private readonly navigationService: NavigationService;
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see replaceFigure).
+  private figure: Figure;
+  private _instructionContext: Plot;
   private isRotorActive: boolean;
 
   public constructor(figure: Figure) {
@@ -31,28 +66,260 @@ export class Context implements Disposable {
 
     this.isRotorActive = false;
 
-    // Set the context to figure level.
+    this._instructionContext = this.initializePlotContext(figure);
+  }
+
+  /**
+   * The plot element whose state drives the initial instruction text.
+   */
+  public get instructionContext(): Plot {
+    return this._instructionContext;
+  }
+
+  /**
+   * Whether navigation for this figure starts at figure level (multiple
+   * subplots) rather than subplot/trace level. Single source of truth for
+   * the level discrimination used at construction, instruction resolution,
+   * and depth-1 stack restoration.
+   */
+  private isFigureLevel(figure: Figure): boolean {
     const figureState = figure.state;
     if (figureState.empty || figureState.size !== 1) {
-      this.instructionContext = figure;
+      return true;
+    }
+    // A lone subplot authored with an empty `layers` array reports the empty
+    // state variant: it has no trace to descend into. Keep such a figure at
+    // figure level so the stack never exposes a bare Subplot and the figure
+    // still describes itself instead of reaching for a trace that is not there.
+    return figureState.subplot.empty;
+  }
+
+  /**
+   * Builds the plot context stack for a fresh figure, pushing the initial
+   * scope, and returns the element to use as the instruction context.
+   *
+   * @param figure - The figure to initialize the stack from
+   * @returns The instruction context element
+   */
+  private initializePlotContext(figure: Figure): Plot {
+    // Read the trace only when the figure is not already figure level: a
+    // figure-level check must not touch the subplot (an empty figure state has
+    // no subplot to read).
+    const trace = this.isFigureLevel(figure) ? null : figure.activeSubplot.activeTrace;
+
+    // Set the context to figure level. A null trace lands here too: that is
+    // what isFigureLevel() already decides for a subplot with no layers, and
+    // repeating it narrows the trace to non-null below.
+    if (!trace) {
       this.plotContext.push(figure);
       this.scopeContext.push(Scope.SUBPLOT);
-      return;
+      return figure;
     }
 
     // Set the context to subplot level.
     this.scopeContext.push(Scope.TRACE);
-    const subplotState = figure.activeSubplot.state;
+    const subplot = figure.activeSubplot;
+    const subplotState = subplot.state;
     if (subplotState.empty || subplotState.size !== 1) {
-      this.instructionContext = figure.activeSubplot;
-      this.plotContext.push(figure.activeSubplot);
-      this.plotContext.push(figure.activeSubplot.activeTrace);
-      return;
+      this.plotContext.push(subplot);
+      this.plotContext.push(trace);
+      return subplot;
     }
 
     // Set the context to trace level (single-layer plot)
-    this.instructionContext = figure.activeSubplot.activeTrace;
-    this.plotContext.push(figure.activeSubplot.activeTrace);
+    this.plotContext.push(trace);
+    return trace;
+  }
+
+  /**
+   * Replaces the underlying figure with a rebuilt model (live data update),
+   * preserving the user's navigation position when the figure shape allows.
+   *
+   * The old figure is disposed *before* `createFigure` runs so that stale
+   * highlight clones are removed from the DOM before the new model queries
+   * its SVG selectors.
+   *
+   * Positions are restored silently (no observer notifications) so a data
+   * update never announces or sonifies by itself; monitor mode handles
+   * user-facing feedback separately.
+   *
+   * @param createFigure - Factory that builds the replacement figure
+   * @param options - Optional position adjustments (e.g. sliding-window shift)
+   * @returns The newly created figure
+   */
+  public replaceFigure(
+    createFigure: () => Figure,
+    options: ReplaceFigureOptions = {},
+  ): Figure {
+    const snapshot = this.captureNavigationSnapshot();
+    this.figure.dispose();
+
+    const figure = createFigure();
+    this.figure = figure;
+    this.plotContext.clear();
+
+    if (snapshot !== null && snapshot.shape === this.describeShape(figure)) {
+      // Same shape: restore positions and stack depth. The keyboard scope is
+      // intentionally left untouched so active modes (e.g. braille) survive
+      // the update.
+      this.restoreNavigation(figure, snapshot, options);
+      this._instructionContext = this.resolveInstructionContext(figure);
+    } else {
+      // Shape changed (or old model was unreadable): rebuild from scratch,
+      // exactly like construction, and realign the keyboard scope.
+      this.scopeContext.clear();
+      this._instructionContext = this.initializePlotContext(figure);
+      hotkeys.setScope(this.scope);
+    }
+
+    return figure;
+  }
+
+  /**
+   * Captures the current navigation positions from the active figure.
+   *
+   * @returns The snapshot, or null when the old model cannot be read
+   */
+  private captureNavigationSnapshot(): NavigationSnapshot | null {
+    try {
+      const figure = this.figure;
+      const subplot = figure.activeSubplot;
+      const trace = subplot.activeTrace;
+      return {
+        depth: this.plotContext.size(),
+        figureRow: figure.row,
+        figureCol: figure.col,
+        figureEntry: figure.isInitialEntry,
+        subplotRow: subplot.row,
+        subplotCol: subplot.col,
+        subplotEntry: subplot.isInitialEntry,
+        // A layerless subplot has no trace cursor to capture; the figure and
+        // subplot positions are still worth preserving across the update.
+        traceRow: trace?.row ?? 0,
+        traceCol: trace?.col ?? 0,
+        traceEntry: trace?.isInitialEntry ?? true,
+        shape: this.describeShape(figure),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Describes the structural shape of a figure (subplot grid and layer
+   * counts) for compatibility checks between old and new models.
+   *
+   * @param figure - The figure to describe
+   * @returns A comparable shape signature
+   */
+  private describeShape(figure: Figure): string {
+    // Include trace types so a same-count replacement with different layer
+    // types (e.g. bar -> line) resets navigation instead of restoring a
+    // position onto an incompatible data structure.
+    //
+    // Group/series counts within a layer are deliberately NOT included:
+    // appendData can add a new series (groupIndex === count), and that must
+    // preserve the user's position. Restored indices are clamped into the
+    // new bounds, so a differing series count can never land out of range.
+    return figure.subplots
+      .map(row => row.map(subplot => subplot.traceTypes.join('+')).join(','))
+      .join(';');
+  }
+
+  /**
+   * Restores navigation positions onto the new figure and rebuilds the plot
+   * context stack at the same depth the user was at.
+   */
+  private restoreNavigation(
+    figure: Figure,
+    snapshot: NavigationSnapshot,
+    options: ReplaceFigureOptions,
+  ): void {
+    const clamp = (value: number, max: number): number =>
+      Math.max(0, Math.min(value, max));
+
+    figure.isInitialEntry = snapshot.figureEntry;
+    figure.row = clamp(snapshot.figureRow, figure.subplots.length - 1);
+    figure.col = clamp(snapshot.figureCol, figure.subplots[figure.row].length - 1);
+
+    const subplot = figure.activeSubplot;
+    subplot.isInitialEntry = snapshot.subplotEntry;
+    subplot.row = clamp(snapshot.subplotRow, subplot.traces.length - 1);
+    subplot.col = clamp(snapshot.subplotCol, (subplot.traces[subplot.row]?.length ?? 0) - 1);
+
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      // The rebuilt model's active subplot has no layers, so there is no trace
+      // to restore onto and no depth below the lobby to restore to. Park at
+      // figure level, which is where such a figure initializes anyway.
+      this.plotContext.push(figure);
+      return;
+    }
+
+    if (!snapshot.traceEntry) {
+      trace.isInitialEntry = false;
+      this.restoreTracePosition(trace, snapshot, options);
+    }
+
+    // Rebuild the stack at the depth the user was navigating.
+    switch (snapshot.depth) {
+      case 3:
+        this.plotContext.push(figure);
+        this.plotContext.push(subplot);
+        this.plotContext.push(trace);
+        break;
+      case 2:
+        this.plotContext.push(subplot);
+        this.plotContext.push(trace);
+        break;
+      default:
+        // Depth 1 is ambiguous: a multi-subplot figure starts at figure
+        // level, a single-subplot single-layer chart at trace level.
+        this.plotContext.push(this.isFigureLevel(figure) ? figure : trace);
+        break;
+    }
+  }
+
+  /**
+   * Restores the trace-level cursor, applying the sliding-window shift and
+   * clamping into the new data bounds without notifying observers.
+   */
+  private restoreTracePosition(
+    trace: Trace,
+    snapshot: NavigationSnapshot,
+    options: ReplaceFigureOptions,
+  ): void {
+    let row = Math.max(0, snapshot.traceRow);
+    let col = Math.max(0, snapshot.traceCol - (options.activeColShift ?? 0));
+
+    // Clamp the row first (column 0 always exists for a non-empty row).
+    while (row > 0 && !trace.isMovable([row, 0])) {
+      row -= 1;
+    }
+    trace.row = row;
+
+    // With the row in place, clamp the column against that row's length.
+    while (col > 0 && !trace.isMovable([row, col])) {
+      col -= 1;
+    }
+    trace.col = col;
+  }
+
+  /**
+   * Resolves the instruction context element for a figure, mirroring the
+   * choice made at construction time.
+   */
+  private resolveInstructionContext(figure: Figure): Plot {
+    const trace = this.isFigureLevel(figure) ? null : figure.activeSubplot.activeTrace;
+    if (!trace) {
+      return figure;
+    }
+    const subplot = figure.activeSubplot;
+    const subplotState = subplot.state;
+    if (subplotState.empty || subplotState.size !== 1) {
+      return subplot;
+    }
+    return trace;
   }
 
   public dispose(): void {
@@ -96,36 +363,138 @@ export class Context implements Disposable {
   }
 
   /**
-   * Returns the figure-level title (the top-level plot title).
+   * Returns the figure-level title (the top-level plot title), or the
+   * unavailable placeholder when the figure has no state. Use
+   * {@link isAuthoredTitle} to distinguish an authored title from the
+   * model's default substitutions.
+   *
+   * The empty-state branch returns DEFAULT_SUBPLOT_TITLE (the generic
+   * "unavailable" sentinel) rather than DEFAULT_FIGURE_TITLE because there
+   * is no figure at all in that case; "MAIDR Plot" would be misleading.
+   * Both sentinels are rejected by isAuthoredTitle, so callers see the
+   * same "not authored" outcome regardless.
    */
   public get figureTitle(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.title;
     }
-    return 'unavailable';
+    return DEFAULT_SUBPLOT_TITLE;
   }
 
   /**
-   * Returns the figure-level subtitle.
+   * Returns true when the given title came from the MAIDR JSON, i.e. it is
+   * not a placeholder default substituted by the Figure or Trace models
+   * when the JSON omits `title`. Encapsulates the model's internal default
+   * constants so callers (commands, services) can avoid importing them.
+   *
+   * Delegates to the shared {@link isAuthoredTitle} predicate in `plot.ts`
+   * (imported here as `isAuthoredTitleValue`), the single source of truth for
+   * the placeholder-rejection rule.
+   * @param {string} title - The title string to check.
+   */
+  public isAuthoredTitle(title: string): boolean {
+    return isAuthoredTitleValue(title);
+  }
+
+  /**
+   * Returns true when the given subtitle came from the MAIDR JSON, i.e. it
+   * is not the placeholder default the Figure model substitutes when the
+   * JSON omits `subtitle`. Same empty-string and collision caveats apply
+   * as {@link isAuthoredTitle}.
+   *
+   * Currently DEFAULT_SUBTITLE and DEFAULT_CAPTION are both 'unavailable',
+   * so this method is functionally identical to {@link isAuthoredCaption};
+   * they are kept separate so the two can diverge independently without
+   * touching callers.
+   * @param {string} subtitle - The subtitle string to check.
+   */
+  public isAuthoredSubtitle(subtitle: string): boolean {
+    return subtitle.trim() !== '' && subtitle !== DEFAULT_SUBTITLE;
+  }
+
+  /**
+   * Returns true when the given caption came from the MAIDR JSON, i.e. it
+   * is not the placeholder default the Figure model substitutes when the
+   * JSON omits `caption`. Same empty-string and collision caveats apply
+   * as {@link isAuthoredTitle}; same independence rationale applies as
+   * {@link isAuthoredSubtitle}.
+   * @param {string} caption - The caption string to check.
+   */
+  public isAuthoredCaption(caption: string): boolean {
+    return caption.trim() !== '' && caption !== DEFAULT_CAPTION;
+  }
+
+  /**
+   * Returns at-a-glance summaries for every subplot in the figure, in visual
+   * (top-left first) order. Empty for single-panel figures.
+   */
+  public getSubplotSummaries(): SubplotSummary[] {
+    return this.figure.getSubplotSummaries();
+  }
+
+  /**
+   * Returns the figure-level subtitle, or the unavailable placeholder when
+   * the figure has no state. Use {@link isAuthoredSubtitle} to distinguish
+   * an authored subtitle from the model's default substitution.
    */
   public get figureSubtitle(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.subtitle;
     }
-    return 'unavailable';
+    return DEFAULT_SUBTITLE;
   }
 
   /**
-   * Returns the figure-level caption.
+   * Returns the figure-level caption, or the unavailable placeholder when
+   * the figure has no state. Use {@link isAuthoredCaption} to distinguish
+   * an authored caption from the model's default substitution.
    */
   public get figureCaption(): string {
     const figureState = this.figure.state;
     if (!figureState.empty) {
       return figureState.caption;
     }
-    return 'unavailable';
+    return DEFAULT_CAPTION;
+  }
+
+  /**
+   * Returns the figure-wide X axis label (shared across all subplots), or the
+   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
+   * to distinguish an authored figure-level label from the absent default.
+   */
+  public get figureXAxis(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.xAxis;
+    }
+    return DEFAULT_FIGURE_AXIS;
+  }
+
+  /**
+   * Returns the figure-wide Y axis label (shared across all subplots), or the
+   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
+   * to distinguish an authored figure-level label from the absent default.
+   */
+  public get figureYAxis(): string {
+    const figureState = this.figure.state;
+    if (!figureState.empty) {
+      return figureState.yAxis;
+    }
+    return DEFAULT_FIGURE_AXIS;
+  }
+
+  /**
+   * Returns true when the given axis label came from the MAIDR JSON's
+   * figure-level `axes`, i.e. it is not the empty absent-default. Unlike layer
+   * axes (which default to 'X'/'Y'), a figure-wide label is only meaningful
+   * when explicitly authored, so an empty value means "fall back to the focused
+   * subplot".
+   * @param {string} label - The figure-level axis label to check.
+   */
+  public isAuthoredAxisLabel(label: string): boolean {
+    return label.trim() !== '' && label !== DEFAULT_FIGURE_AXIS;
   }
 
   public toggleScope(scope: Scope): void {
@@ -157,20 +526,44 @@ export class Context implements Disposable {
   }
 
   /**
-   * Moves the active plot element to the specified (x, y) point.
+   * Moves to the nearest point at (x, y) and returns directional guidance
+   * toward the nearest data geometry in a single call.
    *
-   * @param x - The x-coordinate to move to.
-   * @param y - The y-coordinate to move to.
-   * @remarks
-   * This method assumes that `this.active` is a valid object with a `moveToPoint` method.
-   * If `this.active` is `null` or does not implement `moveToPoint`, this method will do nothing.
-   *
-   * Limitations:
-   * - If `this.active` is `null` or `undefined`, the method will not perform any action.
-   * - If `this.active` does not implement `moveToPoint`, the method will not perform any action.
+   * @param x - Screen-space x position
+   * @param y - Screen-space y position
+   * @returns Guidance state, or null when unavailable for current scope
    */
-  public moveToPoint(x: number, y: number): void {
-    this.active.moveToPoint(x, y);
+  public moveToPointAndGetPointerGuidance(x: number, y: number): PointerGuidanceState | null {
+    return this.active.moveToPointAndGetPointerGuidance(x, y);
+  }
+
+  /**
+   * Replaces the active trace at the top of the plot context with another
+   * trace, leaving the rest of the stack (and its depth) untouched. Used by
+   * the candlestick delta feature to activate its virtual layer and to
+   * restore the real layer on exit.
+   *
+   * @param trace - The trace to make active
+   * @returns The trace that was active before the swap, or null when the
+   *   current context is not at trace level (nothing is swapped then)
+   */
+  public swapActiveTrace(trace: Trace): Trace | null {
+    const current = this.plotContext.peek();
+    if (!current || current.state.type !== 'trace') {
+      return null;
+    }
+    this.plotContext.pop();
+    this.plotContext.push(trace);
+    return current as Trace;
+  }
+
+  /**
+   * Returns the traces of the subplot the user is currently in, flattened in
+   * layer order. Used to discover sibling layers (e.g., reference lines for
+   * the candlestick delta feature).
+   */
+  public getActiveSubplotTraces(): Trace[] {
+    return this.figure.activeSubplot.traces.flat();
   }
 
   public stepTrace(direction: MovableDirection): void {
@@ -195,16 +588,36 @@ export class Context implements Disposable {
     }
   }
 
-  public enterSubplot(): void {
+  /**
+   * Descends from the multi-panel lobby into the focused subplot, pushing the
+   * Subplot and its active Trace together so the stack never exposes a bare
+   * Subplot.
+   *
+   * @returns True when the subplot was entered; false when the active element
+   *   is not the figure, or the focused subplot has no layers to enter — the
+   *   caller then stays in the lobby and announces that the panel is empty.
+   */
+  public enterSubplot(): boolean {
     const activeState = this.active.state;
-    if (activeState.type === 'figure') {
-      const activeFigure = this.active as Figure;
-      this.plotContext.push(activeFigure.activeSubplot);
-      const trace = activeFigure.activeSubplot.activeTrace;
-      trace.resetToInitialEntry();
-      this.plotContext.push(trace);
-      this.toggleScope(Scope.TRACE);
+    if (activeState.type !== 'figure') {
+      return false;
     }
+
+    const activeFigure = this.active as Figure;
+    const subplot = activeFigure.activeSubplot;
+    const trace = subplot.activeTrace;
+    if (!trace) {
+      // A subplot authored with an empty `layers` array has nothing to enter.
+      // Refusing keeps the user in the lobby with every other panel reachable,
+      // rather than pushing a Subplot with no Trace under it.
+      return false;
+    }
+
+    this.plotContext.push(subplot);
+    trace.resetToInitialEntry();
+    this.plotContext.push(trace);
+    this.toggleScope(Scope.TRACE);
+    return true;
   }
 
   public exitSubplot(): void {
@@ -213,6 +626,53 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Subplot.
       this.active.notifyStateUpdate();
       this.toggleScope(Scope.SUBPLOT);
+    }
+  }
+
+  /**
+   * Enters grid cell mode to navigate points within the current cell.
+   * Only works when the active trace supports grid navigation and is in grid mode.
+   * @returns true if successfully entered cell mode, false if no points in cell
+   */
+  public enterGridCell(): boolean {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
+      if (activeTrace.enterGridCell()) {
+        this.toggleScope(Scope.GRID_CELL);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Exits grid cell mode and returns to grid navigation.
+   */
+  public exitGridCell(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.exitGridCell();
+      this.toggleScope(Scope.TRACE);
+    }
+  }
+
+  /**
+   * Moves to the previous point within the current grid cell.
+   */
+  public moveCellPointLeft(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.moveCellPointLeft();
+    }
+  }
+
+  /**
+   * Moves to the next point within the current grid cell.
+   */
+  public moveCellPointRight(): void {
+    const activeTrace = this.active;
+    if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
+      activeTrace.moveCellPointRight();
     }
   }
 
@@ -230,11 +690,14 @@ export class Context implements Disposable {
         return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
         Use arrow keys to navigate subplots and press 'ENTER'.`;
 
-      case 'subplot':
+      case 'subplot': {
+        const subplotTraceOrientation = !state.trace.empty ? state.trace.orientation : undefined;
+        const subplotPlotType = formatPlotType(state.trace.traceType, subplotTraceOrientation);
         return `This is a maidr plot containing ${state.size} layers, and
-        this is layer 1 of ${state.size}: ${state.trace.traceType} plot. ${clickPrompt}
+        this is layer 1 of ${state.size}: ${subplotPlotType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
+      }
 
       case 'trace': {
         // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
@@ -244,12 +707,19 @@ export class Context implements Disposable {
           effectivePlotType = 'single line';
         }
 
+        // Gated on the group count itself rather than on the plot type naming
+        // itself 'multiline', so a trace that reports groups under its own
+        // name — a multi-series step chart calls itself 'step' — still says
+        // how many it has. Unchanged for line charts: LineTrace only sets
+        // groupCount when there is more than one series.
         const groupCountText
-          = effectivePlotType === 'multiline' && state.groupCount
+          = state.groupCount && state.groupCount > 1
             ? ` with ${state.groupCount} groups`
             : '';
 
-        return `This is a maidr plot of type: ${effectivePlotType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        const displayType = formatPlotType(effectivePlotType, state.orientation);
+
+        return `This is a maidr plot of type: ${displayType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
       }
     }
   }

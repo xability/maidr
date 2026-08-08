@@ -1,4 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { AudioService } from '@service/audio';
 import type { AutoplayService } from '@service/autoplay';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
@@ -10,10 +11,18 @@ import { AbstractViewModel } from './viewModel';
 /**
  * State interface for text display and announcement functionality.
  */
-interface TextState {
+export interface TextState {
   enabled: boolean;
   announce: boolean;
   value: string;
+  /**
+   * Monotonic counter that increments on every text update AND every
+   * notification (including same-text/same-message dispatches). The View keys
+   * the screen-reader alert region on it, so bumping it here is what forces a
+   * re-announcement (via re-mount) even when the text/message is unchanged —
+   * without relying on invisible Unicode characters.
+   */
+  revision: number;
   message: string | null;
 }
 
@@ -21,6 +30,7 @@ const initialState: TextState = {
   enabled: true,
   announce: true,
   value: '',
+  revision: 0,
   message: null,
 };
 
@@ -30,6 +40,7 @@ const textSlice = createSlice({
   reducers: {
     update(state, action: PayloadAction<string>): void {
       state.value = action.payload;
+      state.revision += 1;
     },
     announceText(state, action: PayloadAction<boolean>): void {
       state.announce = action.payload;
@@ -39,6 +50,11 @@ const textSlice = createSlice({
     },
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
+      // Bump revision so the alert region re-mounts and screen readers
+      // re-announce even when the same message is dispatched repeatedly (e.g.
+      // holding a direction key at a rotor boundary). Without this, an
+      // identical repeat notify() produces no DOM change and stays silent.
+      state.revision += 1;
     },
     clearMessage(state): void {
       state.message = null;
@@ -54,7 +70,18 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
  * ViewModel for managing text display, announcements, and notifications.
  */
 export class TextViewModel extends AbstractViewModel<TextState> {
+  private readonly audioService: AudioService;
   private readonly textService: TextService;
+
+  /**
+   * Whether autoplay is currently running. Autoplay deliberately suppresses
+   * per-point screen-reader announcements (it toggles `announce` off on start
+   * and back on when it stops). The `first_navigation` event also enables
+   * announcements, and it can fire mid-playback when autoplay is the user's
+   * very first navigation — so this flag lets that handler defer to autoplay's
+   * suppression instead of re-enabling announcements underneath it.
+   */
+  private autoplayActive = false;
 
   /**
    * Creates a new TextViewModel instance and registers event listeners.
@@ -62,14 +89,17 @@ export class TextViewModel extends AbstractViewModel<TextState> {
    * @param text - Service for managing text formatting and updates
    * @param notification - Service for handling notification messages
    * @param autoplay - Service for managing autoplay functionality
+   * @param audio - Audio service for playing warning tones
    */
   public constructor(
     store: AppStore,
     text: TextService,
     notification: NotificationService,
     autoplay: AutoplayService,
+    audio: AudioService,
   ) {
     super(store);
+    this.audioService = audio;
     this.textService = text;
     this.registerListeners(notification, autoplay);
   }
@@ -77,7 +107,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   /**
    * Disposes the view model and resets text state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
@@ -93,7 +123,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(this.textService.onNavigation((e) => {
-      if (e.type === 'first_navigation') {
+      // Enable announcements on the first navigation, unless autoplay is
+      // running — autoplay owns the announce flag while active and re-enables
+      // it on stop, so overriding here would defeat its per-point suppression.
+      if (e.type === 'first_navigation' && !this.autoplayActive) {
         this.setAnnounce(true);
       }
     }));
@@ -105,9 +138,11 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
+          this.autoplayActive = true;
           this.setAnnounce(false);
           break;
         case 'stop':
+          this.autoplayActive = false;
           this.setAnnounce(true);
           break;
       }
@@ -132,27 +167,16 @@ export class TextViewModel extends AbstractViewModel<TextState> {
 
   /**
    * Updates the displayed text with formatted content.
-   * When the new text is identical to the current value, forces a re-announcement
-   * by first clearing with an invisible separator then re-setting after a short delay.
-   * This ensures screen readers detect a DOM change and re-announce the text.
+   * Each dispatch increments a revision counter in the Redux state, so the View
+   * always receives a new state — even when the text is identical. This allows
+   * the View to force a screen-reader re-announcement by re-mounting the alert
+   * element with a new React key, without relying on invisible Unicode characters.
    * @param text - The text or plot state to display
    */
   public update(text: string | PlotState): void {
     const formattedText = this.textService.format(text);
-    const currentValue = this.store.getState().text.value;
-
-    if (formattedText === currentValue) {
-      // Force re-announcement: prime with invisible separator, then re-set after delay
-      // U+2063: INVISIBLE SEPARATOR (same pattern as Controller.announceInitialInstruction)
-      this.store.dispatch(update('\u2063'));
-      this.store.dispatch(clearMessage());
-      setTimeout(() => {
-        this.store.dispatch(update(formattedText));
-      }, 100);
-    } else {
-      this.store.dispatch(update(formattedText));
-      this.store.dispatch(clearMessage());
-    }
+    this.store.dispatch(update(formattedText));
+    this.store.dispatch(clearMessage());
   }
 
   /**
@@ -169,6 +193,19 @@ export class TextViewModel extends AbstractViewModel<TextState> {
    */
   public setAnnounce(enabled: boolean): void {
     this.store.dispatch(announceText(enabled));
+  }
+
+  /**
+   * Warns the user if text mode is off by announcing a message and playing a warning tone.
+   * @returns True if text mode is off and the warning was issued, false otherwise
+   */
+  public warnIfTextOff(): boolean {
+    if (!this.textService.isOff()) {
+      return false;
+    }
+    this.notify('Text mode is off. To enable, press the T key.');
+    this.audioService.playWarningTone();
+    return true;
   }
 }
 

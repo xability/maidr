@@ -1,4 +1,4 @@
-import type { BoxPoint, CandlestickTrend, TraceType } from '@type/grammar';
+import type { BoxPoint, CandlestickTrend, Orientation, TraceType } from '@type/grammar';
 import type { MovableDirection } from './movable';
 
 /**
@@ -21,6 +21,17 @@ export type FigureState
     title: string;
     subtitle: string;
     caption: string;
+    /**
+     * Figure-wide X axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level x label; callers
+     * then fall back to the focused subplot's own axis.
+     */
+    xAxis: string;
+    /**
+     * Figure-wide Y axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level y label.
+     */
+    yAxis: string;
     size: number;
     index: number;
     subplot: SubplotState;
@@ -49,7 +60,7 @@ export type SubplotState
 /**
  * Empty trace state used as a placeholder when no data is available.
  */
-interface TraceEmptyState {
+export interface TraceEmptyState {
   empty: true;
   type: 'trace';
   traceType: TraceType;
@@ -72,7 +83,7 @@ export type TraceState
       title: string;
       xAxis: string;
       yAxis: string;
-      fill: string;
+      z: string;
       hasMultiPoints: boolean;
       audio: AudioState;
       braille: BrailleState;
@@ -90,6 +101,18 @@ export type TraceState
        * Only present for multiline plots where plotType === 'multiline'.
        */
       groupCount?: number;
+      /**
+       * Label and name of the group/series the cursor is currently on, e.g.
+       * `{ label: 'Group', value: 'Series 1' }`. Only present for multiline
+       * plots (plotType === 'multiline') whose data names its groups; absent
+       * when the spec authors no names, so consumers can omit group wording
+       * rather than announce a positional placeholder.
+       */
+      group?: { label: string; value: string };
+      /**
+       * Plot orientation, if applicable (e.g. bar, box, violin).
+       */
+      orientation?: Orientation;
     };
 
 /**
@@ -162,6 +185,23 @@ export interface AudioState {
    */
   trend?: CandlestickTrend;
   /**
+   * When true, a raw value of exactly 0 plays a percussive click instead of
+   * the default low "null" tone. Used by the candlestick delta layer, where
+   * zero means "exactly on the reference line" — a meaningful data point,
+   * not missing data.
+   */
+  zeroClick?: boolean;
+  /**
+   * Pitch-glide direction for the tone. When set, the tone glides its pitch
+   * over the note duration to convey a direction while `freq.raw` still sets
+   * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps
+   * downward (a falling drop). Used by the candlestick delta layer so
+   * above-line points rise and below-line points fall, independent of the
+   * base pitch that still encodes the delta magnitude. Ignored for the zero
+   * (`zeroClick`) path.
+   */
+  glide?: 'up' | 'down';
+  /**
    * Volume multiplier for dynamic volume control.
    * Used to scale audio volume based on data characteristics (e.g., violin plot width).
    * If undefined, defaults to 1.0 (no volume scaling).
@@ -176,6 +216,28 @@ export interface AudioState {
    */
   volumeScale?: number;
 }
+
+/**
+ * Directional guidance state for pointer/touch exploration near a curve.
+ *
+ * Position fields describe where the **curve point** sits relative to the
+ * cursor, so they line up directly with the audio output: `curveVertical:
+ * 'above'` plays a high pitch (point is up there), `curveHorizontal:
+ * 'left'` pans audio to the left (point is to the left). `'center'`
+ * signals exact horizontal alignment so the resolver can drop pan to zero
+ * instead of choosing an arbitrary direction.
+ */
+export type PointerGuidanceState
+  = | { onCurve: true }
+    | {
+      onCurve: false;
+      /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+      distancePx: number;
+      /** Where the curve point sits vertically relative to the cursor. */
+      curveVertical: 'above' | 'below';
+      /** Where the curve point sits horizontally relative to the cursor. */
+      curveHorizontal: 'left' | 'right' | 'center';
+    };
 
 /**
  * Union type for all braille display states across different plot types.
@@ -246,7 +308,7 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 /**
  * Axis type identifier for formatting.
  */
-export type AxisType = 'x' | 'y' | 'fill';
+export type AxisType = 'x' | 'y' | 'z';
 
 /**
  * Text description state containing labels and values for screen reader output.
@@ -254,7 +316,7 @@ export type AxisType = 'x' | 'y' | 'fill';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  fill?: { label: string; value: number | string };
+  z?: { label: string; value: number | string };
   range?: { min: number; max: number };
   section?: string;
   /**
@@ -269,6 +331,18 @@ export interface TextState {
    * Used to apply correct formatter regardless of orientation.
    */
   crossAxis?: AxisType;
+  /**
+   * Range for the cross axis, used in grid navigation to show both axis ranges.
+   */
+  crossRange?: { min: number; max: number };
+  /**
+   * Points in the current grid cell, listed as coordinate pairs.
+   */
+  gridPoints?: { x: number; y: number }[];
+  /**
+   * Current grid cell position (1-indexed for display).
+   */
+  gridPosition?: { row: number; col: number };
 }
 
 /**
@@ -277,6 +351,84 @@ export interface TextState {
 export type AutoplayState = {
   [key in MovableDirection]: number;
 };
+
+/**
+ * A single statistic entry for chart description (e.g., "Min: 5", "Groups: 3").
+ */
+export interface DescriptionStat {
+  label: string;
+  value: string | number;
+}
+
+/**
+ * Summary of a single subplot in a multi-panel figure, used to give users
+ * an at-a-glance list of what's available before they navigate in.
+ */
+export interface SubplotSummary {
+  /** 1-based visual index (top-left = 1, reading order). */
+  index: number;
+  /** Layer title for the subplot, or empty string if not available. */
+  title: string;
+  /** Trace type label(s) for the subplot's layers. */
+  traceTypes: string[];
+  /** True if this is the subplot the user is currently focused on. */
+  isActive: boolean;
+}
+
+/**
+ * Description state containing objective chart metadata for the description modal.
+ * Fetched on-demand when the user opens the description dialog.
+ */
+export interface DescriptionState {
+  /** Chart/trace type label (e.g., "Bar Chart", "Line Plot") */
+  chartType: string;
+  /** Chart title */
+  title: string;
+  /** Axes information */
+  axes: {
+    x?: string;
+    y?: string;
+    z?: string;
+  };
+  /** Chart-specific summary statistics */
+  stats: DescriptionStat[];
+  /**
+   * Data table for raw data display.
+   *
+   * A cell holds a `number[]` when one row carries several numbers for a
+   * column — a box plot's outliers are the only case today. Traces hand those
+   * over unjoined so `DescriptionService` can round each one before joining
+   * them for display; a pre-joined string would arrive as opaque text. The
+   * array form is numeric on purpose: a column of several *strings* has no
+   * caller, and widening it would mean rounding logic for a shape nothing
+   * produces.
+   */
+  dataTable: {
+    headers: string[];
+    rows: (string | number | number[])[][];
+  };
+  /**
+   * List of all subplots in the figure, populated only when the figure has
+   * more than one subplot. Lets users see what other subplots are available
+   * without having to navigate through them.
+   */
+  subplots?: SubplotSummary[];
+}
+
+/**
+ * A description whose values have been rounded for display — what
+ * `DescriptionService` hands the ViewModel, and what the dialog renders.
+ *
+ * The one difference from {@link DescriptionState} is the cell type: a
+ * multi-value cell has been rounded value by value and joined by the time it
+ * gets here, so the view never has to deal with an array.
+ */
+export interface DisplayDescriptionState extends Omit<DescriptionState, 'dataTable'> {
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
+}
 
 /**
  * Highlight state for visual emphasis of current plot elements.

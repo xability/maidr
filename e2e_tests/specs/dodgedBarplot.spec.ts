@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { DodgedBarplotPage } from '../page-objects/plots/dodgedBarplot-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 interface DodgedBarDataPoint {
   x: string;
@@ -130,26 +131,7 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.navigateToDodgedBarplot();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.DODGED_BARPLOT_ID);
+      maidrData = await extractMaidrData(page);
 
       dodgedBarplotLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getDodgedBarplotDataLength(dodgedBarplotLayer);
@@ -251,7 +233,7 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await dodgedBarplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(dodgedBarplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -259,7 +241,7 @@ test.describe('Dodged Barplot', () => {
       await dodgedBarplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await dodgedBarplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(dodgedBarplotLayer?.axes?.y?.label ?? '');
     });
   });
 
@@ -272,6 +254,16 @@ test.describe('Dodged Barplot', () => {
     test('should show settings menu', async ({ page }) => {
       const dodgedBarplotPage = await setupDodgedBarplotPage(page);
       await dodgedBarplotPage.showSettingsMenu();
+    });
+
+    test('should close settings menu with escape', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.closeSettingsMenuWithEscape();
+    });
+
+    test('should keep settings menu open on backdrop click', async ({ page }) => {
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+      await dodgedBarplotPage.verifySettingsMenuIgnoresBackdropClick();
     });
 
     test('should show chat dialog', async ({ page }) => {

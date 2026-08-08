@@ -6,14 +6,54 @@ import type { AxisFormat, FormatFunction, FormatType } from '@type/grammar';
 export type FormattableValue = number | string | (number | string)[];
 
 /**
+ * Decimal places the default format keeps for a fractional number. Matches the
+ * precision the Go To Extrema dialog already displays values at.
+ */
+const DEFAULT_MAX_DECIMALS = 2;
+
+/**
+ * Significant digits used for a value too small to survive rounding to
+ * {@link DEFAULT_MAX_DECIMALS} places.
+ */
+const DEFAULT_SIGNIFICANT_DIGITS = 3;
+
+/**
  * Default format function - converts value to string.
- * Strings pass through unchanged, numbers are stringified.
+ * Strings pass through unchanged, integers are stringified as-is.
+ *
+ * A fractional number is rounded to {@link DEFAULT_MAX_DECIMALS} places, because
+ * this is what a screen reader speaks aloud. A value MAIDR computes rather than
+ * reads verbatim — a `barnorm` share, a percentage of a stack — carries the full
+ * float, and `57.14285714285714` is sixteen digits to listen through for two
+ * digits of meaning.
+ *
+ * Rounding stops at the announcement. Sonification, braille, and extrema all
+ * read the underlying numbers, so the pitch of a bar and the position of a
+ * braille cell are unchanged; only the spoken text is shortened. An author who
+ * needs different precision sets an explicit `AxisFormat` on the axis, which
+ * takes priority over this.
  *
  * @param value - The value to format
  * @returns String representation of the value
  */
 export const defaultFormat: FormatFunction = (value: number | string): string => {
-  return `${value}`;
+  if (typeof value !== 'number' || !Number.isFinite(value) || Number.isInteger(value)) {
+    return `${value}`;
+  }
+
+  const rounded = Number(value.toFixed(DEFAULT_MAX_DECIMALS));
+  if (rounded !== 0) {
+    return `${rounded}`;
+  }
+
+  // Rounding erased the value (0.00012 -> 0). Announcing `0` for something that
+  // is not zero is worse than the extra digits, so keep it visible instead.
+  //
+  // The check catches the negative case as well, and relies on it: a small
+  // negative rounds to `-0`, and `-0 !== 0` is false in IEEE-754, so it lands
+  // here rather than being announced as a signed zero. Comparing against
+  // `Object.is(rounded, 0)` instead would let `-0` through.
+  return `${Number(value.toPrecision(DEFAULT_SIGNIFICANT_DIGITS))}`;
 };
 
 /**

@@ -3,6 +3,7 @@ import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { MultiLineplotPage } from '../page-objects/plots/multiLineplot-page';
 import { TestConstants } from '../utils/constants';
+import { extractMaidrData } from '../utils/maidr-data';
 
 /**
  * Helper function to create and initialize a Multi Lineplot page
@@ -93,26 +94,7 @@ test.describe('Multi Lineplot', () => {
       await multiLineplotPage.navigateToLinePlot();
       await page.waitForSelector(`svg`, { timeout: 10000 });
 
-      maidrData = await page.evaluate((plotId) => {
-        const svgElement = document.querySelector(`svg`);
-
-        if (!svgElement) {
-          throw new Error(`SVG element with ID ${plotId} not found`);
-        }
-
-        const maidrDataAttr = svgElement.getAttribute('maidr-data');
-
-        if (!maidrDataAttr) {
-          throw new Error('maidr-data attribute not found on SVG element');
-        }
-
-        try {
-          return JSON.parse(maidrDataAttr);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to parse maidr-data JSON: ${errorMessage}`);
-        }
-      }, TestConstants.MULTI_LINEPLOT_ID);
+      maidrData = await extractMaidrData(page);
 
       multiLineplotLayer = maidrData.subplots[0][0].layers[0];
       dataLength = getLinePlotDataLength(multiLineplotLayer);
@@ -214,7 +196,7 @@ test.describe('Multi Lineplot', () => {
       await multiLineplotPage.toggleXAxisTitle();
 
       const xAxisTitle = await multiLineplotPage.getXAxisTitle();
-      expect(xAxisTitle).toContain(multiLineplotLayer?.axes?.x ?? '');
+      expect(xAxisTitle).toContain(multiLineplotLayer?.axes?.x?.label ?? '');
     });
 
     test('should display Y-Axis Title', async ({ page }) => {
@@ -222,7 +204,7 @@ test.describe('Multi Lineplot', () => {
       await multiLineplotPage.toggleYAxisTitle();
 
       const yAxisTitle = await multiLineplotPage.getYAxisTitle();
-      expect(yAxisTitle).toContain(multiLineplotLayer?.axes?.y ?? '');
+      expect(yAxisTitle).toContain(multiLineplotLayer?.axes?.y?.label ?? '');
     });
   });
 
@@ -376,6 +358,210 @@ test.describe('Multi Lineplot', () => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new Error(`Backward autoplay test failed: ${errorMessage}`);
       }
+    });
+  });
+
+  test.describe('Go To Navigation', () => {
+    test('should open Go To dialog with g key', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Verify the dialog is visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Verify the dialog title
+      const title = dialog.locator('h3');
+      await expect(title).toHaveText('Go To');
+    });
+
+    test('should show intersection targets in Go To dialog', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Get all targets in the listbox
+      const targets = dialog.locator('[role="option"]');
+      const targetCount = await targets.count();
+
+      // Should have at least min, max, and potentially intersection targets
+      expect(targetCount).toBeGreaterThanOrEqual(2);
+
+      // Check for intersection targets - they should contain "Intersection with"
+      // buildTargetDisplayLabel prefixes the kind, so labels read
+      // "Point intersection with …" / "Slope intersection with …" — match
+      // case-insensitively rather than on a leading capital.
+      const allTargetTexts = await targets.allTextContents();
+      const intersectionTargets = allTargetTexts.filter(text => /intersection/i.test(text));
+
+      // The multi-lineplot example has 3 lines that should have intersections
+      // At least some intersections should be found
+      expect(intersectionTargets.length).toBeGreaterThan(0);
+    });
+
+    test('should navigate to intersection point', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Find an intersection target
+      const intersectionTarget = dialog.locator('[role="option"]').filter({
+        hasText: /intersection/i,
+      }).first();
+
+      // Ensure intersection targets exist in the test data
+      const intersectionCount = await intersectionTarget.count();
+      expect(intersectionCount).toBeGreaterThan(0);
+
+      // Click the intersection target
+      await intersectionTarget.click();
+
+      // Dialog should close after selection
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test('should close Go To dialog with Escape', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Press Escape to close
+      await page.keyboard.press('Escape');
+
+      // Dialog should be closed
+      await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test('should show only intersections involving current line', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      // Move to a specific line first (e.g., navigate up/down)
+      await page.keyboard.press('ArrowUp');
+
+      // Press 'g' to open the Go To dialog
+      await page.keyboard.press('g');
+
+      // Wait for the dialog to be visible
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+
+      // Get intersection targets
+      const intersectionTargets = dialog.locator('[role="option"]').filter({
+        hasText: /intersection/i,
+      });
+
+      // All intersection targets should mention other lines (not just current)
+      const targetTexts = await intersectionTargets.allTextContents();
+      for (const text of targetTexts) {
+        // Each intersection should mention "with" followed by line names
+        expect(text).toContain('with');
+      }
+    });
+  });
+
+  test.describe('Intersection Rotor Navigation', () => {
+    /**
+     * Cycle the rotor (Alt+Shift+Up) until the rotor area announces the target
+     * mode. Avoids relying on a fixed press count, which would silently break
+     * if the rotor cycle order changes or a new mode is inserted earlier.
+     * @param page - The Playwright page
+     * @param targetMode - Expected text the rotor area should display
+     * @param maxCycles - Safety cap to prevent infinite loops
+     */
+    async function cycleRotorTo(page: Page, targetMode: string, maxCycles = 10): Promise<void> {
+      const rotorArea = page.locator('#maidr-rotor-area');
+      for (let i = 0; i < maxCycles; i++) {
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('Shift');
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.up('Shift');
+        await page.keyboard.up('Alt');
+        const current = (await rotorArea.textContent())?.trim() ?? '';
+        if (current === targetMode) {
+          return;
+        }
+      }
+      throw new Error(`Rotor did not reach "${targetMode}" within ${maxCycles} cycles`);
+    }
+
+    test('should cycle into INTERSECTING POINT NAVIGATION and announce bound messages on arrow keys', async ({ page }) => {
+      await setupMultiLineplotPage(page);
+
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
+      // Bound and unavailable messages are announced through the text alert
+      // region. The rotor area only carries the mode name and is cleared on
+      // each move, so asserting on it here never sees the message.
+      const textContainer = page.locator('#maidr-text-container');
+
+      // The example's only point intersection is where all three series meet
+      // at (x=8, y=8), so Left from the starting column has nothing to land on
+      // — proving the key was handled by the rotor service (not a no-op).
+      await page.keyboard.press('ArrowLeft');
+      await expect(textContainer).toContainText(/No intersection.*left/i, { timeout: 2000 });
+
+      // Right reaches that intersection; a second Right runs out of them.
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowRight');
+      await expect(textContainer).toContainText(/No intersection.*right/i, { timeout: 2000 });
+
+      // Up/Down in intersection mode should announce the vertical-unavailable
+      // message, not a directional bound. The terse and verbose wordings differ
+      // by one word ("intersection mode" vs "intersection point mode").
+      await page.keyboard.press('ArrowUp');
+      await expect(textContainer).toContainText(/intersection (point )?mode/i, { timeout: 2000 });
+    });
+
+    test('should navigate to a real point intersection with ArrowRight', async ({ page }) => {
+      // Use a fixture that contains actual point intersections — Series 1 and
+      // Series 2 in multiline_plot_intersection.html share the sampled point
+      // (x="3", y=5), so ArrowRight in intersection mode from col 0 lands
+      // there rather than hitting a boundary.
+      //
+      // Path note: the Playwright baseURL (e2e_tests/config/test-config.ts)
+      // is `file://<projectRoot>/`, so a bare relative path resolves against
+      // the repo root — same way BasePage.navigateTo resolves its argument.
+      await page.goto('examples/multiline_plot_intersection.html', { waitUntil: 'load' });
+      await page.waitForSelector('svg', { timeout: 10000 });
+      await page.keyboard.press('Tab');
+
+      await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
+
+      // ArrowRight should actually move to the (3, 4) point intersection and
+      // the text-output area should announce both coordinates. A regex that
+      // binds the digits to their axis labels avoids false positives from
+      // incidental "3"s and "5"s in other parts of the description.
+      const textContainer = page.locator('#maidr-text-container');
+      await page.keyboard.press('ArrowRight');
+      await expect(textContainer).toContainText(/x\D*3/i, { timeout: 2000 });
+      await expect(textContainer).toContainText(/y\D*5/i, { timeout: 2000 });
+
+      // No bound message — movement succeeded.
+      await expect(textContainer).not.toContainText(/No intersection/i);
+
+      // Vertical navigation must still announce the "unavailable" message even
+      // when the fixture contains real intersections — confirms Up/Down don't
+      // accidentally traverse between lines in intersection mode.
+      await page.keyboard.press('ArrowUp');
+      await expect(textContainer).toContainText(/intersection (point )?mode/i, { timeout: 2000 });
+      await page.keyboard.press('ArrowDown');
+      await expect(textContainer).toContainText(/intersection (point )?mode/i, { timeout: 2000 });
     });
   });
 });

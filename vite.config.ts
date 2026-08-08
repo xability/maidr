@@ -1,15 +1,30 @@
 import path from 'node:path';
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { mathStylesheet } from './scripts/vite-plugin-math-stylesheet.js';
+import { woff2OnlyFonts } from './scripts/vite-plugin-woff2-only.js';
 
 export default defineConfig({
+  // These two must stay in step with scripts/build.js, which is what
+  // `npm run build` runs — otherwise a build driven from this config emits a
+  // maidr.css and maidr-math.css that differ from the published ones.
+  plugins: [react(), woff2OnlyFonts(), mathStylesheet()],
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
+      entry: path.resolve(__dirname, 'src/index.tsx'),
       name: 'maidr',
-      formats: ['es', 'umd'],
+      // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
+      // an ES build has no consumer value. Adding 'es' back here would also make
+      // both formats resolve to the same fileName and silently overwrite.
+      formats: ['umd'],
       fileName: () => `maidr.js`,
     },
-    sourcemap: true,
+    // See the note in scripts/build.js: the .map is still written, but without
+    // a `sourceMappingURL` comment devtools will not load it on its own — it is
+    // there for tooling pointed at it deliberately. The comment has to go
+    // because package.json no longer publishes the maps, and a bundle naming a
+    // map it does not ship resolves to a 404 for every CDN consumer.
+    sourcemap: 'hidden',
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
@@ -26,6 +41,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@adapters': path.resolve(__dirname, 'src/adapters'),
       '@command': path.resolve(__dirname, 'src/command'),
       '@model': path.resolve(__dirname, 'src/model'),
       '@state': path.resolve(__dirname, 'src/state'),

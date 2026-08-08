@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Mixed Axis - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Mixed Axis Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        const data = {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [
+            {
+              name: 'Sales',
+              chartType: 'bar',
+              values: [50, 70, 85, 60, 95, 110],
+            },
+            {
+              name: 'Trend',
+              chartType: 'line',
+              values: [55, 65, 75, 70, 80, 100],
+            },
+          ],
+        };
+
+        // dotSize > 0 renders per-point <circle> dots on the line layer, which
+        // the adapter's line selector targets for highlighting.
+        const chart = new frappe.Chart('#chart', {
+          title: 'Monthly Sales with Trend Line',
+          data: data,
+          type: 'axis-mixed',
+          height: 400,
+          colors: ['#7cd6fd', '#e44c55'],
+          lineOptions: {
+            dotSize: 5,
+          },
+        });
+
+        // The adapter emits one MAIDR layer per dataset (a bar layer and a line
+        // layer). Use PageUp / PageDown to switch between layers.
+        //
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting.
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'axis-mixed',
+          title: 'Monthly Sales with Trend Line',
+          axes: { x: 'Month', y: 'Value (units)' },
+        });
+
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
+            return;
+          }
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
+      }
+    </script>
+  </body>
+</html>

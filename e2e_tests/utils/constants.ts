@@ -29,17 +29,33 @@ export abstract class TestConstants {
   static readonly HEATMAP_ID = 'heatmap';
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINEPLOT_ID = 'line';
+  static readonly STEPPLOT_ID = 'step';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
   static readonly BOXPLOT_HORIZONTAL_ID = 'boxplot_horizontal';
   static readonly MULTI_LINEPLOT_ID = 'line';
   static readonly MULTI_LAYER_PLOT_ID = 'multi-layer';
+  static readonly VIOLIN_PLOT_ID = 'violin';
 
   /**
    * MAIDR plot identifiers
    */
-  static readonly PLOT_EXTREME_VERIFICATION = 'No plot info to display';
+  static readonly PLOT_EXTREME_VERIFICATION = 'No more data to display';
+  /**
+   * How long an action waits for the announcement it triggered. Generous
+   * next to the millisecond the announcement normally takes, and only ever
+   * spent in full on a keypress that announces nothing.
+   */
+  static readonly ANNOUNCEMENT_TIMEOUT = 2000;
+  /**
+   * How long a mode check polls the displayed region when the recorded window
+   * came back empty. Deliberately longer than `ANNOUNCEMENT_TIMEOUT` rather
+   * than the same value: this is the slower path, reached only once the
+   * recorded one has already found nothing, so it is where a real-but-late
+   * message still has to be caught.
+   */
+  static readonly REGION_FALLBACK_TIMEOUT = 5000;
   /**
    * MAIDR component identifiers
    */
@@ -50,12 +66,14 @@ export abstract class TestConstants {
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
   static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';
+  static readonly MAIDR_MODAL_BACKDROP = '.MuiBackdrop-root';
   static readonly MAIDR_CHAT_MODAL = '.MuiDialog-container div[role="dialog"]';
 
   /**
    * Keyboard key constants
    */
   static readonly TAB_KEY = 'Tab';
+  static readonly ENTER_KEY = 'Enter';
   static readonly LEFT_ARROW_KEY = 'ArrowLeft';
   static readonly RIGHT_ARROW_KEY = 'ArrowRight';
   static readonly UP_ARROW_KEY = 'ArrowUp';
@@ -68,7 +86,9 @@ export abstract class TestConstants {
   static readonly PERIOD_KEY = '.';
   static readonly COMMA_KEY = ',';
   static readonly SLASH_KEY = '/';
-  static readonly META_KEY = 'Meta';
+  // The control/command modifier is NOT a constant: it depends on what the
+  // browser reports, not on the host OS. Use `modifierKey(page)` from
+  // e2e_tests/utils/platform.ts — see the note there on WebKit.
   static readonly SHIFT_KEY = 'Shift';
   static readonly HOME_KEY = 'Home';
   static readonly END_KEY = 'End';
@@ -79,7 +99,6 @@ export abstract class TestConstants {
   static readonly LABEL_KEY = 'l';
   static readonly X_AXIS_TITLE = 'x';
   static readonly Y_AXIS_TITLE = 'y';
-  static readonly COMMAND_KEY = 'Meta';
   static readonly ESCAPE_KEY = 'Escape';
   static readonly PAGE_UP_KEY = 'PageUp';
   static readonly PAGE_DOWN_KEY = 'PageDown';
@@ -92,16 +111,27 @@ export abstract class TestConstants {
   /**
    * Instruction text for different plot types
    */
-  static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // Every trace type that has an orientation is announced with it — see
+  // `resolveOrientation` in src/util/orientation.ts — and a layer that does not
+  // declare one is navigated, and so announced, as vertical.
+  static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: single line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // `StepTrace.state` overrides the inherited line plotType, so a step chart
+  // announces itself as a step plot rather than as a line one.
+  static readonly STEPPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: step. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // `formatPlotType` in src/util/orientation.ts prefixes the box type with its
+  // orientation, so a screen reader user hears which axis the boxes run along.
+  static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly BOXPLOT_HORIZONTAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: horizontal box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly MULTI_LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: multiline with 3 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // Violin layers are their own trace types (violin_kde / violin_box), not the
+  // smooth + box pair they used to be modelled as.
+  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical violin_box plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes
@@ -185,6 +215,12 @@ export abstract class TestConstants {
   static readonly MULTI_LAYER_SECOND_LAYER = 'Layer 2 of 2: single line plot';
   static readonly MULTI_LAYER_FIRST_LAYER = 'Layer 1 of 2: bar plot';
   static readonly MULTI_LAYER_NO_ADDITIONAL_LAYERS = 'No additional layer';
+
+  /**
+   * Violin plot layer identifiers
+   */
+  static readonly VIOLIN_PLOT_KDE_LAYER = 'Layer 1 of 2: smooth plot';
+  static readonly VIOLIN_PLOT_BOX_LAYER = 'Layer 2 of 2: box plot';
 
   /**
    * Time constants (in milliseconds)

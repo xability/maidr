@@ -1,25 +1,26 @@
 import type { CommandContext } from '@command/command';
+import type { Disposable } from '@type/disposable';
 import type { Keys, Scope } from '@type/event';
 import { CommandFactory } from '@command/factory';
 import { SCOPED_KEYMAP } from './keybinding';
 
 /**
  * Executes commands based on key bindings within the current scope.
+ *
+ * The current scope is always read live from the underlying Context,
+ * so it stays in sync when Context.toggleScope() is called.
  */
-export class CommandExecutor {
+export class CommandExecutor implements Disposable {
   private readonly commandFactory: CommandFactory;
-  private currentScope: Scope;
-  private readonly context: CommandContext;
+  private readonly commandContext: CommandContext;
 
   /**
    * Creates a new CommandExecutor instance.
    * @param {CommandContext} commandContext - The command execution context
-   * @param {Scope} initialScope - The initial scope for command execution
    */
-  public constructor(commandContext: CommandContext, initialScope: Scope) {
+  public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
-    this.currentScope = initialScope;
-    this.context = commandContext;
+    this.commandContext = commandContext;
   }
 
   /**
@@ -27,7 +28,7 @@ export class CommandExecutor {
    * @returns {CommandContext} The command context
    */
   public getContext(): CommandContext {
-    return this.context;
+    return this.commandContext;
   }
 
   /**
@@ -35,8 +36,9 @@ export class CommandExecutor {
    * @param {Keys} commandKey - The key representing the command to execute
    */
   public executeCommand(commandKey: Keys): void {
+    const currentScope = this.getCurrentScope();
     // Check if command is valid for current scope
-    const scopeKeymap = SCOPED_KEYMAP[this.currentScope];
+    const scopeKeymap = SCOPED_KEYMAP[currentScope];
     if (!scopeKeymap || !(commandKey in scopeKeymap)) {
       return;
     }
@@ -50,18 +52,16 @@ export class CommandExecutor {
   }
 
   /**
-   * Sets the current scope for command execution.
-   * @param {Scope} scope - The new scope
+   * Gets the current scope from the live Context.
+   * @returns {Scope} The current scope
    */
-  public setScope(scope: Scope): void {
-    this.currentScope = scope;
+  private getCurrentScope(): Scope {
+    return this.commandContext.context.scope;
   }
 
   /**
-   * Gets the current scope for command execution.
-   * @returns {Scope} The current scope
+   * No resources to release; kept so the Controller's uniform
+   * dispose sequence can treat every registered component alike.
    */
-  public getCurrentScope(): Scope {
-    return this.currentScope;
-  }
+  public dispose(): void {}
 }

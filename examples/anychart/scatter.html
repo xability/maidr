@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Scatter Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // anychart.scatter() creates a scatter-capable chart; series type is
+        // declared via the series creator (marker / bubble / line). Use marker
+        // for a classic XY scatter.
+        const chart = anychart.scatter();
+        chart.marker([
+          { x: 1.1, value: 2.3 },
+          { x: 2.4, value: 3.9 },
+          { x: 3.0, value: 5.2 },
+          { x: 4.5, value: 4.4 },
+          { x: 5.2, value: 6.8 },
+          { x: 6.7, value: 7.1 },
+          { x: 7.8, value: 8.5 },
+        ]);
+
+        chart.title('Sample Scatter Plot');
+        chart.xAxis().title('X Value');
+        chart.yAxis().title('Y Value');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-scatter',
+          title: 'Sample Scatter Plot',
+          axes: { x: 'X Value', y: 'Y Value' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Scatter Chart</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

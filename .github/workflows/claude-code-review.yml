@@ -12,11 +12,17 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Neither fork PRs nor Dependabot PRs are given repository secrets, so
+    # CLAUDE_CODE_OAUTH_TOKEN resolves empty and the job fails rather than
+    # reviewing anything -- as it did on
+    # dependabot/npm_and_yarn/npm_and_yarn-4ea3fa4d3d. Skip cleanly instead.
+    # pull_request_target is deliberately not used as the workaround: it runs
+    # with write-scoped secrets on attacker-controlled input, and the action
+    # does not treat it as an entity context, so its own write-permission
+    # check never runs.
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
     permissions:
@@ -36,6 +42,19 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Forces tag mode, where the action creates a tracking comment up
+          # front and the review is written into it through
+          # mcp__github_comment__update_claude_comment. Without this the run is
+          # in agent mode, where publishing depends on the agent choosing to
+          # shell out to `gh pr comment`; if it ends its final turn with text
+          # instead, nothing is published and the job still reports success.
+          # xability/r-maidr#48 hit exactly that -- 26 turns, $1.96, zero
+          # comments, green check. This repo has been lucky rather than safe.
+          # The prompt below survives: tag mode appends it as
+          # <custom_instructions> to its own.
+          track_progress: true
+
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -49,9 +68,10 @@ jobs:
 
             Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
 
-            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
-
+          # No claude_args here on purpose. Tag mode builds its own
+          # `--allowedTools` list -- the one carrying
+          # mcp__github_comment__update_claude_comment -- and then appends
+          # whatever claude_args says. A second --allowed-tools flag risks
+          # overriding that list and taking the comment-update tool with it.
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
-          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
 

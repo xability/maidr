@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { TestConstants } from '../../utils/constants';
 import { BarPlotError } from '../../utils/errors';
+import { normalizeText } from '../../utils/text';
 import { BasePage } from '../base-page';
 
 /**
@@ -17,7 +18,7 @@ export class BarPlotPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors: {
+  protected override readonly selectors: {
     notification: string;
     info: string;
     speedIndicator: string;
@@ -60,7 +61,7 @@ export class BarPlotPage extends BasePage {
       await this.navigateTo('/examples/barplot.html');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to navigate to bar plot: ${errorMessage}`);
+      throw new BarPlotError(`Failed to navigate to bar plot: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -74,7 +75,7 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when the condition is met
    * @throws BarPlotError if timeout is reached before the condition is met
    */
-  public async waitForElementContent(
+  public override async waitForElementContent(
     selector: string,
     expectedContent: string,
     options: { timeout?: number; pollInterval?: number } = {},
@@ -105,6 +106,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError(
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
+        { cause: error },
       );
     }
   }
@@ -114,28 +116,14 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws BarPlotError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await this.page.waitForLoadState('domcontentloaded');
       await expect(this.page.locator(this.selectors.svg)).toBeVisible({
         timeout: 10000,
       });
     } catch (error) {
-      throw new BarPlotError('Bar plot failed to load correctly');
-    }
-  }
-
-  /**
-   * Verifies that the SVG element is focused
-   * @throws Error if SVG element is not focused
-   */
-  protected async verifySvgFocused(): Promise<void> {
-    const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg') {
-      throw new Error(
-        `Expected SVG element to be focused, `
-        + `but found ${activeElementInfo.tagName} instead"`,
-      );
+      throw new BarPlotError('Bar plot failed to load correctly', { cause: error });
     }
   }
 
@@ -144,13 +132,13 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws BarPlotError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
+      await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
       await this.verifySvgFocused();
     } catch (error) {
-      throw new BarPlotError('Failed to activate MAIDR');
+      throw new BarPlotError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -159,14 +147,14 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws BarPlotError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await this.verifyPlotLoaded();
       await this.page.click(this.selectors.svg);
       await this.verifySvgFocused();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`);
+      throw new BarPlotError(`Failed to activate MAIDR by clicking: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -178,9 +166,9 @@ export class BarPlotPage extends BasePage {
   private async getNotificationText(): Promise<string> {
     try {
       const text = await this.getElementText(this.selectors.notification);
-      return text.replace(/\s+/g, ' ').trim();
+      return normalizeText(text);
     } catch (error) {
-      throw new BarPlotError('Failed to get notification text');
+      throw new BarPlotError('Failed to get notification text', { cause: error });
     }
   }
 
@@ -189,23 +177,34 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws BarPlotError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     return this.getNotificationText();
   }
 
   /**
    * Checks if a specific mode is active based on expected message
+   *
+   * Deliberately NOT named `isModeActive`: that would override the base
+   * method with an incompatible parameter list, which is how the barplot
+   * toggles previously ended up bypassing the base class's wait entirely.
+   * A different name means a future change to the base signature cannot
+   * silently miss this one.
    * @param mode - The mode to check
    * @param expectedMessage - The expected message for the mode
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws BarPlotError if mode status cannot be checked
    */
-  protected async isModeActive(mode: string, expectedMessage: string): Promise<boolean> {
+  protected async isModeMessageActive(mode: string, expectedMessage: string): Promise<boolean> {
     try {
-      const notificationText = await this.getNotificationText();
-      return notificationText === expectedMessage;
+      // Delegate rather than read the notification directly: the base
+      // implementation waits for the announcement before comparing, and a
+      // second snapshot-reading copy here would keep the barplot toggles
+      // exposed to the live-region race the base class exists to avoid.
+      return await super.isModeActive(this.selectors.notification, mode, {
+        [mode]: expectedMessage,
+      });
     } catch (error) {
-      throw new BarPlotError(`Failed to check ${mode} status`);
+      throw new BarPlotError(`Failed to check ${mode} status`, { cause: error });
     }
   }
 
@@ -224,7 +223,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid text mode specified');
     }
 
-    return this.isModeActive('text', modeMessages[textMode]);
+    return this.isModeMessageActive('text', modeMessages[textMode]);
   }
 
   /**
@@ -241,7 +240,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid braille mode specified');
     }
 
-    return this.isModeActive('braille', modeMessages[brailleMode]);
+    return this.isModeMessageActive('braille', modeMessages[brailleMode]);
   }
 
   /**
@@ -258,7 +257,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid sonification mode specified');
     }
 
-    return this.isModeActive('sonification', modeMessages[sonificationMode]);
+    return this.isModeMessageActive('sonification', modeMessages[sonificationMode]);
   }
 
   /**
@@ -275,7 +274,7 @@ export class BarPlotPage extends BasePage {
       throw new BarPlotError('Invalid review mode specified');
     }
 
-    return this.isModeActive('review', modeMessages[reviewMode]);
+    return this.isModeMessageActive('review', modeMessages[reviewMode]);
   }
 
   /**
@@ -287,7 +286,7 @@ export class BarPlotPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.info);
     } catch (error) {
-      throw new BarPlotError('Failed to get info text');
+      throw new BarPlotError('Failed to get info text', { cause: error });
     }
   }
 
@@ -314,12 +313,12 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current speed value
    * @throws BarPlotError if speed cannot be retrieved
    */
-  public async getPlaybackSpeed(): Promise<number> {
+  public override async getPlaybackSpeed(): Promise<number> {
     try {
       const speedText = await this.getElementText(this.selectors.speedIndicator);
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new BarPlotError('Failed to get playback speed');
+      throw new BarPlotError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -337,50 +336,8 @@ export class BarPlotPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws BarPlotError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     return this.getInfoText();
-  }
-
-  /**
-   * Starts autoplay in a specific direction
-   * @param direction - The direction to autoplay ('forward' or 'reverse')
-   * @param infoSelector - The selector for the info element
-   * @param expectedContent - Expected content to wait for upon completion
-   * @param options - Optional timeout configuration
-   * @param options.timeout - Maximum time to wait in milliseconds (default: 10000)
-   * @param options.pollInterval - Time between checks in milliseconds (default: 100)
-   * @returns Promise resolving when autoplay completes and expected content is displayed
-   * @throws BarPlotError if autoplay fails or times out
-   */
-  protected async startAutoplay(
-    direction: 'forward' | 'reverse',
-    infoSelector: string,
-    expectedContent?: string,
-    options: { timeout?: number; pollInterval?: number } = {},
-  ): Promise<void> {
-    const arrowKey = direction === 'forward' ? TestConstants.RIGHT_ARROW_KEY : TestConstants.LEFT_ARROW_KEY;
-    const directionName = direction === 'forward' ? 'forward' : 'reverse';
-
-    try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
-      await this.page.keyboard.down(TestConstants.SHIFT_KEY);
-      await this.pressKey(arrowKey, `start ${directionName} autoplay`);
-
-      await this.page.keyboard.up(TestConstants.META_KEY);
-      await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.up(arrowKey);
-
-      if (expectedContent) {
-        await this.waitForElementContent(
-          infoSelector,
-          expectedContent,
-          options,
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new BarPlotError(`Failed to complete ${directionName} autoplay: ${errorMessage}`);
-    }
   }
 
   /**
@@ -396,7 +353,11 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start forward autoplay', { cause: error });
+    }
   }
 
   /**
@@ -412,6 +373,10 @@ export class BarPlotPage extends BasePage {
     expectedContent?: string,
     options: { timeout?: number; pollInterval?: number } = {},
   ): Promise<void> {
-    await this.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    try {
+      await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
+    } catch (error) {
+      throw new BarPlotError('Failed to start reverse autoplay', { cause: error });
+    }
   }
 }

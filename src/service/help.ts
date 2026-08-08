@@ -1,78 +1,116 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { KeybindingEntry } from '@type/event';
 import type { HelpMenuItem } from '@type/help';
-import { COMMAND_DESCRIPTIONS, HELP_SCOPE_INCLUDES, SCOPED_KEYMAP } from '@service/keybinding';
+import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
 
 /**
- * Scopes that should use another scope's help menu (for transient label scopes).
+ * Configuration for nested scopes that are entered via a key from parent scope.
  */
-const HELP_SCOPE_ALIASES: Partial<Record<Scope, Scope>> = {
-  [Scope.TRACE_LABEL]: Scope.TRACE,
-  [Scope.FIGURE_LABEL]: Scope.SUBPLOT,
+interface NestedScopeConfig {
+  scope: Scope;
+  entryKey: string;
+}
+
+/**
+ * Mapping of parent scopes to their nested scopes.
+ */
+const NESTED_SCOPE_CONFIG: Partial<Record<Scope, NestedScopeConfig[]>> = {
+  [Scope.TRACE]: [
+    { scope: Scope.TRACE_LABEL, entryKey: 'l' },
+  ],
+  [Scope.SUBPLOT]: [
+    { scope: Scope.FIGURE_LABEL, entryKey: 'l' },
+  ],
 };
 
 /**
- * Generates help menu items for a given scope by reading the keymap
- * and looking up descriptions from COMMAND_DESCRIPTIONS.
+ * Generates help menu items from a keymap configuration.
+ * Each command gets its own entry (no grouping).
+ * @param keymap - The keymap configuration object
+ * @returns Array of help menu items
  */
-function generateHelpItems(scope: Scope): HelpMenuItem[] {
-  // Collect all command keys available in this scope (+ included scopes)
-  const availableCommands = new Set<string>(Object.keys(SCOPED_KEYMAP[scope]));
-  const includes = HELP_SCOPE_INCLUDES[scope] ?? [];
-  for (const includedScope of includes) {
-    for (const key of Object.keys(SCOPED_KEYMAP[includedScope])) {
-      availableCommands.add(key);
-    }
-  }
-
-  // Build help items from COMMAND_DESCRIPTIONS, preserving its order
+function generateHelpMenuFromKeymap(keymap: Record<string, KeybindingEntry>): HelpMenuItem[] {
   const items: HelpMenuItem[] = [];
-  const seenDescriptions = new Set<string>();
 
-  for (const [commandKey, entry] of Object.entries(COMMAND_DESCRIPTIONS)) {
-    if (!availableCommands.has(commandKey))
+  for (const entry of Object.values(keymap)) {
+    // Skip entries explicitly marked as hidden
+    if (entry.showInHelp === false) {
       continue;
-    if (!entry || seenDescriptions.has(entry.description))
-      continue;
+    }
 
-    seenDescriptions.add(entry.description);
-
-    // Use displayKey override, or derive from the keymap
-    const displayKey = entry.displayKey ?? resolveHotkeyDisplay(commandKey, scope, includes);
-
-    items.push({ description: entry.description, key: displayKey });
+    items.push({
+      description: entry.description,
+      key: entry.helpKey ?? entry.hotkey,
+    });
   }
 
   return items;
 }
 
 /**
- * Resolves the display string for a hotkey by looking it up in the scope's keymap.
+ * Generates help menu items for a nested scope with entry key prefix.
+ * Only includes commands that are unique to the nested scope (not in parent).
+ * @param nestedKeymap - The nested scope keymap configuration
+ * @param entryKey - The key used to enter the nested scope (e.g., 'l')
+ * @param parentKeymap - The parent scope keymap to check for duplicates
+ * @returns Array of help menu items with prefixed keys
  */
-function resolveHotkeyDisplay(commandKey: string, scope: Scope, includes: Scope[]): string {
-  const keymap = SCOPED_KEYMAP[scope] as Record<string, string>;
-  if (commandKey in keymap) {
-    return formatHotkey(keymap[commandKey]);
-  }
-  for (const includedScope of includes) {
-    const includedKeymap = SCOPED_KEYMAP[includedScope] as Record<string, string>;
-    if (commandKey in includedKeymap) {
-      return formatHotkey(includedKeymap[commandKey]);
+function generateNestedScopeHelp(
+  nestedKeymap: Record<string, KeybindingEntry>,
+  entryKey: string,
+  parentKeymap: Record<string, KeybindingEntry>,
+): HelpMenuItem[] {
+  const items: HelpMenuItem[] = [];
+  const parentCommandKeys = new Set(Object.keys(parentKeymap));
+
+  for (const [commandKey, entry] of Object.entries(nestedKeymap)) {
+    // Skip commands that exist in parent scope (they're not nested-specific)
+    if (parentCommandKeys.has(commandKey)) {
+      continue;
     }
+
+    // Skip entries explicitly marked as hidden
+    if (entry.showInHelp === false) {
+      continue;
+    }
+
+    // Skip the exit/deactivate commands (they use 'escape')
+    const hotkey = entry.helpKey ?? entry.hotkey;
+    if (hotkey === 'escape' || hotkey === 'esc') {
+      continue;
+    }
+
+    items.push({
+      description: entry.description,
+      key: `${entryKey} ${hotkey}`,
+    });
   }
-  return commandKey;
+
+  return items;
 }
 
 /**
- * Formats a raw hotkey string for user-friendly display.
- * Example: 'ctrl+,' → 'ctrl + ,'
+ * Generates a complete help menu for a scope including nested scope entries.
+ * @param scope - The parent scope
+ * @returns Array of help menu items
  */
-function formatHotkey(hotkey: string): string {
-  return hotkey
-    .split('+')
-    .map(part => part.trim())
-    .join(' + ');
+function generateCompleteHelpMenu(scope: Scope): HelpMenuItem[] {
+  const keymap = getKeymapForScope(scope);
+  const items = generateHelpMenuFromKeymap(keymap);
+
+  // Add nested scope entries (only commands unique to nested scope)
+  const nestedConfigs = NESTED_SCOPE_CONFIG[scope];
+  if (nestedConfigs) {
+    for (const config of nestedConfigs) {
+      const nestedKeymap = getKeymapForScope(config.scope);
+      const nestedItems = generateNestedScopeHelp(nestedKeymap, config.entryKey, keymap);
+      items.push(...nestedItems);
+    }
+  }
+
+  return items;
 }
 
 /**
@@ -82,24 +120,38 @@ export class HelpService {
   private readonly context: Context;
   private readonly display: DisplayService;
 
+  private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
+
   /**
-   * Creates a new HelpService instance.
+   * Creates a new HelpService instance with auto-generated scoped menu configurations.
    * @param context - The application context for determining current scope
    * @param display - The display service for toggling help UI
    */
   public constructor(context: Context, display: DisplayService) {
     this.context = context;
     this.display = display;
+
+    // Auto-generate help menus from keymaps including nested scopes
+    const traceHelpMenu = generateCompleteHelpMenu(Scope.TRACE);
+    const subplotHelpMenu = generateCompleteHelpMenu(Scope.SUBPLOT);
+    const candlestickDeltaHelpMenu = generateCompleteHelpMenu(Scope.CANDLESTICK_DELTA);
+
+    this.scopedMenuItems = {
+      [Scope.TRACE]: traceHelpMenu,
+      [Scope.TRACE_LABEL]: traceHelpMenu,
+      [Scope.BRAILLE]: traceHelpMenu,
+      [Scope.SUBPLOT]: subplotHelpMenu,
+      [Scope.FIGURE_LABEL]: subplotHelpMenu,
+      [Scope.CANDLESTICK_DELTA]: candlestickDeltaHelpMenu,
+    };
   }
 
   /**
    * Retrieves help menu items for the current application scope.
-   * Items are auto-generated from COMMAND_DESCRIPTIONS and the scope's keymap.
-   * @returns Array of help menu items for the current scope
+   * @returns Array of help menu items or empty array if no items for current scope
    */
   public getMenuItems(): HelpMenuItem[] {
-    const scope = HELP_SCOPE_ALIASES[this.context.scope] ?? this.context.scope;
-    return generateHelpItems(scope);
+    return this.scopedMenuItems[this.context.scope] ?? [];
   }
 
   /**

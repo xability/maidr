@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    # Every Monday at 15:00 UTC = 9 AM CST (winter) / 10 AM CDT (summer).
+    # GitHub Actions cron runs in UTC and does not observe DST.
+    - cron: '0 15 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -59,7 +60,7 @@ jobs:
         run: |
           npx semantic-release
           if git describe --tags --exact-match HEAD 2>/dev/null; then
-            echo "new_release=true" >> $GITHUB_OUTPUT
+            echo "new_release=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm with trusted publishing

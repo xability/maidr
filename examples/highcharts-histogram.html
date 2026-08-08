@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Histogram - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/histogram-bellcurve.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Histogram</h1>
+    <p>
+      A Highcharts histogram made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate bins.
+    </p>
+
+    <div id="histogram-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      // Generate random sample data
+      const samples = [];
+      for (let i = 0; i < 500; i += 1) {
+        samples.push(Math.random() + Math.random() + Math.random() - 1.5);
+      }
+
+      const chart = Highcharts.chart('histogram-chart', {
+        title: { text: 'Distribution of Values' },
+        xAxis: [
+          { title: { text: 'Sample' }, opposite: true },
+          { title: { text: 'Value' } },
+        ],
+        yAxis: [
+          { title: { text: 'Sample' }, opposite: true },
+          { title: { text: 'Count' } },
+        ],
+        series: [
+          {
+            name: 'Histogram',
+            type: 'histogram',
+            xAxis: 1,
+            yAxis: 1,
+            baseSeries: 's1',
+            binsNumber: 15,
+          },
+          {
+            name: 'Samples',
+            type: 'scatter',
+            data: samples,
+            id: 's1',
+            marker: { radius: 1.5 },
+            visible: false,
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'histogram-chart' });
+      document.getElementById('histogram-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

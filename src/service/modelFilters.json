@@ -1,0 +1,27 @@
+{
+  "$comment": "Filters that narrow provider model-list responses to chat-capable models. Shared by src/service/llmValidation.ts (runtime probing) and scripts/check-model-catalog.mjs (weekly drift check) so the two can never diverge.",
+  "openai": {
+    "chatModelPattern": "^(?:gpt-|chatgpt-|o\\d)",
+    "nonChatSubstrings": [
+      "audio",
+      "realtime",
+      "transcribe",
+      "tts",
+      "whisper",
+      "embedding",
+      "moderation",
+      "image",
+      "dall-e",
+      "search",
+      "instruct"
+    ]
+  },
+  "gemini": {
+    "excludedSubstrings": [
+      "embedding",
+      "image",
+      "tts",
+      "audio"
+    ]
+  }
+}

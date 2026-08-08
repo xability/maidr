@@ -1,14 +1,14 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { ReviewService } from '@service/review';
 import type { AppStore } from '@state/store';
-import type { TraceState } from '@type/state';
+import type { PlotState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from './viewModel';
 
 /**
  * State interface for the review feature containing the current review value.
  */
-interface ReviewState {
+export interface ReviewState {
   value: string;
 }
 
@@ -50,7 +50,7 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
   /**
    * Disposes the view model and resets review state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
@@ -74,9 +74,9 @@ export class ReviewViewModel extends AbstractViewModel<ReviewState> {
 
   /**
    * Toggles the visibility of the review modal.
-   * @param state - The current trace state
+   * @param state - The current plot state
    */
-  public toggle(state: TraceState): void {
+  public toggle(state: PlotState): void {
     this.reviewService.toggle(state);
   }
 }

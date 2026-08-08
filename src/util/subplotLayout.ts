@@ -72,8 +72,12 @@ interface AxesPosition {
  */
 export function resolveSubplotLayout(subplots: Subplot[][]): SubplotLayout {
   const axesElements = collectAxesElements(subplots);
-  const positions = collectAxesPositions(subplots, axesElements);
+  let positions = collectAxesPositions(subplots, axesElements);
   const totalAxesCount = document.querySelectorAll('g[id^="axes_"]').length;
+
+  if (positions.length === 0) {
+    positions = collectPanelPositions(subplots);
+  }
 
   if (positions.length === 0) {
     return buildFallbackLayout(subplots, totalAxesCount, axesElements);
@@ -206,6 +210,74 @@ function detectInversion(entries: AxesPosition[], numRows: number): boolean {
     return row0.y < row1.y;
   }
   return false;
+}
+
+/**
+ * Measures each subplot's own panel element when no `<g id="axes_*">` groups
+ * exist (charts not rendered by matplotlib — Vega-Lite cells, per-panel chart
+ * containers, etc.).
+ *
+ * The subplot's highlight element is preferred (it is a `visibility: hidden`
+ * clone inserted next to the panel container, so it still has real layout
+ * geometry); the first element matched by the first layer's selector is used
+ * as a fallback. Positions are only trusted when EVERY subplot resolves to an
+ * element with distinct, non-degenerate geometry — otherwise an empty array
+ * is returned and the caller falls back to data-array order. This keeps
+ * jsdom/test environments (all-zero rects) and partially-rendered charts on
+ * the conservative path.
+ */
+function collectPanelPositions(subplots: Subplot[][]): AxesPosition[] {
+  const positions: AxesPosition[] = [];
+
+  for (let r = 0; r < subplots.length; r++) {
+    for (let c = 0; c < subplots[r].length; c++) {
+      const el = resolvePanelElement(subplots[r][c]);
+      if (!el) {
+        return [];
+      }
+      const bbox = el.getBoundingClientRect();
+      positions.push({ row: r, col: c, y: bbox.top, x: bbox.left });
+    }
+  }
+
+  if (positions.length < 2) {
+    return [];
+  }
+
+  const distinct = new Set(positions.map(p => `${p.x},${p.y}`));
+  if (distinct.size !== positions.length) {
+    return [];
+  }
+
+  return positions;
+}
+
+/**
+ * Resolves the DOM element that best represents a subplot's panel geometry.
+ */
+function resolvePanelElement(subplot: Subplot): Element | null {
+  const highlight = subplot.getHighlightElement();
+  if (highlight && hasGeometry(highlight)) {
+    return highlight;
+  }
+
+  const selector = subplot.getLayerSelector();
+  if (selector) {
+    const el = document.querySelector(selector);
+    if (el && hasGeometry(el)) {
+      return el;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Whether an element reports any usable bounding-box geometry.
+ */
+function hasGeometry(el: Element): boolean {
+  const bbox = el.getBoundingClientRect();
+  return bbox.width > 0 || bbox.height > 0 || bbox.top !== 0 || bbox.left !== 0;
 }
 
 /**

@@ -11,7 +11,7 @@ export class HistogramPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors = {
+  protected override readonly selectors = {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.HISTOGRAM_ID}`,
@@ -46,7 +46,7 @@ export class HistogramPage extends BasePage {
       await super.navigateTo('examples/histogram.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new HistogramError('Failed to navigate to Histogram');
+      throw new HistogramError('Failed to navigate to Histogram', { cause: error });
     }
   }
 
@@ -55,11 +55,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws HistogramError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await super.activateMaidr(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new HistogramError('Failed to activate MAIDR');
+      throw new HistogramError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -68,11 +68,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws HistogramError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, this.plotId);
     } catch (error) {
-      throw new HistogramError('Failed to activate MAIDR by clicking');
+      throw new HistogramError('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -81,11 +81,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws HistogramError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new HistogramError('Failed to get instruction text');
+      throw new HistogramError('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -108,7 +108,7 @@ export class HistogramPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HistogramError('Failed to check text mode status');
+      throw new HistogramError('Failed to check text mode status', { cause: error });
     }
   }
 
@@ -130,7 +130,7 @@ export class HistogramPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HistogramError('Failed to check braille mode status');
+      throw new HistogramError('Failed to check braille mode status', { cause: error });
     }
   }
 
@@ -152,7 +152,7 @@ export class HistogramPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HistogramError('Failed to check sonification mode status');
+      throw new HistogramError('Failed to check sonification mode status', { cause: error });
     }
   }
 
@@ -174,7 +174,7 @@ export class HistogramPage extends BasePage {
         modeMessages,
       );
     } catch (error) {
-      throw new HistogramError('Failed to check review mode status');
+      throw new HistogramError('Failed to check review mode status', { cause: error });
     }
   }
 
@@ -187,7 +187,7 @@ export class HistogramPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new HistogramError('Failed to get X-axis title');
+      throw new HistogramError('Failed to get X-axis title', { cause: error });
     }
   }
 
@@ -200,7 +200,7 @@ export class HistogramPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new HistogramError('Failed to get Y-axis title');
+      throw new HistogramError('Failed to get Y-axis title', { cause: error });
     }
   }
 
@@ -209,11 +209,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving to the current speed value
    * @throws HistogramError if speed cannot be retrieved
    */
-  public async getPlaybackSpeed(): Promise<number> {
+  public override async getPlaybackSpeed(): Promise<number> {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new HistogramError('Failed to get playback speed');
+      throw new HistogramError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -222,11 +222,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws HistogramError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new HistogramError('Failed to get current data point information');
+      throw new HistogramError('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -239,7 +239,7 @@ export class HistogramPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new HistogramError('Failed to get speed toggle information');
+      throw new HistogramError('Failed to get speed toggle information', { cause: error });
     }
   }
 
@@ -258,7 +258,7 @@ export class HistogramPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new HistogramError('Failed to start forward autoplay');
+      throw new HistogramError('Failed to start forward autoplay', { cause: error });
     }
   }
 
@@ -277,7 +277,7 @@ export class HistogramPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new HistogramError('Failed to start reverse autoplay');
+      throw new HistogramError('Failed to start reverse autoplay', { cause: error });
     }
   }
 
@@ -286,11 +286,11 @@ export class HistogramPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws HistogramError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new HistogramError('Histogram plot failed to load correctly');
+      throw new HistogramError('Histogram plot failed to load correctly', { cause: error });
     }
   }
 }

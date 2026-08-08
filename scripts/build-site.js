@@ -8,13 +8,18 @@
  * - TypeDoc generates API docs separately
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { marked } = require('marked');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { marked } from 'marked';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -41,16 +46,118 @@ function markdownToHtml(md) {
   return marked.parse(content);
 }
 
+// Per-page SEO descriptions.
+// Keys are either activePage slugs ('home', 'react', 'examples') or page titles
+// ('Data Schema', etc.) for doc pages where activePage is '' and lookup falls back to title.
+const PAGE_DESCRIPTIONS = {
+  'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
+  'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
+  'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, violin, heatmap, histogram, and candlestick charts.',
+  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
+  'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
+  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
+  'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
+  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, and heatmap chart types.',
+  'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, and mixed axis (bar + line) chart types.',
+  'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, and candlestick chart types.',
+  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
+  'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, and normalized chart types.',
+  'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
+  'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
+  'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
+  'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
+  'Live & Streaming Data': 'How to update MAIDR charts in realtime — setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
+  'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
+};
+
 /**
- * Generate a page from template
+ * Build a BreadcrumbList JSON-LD block for the given page.
  */
-function generatePage(title, content, activePage) {
+function buildBreadcrumbSchema(title, canonicalUrl) {
+  const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
+  if (canonicalUrl !== 'https://maidr.ai/') {
+    crumbs.push({ name: title, url: canonicalUrl });
+  }
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'name': c.name,
+      'item': c.url,
+    })),
+  }, null, 2);
+}
+
+/**
+ * Build a TechArticle JSON-LD block for documentation pages.
+ */
+function buildTechArticleSchema(title, description, canonicalUrl, dateModified) {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    'headline': title,
+    'description': description,
+    'url': canonicalUrl,
+    'datePublished': '2024-01-15', // project launch date; per-page dates not tracked
+    'dateModified': dateModified,
+    'publisher': { '@id': 'https://maidr.ai/#organization' },
+    'isPartOf': { '@id': 'https://maidr.ai/#website' },
+    'about': { '@id': 'https://maidr.ai/#software' },
+  }, null, 2);
+}
+
+/**
+ * Generate a page from template.
+ * @param {object} opts
+ * @param {string} opts.title
+ * @param {string} opts.content       - inner HTML
+ * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
+ * @param {string} [opts.basePath]
+ * @param {string} [opts.slug]         - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.ogType]
+ * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
+ */
+function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
+  const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title];
+  if (!description) {
+    console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
+  }
+  const finalDescription = description || PAGE_DESCRIPTIONS.home;
+  const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
+
+  // Generate breadcrumb schema (skip for home page — single-item lists are unusual)
+  const breadcrumbTag = canonicalUrl !== 'https://maidr.ai/'
+    ? `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`
+    : '';
+  const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
+
   const page = template
-    .replace('{{TITLE}}', title)
-    .replace('{{CONTENT}}', content)
-    .replace('{{HOME_ACTIVE}}', activePage === 'home' ? 'active' : '')
-    .replace('{{EXAMPLES_ACTIVE}}', activePage === 'examples' ? 'active' : '')
-    .replace('{{API_ACTIVE}}', activePage === 'api' ? 'active' : '');
+    .replace(/\{\{TITLE\}\}/g, () => title)
+    .replace(/\{\{DESCRIPTION\}\}/g, () => finalDescription)
+    .replace(/\{\{CANONICAL_URL\}\}/g, () => canonicalUrl)
+    .replace(/\{\{SOFTWARE_VERSION\}\}/g, () => PKG.version)
+    .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
+    .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
+    .replace(/\{\{CONTENT\}\}/g, () => content)
+    .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
+    .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
+    .replace(/\{\{RECHARTS_ACTIVE\}\}/g, () => activePage === 'recharts' ? 'active' : '')
+    .replace(/\{\{PLOTLY_ACTIVE\}\}/g, () => activePage === 'plotly' ? 'active' : '')
+    .replace(/\{\{GOOGLE_CHARTS_ACTIVE\}\}/g, () => activePage === 'google-charts' ? 'active' : '')
+    .replace(/\{\{D3_ACTIVE\}\}/g, () => activePage === 'd3' ? 'active' : '')
+    .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
+    .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
+    .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
+    .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
+    .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
+    .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
+    .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
+    .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
+    .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
+    .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
 
   return page;
 }
@@ -58,23 +165,483 @@ function generatePage(title, content, activePage) {
 // Build index.html from README
 console.log('Building index.html from README.md...');
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
+let readmeContentHtml = markdownToHtml(readme);
+// Rewrite docs/*.md links to docs/*.html for the built site
+readmeContentHtml = readmeContentHtml.replace(/href="docs\/([^"]+)\.[mM][dD]"/g, 'href="docs/$1.html"');
+// React docs are built at root level, not in docs/ subdirectory
+readmeContentHtml = readmeContentHtml.replace(/href="docs\/react\.html"/g, 'href="react.html"');
 const readmeHtml = `
 <div class="hero">
   <img src="media/logo.svg" alt="MAIDR Logo" />
 </div>
 <div class="content">
-  ${markdownToHtml(readme)}
+  ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage('Home', readmeHtml, 'home');
+const indexPage = generatePage({ title: 'Home', content: readmeHtml, activePage: 'home', slug: '' });
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
-// Build examples.html
+// Build react.html from docs/react.md
+console.log('Building react.html from docs/react.md...');
+const reactMdPath = path.join(ROOT, 'docs', 'react.md');
+if (fs.existsSync(reactMdPath)) {
+  const reactMd = fs.readFileSync(reactMdPath, 'utf-8');
+  const reactHtml = `
+<div class="content">
+  ${marked.parse(reactMd)}
+</div>
+`;
+  const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
+}
+
+// Build recharts.html from docs/recharts.md
+console.log('Building recharts.html from docs/recharts.md...');
+const rechartsMdPath = path.join(ROOT, 'docs', 'recharts.md');
+if (fs.existsSync(rechartsMdPath)) {
+  const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
+  const rechartsHtml = `
+<div class="content">
+  ${marked.parse(rechartsMd)}
+</div>
+`;
+  const rechartsPage = generatePage({ title: 'Recharts', content: rechartsHtml, activePage: 'recharts', slug: 'recharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'recharts.html'), rechartsPage);
+}
+
+// Build plotly.html from docs/plotly.md
+console.log('Building plotly.html from docs/plotly.md...');
+const plotlyMdPath = path.join(ROOT, 'docs', 'plotly.md');
+if (fs.existsSync(plotlyMdPath)) {
+  const plotlyMd = fs.readFileSync(plotlyMdPath, 'utf-8');
+  const plotlyHtml = `
+<div class="content">
+  ${marked.parse(plotlyMd)}
+</div>
+`;
+  const plotlyPage = generatePage({ title: 'Plotly', content: plotlyHtml, activePage: 'plotly', slug: 'plotly.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'plotly.html'), plotlyPage);
+}
+
+// Build google-charts.html from docs/google-charts.md
+console.log('Building google-charts.html from docs/google-charts.md...');
+const googleChartsMdPath = path.join(ROOT, 'docs', 'google-charts.md');
+if (fs.existsSync(googleChartsMdPath)) {
+  const googleChartsMd = fs.readFileSync(googleChartsMdPath, 'utf-8');
+  const googleChartsHtml = `
+<div class="content">
+  ${marked.parse(googleChartsMd)}
+</div>
+`;
+  const googleChartsPage = generatePage({ title: 'Google Charts', content: googleChartsHtml, activePage: 'google-charts', slug: 'google-charts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'google-charts.html'), googleChartsPage);
+}
+
+// Build d3.html from docs/d3.md
+console.log('Building d3.html from docs/d3.md...');
+const d3MdPath = path.join(ROOT, 'docs', 'd3.md');
+if (fs.existsSync(d3MdPath)) {
+  const d3Md = fs.readFileSync(d3MdPath, 'utf-8');
+  const d3Html = `
+<div class="content">
+  ${marked.parse(d3Md)}
+</div>
+`;
+  const d3Page = generatePage({ title: 'D3.js', content: d3Html, activePage: 'd3', slug: 'd3.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'd3.html'), d3Page);
+}
+
+// Build vegalite.html from docs/vegalite.md
+console.log('Building vegalite.html from docs/vegalite.md...');
+const vegaliteMdPath = path.join(ROOT, 'docs', 'vegalite.md');
+if (fs.existsSync(vegaliteMdPath)) {
+  const vegaliteMd = fs.readFileSync(vegaliteMdPath, 'utf-8');
+  const vegaliteHtml = `
+<div class="content">
+  ${marked.parse(vegaliteMd)}
+</div>
+`;
+  const vegalitePage = generatePage({ title: 'Vega-Lite', content: vegaliteHtml, activePage: 'vegalite', slug: 'vegalite.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'vegalite.html'), vegalitePage);
+}
+
+// Build chartjs.html from docs/chartjs.md
+console.log('Building chartjs.html from docs/chartjs.md...');
+const chartjsMdPath = path.join(ROOT, 'docs', 'chartjs.md');
+if (fs.existsSync(chartjsMdPath)) {
+  const chartjsMd = fs.readFileSync(chartjsMdPath, 'utf-8');
+  const chartjsHtml = `
+<div class="content">
+  ${marked.parse(chartjsMd)}
+</div>
+`;
+  const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
+}
+
+// Build amcharts.html from docs/amcharts.md
+console.log('Building amcharts.html from docs/amcharts.md...');
+const amchartsMdPath = path.join(ROOT, 'docs', 'amcharts.md');
+if (fs.existsSync(amchartsMdPath)) {
+  const amchartsMd = fs.readFileSync(amchartsMdPath, 'utf-8');
+  const amchartsHtml = `
+<div class="content">
+  ${marked.parse(amchartsMd)}
+</div>
+`;
+  const amchartsPage = generatePage({ title: 'amCharts', content: amchartsHtml, activePage: 'amcharts', slug: 'amcharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'amcharts.html'), amchartsPage);
+}
+
+// Build frappe.html from docs/frappe.md
+console.log('Building frappe.html from docs/frappe.md...');
+const frappeMdPath = path.join(ROOT, 'docs', 'frappe.md');
+if (fs.existsSync(frappeMdPath)) {
+  const frappeMd = fs.readFileSync(frappeMdPath, 'utf-8');
+  const frappeHtml = `
+<div class="content">
+  ${marked.parse(frappeMd)}
+</div>
+`;
+  const frappePage = generatePage({ title: 'Frappe Charts', content: frappeHtml, activePage: 'frappe', slug: 'frappe.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'frappe.html'), frappePage);
+}
+
+// Build victory.html from docs/victory.md
+console.log('Building victory.html from docs/victory.md...');
+const victoryMdPath = path.join(ROOT, 'docs', 'victory.md');
+if (fs.existsSync(victoryMdPath)) {
+  const victoryMd = fs.readFileSync(victoryMdPath, 'utf-8');
+  const victoryHtml = `
+<div class="content">
+  ${marked.parse(victoryMd)}
+</div>
+`;
+  const victoryPage = generatePage({ title: 'Victory', content: victoryHtml, activePage: 'victory', slug: 'victory.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'victory.html'), victoryPage);
+}
+
+// Build anychart.html from docs/anychart.md
+console.log('Building anychart.html from docs/anychart.md...');
+const anychartMdPath = path.join(ROOT, 'docs', 'anychart.md');
+if (fs.existsSync(anychartMdPath)) {
+  const anychartMd = fs.readFileSync(anychartMdPath, 'utf-8');
+  const anychartHtml = `
+<div class="content">
+  ${marked.parse(anychartMd)}
+</div>
+`;
+  const anychartPage = generatePage({ title: 'AnyChart', content: anychartHtml, activePage: 'anychart', slug: 'anychart.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'anychart.html'), anychartPage);
+}
+
+// Build highcharts.html from docs/highcharts.md
+console.log('Building highcharts.html from docs/highcharts.md...');
+const highchartsMdPath = path.join(ROOT, 'docs', 'highcharts.md');
+if (fs.existsSync(highchartsMdPath)) {
+  const highchartsMd = fs.readFileSync(highchartsMdPath, 'utf-8');
+  const highchartsHtml = `
+<div class="content">
+  ${marked.parse(highchartsMd)}
+</div>
+`;
+  const highchartsPage = generatePage({ title: 'Highcharts', content: highchartsHtml, activePage: 'highcharts', slug: 'highcharts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'highcharts.html'), highchartsPage);
+}
+
+// Build examples.html (inline gallery content — no middle iframe)
 console.log('Building examples.html...');
 const examplesContent = `
-<iframe src="examples/example-gallery.html" class="examples-frame" title="MAIDR Examples"></iframe>
+<style>
+  .examples-gallery { padding: 20px; }
+  .examples-gallery ul a { display: block; margin: 8px 0; font-size: 18px; cursor: pointer; }
+  .examples-gallery #content { margin-top: 40px; padding: 20px; border: 1px solid #ccc; }
+</style>
+<div class="examples-gallery">
+  <h1>MAIDR Examples</h1>
+  <h2>Click on one of the examples below to see a demonstration</h2>
+
+  <h3 id="react-examples">React</h3>
+  <ul>
+    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth, D3 Bar, D3 Scatter)</a></li>
+  </ul>
+  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types. The D3 examples show how to use <a href="d3.html">the D3 adapter</a> with the <code>&lt;MaidrD3&gt;</code> wrapper.</p>
+
+  <h3>HTML / Vanilla JS</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot'); return false;">Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer'); return false;">Candlestick multilayer</a></li>
+    <li><a href="#" onclick="loadHTML('dodged_barplot.html', 'Dodged Barplot'); return false;">Dodged Barplot</a></li>
+    <li><a href="#" onclick="loadHTML('facet_barplot.html', 'Faceted Bar plots'); return false;">Faceted Bar plots</a></li>
+    <li><a href="#" onclick="loadHTML('heatmap.html', 'Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('histogram.html', 'Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('horizontal-boxplot.html', 'Horizontal box plot'); return false;">Horizontal box plot</a></li>
+    <li><a href="#" onclick="loadHTML('lineplot.html', 'Single Line plot'); return false;">Single Line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multiline_plot.html', 'Multi line plot'); return false;">Multi line plot</a></li>
+    <li><a href="#" onclick="loadHTML('multilayer_plot.html', 'Multi layered plot'); return false;">Multi layered plot</a></li>
+    <li><a href="#" onclick="loadHTML('multipanel.html', 'Multi panel plot'); return false;">Multi panel plot</a></li>
+    <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot'); return false;">Scatter plot</a></li>
+    <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot'); return false;">Smooth plot</a></li>
+    <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot'); return false;">Stacked Bar plot</a></li>
+    <li><a href="#" onclick="loadHTML('stepplot.html', 'Step plot (hypnogram)'); return false;">Step plot (hypnogram)</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot'); return false;">Vertical box plot</a></li>
+    <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
+    <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>
+  </ul>
+
+  <h3>Plotly.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('plotly-bar.html', 'Plotly Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-scatter.html', 'Plotly Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-line.html', 'Plotly Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-box.html', 'Plotly Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-violin.html', 'Plotly Violin Plot'); return false;">Violin Plot</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-heatmap.html', 'Plotly Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-histogram.html', 'Plotly Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-grouped-bar.html', 'Plotly Grouped Bar'); return false;">Grouped Bar</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-stacked-bar.html', 'Plotly Stacked Bar'); return false;">Stacked Bar</a></li>
+  </ul>
+  <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Recharts</h3>
+  <ul>
+    <li><a href="#" onclick="loadRecharts(); return false;">Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)</a></li>
+  </ul>
+  <p>See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
+  <h3>Google Charts</h3>
+  <ul>
+    <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
+  </ul>
+  <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Chart.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('chartjs/bar.html', 'Chart.js Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/line.html', 'Chart.js Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/scatter.html', 'Chart.js Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/bar-stacked.html', 'Chart.js Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/bar-dodged.html', 'Chart.js Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/boxplot.html', 'Chart.js Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/candlestick.html', 'Chart.js Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/heatmap.html', 'Chart.js Heatmap'); return false;">Heatmap (Matrix)</a></li>
+  </ul>
+  <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Frappe Charts</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('frappe-bar.html', 'Frappe Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-line.html', 'Frappe Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-multiline.html', 'Frappe Multi-Line Chart'); return false;">Multi-Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-scatter.html', 'Frappe Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-mixed.html', 'Frappe Mixed Axis Chart'); return false;">Mixed Axis (Bar + Line)</a></li>
+  </ul>
+  <p>See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>D3.js</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('d3-bindbar.html', 'D3 Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindline.html', 'D3 Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindscatter.html', 'D3 Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindbox.html', 'D3 Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindheatmap.html', 'D3 Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindhistogram.html', 'D3 Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindcandlestick.html', 'D3 Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindstacked.html', 'D3 Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('d3-binddodged.html', 'D3 Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindsmooth.html', 'D3 Smooth Curve'); return false;">Smooth Curve</a></li>
+  </ul>
+  <p>See the <a href="d3.html">D3.js Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
+  <h3>Vega-Lite</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('vegalite-bindbar.html', 'Vega-Lite Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindstacked.html', 'Vega-Lite Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-binddodged.html', 'Vega-Lite Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindnormalized.html', 'Vega-Lite Normalized Bar'); return false;">Normalized Bar</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindhistogram.html', 'Vega-Lite Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindline.html', 'Vega-Lite Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindscatter.html', 'Vega-Lite Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindheatmap.html', 'Vega-Lite Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
+  </ul>
+  <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>amCharts 5</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('amcharts.html', 'amCharts 5 Examples'); return false;">amCharts 5 Examples (Bar, Dodged, Stacked, Normalized, Line, Histogram, Heatmap)</a></li>
+  </ul>
+  <p>See the <a href="amcharts.html">amCharts 5 Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Victory</h3>
+  <ul>
+    <li><a href="#" onclick="loadVictory(); return false;">Victory Examples (Bar, Line, Scatter, Stacked, Histogram, Box, Candlestick)</a></li>
+  </ul>
+  <p>See the <a href="victory.html">Victory Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
+
+  <h3>AnyChart</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('anychart/bar.html', 'AnyChart Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/line.html', 'AnyChart Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/scatter.html', 'AnyChart Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/box.html', 'AnyChart Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/heatmap.html', 'AnyChart Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/candlestick.html', 'AnyChart Candlestick'); return false;">Candlestick</a></li>
+  </ul>
+  <p>See the <a href="anychart.html">AnyChart Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Highcharts</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('highcharts-bar.html', 'Highcharts Bar Chart'); return false;">Bar Chart</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-line.html', 'Highcharts Line Chart'); return false;">Line Chart</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-scatter.html', 'Highcharts Scatter Plot'); return false;">Scatter Plot</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-box.html', 'Highcharts Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-heatmap.html', 'Highcharts Heatmap'); return false;">Heatmap</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-histogram.html', 'Highcharts Histogram'); return false;">Histogram</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-candlestick.html', 'Highcharts Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-stacked.html', 'Highcharts Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-dodged.html', 'Highcharts Dodged Bar'); return false;">Dodged Bar</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-normalized.html', 'Highcharts Normalized Bar'); return false;">Normalized Bar</a></li>
+  </ul>
+  <p>See the <a href="highcharts.html">Highcharts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <div id="content" hidden="true">Select an example above.</div>
+</div>
+
+<script>
+  function loadReact() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'React Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/react/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'React Examples';
+    iframe.setAttribute('aria-label', 'React example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadRecharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Recharts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/recharts/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Recharts Examples';
+    iframe.setAttribute('aria-label', 'Recharts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadVictory() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Victory Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/victory/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Victory Examples';
+    iframe.setAttribute('aria-label', 'Victory example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadGoogleCharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Google Charts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/google-charts.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Google Charts Examples';
+    iframe.setAttribute('aria-label', 'Google Charts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
+  function loadHTML(filename, headingText) {
+    try {
+      var heading = document.createElement('h2');
+      heading.id = 'example-heading';
+      heading.textContent = headingText;
+      heading.tabIndex = -1;
+      heading.style.marginTop = '0';
+
+      var iframe = document.createElement('iframe');
+      iframe.src = 'examples/' + filename;
+      iframe.style.width = '100%';
+      iframe.style.height = '800px';
+      iframe.style.border = 'none';
+      iframe.tabIndex = 0;
+      iframe.title = headingText + ' example';
+      iframe.setAttribute('aria-label', headingText + ' example demonstration');
+
+      var contentDiv = document.getElementById('content');
+      contentDiv.innerHTML = '';
+      contentDiv.appendChild(heading);
+      contentDiv.appendChild(iframe);
+      contentDiv.hidden = false;
+
+      setTimeout(function() { heading.focus(); }, 100);
+    } catch (err) {
+      console.error(err);
+      document.getElementById('content').innerText = 'Failed to load: ' + err.message;
+    }
+  }
+</script>
 `;
-const examplesPage = generatePage('Examples', examplesContent, 'examples');
+const examplesPage = generatePage({ title: 'Examples', content: examplesContent, activePage: 'examples', slug: 'examples.html' });
 fs.writeFileSync(path.join(SITE_DIR, 'examples.html'), examplesPage);
 
 // Copy media folder
@@ -85,6 +652,18 @@ if (fs.existsSync(mediaSource)) {
   fs.cpSync(mediaSource, mediaDest, { recursive: true });
 }
 
+// Copy dist folder
+console.log('Copying dist folder...');
+const distSource = path.join(ROOT, 'dist');
+const distDest = path.join(SITE_DIR, 'dist');
+if (fs.existsSync(distSource)) {
+  fs.cpSync(distSource, distDest, { recursive: true });
+}
+
+// Build React example
+console.log('Building React example...');
+execSync('npm run build:react-example', { stdio: 'inherit', cwd: ROOT });
+
 // Copy examples folder
 console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');
@@ -93,23 +672,143 @@ if (fs.existsSync(examplesSource)) {
   fs.cpSync(examplesSource, examplesDest, { recursive: true });
 }
 
-// Copy docs folder static assets (excluding template.html and examples/)
-// Note: examples/ is already copied from root, so we skip docs/examples/ to avoid overwriting
+// Copy built Recharts example (single-file HTML) to _site/examples/recharts/
+console.log('Copying built Recharts example...');
+const rechartsBuilt = path.join(ROOT, 'examples', 'recharts', 'dist', 'index.html');
+const rechartsSiteDest = path.join(SITE_DIR, 'examples', 'recharts');
+if (fs.existsSync(rechartsBuilt)) {
+  if (!fs.existsSync(rechartsSiteDest)) {
+    fs.mkdirSync(rechartsSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(rechartsBuilt, path.join(rechartsSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Recharts example not found. Run "npm run build:recharts-example" first.');
+}
+
+// Copy built Victory example (single-file HTML) to _site/examples/victory/
+console.log('Copying built Victory example...');
+const victoryBuilt = path.join(ROOT, 'examples', 'victory', 'dist', 'index.html');
+const victorySiteDest = path.join(SITE_DIR, 'examples', 'victory');
+if (fs.existsSync(victoryBuilt)) {
+  if (!fs.existsSync(victorySiteDest)) {
+    fs.mkdirSync(victorySiteDest, { recursive: true });
+  }
+  fs.copyFileSync(victoryBuilt, path.join(victorySiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Victory example not found. Run "npm run build:victory-example" first.');
+}
+
+const today = new Date().toISOString().split('T')[0];
+
+/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
+function fileMod(filePath) {
+  try {
+    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
+  } catch {
+    return today;
+  }
+}
+
+// Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
+const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file !== 'template.html' && file !== 'examples') {
-      const src = path.join(docsSource, file);
-      const dest = path.join(SITE_DIR, file);
-      if (fs.statSync(src).isDirectory()) {
-        fs.cpSync(src, dest, { recursive: true });
-      } else {
-        fs.copyFileSync(src, dest);
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
+      continue;
+
+    const src = path.join(docsSource, file);
+    const ext = path.extname(file).toLowerCase();
+
+    if (ext === '.md') {
+      // Convert markdown files to HTML pages in _site/docs/
+      console.log(`Building docs/${file}...`);
+      if (!fs.existsSync(docsSiteDest)) {
+        fs.mkdirSync(docsSiteDest, { recursive: true });
       }
+      const md = fs.readFileSync(src, 'utf-8');
+      const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
+      const baseName = path.basename(file, path.extname(file));
+      const titleMap = {
+        SCHEMA: 'Data Schema',
+        BRAILLE: 'Braille Generation',
+        CONTROLS: 'Keyboard Controls',
+        LIVE_DATA: 'Live & Streaming Data',
+        VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
+      };
+      const title = titleMap[baseName] ?? baseName;
+      const docSlug = `docs/${baseName}.html`;
+      const docCanonical = `https://maidr.ai/${docSlug}`;
+      const fileMtime = fileMod(src);
+      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
+      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
+      const docPage = generatePage({
+        title,
+        content: htmlContent,
+        activePage: '',
+        basePath: '../',
+        slug: docSlug,
+        ogType: 'article',
+        pageSchema: techArticleTag,
+      });
+      fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
+    } else if (fs.statSync(src).isDirectory()) {
+      // Copy directories to _site/ root
+      fs.cpSync(src, path.join(SITE_DIR, file), { recursive: true });
+    } else {
+      // Copy other static files to _site/ root
+      fs.copyFileSync(src, path.join(SITE_DIR, file));
     }
   }
 }
+
+// Generate sitemap.xml — built dynamically from the docs/ folder so new pages
+// are included automatically without maintaining a hardcoded list.
+console.log('Generating sitemap.xml...');
+
+const sitemapUrls = [
+  { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
+  { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
+  { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
+  { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
+  { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
+  { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
+  { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
+  { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
+  { loc: 'https://maidr.ai/amcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'amcharts.md')) },
+  { loc: 'https://maidr.ai/frappe.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'frappe.md')) },
+  { loc: 'https://maidr.ai/victory.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'victory.md')) },
+  { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
+  { loc: 'https://maidr.ai/highcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'highcharts.md')) },
+  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
+  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+];
+
+// Add all doc .md files that were built into _site/docs/
+if (fs.existsSync(docsSource)) {
+  for (const f of fs.readdirSync(docsSource)) {
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
+      continue;
+    const base = path.basename(f, '.md');
+    sitemapUrls.push({
+      loc: `https://maidr.ai/docs/${base}.html`,
+      priority: '0.6',
+      lastmod: fileMod(path.join(docsSource, f)),
+    });
+  }
+}
+
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapUrls.map(u => `  <url>
+    <loc>${u.loc}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''}
+    <changefreq>monthly</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+fs.writeFileSync(path.join(SITE_DIR, 'sitemap.xml'), sitemap);
 
 console.log('Site built successfully!');
 console.log('Run "npx typedoc" to generate API documentation in _site/api/');
