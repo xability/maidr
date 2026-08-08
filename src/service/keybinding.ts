@@ -90,11 +90,13 @@ const CANDLESTICK_DELTA_KEYMAP = {
   TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Turn Off Reference Comparison', { helpKey: `${Platform.alt} + L` }),
   SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Change Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
-  // Label scope ('l') is intentionally NOT bound here: TRACE_LABEL's Escape
-  // (DEACTIVATE_TRACE_LABEL_SCOPE) hard-returns to Scope.TRACE, which would
-  // desync the keyboard scope from the still-active virtual delta layer. The
-  // delta layer's own announcements already spell out the axes, so the
-  // separate label mode is redundant here.
+  // Label scope ('l') is intentionally NOT bound here: the delta layer's own
+  // announcements already spell out the axes, so a separate label mode would
+  // be redundant. It used to be unsafe as well — TRACE_LABEL's Escape
+  // hard-returned to Scope.TRACE and desynced the keyboard scope from the
+  // still-active virtual delta layer — but that no longer holds now that
+  // exiting a label scope returns to whichever scope opened it. Binding it
+  // here is a design question, not a hazard.
 
   // Autoplay
   AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),

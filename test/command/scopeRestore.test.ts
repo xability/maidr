@@ -183,7 +183,7 @@ describe('EnterGridCellCommand', () => {
   });
 });
 
-describe('exitLabelScopeCommand', () => {
+describe('ExitLabelScopeCommand', () => {
   function createExitCommand(scope: Scope): {
     command: ExitLabelScopeCommand;
     context: Context;
