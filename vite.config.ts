@@ -38,14 +38,19 @@ export default defineConfig({
   },
   define: {
     'process.env': {},
-    // Rolldown, which vite 8 bundles instead of rollup, only substitutes a
-    // `define` key when it matches the whole member expression. `process.env`
-    // alone therefore leaves `process.env.NODE_ENV` -- React's development
-    // guard -- untouched, and the bundle dies on load with "process is not
-    // defined" before MAIDR can attach to a chart. Rollup replaced the prefix
-    // and left `({}).NODE_ENV` behind, so spelling the full expression out
-    // keeps the value it has always had: `undefined`.
-    'process.env.NODE_ENV': 'undefined',
+    // Spelled out as a whole member expression because rolldown, which vite 8
+    // bundles instead of rollup, substitutes a `define` key only on an exact
+    // match. Left to the `process.env` prefix alone it survives into the output
+    // and throws "process is not defined" on load.
+    //
+    // `production` is the flag React reads to pick its build, and these values
+    // are kept identical to the ones in `createViteConfig` in scripts/build.js.
+    // That function is what actually builds the published bundles -- it passes
+    // `configFile: false`, so this file is not merged into them, and no npm
+    // script invokes vite without naming its own config either. Keeping the two
+    // in step is therefore about not leaving a trap for whoever first points a
+    // build at this file, not about the bundles on disk today.
+    'process.env.NODE_ENV': JSON.stringify('production'),
   },
   resolve: {
     alias: {
