@@ -20,6 +20,9 @@ const NESTED_SCOPE_CONFIG: Partial<Record<Scope, NestedScopeConfig[]>> = {
   [Scope.TRACE]: [
     { scope: Scope.TRACE_LABEL, entryKey: 'l' },
   ],
+  [Scope.BRAILLE]: [
+    { scope: Scope.TRACE_LABEL, entryKey: 'l' },
+  ],
   [Scope.SUBPLOT]: [
     { scope: Scope.FIGURE_LABEL, entryKey: 'l' },
   ],
@@ -131,15 +134,22 @@ export class HelpService {
     this.context = context;
     this.display = display;
 
-    // Auto-generate help menus from keymaps including nested scopes
+    // Auto-generate help menus from keymaps including nested scopes.
+    // Braille mode gets its own menu rather than borrowing the trace one: its
+    // keymap is a subset of TRACE, so reusing TRACE would advertise shortcuts
+    // (the command palette, Go To Extrema, the candlestick reference keys)
+    // that are not bound while the braille field has focus.
     const traceHelpMenu = generateCompleteHelpMenu(Scope.TRACE);
+    const brailleHelpMenu = generateCompleteHelpMenu(Scope.BRAILLE);
     const subplotHelpMenu = generateCompleteHelpMenu(Scope.SUBPLOT);
     const candlestickDeltaHelpMenu = generateCompleteHelpMenu(Scope.CANDLESTICK_DELTA);
 
+    // The label scopes are transient — the user is mid-chord after pressing
+    // `l`, so they see the menu of the scope they came from.
     this.scopedMenuItems = {
       [Scope.TRACE]: traceHelpMenu,
       [Scope.TRACE_LABEL]: traceHelpMenu,
-      [Scope.BRAILLE]: traceHelpMenu,
+      [Scope.BRAILLE]: brailleHelpMenu,
       [Scope.SUBPLOT]: subplotHelpMenu,
       [Scope.FIGURE_LABEL]: subplotHelpMenu,
       [Scope.CANDLESTICK_DELTA]: candlestickDeltaHelpMenu,
