@@ -20,6 +20,12 @@ import { pathToFileURL } from 'node:url';
  * focused, but found body". This asserts the config directly so the next
  * bundler swap fails here instead of there.
  *
+ * The value is asserted too, not just the key. While the prefix entry was the
+ * only one here the flag resolved to `undefined`, which is falsy for React's
+ * purposes -- so the published bundles shipped its development build without
+ * anything failing. Both halves of that need pinning: the key so the bundle
+ * loads at all, the value so it loads the right React.
+ *
  * `scripts/build.js` is plain ESM JavaScript and `allowJs` is false, so it
  * cannot be imported from a ts-jest test directly. Each case runs in a real
  * node subprocess with `--input-type=module`, as in buildOutputFilenames.test.
@@ -92,6 +98,23 @@ describe('the build script\'s define config', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('BAD:0');
+  });
+
+  // Pinned by value, not just by shape: these bundles are the published ones,
+  // and the flag decides which React build they carry. `undefined` -- what the
+  // `process.env` prefix entry used to leave behind -- silently shipped the
+  // development build, so a regression here is invisible until someone weighs
+  // the tarball or reads the console.
+  it('should substitute production, so the published bundles carry React\'s production build', () => {
+    const result = runModule(`
+      import { builds, createViteConfig } from '${BUILD_SCRIPT}';
+      const values = builds
+        .map(b => createViteConfig(b).define['process.env.NODE_ENV']);
+      console.log('NOT_PRODUCTION:' + values.filter(v => v !== JSON.stringify('production')).length);
+    `);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('NOT_PRODUCTION:0');
   });
 });
 

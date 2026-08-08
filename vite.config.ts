@@ -38,14 +38,17 @@ export default defineConfig({
   },
   define: {
     'process.env': {},
-    // Rolldown, which vite 8 bundles instead of rollup, only substitutes a
-    // `define` key when it matches the whole member expression. `process.env`
-    // alone therefore leaves `process.env.NODE_ENV` -- React's development
-    // guard -- untouched, and the bundle dies on load with "process is not
-    // defined" before MAIDR can attach to a chart. Rollup replaced the prefix
-    // and left `({}).NODE_ENV` behind, so spelling the full expression out
-    // keeps the value it has always had: `undefined`.
-    'process.env.NODE_ENV': 'undefined',
+    // Spelled out as a whole member expression because rolldown, which vite 8
+    // bundles instead of rollup, substitutes a `define` key only on an exact
+    // match. Left to the `process.env` prefix alone this survives into the
+    // bundle and throws "process is not defined" on load.
+    //
+    // `production` is what a published bundle wants: it is the flag React reads
+    // to pick its build. It resolved to `undefined` for as long as the prefix
+    // entry was the only one here, so every release so far shipped React's
+    // development build -- roughly 90 kB gzipped of warnings and dev-only
+    // invariants that no consumer of a released bundle can act on.
+    'process.env.NODE_ENV': JSON.stringify('production'),
   },
   resolve: {
     alias: {
