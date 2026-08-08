@@ -119,9 +119,13 @@ describe('the build script\'s define config', () => {
 });
 
 describe('the root vite config\'s define', () => {
-  // vite.config.ts serves the dev servers and the example builds, so it needs
-  // the same entry; the two configs are maintained separately, and drifting
-  // apart is exactly how this would come back.
+  // Nothing builds through this file today: `createViteConfig` passes
+  // `configFile: false`, the example builds and dev servers each pass
+  // `--config examples/*/vite.config.ts`, and no script invokes vite bare. So
+  // this case guards a latent trap rather than a live path -- the day someone
+  // points a build at the root config, it should already be correct instead of
+  // reintroducing a bug that took an e2e run to find. Checked here rather than
+  // left to a comment because an unused config is exactly the kind that drifts.
   //
   // Asserted against the source text rather than the module: node cannot
   // import a .ts file in a subprocess the way it imports scripts/build.js, and
@@ -131,5 +135,11 @@ describe('the root vite config\'s define', () => {
     const source = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
 
     expect(source).toContain('\'process.env.NODE_ENV\'');
+  });
+
+  it('should substitute production there too, matching the published builds', () => {
+    const source = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
+
+    expect(source).toMatch(/'process\.env\.NODE_ENV':\s*JSON\.stringify\('production'\)/);
   });
 });
