@@ -10,6 +10,9 @@ import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
 
+/** How an absent value is named wherever a trace has nothing to report. */
+const MISSING_TEXT = 'missing';
+
 /**
  * Enumeration of available text output modes.
  */
@@ -81,11 +84,30 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Formats a single value using the formatter service if available.
    * Falls back to String() conversion if no formatter is configured.
    *
-   * @param value - The value to format
+   * A gap arrives here as whatever sentinel the wire carried: the `null` a
+   * producer emits for a slot it has no measurement for, or the `NaN` the bar
+   * and pie models normalize that to. Neither is a value to read out, so both
+   * are named the way `AbstractBarPlot.rangeStats` and `PieTrace` already name
+   * an absent value. Doing it here rather than per trace means every trace with
+   * gap support says the same word, and says it whether or not a formatter is
+   * wired up — `FormatUtil.wrapFormat` catches a `null` or a `NaN` only for a
+   * layer the formatter service actually has an entry for, and never catches an
+   * infinity.
+   *
+   * Only an absent NUMBER is caught. A measured `0` is a real reading and an
+   * empty category label is a label, so both go on to be formatted as usual.
+   *
+   * @param value - The value to format, absent when the point is a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string representation of the value
    */
-  private formatSingleValue(value: number | string, axis: AxisType): string {
+  private formatSingleValue(value: number | string | null | undefined, axis: AxisType): string {
+    if (value === null || value === undefined) {
+      return MISSING_TEXT;
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return MISSING_TEXT;
+    }
     if (this.formatter && this.currentLayerId) {
       return this.formatter.formatSingleValue(value, this.currentLayerId, axis);
     }
