@@ -29,6 +29,27 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_Z_AXIS = 'Level';
 
 /**
+ * Names an axis, falling back when the layer did not really name it.
+ *
+ * A producer with no label to give writes one of two spellings of "none", and
+ * `??` catches only one: `undefined` takes the fallback, but an empty string
+ * is a value and passes straight through. Both spellings mean the same thing
+ * here, and a blank name announces worse than a generic one — "X is Apples"
+ * at least says which axis is being read, where " is Apples" is a sentence
+ * with its noun missing. Whitespace counts as blank for the same reason.
+ *
+ * Exported because `LineTrace` resolves its own z label against a
+ * trace-specific fallback rather than reading `this.z`.
+ *
+ * @param label - The label the layer carried, if any
+ * @param fallback - The generic name to use when it carried none
+ * @returns The label to announce
+ */
+export function named(label: string | undefined, fallback: string): string {
+  return label?.trim() ? label : fallback;
+}
+
+/**
  * Maps internal TraceType identifiers to human-readable chart type labels
  * for display in the chart description modal and other user-facing surfaces.
  */
@@ -379,9 +400,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    this.xAxis = layer.axes?.x?.label ?? DEFAULT_X_AXIS;
-    this.yAxis = layer.axes?.y?.label ?? DEFAULT_Y_AXIS;
-    this.z = layer.axes?.z?.label ?? DEFAULT_Z_AXIS;
+    this.xAxis = named(layer.axes?.x?.label, DEFAULT_X_AXIS);
+    this.yAxis = named(layer.axes?.y?.label, DEFAULT_Y_AXIS);
+    this.z = named(layer.axes?.z?.label, DEFAULT_Z_AXIS);
   }
 
   /**

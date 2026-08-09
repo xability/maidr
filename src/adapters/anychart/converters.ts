@@ -2036,6 +2036,50 @@ function findPieWedgeLayer(svg: SVGElement): Element | null {
  *
  * On any other chart type this is a no-op.
  */
+/**
+ * Stamps the highlight attributes this chart's own kind needs.
+ *
+ * Every stamper used to be tried on every chart, each in its own `try`. That
+ * is harmless for an XY chart — a bar stamper finds no line series and
+ * returns — but a pie carries no series API at all: `getSeriesCount` is not a
+ * function on one, so the bar and line stampers each threw and warned before
+ * the pie stamper did the real work. Two console warnings on every correctly
+ * rendered pie, which is noise in exactly the place someone debugging a
+ * genuine stamping failure would look.
+ *
+ * Asking what the chart is costs one call and makes the warnings mean
+ * something again: past this point, a warning is a stamper failing at a job
+ * that was actually its own.
+ *
+ * @param chart - The AnyChart instance being bound
+ * @param svg - The rendered SVG to stamp
+ * @param stampPrefix - Panel token prefix, empty for a single chart
+ */
+function stampChartAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  const stampers: [string, typeof stampPieAttributes][] = isPieChart(chart)
+    ? [['pie', stampPieAttributes]]
+    : [
+        ['bar', stampBarAttributes],
+        ['line', stampLineAttributes],
+        ['scatter', stampScatterAttributes],
+        ['box', stampBoxAttributes],
+        ['heatmap', stampHeatmapAttributes],
+        ['candlestick', stampCandlestickAttributes],
+      ];
+
+  for (const [kind, stamp] of stampers) {
+    try {
+      stamp(chart, svg, stampPrefix);
+    } catch (err) {
+      console.warn(`[maidr/anychart] Failed to stamp ${kind} attributes:`, err);
+    }
+  }
+}
+
 function stampPieAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
@@ -2075,6 +2119,18 @@ function stampPieAttributes(
     // `fill-opacity`, so any value below 1 is the overlay.
     const fillOpacityAttr = path.getAttribute('fill-opacity');
     if (fillOpacityAttr !== null && Number.parseFloat(fillOpacityAttr) < 1)
+      continue;
+    // Skip the wedge outlines. AnyChart draws every slice twice — once filled
+    // in the slice's colour, once with `fill="none"` for the stroke — so a
+    // four-slice pie offers eight arc paths. Both halves sit in the same
+    // layer and both carry an arc command, and only the fill is the datum.
+    //
+    // Taking the first N in DOM order happens to pick the fills, because
+    // AnyChart emits them first. That is an ordering accident, not a
+    // guarantee: were it ever to emit outlines first, every highlight would
+    // land on an invisible path while the announcement carried on naming the
+    // right slice — the silent mislabel this whole lookup exists to avoid.
+    if (path.getAttribute('fill') === 'none')
       continue;
     candidates.push(path);
   }
@@ -2810,41 +2866,7 @@ export function bindAnyChart(
   // best-effort, but the chart must always become focusable so audio /
   // text / braille modalities work even when highlight cannot.
   whenChartRendered(chart, container, (svg) => {
-    try {
-      stampBarAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp bar attributes:', err);
-    }
-    try {
-      stampLineAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp line attributes:', err);
-    }
-    try {
-      stampScatterAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp scatter attributes:', err);
-    }
-    try {
-      stampBoxAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp box attributes:', err);
-    }
-    try {
-      stampHeatmapAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp heatmap attributes:', err);
-    }
-    try {
-      stampCandlestickAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp candlestick attributes:', err);
-    }
-    try {
-      stampPieAttributes(chart, svg);
-    } catch (err) {
-      console.warn('[maidr/anychart] Failed to stamp pie attributes:', err);
-    }
+    stampChartAttributes(chart, svg);
 
     const host = ensureHostWrapper(svg, container);
     if (boundElements.has(host))
@@ -3105,41 +3127,7 @@ function stampPanelAttributes(
     svg.setAttribute(PANEL_ATTR, token);
 
   const prefix = `${token}:`;
-  try {
-    stampBarAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp bar attributes:', err);
-  }
-  try {
-    stampLineAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp line attributes:', err);
-  }
-  try {
-    stampScatterAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp scatter attributes:', err);
-  }
-  try {
-    stampBoxAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp box attributes:', err);
-  }
-  try {
-    stampHeatmapAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp heatmap attributes:', err);
-  }
-  try {
-    stampCandlestickAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp candlestick attributes:', err);
-  }
-  try {
-    stampPieAttributes(chart, svg, prefix);
-  } catch (err) {
-    console.warn('[maidr/anychart] Failed to stamp pie attributes:', err);
-  }
+  stampChartAttributes(chart, svg, prefix);
 }
 
 /**
