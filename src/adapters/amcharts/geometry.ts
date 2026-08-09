@@ -47,9 +47,9 @@ function numberSetting(slice: AmSprite, key: string): number | null {
 /**
  * The box a sprite reports, when it reports one with area.
  *
- * The area test is what makes this safe as a fallback: a `Slice` answers a
- * degenerate point, and unioning those is the bug in #774. Kept for any build
- * whose slices do report a real box but no radius to measure instead.
+ * The area test is what makes this safe as a fallback: a slice that reports a
+ * point rather than a box is rejected here rather than believed. Kept for any
+ * build whose slices do report a real box but no radius to measure instead.
  */
 function reportedBox(slice: AmSprite): AmBounds | null {
   const box = slice.globalBounds?.();
@@ -131,8 +131,14 @@ export function wedgeBounds(slice: AmSprite): AmBounds | null {
     }
   }
 
-  // Both radii at the arc ends; only the outer radius at a cardinal, since the
-  // inner point lies in the same direction and so is never further out.
+  // Both radii at the arc ends, but only the outer radius at a cardinal in
+  // between. A cardinal is where cos or sin is at a critical point, so it is
+  // the angle that governs one extreme of the box — and there the larger
+  // radius always reaches further in that direction. Sampling the inner
+  // radius at an interior cardinal could therefore only ever repeat a bound
+  // the outer one already set. At the sweep's two ends there is no such
+  // critical point, so the inner corners are their own extremes and do need
+  // sampling: that is what keeps a donut wedge from swallowing the centre.
   const xs: number[] = [];
   const ys: number[] = [];
   const add = (angle: number, r: number): void => {

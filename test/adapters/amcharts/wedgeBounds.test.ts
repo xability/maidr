@@ -1,5 +1,5 @@
 import type { AmSprite } from '@adapters/amcharts/types';
-import { readSliceBounds, wedgeBounds } from '@adapters/amcharts/geometry';
+import { readSliceBounds, sliceExtent, wedgeBounds } from '@adapters/amcharts/geometry';
 import { describe, expect, it } from '@jest/globals';
 
 /**
@@ -101,6 +101,38 @@ describe('wedgeBounds measures a wedge amCharts reports no box for', () => {
   it('returns null before the first layout, when there is no radius yet', () => {
     expect(wedgeBounds(slice(0, 0, {}))).toBeNull();
     expect(wedgeBounds(slice(0, 0, { radius: 0 }))).toBeNull();
+  });
+});
+
+describe('sliceExtent decides which measurement to trust', () => {
+  it('measures the wedge even when a box is reported alongside it', () => {
+    // Pins the precedence. A build that reported both would otherwise be free
+    // to fall back, and the reported box is the coarser of the two -- the
+    // whole point of the fix is that the wedge's own geometry wins.
+    const both: AmSprite = {
+      globalBounds: () => ({ left: 0, top: 0, right: 999, bottom: 999 }),
+      get: (key: string) =>
+        ({ radius: 50, startAngle: -90, arc: 90 } as Record<string, unknown>)[key],
+    };
+
+    // Centre is the reported box's midpoint, so the wedge sits around 499.5.
+    const [left, top, right, bottom] = near(sliceExtent(both));
+    expect([left, top, right, bottom]).toEqual([499.5, 449.5, 549.5, 499.5]);
+  });
+
+  it('falls back to a reported box when there is no radius to measure', () => {
+    const boxOnly: AmSprite = {
+      globalBounds: () => ({ left: 10, top: 20, right: 30, bottom: 40 }),
+      get: () => undefined,
+    };
+
+    expect(near(sliceExtent(boxOnly))).toEqual([10, 20, 30, 40]);
+  });
+
+  it('refuses a degenerate box, which is the shape that caused the bug', () => {
+    // No radius *and* a point for a box: nothing here can be measured, and
+    // believing the point is what collapsed every highlight.
+    expect(sliceExtent(slice(100, 100, {}))).toBeNull();
   });
 });
 
