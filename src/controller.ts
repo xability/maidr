@@ -3,7 +3,7 @@ import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback } from '@type/grammar';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { FigureState, TraceState } from '@type/state';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
@@ -575,5 +575,15 @@ export class Controller implements Disposable {
         trace.addObserver(observer);
       }));
     }));
+
+    // Leaving a subplot makes the figure active rather than a trace, so the
+    // trace observers above go quiet and say nothing about having stopped.
+    // A consumer drawing an overlay would keep the last point highlighted and
+    // carry it to whichever panel the user moved to next, pointing at a chart
+    // it does not belong to. The figure is the only element that hears the
+    // move, so it is what reports the selection ending.
+    this.figure.addObserver({
+      update: () => callback(null),
+    } as Observer<FigureState>);
   }
 }

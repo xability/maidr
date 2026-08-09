@@ -172,19 +172,25 @@ function createHighlightCallback(
   maps: TargetMaps,
   layerDatasetIndices: LayerDatasetIndices,
   getOverlay: () => HighlightOverlay | null,
-  recordActive: (event: NavEvent) => void,
+  recordActive: (event: NavEvent | null) => void,
 ): NavigateCallback {
   return (event) => {
     try {
       recordActive(event);
-      const targets = resolveActiveTargets(
-        layers,
-        maps,
-        layerDatasetIndices,
-        event.layerId,
-        event.row,
-        event.col,
-      );
+      // `null` is the cursor leaving a subplot for the figure lobby: nothing
+      // is selected, so no target is active. `applyHighlight` clears on an
+      // empty list, and recording the `null` keeps the resize hook from
+      // replaying the stale point.
+      const targets = event === null
+        ? []
+        : resolveActiveTargets(
+            layers,
+            maps,
+            layerDatasetIndices,
+            event.layerId,
+            event.row,
+            event.col,
+          );
       applyHighlight(chart, getOverlay(), targets);
     } catch {
       // Silently ignore highlight errors (e.g., after chart destruction)
@@ -317,7 +323,7 @@ function initMaidrForChart(chart: ChartJsChart): void {
 
   // Record the latest MAIDR navigation event on the per-chart binding so
   // the resize hook can replay it after Chart.js re-lays out the canvas.
-  const recordActive = (event: NavEvent): void => {
+  const recordActive = (event: NavEvent | null): void => {
     const b = chartBindings.get(chart);
     if (b)
       b.lastActive = event;

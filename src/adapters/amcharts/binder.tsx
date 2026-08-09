@@ -157,7 +157,7 @@ function applyHighlight(
 function createHighlightCallback(
   navMap: NavMap,
   getOverlay: () => HighlightOverlay | null,
-  recordActive: (event: NavEvent) => void,
+  recordActive: (event: NavEvent | null) => void,
 ): NavigateCallback {
   return (event) => {
     try {
@@ -165,6 +165,14 @@ function createHighlightCallback(
       const overlay = getOverlay();
       if (!overlay)
         return;
+      // `null` is the cursor leaving a subplot for the figure lobby: nothing
+      // is selected, so nothing should be outlined. Recording it also matters
+      // beyond this call -- the resize hook replays `lastActive`, and would
+      // otherwise put the stale box back on the next resize.
+      if (!event) {
+        overlay.clear();
+        return;
+      }
       applyHighlight(overlay, navMap, event);
     } catch {
       // Ignore highlight errors (e.g., during teardown or before layout).

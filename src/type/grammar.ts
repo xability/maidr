@@ -152,12 +152,19 @@ export interface ViolinKdePoint {
  * Callback invoked when the active data point changes during navigation.
  * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
  *
- * @param info - Object containing the current navigation position
+ * `null` means no data point is active — the cursor has left a subplot for the
+ * figure lobby of a multi-panel chart. A consumer drawing an overlay must clear
+ * it, since there is no other signal that the selection ended: without one, the
+ * last point's highlight stays on screen and follows the user to another panel,
+ * pointing at a chart it does not belong to.
+ *
+ * @param info - The current navigation position, or `null` when nothing is
+ *   selected
  * @param info.layerId - The ID of the active layer/trace
  * @param info.row - The current row index (e.g., dataset index)
  * @param info.col - The current column index (e.g., data point index)
  */
-export type NavigateCallback = (info: { layerId: string; row: number; col: number }) => void;
+export type NavigateCallback = (info: { layerId: string; row: number; col: number } | null) => void;
 
 export interface Maidr {
   /** Unique identifier for the chart. Used for DOM element IDs. */
