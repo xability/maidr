@@ -1782,10 +1782,15 @@ function stampHeatmapAttributes(
  * candlestick layer for single-series candlestick charts and the
  * candlestick portion of mixed charts.
  *
- * Returns the parent SVG itself if no AnyChart layer structure is found,
- * so the caller falls back to whole-SVG querying.
+ * Returns the parent SVG itself when the SVG has no AnyChart layer structure
+ * at all, so the caller falls back to whole-SVG querying. When layers *are*
+ * present but none of them is clipped, this returns `null` instead: the candles
+ * are then not where this function knows how to look, and widening the search
+ * to the whole SVG would stamp whatever `ac_path_*` elements it met first — a
+ * legend marker, a decorative frame — as the leading candles. Reporting nothing
+ * found costs the highlight; guessing would label decoration as data.
  */
-function findCandlestickPathLayer(svg: SVGElement): Element {
+function findCandlestickPathLayer(svg: SVGElement): Element | null {
   const layers = svg.querySelectorAll<SVGGElement>('g[id^="ac_layer_"]');
   let bestLayer: Element | null = null;
   let bestCount = 0;
@@ -1804,7 +1809,9 @@ function findCandlestickPathLayer(svg: SVGElement): Element {
       bestLayer = layer;
     }
   }
-  return bestLayer ?? svg;
+  if (bestLayer)
+    return bestLayer;
+  return layers.length > 0 ? null : svg;
 }
 
 /**
@@ -1850,6 +1857,15 @@ function stampCandlestickAttributes(
     return;
 
   const candleLayer = findCandlestickPathLayer(svg);
+  if (!candleLayer) {
+    console.warn(
+      '[maidr/anychart] Found no candlestick paths to highlight: this chart\'s '
+      + 'SVG has AnyChart layers but none of them is clipped to the plot area. '
+      + 'Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
   const paths = candleLayer.querySelectorAll<SVGElement>(
     'path[id^="ac_path_"]',
   );

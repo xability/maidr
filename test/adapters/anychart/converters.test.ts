@@ -116,6 +116,56 @@ function appendPieWedges(container: HTMLElement, count: number): SVGElement[] {
   return wedges;
 }
 
+/**
+ * Append a rendered candlestick series to a container's `<svg>`: `count` candle
+ * paths inside an AnyChart layer.
+ *
+ * A real series layer carries the `clip-path` that bounds it to the plot area,
+ * which is how the lookup tells it apart from the axes and background layers.
+ * Pass `clipped: false` for a chart whose layers do not carry one, and
+ * `layered: false` for an SVG with no AnyChart layer structure at all.
+ */
+function appendCandlePaths(
+  container: HTMLElement,
+  count: number,
+  options: { clipped?: boolean; layered?: boolean } = {},
+): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  let parent = svg;
+  if (options.layered !== false) {
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = 'ac_layer_1';
+    if (options.clipped !== false) {
+      layer.setAttribute('clip-path', 'url(#ac_clip_1)');
+    }
+    svg.appendChild(layer);
+    parent = layer as unknown as SVGElement;
+  }
+
+  const candles: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const candle = document.createElementNS(SVG_NS, 'path');
+    candle.id = `ac_path_${i}`;
+    // Wick plus body: a real candle always draws more than one command, which
+    // is how the stamper rejects single-command clip-boundary sentinels.
+    candle.setAttribute('d', 'M 10 0 L 10 40 M 5 10 L 15 10 L 15 30 L 5 30 Z');
+    candle.setAttribute('fill', '#00aa00');
+    parent.appendChild(candle);
+    candles.push(candle);
+  }
+
+  return candles;
+}
+
+function createCandlestickChart(
+  title: string,
+  days: string[],
+  extra: Omit<MockChartConfig, 'title' | 'series'> = {},
+): AnyChartInstance {
+  const rows = days.map(x => ({ x, open: 1, high: 4, low: 0.5, close: 3 }));
+  return createChart({ title, series: [createSeries('candlestick', rows)], ...extra });
+}
+
 function createAxis(titleText: string): AnyChartAxis {
   return {
     title: () => ({ text: () => titleText }),
@@ -396,6 +446,66 @@ describe('bindAnyChart (pie stamping)', () => {
     expect(decoration.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
     expect(straight.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
     expect(warnSpy.mock.calls.flat().join(' ')).toContain('no pie wedges to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+describe('bindAnyChart (candlestick stamping)', () => {
+  it('stamps one attribute per candle, in point order', () => {
+    const container = createContainerWithSvg('candle-bind');
+    const candles = appendCandlePaths(container, 3);
+    const chart = createCandlestickChart('Prices', ['Mon', 'Tue', 'Wed'], { container });
+
+    bindAnyChart(chart);
+
+    expect(candles.map(c => c.getAttribute('data-maidr-anychart-candlestick-cell')))
+      .toEqual(['0-0', '0-1', '0-2']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('falls back to the whole SVG when there is no AnyChart layer structure', () => {
+    // No `ac_layer_*` group anywhere: the lookup's assumption has not failed,
+    // there is simply nothing to scope to, and whole-SVG querying is the only
+    // way to reach the candles. This fallback must survive.
+    const container = createContainerWithSvg('candle-unlayered');
+    const candles = appendCandlePaths(container, 2, { layered: false });
+    const chart = createCandlestickChart('Prices', ['Mon', 'Tue'], { container });
+
+    bindAnyChart(chart);
+
+    expect(candles.map(c => c.getAttribute('data-maidr-anychart-candlestick-cell')))
+      .toEqual(['0-0', '0-1']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('warns and stamps nothing when no AnyChart layer is clipped to the plot area', () => {
+    // The candle-DOM assumption has failed: the layers are there but none of
+    // them is a clipped series layer. Stamping the first `ac_path_*` elements
+    // found anywhere in the SVG would label a legend marker or a decorative
+    // frame as candle 0, so the highlight is dropped and the reason reported.
+    const container = createContainerWithSvg('candle-unclipped');
+    appendCandlePaths(container, 1, { clipped: false });
+    const svg = container.querySelector('svg') as unknown as SVGElement;
+    // A multi-command path outside every layer — exactly what the whole-SVG
+    // fallback would have mistaken for candle 0.
+    const decoration = document.createElementNS(SVG_NS, 'path');
+    decoration.id = 'ac_path_frame';
+    decoration.setAttribute('d', 'M 0 0 L 10 0 L 10 10 Z');
+    decoration.setAttribute('stroke', '#000000');
+    svg.appendChild(decoration);
+    const chart = createCandlestickChart('Prices', ['Mon'], { container });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(decoration.getAttribute('data-maidr-anychart-candlestick-cell')).toBeNull();
+    expect(container.querySelectorAll('[data-maidr-anychart-candlestick-cell]'))
+      .toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('no candlestick paths to highlight');
 
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
