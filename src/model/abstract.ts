@@ -31,23 +31,21 @@ const DEFAULT_Z_AXIS = 'Level';
 /**
  * Names an axis, falling back when the layer did not really name it.
  *
- * A producer that has no label to give reaches for two spellings of "none",
- * and only one of them used to be caught: `??` answers `undefined`, but an
- * empty string is a value and passed straight through. Every Base R chart
- * does exactly that — `barplot()`, `hist()`, `boxplot()` and `pie()` all
- * carry no `xlab`/`ylab` unless the author writes one — so the announcement
- * came out as " is Apples,  is 30", a sentence with its nouns missing. A
- * blank name is worse than a generic one: "X is Apples" at least says which
- * axis is being read.
+ * A producer with no label to give writes one of two spellings of "none", and
+ * `??` catches only one: `undefined` takes the fallback, but an empty string
+ * is a value and passes straight through. Both spellings mean the same thing
+ * here, and a blank name announces worse than a generic one — "X is Apples"
+ * at least says which axis is being read, where " is Apples" is a sentence
+ * with its noun missing. Whitespace counts as blank for the same reason.
  *
- * Whitespace counts as blank for the same reason a producer emitting `' '`
- * meant nothing by it.
+ * Exported because `LineTrace` resolves its own z label against a
+ * trace-specific fallback rather than reading `this.z`.
  *
  * @param label - The label the layer carried, if any
  * @param fallback - The generic name to use when it carried none
  * @returns The label to announce
  */
-function named(label: string | undefined, fallback: string): string {
+export function named(label: string | undefined, fallback: string): string {
   return label?.trim() ? label : fallback;
 }
 

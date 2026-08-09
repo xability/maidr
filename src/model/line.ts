@@ -7,7 +7,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
@@ -113,9 +113,13 @@ export class LineTrace extends AbstractTrace {
    * Resolves the z label: honor the user-provided spec label, otherwise fall
    * back to the LineTrace-specific default ("Group") rather than the generic
    * "Level" inherited from `AbstractTrace`.
+   *
+   * Reads the layer rather than `this.z`, so it needs `named` for itself:
+   * the blank-label fallback `AbstractTrace` applies to `this.z` does not
+   * reach a label resolved here.
    */
   private get groupLabel(): string {
-    return this.layer.axes?.z?.label ?? TYPE;
+    return named(this.layer.axes?.z?.label, TYPE);
   }
 
   /**
