@@ -29,6 +29,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,
   [TraceType.NORMALIZED]: true,
+  // Slices are arranged around a circle, not along an axis: there is no
+  // orientation to declare and none to fall back to.
+  [TraceType.PIE]: false,
   [TraceType.SCATTER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,

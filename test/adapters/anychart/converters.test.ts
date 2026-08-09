@@ -4,10 +4,11 @@ import type {
   AnyChartIterator,
   AnyChartSeries,
 } from '@adapters/anychart/types';
-import type { BarPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { BarPoint, BoxSelector, MaidrLayer, PiePoint } from '@type/grammar';
 import {
   anyChartsToMaidr,
   anyChartToMaidr,
+  bindAnyChart,
   bindAnyCharts,
   mapSeriesType,
 } from '@adapters/anychart/converters';
@@ -68,6 +69,53 @@ function createBarSeries(data: Array<[string, number]>): AnyChartSeries {
   return createSeries('column', data.map(([x, value]) => ({ x, value })));
 }
 
+/**
+ * A drawn AnyChart pie. A real one exposes NO series API — `getSeriesCount()`
+ * and `getSeriesAt()` are absent and its slices live on `chart.data()` — so
+ * the mock omits them deliberately: the conversion has to work without them.
+ */
+function createPieChart(
+  title: string,
+  slices: Array<[string, number | null]>,
+  extra: { container?: HTMLElement } = {},
+): AnyChartInstance {
+  const rows = slices.map(([x, value]) => ({ x, value }));
+  return {
+    title: () => title,
+    container: () => extra.container ?? '',
+    getType: () => 'pie',
+    data: () => ({ getIterator: () => createIterator(rows) }),
+  } as unknown as AnyChartInstance;
+}
+
+/**
+ * Append a rendered pie to a container's `<svg>`: one AnyChart layer holding
+ * `count` wedge paths plus a straight label connector, which shares the layer
+ * but is not a wedge.
+ */
+function appendPieWedges(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+
+  const wedges: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const wedge = document.createElementNS(SVG_NS, 'path');
+    wedge.id = `ac_path_${i}`;
+    wedge.setAttribute('d', 'M 100 100 L 150 100 A 50 50 0 0 1 100 150 Z');
+    layer.appendChild(wedge);
+    wedges.push(wedge);
+  }
+
+  const connector = document.createElementNS(SVG_NS, 'path');
+  connector.id = 'ac_path_connector';
+  connector.setAttribute('d', 'M 150 100 L 180 90');
+  layer.appendChild(connector);
+
+  return wedges;
+}
+
 function createAxis(titleText: string): AnyChartAxis {
   return {
     title: () => ({ text: () => titleText }),
@@ -82,14 +130,14 @@ interface MockChartConfig {
   type?: string;
   xTitle?: string;
   yTitle?: string;
-  /** Chart-level data rows (heatmap-style single-dataset charts). */
-  heatRows?: Array<Record<string, unknown>>;
+  /** Chart-level data rows (single-dataset charts: heatmap, pie). */
+  dataRows?: Array<Record<string, unknown>>;
 }
 
 function createChart(config: MockChartConfig): AnyChartInstance {
   const series = config.series ?? [];
   const chartType = config.type;
-  const heatRows = config.heatRows;
+  const dataRows = config.dataRows;
   const xTitle = config.xTitle;
   const yTitle = config.yTitle;
   return {
@@ -98,8 +146,8 @@ function createChart(config: MockChartConfig): AnyChartInstance {
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     ...(chartType ? { getType: () => chartType } : {}),
-    ...(heatRows
-      ? { data: () => ({ getIterator: () => createIterator(heatRows) }) }
+    ...(dataRows
+      ? { data: () => ({ getIterator: () => createIterator(dataRows) }) }
       : {}),
     ...(xTitle ? { xAxis: () => createAxis(xTitle) } : {}),
     ...(yTitle ? { yAxis: () => createAxis(yTitle) } : {}),
@@ -195,8 +243,107 @@ describe('anyChartToMaidr (single panel, unchanged)', () => {
   });
 
   it('returns null for a chart with no convertible series', () => {
-    const chart = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const chart = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     expect(anyChartToMaidr(chart)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pie charts (single-dataset, no series API)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (pie chart)', () => {
+  it('emits a flat pie layer from the chart-level data view', () => {
+    const chart = createPieChart('Fruit sales', [
+      ['Apples', 30],
+      ['Bananas', 50],
+      ['Cherries', 20],
+    ]);
+
+    const result = anyChartToMaidr(chart);
+
+    expect(result?.title).toBe('Fruit sales');
+    const layer = result!.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.selectors).toBe('[data-maidr-anychart-pie-slice^="0-"]');
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('names the two dimensions a pie has no axis to name', () => {
+    const chart = createPieChart('Fruit', [['Apples', 30]]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Label' }, y: { label: 'Value' } });
+  });
+
+  it('keeps caller-supplied axis labels', () => {
+    const chart = createPieChart('Fruit', [['Apples', 30]]);
+
+    const layer = anyChartToMaidr(chart, { axes: { x: 'Fruit', y: 'Units' } })!
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Fruit' }, y: { label: 'Units' } });
+  });
+
+  it('drops slices with no numeric value, which AnyChart draws no wedge for', () => {
+    const chart = createPieChart('Fruit', [
+      ['Apples', 30],
+      ['Bananas', null],
+      ['Cherries', 20],
+    ]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('scopes pie selectors to the panel token in multi-panel mode', () => {
+    const pie = createPieChart('Pie', [['Apples', 30]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[pie, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).type).toBe(TraceType.PIE);
+    expect(firstLayer(result!, 0, 0).selectors).toBe(
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-pie-slice^="fig-0-0:0-"]',
+    );
+  });
+});
+
+describe('bindAnyChart (pie stamping)', () => {
+  it('stamps one attribute per wedge, in slice order, and skips the connector', () => {
+    const container = createContainerWithSvg('pie-bind');
+    const wedges = appendPieWedges(container, 3);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20]],
+      { container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    // The straight label connector is not a wedge and must stay unstamped.
+    const connector = container.querySelector('#ac_path_connector');
+    expect(connector?.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    // Every stamped wedge is reachable through the layer's own selector.
+    expect(container.querySelectorAll('[data-maidr-anychart-pie-slice^="0-"]'))
+      .toHaveLength(3);
+
+    // Binding wraps the container in a host element; drop the pair so the
+    // multi-panel bind tests below still find their own host first.
+    container.closest('[data-maidr-anychart-host]')?.remove();
   });
 });
 
@@ -292,7 +439,7 @@ describe('anyChartsToMaidr', () => {
     const heat = createChart({
       title: 'Heat',
       type: 'heat-map',
-      heatRows: [
+      dataRows: [
         { x: 'X1', y: 'Y1', heat: 1 },
         { x: 'X2', y: 'Y1', heat: 2 },
       ],
@@ -335,7 +482,7 @@ describe('anyChartsToMaidr', () => {
   });
 
   it('drops panels with no convertible series, keeping original tokens', () => {
-    const bad = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const bad = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     const good = createBarChart('Good');
 
     const result = anyChartsToMaidr([[bad, good]], { id: 'fig' });
@@ -349,7 +496,7 @@ describe('anyChartsToMaidr', () => {
   });
 
   it('returns null when no panel is convertible', () => {
-    const bad = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const bad = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     expect(anyChartsToMaidr([[bad]], { id: 'fig' })).toBeNull();
   });
 
@@ -659,7 +806,7 @@ describe('mapSeriesType', () => {
   });
 
   it('returns null for a series type the adapter cannot represent', () => {
-    expect(mapSeriesType('pie')).toBeNull();
+    expect(mapSeriesType('funnel')).toBeNull();
   });
 });
 

@@ -5,7 +5,7 @@
  * converts it to the MAIDR JSON schema, and renders the MAIDR accessible
  * interface around the chart canvas. Navigation events are bridged back
  * to Chart.js for visual highlighting via `setActiveElements`, and DOM
- * rect overlays are drawn on top of the canvas so users see MAIDR-style
+ * overlays are drawn on top of the canvas so users see MAIDR-style
  * highlight feedback (since canvas has no per-element DOM nodes).
  *
  * @example
@@ -32,7 +32,7 @@ import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { extractChartData } from './extractor';
 import { computeTargetMaps, resolveActiveTargets } from './highlightTargets';
-import { elementToOverlayRect, HighlightOverlay } from './overlay';
+import { elementToOverlayShape, HighlightOverlay } from './overlay';
 
 // ---------------------------------------------------------------------------
 // Internal state per chart
@@ -150,18 +150,18 @@ function applyHighlight(
   if (!overlay)
     return;
 
-  const rects = [];
+  const shapes = [];
   for (const t of targets) {
     const meta = chart.getDatasetMeta(t.datasetIndex);
     const element = meta?.data?.[t.index];
     if (!element)
       continue;
-    const rect = elementToOverlayRect(element);
-    if (rect)
-      rects.push(rect);
+    const shape = elementToOverlayShape(element);
+    if (shape)
+      shapes.push(shape);
   }
-  if (rects.length > 0)
-    overlay.show(rects);
+  if (shapes.length > 0)
+    overlay.show(shapes);
   else
     overlay.clear();
 }
@@ -287,9 +287,9 @@ function initMaidrForChart(chart: ChartJsChart): void {
     return;
 
   // Extract data first, then create a layer-aware highlight callback. When the
-  // plugin is registered globally, unsupported chart types (pie, doughnut,
-  // radar, polarArea, ...) reach this hook too; extraction throws for them, so
-  // catch it and leave the chart untouched rather than breaking construction.
+  // plugin is registered globally, unsupported chart types (radar, polarArea,
+  // ...) reach this hook too; extraction throws for them, so catch it and leave
+  // the chart untouched rather than breaking construction.
   let extracted: MaidrData;
   let layerDatasetIndices: LayerDatasetIndices;
   try {

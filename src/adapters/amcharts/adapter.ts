@@ -3,10 +3,10 @@
  *
  * Supports single charts and multi-panel roots: every `XYChart` found in the
  * root's container tree (including am5stock `StockPanel`s, which extend
- * `XYChart`) becomes one MAIDR subplot, arranged in a grid mirroring the
- * on-screen layout with rows emitted bottom-first (see
- * {@link computeChartGrid}) so the core's UPWARD = row+1 mapping moves
- * visually up.
+ * `XYChart`) and every am5percent `PieChart` becomes one MAIDR subplot,
+ * arranged in a grid mirroring the on-screen layout with rows emitted
+ * bottom-first (see {@link computeChartGrid}) so the core's UPWARD = row+1
+ * mapping moves visually up.
  *
  * @example
  * ```ts
@@ -30,12 +30,13 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   SegmentedPoint,
 } from '@type/grammar';
 import type {
+  AmChart,
   AmChartsBinderOptions,
   AmRoot,
-  AmXYChart,
   AmXYSeries,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
@@ -45,6 +46,7 @@ import {
   extractHeatmapData,
   extractHistogramPoints,
   extractLinePoints,
+  extractPiePoints,
   extractSegmentedPoints,
   readAxisLabel,
 } from './extractor';
@@ -63,7 +65,7 @@ import {
  * it. One entry per emitted subplot, in row-major grid order.
  */
 export interface AmChartPanel {
-  chart: AmXYChart;
+  chart: AmChart;
   layers: MaidrLayer[];
 }
 
@@ -81,8 +83,8 @@ export interface AmChartsConversion {
  * Convert an amCharts 5 {@link AmRoot} into a MAIDR data object.
  *
  * The function walks the root's container tree, collects every XY chart
- * (including am5stock `StockPanel`s), and converts each one into a MAIDR
- * subplot. A single chart produces a 1x1 grid; multiple charts are arranged
+ * (including am5stock `StockPanel`s) and every pie chart, and converts each
+ * one into a MAIDR subplot. A single chart produces a 1x1 grid; multiple charts are arranged
  * in a grid mirroring their on-screen layout, rows ordered bottom-first so
  * that pressing Up moves to the visually upper panel.
  *
@@ -94,10 +96,10 @@ export interface AmChartsConversion {
  *         contains a supported series with data.
  */
 export function fromAmCharts(root: AmRoot, options?: AmChartsBinderOptions): Maidr {
-  const charts = findXYCharts(root);
+  const charts = findCharts(root);
   if (charts.length === 0) {
     throw new Error(
-      'maidr amCharts binder: no XYChart found in root.container. '
+      'maidr amCharts binder: no XYChart or PieChart found in root.container. '
       + 'Ensure the chart is fully initialized before calling fromAmCharts().',
     );
   }
@@ -106,7 +108,7 @@ export function fromAmCharts(root: AmRoot, options?: AmChartsBinderOptions): Mai
 }
 
 /**
- * Convert an amCharts 5 {@link AmXYChart} directly into a MAIDR data object.
+ * Convert an amCharts 5 {@link AmChart} directly into a MAIDR data object.
  *
  * Use this when you already hold a reference to the chart object.
  *
@@ -115,7 +117,7 @@ export function fromAmCharts(root: AmRoot, options?: AmChartsBinderOptions): Mai
  * @param options      Optional overrides.
  */
 export function fromXYChart(
-  chart: AmXYChart,
+  chart: AmChart,
   containerEl: HTMLElement,
   options?: AmChartsBinderOptions,
 ): Maidr {
@@ -123,7 +125,7 @@ export function fromXYChart(
 }
 
 /**
- * Convert several amCharts 5 {@link AmXYChart}s (all sharing one root/DOM
+ * Convert several amCharts 5 {@link AmChart}s (all sharing one root/DOM
  * element) into a single multi-panel MAIDR data object — one subplot per
  * chart, arranged in a grid mirroring the rendered layout.
  *
@@ -132,7 +134,7 @@ export function fromXYChart(
  * @param options      Optional overrides (applied figure-wide).
  */
 export function fromXYCharts(
-  charts: AmXYChart[],
+  charts: AmChart[],
   containerEl: HTMLElement,
   options?: AmChartsBinderOptions,
 ): Maidr {
@@ -153,7 +155,7 @@ export function fromXYCharts(
  * @throws If no chart contains a supported series with data.
  */
 export function convertCharts(
-  charts: AmXYChart[],
+  charts: AmChart[],
   containerEl: HTMLElement,
   options?: AmChartsBinderOptions,
 ): AmChartsConversion {
@@ -223,12 +225,14 @@ export function convertCharts(
  * first x/y axis; `options.axisLabels` acts as a figure-wide override.
  */
 function buildChartLayers(
-  chart: AmXYChart,
+  chart: AmChart,
   containerEl: HTMLElement,
   options?: AmChartsBinderOptions,
 ): MaidrLayer[] {
-  const xLabel = options?.axisLabels?.x ?? readAxisLabel(chart.xAxes.values[0], 'x');
-  const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes.values[0], 'y');
+  // A pie chart is bound to no axis, so both reads find nothing and fall back;
+  // the pie layer names its own dimensions rather than using these.
+  const xLabel = options?.axisLabels?.x ?? readAxisLabel(chart.xAxes?.values[0], 'x');
+  const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes?.values[0], 'y');
 
   const layers: MaidrLayer[] = [];
   // Line and step series each merge into one layer of their own type. The
@@ -268,6 +272,13 @@ function buildChartLayers(
         if (points.length === 0)
           break;
         collectSeries(kind === 'step' ? stepSeries : lineSeries, series, points, containerEl);
+        break;
+      }
+      case 'pie': {
+        const data = extractPiePoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildPieLayer(series, data, options));
         break;
       }
       default:
@@ -398,6 +409,39 @@ function buildHistogramLayer(
   };
 }
 
+/**
+ * What a pie's two dimensions are called. A pie series is bound to no axis, so
+ * the chart-level `readAxisLabel` fallback would name them `x` and `y` — after
+ * coordinates a pie does not have. These name what each one actually holds.
+ */
+const PIE_LABEL_AXIS = 'Label';
+const PIE_VALUE_AXIS = 'Value';
+
+/**
+ * Builds the layer for one pie series. A `PieChart` normally holds exactly
+ * one, but amCharts allows several (concentric rings), and each becomes its
+ * own layer — navigable with PageUp / PageDown like any other stack of layers.
+ *
+ * No `selectors` are emitted: amCharts renders to canvas, so there is no SVG
+ * wedge to address. The binder's overlay highlights the active slice instead.
+ */
+function buildPieLayer(
+  series: AmXYSeries,
+  data: PiePoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.PIE,
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? PIE_LABEL_AXIS },
+      y: { label: options?.axisLabels?.y ?? PIE_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
 function buildHeatmapLayer(
   data: HeatmapData,
   xLabel: string,
@@ -489,7 +533,7 @@ function noSupportedDataError(): Error {
 }
 
 /**
- * Collect every XY chart in the root's container tree, in depth-first
+ * Collect every convertible chart in the root's container tree, in depth-first
  * (insertion) order.
  *
  * Recursion reaches charts nested inside intermediate containers — notably
@@ -501,24 +545,35 @@ function noSupportedDataError(): Error {
  * toolsContainer, the standard am5stock pattern). Found charts are also not
  * descended into, so an in-chart scrollbar preview is never visited either.
  */
-export function findXYCharts(root: AmRoot): AmXYChart[] {
-  const found: AmXYChart[] = [];
-  collectXYCharts(root.container, found);
+export function findCharts(root: AmRoot): AmChart[] {
+  const found: AmChart[] = [];
+  collectCharts(root.container, found);
   return found;
 }
 
-function collectXYCharts(node: unknown, found: AmXYChart[]): void {
+/**
+ * Collect only the XY charts in the root's container tree.
+ *
+ * The narrower counterpart of {@link findCharts}, kept because it is part of
+ * the adapter's public API and because "every XY chart" is still a question
+ * worth asking of a mixed root.
+ */
+export function findXYCharts(root: AmRoot): AmChart[] {
+  return findCharts(root).filter(isXYChartLike);
+}
+
+function collectCharts(node: unknown, found: AmChart[]): void {
   for (const child of childValues(node)) {
     const cls = (child as { className?: string } | null)?.className;
     if (cls === 'XYChartScrollbar') {
       // Never a panel; its child preview XYChart must not be found either.
       continue;
     }
-    if (isXYChartLike(child)) {
+    if (isXYChartLike(child) || isPieChartLike(child)) {
       found.push(child);
       continue;
     }
-    collectXYCharts(child, found);
+    collectCharts(child, found);
   }
 }
 
@@ -532,11 +587,25 @@ function childValues(node: unknown): unknown[] {
 }
 
 /** Duck-type check: an XYChart has series, xAxes, and yAxes. */
-function isXYChartLike(candidate: unknown): candidate is AmXYChart {
+function isXYChartLike(candidate: unknown): candidate is AmChart {
   if (candidate == null || typeof candidate !== 'object')
     return false;
-  const c = candidate as Partial<AmXYChart>;
+  const c = candidate as Partial<AmChart>;
   return Boolean(c.series && c.xAxes && c.yAxes);
+}
+
+/**
+ * Duck-type check for an am5percent `PieChart`.
+ *
+ * A pie chart has a series list but no axes, which on its own is too weak a
+ * signature — plenty of am5 containers carry a `series` property of some kind.
+ * The class name is what makes it specific, and am5 sets it on every entity.
+ */
+function isPieChartLike(candidate: unknown): candidate is AmChart {
+  if (candidate == null || typeof candidate !== 'object')
+    return false;
+  const c = candidate as Partial<AmChart>;
+  return c.className === 'PieChart' && Boolean(c.series);
 }
 
 /**
@@ -561,7 +630,7 @@ function detectStackMode(barSeriesList: AmXYSeries[]): 'none' | 'normal' | '100%
   return anyStacked ? 'normal' : 'none';
 }
 
-function readChartTitle(chart: AmXYChart): string | undefined {
+function readChartTitle(chart: AmChart): string | undefined {
   // amCharts 5 titles are typically children of the chart.
   // A title entity has className "Label" or "Title" and a text property.
   if (!('children' in chart))

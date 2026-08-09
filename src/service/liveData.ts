@@ -8,6 +8,7 @@ import type {
   LinePoint,
   Maidr,
   MaidrLayer,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
@@ -43,6 +44,7 @@ export type LiveDataPoint
     | CandlestickPoint
     | HistogramPoint
     | LinePoint
+    | PiePoint
     | ScatterPoint
     | SegmentedPoint
     | SmoothPoint

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Pie Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Pie Chart</h1>
+    <p>
+      A plotly.js pie chart auto-detected by MAIDR.
+      Click on the chart and use left and right arrow keys to navigate slices;
+      each one announces its label, its value and its share of the whole.
+    </p>
+
+    <div id="pie-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      var data = [{
+        labels: ['Apples', 'Bananas', 'Cherries', 'Dates'],
+        values: [30, 50, 20, 15],
+        type: 'pie',
+        name: 'Fruit sales'
+      }];
+
+      var layout = {
+        title: { text: 'Units Sold by Fruit' }
+      };
+
+      Plotly.newPlot('pie-chart', data, layout);
+    </script>
+  </body>
+</html>

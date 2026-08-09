@@ -133,8 +133,11 @@ export function computeTargetMaps(
         scatterBuckets.set(layer.id, buildScatterBuckets(datasets[dsIdx]?.data ?? []));
         break;
       }
-      case TraceType.BAR: {
-        // Single-dataset bar: one MAIDR row backed by the layer's dataset.
+      case TraceType.BAR:
+      case TraceType.PIE: {
+        // Single-dataset bar, or one pie/doughnut ring: a single MAIDR row
+        // backed by the layer's own dataset. A pie's row is always 0 and its
+        // col is the slice, which is the same shape.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
@@ -216,9 +219,10 @@ export function resolveActiveTargets(
     return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index: flatIndex }];
   }
 
-  // Bar / line: MAIDR row = dataset, col = point (into the gap-skipped list).
-  // Map col back to the original Chart.js element index so highlights stay
-  // aligned when the dataset contains gap markers.
+  // Bar / line / pie: MAIDR row = dataset (always 0 for a pie, whose slices are
+  // one row), col = point (into the gap-skipped list). Map col back to the
+  // original Chart.js element index so highlights stay aligned when the dataset
+  // contains gap markers.
   const indexMap = maps.barLineIndices.get(layer.id);
   const datasetIndex = rowDatasetIndex(layerDatasetIndices, layerId, row);
   if (indexMap) {

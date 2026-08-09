@@ -8,6 +8,7 @@ import type {
   HeatmapData,
   HistogramPoint,
   LinePoint,
+  PiePoint,
   SegmentedPoint,
 } from '@type/grammar';
 import type { AmAxis, AmDataItem, AmXYSeries } from './types';
@@ -263,6 +264,43 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Pie extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract {@link PiePoint} data from an am5percent pie series.
+ *
+ * A pie series is bound to no axis: each data item carries the slice's
+ * `category` and its `value`, and the wedges are drawn in data-item order.
+ * Items with no category or no finite value are skipped — a slice with
+ * nothing to sonify would still take a navigation step and shift every later
+ * slice away from the wedge it names.
+ *
+ * The share each slice represents is deliberately not computed here. MAIDR's
+ * pie trace derives it from the values, so a percentage cannot drift out of
+ * step with the numbers it was supposedly derived from.
+ */
+export function extractPiePoints(series: AmXYSeries): PiePoint[] {
+  const points: PiePoint[] = [];
+
+  for (const item of series.dataItems) {
+    const category = item.get('category');
+    const value = item.get('value');
+
+    if (category == null || value == null)
+      continue;
+
+    const numValue = toNumber(value);
+    if (numValue == null)
+      continue;
+
+    points.push({ x: toStringOrNumber(category), y: numValue });
+  }
+
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Series type detection
 // ---------------------------------------------------------------------------
 
@@ -288,7 +326,17 @@ const STEP_CLASSES = new Set([
   'StepLineSeries',
 ]);
 
-export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'unknown';
+/**
+ * Series drawn as wedges of a circle by an am5percent `PieChart`. They must be
+ * recognised explicitly: {@link classifySeriesKind} answers `'bar'` for
+ * anything it does not know, so an unlisted pie series would be silently
+ * converted into a bar chart of its slices rather than failing loudly.
+ */
+const PIE_CLASSES = new Set([
+  'PieSeries',
+]);
+
+export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'pie' | 'unknown';
 
 /**
  * Determine the MAIDR trace kind for a given amCharts series.
@@ -317,6 +365,10 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
 
   if (STEP_CLASSES.has(className)) {
     return 'step';
+  }
+
+  if (PIE_CLASSES.has(className)) {
+    return 'pie';
   }
 
   // Default to bar for category-based series.

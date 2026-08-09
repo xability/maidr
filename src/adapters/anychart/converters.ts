@@ -30,6 +30,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
 } from '@type/grammar';
 import type {
@@ -59,7 +60,7 @@ const AREA_TYPES = new Set(['area', 'step-area', 'spline-area']);
 /**
  * The subset of {@link TraceType}s the AnyChart adapter can produce from a
  * chart series. AnyChart exposes no stacked/histogram/smooth series types,
- * so {@link mapSeriesType} only ever yields these six. Narrowing here lets
+ * so {@link mapSeriesType} only ever yields these. Narrowing here lets
  * {@link buildLayer}'s switch be provably exhaustive at compile time.
  */
 type AnyChartTraceType
@@ -69,7 +70,8 @@ type AnyChartTraceType
     | TraceType.STEP
     | TraceType.BOX
     | TraceType.HEATMAP
-    | TraceType.CANDLESTICK;
+    | TraceType.CANDLESTICK
+    | TraceType.PIE;
 
 /**
  * Map AnyChart series type strings to MAIDR TraceType values.
@@ -89,6 +91,11 @@ type AnyChartTraceType
  * - The step-drawn types (`step-line`, `step-area`) map to
  *   {@link TraceType.STEP} so they are announced and navigated as the
  *   piecewise-constant series they are, rather than as interpolated lines.
+ * - `"pie"` covers doughnuts too: AnyChart draws one with `chart.innerRadius()`
+ *   on an ordinary pie, so both report the same type and read identically.
+ *   A pie chart has no series API of its own, so this branch only fires for
+ *   builds that expose one — {@link buildSubplot} routes the chart-level pie
+ *   before ever asking for a series.
  */
 export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
   const normalized = anyChartType.toLowerCase().replace(/[_\s]/g, '-');
@@ -114,6 +121,7 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'heat': TraceType.HEATMAP,
     'candlestick': TraceType.CANDLESTICK,
     'ohlc': TraceType.CANDLESTICK,
+    'pie': TraceType.PIE,
   };
 
   const traceType = mapping[normalized] ?? null;
@@ -233,10 +241,19 @@ function resolveIterator(series: AnyChartSeries): AnyChartIterator | undefined {
 export function extractRawRows(
   series: AnyChartSeries,
 ): Array<Record<string, unknown>> {
-  const rows: Array<Record<string, unknown>> = [];
   const iterator: AnyChartIterator | undefined = resolveIterator(series);
-  if (!iterator)
-    return rows;
+  return iterator ? readRows(iterator) : [];
+}
+
+/**
+ * Walk an AnyChart iterator and collect every field the adapter reads.
+ *
+ * Shared by {@link extractRawRows} (series-backed charts) and the chart-level
+ * pie path, whose data lives on `chart.data()` rather than on a series — the
+ * rows carry the same `x` / `value` fields either way.
+ */
+function readRows(iterator: AnyChartIterator): Array<Record<string, unknown>> {
+  const rows: Array<Record<string, unknown>> = [];
   iterator.reset();
   while (iterator.advance()) {
     const row: Record<string, unknown> = { _index: iterator.getIndex() };
@@ -346,6 +363,14 @@ const HEATMAP_ATTR = 'data-maidr-anychart-heatmap-cell';
  * highlight the whole candle across all OHLC segments.
  */
 const CANDLESTICK_ATTR = 'data-maidr-anychart-candlestick-cell';
+
+/**
+ * Attribute name stamped onto each pie wedge's SVG element by
+ * {@link stampPieAttributes}. A pie chart holds a single dataset, but the
+ * value still encodes `<seriesIndex>-<sliceIndex>` so it shares the selector
+ * shape of every other trace family (the chart-level path stamps series `0`).
+ */
+const PIE_ATTR = 'data-maidr-anychart-pie-slice';
 
 /**
  * Attribute name stamped onto each panel's own `<svg>` root by
@@ -458,6 +483,8 @@ function resolveSelector(
       return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
     case TraceType.SCATTER:
       return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
+    case TraceType.PIE:
+      return `${scope}[${PIE_ATTR}^="${stamp}${seriesIndex}-"]`;
     // Heatmaps are single-series (no series-index prefix); the chart-level
     // builder constructs the selector itself, so this branch only matters as
     // a defensive default when the heatmap path is bypassed.
@@ -638,6 +665,11 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
   // may return `'heatmap'` / `'heat'`. Match by substring (as
   // stampHeatmapAttributes does) so all three route correctly.
   if (chartType?.includes('heat'))
+    return false;
+  // A pie is the other single-dataset chart type, and its wedges are already
+  // one element per slice — there is nothing to enable and no series API to
+  // ask.
+  if (chartType?.includes('pie'))
     return false;
 
   const seriesCount = chart.getSeriesCount();
@@ -1869,6 +1901,146 @@ function stampCandlestickAttributes(
 }
 
 // ---------------------------------------------------------------------------
+// Pie attribute stamping
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a chart is a pie.
+ *
+ * `getType()` reports `'pie'` for both a pie and a doughnut (AnyChart draws
+ * the latter by giving an ordinary pie an inner radius), and no other chart
+ * type name contains the substring — so the same tolerant match the heatmap
+ * path uses is safe here too.
+ */
+function isPieChart(chart: AnyChartInstance): boolean {
+  try {
+    return chart.getType?.().includes('pie') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read a pie chart's slices from its chart-level data view.
+ *
+ * A pie is a single-dataset chart: like the heatmap it exposes no
+ * `getSeriesCount()` / `getSeriesAt()`, and its rows live on `chart.data()`.
+ */
+function readPieRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
+  const dataView = chart.data?.();
+  if (!dataView)
+    return [];
+  try {
+    return readRows(dataView.getIterator());
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Whether a path's `d` attribute contains an elliptical-arc command.
+ *
+ * A wedge is the only thing an AnyChart pie draws with an arc: the label
+ * connector lines, the legend swatches and the chart frame are all straight
+ * `M`/`L` paths. (A single 100 % slice is drawn as a full circle, which
+ * `acgraph` also emits as two arcs, so it is matched as well.) Numbers in a
+ * path can carry an `e` exponent but never an `a`, so a bare letter test is
+ * unambiguous.
+ */
+function hasArcCommand(path: SVGElement): boolean {
+  const d = path.getAttribute('d');
+  return d !== null && /a/i.test(d);
+}
+
+/**
+ * Locate the SVG `<g>` layer holding the pie wedges.
+ *
+ * Same idea as {@link findCandlestickPathLayer} — pick the `ac_layer_*` group
+ * with the most matching shapes — but without its `clip-path` requirement:
+ * AnyChart clips series data to the plot area of a Cartesian chart, and a pie
+ * has no plot area to clip to, so requiring the attribute would reject the
+ * wedge layer outright. Combining the layer scoping with the arc test below
+ * keeps circular legend markers (which live in their own, smaller layer) out.
+ *
+ * Returns the parent SVG itself if no AnyChart layer structure is found, so
+ * the caller falls back to whole-SVG querying.
+ */
+function findPieWedgeLayer(svg: SVGElement): Element {
+  const layers = svg.querySelectorAll<SVGGElement>('g[id^="ac_layer_"]');
+  let bestLayer: Element | null = null;
+  let bestCount = 0;
+  for (const layer of Array.from(layers)) {
+    const wedges = Array.from(
+      layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+    ).filter(hasArcCommand);
+    if (wedges.length > bestCount) {
+      bestCount = wedges.length;
+      bestLayer = layer;
+    }
+  }
+  return bestLayer ?? svg;
+}
+
+/**
+ * Stamp `data-maidr-anychart-pie-slice="0-<sliceIndex>"` on every wedge of an
+ * AnyChart pie (or doughnut) chart.
+ *
+ * A pie is a single-dataset chart — it has no series API — so the series part
+ * of the stamp is always `0`, keeping the selector shape uniform across trace
+ * families. DOM order within the wedge layer is the order AnyChart consumed
+ * the data in, which is the order {@link buildPieLayerFromChart} emits its
+ * slices in, so wedge k is slice k.
+ *
+ * On any other chart type this is a no-op.
+ */
+function stampPieAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isPieChart(chart))
+    return;
+
+  const sliceCount = readPieRows(chart).length;
+  if (sliceCount === 0)
+    return;
+
+  const wedgeLayer = findPieWedgeLayer(svg);
+  const candidates: SVGElement[] = [];
+  for (const path of Array.from(
+    wedgeLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+  )) {
+    // Idempotency — skip wedges stamped on a prior bind.
+    if (path.hasAttribute(PIE_ATTR))
+      continue;
+    if (path.closest('defs, clipPath'))
+      continue;
+    if (!hasArcCommand(path))
+      continue;
+    // Skip AnyChart's hover / selection indicator, which it draws as an extra
+    // semi-transparent wedge on top of the data wedge. Data wedges never set
+    // `fill-opacity`, so any value below 1 is the overlay.
+    const fillOpacityAttr = path.getAttribute('fill-opacity');
+    if (fillOpacityAttr !== null && Number.parseFloat(fillOpacityAttr) < 1)
+      continue;
+    candidates.push(path);
+  }
+
+  if (candidates.length < sliceCount) {
+    console.warn(
+      `[maidr/anychart] Expected ${sliceCount} pie wedges but found `
+      + `${candidates.length} after filtering. Highlighting may be incomplete; `
+      + 'pass an explicit `selectors` entry to override.',
+    );
+  }
+
+  const stampCount = Math.min(sliceCount, candidates.length);
+  for (let i = 0; i < stampCount; i++) {
+    candidates[i].setAttribute(PIE_ATTR, `${stampPrefix}0-${i}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Layer builders – one per MAIDR trace type
 // ---------------------------------------------------------------------------
 
@@ -2199,6 +2371,46 @@ function buildCandlestickLayer(
   };
 }
 
+/**
+ * Build a PIE layer from already-read slice rows.
+ *
+ * Slices with no numeric value are dropped rather than carried through as
+ * gaps: AnyChart draws no wedge for one, so keeping it would slide every later
+ * slice's highlight onto its neighbour. The percentage each slice represents
+ * is deliberately not emitted — MAIDR's pie trace derives it from the values,
+ * so there is exactly one source of truth for it.
+ *
+ * @param rows - The chart's (or series') raw data rows, in slice order
+ * @param seriesIndex - Index used as the layer id and in the default selector
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The MAIDR pie layer
+ */
+function buildPieLayer(
+  rows: Array<Record<string, unknown>>,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const data: PiePoint[] = rows
+    .filter(r => Number.isFinite(Number(r.value ?? r.y)))
+    .map(r => ({
+      x: asString(r.x ?? r.name ?? r._index),
+      y: asNumber(r.value ?? r.y),
+    }));
+
+  // Default selector targets the attribute stamped by
+  // {@link stampPieAttributes}, which writes one per wedge in slice order.
+  const defaultSelector
+    = `${panelScope(panel)}[${PIE_ATTR}^="${panelStampPrefix(panel)}${seriesIndex}-"]`;
+  return {
+    id: String(seriesIndex),
+    type: TraceType.PIE,
+    selectors: selectors ?? defaultSelector,
+    data,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Layer builder dispatch
 // ---------------------------------------------------------------------------
@@ -2231,12 +2443,21 @@ function buildLayer(
       return buildHeatmapLayer(series, seriesIndex, selectors);
     case TraceType.CANDLESTICK:
       return buildCandlestickLayer(series, seriesIndex, selectors, panel);
+    case TraceType.PIE:
+      return buildPieLayer(extractRawRows(series), seriesIndex, selectors, panel);
   }
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/**
+ * What a pie's two dimensions are called when the chart names neither. A pie
+ * is bound to no axis, so there is no axis title to extract — these name what
+ * each dimension actually holds rather than leaving the slices unlabelled.
+ */
+const PIE_AXIS_FALLBACKS = { x: 'Label', y: 'Value' };
 
 /**
  * Build one {@link MaidrSubplot} from a single AnyChart chart instance.
@@ -2265,11 +2486,20 @@ function buildSubplot(
   const xAxisLabel = options?.axes?.x ?? extractAxisTitle(chart, 'x');
   const yAxisLabel = options?.axes?.y ?? extractAxisTitle(chart, 'y');
 
-  const attachAxes = (layer: MaidrLayer): void => {
-    if (xAxisLabel || yAxisLabel) {
+  /**
+   * `fallbacks` name the two dimensions of a trace that is bound to no axis
+   * (a pie), where the chart-level extraction has nothing to attach.
+   */
+  const attachAxes = (
+    layer: MaidrLayer,
+    fallbacks?: { x: string; y: string },
+  ): void => {
+    const x = xAxisLabel ?? fallbacks?.x;
+    const y = yAxisLabel ?? fallbacks?.y;
+    if (x || y) {
       layer.axes = {
-        ...(xAxisLabel ? { x: { label: xAxisLabel } } : {}),
-        ...(yAxisLabel ? { y: { label: yAxisLabel } } : {}),
+        ...(x ? { x: { label: x } } : {}),
+        ...(y ? { y: { label: y } } : {}),
       };
     }
   };
@@ -2321,6 +2551,23 @@ function buildSubplot(
     return finalize([layer]);
   }
 
+  // A pie is the other single-dataset chart type: it exposes no series API
+  // either, and reaching the `getSeriesCount()` fallback below would hand its
+  // slices to the heatmap builder, which would emit a one-row heatmap. Route
+  // it here, before the series API is touched.
+  if (isPieChart(chart)) {
+    const rows = readPieRows(chart);
+    if (rows.length === 0)
+      return null;
+    const userPieSelector = (options?.selectors?.[0] ?? undefined) as
+      | string
+      | string[]
+      | undefined;
+    const layer = buildPieLayer(rows, 0, userPieSelector, panel);
+    attachAxes(layer, PIE_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
   // Defensive fallback: if getType is unavailable but getSeriesCount throws
   // (heatmap-like single-dataset chart), route to the heatmap path anyway.
   let seriesCount = 0;
@@ -2363,7 +2610,7 @@ function buildSubplot(
     const layer = buildLayer(series, i, traceType, selectors, panel);
 
     // Attach axis labels.
-    attachAxes(layer);
+    attachAxes(layer, traceType === TraceType.PIE ? PIE_AXIS_FALLBACKS : undefined);
 
     layers.push(layer);
   }
@@ -2538,6 +2785,11 @@ export function bindAnyChart(
       stampCandlestickAttributes(chart, svg);
     } catch (err) {
       console.warn('[maidr/anychart] Failed to stamp candlestick attributes:', err);
+    }
+    try {
+      stampPieAttributes(chart, svg);
+    } catch (err) {
+      console.warn('[maidr/anychart] Failed to stamp pie attributes:', err);
     }
 
     const host = ensureHostWrapper(svg, container);
@@ -2828,6 +3080,11 @@ function stampPanelAttributes(
     stampCandlestickAttributes(chart, svg, prefix);
   } catch (err) {
     console.warn('[maidr/anychart] Failed to stamp candlestick attributes:', err);
+  }
+  try {
+    stampPieAttributes(chart, svg, prefix);
+  } catch (err) {
+    console.warn('[maidr/anychart] Failed to stamp pie attributes:', err);
   }
 }
 

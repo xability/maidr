@@ -3,7 +3,7 @@ import type { AmXYChart, AmXYSeries } from '@adapters/amcharts/types';
 import type { MaidrLayer } from '@type/grammar';
 import { buildNavigationMap } from '@adapters/amcharts/navmap';
 import { TraceType } from '@type/grammar';
-import { fakeBarSeries, fakeChart, fakeLineSeries } from './helpers';
+import { fakeBarSeries, fakeChart, fakeLineSeries, fakePieChart, fakePieSeries } from './helpers';
 
 function emptyGroups(): SeriesGroups {
   return {
@@ -12,6 +12,7 @@ function emptyGroups(): SeriesGroups {
     stepSeriesList: [],
     histogramSeries: [],
     heatmapSeries: [],
+    pieSeriesList: [],
   };
 }
 
@@ -93,6 +94,26 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept item, i.e. category C (the gap is skipped).
     expect(targets[0].dataItem.get('categoryX')).toBe('C');
+  });
+
+  it('resolves a pie layer to slice targets, skipping valueless slices', () => {
+    const series = fakePieSeries('Fruit', [
+      { category: 'Apples', value: 30 },
+      { category: 'Bananas', value: null },
+      { category: 'Cherries', value: 20 },
+    ]);
+    const chart = fakePieChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'pie', type: TraceType.PIE, data: [] }],
+      groups: { ...emptyGroups(), pieSeriesList: [series] },
+    }]);
+
+    const targets = navMap.resolve('pie', 0, 1);
+    expect(targets).toHaveLength(1);
+    // col 1 is the SECOND kept slice, i.e. Cherries (the gap is skipped).
+    expect(targets[0].dataItem.get('category')).toBe('Cherries');
+    expect(targets[0].kind).toBe('slice');
   });
 
   it('resolves line layers to point targets by [row, col]', () => {

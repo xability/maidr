@@ -329,6 +329,28 @@ export interface LinePoint {
 }
 
 /**
+ * Data point for one slice of a pie chart.
+ *
+ * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
+ * order the slices are drawn — never the nested group array the bar-family
+ * types use.
+ *
+ * `y` is strictly numeric, unlike {@link BarPoint.y}: it is both the sonified
+ * magnitude and the numerator of the slice's percentage, and a percentage
+ * derived from a string is not a percentage.
+ *
+ * There is deliberately no `percentage` field. The share of the whole is
+ * derived once in the model as `y / sum(y) * 100`, so an authored percentage
+ * can never disagree with the values it is supposedly derived from.
+ */
+export interface PiePoint {
+  /** Slice label, e.g. the category the slice stands for. */
+  x: string | number;
+  /** Slice magnitude. Negative values are not meaningful in a pie. */
+  y: number;
+}
+
+/**
  * Data point for scatter plots with x and y coordinates.
  */
 export interface ScatterPoint {
@@ -531,6 +553,7 @@ export interface MaidrLayer {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | PiePoint[]
     | ScatterPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
@@ -566,6 +589,7 @@ export enum TraceType {
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
+  PIE = 'pie',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',

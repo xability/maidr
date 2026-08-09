@@ -114,6 +114,9 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Stacked Bar | `column`/`bar` + `plotOptions.column.stacking: 'normal'` | [highcharts-stacked.html](highcharts-stacked.html) |
 | Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](highcharts-dodged.html) |
 | Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](highcharts-normalized.html) |
+| Pie | `pie` (a doughnut is a `pie` with an `innerSize`) | [highcharts-pie.html](highcharts-pie.html) |
+
+> **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration.
 
 ## Multi-Panel Charts
 
@@ -395,6 +398,29 @@ const chart = Highcharts.chart('normalized-chart', {
   ],
 });
 ```
+
+### Pie Chart
+
+```js
+const chart = Highcharts.chart('pie-chart', {
+  chart: { type: 'pie' },
+  title: { text: 'Units Sold by Fruit' },
+  series: [{
+    name: 'Fruit sales',
+    data: [
+      { name: 'Apples', y: 30 },
+      { name: 'Bananas', y: 50 },
+      { name: 'Cherries', y: 20 },
+      { name: 'Dates', y: 15 },
+    ],
+  }],
+});
+
+const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'pie-chart' });
+document.getElementById('pie-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Apples, 30, 26.1%". Adding `plotOptions: { pie: { innerSize: '50%' } }` makes it a doughnut, which reads identically.
 
 ## Advanced Usage
 

@@ -3,15 +3,16 @@
  * JSON schema format.
  *
  * Supported chart types (those with a genuine MAIDR trace-type equivalent):
- * - Native: bar (plain/stacked/dodged), line (plain or stepped), scatter, bubble
+ * - Native: bar (plain/stacked/dodged), line (plain or stepped), scatter,
+ *   bubble, pie, doughnut
  * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap)
  *
- * Unsupported types (pie, doughnut, radar, polarArea, treemap, sankey, etc.)
- * are rejected with an explicit error rather than silently mapped to a bar
- * chart, because MAIDR has no semantically equivalent trace for them.
+ * Unsupported types (radar, polarArea, treemap, sankey, etc.) are rejected with
+ * an explicit error rather than silently mapped to a bar chart, because MAIDR
+ * has no semantically equivalent trace for them.
  */
 
-import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, ScatterPoint, SegmentedPoint, StepDirection } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection } from '../../type/grammar';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 
@@ -565,6 +566,9 @@ function extractLayers(
     case 'scatter':
     case 'bubble':
       return extractScatterLayers(chart, pluginOptions);
+    case 'pie':
+    case 'doughnut':
+      return extractPieLayers(chart, pluginOptions, datasetIndices);
     case 'boxplot':
       return extractBoxplotLayers(chart, pluginOptions);
     case 'candlestick':
@@ -575,7 +579,8 @@ function extractLayers(
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
-        + 'Supported types: bar, line, scatter, bubble, boxplot, candlestick, ohlc, matrix.',
+        + 'Supported types: bar, line, scatter, bubble, pie, doughnut, boxplot, '
+        + 'candlestick, ohlc, matrix.',
       );
   }
 }
@@ -824,6 +829,71 @@ function datasetToScatterPoints(dataset: ChartJsDataset): ScatterPoint[] {
     }
   }
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// Pie / doughnut chart extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Axis labels for a pie layer.
+ *
+ * A pie has no Chart.js scales, so {@link getAxisLabel} would fall through to
+ * its `'X'`/`'Y'` default and announce "X is Apples, Y is 30" — naming neither
+ * position. Name what the two mean on a pie instead: `x` is what the slice
+ * labels are, `y` is what their magnitudes measure. An explicit plugin `axes`
+ * override still wins.
+ */
+function getPieAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: pluginOptions?.axes?.x ?? 'Category' },
+    y: { label: pluginOptions?.axes?.y ?? 'Value' },
+  };
+}
+
+/**
+ * Extracts one pie layer per dataset.
+ *
+ * Chart.js draws a second dataset as a concentric ring rather than as more
+ * slices of the same circle, so each dataset is its own pie with its own total
+ * and its own percentages. One layer each keeps those totals honest and lets
+ * Page Up / Page Down move between the rings. A doughnut differs from a pie
+ * only by its cutout, so both arrive here.
+ */
+function extractPieLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  const labels = chart.data.labels ?? [];
+  const axes = getPieAxes(pluginOptions);
+
+  return chart.data.datasets.map((dataset, dsIdx) => {
+    // Gap markers (`null` / `NaN`) are skipped rather than collapsed to 0: a
+    // fabricated zero would be announced and sonified as a measured slice, and
+    // would pin the bottom of the range every other slice is pitched against.
+    const points: PiePoint[] = [];
+    dataset.data.forEach((value, i) => {
+      const num = toFiniteNumber(value);
+      if (num === null)
+        return;
+      points.push({ x: labels[i] ?? i, y: num });
+    });
+
+    // Each layer is backed by exactly one dataset, so say which: the caller's
+    // per-type default (all datasets, in order) would route every ring's
+    // highlight to the first one.
+    const id = String(dsIdx);
+    datasetIndices?.set(id, [dsIdx]);
+
+    return {
+      id,
+      type: TraceType.PIE,
+      title: dataset.label,
+      axes,
+      data: points,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import type {
   HistogramPoint,
   LinePoint,
   MaidrLayer,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -73,6 +74,7 @@ function isDataComponent(name: string): name is VictoryComponentType {
     || name === 'VictoryBoxPlot'
     || name === 'VictoryCandlestick'
     || name === 'VictoryHistogram'
+    || name === 'VictoryPie'
   );
 }
 
@@ -231,6 +233,35 @@ function extractScatterData(
   }));
 
   return { data: { kind: 'scatter', points }, count: rawData.length };
+}
+
+/**
+ * Extracts data from a VictoryPie element.
+ *
+ * VictoryPie shares Victory's `x`/`y` accessor convention: `x` names the slice
+ * and `y` is its magnitude. A doughnut is the same component with an
+ * `innerRadius`, which changes the drawing and not the data, so it needs no
+ * separate handling.
+ *
+ * Unlike `BarPoint.y`, `PiePoint.y` is strictly numeric — it is also the
+ * numerator of the slice's percentage — so the accessor result is coerced here
+ * rather than passed through.
+ */
+function extractPieData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const rawData = props.data;
+  if (!validateRawData(rawData))
+    return null;
+
+  const getX = resolveAccessor(props.x, 'x');
+  const getY = resolveAccessor(props.y, 'y');
+  const points: PiePoint[] = rawData.map(d => ({
+    x: getX(d) as string | number,
+    y: Number(getY(d)),
+  }));
+
+  return { data: { kind: 'pie', points }, count: rawData.length };
 }
 
 /**
@@ -455,6 +486,9 @@ function extractLayerFromElement(
       break;
     case 'VictoryHistogram':
       extracted = extractHistogramData(props);
+      break;
+    case 'VictoryPie':
+      extracted = extractPieData(props);
       break;
   }
 
@@ -777,6 +811,22 @@ export function toMaidrLayer(
         id: layer.id,
         type: TraceType.HISTOGRAM,
         axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'pie':
+      return {
+        id: layer.id,
+        type: TraceType.PIE,
+        // A VictoryPie stands alone — there is no VictoryAxis to read a label
+        // off, and the core's "X"/"Y" fallback would announce "X is Apples, Y
+        // is 30", naming neither position. Name what the two actually mean on
+        // a pie instead; a label from an enclosing VictoryChart still wins.
+        axes: {
+          x: { label: layer.xAxisLabel ?? 'Category' },
+          y: { label: layer.yAxisLabel ?? 'Value' },
+        },
         selectors: selector,
         data: data.points,
       };

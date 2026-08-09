@@ -1106,6 +1106,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
       [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],
+      // A pie's braille state is a single row of slice magnitudes scaled
+      // against that row's own range — the bar encoder's input exactly.
+      [TraceType.PIE, asGeneric(new BarBrailleEncoder())],
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.SMOOTH, asGeneric(new LineBrailleEncoder())],
       [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],

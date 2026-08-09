@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Pie - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Pie Chart with MAIDR</h1>
+      <p>
+        Click the chart and use the left and right arrow keys to move between
+        slices — a pie is a single row, so up and down are out of bounds. Each
+        slice announces its label, its value, and its share of the whole.
+      </p>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+      <h2>The same data as a donut</h2>
+      <p>
+        Frappe draws a donut with a different component (<code>donut-slices</code>
+        rather than <code>pie-slices</code>), so the adapter is told which of the
+        two was rendered — everything else about the two charts reads alike.
+      </p>
+      <div id="donut-chart"></div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the charts and hand them to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        const data = {
+          labels: ['Apples', 'Bananas', 'Cherries', 'Dates', 'Elderberries'],
+          datasets: [
+            {
+              name: 'Units sold',
+              values: [300, 500, 200, 120, 80],
+            },
+          ],
+        };
+
+        const pieChart = new frappe.Chart('#chart', {
+          title: 'Fruit Sales by Variety',
+          data: data,
+          type: 'pie',
+          height: 400,
+        });
+
+        const donutChart = new frappe.Chart('#donut-chart', {
+          title: 'Fruit Sales by Variety',
+          data: data,
+          type: 'donut',
+          height: 400,
+        });
+
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting
+        // (otherwise highlights bind to nodes Frappe later replaces, and only
+        // start working after the chart is re-initialized).
+        activateMaidrWhenSettled(pieChart, document.querySelector('#chart'), {
+          chartType: 'pie',
+          title: 'Fruit Sales by Variety',
+          // A pie has no axes to take labels from; these name what each
+          // dimension holds. Drop them and the adapter falls back to "Label"
+          // and "Value".
+          axes: { x: 'Fruit', y: 'Units sold' },
+        });
+
+        activateMaidrWhenSettled(donutChart, document.querySelector('#donut-chart'), {
+          chartType: 'donut',
+          title: 'Fruit Sales by Variety (donut)',
+          axes: { x: 'Fruit', y: 'Units sold' },
+        });
+
+        function activateMaidrWhenSettled(chart, container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(chart, container, options));
+            return;
+          }
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -8,7 +8,7 @@
  * mirrors their on-screen arrangement (vertical/horizontal/Grid layouts).
  */
 
-import type { AmBounds, AmXYChart } from './types';
+import type { AmBounds, AmChart } from './types';
 
 /**
  * Read the plot-area bounds (CSS px, root-relative) used to clip highlights.
@@ -16,7 +16,7 @@ import type { AmBounds, AmXYChart } from './types';
  * `null` if neither is available (the overlay's `overflow:hidden` still clips
  * to the chart box).
  */
-export function readPlotBounds(chart: AmXYChart): AmBounds | null {
+export function readPlotBounds(chart: AmChart): AmBounds | null {
   const pc = chart.plotContainer;
   if (!pc) {
     return null;
@@ -38,7 +38,7 @@ export function readPlotBounds(chart: AmXYChart): AmBounds | null {
 
 /** A chart paired with the normalized geometry used for grid clustering. */
 interface ChartCell {
-  chart: AmXYChart;
+  chart: AmChart;
   top: number;
   left: number;
   height: number;
@@ -63,7 +63,7 @@ interface ChartCell {
  * Falls back to a single row in insertion order when any chart's geometry is
  * unavailable (e.g. before layout, on the JSON `fromAmCharts` path).
  */
-export function computeChartGrid(charts: AmXYChart[]): AmXYChart[][] {
+export function computeChartGrid(charts: AmChart[]): AmChart[][] {
   if (charts.length <= 1) {
     return [charts];
   }

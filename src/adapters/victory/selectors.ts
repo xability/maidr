@@ -194,9 +194,12 @@ export function tagLayerElements(
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
-  // VictoryBar, VictoryHistogram, VictoryScatter, and VictoryStack all render
-  // their data points as <path> elements — Victory's Bar primitive renders a
-  // <path> (with arc commands for corner radius), never a <rect>.
+  // VictoryBar, VictoryHistogram, VictoryScatter, VictoryStack, and VictoryPie
+  // all render their data points as <path> elements — Victory's Bar primitive
+  // renders a <path> (with arc commands for corner radius), never a <rect>,
+  // and its Slice primitive renders the d3-shape arc path for one wedge.
+  // Pie wedges come out in data order, which is the index alignment a pie
+  // layer's selectors have to satisfy.
   return tagDiscreteElements(svg, layer, attrName, claimed, scope);
 }
 
