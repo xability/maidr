@@ -19,6 +19,7 @@
 
 import type { NavTarget } from './navmap';
 import type { AmBounds, AmPoint, AmSprite } from './types';
+import { sliceExtent } from './geometry';
 
 /**
  * Rectangle in CSS pixels relative to the overlay container (root.dom) top-left.
@@ -190,10 +191,14 @@ function columnRect(target: NavTarget): OverlayRect | null {
  * into a shared canvas where there is no path to outline. A box that hugs the
  * active wedge still tells a low-vision reader which way round the circle
  * navigation has moved, which is the point of the highlight.
+ *
+ * Measured from the wedge's settings rather than its `globalBounds()`, which a
+ * `Slice` reports as a degenerate point at its own centre (#774) — a rect from
+ * that collapses to nothing, and the caller then drew no highlight at all.
  */
 function sliceRect(target: NavTarget): OverlayRect | null {
   const slice = target.dataItem.get('slice') as AmSprite | undefined;
-  const bounds = slice?.globalBounds?.();
+  const bounds = slice ? sliceExtent(slice) : null;
   return bounds ? boundsToRect(bounds) : null;
 }
 
