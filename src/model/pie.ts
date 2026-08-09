@@ -24,6 +24,15 @@ const MISSING_TEXT = 'missing';
  * absent, which is what {@link isMeasured} and the text layer already read as
  * a gap. Mirrors `toBarValue` in `bar.ts`, for the same reasons.
  *
+ * A negative slice is read as a gap too. {@link PiePoint.y} documents that a
+ * negative value is not meaningful in a pie, and nothing upstream is obliged to
+ * enforce that: left in, it subtracts from the total every other slice's share
+ * is divided by, so a pie of 60, -40 and 30 announces its first slice as 120%
+ * and the percentages stop summing to anything. Reading it as a gap is the
+ * treatment this trace already has for a slice with nothing to report — out of
+ * the total, out of the range, announced as missing — which tells the reader
+ * about the one bad slice instead of quietly corrupting every other one.
+ *
  * @param raw - The value from the slice
  * @returns The magnitude, or `NaN` when the slice is a gap
  */
@@ -34,7 +43,9 @@ function toSliceValue(raw: number | string | null | undefined): number {
   if (typeof raw === 'string' && raw.trim() === '') {
     return Number.NaN;
   }
-  return Number(raw);
+  const value = Number(raw);
+  // `NaN < 0` is false, so an unparseable value falls through unchanged.
+  return value < 0 ? Number.NaN : value;
 }
 
 /**
