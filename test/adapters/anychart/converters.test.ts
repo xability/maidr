@@ -345,6 +345,60 @@ describe('bindAnyChart (pie stamping)', () => {
     // multi-panel bind tests below still find their own host first.
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
+
+  it('counts only the slices the layer emits, so a null row does not warn', () => {
+    // AnyChart draws no wedge for a valueless row, so a three-row pie renders
+    // two wedges — and the layer emits two slices. Counting the raw rows would
+    // report a shortfall on a chart that is in fact perfectly aligned.
+    const container = createContainerWithSvg('pie-null');
+    const wedges = appendPieWedges(container, 2);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', null], ['Cherries', 20]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1']);
+    expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('pie wedges');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('warns and stamps nothing when no AnyChart layer holds an arc path', () => {
+    // The wedge-DOM assumption has failed: the layers are there but nothing in
+    // them is arc-drawn. Stamping the first arc-shaped paths found anywhere in
+    // the SVG would point slice 0 at a legend marker or a rounded frame, so
+    // the highlight is dropped and the reason is reported instead.
+    const container = createContainerWithSvg('pie-no-arcs');
+    const svg = container.querySelector('svg') as unknown as SVGElement;
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = 'ac_layer_1';
+    svg.appendChild(layer);
+    const straight = document.createElementNS(SVG_NS, 'path');
+    straight.id = 'ac_path_0';
+    straight.setAttribute('d', 'M 0 0 L 10 10 Z');
+    layer.appendChild(straight);
+    // An arc-drawn path outside every layer — exactly what the whole-SVG
+    // fallback would have mistaken for slice 0.
+    const decoration = document.createElementNS(SVG_NS, 'path');
+    decoration.id = 'ac_path_frame';
+    decoration.setAttribute('d', 'M 0 0 A 4 4 0 0 1 8 0 Z');
+    svg.appendChild(decoration);
+    const chart = createPieChart('Fruit', [['Apples', 30]], { container });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(decoration.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    expect(straight.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    expect(warnSpy.mock.calls.flat().join(' ')).toContain('no pie wedges to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------

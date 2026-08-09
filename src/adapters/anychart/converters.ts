@@ -1938,6 +1938,20 @@ function readPieRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
 }
 
 /**
+ * Whether a data row is a slice AnyChart actually draws a wedge for.
+ *
+ * A row with no numeric value has no angle, so no wedge is rendered for it.
+ * {@link buildPieLayer} drops such a row and {@link stampPieAttributes} counts
+ * rows through the same predicate — counting the raw rows there instead would
+ * make the expected wedge count disagree with the emitted slice count the
+ * moment a chart carries a null, turning a correct chart into a warning and an
+ * unexpectedly drawn empty wedge into a silent off-by-one.
+ */
+function isDrawnSlice(row: Record<string, unknown>): boolean {
+  return Number.isFinite(Number(row.value ?? row.y));
+}
+
+/**
  * Whether a path's `d` attribute contains an elliptical-arc command.
  *
  * A wedge is the only thing an AnyChart pie draws with an arc: the label
@@ -1962,10 +1976,16 @@ function hasArcCommand(path: SVGElement): boolean {
  * wedge layer outright. Combining the layer scoping with the arc test below
  * keeps circular legend markers (which live in their own, smaller layer) out.
  *
- * Returns the parent SVG itself if no AnyChart layer structure is found, so
- * the caller falls back to whole-SVG querying.
+ * Returns the parent SVG itself when the SVG has no AnyChart layer structure
+ * at all, so the caller falls back to whole-SVG querying. When layers *are*
+ * present but none of them holds an arc-drawn path, this returns `null`
+ * instead: the wedges are then not where this function knows how to look, and
+ * widening the search to the whole SVG would stamp whatever arc-shaped path it
+ * met first — a legend marker, a rounded frame — onto slice index 0. Reporting
+ * nothing found costs the highlight; guessing would point it at the wrong
+ * shape.
  */
-function findPieWedgeLayer(svg: SVGElement): Element {
+function findPieWedgeLayer(svg: SVGElement): Element | null {
   const layers = svg.querySelectorAll<SVGGElement>('g[id^="ac_layer_"]');
   let bestLayer: Element | null = null;
   let bestCount = 0;
@@ -1978,7 +1998,9 @@ function findPieWedgeLayer(svg: SVGElement): Element {
       bestLayer = layer;
     }
   }
-  return bestLayer ?? svg;
+  if (bestLayer)
+    return bestLayer;
+  return layers.length > 0 ? null : svg;
 }
 
 /**
@@ -1988,8 +2010,13 @@ function findPieWedgeLayer(svg: SVGElement): Element {
  * A pie is a single-dataset chart — it has no series API — so the series part
  * of the stamp is always `0`, keeping the selector shape uniform across trace
  * families. DOM order within the wedge layer is the order AnyChart consumed
- * the data in, which is the order {@link buildPieLayerFromChart} emits its
- * slices in, so wedge k is slice k.
+ * the data in, which is the order {@link buildPieLayer} emits its slices in,
+ * so wedge k is slice k.
+ *
+ * That mapping only holds while the wedge candidates and the emitted slices
+ * are the same set, so any disagreement between the two counts is reported:
+ * it means one of the DOM assumptions above no longer describes what AnyChart
+ * drew, and every stamp from that point on may name the wrong slice.
  *
  * On any other chart type this is a no-op.
  */
@@ -2001,11 +2028,21 @@ function stampPieAttributes(
   if (!isPieChart(chart))
     return;
 
-  const sliceCount = readPieRows(chart).length;
+  const sliceCount = readPieRows(chart).filter(isDrawnSlice).length;
   if (sliceCount === 0)
     return;
 
   const wedgeLayer = findPieWedgeLayer(svg);
+  if (!wedgeLayer) {
+    console.warn(
+      '[maidr/anychart] Found no pie wedges to highlight: this chart\'s SVG '
+      + 'has AnyChart layers but none of them holds an arc-drawn path. '
+      + 'Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
+
   const candidates: SVGElement[] = [];
   for (const path of Array.from(
     wedgeLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
@@ -2026,11 +2063,12 @@ function stampPieAttributes(
     candidates.push(path);
   }
 
-  if (candidates.length < sliceCount) {
+  if (candidates.length !== sliceCount) {
     console.warn(
       `[maidr/anychart] Expected ${sliceCount} pie wedges but found `
-      + `${candidates.length} after filtering. Highlighting may be incomplete; `
-      + 'pass an explicit `selectors` entry to override.',
+      + `${candidates.length} after filtering. Highlighting may be incomplete `
+      + 'or land on the wrong slice; pass an explicit `selectors` entry to '
+      + 'override.',
     );
   }
 
@@ -2393,7 +2431,7 @@ function buildPieLayer(
   panel?: PanelContext,
 ): MaidrLayer {
   const data: PiePoint[] = rows
-    .filter(r => Number.isFinite(Number(r.value ?? r.y)))
+    .filter(isDrawnSlice)
     .map(r => ({
       x: asString(r.x ?? r.name ?? r._index),
       y: asNumber(r.value ?? r.y),

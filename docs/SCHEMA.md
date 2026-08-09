@@ -380,16 +380,16 @@ The data property is defined as a list of objects where each object is a record 
       "selectors": "#chart path.slice",
       "data":[
         {
-                    "x": "Apples",
-                    "y": 30
+          "x": "Apples",
+          "y": 30
         },
         {
-                    "x": "Bananas",
-                    "y": 50
+          "x": "Bananas",
+          "y": 50
         },
         {
-                    "x": "Cherries",
-                    "y": 20
+          "x": "Cherries",
+          "y": 20
         }
       ]
     }
