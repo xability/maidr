@@ -29,6 +29,29 @@ const DEFAULT_Y_AXIS = 'Y';
 const DEFAULT_Z_AXIS = 'Level';
 
 /**
+ * Names an axis, falling back when the layer did not really name it.
+ *
+ * A producer that has no label to give reaches for two spellings of "none",
+ * and only one of them used to be caught: `??` answers `undefined`, but an
+ * empty string is a value and passed straight through. Every Base R chart
+ * does exactly that — `barplot()`, `hist()`, `boxplot()` and `pie()` all
+ * carry no `xlab`/`ylab` unless the author writes one — so the announcement
+ * came out as " is Apples,  is 30", a sentence with its nouns missing. A
+ * blank name is worse than a generic one: "X is Apples" at least says which
+ * axis is being read.
+ *
+ * Whitespace counts as blank for the same reason a producer emitting `' '`
+ * meant nothing by it.
+ *
+ * @param label - The label the layer carried, if any
+ * @param fallback - The generic name to use when it carried none
+ * @returns The label to announce
+ */
+function named(label: string | undefined, fallback: string): string {
+  return label?.trim() ? label : fallback;
+}
+
+/**
  * Maps internal TraceType identifiers to human-readable chart type labels
  * for display in the chart description modal and other user-facing surfaces.
  */
@@ -379,9 +402,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
 
-    this.xAxis = layer.axes?.x?.label ?? DEFAULT_X_AXIS;
-    this.yAxis = layer.axes?.y?.label ?? DEFAULT_Y_AXIS;
-    this.z = layer.axes?.z?.label ?? DEFAULT_Z_AXIS;
+    this.xAxis = named(layer.axes?.x?.label, DEFAULT_X_AXIS);
+    this.yAxis = named(layer.axes?.y?.label, DEFAULT_Y_AXIS);
+    this.z = named(layer.axes?.z?.label, DEFAULT_Z_AXIS);
   }
 
   /**
