@@ -42,6 +42,7 @@ import { buildCandlestickLayer } from './candlestick';
 import { buildHeatmapLayer } from './heatmap';
 import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
+import { buildPieLayer } from './pie';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
 import { buildSmoothLayer } from './smooth';
@@ -240,6 +241,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildHistogramLayer(root, spec.config, panel);
     case 'line':
       return buildLineLayer(root, spec.config, panel);
+    case 'pie':
+      return buildPieLayer(root, spec.config, panel);
     case 'scatter':
       return buildScatterLayer(root, spec.config, panel);
     case 'segmented':

@@ -7,6 +7,7 @@ import { Candlestick } from './candlestick';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
+import { PieTrace } from './pie';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
@@ -42,6 +43,9 @@ export abstract class TraceFactory {
 
       case TraceType.LINE:
         return new LineTrace(layer);
+
+      case TraceType.PIE:
+        return new PieTrace(layer);
 
       case TraceType.SCATTER:
         return new ScatterTrace(layer);

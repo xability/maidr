@@ -280,6 +280,22 @@ export class ViolinPlotError extends Error {
 }
 
 /**
+ * Error thrown when Pie plot related operations fail
+ */
+export class PiePlotError extends Error {
+  /**
+   * Creates a new PiePlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'PiePlotError';
+  }
+}
+
+/**
  * Error thrown when operations on the empty-subplot regression fixture fail
  */
 export class EmptySubplotError extends Error {

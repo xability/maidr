@@ -36,6 +36,7 @@ const VictoryBar = stub('VictoryBar');
 const VictoryLine = stub('VictoryLine');
 const VictoryScatter = stub('VictoryScatter');
 const VictoryStack = stub('VictoryStack');
+const VictoryPie = stub('VictoryPie');
 
 const barData = [
   { x: 'A', y: 1 },
@@ -48,6 +49,11 @@ const lineData = [
 const scatterData = [
   { x: 1, y: 2 },
   { x: 3, y: 4 },
+];
+const pieData = [
+  { x: 'Apples', y: 30 },
+  { x: 'Bananas', y: 50 },
+  { x: 'Cherries', y: 20 },
 ];
 
 function chart(props: Record<string, unknown>, ...children: ReactNode[]): ReactNode {
@@ -344,6 +350,63 @@ describe('toMaidrLayer', () => {
     );
 
     expect(toMaidrLayer(info, '#mv path').type).toBe(TraceType.LINE);
+  });
+
+  it('converts a pie layer to a flat PiePoint[] with named axes', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryPie, { data: pieData }),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+    // A standalone VictoryPie has no VictoryAxis, so the adapter names what the
+    // two positions mean rather than leaving the core to announce "X"/"Y".
+    expect(layer.axes?.x).toEqual({ label: 'Category' });
+    expect(layer.axes?.y).toEqual({ label: 'Value' });
+    // Flat, never nested, and with no producer-authored percentage.
+    expect(layer.data).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]);
+    expect(layer.orientation).toBeUndefined();
+  });
+
+  it('prefers an enclosing chart axis label over the pie fallback', () => {
+    const [info] = extractVictoryLayers(
+      chart(
+        {},
+        createElement(VictoryAxis, { label: 'Fruit' }),
+        createElement(VictoryPie, { data: pieData }),
+      ),
+    );
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.axes?.x).toEqual({ label: 'Fruit' });
+    expect(layer.axes?.y).toEqual({ label: 'Value' });
+  });
+
+  it('coerces a pie slice magnitude to a number', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryPie, { data: [{ x: 'Apples', y: '30' }] }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([{ x: 'Apples', y: 30 }]);
+  });
+
+  it('reads pie accessors declared as prop keys', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryPie, {
+        data: [{ fruit: 'Apples', units: 30 }],
+        x: 'fruit',
+        y: 'units',
+      }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([{ x: 'Apples', y: 30 }]);
   });
 
   it('converts a segmented layer to stacked type', () => {

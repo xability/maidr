@@ -20,8 +20,8 @@ element is active without knowing which level that is.
 
 Trace implementations live directly in `src/model/` — `bar.ts`, `line.ts`,
 `scatter.ts`, `box.ts`, `heatmap.ts`, `histogram.ts`, `candlestick.ts`,
-`segmented.ts`, `smooth.ts`, `violin.ts`. There is no `src/model/trace/`
-subdirectory.
+`segmented.ts`, `smooth.ts`, `violin.ts`, `pie.ts`. There is no
+`src/model/trace/` subdirectory.
 
 ## Rules
 
@@ -32,7 +32,9 @@ subdirectory.
   bounds check consistent with the data shape you actually index into.
 - **Never import from `src/service/`, `src/state/`, or `src/ui/`.** The model
   notifies; it does not call.
-- **One trace class per file**, extending `AbstractTrace<T>`.
+- **One trace class per file**, extending `AbstractTrace`. It is not generic —
+  the point type lives on the subclass's own `points` field, not in a type
+  parameter.
 
 ## Strategy pattern: the four modalities
 
@@ -52,12 +54,35 @@ returned state consistent with the other traces.
 
 ## Registering a new trace type
 
-1. Add the class in `src/model/`, extending `AbstractTrace<YourPoint>`.
-2. Implement `moveOnce()`, `isMovable()`, and the four modality accessors.
-3. Add the `case` to `TraceFactory.create()` in `src/model/factory.ts` —
-   an unregistered type throws at runtime.
-4. Add the type to `TraceType` and the point shape to `src/type/grammar.ts`.
-5. Confirm the audio, text, braille, and highlight services handle it.
+A trace type is registered in six places, then verified across the modality
+services. `TraceType` keys a total `Record` in two of them, so those two fail
+the build if you forget; the rest fail at runtime, or — for braille — not at
+all. `PieTrace` is the most recent worked example; grep `TraceType.PIE` to see
+every one of them at once.
+
+1. In `src/type/grammar.ts`: add the `TraceType` member, the point shape
+   (`PiePoint`), and that point to the `MaidrLayer.data` union.
+2. Add the class in `src/model/`, extending `AbstractTrace` — which is **not**
+   generic. Assign `movable` (usually a `MovableGrid` over your points, which
+   supplies `moveOnce()` and `isMovable()`), and implement the abstract
+   accessors: `audio`, `braille`, `text`, `description`, `dimension`,
+   `highlightValues`, `values`, `supportsExtrema`, and `findNearestPoint`.
+3. Add the `case` to `TraceFactory.create()` in `src/model/factory.ts` — an
+   unregistered type throws `Invalid trace type`, and the throw propagates out
+   of `new Figure(...)`, so nothing renders at all.
+4. Add the display name to `CHART_TYPE_LABEL` in `src/model/abstract.ts`. It is
+   a `Record<TraceType, string>`, so omitting it is a compile error.
+5. Answer `IS_ORIENTED` in `src/util/orientation.ts` — also a total `Record`,
+   and also a compile error to omit. `true` means the trace resolves
+   `layer.orientation` and swaps its main and cross axes; a pie is `false`,
+   because slices sit around a circle rather than along an axis.
+6. Register a braille encoder in the `encoders` Map in `src/service/braille.ts`.
+   **An unregistered type is silent**, not a crash: the guarded early return
+   leaves braille users with an empty display and no error anywhere. Reuse an
+   existing encoder when the state shape matches — a pie's single row of
+   magnitudes is the `BarBrailleEncoder`'s input exactly.
+7. Confirm the audio, text, highlight, and high-contrast services handle it, and
+   document the braille encoding in `docs/BRAILLE.md`.
 
 ## Ownership-aware highlight disposal
 

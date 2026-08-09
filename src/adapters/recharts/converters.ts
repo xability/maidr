@@ -11,6 +11,7 @@
  *   ScatterPoint[]      = [{ x, y }, ...]
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
  *   HistogramPoint[]    = [{ x, y, xMin, xMax, yMin, yMax }, ...]
+ *   PiePoint[]          = [{ x, y }, ...]                (flat, one per slice)
  */
 
 import type {
@@ -20,6 +21,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
@@ -236,7 +238,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
-      orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
+      orientation: layerOrientation(chartType, orientation),
       axes: {
         x: { label: xLabel },
         y: { label: yLabel },
@@ -416,7 +418,7 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       title: name,
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
-      orientation: orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined),
+      orientation: layerOrientation(chartType, orientation),
       axes: {
         x: { label: xLabel },
         y: { label: yLabel },
@@ -434,7 +436,7 @@ function convertData(
   data: Record<string, unknown>[],
   xKey: string,
   yKey: string,
-): BarPoint[] | LinePoint[][] | ScatterPoint[] {
+): BarPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] {
   switch (chartType) {
     case 'bar':
       return convertToBarPoints(data, xKey, yKey);
@@ -442,6 +444,8 @@ function convertData(
       return convertToLinePoints(data, xKey, yKey);
     case 'scatter':
       return convertToScatterPoints(data, xKey, yKey);
+    case 'pie':
+      return convertToPiePoints(data, xKey, yKey);
     // Stacked/dodged/normalized/histogram handled by dedicated builders
     case 'stacked_bar':
     case 'dodged_bar':
@@ -485,6 +489,24 @@ function convertToLinePoints(
 }
 
 /**
+ * Converts data to PiePoint[] format — a flat array, one entry per slice.
+ *
+ * `xKey` is the Recharts `<Pie nameKey>` (the slice label) and `yKey` its
+ * `dataKey` (the magnitude). `PiePoint.y` is strictly numeric, unlike
+ * `BarPoint.y`, because it is also the numerator of the slice's percentage.
+ */
+function convertToPiePoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+): PiePoint[] {
+  return data.map(item => ({
+    x: item[xKey] as string | number,
+    y: toNumber(item[yKey]),
+  }));
+}
+
+/**
  * Converts data to ScatterPoint[] format.
  */
 function convertToScatterPoints(
@@ -507,6 +529,23 @@ function isBarType(chartType: RechartsChartType): boolean {
     || chartType === 'dodged_bar'
     || chartType === 'normalized_bar'
     || chartType === 'histogram';
+}
+
+/**
+ * Returns the orientation to emit for a layer of the given chart type.
+ *
+ * Bar-like layers default to vertical. A pie is never oriented — its slices sit
+ * around a circle rather than along an axis — so a config-level `orientation`
+ * (meaningful for the other layers of a composed chart) must not leak onto one.
+ */
+function layerOrientation(
+  chartType: RechartsChartType,
+  orientation?: Orientation,
+): Orientation | undefined {
+  if (chartType === 'pie') {
+    return undefined;
+  }
+  return orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined);
 }
 
 /**
@@ -544,6 +583,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.LINE;
     case 'scatter':
       return TraceType.SCATTER;
+    case 'pie':
+      return TraceType.PIE;
   }
 }
 

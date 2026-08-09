@@ -69,6 +69,7 @@ import { bindD3Candlestick } from './binders/candlestick';
 import { bindD3Heatmap } from './binders/heatmap';
 import { bindD3Histogram } from './binders/histogram';
 import { bindD3Line } from './binders/line';
+import { bindD3Pie } from './binders/pie';
 import { bindD3Scatter } from './binders/scatter';
 import { bindD3Segmented } from './binders/segmented';
 import { bindD3Smooth } from './binders/smooth';
@@ -80,7 +81,7 @@ import { bindD3Facets, bindD3Subplots } from './binders/subplots';
  * The `chartType` field narrows the associated `config` to the correct
  * binder-specific type. This is what `useD3Adapter` and `<MaidrD3>` consume.
  *
- * Besides the nine single-chart types, `'facets'` (homogeneous small
+ * Besides the ten single-chart types, `'facets'` (homogeneous small
  * multiples) and `'subplots'` (heterogeneous panel grids) select the
  * multi-panel binders.
  */
@@ -125,6 +126,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Histogram(svg, { ...spec.config, autoApply: false });
     case 'line':
       return bindD3Line(svg, { ...spec.config, autoApply: false });
+    case 'pie':
+      return bindD3Pie(svg, { ...spec.config, autoApply: false });
     case 'scatter':
       return bindD3Scatter(svg, { ...spec.config, autoApply: false });
     case 'segmented':
@@ -156,6 +159,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'histogram':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'line':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'pie':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'scatter':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

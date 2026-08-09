@@ -1,5 +1,5 @@
 import type { FrappeChart, FrappePanel } from '@adapters/frappe/types';
-import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { BarPoint, MaidrLayer, PiePoint } from '@type/grammar';
 import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from '@adapters/frappe/converters';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
@@ -80,6 +80,125 @@ describe('createMaidrFromFrappeChart (single chart)', () => {
     expect(maidr.id).toBe(container.id);
     expect(maidr.subplots[0][0].layers[0].selectors)
       .toBe(`#${container.id} svg.frappe-chart .dataset-units.dataset-bars.dataset-0 rect.bar`);
+  });
+});
+
+describe('createMaidrFromFrappeChart (pie and donut)', () => {
+  /** A chart whose labels each carry one value, as a pie is normally built. */
+  function makePieChart(
+    slices: Array<[string, number]>,
+    config?: { maxSlices?: number },
+  ): FrappeChart {
+    return {
+      data: {
+        labels: slices.map(([label]) => label),
+        datasets: [{ name: 'Sales', values: slices.map(([, value]) => value) }],
+      },
+      ...(config ? { config } : {}),
+    };
+  }
+
+  function pieLayer(chart: FrappeChart, chartType: 'donut' | 'pie'): MaidrLayer {
+    const { containers } = makeDom(1);
+    containers[0].id = 'chart';
+    const maidr = createMaidrFromFrappeChart(chart, containers[0], { chartType });
+    return maidr.subplots[0][0].layers[0];
+  }
+
+  it('emits a flat pie layer whose selector matches the pie wedges', () => {
+    const layer = pieLayer(
+      makePieChart([['Apples', 30], ['Bananas', 50], ['Cherries', 20]]),
+      'pie',
+    );
+
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.selectors).toBe('#chart svg.frappe-chart .pie-slices path.pie-path');
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('targets the donut components for a donut chart', () => {
+    const layer = pieLayer(makePieChart([['Apples', 30]]), 'donut');
+
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.selectors).toBe('#chart svg.frappe-chart .donut-slices path.donut-path');
+  });
+
+  it('names the two dimensions when the caller supplies no axis labels', () => {
+    const layer = pieLayer(makePieChart([['Apples', 30]]), 'pie');
+
+    expect(layer.axes).toEqual({ x: { label: 'Label' }, y: { label: 'Value' } });
+  });
+
+  it('keeps caller-supplied axis labels', () => {
+    const { containers } = makeDom(1);
+    const maidr = createMaidrFromFrappeChart(
+      makePieChart([['Apples', 30]]),
+      containers[0],
+      { chartType: 'pie', axes: { x: 'Fruit', y: 'Units' } },
+    );
+
+    expect(maidr.subplots[0][0].layers[0].axes)
+      .toEqual({ x: { label: 'Fruit' }, y: { label: 'Units' } });
+  });
+
+  it('sums every dataset at each label, as Frappe does before drawing', () => {
+    const layer = pieLayer(
+      {
+        data: {
+          labels: ['Apples', 'Bananas'],
+          datasets: [
+            { name: 'Q1', values: [10, 20] },
+            { name: 'Q2', values: [5, 1] },
+          ],
+        },
+      },
+      'pie',
+    );
+
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 15 },
+      { x: 'Bananas', y: 21 },
+    ]);
+  });
+
+  it('drops labels Frappe draws no wedge for, keeping slice k aligned with wedge k', () => {
+    const layer = pieLayer(
+      makePieChart([['Apples', 30], ['Owed', -5], ['Cherries', 20]]),
+      'pie',
+    );
+
+    // The negative total gets no wedge, so carrying it would slide Cherries'
+    // highlight onto the wedge before it. A zero total is a real slice.
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('collapses everything past maxSlices into one Rest slice, largest first', () => {
+    const layer = pieLayer(
+      makePieChart([['A', 1], ['B', 5], ['C', 3], ['D', 2]], { maxSlices: 3 }),
+      'pie',
+    );
+
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'B', y: 5 },
+      { x: 'C', y: 3 },
+      { x: 'Rest', y: 3 },
+    ]);
+  });
+
+  it('leaves the label order alone while the slices fit within maxSlices', () => {
+    const layer = pieLayer(
+      makePieChart([['A', 1], ['B', 5], ['C', 3]], { maxSlices: 3 }),
+      'pie',
+    );
+
+    expect((layer.data as PiePoint[]).map(point => point.x)).toEqual(['A', 'B', 'C']);
   });
 });
 

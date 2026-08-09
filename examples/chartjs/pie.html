@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Pie Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Pie Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <p>
+      A pie is one row of slices: Left and Right move between them, and each
+      slice announces its label, its value, and its share of the whole.
+    </p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="pie-chart"></canvas>
+    </div>
+
+    <script>
+      // Register the MAIDR plugin globally — every Chart.js chart on the page
+      // becomes accessible automatically.
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('pie-chart'), {
+        // 'doughnut' works the same way: it is a pie with a cutout, and the
+        // cutout changes nothing about the data or the navigation.
+        type: 'pie',
+        data: {
+          labels: ['Apples', 'Bananas', 'Cherries', 'Dates', 'Elderberries'],
+          datasets: [{
+            label: 'Units Sold',
+            data: [30, 50, 20, 15, 10],
+            backgroundColor: ['#4682b4', '#d2691e', '#6b8e23', '#8b4789', '#b8860b'],
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Fruit Sales' },
+            // A pie has no scales, so there is no axis title for MAIDR to read.
+            // Name what the slice labels and their values mean, or every slice
+            // is announced as "X is Apples, Y is 30".
+            maidr: { axes: { x: 'Fruit', y: 'Units' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

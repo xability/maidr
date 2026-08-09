@@ -367,11 +367,19 @@ export class HighContrastService implements Disposable {
     // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
     this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
-    // Handle stacked/dodged bar exception: apply patterns
+    // Handle stacked/dodged bar and pie exceptions: apply patterns.
+    //
+    // These are the chart types whose marks touch each other, so the boundary
+    // between two of them is carried by their fill alone. High contrast then
+    // pushes neighbouring fills toward the same end of the ramp and the marks
+    // merge into one shape — adjacent pie wedges of a similar hue are the worst
+    // case, since a pie is nothing but touching marks. A distinct pattern per
+    // original fill keeps them separable without relying on colour.
     if ('type' in this.context.instructionContext) {
       if (
         this.context.instructionContext.type === 'stacked_bar'
         || this.context.instructionContext.type === 'dodged_bar'
+        || this.context.instructionContext.type === 'pie'
       ) {
         this.applyPatternsToElements(highContrastElInfo);
       }

@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'point', 'smooth', 'stacked_bar', 'step', 'violin_kde', 'violin_box',
+- `type`: the type of plot. Currently supported are 'bar', 'box', 'candlestick', 'dodged_bar', 'heat', 'hist', 'line', 'stacked_normalized_bar', 'pie', 'point', 'smooth', 'stacked_bar', 'step', 'violin_kde', 'violin_box',
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
@@ -348,6 +348,49 @@ The data property is defined as a list of objects where each object is a record 
           }
         ]
         //add multiple arrays for multiple step series
+      ]
+    }
+
+    //pie: a FLAT array, one object per slice, in the order the slices are
+    //drawn. Never the nested array the bar-family types use — a pie is one
+    //row of N slices.
+    //
+    //`x` is the slice label and `y` its magnitude. `y` is strictly NUMERIC
+    //(unlike a bar's), because it is both the sonified value and the
+    //numerator of the slice's percentage.
+    //
+    //There is deliberately no `percentage` field. MAIDR derives the share of
+    //the whole as `y / sum(y) * 100`, so an authored percentage can never
+    //disagree with the values it is supposedly derived from. There is no
+    //`orientation` either: slices sit around a circle, not along an axis.
+    //
+    //`axes` here names what the two dimensions mean rather than any drawn
+    //axis: `x` what the slice labels are, `y` what their values measure.
+    //`selectors` must resolve to exactly N elements in slice order, so data
+    //index k and element k are the same wedge; a different count is treated
+    //as addressing something other than the wedges and the layer is left
+    //without highlighting rather than highlighting the wrong slice.
+    //A doughnut is the same layer — the hole is a visual detail.
+    maidr = {
+      "type": "pie",
+      "axes": {
+        "x": { "label": "Fruit" },
+        "y": { "label": "Units" }
+      },
+      "selectors": "#chart path.slice",
+      "data":[
+        {
+          "x": "Apples",
+          "y": 30
+        },
+        {
+          "x": "Bananas",
+          "y": 50
+        },
+        {
+          "x": "Cherries",
+          "y": 20
+        }
       ]
     }
 

@@ -458,8 +458,10 @@ describe('chart.js extractor', () => {
     });
 
     it('still throws for unsupported chart types', () => {
+      // 'radar', not 'pie' — a pie is supported now, and a supported type here
+      // would assert nothing about the unsupported path.
       const chart = createChart({
-        type: 'pie',
+        type: 'radar',
         data: { datasets: [{ data: [1, 2] }] },
         options: {
           scales: { x: {}, y: { stack: 'demo' }, y2: { stack: 'demo' } },
@@ -636,6 +638,84 @@ describe('chart.js extractor', () => {
 
       expect(maidr.subplots).toHaveLength(1);
       expect(maidr.subplots[0]).toHaveLength(1);
+    });
+  });
+
+  describe('pie and doughnut charts', () => {
+    const pieData: ChartJsData = {
+      labels: ['Apples', 'Bananas', 'Cherries'],
+      datasets: [{ label: 'Units', data: [30, 50, 20] }],
+    };
+
+    it.each(['pie', 'doughnut'])('emits a flat PiePoint[] layer for a %s chart', (type) => {
+      const { maidr, layerDatasetIndices } = extractChartData(createChart({ type, data: pieData }));
+
+      const layer = maidr.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.PIE);
+      expect(layer.title).toBe('Units');
+      // Flat, never nested, and with no producer-authored percentage.
+      expect(layer.data).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Bananas', y: 50 },
+        { x: 'Cherries', y: 20 },
+      ]);
+      expect(layer.orientation).toBeUndefined();
+      expect(layerDatasetIndices.get('0')).toEqual([0]);
+    });
+
+    it('names the axes for a chart that has no scales to read', () => {
+      const { maidr } = extractChartData(createChart({ type: 'pie', data: pieData }));
+
+      // Without this the core would fall back to announcing "X is Apples".
+      const layer = maidr.subplots[0][0].layers[0];
+      expect(layer.axes?.x).toEqual({ label: 'Category' });
+      expect(layer.axes?.y).toEqual({ label: 'Value' });
+    });
+
+    it('honours the plugin axis overrides', () => {
+      const { maidr } = extractChartData(
+        createChart({ type: 'pie', data: pieData }),
+        { axes: { x: 'Fruit', y: 'Units sold' } },
+      );
+
+      const layer = maidr.subplots[0][0].layers[0];
+      expect(layer.axes?.x).toEqual({ label: 'Fruit' });
+      expect(layer.axes?.y).toEqual({ label: 'Units sold' });
+    });
+
+    it('skips gap markers rather than announcing them as measured zeros', () => {
+      const { maidr } = extractChartData(createChart({
+        type: 'pie',
+        data: {
+          labels: ['Apples', 'Bananas', 'Cherries'],
+          datasets: [{ data: [30, null, 20] }],
+        },
+      }));
+
+      expect(maidr.subplots[0][0].layers[0].data).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Cherries', y: 20 },
+      ]);
+    });
+
+    it('gives each concentric ring its own layer and dataset', () => {
+      const { maidr, layerDatasetIndices } = extractChartData(createChart({
+        type: 'doughnut',
+        data: {
+          labels: ['A', 'B'],
+          datasets: [
+            { label: 'Inner', data: [1, 2] },
+            { label: 'Outer', data: [3, 4] },
+          ],
+        },
+      }));
+
+      // Chart.js draws a second dataset as its own ring with its own total, so
+      // the two must not be merged into one pie.
+      const layers = maidr.subplots[0][0].layers;
+      expect(layers.map(l => l.id)).toEqual(['0', '1']);
+      expect(layers.map(l => l.title)).toEqual(['Inner', 'Outer']);
+      expect(layerDatasetIndices.get('1')).toEqual([1]);
     });
   });
 

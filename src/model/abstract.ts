@@ -42,6 +42,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.HISTOGRAM]: 'Histogram',
   [TraceType.LINE]: 'Line Chart',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
+  [TraceType.PIE]: 'Pie Chart',
   [TraceType.SCATTER]: 'Scatter Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',

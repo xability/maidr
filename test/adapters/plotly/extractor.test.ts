@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, MaidrLayer, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, MaidrLayer, PiePoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -125,7 +125,7 @@ describe('plotly extractor', () => {
     it('warns once for a trace type MAIDR has no equivalent for', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const gd = createGraphDiv({
-        traces: [{ type: 'pie', y: [1, 2, 3] }],
+        traces: [{ type: 'sunburst', y: [1, 2, 3] }],
         layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
       });
 
@@ -140,6 +140,159 @@ describe('plotly extractor', () => {
         // A failed assertion must not leave the spy in place for later tests.
         warn.mockRestore();
       }
+    });
+  });
+
+  describe('pie traces', () => {
+    const FRUIT: Partial<PlotlyTrace> = {
+      type: 'pie',
+      labels: ['Apples', 'Bananas', 'Cherries'],
+      values: [30, 50, 20],
+      domain: { x: [0, 1], y: [0, 1] },
+    };
+
+    /** Calcdata as plotly leaves it once `sort` has put the biggest first. */
+    const SORTED_CALCDATA: PlotlyCalcData[][] = [[
+      { label: 'Bananas', v: 50 },
+      { label: 'Apples', v: 30 },
+      { label: 'Cherries', v: 20 },
+    ]];
+
+    function onlyPieLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('emits a flat pie layer with the slices in the order plotly drew them', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, name: 'Fruit sales' }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.type).toBe(TraceType.PIE);
+      expect(layer.title).toBe('Fruit sales');
+      // Drawn order, not authored order: plotly sorts a pie largest-first, and
+      // the wedge elements follow suit.
+      expect(layer.data as PiePoint[]).toEqual([
+        { x: 'Bananas', y: 50 },
+        { x: 'Apples', y: 30 },
+        { x: 'Cherries', y: 20 },
+      ]);
+      expect(layer.selectors).toBe(
+        '.pielayer > g.trace:nth-of-type(1) g.slice path.surface',
+      );
+      expect(layer.axes?.x?.label).toBe('Label');
+      expect(layer.axes?.y?.label).toBe('Value');
+      expect(layer.orientation).toBeUndefined();
+    });
+
+    it('withholds the selectors when only the authored order is known', () => {
+      const gd = createGraphDiv({ traces: [{ ...FRUIT }], layout: {} });
+
+      const layer = onlyPieLayer(gd);
+
+      // Without calcdata the authored order is all there is, and plotly's
+      // default sort means it is not the order of the wedges — highlighting
+      // by index would land on the wrong slice.
+      expect(layer.data as PiePoint[]).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Bananas', y: 50 },
+        { x: 'Cherries', y: 20 },
+      ]);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('keeps the selectors without calcdata when the trace turned sort off', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, sort: false }],
+        layout: {},
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.data as PiePoint[]).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Bananas', y: 50 },
+        { x: 'Cherries', y: 20 },
+      ]);
+      expect(layer.selectors).toBe(
+        '.pielayer > g.trace:nth-of-type(1) g.slice path.surface',
+      );
+    });
+
+    it('counts only the pies plotly drew when addressing a wedge group', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { ...FRUIT, visible: false },
+          { ...FRUIT, sort: false },
+        ],
+        layout: {},
+      });
+
+      // A hidden trace gets no group in `.pielayer`, so the visible pie is
+      // still the first one there.
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.selectors).toBe(
+        '.pielayer > g.trace:nth-of-type(1) g.slice path.surface',
+      );
+    });
+
+    it('arranges several pies into a grid from their own domains', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { ...FRUIT, sort: false, domain: { x: [0, 0.45], y: [0, 1] } },
+          { ...FRUIT, sort: false, domain: { x: [0.55, 1], y: [0, 1] } },
+        ],
+        layout: {},
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr).not.toBeNull();
+      // One panel per pie: a pie has no axis pair to be grouped by, so they
+      // must not land in the same subplot.
+      expect(maidr!.subplots).toHaveLength(1);
+      expect(maidr!.subplots[0]).toHaveLength(2);
+      expect(maidr!.subplots[0][0].layers[0].selectors).toBe(
+        '.pielayer > g.trace:nth-of-type(1) g.slice path.surface',
+      );
+      expect(maidr!.subplots[0][1].layers[0].selectors).toBe(
+        '.pielayer > g.trace:nth-of-type(2) g.slice path.surface',
+      );
+      // There is no `axes_…` group around a pie to point a subplot selector at.
+      expect(maidr!.subplots[0][0].selector).toBeUndefined();
+    });
+
+    it('keeps a pie out of the cartesian panel it shares a figure with', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['a', 'b'], y: [1, 2], name: 'Tips' },
+          { ...FRUIT, sort: false },
+        ],
+        layout: {
+          xaxis: { title: { text: 'Day' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Count' }, domain: [0, 1] },
+        },
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr).not.toBeNull();
+      const panels = maidr!.subplots.flat();
+      expect(panels).toHaveLength(2);
+      expect(panels.map(panel => panel.layers[0].type))
+        .toEqual([TraceType.BAR, TraceType.PIE]);
+      // The bar's axis titles stay with the bar rather than naming the pie's
+      // slices and magnitudes.
+      expect(panels[0].layers[0].axes?.x?.label).toBe('Day');
+      expect(panels[1].layers[0].axes?.x?.label).toBe('Label');
     });
   });
 

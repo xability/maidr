@@ -114,6 +114,21 @@ export function scatterSelector(containerId: string, seriesIndex: number): strin
 }
 
 /**
+ * Generates a CSS selector for the wedges of a pie (or doughnut) series.
+ *
+ * Highcharts draws each slice as a `<path class="highcharts-point">` inside
+ * the series group, in `series.data` order — a pie is not reordered the way a
+ * plotly one is. The data labels Highcharts places around the pie live in a
+ * separate `.highcharts-data-labels` group and carry neither that class nor a
+ * `<path>` of their own, so no filtering is needed beyond the
+ * `.highcharts-series-group` scoping that already excludes the legend swatch
+ * (see file header).
+ */
+export function pieSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
  * Generates a CSS selector for histogram bar elements.
  *
  * Histogram bins carry the `highcharts-point` class. Like bar/column, the

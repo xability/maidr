@@ -9,8 +9,8 @@
 import type {
   AmAxis,
   AmBounds,
+  AmChart,
   AmRoot,
-  AmXYChart,
   AmXYSeries,
 } from '@adapters/amcharts/types';
 
@@ -68,6 +68,22 @@ export function fakeLineSeries(
   });
 }
 
+/**
+ * An am5percent pie series: `category`/`value` data items, no axis fields.
+ * `slice` stands in for the wedge graphic the overlay reads geometry from.
+ */
+export function fakePieSeries(
+  name: string,
+  slices: Array<{ category: string; value: number | null; slice?: unknown }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'PieSeries',
+    name,
+    settings: { categoryField: 'category', valueField: 'value' },
+    data: slices,
+  });
+}
+
 /** A step-line series, drawn as a staircase rather than an interpolated line. */
 export function fakeStepSeries(
   name: string,
@@ -104,7 +120,7 @@ export interface FakeChartConfig {
   className?: string;
 }
 
-export function fakeChart(config: FakeChartConfig = {}): AmXYChart {
+export function fakeChart(config: FakeChartConfig = {}): AmChart {
   const chart: Record<string, unknown> = {
     className: config.className ?? 'XYChart',
     uid: nextUid++,
@@ -126,7 +142,30 @@ export function fakeChart(config: FakeChartConfig = {}): AmXYChart {
       }],
     };
   }
-  return chart as unknown as AmXYChart;
+  return chart as unknown as AmChart;
+}
+
+/**
+ * An am5percent `PieChart`: a series list and a class name, but no axes and no
+ * plot container — the shape the adapter has to recognise without them.
+ */
+export function fakePieChart(config: { series?: AmXYSeries[]; title?: string } = {}): AmChart {
+  const chart: Record<string, unknown> = {
+    className: 'PieChart',
+    uid: nextUid++,
+    get: () => undefined,
+    series: { values: config.series ?? [] },
+  };
+  if (config.title != null) {
+    const title = config.title;
+    chart.children = {
+      values: [{
+        className: 'Label',
+        get: (key: string) => (key === 'text' ? title : undefined),
+      }],
+    };
+  }
+  return chart as unknown as AmChart;
 }
 
 /**

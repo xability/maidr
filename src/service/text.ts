@@ -479,7 +479,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(Constant.IS, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
     }
 
-    // Format for heatmap and scatter plot.
+    // Format for the plots that carry a third value: the heatmap's cell value,
+    // the segmented bar's level, the candlestick's trend, the pie's percentage.
+    // Reads as ", Percentage is 33.3%" after the label and the value.
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;
@@ -558,7 +560,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
-    // Format for heatmap and segmented plots.
+    // Format for heatmap, segmented and pie plots. Terse drops the label, so a
+    // pie slice reads "Apples, 30, 33.3%".
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;

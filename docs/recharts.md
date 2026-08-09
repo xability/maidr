@@ -135,6 +135,7 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
 | `'line'` | `<Line>` | Line chart |
 | `'scatter'` | `<Scatter>` | Scatter/point plot |
+| `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
 
 ## Data Examples by Chart Type
 
@@ -312,6 +313,37 @@ const data = [
 </MaidrRecharts>
 ```
 
+### Pie Chart
+
+`xKey` is the `<Pie nameKey>` (the slice label) and the single entry in `yKeys` is its `dataKey` (the magnitude):
+
+```tsx
+const data = [
+  { fruit: 'Apples', units: 30 },
+  { fruit: 'Bananas', units: 50 },
+  { fruit: 'Cherries', units: 20 },
+];
+
+<MaidrRecharts
+  id="pie-example"
+  title="Units Sold by Fruit"
+  data={data}
+  chartType="pie"
+  xKey="fruit"
+  yKeys={['units']}
+  xLabel="Fruit"
+  yLabel="Units"
+>
+  <PieChart width={500} height={400}>
+    <Pie data={data} dataKey="units" nameKey="fruit" outerRadius={150} />
+  </PieChart>
+</MaidrRecharts>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 30.0%". Adding an `innerRadius` makes it a doughnut, which reads identically.
+
+> Recharts draws no sector at all for a slice whose value is `0` (its start and end angles are both zero). MAIDR then sees fewer elements than slices and turns highlighting off for the layer rather than index-aligning the wrong wedges; audio, text, and braille still cover every slice.
+
 ### Composed Chart (Bar + Line)
 
 Use `layers` mode to mix different chart types in a single chart:
@@ -437,7 +469,8 @@ type RechartsChartType =
   | 'normalized_bar'
   | 'histogram'
   | 'line'
-  | 'scatter';
+  | 'scatter'
+  | 'pie';
 ```
 
 ### `RechartsLayerConfig`

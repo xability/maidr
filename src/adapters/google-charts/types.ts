@@ -132,6 +132,8 @@ export type GoogleChartType
     | 'DodgedBarChart'
     | 'DodgedColumnChart'
     | 'LineChart'
+    /** Also covers doughnuts, which Google draws as a `PieChart` with a `pieHole`. */
+    | 'PieChart'
     | 'ScatterChart'
     | 'StackedBarChart'
     | 'StackedColumnChart';

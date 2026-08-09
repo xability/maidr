@@ -28,6 +28,7 @@ describe('resolveOrientation', () => {
     TraceType.CANDLESTICK_DELTA,
     TraceType.HEATMAP,
     TraceType.LINE,
+    TraceType.PIE,
     TraceType.SCATTER,
     TraceType.SMOOTH,
     TraceType.STEP,
@@ -48,6 +49,9 @@ describe('resolveOrientation', () => {
 
   test('ignores an orientation declared on a type that has none', () => {
     expect(resolveOrientation(TraceType.LINE, Orientation.HORIZONTAL)).toBeUndefined();
+    // Slices sit around a circle, so a producer that emits an orientation for
+    // a pie anyway must not get "vertical pie" announced.
+    expect(resolveOrientation(TraceType.PIE, Orientation.VERTICAL)).toBeUndefined();
   });
 });
 

@@ -17,6 +17,7 @@ import type {
   Maidr,
   MaidrLayer,
   Orientation,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
@@ -312,6 +313,50 @@ export interface D3SmoothConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 pie or doughnut chart.
+ *
+ * The canonical D3 pie is `d3.pie()` + `d3.arc()` drawn as one `<path>` per
+ * slice, so `selector` should match those paths. Both accessors are read
+ * against YOUR datum, not the arc the layout wraps it in — the binder unwraps
+ * the arc first.
+ *
+ * @example
+ * ```ts
+ * bindD3Pie(svg, {
+ *   selector: 'path.slice',
+ *   axes: { x: 'Fruit', y: 'Units' },
+ *   x: 'fruit',
+ * });
+ * ```
+ */
+export interface D3PieConfig extends D3BinderConfig {
+  /** CSS selector for the wedge elements (e.g., `'path.slice'`, `'path.arc'`). */
+  selector: string;
+  /**
+   * Accessor for the slice label. @default 'x', falling back to `label`,
+   * `name`, `category`, or `key` when the datum has one of those instead.
+   * A datum that is a bare number or string labels its own slice.
+   */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the slice magnitude. Defaults to the value `d3.pie()` itself
+   * computed for the slice, which is what the drawn angle is proportional to;
+   * supply this only for a pie drawn without the layout.
+   */
+  y?: DataAccessor<number>;
+  /**
+   * Axis labels. A pie has no fill axis: the share of the whole is derived
+   * from the values themselves, so there is nothing for a third axis to name.
+   */
+  axes?: {
+    /** What the slice labels mean, e.g. `'Fruit'`. */
+    x?: D3AxisInput;
+    /** What the slice values measure, e.g. `'Units'`. */
+    y?: D3AxisInput;
+  };
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -346,6 +391,7 @@ export type D3PanelChartSpec
     | { chartType: 'heatmap'; config: D3HeatmapConfig }
     | { chartType: 'histogram'; config: D3HistogramConfig }
     | { chartType: 'line'; config: D3LineConfig }
+    | { chartType: 'pie'; config: D3PieConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }
     | { chartType: 'smooth'; config: D3SmoothConfig };
@@ -464,6 +510,7 @@ export type D3ExtractedData
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | PiePoint[]
     | ScatterPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][];

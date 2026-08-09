@@ -82,6 +82,33 @@ describe('chart.js highlight target resolution', () => {
       ]);
     });
 
+    it('maps pie navigation to the slice, skipping gap markers', () => {
+      const chart = createChart('pie', {
+        labels: ['Apples', 'Bananas', 'Cherries'],
+        datasets: [{ label: 'Units', data: [30, null, 20] }],
+      });
+
+      const { resolve } = setup(chart);
+
+      // A pie is one row; col 1 is the second FINITE slice, element index 2.
+      expect(resolve('0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
+      expect(resolve('0', 0, 1)).toEqual([{ datasetIndex: 0, index: 2 }]);
+    });
+
+    it('routes each doughnut ring to its own dataset', () => {
+      const chart = createChart('doughnut', {
+        labels: ['A', 'B'],
+        datasets: [
+          { label: 'Inner', data: [1, 2] },
+          { label: 'Outer', data: [3, 4] },
+        ],
+      });
+
+      const { resolve } = setup(chart);
+
+      expect(resolve('1', 0, 1)).toEqual([{ datasetIndex: 1, index: 1 }]);
+    });
+
     it('routes segmented bars by MAIDR row = dataset index', () => {
       const chart = createChart('bar', {
         labels: ['A', 'B'],

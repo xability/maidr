@@ -214,6 +214,40 @@ series occupies its own line, so several step series can be compared at once. In
 single-line displays, the up and down arrow keys move between series and the
 braille representation updates to the current one.
 
+## Pie chart
+
+A pie's slices are a single row, so its braille is the bar plot encoding above,
+unchanged: one Braille character per slice, in the order the slices are drawn,
+whose dot height is that slice's magnitude relative to the range of the pie's
+own slice values.
+
+- ⣀ represents values from 0% to 25% of the range
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+- "⠀" (braille space) represents a zero slice or one with no value
+
+Note that the bands are relative to the smallest and largest slice, not to the
+whole circle: the smallest measured slice reads as ⣀ and the largest as ⠉,
+however close their shares are. Read the braille for which slices are large
+relative to one another, and the text output for what share of the whole any one
+of them is.
+
+The heights encode the raw values, not the percentages — the two are a monotone
+rescale of each other, so the characters come out identical either way, and the
+raw values keep braille agreeing with the sonification and the reported
+statistics. The percentage itself is not encoded in braille; it is announced in
+text as ", Percentage is 33.3%" after the slice label and its value.
+
+Slices with no measurement are left out of the range entirely, so one missing
+slice cannot compress every other slice's dot height, and they read as a braille
+space the same way a zero slice does.
+
+### Multiline Displays
+
+Pie charts use a single-line representation. On multiline braille displays the
+pie appears on the first line and the remaining lines are unused.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

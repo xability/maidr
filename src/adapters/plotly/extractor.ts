@@ -20,6 +20,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -288,6 +289,9 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'candlestick':
       return TraceType.CANDLESTICK;
 
+    case 'pie':
+      return TraceType.PIE;
+
     default:
       console.warn(`[maidr] Unsupported plotly trace type: "${type}". Skipping.`);
       return null;
@@ -356,6 +360,11 @@ function stepDirectionOf(trace: PlotlyTrace): StepDirection | undefined {
 interface SubplotGroup {
   xAxisId: string;
   yAxisId: string;
+  /**
+   * Where the panel sits on the paper, when it is not an axis pair that says
+   * so. Only a pie sets this — see {@link groupTracesBySubplot}.
+   */
+  domain?: { x: DomainInterval; y: DomainInterval };
   traces: PlotlyTrace[];
   calcdata: PlotlyCalcData[][];
   traceIndices: number[];
@@ -385,14 +394,22 @@ function groupTracesBySubplot(
     if (trace.visible === false || trace.visible === 'legendonly')
       continue;
 
-    const xAxisId = trace.xaxis ?? 'x';
-    const yAxisId = trace.yaxis ?? 'y';
-    const key = `${xAxisId}${yAxisId}`;
+    // A pie has no axes: plotly positions it by its own `domain` instead, and
+    // `trace.xaxis`/`trace.yaxis` are unset. Falling through to the 'x'/'y'
+    // defaults below would file it under the cartesian panel that happens to
+    // use the first axis pair, giving it that panel's axis labels and putting
+    // two unrelated charts in one subplot. Each pie is its own panel, keyed by
+    // its trace index and positioned from its own domain.
+    const isPie = trace.type === 'pie';
+    const xAxisId = isPie ? '' : (trace.xaxis ?? 'x');
+    const yAxisId = isPie ? '' : (trace.yaxis ?? 'y');
+    const key = isPie ? `pie${i}` : `${xAxisId}${yAxisId}`;
 
     if (!map.has(key)) {
       map.set(key, {
         xAxisId,
         yAxisId,
+        ...(isPie ? { domain: readTraceDomain(trace) } : {}),
         traces: [],
         calcdata: [],
         traceIndices: [],
@@ -605,8 +622,10 @@ function arrangePanelsIntoGrid(
 ): PositionedPanel[][] | null {
   const positioned: PositionedPanel[] = [];
   for (const panel of panels) {
-    const xDomain = readAxisDomain(getAxis(layout, panel.group.xAxisId));
-    const yDomain = readAxisDomain(getAxis(layout, panel.group.yAxisId));
+    // A pie panel carries its own domain (it has no axes to read one from);
+    // everything else takes it from the axis pair it was grouped by.
+    const xDomain = panel.group.domain?.x ?? readAxisDomain(getAxis(layout, panel.group.xAxisId));
+    const yDomain = panel.group.domain?.y ?? readAxisDomain(getAxis(layout, panel.group.yAxisId));
     if (!xDomain || !yDomain)
       return null;
     positioned.push({ ...panel, xDomain, yDomain });
@@ -682,8 +701,22 @@ function containsValue(interval: DomainInterval, value: number): boolean {
   return value >= interval[0] - DOMAIN_EPS && value <= interval[1] + DOMAIN_EPS;
 }
 
+/**
+ * Reads a trace's own paper domain, which is how plotly positions the traces
+ * that have no axes. Returns `undefined` unless BOTH sides are usable — half a
+ * domain cannot place a panel in a grid.
+ */
+function readTraceDomain(trace: PlotlyTrace): { x: DomainInterval; y: DomainInterval } | undefined {
+  const x = readInterval(trace.domain?.x);
+  const y = readInterval(trace.domain?.y);
+  return x && y ? { x, y } : undefined;
+}
+
 function readAxisDomain(axis: PlotlyAxis | undefined): DomainInterval | null {
-  const domain = axis?.domain;
+  return readInterval(axis?.domain);
+}
+
+function readInterval(domain: [number, number] | undefined): DomainInterval | null {
   if (!domain || domain.length < 2)
     return null;
   const start = Number(domain[0]);
@@ -965,6 +998,13 @@ function assignSubplotSelectors(grid: PanelEntry[][], maidrId: string): void {
   for (const row of grid) {
     for (const panel of row) {
       const axisPair = `${panel.group.xAxisId}${panel.group.yAxisId}`;
+      // A pie panel has no axis pair. It also has no background rect in the
+      // `.bglayer` for the normalizer to wrap in an `axes_…` group, and the
+      // normalizer pairs the ids collected here with those rects positionally
+      // — so emitting one for a pie would not just point at a group that does
+      // not exist, it would shift every cartesian panel onto its neighbour's.
+      if (!axisPair)
+        continue;
       panel.subplot.selector = `g[id="axes_${tag}_${axisPair}"]`;
     }
   }
@@ -1008,6 +1048,11 @@ function extractLayer(
 
     case TraceType.CANDLESTICK:
       return extractCandlestickLayer(trace, id, title, selectors, axes);
+
+    // `axes` is deliberately not passed on: a pie group has no axis ids, so it
+    // is always empty, and the pie names its own two dimensions.
+    case TraceType.PIE:
+      return extractPieLayer(trace, calcdata, id, title, selectors);
 
     default:
       return null;
@@ -1737,6 +1782,104 @@ function extractHeatmapLayer(
  */
 function extractColorbarTitle(trace: PlotlyTrace, layout: PlotlyLayout | undefined): string | undefined {
   return extractGivenTitle(trace.colorbar?.title, layout);
+}
+
+// ---------------------------------------------------------------------------
+// Pie
+// ---------------------------------------------------------------------------
+
+/**
+ * What a pie's two dimensions are called. Plotly gives a pie no axes and so no
+ * titles to take these from; they are named after the attributes an author
+ * writes, `labels` and `values`.
+ */
+const PIE_LABEL_AXIS = 'Label';
+const PIE_VALUE_AXIS = 'Value';
+
+/** One slice as the layer needs it: a label and the magnitude behind it. */
+interface PieSlice {
+  label: string | number;
+  value: number;
+}
+
+/**
+ * Reads the slices out of what plotly computed for the pie.
+ *
+ * calcdata is the only source that describes the pie as it was drawn. Plotly
+ * does not draw one in the order it was authored: `sort` — on unless a trace
+ * turns it off — puts the largest slice first, and calc drops any slice it
+ * will not draw at all (a missing or negative value). What survives is exactly
+ * the wedges in the DOM, in their order, which is what the layer's
+ * data-index-k-is-wedge-k contract needs.
+ *
+ * @returns The drawn slices, or `null` when plotly has not computed the trace.
+ */
+function drawnPieSlices(calcdata: PlotlyCalcData[]): PieSlice[] | null {
+  if (calcdata.length === 0) {
+    return null;
+  }
+
+  const slices: PieSlice[] = [];
+  for (const cd of calcdata) {
+    if (typeof cd.v !== 'number') {
+      return null;
+    }
+    slices.push({ label: cd.label ?? '', value: cd.v });
+  }
+  return slices;
+}
+
+/**
+ * Reads the slices from the trace's own arrays, as the author wrote them.
+ *
+ * The fallback for a chart captured before plotly computed it. A label with no
+ * value (and the reverse) is not a slice, so the two arrays are read only as
+ * far as both reach.
+ */
+function authoredPieSlices(trace: PlotlyTrace): PieSlice[] {
+  const labels = trace.labels ?? [];
+  const values = trace.values ?? [];
+
+  const len = Math.min(labels.length, values.length);
+  const slices: PieSlice[] = [];
+  for (let i = 0; i < len; i++) {
+    slices.push({ label: labels[i], value: Number(values[i]) });
+  }
+  return slices;
+}
+
+function extractPieLayer(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+  id: string,
+  title: string | undefined,
+  selectors: string | undefined,
+): MaidrLayer | null {
+  const drawn = drawnPieSlices(calcdata);
+  const slices = drawn ?? authoredPieSlices(trace);
+  if (slices.length === 0)
+    return null;
+
+  // The authored order is also the drawn order only when the trace turned
+  // `sort` off. Otherwise plotly reordered the wedges and slice k is not
+  // wedge k, so the layer goes out without selectors — no highlight at all
+  // beats a highlight that lands on a neighbouring slice while the text
+  // announces this one.
+  const inDrawnOrder = drawn !== null || trace.sort === false;
+
+  const data: PiePoint[] = slices.map(slice => ({ x: slice.label, y: slice.value }));
+
+  return {
+    id,
+    type: TraceType.PIE,
+    title,
+    selectors: inDrawnOrder ? selectors : undefined,
+    axes: {
+      x: { label: PIE_LABEL_AXIS },
+      y: { label: PIE_VALUE_AXIS },
+    },
+    data,
+  };
 }
 
 // ---------------------------------------------------------------------------

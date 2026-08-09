@@ -53,16 +53,16 @@ const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
   'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
-  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, violin, heatmap, histogram, and candlestick charts.',
-  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, and dodged charts.',
-  'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, and smooth charts plus a React wrapper.',
-  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, and box plot specs.',
-  'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, and heatmap (matrix) chart types.',
-  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, and heatmap chart types.',
-  'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, and mixed axis (bar + line) chart types.',
-  'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, and candlestick chart types.',
-  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, and candlestick chart types via a one-line binder.',
-  'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, and normalized chart types.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, violin, heatmap, histogram, candlestick, and pie charts.',
+  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, dodged, and pie charts.',
+  'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, smooth, and pie charts plus a React wrapper.',
+  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, box plot, and arc (pie) specs.',
+  'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix), and pie / doughnut chart types.',
+  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, heatmap, and pie chart types.',
+  'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
+  'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
+  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
+  'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized, and pie chart types.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -401,6 +401,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>
     <li><a href="#" onclick="loadHTML('plotly-grouped-bar.html', 'Plotly Grouped Bar'); return false;">Grouped Bar</a></li>
     <li><a href="#" onclick="loadHTML('plotly-stacked-bar.html', 'Plotly Stacked Bar'); return false;">Stacked Bar</a></li>
+    <li><a href="#" onclick="loadHTML('plotly-pie.html', 'Plotly Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -413,6 +414,7 @@ const examplesContent = `
   <h3>Google Charts</h3>
   <ul>
     <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
+    <li><a href="#" onclick="loadHTML('google-charts-pie.html', 'Google Charts Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -426,6 +428,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('chartjs/boxplot.html', 'Chart.js Box Plot'); return false;">Box Plot</a></li>
     <li><a href="#" onclick="loadHTML('chartjs/candlestick.html', 'Chart.js Candlestick'); return false;">Candlestick</a></li>
     <li><a href="#" onclick="loadHTML('chartjs/heatmap.html', 'Chart.js Heatmap'); return false;">Heatmap (Matrix)</a></li>
+    <li><a href="#" onclick="loadHTML('chartjs/pie.html', 'Chart.js Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -436,6 +439,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('frappe-multiline.html', 'Frappe Multi-Line Chart'); return false;">Multi-Line Chart</a></li>
     <li><a href="#" onclick="loadHTML('frappe-scatter.html', 'Frappe Scatter Plot'); return false;">Scatter Plot</a></li>
     <li><a href="#" onclick="loadHTML('frappe-mixed.html', 'Frappe Mixed Axis Chart'); return false;">Mixed Axis (Bar + Line)</a></li>
+    <li><a href="#" onclick="loadHTML('frappe-pie.html', 'Frappe Pie Chart'); return false;">Pie / Donut</a></li>
   </ul>
   <p>See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -451,6 +455,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('d3-bindstacked.html', 'D3 Stacked Bar'); return false;">Stacked Bar</a></li>
     <li><a href="#" onclick="loadHTML('d3-binddodged.html', 'D3 Dodged Bar'); return false;">Dodged Bar</a></li>
     <li><a href="#" onclick="loadHTML('d3-bindsmooth.html', 'D3 Smooth Curve'); return false;">Smooth Curve</a></li>
+    <li><a href="#" onclick="loadHTML('d3-bindpie.html', 'D3 Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="d3.html">D3.js Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
 
@@ -465,12 +470,14 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('vegalite-bindscatter.html', 'Vega-Lite Scatter Plot'); return false;">Scatter Plot</a></li>
     <li><a href="#" onclick="loadHTML('vegalite-bindheatmap.html', 'Vega-Lite Heatmap'); return false;">Heatmap</a></li>
     <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
+    <li><a href="#" onclick="loadHTML('vegalite-pie.html', 'Vega-Lite Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
   <h3>amCharts 5</h3>
   <ul>
     <li><a href="#" onclick="loadHTML('amcharts.html', 'amCharts 5 Examples'); return false;">amCharts 5 Examples (Bar, Dodged, Stacked, Normalized, Line, Histogram, Heatmap)</a></li>
+    <li><a href="#" onclick="loadHTML('amcharts-pie.html', 'amCharts 5 Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="amcharts.html">amCharts 5 Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -488,6 +495,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('anychart/box.html', 'AnyChart Box Plot'); return false;">Box Plot</a></li>
     <li><a href="#" onclick="loadHTML('anychart/heatmap.html', 'AnyChart Heatmap'); return false;">Heatmap</a></li>
     <li><a href="#" onclick="loadHTML('anychart/candlestick.html', 'AnyChart Candlestick'); return false;">Candlestick</a></li>
+    <li><a href="#" onclick="loadHTML('anychart/pie.html', 'AnyChart Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="anychart.html">AnyChart Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 
@@ -503,6 +511,7 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('highcharts-stacked.html', 'Highcharts Stacked Bar'); return false;">Stacked Bar</a></li>
     <li><a href="#" onclick="loadHTML('highcharts-dodged.html', 'Highcharts Dodged Bar'); return false;">Dodged Bar</a></li>
     <li><a href="#" onclick="loadHTML('highcharts-normalized.html', 'Highcharts Normalized Bar'); return false;">Normalized Bar</a></li>
+    <li><a href="#" onclick="loadHTML('highcharts-pie.html', 'Highcharts Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="highcharts.html">Highcharts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
 

@@ -25,6 +25,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -596,6 +597,8 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  *   - `rect`                           → HEATMAP
  *   - `tick`                           → SCATTER (individual value marks)
  *   - `line`/`area` with a stepping `interpolate` → STEP
+ *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
+ *     with an `innerRadius`, and reads identically)
  */
 function resolveTraceType(
   mark: string,
@@ -636,6 +639,12 @@ function resolveTraceType(
       return TraceType.HEATMAP;
     case 'boxplot':
       return TraceType.BOX;
+    // `theta` is what turns an arc into a pie: it is the channel the slice
+    // magnitudes ride on. An arc encoded by `radius` alone is a radial plot
+    // with no slices to navigate, so it stays unsupported rather than being
+    // announced as a pie whose values MAIDR would have to invent.
+    case 'arc':
+      return encoding?.theta ? TraceType.PIE : null;
     default:
       return null;
   }
@@ -1001,6 +1010,29 @@ function extractBarData(
       y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
     };
   });
+}
+
+/**
+ * Read one slice per row: the colour channel names it, `theta` measures it.
+ *
+ * Rows stay in dataset order, which for an arc mark IS the drawn order — the
+ * `stack` transform Vega-Lite compiles a `theta` encoding into computes each
+ * slice's start and end angle without reordering the rows it reads. So no
+ * visual-order pass is needed at bind time the way simple bars need one: slice
+ * k is already wedge k.
+ */
+function extractPieData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): PiePoint[] {
+  const labelChannel = encoding.color ?? encoding.fill;
+  const labelField = labelChannel?.field ?? 'category';
+  const thetaField = encoding.theta?.field ?? 'theta';
+
+  return rows.map(row => ({
+    x: String(row[labelField] ?? ''),
+    y: Number(readEncodedValue(row, encoding.theta, thetaField) ?? 0),
+  }));
 }
 
 function extractHistogramData(
@@ -1451,6 +1483,15 @@ function convertLayerSpec(
     case TraceType.HEATMAP:
       data = extractHeatmapData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      break;
+    case TraceType.PIE:
+      data = extractPieData(rows, encoding);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // An arc has no x or y to name the axes after — the pair built above is
+      // two empty labels. The slice labels come from the colour channel and
+      // the magnitudes from `theta`, so the layer's axes are named after those.
+      axes.x = getAxisConfig(encoding.color ?? encoding.fill);
+      axes.y = getAxisConfig(encoding.theta);
       break;
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);

@@ -4,6 +4,7 @@ import type {
   CandlestickPoint,
   HistogramPoint,
   LinePoint,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -66,6 +67,7 @@ export type VictoryComponentType
     | 'VictoryBoxPlot'
     | 'VictoryCandlestick'
     | 'VictoryHistogram'
+    | 'VictoryPie'
     | 'VictoryStack';
 
 /**
@@ -86,6 +88,8 @@ export type VictoryLayerData
     | { kind: 'box'; points: BoxPoint[] }
     | { kind: 'candlestick'; points: CandlestickPoint[] }
     | { kind: 'histogram'; points: HistogramPoint[] }
+    /** A `VictoryPie` (or a doughnut — the same component with an `innerRadius`). */
+    | { kind: 'pie'; points: PiePoint[] }
     | { kind: 'segmented'; points: SegmentedPoint[][] };
 
 /**

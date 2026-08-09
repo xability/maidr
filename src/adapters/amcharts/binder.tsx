@@ -26,15 +26,15 @@ import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { NavMap } from './navmap';
 import type {
+  AmChart,
   AmChartsBinderOptions,
   AmRoot,
-  AmXYChart,
   AmXYSeries,
 } from './types';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
-import { convertCharts, findXYCharts } from './adapter';
+import { convertCharts, findCharts } from './adapter';
 import { classifySeriesKind } from './extractor';
 import { readPlotBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
@@ -172,18 +172,20 @@ function createHighlightCallback(
 // Series grouping (mirrors fromXYChart in adapter.ts)
 // ---------------------------------------------------------------------------
 
-function groupSeries(chart: AmXYChart): {
+function groupSeries(chart: AmChart): {
   barSeriesList: AmXYSeries[];
   lineSeriesList: AmXYSeries[];
   stepSeriesList: AmXYSeries[];
   histogramSeries: AmXYSeries[];
   heatmapSeries: AmXYSeries[];
+  pieSeriesList: AmXYSeries[];
 } {
   const barSeriesList: AmXYSeries[] = [];
   const lineSeriesList: AmXYSeries[] = [];
   const stepSeriesList: AmXYSeries[] = [];
   const histogramSeries: AmXYSeries[] = [];
   const heatmapSeries: AmXYSeries[] = [];
+  const pieSeriesList: AmXYSeries[] = [];
 
   for (const series of chart.series.values) {
     switch (classifySeriesKind(series)) {
@@ -202,12 +204,22 @@ function groupSeries(chart: AmXYChart): {
       case 'heatmap':
         heatmapSeries.push(series);
         break;
+      case 'pie':
+        pieSeriesList.push(series);
+        break;
       default:
         break;
     }
   }
 
-  return { barSeriesList, lineSeriesList, stepSeriesList, histogramSeries, heatmapSeries };
+  return {
+    barSeriesList,
+    lineSeriesList,
+    stepSeriesList,
+    histogramSeries,
+    heatmapSeries,
+    pieSeriesList,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,17 +281,17 @@ function renderMaidr(maidrData: MaidrData, rootDom: HTMLElement): RenderResult |
 /**
  * Bind MAIDR to an amCharts 5 {@link AmRoot}, mounting the accessible UI and
  * (by default) a canvas highlight overlay. Finds every XYChart in the root's
- * container tree (including am5stock StockPanels); each chart becomes one
- * MAIDR subplot, navigable with the arrow keys.
+ * container tree (including am5stock StockPanels) and every PieChart; each
+ * chart becomes one MAIDR subplot, navigable with the arrow keys.
  *
- * @throws If no supported XYChart is found in `root.container`, or if no
- *         chart contains a supported series with data.
+ * @throws If no supported chart is found in `root.container`, or if no chart
+ *         contains a supported series with data.
  */
 export function bindAmCharts(root: AmRoot, options?: AmChartsBindOptions): AmChartsBinding {
-  const charts = findXYCharts(root);
+  const charts = findCharts(root);
   if (charts.length === 0) {
     throw new Error(
-      'maidr amCharts binder: no XYChart found in root.container. '
+      'maidr amCharts binder: no XYChart or PieChart found in root.container. '
       + 'Ensure the chart is fully initialized before calling bindAmCharts().',
     );
   }
@@ -287,11 +299,11 @@ export function bindAmCharts(root: AmRoot, options?: AmChartsBindOptions): AmCha
 }
 
 /**
- * Bind MAIDR to a known amCharts 5 {@link AmXYChart}. Use when you already hold
+ * Bind MAIDR to a known amCharts 5 {@link AmChart}. Use when you already hold
  * the chart reference. `root` is required for its DOM element and render events.
  */
 export function bindXYChart(
-  chart: AmXYChart,
+  chart: AmChart,
   root: AmRoot,
   options?: AmChartsBindOptions,
 ): AmChartsBinding {
@@ -306,7 +318,7 @@ export function bindXYChart(
  * bounds via the navigation map's owning-chart record.
  */
 function bindCharts(
-  charts: AmXYChart[],
+  charts: AmChart[],
   root: AmRoot,
   options?: AmChartsBindOptions,
 ): AmChartsBinding {

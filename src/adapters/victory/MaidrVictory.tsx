@@ -17,6 +17,8 @@ import { useVictoryAdapter } from './useVictoryAdapter';
  * - `VictoryHistogram` → histogram
  * - `VictoryBoxPlot` → box plot
  * - `VictoryCandlestick` → candlestick chart
+ * - `VictoryPie` → pie chart (a doughnut is the same component with an
+ *   `innerRadius`, and needs nothing extra)
  *
  * Multi-panel figures: nest two or more `<VictoryChart>` components — each
  * chart becomes one navigable MAIDR subplot. Give each chart a `title` prop
