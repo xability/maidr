@@ -8,7 +8,7 @@
  * mirrors their on-screen arrangement (vertical/horizontal/Grid layouts).
  */
 
-import type { AmBounds, AmChart } from './types';
+import type { AmBounds, AmChart, AmSprite } from './types';
 
 /**
  * Read the plot-area bounds (CSS px, root-relative) used to clip highlights.
@@ -34,6 +34,57 @@ export function readPlotBounds(chart: AmChart): AmBounds | null {
     // Fall through; overlay overflow:hidden still clips to the chart box.
   }
   return null;
+}
+
+/**
+ * Read a pie panel's bounds as the union of its wedges' global boxes.
+ *
+ * An am5percent `PieChart` has no `plotContainer` — it has no plot area, which
+ * is why {@link AmChart.plotContainer} is optional — so {@link readPlotBounds}
+ * reports nothing for it and the binder, which suppresses a highlight it cannot
+ * clip to a panel, would leave every pie in a multi-panel root unhighlighted.
+ * Each slice is a sprite with `globalBounds()`, and the union of those boxes is
+ * the rectangle the pie occupies: the panel rectangle the overlay needs, in the
+ * same root-relative CSS px `readPlotBounds` returns.
+ *
+ * Returns `null` when no wedge reports usable geometry — an XY chart, whose
+ * data items carry no `slice` at all, or a pie asked before its first layout.
+ * The caller then behaves exactly as it does today, so a chart this cannot
+ * measure loses a highlight rather than gaining a misplaced one.
+ */
+export function readSliceBounds(chart: AmChart): AmBounds | null {
+  let left = Number.POSITIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+
+  try {
+    for (const series of chart.series.values) {
+      for (const dataItem of series.dataItems) {
+        const slice = dataItem.get('slice') as AmSprite | undefined;
+        const bounds = slice?.globalBounds?.();
+        if (!bounds) {
+          continue;
+        }
+        const { left: l, right: r, top: t, bottom: b } = bounds;
+        if (![l, r, t, b].every(Number.isFinite)) {
+          continue;
+        }
+        left = Math.min(left, l, r);
+        right = Math.max(right, l, r);
+        top = Math.min(top, t, b);
+        bottom = Math.max(bottom, t, b);
+      }
+    }
+  } catch {
+    // Fall through; a chart mid-teardown reports no panel rectangle.
+    return null;
+  }
+
+  if (!Number.isFinite(left) || !Number.isFinite(top)) {
+    return null;
+  }
+  return { left, top, right, bottom };
 }
 
 /** A chart paired with the normalized geometry used for grid clustering. */

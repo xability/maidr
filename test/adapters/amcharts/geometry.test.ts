@@ -1,5 +1,11 @@
-import { computeChartGrid, readPlotBounds } from '@adapters/amcharts/geometry';
-import { fakeChart } from './helpers';
+import type { AmBounds } from '@adapters/amcharts/types';
+import { computeChartGrid, readPlotBounds, readSliceBounds } from '@adapters/amcharts/geometry';
+import { fakeBarSeries, fakeChart, fakePieChart, fakePieSeries } from './helpers';
+
+/** A wedge graphic reporting the global box the overlay reads geometry from. */
+function fakeSlice(bounds: AmBounds): unknown {
+  return { globalBounds: () => bounds };
+}
 
 describe('readPlotBounds', () => {
   it('reads globalBounds from the plot container', () => {
@@ -9,6 +15,65 @@ describe('readPlotBounds', () => {
 
   it('returns null without a plot container', () => {
     expect(readPlotBounds(fakeChart())).toBeNull();
+  });
+});
+
+describe('readSliceBounds', () => {
+  it('unions the wedge boxes into the rectangle the pie occupies', () => {
+    // A PieChart has no plotContainer, so this is the only panel rectangle
+    // available — without it the binder suppresses the highlight of every pie
+    // sharing a root with another panel.
+    const chart = fakePieChart({
+      series: [fakePieSeries('Fruit', [
+        { category: 'Apples', value: 30, slice: fakeSlice({ left: 40, top: 30, right: 140, bottom: 120 }) },
+        { category: 'Bananas', value: 50, slice: fakeSlice({ left: 90, top: 60, right: 180, bottom: 170 }) },
+      ])],
+    });
+
+    expect(readPlotBounds(chart)).toBeNull();
+    expect(readSliceBounds(chart)).toEqual({ left: 40, top: 30, right: 180, bottom: 170 });
+  });
+
+  it('normalizes a wedge box reported with inverted edges', () => {
+    const chart = fakePieChart({
+      series: [fakePieSeries('Fruit', [
+        { category: 'Apples', value: 30, slice: fakeSlice({ left: 140, top: 120, right: 40, bottom: 30 }) },
+      ])],
+    });
+
+    expect(readSliceBounds(chart)).toEqual({ left: 40, top: 30, right: 140, bottom: 120 });
+  });
+
+  it('skips a wedge with no readable geometry (pre-layout)', () => {
+    const chart = fakePieChart({
+      series: [fakePieSeries('Fruit', [
+        { category: 'Apples', value: 30 },
+        { category: 'Bananas', value: 50, slice: fakeSlice({ left: 10, top: 10, right: 60, bottom: 70 }) },
+      ])],
+    });
+
+    expect(readSliceBounds(chart)).toEqual({ left: 10, top: 10, right: 60, bottom: 70 });
+  });
+
+  it('returns null for a chart whose data items carry no wedge at all', () => {
+    // An XY panel, which is what keeps this fallback pie-only: one with no
+    // readable plot area still reports nothing, so the binder keeps suppressing
+    // a highlight it cannot clip to the right panel.
+    const chart = fakeChart({
+      series: [fakeBarSeries('Sales', [{ categoryX: 'Jan', valueY: 10 }])],
+    });
+
+    expect(readSliceBounds(chart)).toBeNull();
+  });
+
+  it('returns null when a wedge reports a non-finite box', () => {
+    const chart = fakePieChart({
+      series: [fakePieSeries('Fruit', [
+        { category: 'Apples', value: 30, slice: fakeSlice({ left: Number.NaN, top: 0, right: 10, bottom: 10 }) },
+      ])],
+    });
+
+    expect(readSliceBounds(chart)).toBeNull();
   });
 });
 
