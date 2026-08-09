@@ -93,18 +93,37 @@ function createPieChart(
  * `count` wedge paths plus a straight label connector, which shares the layer
  * but is not a wedge.
  */
-function appendPieWedges(container: HTMLElement, count: number): SVGElement[] {
+function appendPieWedges(
+  container: HTMLElement,
+  count: number,
+  outlines?: 'after' | 'before',
+): SVGElement[] {
   const svg = container.querySelector('svg') as unknown as SVGElement;
   const layer = document.createElementNS(SVG_NS, 'g');
   layer.id = 'ac_layer_1';
   svg.appendChild(layer);
 
+  const arc = 'M 100 100 L 150 100 A 50 50 0 0 1 100 150 Z';
   const wedges: SVGElement[] = [];
   for (let i = 0; i < count; i++) {
     const wedge = document.createElementNS(SVG_NS, 'path');
     wedge.id = `ac_path_${i}`;
-    wedge.setAttribute('d', 'M 100 100 L 150 100 A 50 50 0 0 1 100 150 Z');
+    wedge.setAttribute('d', arc);
+    wedge.setAttribute('fill', '#1f77b4');
+    // A real chart draws each slice twice: the fill, then a stroke-only twin
+    // over the same arc. `before` emits them the other way round, which
+    // AnyChart does not do today — the point is that nothing may depend on
+    // that.
+    const outline = document.createElementNS(SVG_NS, 'path');
+    outline.id = `ac_path_${i}_outline`;
+    outline.setAttribute('d', arc);
+    outline.setAttribute('fill', 'none');
+
+    if (outlines === 'before')
+      layer.appendChild(outline);
     layer.appendChild(wedge);
+    if (outlines === 'after')
+      layer.appendChild(outline);
     wedges.push(wedge);
   }
 
@@ -414,6 +433,63 @@ describe('bindAnyChart (pie stamping)', () => {
     expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
       .toEqual(['0-0', '0-1']);
     expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('pie wedges');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it.each([
+    ['after the fill, as AnyChart emits them', 'after' as const],
+    ['before the fill, which nothing may depend on not happening', 'before' as const],
+  ])('skips the stroke-only twin drawn %s', (_case, order) => {
+    // AnyChart draws every slice twice — once filled, once `fill="none"` for
+    // the stroke — so four slices offer eight arc paths and the count guard
+    // used to fire on a chart that was working. Taking the first N in DOM
+    // order picked the fills only because the fills come first; were that
+    // ever to flip, every highlight would land on an invisible path while the
+    // announcement carried on naming the right slice.
+    const container = createContainerWithSvg(`pie-outline-${order}`);
+    const wedges = appendPieWedges(container, 4, order);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20], ['Dates', 10]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1', '0-2', '0-3']);
+    // Eight candidates, four slices: the guard used to report a mismatch here.
+    expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('pie wedges');
+    // Nothing invisible was stamped, so a highlight cannot land on an outline.
+    expect(container.querySelectorAll('[data-maidr-anychart-pie-slice]'))
+      .toHaveLength(4);
+    expect(
+      container.querySelector('#ac_path_0_outline')
+        ?.getAttribute('data-maidr-anychart-pie-slice'),
+    ).toBeNull();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('runs only the pie stamper, so a working pie logs nothing', () => {
+    // A pie carries no series API at all, so every XY stamper threw on one and
+    // warned before the pie stamper did the real work: two console warnings on
+    // a correctly rendered chart, in exactly the place someone debugging a
+    // genuine stamping failure would look.
+    const container = createContainerWithSvg('pie-quiet');
+    appendPieWedges(container, 3, 'after');
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(warnSpy).not.toHaveBeenCalled();
 
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
