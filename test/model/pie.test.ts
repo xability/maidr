@@ -185,6 +185,52 @@ describe('pie slice percentages', () => {
   });
 });
 
+/**
+ * `PiePoint.y` documents that a negative value is not meaningful in a pie, and
+ * nothing upstream is obliged to reject one. Left in, it subtracts from the
+ * total every other slice's share is divided by, so the renderer reads it as
+ * the gap it effectively is.
+ */
+describe('pie slices with a negative value', () => {
+  it('divides the measured slices by a total the negative took no part in', () => {
+    const trace = new PieTrace(pieLayer([60, -40, 30]));
+
+    // Counting the -40 leaves a total of 50, which announces the first slice
+    // as 120% — a share of the whole that cannot exist.
+    expect(shareAtSlice(trace, 0)).toBe('66.7%');
+    expect(shareAtSlice(trace, 2)).toBe('33.3%');
+  });
+
+  it('reads the negative slice itself as missing', () => {
+    const trace = new PieTrace(pieLayer([60, -40, 30]));
+
+    const { text } = stateAtSlice(trace, 1);
+
+    expect(shareAtSlice(trace, 1)).toBe('missing');
+    expect(Number.isFinite(text.cross.value as number)).toBe(false);
+  });
+
+  it('keeps the negative out of the range the other slices are scaled against', () => {
+    const trace = new PieTrace(pieLayer([60, -40, 30]));
+
+    const { audio } = stateAtSlice(trace, 0);
+
+    expect(audio.freq.min).toBe(30);
+    expect(audio.freq.max).toBe(60);
+  });
+
+  it('leaves it out of the described range and total as well', () => {
+    const trace = new PieTrace(pieLayer([60, -40, 30]));
+
+    const { stats } = trace.description;
+
+    expect(statValue(stats, 'Number of slices')).toBe(3);
+    expect(statValue(stats, 'Min value')).toBe(30);
+    expect(statValue(stats, 'Max value')).toBe(60);
+    expect(statValue(stats, 'Total')).toBe(90);
+  });
+});
+
 describe('pie trace braille', () => {
   it('encodes the slices as a single row of raw magnitudes', () => {
     const trace = new PieTrace(pieLayer([30, 50, 20]));

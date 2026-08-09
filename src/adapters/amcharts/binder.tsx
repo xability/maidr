@@ -36,7 +36,7 @@ import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
 import { classifySeriesKind } from './extractor';
-import { readPlotBounds } from './geometry';
+import { readPlotBounds, readSliceBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
@@ -125,8 +125,12 @@ function applyHighlight(
   // Clip the highlight to the OWNING panel's visible plot area; a column's
   // geometry can extend to the value=0 baseline beyond a clipped (min > 0)
   // axis, and in multi-panel roots it must not bleed into sibling panels.
+  // A pie panel has no plot container to read, so its rectangle comes from the
+  // wedges instead. The fallback is pie-only by construction — an XY chart's
+  // data items carry no `slice` — so an XY panel with no readable plot area
+  // still falls through to the suppression below.
   const chart = navMap.chartFor(event.layerId);
-  const plotBounds = chart ? readPlotBounds(chart) : null;
+  const plotBounds = chart ? readPlotBounds(chart) ?? readSliceBounds(chart) : null;
 
   // Without readable panel bounds an unclipped rect could bleed into a
   // sibling panel (all panels share one overlay canvas), so suppress the
