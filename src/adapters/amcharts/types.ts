@@ -158,8 +158,17 @@ export interface AmSprite {
   width?: () => number;
   height?: () => number;
   toGlobal?: (point: AmPoint) => AmPoint;
-  /** Global bounding box in CSS px; the reliable way to get a sprite's rect. */
+  /**
+   * Global bounding box in CSS px.
+   *
+   * Reliable for a sprite drawn from primitives. A `Slice` is not one: it
+   * paints through a draw callback, so nothing feeds the bounds accumulator
+   * and it reports a degenerate box at its own centre. Read a wedge's extent
+   * from its settings instead — see `wedgeBounds`.
+   */
   globalBounds?: () => AmBounds;
+  /** Settings accessor; a `Slice` carries radius / startAngle / arc here. */
+  get?: (key: string) => unknown;
 }
 
 // ---------------------------------------------------------------------------
