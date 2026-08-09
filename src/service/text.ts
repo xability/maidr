@@ -115,18 +115,25 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Formats an array of values using the formatter service if available.
-   * Falls back to String() conversion for each element if no formatter is configured.
+   * Formats an array of values, one element at a time.
    *
-   * @param values - The array of values to format
+   * Each element goes through {@link formatSingleValue} rather than through
+   * the formatter's own array method. The two are the same operation —
+   * `FormatterService.formatArrayValue` is a per-element map over the very
+   * formatter `formatSingleValue` looks up — so delegating costs nothing and
+   * means the two cannot drift: an absent element reads as "missing" here
+   * for the same reason it does anywhere else, rather than because this
+   * method remembered to say so.
+   *
+   * @param values - The array of values to format, elements absent on a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Array of formatted strings
    */
-  private formatArrayValue(values: (number | string)[], axis: AxisType): string[] {
-    if (this.formatter && this.currentLayerId) {
-      return this.formatter.formatArrayValue(values, this.currentLayerId, axis);
-    }
-    return values.map(v => String(v));
+  private formatArrayValue(
+    values: (number | string | null | undefined)[],
+    axis: AxisType,
+  ): string[] {
+    return values.map(value => this.formatSingleValue(value, axis));
   }
 
   /**
