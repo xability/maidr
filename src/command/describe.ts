@@ -607,10 +607,6 @@ export class AnnouncePointCommand extends AnnounceCommand {
 }
 
 /**
- * Command to announce the current position in the chart.
- * Formats output based on text mode (terse/verbose) and chart type.
- */
-/**
  * Turns a fraction of the way round the dial into a clock hour.
  *
  * Twelve o'clock is both the origin and the full turn, so a fraction of 0 and
@@ -624,6 +620,10 @@ function toClockHour(fraction: number): number {
   return hour === 0 ? 12 : hour;
 }
 
+/**
+ * Command to announce the current position in the chart.
+ * Formats output based on text mode (terse/verbose) and chart type.
+ */
 export class AnnouncePositionCommand extends AnnounceCommand {
   /**
    * Creates an instance of AnnouncePositionCommand.
@@ -829,10 +829,6 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   }
 
   /**
-   * Announces position for segmented bar charts (stacked, normalized, dodged).
-   * Shows column position and level information.
-   */
-  /**
    * Announces where a pie slice sits on the dial, as clock positions.
    *
    * "Position is 2 of 3" says which slice; it does not say where it is, and a
@@ -879,11 +875,21 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     const startHour = toClockHour(start);
     const endHour = toClockHour(end);
-    // A slice too thin to span an hour reads as a point rather than as a
-    // range from a position to itself.
-    const where = startHour === endHour
-      ? `at ${startHour} o'clock`
-      : `from ${startHour} o'clock to ${endHour} o'clock`;
+    let where: string;
+    if (Math.round((end - start) * 12) >= 12) {
+      // A slice can be the whole dial -- a pie of one category, or one
+      // category at 100%. Both ends then round to 12, and calling that a
+      // point would be the exact opposite of what it is. A slice within half
+      // an hour of the full turn reads the same way, since at this
+      // granularity it is the circle; the percentage carries the remainder.
+      where = 'the whole circle';
+    } else if (startHour === endHour) {
+      // A slice too thin to span an hour reads as a point rather than as a
+      // range from a position to itself.
+      where = `at ${startHour} o'clock`;
+    } else {
+      where = `from ${startHour} o'clock to ${endHour} o'clock`;
+    }
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       this.textViewModel.update(where);
@@ -892,6 +898,10 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     }
   }
 
+  /**
+   * Announces position for segmented bar charts (stacked, normalized, dodged).
+   * Shows column position and level information.
+   */
   private announceSegmentedBarPosition(state: NonEmptyTraceState, x: number, cols: number): void {
     const level = state.text.z?.value ?? '';
     const position = x + 1;

@@ -309,4 +309,45 @@ describe('AnnouncePositionCommand on a pie', () => {
 
     expect(textViewModel.update).toHaveBeenCalledWith('Position is 1 of 2');
   });
+
+  test('calls a slice that fills the dial the whole circle', () => {
+    // One slice starts and ends at 12, so the point branch would announce the
+    // entire circle as a single position -- the opposite of what it is.
+    const { command, textViewModel } = createCommand(pieState([100], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 1, the whole circle',
+    );
+  });
+
+  test('calls a slice within half an hour of the full turn the whole circle', () => {
+    // 199 of 200 is 11.94 hours. Both ends still round to 12, so this needs the
+    // same answer as the exact case rather than "at 12 o'clock".
+    const { command, textViewModel } = createCommand(pieState([199, 1], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 2, the whole circle',
+    );
+  });
+
+  test('gives a gap between measured slices no arc of its own', () => {
+    // A gap is NaN rather than 0, and it is not drawn, so the slice after it
+    // must sit where it would if the gap were absent from the data.
+    const gapped = createCommand(pieState([1, Number.NaN, 1, 1], 2));
+    const gapless = createCommand(pieState([1, 1, 1], 1));
+
+    gapped.command.execute();
+    gapless.command.execute();
+
+    expect(gapped.textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, from 4 o\'clock to 8 o\'clock',
+    );
+    expect(gapless.textViewModel.update).toHaveBeenCalledWith(
+      'Position is 2 of 3, from 4 o\'clock to 8 o\'clock',
+    );
+  });
 });
