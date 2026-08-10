@@ -61,7 +61,7 @@ To use maidr, follow these steps:
 
    That URL names a version, because cdnjs serves no floating alias: it stays on 3.75.1 until someone changes it, and [the library page](https://cdnjs.com/libraries/maidr) lists the current release.
 
-   `maidr.js` is the only script mirrored on cdnjs, which decides where each guide below can load from. The [D3](docs/d3.md) and [Plotly](docs/plotly.md) guides use it on its own, so they work from cdnjs unchanged. The rest also load a per-chart-library adapter bundle — `anychart.mjs`, `chartjs.js`, `highcharts.js` and so on — and those are not mirrored, so those examples load from jsDelivr.
+   `maidr.js` is the only script mirrored on cdnjs, which decides how much of a guide below cdnjs can serve. The [Plotly](docs/plotly.md) guide needs nothing else from maidr — Plotly charts are detected without help — so swapping in the URL above covers its whole maidr side. Every other guide also loads a per-chart-library adapter bundle (`d3.js`, `anychart.mjs`, `chartjs.js`, `highcharts.js` and so on) to bind the chart, and those are not mirrored, so they load from jsDelivr. The charting library itself is separate again: each guide names its own CDN, and most are on cdnjs too.
 
 3. **Add your data**: Define the maidr JSON schema for your plot. See the [Data Schema](docs/SCHEMA.md) documentation for the full schema structure, object properties, and data formats for each plot type.
 
