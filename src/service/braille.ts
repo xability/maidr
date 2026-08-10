@@ -1095,6 +1095,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
       encoder as unknown as BrailleEncoder<NonEmptyBrailleState>;
 
     this.encoders = new Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>([
+      // An area trace's braille state is LineTrace's verbatim — a per-series
+      // height profile — so the line encoder renders it correctly. A stacked
+      // layer encodes each band's own height, matching what the audio plays
+      // and what `cross` announces; the running total is not part of the
+      // profile.
+      [TraceType.AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.NORMALIZED_AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.STACKED_AREA, asGeneric(new LineBrailleEncoder())],
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
       [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],

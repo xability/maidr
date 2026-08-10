@@ -54,6 +54,7 @@ export function named(label: string | undefined, fallback: string): string {
  * for display in the chart description modal and other user-facing surfaces.
  */
 const CHART_TYPE_LABEL: Record<TraceType, string> = {
+  [TraceType.AREA]: 'Area Chart',
   [TraceType.BAR]: 'Bar Chart',
   [TraceType.BOX]: 'Box Plot',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
@@ -63,10 +64,12 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.HISTOGRAM]: 'Histogram',
   [TraceType.LINE]: 'Line Chart',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
+  [TraceType.NORMALIZED_AREA]: 'Normalized Stacked Area Chart',
   [TraceType.PIE]: 'Pie Chart',
   [TraceType.SCATTER]: 'Scatter Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',
+  [TraceType.STACKED_AREA]: 'Stacked Area Chart',
   [TraceType.STEP]: 'Step Plot',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',

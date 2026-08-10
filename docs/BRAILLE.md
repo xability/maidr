@@ -178,6 +178,25 @@ In multiline braille displays, all data series are represented simultaneously. H
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
 
+## Area plot
+
+An area plot's braille is the line plot encoding above, unchanged: each series
+becomes a height profile, and the fill under the curve is not encoded because
+it carries no value the curve does not already carry.
+
+For a stacked area plot the profile is each band's **own** height, not the
+height of the stack it sits in. That matches what the audio plays and what the
+text announces as the cross-axis value, so the three modalities describe the
+same number. The running total is available in the verbose text announcement
+and in the chart description; it is deliberately not folded into the braille,
+because a profile that silently switched from series values to cumulative ones
+would read as the same shape with different numbers behind it.
+
+### Multiline Displays
+
+As for a line plot: each line of the display is one series, and the user moves
+between series with the up and down arrow keys on a single-line display.
+
 ## Step plot
 
 A step plot's braille is the line plot encoding above, unchanged: each data
