@@ -82,13 +82,20 @@ export class AreaTrace extends LineTrace {
   private readonly variant: AreaVariant;
 
   /**
-   * Running total per column — the stack height at each x — or `null` for an
-   * unstacked layer, which has no total to report.
+   * Stack height at each x, keyed by the x value itself, or `null` for an
+   * unstacked layer which has no total to report.
+   *
+   * Keyed rather than indexed, and that is load-bearing. `this.col` is the
+   * cursor's position *within its own series*, so on a series that starts
+   * late — the very case the totals are matched by x to survive — column 0 is
+   * not the first x of the chart. An array indexed off another series' order
+   * would answer with a neighbouring column's total, and the share it implied
+   * could exceed 100%, which no stacked chart can draw.
    *
    * Computed once because trace data is immutable; a live-data update
    * rebuilds the trace rather than mutating it.
    */
-  private readonly columnTotals: number[] | null;
+  private readonly columnTotals: Map<string, number> | null;
 
   /**
    * Creates a new area trace.
@@ -113,26 +120,33 @@ export class AreaTrace extends LineTrace {
    * lets a series that has nothing at this x contribute nothing, which is the
    * honest reading.
    *
-   * @returns The stack height at each column of the first series
+   * Every x any series carries gets an entry, not only those the first series
+   * happens to have: a chart whose later series run past the first one still
+   * draws a stack over those columns, and a cursor that can reach a point can
+   * ask what stack it is in.
+   *
+   * @returns The stack height at each x, keyed by that x
    */
-  private computeColumnTotals(): number[] {
-    const reference = this.points[0] ?? [];
-    return reference.map((point) => {
-      const key = String(point.x);
-      let total = 0;
-      let measured = false;
-      for (const series of this.points) {
-        const match = series.find(candidate => String(candidate.x) === key);
-        const value = Number(match?.y);
-        if (match !== undefined && isMeasured(value)) {
-          total += value;
-          measured = true;
+  private computeColumnTotals(): Map<string, number> {
+    const totals = new Map<string, number>();
+    for (const series of this.points) {
+      for (const point of series) {
+        const key = String(point.x);
+        const value = Number(point.y);
+        const running = totals.get(key);
+        if (!isMeasured(value)) {
+          // A column reached only by gaps has no total, only an absence.
+          // Reporting 0 would announce a stack height the chart never drew.
+          if (running === undefined) {
+            totals.set(key, Number.NaN);
+          }
+          continue;
         }
+        const carried = running !== undefined && isMeasured(running) ? running : 0;
+        totals.set(key, carried + value);
       }
-      // A column where every series is a gap has no total, only an absence.
-      // Reporting 0 there would announce a stack height the chart never drew.
-      return measured ? total : Number.NaN;
-    });
+    }
+    return totals;
   }
 
   /**
@@ -163,12 +177,18 @@ export class AreaTrace extends LineTrace {
       return baseText;
     }
 
-    const total = this.columnTotals[this.col];
-    if (!isMeasured(total)) {
+    // Look the total up by the x under the cursor, never by `this.col` —
+    // that index is local to the current series, so on a series that starts
+    // late it names a different x than it does on the first one.
+    const point = this.points[this.row]?.[this.col];
+    const total = point === undefined
+      ? undefined
+      : this.columnTotals.get(String(point.x));
+    if (total === undefined || !isMeasured(total)) {
       return baseText;
     }
 
-    const value = Number(this.points[this.row]?.[this.col]?.y);
+    const value = Number(point.y);
     // A zero total is reachable — series that cancel out, or a column of
     // zeros — and dividing by it yields Infinity or NaN. Report the total and
     // stay silent about the share rather than announcing a share of nothing.
@@ -194,7 +214,7 @@ export class AreaTrace extends LineTrace {
       return baseDescription;
     }
 
-    const totals = this.columnTotals.filter(isMeasured);
+    const totals = [...this.columnTotals.values()].filter(isMeasured);
     if (totals.length === 0) {
       return baseDescription;
     }

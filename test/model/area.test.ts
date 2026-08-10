@@ -26,6 +26,17 @@ const SERVICES: LinePoint[] = [
 const TOTALS = [15, 40, 100];
 
 /**
+ * `Services` as it would arrive if the line launched a quarter late: its own
+ * first point is Q2, so its local column indices are shifted by one against
+ * the series above. Totals looked up by column index rather than by x break
+ * exactly here.
+ */
+const LATE_START: LinePoint[] = [
+  { x: 'Q2', y: 20, z: 'Services' },
+  { x: 'Q3', y: 70, z: 'Services' },
+];
+
+/**
  * Create a minimal area layer for model-only tests.
  * @param type The area variant to author
  * @param data Points, nested one array per series
@@ -167,16 +178,48 @@ describe('stacked area', () => {
   test('matches series by x value rather than by column index', () => {
     // `Services` starts a quarter late. Indexing by column would add its Q2
     // value to the Q1 column and announce 30 as the Q1 stack height.
-    const lateStart: LinePoint[] = [
-      { x: 'Q2', y: 20, z: 'Services' },
-      { x: 'Q3', y: 70, z: 'Services' },
-    ];
     const trace = TraceFactory.create(
-      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, lateStart]),
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, LATE_START]),
     ) as AreaTrace;
     moveToColumn(trace, 0);
 
     expect(nonEmptyState(trace).text.stack?.value).toBe(10);
+  });
+
+  test('reports the total for the x the cursor is actually on, in a short series', () => {
+    // A series that starts late holds its own points at its own column
+    // indices: `LATE_START[0]` is Q2, not Q1. Looking the total up by column
+    // index rather than by x therefore reports Q1's total while the cursor
+    // sits on Q2 — and, worse than being wrong, it yields a share above 100%,
+    // which no stacked chart can draw.
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, LATE_START]),
+    ) as AreaTrace;
+    trace.moveToIndex(1, 0);
+
+    const { text } = nonEmptyState(trace);
+    expect(text.main.value).toBe('Q2');
+    expect(text.cross.value).toBe(20);
+    expect(text.stack?.value).toBe(TOTALS[1]);
+    expect(text.stack?.share).toBeCloseTo(20 / 40);
+  });
+
+  test('totals an x that the first series does not carry at all', () => {
+    // The reference series stops at Q2 while another runs to Q3. Building the
+    // totals from the first series alone leaves Q3 with no total, so the
+    // cursor lands on a real point and hears nothing about the stack it is in.
+    const short: LinePoint[] = [
+      { x: 'Q1', y: 10, z: 'Subscriptions' },
+      { x: 'Q2', y: 20, z: 'Subscriptions' },
+    ];
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [short, LATE_START]),
+    ) as AreaTrace;
+    trace.moveToIndex(1, 1);
+
+    const { text } = nonEmptyState(trace);
+    expect(text.main.value).toBe('Q3');
+    expect(text.stack?.value).toBe(70);
   });
 
   test('stays silent about the share when the total is zero', () => {
