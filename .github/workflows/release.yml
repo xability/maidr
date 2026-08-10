@@ -59,13 +59,55 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
         run: |
           npx semantic-release
-          if git describe --tags --exact-match HEAD 2>/dev/null; then
+          # The tag semantic-release just created, when it created one. Also
+          # captured as the version so the downstream notification below can
+          # name it, rather than making the receiver guess from `latest`.
+          if TAG=$(git describe --tags --exact-match HEAD 2>/dev/null); then
             echo "new_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm with trusted publishing
         if: steps.semantic-release.outputs.new_release == 'true'
         run: npm publish --access public --provenance
+
+      # r-maidr ships a copy of this package's built bundle, and refreshes it
+      # from npm. Left to itself it discovers a release on a daily poll, so a
+      # fix can sit unread by users for up to a day after it is published.
+      # Telling it directly closes that gap to minutes.
+      #
+      # Deliberately after the publish step and gated on it: the receiver
+      # fetches the tarball straight from the registry, so announcing before
+      # the package is actually there would just make it fail.
+      #
+      # py-maidr is not notified, and that is not an oversight. It bundles
+      # upstream at *its own* release time so each py-maidr release pins the
+      # version it was tested against, rather than tracking upstream
+      # continuously. Pinging it would work against that design.
+      #
+      # continue-on-error, because the release is the thing that matters
+      # here. A missed ping costs at most a day -- r-maidr keeps its
+      # scheduled refresh precisely as the backstop for this step failing --
+      # whereas a red release job costs a manual re-run of a publish that
+      # already happened.
+      - name: Tell r-maidr the new version is on npm
+        if: steps.semantic-release.outputs.new_release == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.semantic-release.outputs.version }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "DOWNSTREAM_DISPATCH_TOKEN is not configured."
+            echo "r-maidr will pick v${VERSION} up on its next scheduled refresh."
+            exit 0
+          fi
+          # jq builds the body so the version reaches JSON as data rather
+          # than as text spliced into a quoted string.
+          jq -n --arg version "$VERSION" \
+            '{event_type: "maidr-released", client_payload: {version: $version}}' \
+            | gh api repos/xability/r-maidr/dispatches --input -
+          echo "Notified r-maidr of v${VERSION}."
 
       - name: Upload npm logs on failure
         if: failure()
