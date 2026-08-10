@@ -160,6 +160,17 @@ export interface AudioState {
     max: number;
     raw: number | number[];
   };
+  /**
+   * Stereo position, read by `AudioService` as
+   * `interpolate(x, 0, cols - 1, -1, 1)` and clamped to that range.
+   *
+   * `x` and `cols` are usually a column index and a column count, which pans a
+   * trace left to right. They are not required to be: what the service needs
+   * is a position and the range to read it against. `PieTrace` supplies
+   * `cols: 2` and a fractional `x` so the pan follows a slice around the dial
+   * rather than along a row — a circle sweeps out and back, which an index
+   * cannot express.
+   */
   panning: {
     y: number;
     x: number;

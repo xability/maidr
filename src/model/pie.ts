@@ -49,6 +49,39 @@ function toPercentage(value: number, basis: number): string {
 }
 
 /**
+ * Where each slice sits on the dial, in radians clockwise from 12 o'clock.
+ *
+ * The angle a slice occupies is its share of the circle, so the midpoint of
+ * slice *i* is everything before it plus half of itself. Producers lay a pie
+ * out from 12 o'clock going clockwise — matplotlib, `graphics::pie`, ggplot2's
+ * `coord_polar`, amCharts and AnyChart all do — so that is the origin used
+ * here. The payload states no start angle, so a producer that ever laid one
+ * out differently would pan the wrong way round; that is a grammar question,
+ * noted in #780.
+ *
+ * A gap occupies no angle, having contributed nothing to the basis. It still
+ * gets a midpoint — wherever the sweep has reached — so panning it is
+ * meaningful rather than `NaN`.
+ *
+ * @param values - Every slice's value, `NaN` for a gap
+ * @param basis - The sum of the absolute values of the measured slices
+ * @returns One angle per slice, in the same order
+ */
+function toMidAngles(values: readonly number[], basis: number): number[] {
+  if (basis === 0) {
+    // Nothing is drawn, so every slice sits at 12 o'clock and pans centre.
+    return values.map(() => 0);
+  }
+  let swept = 0;
+  return values.map((value) => {
+    const share = isMeasured(value) ? Math.abs(value) / basis : 0;
+    const mid = swept + share / 2;
+    swept += share;
+    return mid * 2 * Math.PI;
+  });
+}
+
+/**
  * Whether a screen-space point falls inside an element's filled geometry.
  *
  * `isPointInFill` works in the element's own user space, so the point has to be
@@ -81,7 +114,11 @@ function containsScreenPoint(element: SVGElement, x: number, y: number): boolean
 }
 
 /**
- * A pie chart: N slices read as one row, left and right.
+ * A pie chart: N slices stepped through one at a time, left and right.
+ *
+ * They are one row to navigate and a circle to listen to — the pan follows
+ * each slice around the dial rather than along the row, so a sweep goes out
+ * and comes back.
  *
  * Extends {@link AbstractTrace} directly rather than `AbstractBarPlot`, which
  * bakes an orientation into its bar values, audio panning, text axes and
@@ -109,6 +146,8 @@ export class PieTrace extends AbstractTrace {
   private readonly total: number;
   private readonly shareBasis: number;
   private readonly hasNegative: boolean;
+  /** Each slice's angular midpoint, radians clockwise from 12 o'clock. */
+  private readonly midAngles: number[];
 
   protected readonly supportsExtrema = false;
 
@@ -149,6 +188,7 @@ export class PieTrace extends AbstractTrace {
     // every navigation step (and again by getStateAt for monitor mode), and
     // they must stay cheap and side-effect free.
     this.percentages = values.map(value => toPercentage(value, this.shareBasis));
+    this.midAngles = toMidAngles(values, this.shareBasis);
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovableGrid<PiePoint>(this.points);
@@ -171,6 +211,16 @@ export class PieTrace extends AbstractTrace {
     // Pitch maps the raw magnitude, not the percentage. The two are a monotone
     // rescale of each other, so the pitch ordering is identical either way, and
     // the raw value keeps audio agreeing with braille and the reported stats.
+    //
+    // The pan follows the slice around the dial rather than its index. Panning
+    // by index is what a bar chart does -- hard left to hard right, a straight
+    // line -- and it made a pie sound like one. `AudioService` reads the pan as
+    // `interpolate(x, 0, cols - 1, -1, 1)`, so `cols: 2` makes the mapping
+    // `2x - 1` and `x = (sin θ + 1) / 2` lands the pan on `sin θ` exactly:
+    // 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again, 9
+    // o'clock hard left. Sweeping the slices now goes out and comes back,
+    // which is what distinguishes a circle from a row.
+    const pan = Math.sin(this.midAngles[this.col]);
     return {
       freq: {
         min: this.min,
@@ -178,10 +228,10 @@ export class PieTrace extends AbstractTrace {
         raw: this.sliceValues[this.row][this.col],
       },
       panning: {
-        x: this.col,
+        x: (pan + 1) / 2,
         y: 0,
         rows: 1,
-        cols: this.sliceValues[this.row].length,
+        cols: 2,
       },
     };
   }
