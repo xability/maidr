@@ -121,7 +121,20 @@ goes stale at the next release, and those pages are mostly about adapter
 bundles that are not mirrored at all. One pinned URL in the README, next to
 the reason someone would want it, costs one edit per release instead of ten.
 
-Still worth checking after the next release: that
-`https://cdnjs.com/libraries/maidr` picks it up on its own. If it does not,
-the `autoupdate` block is wrong and needs another pull request to
-`cdnjs/packages`.
+## After each release
+
+Two things, neither automated:
+
+- **Bump the version in `README.md`'s cdnjs URL.** cdnjs serves no floating
+  alias, so that example names a release and keeps naming it. Nothing fails
+  when it goes stale — the URL still resolves, it just serves an older build
+  — which is what makes it easy to miss. semantic-release owns `package.json`
+  and this repo has no release checklist to hang the step on, so it is
+  written here, in the file about cdnjs upkeep. Pinning it to `package.json`
+  with a test would catch it, but semantic-release commits the bump itself
+  and the test would then fail on `main` after every release until someone
+  edited the README; making that safe means teaching the release job to
+  rewrite the URL, which is a change to the pipeline rather than to a doc.
+- **Check `https://cdnjs.com/libraries/maidr` picked the release up on its
+  own.** If it did not, the `autoupdate` block is wrong and needs another
+  pull request to `cdnjs/packages`.
