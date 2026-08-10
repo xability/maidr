@@ -322,15 +322,42 @@ describe('AnnouncePositionCommand on a pie', () => {
     );
   });
 
-  test('calls a slice within half an hour of the full turn the whole circle', () => {
-    // 199 of 200 is 11.94 hours. Both ends still round to 12, so this needs the
-    // same answer as the exact case rather than "at 12 o'clock".
+  test('still calls the dial whole when the rest of it is gaps', () => {
+    // A gap and a zero are drawn as nothing, so a slice beside them is the
+    // entire basis and the plain reading is the true one.
+    const { command, textViewModel } = createCommand(
+      pieState([100, Number.NaN, 0], 0),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 3, the whole circle',
+    );
+  });
+
+  test('qualifies a slice that only rounds to the full turn', () => {
+    // 199 of 200 is 11.94 hours, so both ends still round to 12 and this must
+    // not read as a point. But the second slice is drawn, however thin, and
+    // "1 of 2, the whole circle" would contradict itself in one sentence.
     const { command, textViewModel } = createCommand(pieState([199, 1], 0));
 
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith(
-      'Position is 1 of 2, the whole circle',
+      'Position is 1 of 2, nearly the whole circle',
+    );
+  });
+
+  test('qualifies it however many slices share the remainder', () => {
+    // 1150 of 1152 rounds to the full turn while two other slices exist to be
+    // navigated to -- the case the per-slice threshold has to get right.
+    const { command, textViewModel } = createCommand(pieState([1150, 1, 1], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 3, nearly the whole circle',
     );
   });
 

@@ -879,10 +879,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     if (Math.round((end - start) * 12) >= 12) {
       // A slice can be the whole dial -- a pie of one category, or one
       // category at 100%. Both ends then round to 12, and calling that a
-      // point would be the exact opposite of what it is. A slice within half
-      // an hour of the full turn reads the same way, since at this
-      // granularity it is the circle; the percentage carries the remainder.
-      where = 'the whole circle';
+      // point would be the exact opposite of what it is.
+      //
+      // A slice within half an hour of the full turn rounds the same way
+      // without being the same thing: the slices beside it still occupy arc,
+      // and "1 of 3, the whole circle" would contradict itself in one
+      // sentence. Only a slice that is the entire basis gets the plain
+      // reading.
+      where = end - start >= 1 ? 'the whole circle' : 'nearly the whole circle';
     } else if (startHour === endHour) {
       // A slice too thin to span an hour reads as a point rather than as a
       // range from a position to itself.
