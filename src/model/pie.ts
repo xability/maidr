@@ -114,7 +114,11 @@ function containsScreenPoint(element: SVGElement, x: number, y: number): boolean
 }
 
 /**
- * A pie chart: N slices read as one row, left and right.
+ * A pie chart: N slices stepped through one at a time, left and right.
+ *
+ * They are one row to navigate and a circle to listen to — the pan follows
+ * each slice around the dial rather than along the row, so a sweep goes out
+ * and comes back.
  *
  * Extends {@link AbstractTrace} directly rather than `AbstractBarPlot`, which
  * bakes an orientation into its bar values, audio panning, text axes and
