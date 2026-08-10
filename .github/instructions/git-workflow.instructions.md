@@ -32,6 +32,19 @@ Version impact:
 Write the description in the imperative mood, lower case, no trailing period:
 `fix(audio): resume suspended context before playing empty-state tones`.
 
+`!` works because `.releaserc.json` hands both commit-parsing plugins a
+`parserOpts` that admits it. Without that they use the default angular
+patterns, which do not, and a `!`-marked subject then fails to parse
+entirely: no type, no matching release rule, **no release at all**, and the
+commit missing from the notes as well. commitlint accepts `!` either way, so
+nothing upstream of the release would have flagged it. Leave the
+`parserOpts` alone unless you intend that; `test/scripts/releaseBreakingMarker.esm-test.ts`
+fails if either plugin loses them.
+
+Squashed merges compose the release commit from the pull request title, so a
+breaking change needs its `!` **in the title**, not only in a commit inside
+the branch.
+
 ## Practice
 
 - One logical change per commit. Split unrelated fixes rather than bundling them.
