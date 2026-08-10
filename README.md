@@ -53,6 +53,14 @@ To use maidr, follow these steps:
    </html>
    ```
 
+   maidr is also served by [cdnjs](https://cdnjs.com/libraries/maidr), which matters when a page cannot reach jsDelivr: sandboxed embedding contexts allow a fixed set of CDN hosts, and a page whose `script-src` names `cdnjs.cloudflare.com` cannot load maidr from jsDelivr however well jsDelivr works everywhere else.
+
+   ```html
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/maidr/3.75.1/maidr.min.js"></script>
+   ```
+
+   cdnjs serves no floating alias, so that URL names a version and stays on it until you change it — [the library page](https://cdnjs.com/libraries/maidr) lists the current one. Only `maidr.js` is mirrored there, not the per-chart-library adapter bundles the guides below use; those load from jsDelivr.
+
 3. **Add your data**: Define the maidr JSON schema for your plot. See the [Data Schema](docs/SCHEMA.md) documentation for the full schema structure, object properties, and data formats for each plot type.
 
 ## Data Schema
