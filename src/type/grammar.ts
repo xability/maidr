@@ -333,6 +333,21 @@ export interface LinePoint {
   x: number | string;
   y: number;
   z?: string;
+  /**
+   * Ordinal level name announced in place of the raw numeric `y`, for a chart
+   * whose y axis is a category rather than a magnitude — a hypnogram's sleep
+   * stages, a Likert response, a severity grade. `y` stays numeric because it
+   * drives sonification, braille and the min/max range, so the human-readable
+   * name has to travel alongside it.
+   *
+   * An empty string counts as absent, so a producer that emits `''` for an
+   * unnamed level gets the numeric announcement rather than a blank one.
+   * Omitting it entirely is the right shape for a continuous y.
+   *
+   * @example
+   * { x: 1.5, y: 3, label: 'REM' }
+   */
+  label?: string;
 }
 
 /**
@@ -395,25 +410,20 @@ export interface SmoothPoint {
 export type StepDirection = 'hv' | 'vh' | 'mid';
 
 /**
- * Data point for step charts. Extends {@link LinePoint} with the name of an
- * ordinal level, so charts whose y axis is a category rather than a magnitude
- * — a hypnogram's sleep stages, a status timeline's states — can announce
- * "REM" instead of the numeric level that encodes it.
+ * Data point for step charts — structurally a {@link LinePoint}.
  *
- * `y` stays numeric because it drives sonification, braille and the min/max
- * range; `label` is the human-readable name of that level.
+ * The ordinal `label` that lets a hypnogram announce "REM" instead of "3"
+ * started here, but it is not a step-only pairing: a line or path over the
+ * same ordinal y needs it just as much, so it now lives on `LinePoint` and
+ * every trace in the line family reads it.
+ *
+ * The name is kept because a step layer's `data` is authored as
+ * `StepPoint[][]`, and it says which chart the points belong to.
  *
  * @example
  * { x: 1.5, y: 3, label: 'REM' }
  */
-export interface StepPoint extends LinePoint {
-  /**
-   * Ordinal level name announced in place of the raw numeric `y`. An empty
-   * string counts as absent, so a producer that emits `''` for an unnamed
-   * level gets the numeric announcement rather than a blank one.
-   */
-  label?: string;
-}
+export type StepPoint = LinePoint;
 
 /**
  * Canonical axis configuration. Every axis (x, y, z) must be specified as an
