@@ -243,6 +243,21 @@ describe('pie slices with a negative value', () => {
     expect(String(statValue(stats, 'Note'))).toContain('130');
   });
 
+  it('rounds the basis in the note, like every other number in the summary', () => {
+    // `roundCell` formats a stat before it reaches the dialog, but only when
+    // the stat *is* a number -- this one is a finished sentence, so the number
+    // inside it has to be formatted here or it arrives raw. 10.1 + 20.2 + 5.3
+    // is 35.599999999999994 in binary floating point, and announcing that in
+    // the one sentence meant to reconcile the others would undo the point of
+    // it.
+    const trace = new PieTrace(pieLayer([10.1, -20.2, 5.3]));
+
+    const note = String(statValue(trace.description.stats, 'Note'));
+
+    expect(note).toContain('35.6');
+    expect(note).not.toContain('35.599999999999994');
+  });
+
   it('leaves an all-positive pie exactly as it was', () => {
     const trace = new PieTrace(pieLayer([30, 50, 20]));
 

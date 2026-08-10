@@ -2,10 +2,11 @@ import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured } from './bar';
+import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
 
 /** Label the percentage rides under in text and in the data table. */
@@ -13,39 +14,6 @@ const PERCENTAGE_LABEL = 'Percentage';
 
 /** How a gap is named wherever a slice has no measurement to report. */
 const MISSING_TEXT = 'missing';
-
-/**
- * Reads one slice's magnitude, keeping a gap distinguishable from a zero.
- *
- * {@link PiePoint.y} is declared numeric, but it arrives from parsed JSON: a
- * producer with no measurement for a slice emits `null`, and `Number(null)` is
- * `0`. A zero slice is a real measurement — it counts toward the total and can
- * be the minimum — so an absent one must not collapse into it. `NaN` keeps it
- * absent, which is what {@link isMeasured} and the text layer already read as
- * a gap. Mirrors `toBarValue` in `bar.ts`, for the same reasons.
- *
- * A negative slice keeps its sign. It used to be read as a gap, on the grounds
- * that a negative is not meaningful in a pie — but the producer that emits one
- * actually draws it: ggplot2's `geom_col` + `coord_polar` is a stacked bar bent
- * into a circle, where a value below the baseline is ordinary, and it lays out
- * `c(60, -40, 30)` as three wedges of 46.2%, 30.8% and 23.1%. Announcing that
- * middle wedge as missing left a screen-reader user hearing two slices where a
- * sighted reader sees three, with no percentage in common — the two cannot
- * discuss the same chart. MAIDR conveys the chart; it does not correct it
- * (#771).
- *
- * @param raw - The value from the slice
- * @returns The value, or `NaN` when the slice is a gap
- */
-function toSliceValue(raw: number | string | null | undefined): number {
-  if (raw === null || raw === undefined) {
-    return Number.NaN;
-  }
-  if (typeof raw === 'string' && raw.trim() === '') {
-    return Number.NaN;
-  }
-  return Number(raw);
-}
 
 /**
  * Formats one slice's share of the whole.
@@ -153,7 +121,15 @@ export class PieTrace extends AbstractTrace {
 
     this.points = [layer.data as PiePoint[]];
 
-    const values = this.points[0].map(point => toSliceValue(point.y));
+    // `toBarValue` and not a pie-specific reader: a negative slice keeps its
+    // sign, and once it does the two are the same function. It used to be read
+    // as a gap, on the grounds that a negative is not meaningful in a pie --
+    // but the producer that emits one draws it. `geom_col` + `coord_polar` is
+    // a stacked bar bent into a circle, where a value below the baseline is
+    // ordinary, and it lays `c(60, -40, 30)` out as three wedges. Calling the
+    // middle one missing left a screen-reader user hearing two slices where a
+    // sighted reader sees three, with no figure in common (#771).
+    const values = this.points[0].map(point => toBarValue(point.y));
     this.sliceValues = [values];
 
     // A gap is not a measurement, so it must take part in neither the range
@@ -264,7 +240,8 @@ export class PieTrace extends AbstractTrace {
         label: 'Note',
         value:
           'This pie contains a negative value, so a slice cannot be a share of '
-          + `the total. Percentages are shares of the circle as drawn, out of ${this.shareBasis}.`,
+          + 'the total. Percentages are shares of the circle as drawn, out of '
+          + `${defaultFormat(this.shareBasis)}.`,
       });
     }
 
