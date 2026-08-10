@@ -95,10 +95,46 @@ The test cannot see cdnjs. It checks that this file is right about _this_
 repository; whether cdnjs has been told about a change is still a matter of
 having opened that second pull request.
 
-## Once it is listed
+## It is listed
 
-- Add the cdnjs URLs alongside the jsDelivr ones in `README.md` and `docs/`.
-  Until then those URLs 404, so this is deliberately not done in advance.
-- Check `https://cdnjs.com/libraries/maidr` picks up the following release
-  automatically. If it does not, the `autoupdate` block is wrong and needs
-  another pull request to `cdnjs/packages`.
+The pull request to `cdnjs/packages` was merged and
+[the library](https://cdnjs.com/libraries/maidr) is live. What was verified
+once the files actually appeared, since each was a way this could have been
+quietly wrong:
+
+- `maidr.min.js` exists (1,866,505 bytes, and minified rather than a copy of
+  `maidr.js` at 1,893,803). cdnjs generates it, exactly as their
+  CONTRIBUTING.md commits to — so the `filename` in the manifest resolves and
+  does not need swapping for `maidr.js`.
+- `maidr-math.css` exists and is byte-identical to npm's, KaTeX rules and all.
+  This is the entry the notes above call easy to leave out and expensive to
+  get wrong: `src/util/katex.ts` resolves it against the URL `maidr.js` was
+  loaded from, so a page served from cdnjs would render LaTeX in AI chat
+  responses unstyled if the mirror lacked it.
+- `maidr.css` is the 406-byte placeholder, matching what the build emits.
+- Ten versions were backfilled (3.68.0 through 3.75.1), so `autoupdate` is
+  reading npm correctly rather than pinning the submitted version.
+
+`README.md` documents the cdnjs URL. The `docs/` guides deliberately do not:
+cdnjs serves no floating alias, so every mention is a hard-coded version that
+goes stale at the next release, and those pages are mostly about adapter
+bundles that are not mirrored at all. One pinned URL in the README, next to
+the reason someone would want it, costs one edit per release instead of ten.
+
+## After each release
+
+Two things, neither automated:
+
+- **Bump the version in `README.md`'s cdnjs URL.** cdnjs serves no floating
+  alias, so that example names a release and keeps naming it. Nothing fails
+  when it goes stale — the URL still resolves, it just serves an older build
+  — which is what makes it easy to miss. semantic-release owns `package.json`
+  and this repo has no release checklist to hang the step on, so it is
+  written here, in the file about cdnjs upkeep. Pinning it to `package.json`
+  with a test would catch it, but semantic-release commits the bump itself
+  and the test would then fail on `main` after every release until someone
+  edited the README; making that safe means teaching the release job to
+  rewrite the URL, which is a change to the pipeline rather than to a doc.
+- **Check `https://cdnjs.com/libraries/maidr` picked the release up on its
+  own.** If it did not, the `autoupdate` block is wrong and needs another
+  pull request to `cdnjs/packages`.
