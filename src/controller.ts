@@ -3,7 +3,7 @@ import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback } from '@type/grammar';
 import type { Observer } from '@type/observable';
-import type { FigureState, TraceState } from '@type/state';
+import type { TraceState } from '@type/state';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
@@ -584,6 +584,6 @@ export class Controller implements Disposable {
     // move, so it is what reports the selection ending.
     this.figure.addObserver({
       update: () => callback(null),
-    } as Observer<FigureState>);
+    });
   }
 }
