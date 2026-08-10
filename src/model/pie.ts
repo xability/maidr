@@ -2,10 +2,11 @@ import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured } from './bar';
+import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
 
 /** Label the percentage rides under in text and in the data table. */
@@ -13,40 +14,6 @@ const PERCENTAGE_LABEL = 'Percentage';
 
 /** How a gap is named wherever a slice has no measurement to report. */
 const MISSING_TEXT = 'missing';
-
-/**
- * Reads one slice's magnitude, keeping a gap distinguishable from a zero.
- *
- * {@link PiePoint.y} is declared numeric, but it arrives from parsed JSON: a
- * producer with no measurement for a slice emits `null`, and `Number(null)` is
- * `0`. A zero slice is a real measurement — it counts toward the total and can
- * be the minimum — so an absent one must not collapse into it. `NaN` keeps it
- * absent, which is what {@link isMeasured} and the text layer already read as
- * a gap. Mirrors `toBarValue` in `bar.ts`, for the same reasons.
- *
- * A negative slice is read as a gap too. {@link PiePoint.y} documents that a
- * negative value is not meaningful in a pie, and nothing upstream is obliged to
- * enforce that: left in, it subtracts from the total every other slice's share
- * is divided by, so a pie of 60, -40 and 30 announces its first slice as 120%
- * and the percentages stop summing to anything. Reading it as a gap is the
- * treatment this trace already has for a slice with nothing to report — out of
- * the total, out of the range, announced as missing — which tells the reader
- * about the one bad slice instead of quietly corrupting every other one.
- *
- * @param raw - The value from the slice
- * @returns The magnitude, or `NaN` when the slice is a gap
- */
-function toSliceValue(raw: number | string | null | undefined): number {
-  if (raw === null || raw === undefined) {
-    return Number.NaN;
-  }
-  if (typeof raw === 'string' && raw.trim() === '') {
-    return Number.NaN;
-  }
-  const value = Number(raw);
-  // `NaN < 0` is false, so an unparseable value falls through unchanged.
-  return value < 0 ? Number.NaN : value;
-}
 
 /**
  * Formats one slice's share of the whole.
@@ -57,18 +24,28 @@ function toSliceValue(raw: number | string | null | undefined): number {
  * the one-decimal form used for real ratios, because nothing was rounded to
  * get there.
  *
- * @param value - The slice's magnitude, `NaN` when it is a gap
- * @param total - The sum of every measured slice
+ * The share is of the circle **as drawn**, so it divides by the sum of the
+ * absolute values rather than the signed total. That is the span a producer
+ * lays a pie out over: ggplot2 gives `c(60, -40, 30)` a range of 130, which is
+ * `60 + 40 + 30`, and draws the wedges at 46.2%, 30.8% and 23.1% of the
+ * circle. Dividing by the signed total (50) would announce shares no slice
+ * occupies and that sum to 260%.
+ *
+ * With no negatives the two bases are the same number, so every existing pie
+ * reports exactly what it reported before.
+ *
+ * @param value - The slice's value, `NaN` when it is a gap
+ * @param basis - The sum of the absolute values of every measured slice
  * @returns The percentage as display text, e.g. `33.3%`
  */
-function toPercentage(value: number, total: number): string {
+function toPercentage(value: number, basis: number): string {
   if (!isMeasured(value)) {
     return MISSING_TEXT;
   }
-  if (total === 0) {
+  if (basis === 0) {
     return '0%';
   }
-  return `${((value / total) * 100).toFixed(1)}%`;
+  return `${((Math.abs(value) / basis) * 100).toFixed(1)}%`;
 }
 
 /**
@@ -130,6 +107,8 @@ export class PieTrace extends AbstractTrace {
   private readonly min: number;
   private readonly max: number;
   private readonly total: number;
+  private readonly shareBasis: number;
+  private readonly hasNegative: boolean;
 
   protected readonly supportsExtrema = false;
 
@@ -142,7 +121,15 @@ export class PieTrace extends AbstractTrace {
 
     this.points = [layer.data as PiePoint[]];
 
-    const values = this.points[0].map(point => toSliceValue(point.y));
+    // `toBarValue` and not a pie-specific reader: a negative slice keeps its
+    // sign, and once it does the two are the same function. It used to be read
+    // as a gap, on the grounds that a negative is not meaningful in a pie --
+    // but the producer that emits one draws it. `geom_col` + `coord_polar` is
+    // a stacked bar bent into a circle, where a value below the baseline is
+    // ordinary, and it lays `c(60, -40, 30)` out as three wedges. Calling the
+    // middle one missing left a screen-reader user hearing two slices where a
+    // sighted reader sees three, with no figure in common (#771).
+    const values = this.points[0].map(point => toBarValue(point.y));
     this.sliceValues = [values];
 
     // A gap is not a measurement, so it must take part in neither the range
@@ -153,11 +140,15 @@ export class PieTrace extends AbstractTrace {
     this.min = MathUtil.safeMin(measured);
     this.max = MathUtil.safeMax(measured);
     this.total = measured.reduce((sum, value) => sum + value, 0);
+    // What the circle is divided into, which is not the total once a slice is
+    // negative: the wedge for -40 occupies 40 of the circle, not -40 of it.
+    this.shareBasis = measured.reduce((sum, value) => sum + Math.abs(value), 0);
+    this.hasNegative = measured.some(value => value < 0);
 
     // Derived once here, not per state read: the state getters are called on
     // every navigation step (and again by getStateAt for monitor mode), and
     // they must stay cheap and side-effect free.
-    this.percentages = values.map(value => toPercentage(value, this.total));
+    this.percentages = values.map(value => toPercentage(value, this.shareBasis));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovableGrid<PiePoint>(this.points);
@@ -239,6 +230,20 @@ export class PieTrace extends AbstractTrace {
       { label: 'Max value', value: hasMeasured ? this.max : MISSING_TEXT },
       { label: 'Total', value: hasMeasured ? this.total : MISSING_TEXT },
     ];
+
+    // Said here rather than on every move, and here rather than in the cue for
+    // entering a subplot: a single-panel pie is never entered from a lobby, so
+    // a caveat placed there would be heard only in multi-panel figures. This
+    // is the one summary every layout can reach, on `d`.
+    if (this.hasNegative) {
+      stats.push({
+        label: 'Note',
+        value:
+          'This pie contains a negative value, so a slice cannot be a share of '
+          + 'the total. Percentages are shares of the circle as drawn, out of '
+          + `${defaultFormat(this.shareBasis)}.`,
+      });
+    }
 
     const headers = [this.xAxis, this.yAxis, PERCENTAGE_LABEL];
     // A gap is spelled out rather than left as the NaN the dialog would blank:

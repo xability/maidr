@@ -27,7 +27,7 @@ import { MovableGrid } from './movable';
  * @param raw - The value from the point, on whichever axis carries magnitude
  * @returns The magnitude, or `NaN` when the bar is a gap
  */
-function toBarValue(raw: string | number | null | undefined): number {
+export function toBarValue(raw: string | number | null | undefined): number {
   if (raw === null || raw === undefined) {
     return Number.NaN;
   }

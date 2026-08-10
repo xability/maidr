@@ -186,48 +186,88 @@ describe('pie slice percentages', () => {
 });
 
 /**
- * `PiePoint.y` documents that a negative value is not meaningful in a pie, and
- * nothing upstream is obliged to reject one. Left in, it subtracts from the
- * total every other slice's share is divided by, so the renderer reads it as
- * the gap it effectively is.
+ * A negative slice keeps its sign and its drawn share.
+ *
+ * It used to be read as a gap, which protected the other slices' percentages
+ * but cost more than it saved: the producer that emits a negative *draws* it.
+ * ggplot2's `geom_col` + `coord_polar` lays `c(60, -40, 30)` out over a span
+ * of 130 and draws three wedges at 46.2%, 30.8% and 23.1%. Calling the middle
+ * one missing left a screen-reader user hearing two slices where a sighted
+ * reader sees three, with no number in common (#771).
+ *
+ * So the share divides by the sum of the absolute values -- the circle as
+ * drawn -- and the caveat that these are not shares of a total is carried by
+ * the chart description rather than by dropping the slice.
  */
 describe('pie slices with a negative value', () => {
-  it('divides the measured slices by a total the negative took no part in', () => {
+  it('gives every slice the share it is actually drawn at', () => {
     const trace = new PieTrace(pieLayer([60, -40, 30]));
 
-    // Counting the -40 leaves a total of 50, which announces the first slice
-    // as 120% — a share of the whole that cannot exist.
-    expect(shareAtSlice(trace, 0)).toBe('66.7%');
-    expect(shareAtSlice(trace, 2)).toBe('33.3%');
+    // 60, 40 and 30 out of a span of 130 -- the figures ggplot2 lays out.
+    expect(shareAtSlice(trace, 0)).toBe('46.2%');
+    expect(shareAtSlice(trace, 1)).toBe('30.8%');
+    expect(shareAtSlice(trace, 2)).toBe('23.1%');
   });
 
-  it('reads the negative slice itself as missing', () => {
+  it('announces the negative slice with its sign, not as missing', () => {
     const trace = new PieTrace(pieLayer([60, -40, 30]));
 
     const { text } = stateAtSlice(trace, 1);
 
-    expect(shareAtSlice(trace, 1)).toBe('missing');
-    expect(Number.isFinite(text.cross.value as number)).toBe(false);
+    expect(text.cross.value).toBe(-40);
   });
 
-  it('keeps the negative out of the range the other slices are scaled against', () => {
+  it('scales the pitch over a range that includes the negative', () => {
     const trace = new PieTrace(pieLayer([60, -40, 30]));
 
     const { audio } = stateAtSlice(trace, 0);
 
-    expect(audio.freq.min).toBe(30);
+    // The lowest slice sounds lowest, which is the honest reading of a value
+    // below the baseline rather than a slice excluded from the sweep.
+    expect(audio.freq.min).toBe(-40);
     expect(audio.freq.max).toBe(60);
   });
 
-  it('leaves it out of the described range and total as well', () => {
+  it('reports the signed total, and says why it is not the share basis', () => {
     const trace = new PieTrace(pieLayer([60, -40, 30]));
 
     const { stats } = trace.description;
 
     expect(statValue(stats, 'Number of slices')).toBe(3);
-    expect(statValue(stats, 'Min value')).toBe(30);
+    expect(statValue(stats, 'Min value')).toBe(-40);
     expect(statValue(stats, 'Max value')).toBe(60);
-    expect(statValue(stats, 'Total')).toBe(90);
+    // The arithmetic total of the data, which is not what the circle is
+    // divided into -- hence the note.
+    expect(statValue(stats, 'Total')).toBe(50);
+    expect(String(statValue(stats, 'Note'))).toContain('negative');
+    expect(String(statValue(stats, 'Note'))).toContain('130');
+  });
+
+  it('rounds the basis in the note, like every other number in the summary', () => {
+    // `roundCell` formats a stat before it reaches the dialog, but only when
+    // the stat *is* a number -- this one is a finished sentence, so the number
+    // inside it has to be formatted here or it arrives raw. 10.1 + 20.2 + 5.3
+    // is 35.599999999999994 in binary floating point, and announcing that in
+    // the one sentence meant to reconcile the others would undo the point of
+    // it.
+    const trace = new PieTrace(pieLayer([10.1, -20.2, 5.3]));
+
+    const note = String(statValue(trace.description.stats, 'Note'));
+
+    expect(note).toContain('35.6');
+    expect(note).not.toContain('35.599999999999994');
+  });
+
+  it('leaves an all-positive pie exactly as it was', () => {
+    const trace = new PieTrace(pieLayer([30, 50, 20]));
+
+    const { stats } = trace.description;
+
+    // With no negatives the two bases are the same number, so nothing moves --
+    // and no note is added to a chart that has nothing to caveat.
+    expect(shareAtSlice(trace, 0)).toBe('30.0%');
+    expect(statValue(stats, 'Total')).toBe(100);
+    expect(statValue(stats, 'Note')).toBeUndefined();
   });
 });
 
