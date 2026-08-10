@@ -70,12 +70,49 @@ describe('pie trace audio', () => {
     expect(audio.freq.raw).toBe(20);
   });
 
-  it('pans across the slices as a single row', () => {
-    const trace = new PieTrace(pieLayer([30, 50, 20]));
+  it('pans by where the slice sits on the dial, not by its index', () => {
+    // `AudioService` reads the pan as `interpolate(x, 0, cols - 1, -1, 1)`, so
+    // `cols: 2` makes it `2x - 1`: x of 1 is hard right, 0 is hard left, 0.5
+    // is centre. Two equal slices put the first midpoint at 3 o'clock and the
+    // second at 9 o'clock, which is the cleanest statement of the mapping.
+    const trace = new PieTrace(pieLayer([50, 50]));
 
-    const { audio } = stateAtSlice(trace, 1);
+    expect(stateAtSlice(trace, 0).audio.panning).toEqual({ x: 1, y: 0, rows: 1, cols: 2 });
+    expect(stateAtSlice(trace, 1).audio.panning.x).toBeCloseTo(0, 10);
+  });
 
-    expect(audio.panning).toEqual({ x: 1, y: 0, rows: 1, cols: 3 });
+  it('brings the pan back to centre at the bottom of the circle', () => {
+    // One slice fills the dial, so its midpoint is 6 o'clock. Panning by index
+    // would put a lone slice hard left; a circle puts it back in the middle,
+    // and that difference is the whole point of the change.
+    const trace = new PieTrace(pieLayer([100]));
+
+    expect(stateAtSlice(trace, 0).audio.panning.x).toBeCloseTo(0.5, 10);
+  });
+
+  it('sweeps out and back rather than left to right', () => {
+    // Four equal slices: 1.5, 4.5, 7.5 and 10.5 o'clock. A row would step
+    // evenly from -1 to 1; a circle rises to the right, returns, and mirrors.
+    const trace = new PieTrace(pieLayer([1, 1, 1, 1]));
+
+    const pans = [0, 1, 2, 3].map(i => stateAtSlice(trace, i).audio.panning.x);
+
+    expect(pans[0]).toBeCloseTo(pans[1], 10);
+    expect(pans[2]).toBeCloseTo(pans[3], 10);
+    expect(pans[0]).toBeGreaterThan(0.5);
+    expect(pans[2]).toBeLessThan(0.5);
+  });
+
+  it('gives a gap no angle of its own', () => {
+    // A gap is drawn as nothing, so it consumes no arc: the slices around it
+    // sit exactly where they would if it were not in the data at all.
+    const withGap = new PieTrace(pieLayer([50, null, 50]));
+    const without = new PieTrace(pieLayer([50, 50]));
+
+    expect(stateAtSlice(withGap, 0).audio.panning.x)
+      .toBeCloseTo(stateAtSlice(without, 0).audio.panning.x, 10);
+    expect(stateAtSlice(withGap, 2).audio.panning.x)
+      .toBeCloseTo(stateAtSlice(without, 1).audio.panning.x, 10);
   });
 
   it('keeps a gap out of the range so it cannot drag an endpoint', () => {
