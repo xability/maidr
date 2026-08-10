@@ -1,5 +1,5 @@
 import type { LinePoint, MaidrLayer, StepDirection, StepPoint } from '@type/grammar';
-import type { DescriptionState, TextState, TraceState } from '@type/state';
+import type { DescriptionState, TraceState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
 import { LineTrace } from './line';
 
@@ -29,9 +29,12 @@ const STEP_DIRECTION_LABEL: Record<StepDirection, string> = {
  * glissando that `SmoothTrace` uses would interpolate between levels, which is
  * exactly what a step chart does not do.
  *
- * What this class adds is the two things a step chart has that a line chart
- * does not: ordinal level names ("REM" rather than "3"), and navigation by
- * transition rather than by sample.
+ * What this class adds is what a step chart has that a line chart does not:
+ * navigation by transition rather than by sample, and a description written in
+ * terms of runs. Announcing an ordinal level by name ("REM" rather than "3")
+ * used to live here too, but a line or path over the same ordinal y needs it
+ * just as much, so `LineTrace` reads the point's `label` and this class
+ * inherits that unchanged.
  */
 export class StepTrace extends LineTrace {
   private readonly stepPoints: StepPoint[][];
@@ -84,25 +87,6 @@ export class StepTrace extends LineTrace {
     return {
       ...baseState,
       plotType: 'step',
-    };
-  }
-
-  /**
-   * Substitutes the ordinal level name for the raw numeric level, so a
-   * hypnogram announces "Sleep stage is REM" rather than "Sleep stage is 3".
-   * Points without a `label` keep the inherited numeric announcement.
-   * @returns The text state for the current point
-   */
-  protected override get text(): TextState {
-    const baseText = super.text;
-    const label = this.stepPoints[this.row]?.[this.col]?.label;
-    if (label === undefined || label === '') {
-      return baseText;
-    }
-
-    return {
-      ...baseText,
-      cross: { label: baseText.cross.label, value: label },
     };
   }
 
