@@ -10,17 +10,18 @@
  */
 
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
-import type { AmDataItem, AmXYChart, AmXYSeries } from './types';
+import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 
 /**
  * The am5 entities to highlight for a navigation position.
- * `kind` tells the overlay whether to read column-box geometry or a point.
+ * `kind` tells the overlay which geometry to read: a column's box, a line
+ * point, or a pie slice's wedge.
  */
 export interface NavTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point';
+  kind: 'column' | 'point' | 'slice';
 }
 
 /**
@@ -33,7 +34,7 @@ export interface NavMap {
    * panel's plot bounds. Layer ids are unique figure-wide, so the id alone
    * disambiguates the panel.
    */
-  chartFor: (layerId: string) => AmXYChart | undefined;
+  chartFor: (layerId: string) => AmChart | undefined;
   /** Number of distinct charts (panels) in the map. */
   chartCount: number;
 }
@@ -46,7 +47,7 @@ export interface NavMap {
 export interface NavMapEntry {
   layers: MaidrLayer[];
   groups: SeriesGroups;
-  chart: AmXYChart;
+  chart: AmChart;
 }
 
 /**
@@ -64,6 +65,8 @@ export interface SeriesGroups {
   histogramSeries: AmXYSeries[];
   /** One HEATMAP layer each, in series order. */
   heatmapSeries: AmXYSeries[];
+  /** One PIE layer each, in series order. */
+  pieSeriesList: AmXYSeries[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -127,6 +130,21 @@ function filterLineItems(series: AmXYSeries): AmDataItem[] {
   return kept;
 }
 
+/** Mirror `extractPiePoints`: keep items with a category and a finite value. */
+function filterPieItems(series: AmXYSeries): AmDataItem[] {
+  const kept: AmDataItem[] = [];
+  for (const item of series.dataItems) {
+    const category = item.get('category');
+    const value = item.get('value');
+    if (category == null || value == null)
+      continue;
+    if (!Number.isFinite(Number(value)))
+      continue;
+    kept.push(item);
+  }
+  return kept;
+}
+
 /** Mirror `extractHistogramPoints`: keep items with finite valueX and valueY. */
 function filterHistogramItems(series: AmXYSeries): AmDataItem[] {
   const kept: AmDataItem[] = [];
@@ -183,7 +201,7 @@ function buildHeatmapResolver(series: AmXYSeries, data: HeatmapData): Resolver {
  */
 export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
   const resolvers = new Map<string, Resolver>();
-  const owners = new Map<string, AmXYChart>();
+  const owners = new Map<string, AmChart>();
 
   for (const entry of entries) {
     addEntryResolvers(entry, resolvers, owners);
@@ -200,7 +218,7 @@ export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
 function addEntryResolvers(
   { layers, groups, chart }: NavMapEntry,
   resolvers: Map<string, Resolver>,
-  owners: Map<string, AmXYChart>,
+  owners: Map<string, AmChart>,
 ): void {
   // Precompute gap-filtered items per series, then drop empty series exactly as
   // the adapter does when building layers (`buildSegmentedLayer` / `fromXYChart`
@@ -220,9 +238,13 @@ function addEntryResolvers(
   const histogramSeries = groups.histogramSeries
     .map(series => ({ series, items: filterHistogramItems(series) }))
     .filter(entry => entry.items.length > 0);
+  const pieSeries = groups.pieSeriesList
+    .map(series => ({ series, items: filterPieItems(series) }))
+    .filter(entry => entry.items.length > 0);
 
   let histIdx = 0;
   let heatIdx = 0;
+  let pieIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -259,6 +281,17 @@ function addEntryResolvers(
       case TraceType.HISTOGRAM: {
         const entry = histogramSeries[histIdx++];
         register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.PIE: {
+        // A pie is a single row of slices, so only the column moves.
+        const entry = pieSeries[pieIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'slice' }]
+            : [];
+        });
         break;
       }
       case TraceType.HEATMAP: {

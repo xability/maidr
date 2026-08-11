@@ -23,6 +23,22 @@
  *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
  *   [target: .recharts-scatter-symbol .recharts-symbols]
  *
+ * PieChart:
+ *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
+ *   [target: .recharts-pie-sector .recharts-sector]
+ *
+ *   Recharts emits one sector group per slice in data order, so the selector
+ *   already satisfies the pie contract of N elements index-aligned to the
+ *   data. The `.recharts-pie-sector` parent scope matters here: the pie's
+ *   label lines (`<path class="recharts-curve">`) and, in an active-shape
+ *   chart, the enlarged active sector live under `.recharts-pie` too.
+ *
+ *   One exception is out of the adapter's hands: Recharts renders no sector at
+ *   all for a zero-value slice (`Pie.js` drops sectors whose start and end
+ *   angles are both 0). `PieTrace` sees fewer elements than slices and turns
+ *   highlighting off for the layer rather than mis-aligning it, so audio,
+ *   text, and braille still describe every slice including the zero.
+ *
  * Selectors are scoped to their parent container classes to avoid matching
  * Recharts utility elements (e.g. Tooltip cursor rectangles) that share the
  * same leaf class name.
@@ -138,5 +154,7 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
       return '.recharts-line-dots .recharts-line-dot';
     case 'scatter':
       return '.recharts-scatter-symbol .recharts-symbols';
+    case 'pie':
+      return '.recharts-pie-sector .recharts-sector';
   }
 }

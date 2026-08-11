@@ -30,6 +30,7 @@ export abstract class TestConstants {
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINEPLOT_ID = 'line';
   static readonly STEPPLOT_ID = 'step';
+  static readonly AREAPLOT_ID = 'area-revenue';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
@@ -37,6 +38,7 @@ export abstract class TestConstants {
   static readonly MULTI_LINEPLOT_ID = 'line';
   static readonly MULTI_LAYER_PLOT_ID = 'multi-layer';
   static readonly VIOLIN_PLOT_ID = 'violin';
+  static readonly PIE_ID = 'pie';
 
   /**
    * MAIDR plot identifiers
@@ -121,6 +123,9 @@ export abstract class TestConstants {
   // `StepTrace.state` overrides the inherited line plotType, so a step chart
   // announces itself as a step plot rather than as a line one.
   static readonly STEPPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: step. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // A multi-series trace names its group count, as the multiline entry above
+  // does; the example this asserts against carries two bands.
+  static readonly AREAPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked area with 2 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `formatPlotType` in src/util/orientation.ts prefixes the box type with its
@@ -132,6 +137,10 @@ export abstract class TestConstants {
   // Violin layers are their own trace types (violin_kde / violin_box), not the
   // smooth + box pair they used to be modelled as.
   static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical violin_box plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // No orientation prefix: `IS_ORIENTED[PIE]` is false, so unlike a bar chart a
+  // pie is announced by its bare type. Slices run around a circle, and calling
+  // one "vertical" would describe nothing.
+  static readonly PIE_INSTRUCTION_TEXT = 'This is a maidr plot of type: pie. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   /**
    * Text Modes

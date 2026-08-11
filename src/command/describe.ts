@@ -262,7 +262,7 @@ export class AnnounceYCommand extends AnnounceCommand {
 /**
  * Command to describe the z (level) property.
  * Works with candlestick (trend), heatmap (z value), segmented bars (level),
- * and multi-series line charts (group).
+ * multi-series line charts (group), and pie charts (percentage).
  */
 export class AnnounceZCommand extends AnnounceCommand {
   /**
@@ -286,7 +286,8 @@ export class AnnounceZCommand extends AnnounceCommand {
   /**
    * Executes the command to display the z (level) information.
    * Checks for valid z-axis data which is in state.text.z with label and value properties.
-   * Supports: candlestick (trend), heatmap (z), segmented bars (level), multi-line (group).
+   * Supports: candlestick (trend), heatmap (z), segmented bars (level),
+   * multi-line (group), pie (percentage).
    *
    * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
    * active subplot's trace so `l z` announces its level/group label in

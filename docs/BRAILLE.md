@@ -178,6 +178,25 @@ In multiline braille displays, all data series are represented simultaneously. H
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
 
+## Area plot
+
+An area plot's braille is the line plot encoding above, unchanged: each series
+becomes a height profile, and the fill under the curve is not encoded because
+it carries no value the curve does not already carry.
+
+For a stacked area plot the profile is each band's **own** height, not the
+height of the stack it sits in. That matches what the audio plays and what the
+text announces as the cross-axis value, so the three modalities describe the
+same number. The running total is available in the verbose text announcement
+and in the chart description; it is deliberately not folded into the braille,
+because a profile that silently switched from series values to cumulative ones
+would read as the same shape with different numbers behind it.
+
+### Multiline Displays
+
+As for a line plot: each line of the display is one series, and the user moves
+between series with the up and down arrow keys on a single-line display.
+
 ## Step plot
 
 A step plot's braille is the line plot encoding above, unchanged: each data
@@ -213,6 +232,40 @@ Step plots follow the line plot rules. In multiline braille displays, each
 series occupies its own line, so several step series can be compared at once. In
 single-line displays, the up and down arrow keys move between series and the
 braille representation updates to the current one.
+
+## Pie chart
+
+A pie's slices are a single row, so its braille is the bar plot encoding above,
+unchanged: one Braille character per slice, in the order the slices are drawn,
+whose dot height is that slice's magnitude relative to the range of the pie's
+own slice values.
+
+- ⣀ represents values from 0% to 25% of the range
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+- "⠀" (braille space) represents a zero slice or one with no value
+
+Note that the bands are relative to the smallest and largest slice, not to the
+whole circle: the smallest measured slice reads as ⣀ and the largest as ⠉,
+however close their shares are. Read the braille for which slices are large
+relative to one another, and the text output for what share of the whole any one
+of them is.
+
+The heights encode the raw values, not the percentages — the two are a monotone
+rescale of each other, so the characters come out identical either way, and the
+raw values keep braille agreeing with the sonification and the reported
+statistics. The percentage itself is not encoded in braille; it is announced in
+text as ", Percentage is 33.3%" after the slice label and its value.
+
+Slices with no measurement are left out of the range entirely, so one missing
+slice cannot compress every other slice's dot height, and they read as a braille
+space the same way a zero slice does.
+
+### Multiline Displays
+
+Pie charts use a single-line representation. On multiline braille displays the
+pie appears on the first line and the remaining lines are unused.
 
 ## Multiline Braille Display Support
 

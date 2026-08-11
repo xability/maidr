@@ -160,6 +160,17 @@ export interface AudioState {
     max: number;
     raw: number | number[];
   };
+  /**
+   * Stereo position, read by `AudioService` as
+   * `interpolate(x, 0, cols - 1, -1, 1)` and clamped to that range.
+   *
+   * `x` and `cols` are usually a column index and a column count, which pans a
+   * trace left to right. They are not required to be: what the service needs
+   * is a position and the range to read it against. `PieTrace` supplies
+   * `cols: 2` and a fractional `x` so the pan follows a slice around the dial
+   * rather than along a row — a circle sweeps out and back, which an index
+   * cannot express.
+   */
   panning: {
     y: number;
     x: number;
@@ -317,6 +328,21 @@ export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
   z?: { label: string; value: number | string };
+  /**
+   * The running total a stacked point sits inside, alongside the point's own
+   * value in `cross`.
+   *
+   * A stacked area draws two magnitudes at once: a band's height is its
+   * series' value, and the band's top edge is the total of every series below
+   * it. `cross` carries the first; without somewhere to put the second, the
+   * announcement names a number the chart shows twice over and leaves the
+   * reader unable to tell which one they heard. `share` is that value as a
+   * fraction of the total, which is what a stacked chart is read for and what
+   * a listener cannot divide out in their head mid-navigation.
+   *
+   * Absent on every unstacked trace, so nothing else changes shape.
+   */
+  stack?: { label: string; value: number; share?: number };
   range?: { min: number; max: number };
   section?: string;
   /**

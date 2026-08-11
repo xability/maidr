@@ -3,27 +3,58 @@
  *
  * Chart.js draws into a single `<canvas>` bitmap, so MAIDR's SVG-based
  * `HighlightService` cannot find per-bar DOM elements to highlight. This
- * module compensates by drawing absolute-positioned `<div>` overlays on top
- * of the canvas at the geometry reported by Chart.js for the active element.
+ * module compensates by drawing absolute-positioned overlays on top of the
+ * canvas at the geometry reported by Chart.js for the active element.
+ *
+ * Most elements are boxes and are drawn as `<div>`s. A pie or doughnut slice
+ * is not: its bounding box spans a quadrant of the circle and overlaps its
+ * neighbours', so a box would routinely point at a slice the user is not on.
+ * Those are drawn as an SVG wedge path over the canvas instead.
  *
  * Coordinates: Chart.js stores element positions in CSS pixels relative to
  * the canvas's top-left. We mount the overlay container inside the same
  * positioned wrapper as the canvas, sized to match the canvas exactly, so
  * Chart.js coordinates can be used directly as CSS `left`/`top` on the
- * overlay children.
+ * overlay children (and as user units in the wedge svg, which is unscaled).
  */
 
 import type { ChartJsMetaElement } from './types';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /**
  * Rectangle in CSS pixels relative to the canvas top-left.
  */
 export interface OverlayRect {
+  kind: 'rect';
   left: number;
   top: number;
   width: number;
   height: number;
 }
+
+/**
+ * One pie or doughnut slice, in CSS pixels relative to the canvas top-left.
+ *
+ * Angles are radians as Chart.js stores them on an `ArcElement`: measured from
+ * 3 o'clock and increasing clockwise, with the chart's `rotation` already
+ * folded in. Both `<canvas>` and SVG put +y downwards, so the same angle maps
+ * to the same point in either — no conversion is needed here.
+ */
+export interface OverlayWedge {
+  kind: 'wedge';
+  /** Centre of the circle the slice belongs to. */
+  x: number;
+  y: number;
+  /** Zero for a pie; the cutout radius for a doughnut. */
+  innerRadius: number;
+  outerRadius: number;
+  startAngle: number;
+  endAngle: number;
+}
+
+/** A shape the overlay can draw for one active Chart.js element. */
+export type OverlayShape = OverlayRect | OverlayWedge;
 
 /**
  * Default visual style for the highlight rect.
@@ -32,7 +63,7 @@ const DEFAULT_HIGHLIGHT_COLOR = 'rgba(255, 140, 0, 0.9)';
 const DEFAULT_FILL_COLOR = 'rgba(255, 165, 0, 0.25)';
 
 /**
- * Manages DOM rectangles drawn on top of a Chart.js canvas to provide
+ * Manages the DOM shapes drawn on top of a Chart.js canvas to provide
  * MAIDR-style highlight feedback for keyboard navigation.
  */
 export class HighlightOverlay {
@@ -65,30 +96,21 @@ export class HighlightOverlay {
   }
 
   /**
-   * Draw one rect per provided geometry. Existing rects are cleared first.
+   * Draw one node per provided geometry. Existing nodes are cleared first.
    */
-  show(rects: readonly OverlayRect[]): void {
+  show(shapes: readonly OverlayShape[]): void {
     this.syncToCanvas();
     this.clear();
 
-    for (const rect of rects) {
-      const node = document.createElement('div');
-      node.setAttribute('data-maidr-chartjs-highlight', '');
-      node.style.position = 'absolute';
-      node.style.left = `${rect.left}px`;
-      node.style.top = `${rect.top}px`;
-      node.style.width = `${Math.max(rect.width, 1)}px`;
-      node.style.height = `${Math.max(rect.height, 1)}px`;
-      node.style.background = this.fillColor;
-      node.style.outline = `2px solid ${this.outlineColor}`;
-      node.style.boxSizing = 'border-box';
-      node.style.pointerEvents = 'none';
-      this.container.appendChild(node);
+    for (const shape of shapes) {
+      this.container.appendChild(
+        shape.kind === 'wedge' ? this.createWedgeNode(shape) : this.createRectNode(shape),
+      );
     }
   }
 
   /**
-   * Remove all highlight rects (e.g., on chart resize before recompute).
+   * Remove all highlight nodes (e.g., on chart resize before recompute).
    */
   clear(): void {
     while (this.container.firstChild) {
@@ -101,6 +123,50 @@ export class HighlightOverlay {
    */
   dispose(): void {
     this.container.remove();
+  }
+
+  /** Builds the `<div>` highlight for a box-shaped element. */
+  private createRectNode(rect: OverlayRect): HTMLDivElement {
+    const node = document.createElement('div');
+    node.setAttribute('data-maidr-chartjs-highlight', '');
+    node.style.position = 'absolute';
+    node.style.left = `${rect.left}px`;
+    node.style.top = `${rect.top}px`;
+    node.style.width = `${Math.max(rect.width, 1)}px`;
+    node.style.height = `${Math.max(rect.height, 1)}px`;
+    node.style.background = this.fillColor;
+    node.style.outline = `2px solid ${this.outlineColor}`;
+    node.style.boxSizing = 'border-box';
+    node.style.pointerEvents = 'none';
+    return node;
+  }
+
+  /**
+   * Builds the SVG highlight for one pie/doughnut slice.
+   *
+   * The svg covers the whole overlay (which already matches the canvas box) so
+   * the wedge path can be written in the same canvas pixel coordinates as
+   * every rect. `stroke` rather than `outline` because the highlight has to
+   * follow the wedge's curved edge, which a CSS outline cannot.
+   */
+  private createWedgeNode(wedge: OverlayWedge): SVGSVGElement {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('data-maidr-chartjs-highlight', '');
+    svg.style.position = 'absolute';
+    svg.style.left = '0';
+    svg.style.top = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', wedgePath(wedge));
+    path.setAttribute('fill', this.fillColor);
+    path.setAttribute('stroke', this.outlineColor);
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+
+    return svg;
   }
 
   /**
@@ -125,10 +191,58 @@ export class HighlightOverlay {
   }
 }
 
+/** A point on a circle, rounded to keep the emitted path readable. */
+function polar(cx: number, cy: number, radius: number, angle: number): { x: number; y: number } {
+  return {
+    x: Math.round((cx + radius * Math.cos(angle)) * 100) / 100,
+    y: Math.round((cy + radius * Math.sin(angle)) * 100) / 100,
+  };
+}
+
 /**
- * Convert a Chart.js element (bar, point, etc.) into an overlay rectangle.
+ * Builds the SVG path of one wedge: the outer arc, then either the inner arc
+ * back (doughnut) or a line to the centre (pie).
+ */
+function wedgePath(wedge: OverlayWedge): string {
+  const { x, y, innerRadius, outerRadius, startAngle } = wedge;
+
+  // An arc whose two endpoints coincide draws nothing at all, so a slice that
+  // fills the entire circle (a one-slice pie) is drawn a hair short of 360°.
+  const sweep = Math.min(wedge.endAngle - startAngle, Math.PI * 2 - 1e-3);
+  const endAngle = startAngle + sweep;
+  const largeArc = sweep > Math.PI ? 1 : 0;
+
+  const outerStart = polar(x, y, outerRadius, startAngle);
+  const outerEnd = polar(x, y, outerRadius, endAngle);
+
+  // Sweep flag 1 follows increasing angle, which is clockwise in the y-down
+  // space; the inner arc runs back the other way, hence flag 0.
+  const commands = [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}`,
+  ];
+
+  if (innerRadius > 0) {
+    const innerEnd = polar(x, y, innerRadius, endAngle);
+    const innerStart = polar(x, y, innerRadius, startAngle);
+    commands.push(
+      `L ${innerEnd.x} ${innerEnd.y}`,
+      `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}`,
+    );
+  } else {
+    commands.push(`L ${x} ${y}`);
+  }
+
+  commands.push('Z');
+  return commands.join(' ');
+}
+
+/**
+ * Convert a Chart.js element (bar, slice, point, etc.) into an overlay shape.
  *
  * Element types expose different geometry properties:
+ * - Arc (pie / doughnut slice): `x`, `y` (circle centre), `innerRadius`,
+ *   `outerRadius`, `startAngle`, `endAngle` — no box of any kind.
  * - Bar: `x`, `y`, `base`, `width`, `height`, `horizontal` (read directly).
  * - Candlestick / OHLC: `x` (center), `width`, `high`/`low` (top/bottom pixel
  *   y), `open`/`close` (body endpoints in pixels).
@@ -137,7 +251,7 @@ export class HighlightOverlay {
  *
  * Returns `null` if the element does not expose enough geometry to render.
  */
-export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect | null {
+export function elementToOverlayShape(element: ChartJsMetaElement): OverlayShape | null {
   // Chart.js element instances carry additional runtime properties beyond
   // the minimal `ChartJsMetaElement` interface. Access them defensively.
   const el = element as ChartJsMetaElement & {
@@ -151,10 +265,34 @@ export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect |
     high?: number;
     low?: number;
     close?: number;
+    innerRadius?: number;
+    outerRadius?: number;
+    startAngle?: number;
+    endAngle?: number;
   };
 
   if (typeof el.x !== 'number' || typeof el.y !== 'number')
     return null;
+
+  // Arc element (pie / doughnut slice). Checked first because an arc reports
+  // no `base`, `width`, or `height` at all, so it would otherwise fall through
+  // to the point branch and draw the same small box at the circle's centre for
+  // every slice.
+  if (
+    typeof el.outerRadius === 'number'
+    && typeof el.startAngle === 'number'
+    && typeof el.endAngle === 'number'
+  ) {
+    return {
+      kind: 'wedge',
+      x: el.x,
+      y: el.y,
+      innerRadius: el.innerRadius ?? 0,
+      outerRadius: el.outerRadius,
+      startAngle: el.startAngle,
+      endAngle: el.endAngle,
+    };
+  }
 
   // Bar-shaped element: has a baseline and a box.
   if (
@@ -167,13 +305,13 @@ export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect |
       const width = Math.abs(el.x - el.base);
       const top = el.y - el.height / 2;
       const height = el.height;
-      return { left, top, width, height };
+      return { kind: 'rect', left, top, width, height };
     }
     const top = Math.min(el.y, el.base);
     const height = Math.abs(el.y - el.base);
     const left = el.x - el.width / 2;
     const width = el.width;
-    return { left, top, width, height };
+    return { kind: 'rect', left, top, width, height };
   }
 
   // Candlestick / OHLC element (chartjs-chart-financial). The element exposes
@@ -189,7 +327,7 @@ export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect |
     const left = el.x - el.width / 2;
     const top = Math.min(el.high, el.low);
     const height = Math.abs(el.low - el.high);
-    return { left, top, width: el.width, height };
+    return { kind: 'rect', left, top, width: el.width, height };
   }
 
   // Matrix element (chartjs-chart-matrix). Rectangular heatmap cell with
@@ -204,6 +342,7 @@ export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect |
     && typeof el.height === 'number'
   ) {
     return {
+      kind: 'rect',
       left: el.x,
       top: el.y,
       width: el.width,
@@ -215,6 +354,7 @@ export function elementToOverlayRect(element: ChartJsMetaElement): OverlayRect |
   const radius = el.options?.radius ?? el.radius ?? 4;
   const size = (radius + 2) * 2;
   return {
+    kind: 'rect',
     left: el.x - size / 2,
     top: el.y - size / 2,
     width: size,

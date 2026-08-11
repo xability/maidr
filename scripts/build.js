@@ -368,7 +368,11 @@ export function createViteConfig(config) {
       emptyOutDir: config.emptyOutDir,
       rollupOptions: { external: config.external, onwarn: onWarn },
     },
-    define: { 'process.env': {} },
+    // `process.env.NODE_ENV` is spelled out alongside `process.env` because
+    // rolldown only substitutes a `define` key that matches the whole member
+    // expression, and it is `production` because these are the bundles that get
+    // published; see the matching comment in vite.config.ts.
+    define: { 'process.env': {}, 'process.env.NODE_ENV': JSON.stringify('production') },
     resolve: { alias: config.aliases },
   };
 }

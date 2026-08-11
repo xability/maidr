@@ -7,7 +7,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
@@ -113,9 +113,13 @@ export class LineTrace extends AbstractTrace {
    * Resolves the z label: honor the user-provided spec label, otherwise fall
    * back to the LineTrace-specific default ("Group") rather than the generic
    * "Level" inherited from `AbstractTrace`.
+   *
+   * Reads the layer rather than `this.z`, so it needs `named` for itself:
+   * the blank-label fallback `AbstractTrace` applies to `this.z` does not
+   * reach a label resolved here.
    */
   private get groupLabel(): string {
-    return this.layer.axes?.z?.label ?? TYPE;
+    return named(this.layer.axes?.z?.label, TYPE);
   }
 
   /**
@@ -346,9 +350,17 @@ export class LineTrace extends AbstractTrace {
       zData = point.z ? { z: { label: zLabel, value: point.z } } : {};
     }
 
+    // An ordinal y travels as a numeric level plus the level's name: `y` has
+    // to stay numeric because it drives sonification, braille and the range,
+    // so the human-readable name rides alongside as `label`. Announce the name
+    // when there is one, and the number otherwise — which is the right reading
+    // for the continuous y that most line charts have.
+    const label = point.label;
+    const crossValue = label === undefined || label === '' ? point.y : label;
+
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
-      cross: { label: this.yAxis, value: this.points[this.row][this.col].y },
+      cross: { label: this.yAxis, value: crossValue },
       ...zData,
     };
   }

@@ -13,6 +13,7 @@
  *
  * - **Bar charts** via {@link bindD3Bar}
  * - **Line charts** (single and multi-line) via {@link bindD3Line}
+ * - **Pie and doughnut charts** via {@link bindD3Pie}
  * - **Scatter plots** via {@link bindD3Scatter}
  * - **Heatmaps** via {@link bindD3Heatmap}
  * - **Box plots** via {@link bindD3Box}
@@ -98,6 +99,7 @@ export { bindD3Candlestick } from './binders/candlestick';
 export { bindD3Heatmap } from './binders/heatmap';
 export { bindD3Histogram } from './binders/histogram';
 export { bindD3Line } from './binders/line';
+export { bindD3Pie } from './binders/pie';
 export { bindD3Scatter } from './binders/scatter';
 export { bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
@@ -117,6 +119,7 @@ export type {
   D3MultiPanelResult,
   D3PanelChartSpec,
   D3PanelLayout,
+  D3PieConfig,
   D3ScatterConfig,
   D3SegmentedConfig,
   D3SmoothConfig,

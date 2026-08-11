@@ -78,6 +78,9 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
+| Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
+
+> **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
 
 ## Code Examples
 
@@ -382,6 +385,39 @@ Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix
   });
 </script>
 ```
+
+### Pie / Doughnut Chart
+
+```html
+<div style="width: 500px; height: 500px">
+  <canvas id="pie-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('pie-chart'), {
+    // 'doughnut' works the same way: it is a pie with a cutout, and the cutout
+    // changes nothing about the data or the navigation.
+    type: 'pie',
+    data: {
+      labels: ['Apples', 'Bananas', 'Cherries', 'Dates', 'Elderberries'],
+      datasets: [{
+        label: 'Units Sold',
+        data: [30, 50, 20, 15, 10],
+        backgroundColor: ['#4682b4', '#d2691e', '#6b8e23', '#8b4789', '#b8860b'],
+      }],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Fruit Sales' },
+        maidr: { axes: { x: 'Fruit', y: 'Units' } },
+      },
+    },
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 24.0%". Slices whose value is `null` or `NaN` are dropped rather than counted as zero, so a gap in the data neither takes a share of the total nor pins the bottom of the range the other slices are pitched against.
 
 ## Multi-Panel Charts (Axis Stacking)
 

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Pie Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.pie([
+          ['Apples', 30],
+          ['Bananas', 50],
+          ['Cherries', 20],
+          ['Dates', 12],
+        ]);
+
+        chart.title('Fruit Sales by Variety');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-pie',
+          title: 'Fruit Sales by Variety',
+          // A pie is bound to no axis, so there is no axis title to extract.
+          // These name what each dimension holds; drop them and the adapter
+          // falls back to "Label" and "Value".
+          axes: { x: 'Fruit', y: 'Units sold' },
+          // The adapter stamps a stable `data-maidr-anychart-pie-slice`
+          // attribute on each rendered wedge, so no manual `selectors` entry
+          // is required for highlighting to work.
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Pie Chart</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to move between
+      slices — a pie is a single row, so up and down are out of bounds. Each
+      slice announces its label, its value, and its share of the whole. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

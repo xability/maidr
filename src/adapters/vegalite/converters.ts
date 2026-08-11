@@ -25,6 +25,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -181,7 +182,14 @@ function coalesceSiblingLineLayers(
   while (i < entries.length) {
     const current = entries[i];
 
-    if (current.layer.type !== TraceType.LINE && current.layer.type !== TraceType.STEP) {
+    // Unstacked areas join the same run: sibling `mark_area()` layers are
+    // independent bands over shared axes, exactly the case this merge exists
+    // for. The stacked variants are deliberately excluded — Vega-Lite stacks
+    // within one mark, never across `alt.layer(...)`, so a run of them would
+    // not be one stack and merging would invent a total that is not drawn.
+    if (current.layer.type !== TraceType.LINE
+      && current.layer.type !== TraceType.STEP
+      && current.layer.type !== TraceType.AREA) {
       out.push(current.layer);
       i += 1;
       continue;
@@ -595,7 +603,10 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
  *   - `rect`                           → HEATMAP
  *   - `tick`                           → SCATTER (individual value marks)
- *   - `line`/`area` with a stepping `interpolate` → STEP
+ *   - `line` with a stepping `interpolate` → STEP
+ *   - `area`                           → AREA / STACKED_AREA / NORMALIZED_AREA
+ *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
+ *     with an `innerRadius`, and reads identically)
  */
 function resolveTraceType(
   mark: string,
@@ -625,8 +636,33 @@ function resolveTraceType(
       return TraceType.BAR;
     }
     case 'line':
-    case 'area':
       return stepDirection ? TraceType.STEP : TraceType.LINE;
+    // An area used to fall through to `line`, which read a stacked chart's
+    // band height as if it were the only magnitude drawn. Vega-Lite stacks an
+    // area by default as soon as a series channel is present — `stack` has to
+    // be turned *off* to get overlapping bands — so the default branch here
+    // is the stacked one, the opposite of `bar` above.
+    case 'area': {
+      // `??` cannot read this pair: Vega-Lite spells "do not stack" as either
+      // `false` or `null`, and a nullish coalesce discards the `null` before
+      // it can be seen, falling through to the other axis and reporting
+      // `undefined` — which reads as "stack by default" and is the opposite
+      // of what the spec asked for.
+      const stack = encoding?.y?.stack !== undefined
+        ? encoding.y.stack
+        : encoding?.x?.stack;
+      if (stack === 'normalize') {
+        return TraceType.NORMALIZED_AREA;
+      }
+      const hasSeries = !!encoding?.color?.field || !!encoding?.fill?.field;
+      if (hasSeries && stack !== false && stack !== null) {
+        return TraceType.STACKED_AREA;
+      }
+      // Unstacked, so the bands are independent and each reads as its own
+      // series. A stepped one keeps its staircase reading: with nothing
+      // accumulating, STEP loses nothing that AREA would preserve.
+      return stepDirection ? TraceType.STEP : TraceType.AREA;
+    }
     case 'point':
     case 'circle':
     case 'square':
@@ -636,6 +672,12 @@ function resolveTraceType(
       return TraceType.HEATMAP;
     case 'boxplot':
       return TraceType.BOX;
+    // `theta` is what turns an arc into a pie: it is the channel the slice
+    // magnitudes ride on. An arc encoded by `radius` alone is a radial plot
+    // with no slices to navigate, so it stays unsupported rather than being
+    // announced as a pie whose values MAIDR would have to invent.
+    case 'arc':
+      return encoding?.theta ? TraceType.PIE : null;
     default:
       return null;
   }
@@ -1001,6 +1043,29 @@ function extractBarData(
       y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
     };
   });
+}
+
+/**
+ * Read one slice per row: the colour channel names it, `theta` measures it.
+ *
+ * Rows stay in dataset order, which for an arc mark IS the drawn order — the
+ * `stack` transform Vega-Lite compiles a `theta` encoding into computes each
+ * slice's start and end angle without reordering the rows it reads. So no
+ * visual-order pass is needed at bind time the way simple bars need one: slice
+ * k is already wedge k.
+ */
+function extractPieData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): PiePoint[] {
+  const labelChannel = encoding.color ?? encoding.fill;
+  const labelField = labelChannel?.field ?? 'category';
+  const thetaField = encoding.theta?.field ?? 'theta';
+
+  return rows.map(row => ({
+    x: String(row[labelField] ?? ''),
+    y: Number(readEncodedValue(row, encoding.theta, thetaField) ?? 0),
+  }));
 }
 
 function extractHistogramData(
@@ -1434,9 +1499,15 @@ function convertLayerSpec(
       }
       break;
     }
-    // A step mark is a line Vega-Lite draws as a staircase: same points,
-    // same one-path-per-series geometry, so the extraction is identical.
+    // A step mark is a line Vega-Lite draws as a staircase, and an area is a
+    // line plus a fill that is drawn rather than encoded. Same points, same
+    // one-path-per-series geometry, so the extraction is identical for all of
+    // them; the stacked area variants differ only in what `AreaTrace`
+    // announces on top of it.
     case TraceType.LINE:
+    case TraceType.AREA:
+    case TraceType.NORMALIZED_AREA:
+    case TraceType.STACKED_AREA:
     case TraceType.STEP: {
       const lineData = extractLineData(rows, encoding);
       data = lineData;
@@ -1451,6 +1522,15 @@ function convertLayerSpec(
     case TraceType.HEATMAP:
       data = extractHeatmapData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      break;
+    case TraceType.PIE:
+      data = extractPieData(rows, encoding);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // An arc has no x or y to name the axes after — the pair built above is
+      // two empty labels. The slice labels come from the colour channel and
+      // the magnitudes from `theta`, so the layer's axes are named after those.
+      axes.x = getAxisConfig(encoding.color ?? encoding.fill);
+      axes.y = getAxisConfig(encoding.theta);
       break;
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);

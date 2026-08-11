@@ -18,6 +18,11 @@ import { Orientation, TraceType } from '@type/grammar';
  * `src/model/abstract.ts` is a full record rather than a partial one.
  */
 const IS_ORIENTED: Record<TraceType, boolean> = {
+  // An area trace is a line with a fill, and it is navigated as one: along
+  // the series, then between series. Which way the band is drawn changes
+  // nothing about that, so — as with LINE, STEP and SMOOTH — there is no
+  // orientation to announce. The stacked variants inherit the same reading.
+  [TraceType.AREA]: false,
   [TraceType.BAR]: true,
   [TraceType.BOX]: true,
   [TraceType.CANDLESTICK]: true,
@@ -29,9 +34,14 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,
   [TraceType.NORMALIZED]: true,
+  [TraceType.NORMALIZED_AREA]: false,
+  // Slices are arranged around a circle, not along an axis: there is no
+  // orientation to declare and none to fall back to.
+  [TraceType.PIE]: false,
   [TraceType.SCATTER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,
+  [TraceType.STACKED_AREA]: false,
   [TraceType.STEP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,

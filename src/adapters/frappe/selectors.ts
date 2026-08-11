@@ -11,6 +11,8 @@
  *   Lines:   <path class="line-graph-path"> + one <circle> per data point, inside
  *            <g class="dataset-units dataset-line dataset-{i}">
  *   Points:  <circle> inside <g class="dataset-units dataset-line dataset-{i}">  (scatter reuses the line group)
+ *   Pie:     <path class="pie-path"> inside <g class="pie-slices">
+ *   Donut:   <path class="donut-path"> inside <g class="donut-slices">
  *
  * For line traces MAIDR highlights one element per data point, so the line
  * selectors target the per-point `<circle>` dots (not the single `<path>`).
@@ -88,4 +90,20 @@ export function lineSelectorForDataset(containerId: string, index: number): stri
 /** Scoped selector for scatter point circles (rendered in the line dataset group). */
 export function scatterSelector(containerId: string): string {
   return `#${containerId} svg.frappe-chart .dataset-units.dataset-line circle`;
+}
+
+/**
+ * Scoped selector for the wedges of a pie or donut chart.
+ *
+ * Frappe draws the two with different components — a pie wedge is a filled
+ * `path.pie-path` in `g.pie-slices`, a donut wedge a stroked `path.donut-path`
+ * in `g.donut-slices` — so the selector follows the chart type. Both are
+ * appended in slice order, which is the order the adapter emits its points in.
+ *
+ * @param containerId - The chart container's id, for scoping.
+ * @param chartType - Which of the two aggregation charts was rendered.
+ * @returns The selector matching one element per slice, in slice order.
+ */
+export function sliceSelector(containerId: string, chartType: 'donut' | 'pie'): string {
+  return `#${containerId} svg.frappe-chart .${chartType}-slices path.${chartType}-path`;
 }

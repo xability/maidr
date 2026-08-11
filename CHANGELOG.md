@@ -1,3 +1,46 @@
+# [4.0.0](https://github.com/xability/maidr/compare/v3.75.1...v4.0.0) (2026-08-10)
+
+
+### Bug Fixes
+
+* **amcharts:** measure a pie wedge instead of believing its reported box ([#775](https://github.com/xability/maidr/issues/775)) ([d1ac71c](https://github.com/xability/maidr/commit/d1ac71c02edc026f6ba0aadddf90e944c9f2c3b5))
+* announce gaps as missing, and stop two adapters mislabelling or dropping highlights ([#772](https://github.com/xability/maidr/issues/772)) ([6851654](https://github.com/xability/maidr/commit/6851654ff231bfdb7ef0da1976cd6bdf1de57433)), closes [#769](https://github.com/xability/maidr/issues/769) [#768](https://github.com/xability/maidr/issues/768)
+* **bar:** keep a gap in bar data out of pitch, braille, and extrema ([#728](https://github.com/xability/maidr/issues/728)) ([3fbd1b9](https://github.com/xability/maidr/commit/3fbd1b9c4e71aae63f23cb56a27bb737573c56ac))
+* **box:** describe every box's range and outliers, not one chart-wide pair ([#752](https://github.com/xability/maidr/issues/752)) ([31bbac3](https://github.com/xability/maidr/commit/31bbac3fcffdd23792e910f70df073e94215f627))
+* **ci:** make the `!` breaking marker actually reach the release ([#779](https://github.com/xability/maidr/issues/779)) ([da87056](https://github.com/xability/maidr/commit/da87056919877aae03407e9c0ae2b220f9ac0164))
+* **description:** round the numbers the chart description reads out ([#757](https://github.com/xability/maidr/issues/757)) ([0742033](https://github.com/xability/maidr/commit/07420334f8fee601d0f414d034e4b9c99538d5fa))
+* **format:** round announced values to two decimals by default ([#727](https://github.com/xability/maidr/issues/727)) ([8b3c428](https://github.com/xability/maidr/commit/8b3c428ed86947b5d9a1aae44df28b805875417a))
+* give blank axis labels a name, and stamp only the wedges a pie fills ([#773](https://github.com/xability/maidr/issues/773)) ([ffaf337](https://github.com/xability/maidr/commit/ffaf33772c73494c133a6631e9222256325cae55))
+* **model:** keep a figure navigable when a subplot has no layers ([#751](https://github.com/xability/maidr/issues/751)) ([f1c1140](https://github.com/xability/maidr/commit/f1c114055e76b9d0f72c91482643e6d978c4f6e3))
+* **model:** tell the navigate callback when the selection ends ([#777](https://github.com/xability/maidr/issues/777)) ([7a505eb](https://github.com/xability/maidr/commit/7a505ebb828c386a2747886d5069991da5fa775b)), closes [#774](https://github.com/xability/maidr/issues/774)
+* **plotly:** read normalized bar values from calcdata ([#724](https://github.com/xability/maidr/issues/724)) ([052a342](https://github.com/xability/maidr/commit/052a3427e4d3c9b8512d39afe8df207cfd029ee5))
+* **plotly:** stop announcing plotly's editor placeholders as axis names ([#719](https://github.com/xability/maidr/issues/719)) ([7a138dc](https://github.com/xability/maidr/commit/7a138dc6b5c496937e3b7127c97fb03a7cd85908))
+* **svg:** treat an unusable selector as matching nothing ([#750](https://github.com/xability/maidr/issues/750)) ([c69b3e2](https://github.com/xability/maidr/commit/c69b3e2d3df26cbfcfe548b8dc755c0867682c08))
+* **violin:** attribute the described extremes to the violin they come from ([#755](https://github.com/xability/maidr/issues/755)) ([a3debfe](https://github.com/xability/maidr/commit/a3debfee698820c0aa9dd5fcbc365fae631b9aad))
+
+
+### Features
+
+* **adapters:** bind a step chart as a step trace, not a line ([#746](https://github.com/xability/maidr/issues/746)) ([e44afd8](https://github.com/xability/maidr/commit/e44afd8c42451aa326265c660e80545ea0948f49))
+* **audio:** play the menu open/close cue for every dialog ([#753](https://github.com/xability/maidr/issues/753)) ([d2b2f1e](https://github.com/xability/maidr/commit/d2b2f1edad98e54e7fcc4d93f812b0fc40af76a4))
+* **pie:** support pie charts across the core and every adapter ([#767](https://github.com/xability/maidr/issues/767)) ([821de63](https://github.com/xability/maidr/commit/821de636cc3cef0510fcdd082371deb350c0863d))
+* **plotly:** support violin traces, and examine an unsupported chart once ([#722](https://github.com/xability/maidr/issues/722)) ([45ec611](https://github.com/xability/maidr/commit/45ec6113ce2365bd4162eb164a29af8f4674fc56))
+* **step:** add a step plot trace type for piecewise-constant data ([#723](https://github.com/xability/maidr/issues/723)) ([e26d40f](https://github.com/xability/maidr/commit/e26d40f2d3f93e254c5afddcb3385df3d32f3ec6))
+* **text:** announce orientation for every plot type that has one ([#747](https://github.com/xability/maidr/issues/747)) ([e85d1f9](https://github.com/xability/maidr/commit/e85d1f9044ce0147fa56fb3a445e19ee54f2398b))
+
+
+### Performance Improvements
+
+* **build:** ship React's production build ([#762](https://github.com/xability/maidr/issues/762)) ([3c3dd0d](https://github.com/xability/maidr/commit/3c3dd0dc009876f88a500a434fbe6ab4e80db78d)), closes [#759](https://github.com/xability/maidr/issues/759)
+* **build:** stop publishing sourcemaps to npm ([#716](https://github.com/xability/maidr/issues/716)) ([55ac889](https://github.com/xability/maidr/commit/55ac88935b2e0f0bbe21b60606b41a8cbe416e1e))
+
+
+### BREAKING CHANGES
+
+* **model:** `NavigateCallback` receives `null` when no data point is active. A callback that dereferences its argument without checking will throw on leaving a subplot. Consumers are the in-repo Chart.js plugin and amCharts binder, both updated here, plus anyone who set `onNavigate` when constructing MAIDR data programmatically.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
 ## [3.75.1](https://github.com/xability/maidr/compare/v3.75.0...v3.75.1) (2026-08-03)
 
 

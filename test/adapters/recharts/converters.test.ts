@@ -1,7 +1,7 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, HistogramPoint, LinePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 describe('convertRechartsToMaidr', () => {
   describe('bar chart', () => {
@@ -366,6 +366,64 @@ describe('convertRechartsToMaidr', () => {
       const data = layer.data as ScatterPoint[];
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({ x: 1, y: 10 });
+    });
+  });
+
+  describe('pie chart', () => {
+    const pieConfig: RechartsAdapterConfig = {
+      id: 'fruit',
+      title: 'Fruit Sales',
+      data: [
+        { fruit: 'Apples', units: 30 },
+        { fruit: 'Bananas', units: 50 },
+        { fruit: 'Cherries', units: 20 },
+      ],
+      chartType: 'pie',
+      xKey: 'fruit',
+      yKeys: ['units'],
+      xLabel: 'Fruit',
+      yLabel: 'Units',
+    };
+
+    it('converts pie data to a flat PiePoint[]', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.PIE);
+      expect(layer.axes?.x).toEqual({ label: 'Fruit' });
+      expect(layer.axes?.y).toEqual({ label: 'Units' });
+
+      // Flat, never nested: PieTrace wraps the slices into its single row itself.
+      const data = layer.data as PiePoint[];
+      expect(data).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Bananas', y: 50 },
+        { x: 'Cherries', y: 20 },
+      ]);
+    });
+
+    it('targets the sector paths, in slice order', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-fruit .recharts-pie-sector .recharts-sector',
+      );
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...pieConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      expect(layer.orientation).toBeUndefined();
+    });
+
+    it('carries no percentage on the wire (the model derives it)', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      for (const point of layer.data as PiePoint[]) {
+        expect(point).not.toHaveProperty('percentage');
+      }
     });
   });
 

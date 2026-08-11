@@ -1,5 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer } from '@type/grammar';
+import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { LineTrace } from '@model/line';
 import { TraceType } from '@type/grammar';
@@ -29,6 +30,19 @@ function createLineLayer(data: MaidrLayer['data']): MaidrLayer {
  */
 function getIntersectionTargets(targets: ExtremaTarget[]): ExtremaTarget[] {
   return targets.filter(target => target.type === 'intersection');
+}
+
+/**
+ * Read the trace's current state, asserting it is a populated one.
+ * @param trace The trace to read
+ * @returns The non-empty trace state
+ */
+function nonEmptyState(trace: LineTrace): NonEmptyTraceState {
+  const state = trace.state;
+  if (state.empty) {
+    throw new Error('Expected a non-empty trace state');
+  }
+  return state;
 }
 
 describe('LineTrace intersection classification', () => {
@@ -338,5 +352,78 @@ describe('LineTrace intersections with categorical x values', () => {
     expect(intersections).toHaveLength(1);
     expect(intersections[0].intersectionKind).toBe('slope');
     expect(intersections[0].value).toBe(5);
+  });
+});
+
+describe('lineTrace ordinal levels', () => {
+  /**
+   * A hypnogram drawn as a line rather than as steps: the y values are level
+   * codes, and the names of those levels ride alongside as `label`.
+   */
+  const HYPNOGRAM: MaidrLayer['data'] = [[
+    { x: 0, y: 3, label: 'Awake' },
+    { x: 1, y: 1, label: 'N2' },
+    { x: 2, y: 2, label: 'REM' },
+  ]];
+
+  test('announces the level name instead of the numeric level', () => {
+    const trace = new LineTrace(createLineLayer(HYPNOGRAM));
+    trace.moveOnce('FORWARD');
+
+    const { text } = nonEmptyState(trace);
+    expect(text.cross).toEqual({ label: 'Y', value: 'Awake' });
+    expect(text.main).toEqual({ label: 'X', value: 0 });
+  });
+
+  test('falls back to the numeric value when the data names no level', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 3 },
+      { x: 1, y: 1 },
+    ]]));
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.cross).toEqual({ label: 'Y', value: 3 });
+  });
+
+  test('treats an empty level name as absent rather than announcing nothing', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 3, label: '' },
+      { x: 1, y: 1, label: '' },
+    ]]));
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.cross).toEqual({ label: 'Y', value: 3 });
+  });
+
+  test('sonifies and brailles the numeric level, not the name', () => {
+    const trace = new LineTrace(createLineLayer(HYPNOGRAM));
+    trace.moveOnce('FORWARD');
+
+    const { audio, braille } = nonEmptyState(trace);
+    expect(audio.freq).toEqual({ min: 1, max: 3, raw: 3 });
+    expect(braille).toMatchObject({
+      empty: false,
+      values: [[3, 1, 2]],
+      min: [1],
+      max: [3],
+    });
+  });
+
+  test('keeps the series name alongside the level name on a multi-series line', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 3, label: 'Awake', z: 'Night one' },
+        { x: 1, y: 1, label: 'N2', z: 'Night one' },
+      ],
+      [
+        { x: 0, y: 2, label: 'REM', z: 'Night two' },
+        { x: 1, y: 1, label: 'N2', z: 'Night two' },
+      ],
+    ]));
+    trace.moveOnce('FORWARD');
+
+    const { text } = nonEmptyState(trace);
+    expect(text.cross).toEqual({ label: 'Y', value: 'Awake' });
+    expect(text.z).toEqual({ label: 'Group', value: 'Night one' });
   });
 });

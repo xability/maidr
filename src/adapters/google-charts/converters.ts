@@ -9,6 +9,7 @@
  * MAIDR uses typed data structures per chart type:
  *   BarPoint[]          = [{ x, y }, ...]
  *   LinePoint[][]       = [[{ x, y, fill? }, ...], ...]
+ *   PiePoint[]          = [{ x, y }, ...]  (flat: one entry per slice)
  *   ScatterPoint[]      = [{ x, y }, ...]
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
  *   CandlestickPoint[]  = [{ value, open, high, low, close, ... }, ...]
@@ -23,6 +24,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
@@ -50,6 +52,18 @@ const POSITION_TOLERANCE = 2;
 const CANDLESTICK_GRID_MAX_WIDTH = 1;
 const CANDLESTICK_WICK_MAX_WIDTH = 3;
 const CANDLESTICK_BODY_MIN_WIDTH = 10;
+
+/**
+ * Matches the elliptical-arc command in an SVG path's `d` attribute.
+ *
+ * Google Charts gives its pie slices no class or id, so the wedges have to be
+ * told apart from the other paths in the SVG by their geometry. An arc
+ * command is the one thing every wedge has and no legend swatch, axis line,
+ * or gridline does; `A`/`a` cannot appear anywhere else in a `d` attribute,
+ * whose only other letters are the remaining commands and the `e` of an
+ * exponent.
+ */
+const SVG_ARC_COMMAND = /a/i;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -443,6 +457,10 @@ function buildLayer(
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
       return buildLineLayer(chart, dt, container);
+    case 'PieChart':
+      // No `chart`: unlike the axis-based charts, a PieChart has no
+      // `getChartLayoutInterface()` to ask where each slice was drawn.
+      return buildPieLayer(dt, container);
     case 'ScatterChart':
       return buildScatterLayer(chart, dt, container);
     case 'StackedColumnChart':
@@ -459,7 +477,8 @@ function buildLayer(
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
         + 'Supported types: BarChart, CandlestickChart, ColumnChart, DodgedBarChart, '
-        + 'DodgedColumnChart, LineChart, ScatterChart, StackedBarChart, StackedColumnChart.',
+        + 'DodgedColumnChart, LineChart, PieChart, ScatterChart, StackedBarChart, '
+        + 'StackedColumnChart.',
       );
   }
 }
@@ -494,15 +513,7 @@ function buildBarLayer(
 ): MaidrLayer {
   const data: BarPoint[] = [];
   const rows = dt.getNumberOfRows();
-
-  // Find first non-role data column (defensive: don't assume column 1 is data)
-  let dataCol = 1;
-  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
-    if (!isRoleColumn(dt, c)) {
-      dataCol = c;
-      break;
-    }
-  }
+  const dataCol = firstDataColumn(dt);
 
   for (let r = 0; r < rows; r++) {
     const label = formatCellValue(dt, r, 0);
@@ -666,6 +677,103 @@ function buildScatterLayer(
 }
 
 // ---------------------------------------------------------------------------
+// Pie / doughnut
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a pie layer from a Google Charts PieChart.
+ *
+ * A doughnut is the same chart class drawn with a `pieHole` option, so it
+ * needs no separate branch. Column 0 supplies the slice labels and the first
+ * data column their magnitudes; the share of the whole is NOT emitted — the
+ * model derives it from the values, so there is exactly one source of truth.
+ *
+ * A PieChart is not axis-based, so `axes.x` / `axes.y` here name what the
+ * slice labels mean and what their values measure rather than any drawn axis.
+ */
+function buildPieLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const dataCol = firstDataColumn(dt);
+
+  const data: PiePoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    data.push({
+      x: formatCellValue(dt, r, 0),
+      y: numericValue(dt, r, dataCol),
+    });
+  }
+
+  const selector = markPieSliceElements(container, rows);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.PIE,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(dataCol) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Marks the SVG wedge paths of a pie chart and returns a selector for them.
+ *
+ * Google Charts renders each slice as one `<path>`, in DataTable row order,
+ * with no class or id to select on — so the wedges are picked out by the arc
+ * command in their `d` attribute (see {@link SVG_ARC_COMMAND}), which no
+ * legend swatch or axis line has.
+ *
+ * When the wedge count does not match the row count the mapping between data
+ * and DOM is unknown, and the marks are left off entirely: a 3-D pie draws
+ * several paths per slice, and `sliceVisibilityThreshold` folds tiny slices
+ * into a single "Other" wedge. Highlighting the wrong slice would tell a
+ * sighted collaborator one thing while the audio and text say another, so no
+ * highlight is the safer answer.
+ *
+ * @param container - The DOM container element
+ * @param sliceCount - Number of data rows (one per slice)
+ * @returns CSS selector for the marked wedges, or undefined when they could
+ *          not be identified with confidence
+ */
+function markPieSliceElements(
+  container: HTMLElement,
+  sliceCount: number,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  const existingMarked = svg.querySelectorAll('path[data-maidr-slice]');
+  existingMarked.forEach(path => path.removeAttribute('data-maidr-slice'));
+
+  const wedges = Array.from(svg.querySelectorAll('path'))
+    .filter(path => SVG_ARC_COMMAND.test(path.getAttribute('d') ?? ''));
+  if (wedges.length === 0) {
+    return undefined;
+  }
+
+  if (wedges.length !== sliceCount) {
+    console.warn(
+      `[MAIDR] Pie slice count mismatch: expected ${sliceCount}, found ${wedges.length}. `
+      + 'Visual highlighting is disabled for this chart. 3-D pies (is3D) draw several '
+      + 'paths per slice, and sliceVisibilityThreshold merges small slices into one.',
+    );
+    return undefined;
+  }
+
+  wedges.forEach((wedge, index) => wedge.setAttribute('data-maidr-slice', `${index}`));
+
+  return `#${container.id} svg path[data-maidr-slice]`;
+}
+
+// ---------------------------------------------------------------------------
 // Candlestick
 // ---------------------------------------------------------------------------
 
@@ -779,6 +887,23 @@ function isRoleColumn(dt: GoogleDataTable, c: number): boolean {
     return role !== '' && role !== 'data';
   }
   return false;
+}
+
+/**
+ * Returns the index of the first non-role data column.
+ *
+ * Defensive: a DataTable may carry a role column (tooltip, style, …) directly
+ * after the domain column, so column 1 is not necessarily data. Falls back to
+ * column 1 when every column past the domain is a role column, which leaves
+ * the value lookup to fail loudly rather than silently reading a tooltip.
+ */
+function firstDataColumn(dt: GoogleDataTable): number {
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      return c;
+    }
+  }
+  return 1;
 }
 
 /**

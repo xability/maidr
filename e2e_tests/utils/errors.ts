@@ -136,6 +136,22 @@ export class LinePlotError extends Error {
 }
 
 /**
+ * Error thrown when Area plot related operations fail
+ */
+export class AreaPlotError extends Error {
+  /**
+   * Creates a new AreaPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'AreaPlotError';
+  }
+}
+
+/**
  * Error thrown when Step plot related operations fail
  */
 export class StepPlotError extends Error {
@@ -276,6 +292,22 @@ export class ViolinPlotError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = 'ViolinPlotError';
+  }
+}
+
+/**
+ * Error thrown when Pie plot related operations fail
+ */
+export class PiePlotError extends Error {
+  /**
+   * Creates a new PiePlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'PiePlotError';
   }
 }
 

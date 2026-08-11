@@ -18,6 +18,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
 } from '@type/grammar';
 import type { FrappeChart, FrappeChartType, FrappeData, FrappePanel } from './types';
@@ -29,6 +30,7 @@ import {
   lineSelectorForDataset,
   nextId,
   scatterSelector,
+  sliceSelector,
 } from './selectors';
 
 // ---------------------------------------------------------------------------
@@ -212,6 +214,11 @@ interface BuildSubplotOptions {
   /** Axis labels for the panel's layers. */
   axes?: { x?: string; y?: string };
   /**
+   * The chart's `maxSlices` setting, read from the instance. Pie / donut only
+   * — see {@link buildPieLayer}.
+   */
+  maxSlices?: number;
+  /**
    * Panel display name. MAIDR has no subplot-level title field — the FIRST
    * layer's `title` is the panel's display name in subplot summaries, so this
    * is stamped onto `layers[0]`.
@@ -243,7 +250,10 @@ function buildSubplot(
   // Assign a stable container id (used for scoped CSS selectors).
   ensureContainerId(container);
 
-  const layers = buildLayers(data, container.id, options);
+  const layers = buildLayers(data, container.id, {
+    ...options,
+    maxSlices: chart.config?.maxSlices,
+  });
   if (options.panelTitle && layers.length > 0) {
     layers[0] = { ...layers[0], title: options.panelTitle };
   }
@@ -300,7 +310,7 @@ function normalizePanelGrid(
 function buildLayers(
   data: FrappeData,
   containerId: string,
-  options: FrappeChartAdapterOptions,
+  options: BuildSubplotOptions,
 ): MaidrLayer[] {
   switch (options.chartType) {
     case 'bar':
@@ -311,10 +321,13 @@ function buildLayers(
       return [buildScatterLayer(data, containerId, options)];
     case 'axis-mixed':
       return buildMixedLayers(data, containerId, options);
+    case 'pie':
+    case 'donut':
+      return [buildPieLayer(data, containerId, options)];
     default:
       throw new Error(
         `Unsupported Frappe chart type: ${options.chartType as string}. `
-        + 'Supported types: bar, line, scatter, axis-mixed.',
+        + 'Supported types: bar, line, scatter, axis-mixed, pie, donut.',
       );
   }
 }
@@ -455,17 +468,108 @@ function buildMixedLayers(
   });
 }
 
+/**
+ * Frappe's own `maxSlices` default: everything past the 19th largest slice is
+ * collapsed into one "Rest" wedge. Assumed when the adapter is handed a plain
+ * `{ data }` object with no live config to read.
+ */
+const DEFAULT_MAX_SLICES = 20;
+
+/** The label Frappe gives the collapsed tail slice. */
+const REST_SLICE_LABEL = 'Rest';
+
+/**
+ * What a pie's two dimensions are called when the caller names neither. A pie
+ * has no axes to take labels from, so these name what each dimension holds
+ * rather than leaving the slices unlabelled.
+ */
+const PIE_AXIS_FALLBACKS = { x: 'Label', y: 'Value' };
+
+/**
+ * Builds the layer for a pie or donut chart.
+ *
+ * Frappe aggregates before it draws (`AggregationChart.calc()`, v1.6.2): it
+ * sums every dataset at each label, drops any label whose total is not a
+ * number `>= 0`, and — only when there are more labels than `maxSlices` —
+ * sorts the totals descending and collapses the tail into a single "Rest"
+ * slice. The wedges are appended in exactly that order, so the conversion has
+ * to reproduce it: slice k must be wedge k or every highlight past the first
+ * reordered label lands on the wrong wedge.
+ *
+ * The percentage each slice represents is deliberately not emitted — MAIDR's
+ * pie trace derives it from the values, so there is one source of truth.
+ */
+function buildPieLayer(
+  data: FrappeData,
+  containerId: string,
+  options: BuildSubplotOptions,
+): MaidrLayer {
+  const chartType = options.chartType === 'donut' ? 'donut' : 'pie';
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.PIE,
+    selectors: sliceSelector(containerId, chartType),
+    axes: buildAxes(options, PIE_AXIS_FALLBACKS),
+    data: aggregateSlices(data, options.maxSlices ?? DEFAULT_MAX_SLICES),
+  };
+}
+
+/**
+ * Sums the datasets per label and collapses the tail exactly as Frappe does,
+ * yielding one point per rendered wedge, in wedge order.
+ */
+function aggregateSlices(data: FrappeData, maxSlices: number): PiePoint[] {
+  const totals: PiePoint[] = data.labels
+    .map((label, i) => ({
+      x: label,
+      // Frappe rounds each total to four decimals before drawing it; matching
+      // that keeps the announced value identical to the chart's own tooltip
+      // instead of the float noise a sum of several datasets can leave.
+      y: round4(data.datasets.reduce((sum, dataset) => sum + dataset.values[i], 0)),
+    }))
+    // A label whose datasets do not sum to a number `>= 0` gets no wedge — a
+    // negative total is meaningless in a pie, and a missing value sums to NaN,
+    // which fails the same comparison. Dropping both here is what keeps the
+    // points index-aligned with the wedges.
+    .filter(point => point.y >= 0);
+
+  if (totals.length <= maxSlices) {
+    return totals;
+  }
+
+  const sorted = [...totals].sort((a, b) => b.y - a.y);
+  const rest = sorted
+    .slice(maxSlices - 1)
+    .reduce((sum, point) => sum + point.y, 0);
+  return [...sorted.slice(0, maxSlices - 1), { x: REST_SLICE_LABEL, y: round4(rest) }];
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildAxes(options: FrappeChartAdapterOptions): { x?: AxisConfig; y?: AxisConfig } {
+function round4(value: number): number {
+  return Math.round(value * 1e4) / 1e4;
+}
+
+/**
+ * Builds the layer's axis labels. `fallbacks` name the two dimensions of a
+ * chart that has no axes to take them from (a pie), where an unlabelled layer
+ * would leave the reader with nothing to call the slices or their values.
+ */
+function buildAxes(
+  options: FrappeChartAdapterOptions,
+  fallbacks?: { x: string; y: string },
+): { x?: AxisConfig; y?: AxisConfig } {
   const axes: { x?: AxisConfig; y?: AxisConfig } = {};
-  if (options.axes?.x) {
-    axes.x = { label: options.axes.x };
+  const x = options.axes?.x ?? fallbacks?.x;
+  const y = options.axes?.y ?? fallbacks?.y;
+  if (x) {
+    axes.x = { label: x };
   }
-  if (options.axes?.y) {
-    axes.y = { label: options.axes.y };
+  if (y) {
+    axes.y = { label: y };
   }
   return axes;
 }

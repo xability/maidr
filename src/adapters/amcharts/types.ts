@@ -73,12 +73,17 @@ export interface AmEntity {
 }
 
 /**
- * Minimal interface for an amCharts 5 XY chart.
+ * Minimal interface for a chart the adapter can convert: an `XYChart` (or an
+ * am5stock `StockPanel`, which extends it) or an am5percent `PieChart`.
+ *
+ * Both expose their data through a series list. Only an XY chart is bound to
+ * axes and owns a plot area, so `xAxes` / `yAxes` / `plotContainer` are
+ * optional — a pie has none of the three, and every read of them is guarded.
  */
-export interface AmXYChart extends AmEntity {
+export interface AmChart extends AmEntity {
   series: AmListLike<AmXYSeries>;
-  xAxes: AmListLike<AmAxis>;
-  yAxes: AmListLike<AmAxis>;
+  xAxes?: AmListLike<AmAxis>;
+  yAxes?: AmListLike<AmAxis>;
   /** The masked plot area container; its bounds clip the visible columns. */
   plotContainer?: {
     toGlobal?: (point: AmPoint) => AmPoint;
@@ -89,8 +94,20 @@ export interface AmXYChart extends AmEntity {
 }
 
 /**
- * Minimal interface for an amCharts 5 XY series
- * (ColumnSeries, LineSeries, etc.).
+ * The name this chart interface has always carried in the adapter's public
+ * API, kept as an alias so existing imports keep working now that a pie chart
+ * satisfies the same surface.
+ */
+export type AmXYChart = AmChart;
+
+/**
+ * Minimal interface for an amCharts 5 series (ColumnSeries, LineSeries,
+ * PieSeries, etc.).
+ *
+ * The per-kind collections are optional because no series type has them all:
+ * `columns` belongs to a column series, `bullets` / `strokes` to a line one,
+ * and a pie series has neither — its wedges are reached through each data
+ * item's `slice` instead.
  */
 export interface AmXYSeries extends AmEntity {
   dataItems: AmDataItem[];
@@ -141,8 +158,17 @@ export interface AmSprite {
   width?: () => number;
   height?: () => number;
   toGlobal?: (point: AmPoint) => AmPoint;
-  /** Global bounding box in CSS px; the reliable way to get a sprite's rect. */
+  /**
+   * Global bounding box in CSS px.
+   *
+   * Reliable for a sprite drawn from primitives. A `Slice` is not one: it
+   * paints through a draw callback, so nothing feeds the bounds accumulator
+   * and it reports a degenerate box at its own centre. Read a wedge's extent
+   * from its settings instead — see `wedgeBounds`.
+   */
   globalBounds?: () => AmBounds;
+  /** Settings accessor; a `Slice` carries radius / startAngle / arc here. */
+  get?: (key: string) => unknown;
 }
 
 // ---------------------------------------------------------------------------

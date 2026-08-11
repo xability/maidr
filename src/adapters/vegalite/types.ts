@@ -98,9 +98,10 @@ export interface VegaLiteSpec {
    * The mark, as a shorthand string or a mark def. `interpolate` is how
    * Vega-Lite joins consecutive points: the `step`, `step-before` and
    * `step-after` values draw a piecewise-constant staircase, the rest
-   * interpolate.
+   * interpolate. `innerRadius` is what turns an `arc` pie into a doughnut —
+   * purely visual, so the two convert identically.
    */
-  mark?: string | { type: string; interpolate?: string };
+  mark?: string | { type: string; interpolate?: string; innerRadius?: number };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];
   hconcat?: VegaLiteSpec[];
@@ -133,6 +134,12 @@ export interface VegaLiteEncoding {
   xOffset?: VegaLiteChannelDef;
   /** Vertical counterpart of `xOffset`. */
   yOffset?: VegaLiteChannelDef;
+  /**
+   * Angular extent of an `arc` mark — the channel that makes one a pie (or,
+   * with `mark.innerRadius`, a doughnut). It carries the slice magnitudes;
+   * the slice labels come from `color`/`fill`, since an arc has no x or y.
+   */
+  theta?: VegaLiteChannelDef;
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
   row?: VegaLiteChannelDef;

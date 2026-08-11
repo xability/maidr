@@ -96,12 +96,17 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Step (single & multi-series) | `StepLineSeries` | step-line series class |
 | Histogram | `ColumnSeries` | value X axis + `openValueXField` bin edges |
 | Heatmap | `ColumnSeries` | category X **and** category Y axes + `value` field |
+| Pie / Doughnut | `am5percent.PieSeries` | series class (requires `percent.js`) |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
+
+A `PieSeries` lives in amCharts' separate `percent.js` module and is bound to no axis, so `axes.x` and `axes.y` default to `Label` and `Value`; the `axisLabels` option overrides both. A doughnut is a `PieChart` with an `innerRadius` and reads identically. Slices with no category or no numeric value are skipped rather than counted as zero.
 
 > Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
 
 ## Multi-Panel Charts
+
+Every `PieChart` in the root's container is a subplot too, on the same terms as the XYCharts below — a root holding a pie and a doughnut is one MAIDR figure with two panels.
 
 When one amCharts `Root` contains **multiple XYCharts** — amCharts' native multi-panel pattern (`root.container.set("layout", root.verticalLayout)` plus several `XYChart` children, or a `horizontalLayout`/`GridLayout`) — both `bindAmCharts` and `fromAmCharts` convert **each chart into its own MAIDR subplot**. The same applies to **am5stock `StockChart` panels** (`StockPanel` extends `XYChart`), which the binder finds by walking the root's container tree; scrollbar preview charts (`XYChartScrollbar`) are excluded.
 
@@ -209,6 +214,28 @@ var series = chart.series.push(am5xy.ColumnSeries.new(root, {
   categoryXField: "weekday", categoryYField: "hour", valueField: "value",
 }));
 ```
+
+### Pie / Doughnut
+
+A `PieChart` is not an `XYChart`, so it needs `percent.js` alongside `xy.js` and takes no axes. Give the binder `axisLabels` to name the two dimensions; without them the layer reads "Label is Apples, Value is 30". A runnable page is at [`examples/amcharts-pie.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-pie.html).
+
+```js
+var chart = root.container.children.push(am5percent.PieChart.new(root, {
+  layout: root.verticalLayout,
+  // innerRadius: am5.percent(50)  // makes it a doughnut; nothing else changes
+}));
+var series = chart.series.push(am5percent.PieSeries.new(root, {
+  name: "Units sold", valueField: "units", categoryField: "fruit",
+}));
+series.data.setAll([
+  { fruit: "Apples", units: 30 }, { fruit: "Bananas", units: 50 },
+  { fruit: "Cherries", units: 20 }, { fruit: "Dates", units: 15 },
+]);
+
+maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Fruit", y: "Units sold" } });
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units sold is 30, Percentage is 26.1%".
 
 ## Keyboard Controls
 

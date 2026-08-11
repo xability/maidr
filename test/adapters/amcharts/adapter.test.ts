@@ -1,5 +1,5 @@
-import type { BarPoint, MaidrLayer } from '@type/grammar';
-import { findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
+import type { BarPoint, MaidrLayer, PiePoint } from '@type/grammar';
+import { findCharts, findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { TraceType } from '@type/grammar';
 import {
   fakeBarSeries,
@@ -7,6 +7,8 @@ import {
   fakeContainer,
   fakeContainerEl,
   fakeLineSeries,
+  fakePieChart,
+  fakePieSeries,
   fakeRoot,
   fakeStepSeries,
 } from './helpers';
@@ -117,7 +119,7 @@ describe('fromAmCharts (single chart)', () => {
   });
 
   it('throws when the root contains no chart', () => {
-    expect(() => fromAmCharts(fakeRoot([]))).toThrow(/no XYChart found/);
+    expect(() => fromAmCharts(fakeRoot([]))).toThrow(/no XYChart or PieChart found/);
   });
 
   it('binds a StepLineSeries as a step layer, not a line', () => {
@@ -169,6 +171,94 @@ describe('fromAmCharts (single chart)', () => {
     expect(result.title).toBe('Tips by Day');
     expect(result.subplots).toHaveLength(1);
     expect(result.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+  });
+});
+
+describe('fromAmCharts (pie chart)', () => {
+  const PIE_DATA = [
+    { category: 'Apples', value: 30 },
+    { category: 'Bananas', value: 50 },
+    { category: 'Cherries', value: 20 },
+  ];
+
+  it('finds a PieChart, which has a series list but no axes', () => {
+    const pie = fakePieChart({ series: [fakePieSeries('Fruit', PIE_DATA)] });
+    const root = fakeRoot([pie]);
+
+    expect(findCharts(root)).toEqual([pie]);
+    // The narrower query still answers only for XY charts.
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('converts a pie series into a flat pie layer', () => {
+    const pie = fakePieChart({
+      series: [fakePieSeries('Fruit', PIE_DATA)],
+      title: 'Fruit sales',
+    });
+
+    const result = fromAmCharts(fakeRoot([pie], 'pie-chart'));
+
+    expect(result.id).toBe('amcharts-pie-chart');
+    expect(result.title).toBe('Fruit sales');
+
+    const layer = result.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.title).toBe('Fruit');
+    // A pie is bound to no axis, so the dimensions are named for what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Label' }, y: { label: 'Value' } });
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('skips slices with no value so slice k stays the wedge k it names', () => {
+    const pie = fakePieChart({
+      series: [fakePieSeries('Fruit', [
+        { category: 'Apples', value: 30 },
+        { category: 'Bananas', value: null },
+        { category: 'Cherries', value: 20 },
+      ])],
+    });
+
+    const layer = fromAmCharts(fakeRoot([pie])).subplots[0][0].layers[0];
+
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('honors axis-label overrides on a pie layer', () => {
+    const pie = fakePieChart({ series: [fakePieSeries('Fruit', PIE_DATA)] });
+
+    const result = fromAmCharts(fakeRoot([pie]), {
+      axisLabels: { x: 'Fruit', y: 'Units' },
+    });
+
+    expect(result.subplots[0][0].layers[0].axes)
+      .toEqual({ x: { label: 'Fruit' }, y: { label: 'Units' } });
+  });
+
+  it('emits no selectors: amCharts renders wedges to canvas, not to SVG', () => {
+    const pie = fakePieChart({ series: [fakePieSeries('Fruit', PIE_DATA)] });
+
+    const layer = fromAmCharts(fakeRoot([pie])).subplots[0][0].layers[0];
+
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('pairs a pie chart with an XY chart as two panels of one figure', () => {
+    const bar = fakeChart({ series: [fakeBarSeries('Tips', BAR_DATA)], title: 'Tips' });
+    const pie = fakePieChart({ series: [fakePieSeries('Fruit', PIE_DATA)], title: 'Fruit' });
+
+    const result = fromAmCharts(fakeRoot([bar, pie]));
+
+    // Neither chart reports bounds, so the grid falls back to one row.
+    expect(result.subplots).toHaveLength(1);
+    expect(result.subplots[0].map(subplot => subplot.layers[0].type))
+      .toEqual([TraceType.BAR, TraceType.PIE]);
   });
 });
 

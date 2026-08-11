@@ -33,7 +33,7 @@ and encourages a multi-modal exploration on visualization.
 
 To use maidr, follow these steps:
 
-1. **Import your plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT, Anthropic Claude, Google Gemini, or local models running on your own machine via [Ollama](https://ollama.com) (no API key required, suitable for sensitive data). The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, step plot, histogram, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
+1. **Import your plot**: maidr is designed to work seamlessly with scalable vector graphics (SVG) objects for visual highlighting. However, maidr is inherently visual-agnostic, and it also supports other raster image formats such as PNG and JPG without the visual highlight feature. Regardless of the image format, maidr provides support for all non-visual modalities, including Braille, text, and sonification (BTS). Additionally, it offers interactive and artificial intelligence (AI) plot descriptions powered by OpenAI GPT, Anthropic Claude, Google Gemini, or local models running on your own machine via [Ollama](https://ollama.com) (no API key required, suitable for sensitive data). The supported plot types include bar plot, boxplot, heatmap, scatter plot, line plot, step plot, histogram, pie chart, segmented bar plots (e.g., stacked bar plot, side-by-side dodged plot, and normalized stacked bar plot).
 
 2. **Create an HTML file**: Include the main script file `maidr.js`. No stylesheet link is needed — maidr styles its own interface at runtime, and fetches the stylesheet for mathematical notation on demand when it is actually required. Add the SVG of your plot to the main HTML body, and add an ID attribute of your choice to the SVG. Note that this can be automated with R. Your HTML file should now have the following structure:
 
@@ -53,11 +53,21 @@ To use maidr, follow these steps:
    </html>
    ```
 
+   maidr is also served by [cdnjs](https://cdnjs.com/libraries/maidr), which matters when a page cannot reach jsDelivr: sandboxed embedding contexts allow a fixed set of CDN hosts, and a page whose `script-src` names `cdnjs.cloudflare.com` cannot load maidr from jsDelivr however well jsDelivr works everywhere else.
+
+   ```html
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/maidr/3.75.1/maidr.min.js"></script>
+   ```
+
+   That URL names a version, because cdnjs serves no floating alias: it stays on 3.75.1 until someone changes it, and [the library page](https://cdnjs.com/libraries/maidr) lists the current release.
+
+   `maidr.js` is the only script mirrored on cdnjs, which decides how much of a guide below cdnjs can serve. The [Plotly](docs/plotly.md) guide needs nothing else from maidr — Plotly charts are detected without help — so swapping in the URL above covers its whole maidr side. Every other guide also loads a per-chart-library adapter bundle (`d3.js`, `anychart.mjs`, `chartjs.js`, `highcharts.js` and so on) to bind the chart, and those are not mirrored, so they load from jsDelivr. Where the charting library itself comes from is a third question, which each guide answers for itself.
+
 3. **Add your data**: Define the maidr JSON schema for your plot. See the [Data Schema](docs/SCHEMA.md) documentation for the full schema structure, object properties, and data formats for each plot type.
 
 ## Data Schema
 
-The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, step plots, histograms, and segmented bar plots.
+The maidr JSON schema defines how plot data is structured for each supported plot type, including bar plots, boxplots, heatmaps, scatter plots, line plots, step plots, histograms, pie charts, and segmented bar plots.
 For the full schema structure, object properties, and data formats, see the [Data Schema documentation](docs/SCHEMA.md).
 
 ## React Integration

@@ -69,6 +69,7 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Heatmap | `type: 'heatmap'` | [Heatmap](examples.html) |
 | Histogram | `type: 'histogram'` | [Histogram](examples.html) |
 | Candlestick | `type: 'candlestick'` | [Candlestick](examples.html) |
+| Pie | `type: 'pie'` | [Pie chart](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
@@ -83,6 +84,20 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   unchanged, and `hvh` becomes `mid`. `vhv` binds as a step but names no
   convention: its flat segments sit at the mean of the two levels rather than
   at either one, which none of MAIDR's three conventions describes.
+
+- A pie trace is bound to no axes — Plotly positions it by its own `domain`
+  instead — so each pie becomes its own MAIDR subplot rather than joining
+  whichever cartesian panel happens to use the first axis pair. `axes.x` and
+  `axes.y` are named `Label` and `Value`, since there is no drawn axis title to
+  read them from. A doughnut (`hole`) is the same trace and reads identically.
+
+- Plotly sorts pie slices by descending value unless the trace sets
+  `sort: false`, so the authored order is not necessarily the drawn order. The
+  adapter reads the slices Plotly actually drew where the rendered chart exposes
+  them; where it can only see the authored order and Plotly may have re-sorted,
+  it emits the layer without selectors, since slice *k* is then not wedge *k*.
+  That costs visual highlighting only — audio, text, and braille are unaffected.
+  Set `sort: false` to keep both.
 
 ## Code Examples
 
@@ -295,6 +310,27 @@ the ones drawn with a mean line highlight it.
   });
 </script>
 ```
+
+### Pie Chart
+
+```html
+<div id="pie-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('pie-chart', [{
+    labels: ['Apples', 'Bananas', 'Cherries', 'Dates'],
+    values: [30, 50, 20, 15],
+    type: 'pie',
+    sort: false
+  }], {
+    title: { text: 'Units Sold by Fruit' }
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie
+is a single row. Each slice announces its label, its value, and its share of the
+whole — "Apples, 30, 26.1%". The share is derived from the values themselves, so
+there is nothing to author for it.
 
 ### Subplots (2x2 Grid)
 

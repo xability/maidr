@@ -26,6 +26,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -40,6 +41,7 @@ import {
   heatmapSelectors,
   histogramSelector,
   lineSelectors,
+  pieSelector,
   scatterSelector,
   seriesGroupSelector,
 } from './selectors';
@@ -61,6 +63,8 @@ let chartCounter = 0;
  * - `heatmap` → {@link TraceType.HEATMAP}
  * - `histogram` → {@link TraceType.HISTOGRAM}
  * - `candlestick`, `ohlc` → {@link TraceType.CANDLESTICK}
+ * - `pie` (including doughnuts, which are a pie with an `innerSize`) →
+ *   {@link TraceType.PIE}
  * - Stacked `column`/`bar` → {@link TraceType.STACKED}
  * - Grouped (dodged) `column`/`bar` → {@link TraceType.DODGED}
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
@@ -711,6 +715,8 @@ function convertSeries(
     case 'candlestick':
     case 'ohlc':
       return convertCandlestickSeries(series, chart, containerId);
+    case 'pie':
+      return convertPieSeries(series, containerId);
     default:
       console.warn(`[MAIDR Highcharts] Unsupported series type: "${seriesType}"; skipping.`);
       return null;
@@ -809,6 +815,47 @@ function convertScatterSeries(
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * What a pie's two dimensions are called. A pie series is bound to no axis, so
+ * {@link getAxisLabel}'s `'X'` / `'Y'` fallback would name them after
+ * coordinates a pie does not have; these name what each one actually holds.
+ */
+const PIE_LABEL_AXIS = 'Label';
+const PIE_VALUE_AXIS = 'Value';
+
+/**
+ * Converts a `pie` series — a doughnut is the same series type with an
+ * `innerSize`, and reads identically — into a pie layer.
+ *
+ * Highcharts draws the wedges in `series.data` order, so slice k is wedge k
+ * with no reordering to undo. A point with no value is dropped rather than
+ * carried through as a gap, because Highcharts draws no wedge for it: keeping
+ * it would slide every later slice's highlight onto its neighbour.
+ */
+function convertPieSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: PiePoint[] = series.data
+    .filter(p => p.y != null)
+    .map(p => ({
+      x: pointLabel(p),
+      y: p.y as number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: TraceType.PIE,
+    title: series.name || undefined,
+    selectors: pieSelector(containerId, series.index),
+    axes: {
+      x: { label: PIE_LABEL_AXIS },
+      y: { label: PIE_VALUE_AXIS },
     },
     data,
   };

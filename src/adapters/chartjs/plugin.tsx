@@ -5,7 +5,7 @@
  * converts it to the MAIDR JSON schema, and renders the MAIDR accessible
  * interface around the chart canvas. Navigation events are bridged back
  * to Chart.js for visual highlighting via `setActiveElements`, and DOM
- * rect overlays are drawn on top of the canvas so users see MAIDR-style
+ * overlays are drawn on top of the canvas so users see MAIDR-style
  * highlight feedback (since canvas has no per-element DOM nodes).
  *
  * @example
@@ -32,7 +32,7 @@ import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { extractChartData } from './extractor';
 import { computeTargetMaps, resolveActiveTargets } from './highlightTargets';
-import { elementToOverlayRect, HighlightOverlay } from './overlay';
+import { elementToOverlayShape, HighlightOverlay } from './overlay';
 
 // ---------------------------------------------------------------------------
 // Internal state per chart
@@ -150,18 +150,18 @@ function applyHighlight(
   if (!overlay)
     return;
 
-  const rects = [];
+  const shapes = [];
   for (const t of targets) {
     const meta = chart.getDatasetMeta(t.datasetIndex);
     const element = meta?.data?.[t.index];
     if (!element)
       continue;
-    const rect = elementToOverlayRect(element);
-    if (rect)
-      rects.push(rect);
+    const shape = elementToOverlayShape(element);
+    if (shape)
+      shapes.push(shape);
   }
-  if (rects.length > 0)
-    overlay.show(rects);
+  if (shapes.length > 0)
+    overlay.show(shapes);
   else
     overlay.clear();
 }
@@ -172,19 +172,25 @@ function createHighlightCallback(
   maps: TargetMaps,
   layerDatasetIndices: LayerDatasetIndices,
   getOverlay: () => HighlightOverlay | null,
-  recordActive: (event: NavEvent) => void,
+  recordActive: (event: NavEvent | null) => void,
 ): NavigateCallback {
   return (event) => {
     try {
       recordActive(event);
-      const targets = resolveActiveTargets(
-        layers,
-        maps,
-        layerDatasetIndices,
-        event.layerId,
-        event.row,
-        event.col,
-      );
+      // `null` is the cursor leaving a subplot for the figure lobby: nothing
+      // is selected, so no target is active. `applyHighlight` clears on an
+      // empty list, and recording the `null` keeps the resize hook from
+      // replaying the stale point.
+      const targets = event === null
+        ? []
+        : resolveActiveTargets(
+            layers,
+            maps,
+            layerDatasetIndices,
+            event.layerId,
+            event.row,
+            event.col,
+          );
       applyHighlight(chart, getOverlay(), targets);
     } catch {
       // Silently ignore highlight errors (e.g., after chart destruction)
@@ -287,9 +293,9 @@ function initMaidrForChart(chart: ChartJsChart): void {
     return;
 
   // Extract data first, then create a layer-aware highlight callback. When the
-  // plugin is registered globally, unsupported chart types (pie, doughnut,
-  // radar, polarArea, ...) reach this hook too; extraction throws for them, so
-  // catch it and leave the chart untouched rather than breaking construction.
+  // plugin is registered globally, unsupported chart types (radar, polarArea,
+  // ...) reach this hook too; extraction throws for them, so catch it and leave
+  // the chart untouched rather than breaking construction.
   let extracted: MaidrData;
   let layerDatasetIndices: LayerDatasetIndices;
   try {
@@ -317,7 +323,7 @@ function initMaidrForChart(chart: ChartJsChart): void {
 
   // Record the latest MAIDR navigation event on the per-chart binding so
   // the resize hook can replay it after Chart.js re-lays out the canvas.
-  const recordActive = (event: NavEvent): void => {
+  const recordActive = (event: NavEvent | null): void => {
     const b = chartBindings.get(chart);
     if (b)
       b.lastActive = event;

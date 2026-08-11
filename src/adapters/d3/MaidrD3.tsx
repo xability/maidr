@@ -158,6 +158,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'histogram', config: props.config };
     case 'line':
       return { chartType: 'line', config: props.config };
+    case 'pie':
+      return { chartType: 'pie', config: props.config };
     case 'scatter':
       return { chartType: 'scatter', config: props.config };
     case 'segmented':

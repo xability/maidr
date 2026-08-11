@@ -48,6 +48,23 @@ export interface PlotlyTrace {
   close?: number[];
   // Histogram-specific
   xbins?: { start?: number; end?: number; size?: number };
+  // Pie-specific
+  /** Slice labels, in the order the trace was authored. */
+  labels?: (number | string)[];
+  /** Slice magnitudes, parallel to {@link labels}. */
+  values?: (number | string)[];
+  /**
+   * Whether plotly reorders the slices largest-first before drawing them.
+   * Defaults to true, so the authored order is NOT the drawn order unless a
+   * trace turns this off.
+   */
+  sort?: boolean;
+  /**
+   * Fraction of the paper the trace occupies, `[start, end]` in [0, 1] on each
+   * side. A pie is positioned by this rather than by axes, so it is the only
+   * thing that says where one sits relative to its siblings.
+   */
+  domain?: { x?: [number, number]; y?: [number, number] };
   // Heatmap colorbar
   colorbar?: { title?: { text?: string } | string };
 }
@@ -171,6 +188,11 @@ export interface PlotlyCalcData {
   posCenterPx?: number;
   /** Per-trace calc metadata; plotly stores it on the first entry of a trace. */
   t?: PlotlyCalcMeta;
+  // Pie calc data
+  /** Slice magnitude, after plotly dropped the values it would not draw. */
+  v?: number;
+  /** Slice label. */
+  label?: number | string;
   // Heatmap
   z?: number[][];
   trace?: PlotlyTrace;

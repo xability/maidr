@@ -87,8 +87,11 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Candlestick | `CandlestickChart` | `'CandlestickChart'` |
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
+| Pie / Doughnut | `PieChart` (a doughnut is the same class with `pieHole`) | `'PieChart'` |
 
 **Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
+
+> **Pie note:** column 0 supplies the slice labels and the first non-role column their values; `axes.x` / `axes.y` take those two column labels, since a `PieChart` has no drawn axis to name. Google Charts gives its wedges no class or id, so the adapter picks them out of the SVG by the arc command in their `d` attribute. When the wedge count does not match the row count the data-to-DOM mapping is unknown and highlighting is dropped for that chart — which is what happens with `is3D: true` (several paths per slice) and with `sliceVisibilityThreshold` (small slices folded into one "Other" wedge). Audio, text, and braille are unaffected.
 
 ## Code Examples
 
@@ -301,6 +304,41 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
   });
 </script>
 ```
+
+### Pie Chart
+
+```html
+<div id="pie-chart"></div>
+<script>
+  var data = google.visualization.arrayToDataTable([
+    ['Task', 'Hours per Day'],
+    ['Work', 11],
+    ['Eat', 2],
+    ['Commute', 2],
+    ['Watch TV', 2],
+    ['Sleep', 7],
+  ]);
+
+  var container = document.getElementById('pie-chart');
+  var chart = new google.visualization.PieChart(container);
+
+  google.visualization.events.addListener(chart, 'ready', function () {
+    var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, {
+      chartType: 'PieChart',
+      title: 'My Daily Activities',
+    });
+    container.setAttribute('maidr', JSON.stringify(maidr));
+  });
+
+  chart.draw(data, {
+    title: 'My Daily Activities',
+    width: 600,
+    height: 400,
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Work, 11, 45.8%". Draw a doughnut by adding `pieHole: 0.4` to the draw options; the adapter `chartType` stays `'PieChart'`.
 
 ## Multi-Panel (Faceted) Figures
 

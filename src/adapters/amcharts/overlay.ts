@@ -19,6 +19,7 @@
 
 import type { NavTarget } from './navmap';
 import type { AmBounds, AmPoint, AmSprite } from './types';
+import { sliceExtent } from './geometry';
 
 /**
  * Rectangle in CSS pixels relative to the overlay container (root.dom) top-left.
@@ -132,11 +133,23 @@ export function dataItemToOverlayRect(
   target: NavTarget,
   plotBounds: AmBounds | null,
 ): OverlayRect | null {
-  const rect = target.kind === 'point' ? pointRect(target) : columnRect(target);
+  const rect = readRect(target);
   if (!rect) {
     return null;
   }
   return plotBounds ? intersectRect(rect, plotBounds) : rect;
+}
+
+/** Read the geometry the target's kind is drawn with. */
+function readRect(target: NavTarget): OverlayRect | null {
+  switch (target.kind) {
+    case 'point':
+      return pointRect(target);
+    case 'slice':
+      return sliceRect(target);
+    case 'column':
+      return columnRect(target);
+  }
 }
 
 /**
@@ -167,6 +180,25 @@ function columnRect(target: NavTarget): OverlayRect | null {
 
   // Fallback for builds where toGlobal isn't exposed.
   const bounds = sprite.globalBounds?.();
+  return bounds ? boundsToRect(bounds) : null;
+}
+
+/**
+ * Rectangle for a pie slice: the bounding box of the wedge graphic.
+ *
+ * A box around a wedge is coarse — a large slice's box covers most of the pie
+ * — but the overlay can only draw rectangles, and amCharts paints the wedge
+ * into a shared canvas where there is no path to outline. A box that hugs the
+ * active wedge still tells a low-vision reader which way round the circle
+ * navigation has moved, which is the point of the highlight.
+ *
+ * Measured from the wedge's settings rather than its `globalBounds()`, which a
+ * `Slice` reports as a degenerate point at its own centre (#774) — a rect from
+ * that collapses to nothing, and the caller then drew no highlight at all.
+ */
+function sliceRect(target: NavTarget): OverlayRect | null {
+  const slice = target.dataItem.get('slice') as AmSprite | undefined;
+  const bounds = slice ? sliceExtent(slice) : null;
   return bounds ? boundsToRect(bounds) : null;
 }
 

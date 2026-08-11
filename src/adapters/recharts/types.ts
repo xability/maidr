@@ -18,6 +18,9 @@ import type { Orientation } from '@type/grammar';
  * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
  * - `'line'` → `TraceType.LINE` — Line chart
  * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
+ * - `'pie'` → `TraceType.PIE` — Pie/doughnut chart (Recharts `<Pie>`); a
+ *   doughnut is a pie with an `innerRadius`, which changes nothing about the
+ *   data, so both use this type
  */
 export type RechartsChartType
   = | 'bar'
@@ -26,7 +29,8 @@ export type RechartsChartType
     | 'normalized_bar'
     | 'histogram'
     | 'line'
-    | 'scatter';
+    | 'scatter'
+    | 'pie';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -165,6 +169,22 @@ export interface RechartsSubplotConfig {
  *   binConfig: { xMinKey: 'xMin', xMaxKey: 'xMax' },
  *   xLabel: 'Score',
  *   yLabel: 'Frequency',
+ * };
+ * ```
+ *
+ * @example Pie chart
+ * ```typescript
+ * // `xKey` is the Recharts `<Pie nameKey>` (the slice label) and the single
+ * // `yKeys` entry is its `dataKey` (the slice magnitude).
+ * const config: RechartsAdapterConfig = {
+ *   id: 'fruit-chart',
+ *   title: 'Fruit Sales',
+ *   data: [{ fruit: 'Apples', units: 30 }, { fruit: 'Bananas', units: 50 }],
+ *   chartType: 'pie',
+ *   xKey: 'fruit',
+ *   yKeys: ['units'],
+ *   xLabel: 'Fruit',
+ *   yLabel: 'Units',
  * };
  * ```
  *

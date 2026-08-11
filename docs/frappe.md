@@ -100,8 +100,12 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 | Multi-line | `'line'` (multiple datasets) | `'line'` |
 | Scatter | `'line'` + `lineOptions: { hideLine: 1 }` | `'scatter'` |
 | Mixed axis (bar + line) | `'axis-mixed'` | `'axis-mixed'` |
+| Pie | `'pie'` | `'pie'` |
+| Donut | `'donut'` | `'donut'` |
 
-**Not supported:** Pie, Donut, and Percentage charts (no MAIDR equivalent), and Frappe's calendar-style Heatmap (structurally unlike MAIDR's matrix heatmap).
+**Not supported:** Percentage charts (no MAIDR equivalent), and Frappe's calendar-style Heatmap (structurally unlike MAIDR's matrix heatmap).
+
+> **Pie note:** Frappe aggregates before it draws — it sums every dataset at each label, drops labels whose total is negative, and collapses everything past `maxSlices` (default 20) into one "Rest" wedge. The adapter reproduces that aggregation so each announced slice is the wedge it highlights. Pass the chart instance (not a plain `{ data }` object) when you override `maxSlices`, so the adapter can read it.
 
 > **Scatter note:** Frappe Charts v1.6.2 has no native `scatter` type. Render a dot plot with a line chart whose connecting line is hidden (`lineOptions: { hideLine: 1 }`); pass `chartType: 'scatter'` to the adapter so it is treated as a scatter plot. Frappe spaces x-axis labels evenly regardless of their numeric value, so use evenly spaced numeric labels.
 

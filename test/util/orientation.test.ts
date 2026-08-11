@@ -25,11 +25,17 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    // An area trace is navigated along its series and then between series,
+    // exactly as a line is, whichever way the band is drawn.
+    TraceType.AREA,
     TraceType.CANDLESTICK_DELTA,
     TraceType.HEATMAP,
     TraceType.LINE,
+    TraceType.NORMALIZED_AREA,
+    TraceType.PIE,
     TraceType.SCATTER,
     TraceType.SMOOTH,
+    TraceType.STACKED_AREA,
     TraceType.STEP,
   ];
 
@@ -48,6 +54,9 @@ describe('resolveOrientation', () => {
 
   test('ignores an orientation declared on a type that has none', () => {
     expect(resolveOrientation(TraceType.LINE, Orientation.HORIZONTAL)).toBeUndefined();
+    // Slices sit around a circle, so a producer that emits an orientation for
+    // a pie anyway must not get "vertical pie" announced.
+    expect(resolveOrientation(TraceType.PIE, Orientation.VERTICAL)).toBeUndefined();
   });
 });
 

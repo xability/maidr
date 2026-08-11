@@ -219,9 +219,9 @@ describe('highchartsGridToMaidr', () => {
     try {
       const noSeries = fakeChart({ type: 'column', renderToId: 'grid-none-1', series: [] });
       const unsupported = fakeChart({
-        type: 'pie',
+        type: 'treemap',
         renderToId: 'grid-none-2',
-        series: [fakeSeries({ index: 0, type: 'pie', name: 'Share', data: categoryPoints([1], ['a']) })],
+        series: [fakeSeries({ index: 0, type: 'treemap', name: 'Share', data: categoryPoints([1], ['a']) })],
       });
 
       expect(() => highchartsGridToMaidr([noSeries, unsupported]))

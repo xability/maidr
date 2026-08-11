@@ -1,12 +1,14 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { Trace } from './plot';
 import { TraceType } from '@type/grammar';
+import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
 import { Candlestick } from './candlestick';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
+import { PieTrace } from './pie';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
@@ -25,6 +27,15 @@ export abstract class TraceFactory {
    */
   public static create(layer: MaidrLayer): Trace {
     switch (layer.type) {
+      // All three area variants share one class: the stacking is a property
+      // of the layer it reads off `layer.type`, not a different navigation
+      // model. Contrast the bar family, where DODGED/STACKED/NORMALIZED all
+      // route to SegmentedTrace while BAR does not.
+      case TraceType.AREA:
+      case TraceType.NORMALIZED_AREA:
+      case TraceType.STACKED_AREA:
+        return new AreaTrace(layer);
+
       case TraceType.BAR:
         return new BarTrace(layer);
 
@@ -42,6 +53,9 @@ export abstract class TraceFactory {
 
       case TraceType.LINE:
         return new LineTrace(layer);
+
+      case TraceType.PIE:
+        return new PieTrace(layer);
 
       case TraceType.SCATTER:
         return new ScatterTrace(layer);

@@ -575,5 +575,15 @@ export class Controller implements Disposable {
         trace.addObserver(observer);
       }));
     }));
+
+    // Leaving a subplot makes the figure active rather than a trace, so the
+    // trace observers above go quiet and say nothing about having stopped.
+    // A consumer drawing an overlay would keep the last point highlighted and
+    // carry it to whichever panel the user moved to next, pointing at a chart
+    // it does not belong to. The figure is the only element that hears the
+    // move, so it is what reports the selection ending.
+    this.figure.addObserver({
+      update: () => callback(null),
+    });
   }
 }

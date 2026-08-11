@@ -196,6 +196,13 @@ const data: MaidrData = {
 
 Line chart data is a 2D array — each inner array is one line series:
 
+Each point also takes an optional `label`, for a line whose y axis is a
+category rather than a magnitude — a sleep stage, a Likert response, a severity
+grade. `y` stays numeric because it drives sonification, braille and the
+min/max range, and `label` names the level that number encodes; it is announced
+in place of the number, so the chart reads "Sleep stage is REM" rather than
+"Sleep stage is 4". Omit it for the continuous y most line charts have.
+
 ```typescript
 const data: MaidrData = {
   id: 'temperature-line',
@@ -222,9 +229,9 @@ right type for piecewise-constant data — a hypnogram's sleep stages, a status
 timeline, a rate that changes on fixed dates. Data is nested like a line chart,
 one inner array per series.
 
-`y` stays numeric: it drives sonification, braille and the min/max range.
-`label` names the ordinal level that number encodes and is announced in its
-place, so the chart reads "Sleep stage is REM" rather than "Sleep stage is 4".
+`label` is the same per-point ordinal name described under Line Chart above,
+and is read identically here; a hypnogram is its canonical case, which is why
+every point in the example carries one.
 
 `stepDirection` is a layer property, not a per-point one: `'hv'` holds until the
 next x value then jumps (matplotlib `steps-post`, ggplot2's default), `'vh'`

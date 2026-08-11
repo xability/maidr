@@ -73,6 +73,7 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
+| Pie | `pie` (a doughnut is a pie with `innerRadius()`) | [Pie chart](examples.html) |
 
 Area series are represented as line traces — the filled-area visual is lost in the accessible representation. A console warning is emitted when this downgrade occurs. `step-area` downgrades to a step trace rather than a line one, so it still warns about the lost fill.
 
@@ -82,6 +83,7 @@ Area series are represented as line traces — the filled-area visual is lost in
 
 - **Heatmap** charts use AnyChart's separate `anychart-heatmap.min.js` module and expose a chart-level data API (no `getSeriesCount()`). The adapter detects them via `chart.getType()` returning `'heatmap'` or `'heat'`, with a defensive fallback when `getType()` is unavailable.
 - **Candlestick** support also covers OHLC series. Both come from AnyChart's financial / stock module (`anychart-stock.min.js`). Each row is `[x, open, high, low, close]`; outlier and volume fields are not extracted by AnyChart's iterator API.
+- **Pie** charts are the other single-dataset type: like the heatmap they hold their data on `chart.data()` rather than on a series, and `getType()` reports `'pie'` for a doughnut too (AnyChart draws one by giving an ordinary pie an inner radius), so both read identically. A pie is bound to no axis, so its axis labels fall back to `Label` and `Value` unless `options.axes` names them. Slices with no numeric value are dropped — AnyChart draws no wedge for one, and keeping it would slide every later slice's highlight onto its neighbour.
 
 ## Code Examples
 
@@ -261,6 +263,30 @@ Each `chart.bar(...)` call adds one series. The adapter walks every series via `
   });
 </script>
 ```
+
+### Pie Chart
+
+```html
+<div id="container" style="width: 700px; height: 400px"></div>
+<script type="module">
+  import { bindAnyChart } from 'https://cdn.jsdelivr.net/npm/maidr/dist/anychart.mjs';
+
+  const chart = anychart.pie([
+    ['Apples', 30], ['Bananas', 50], ['Cherries', 20], ['Dates', 12],
+  ]);
+  chart.title('Fruit Sales by Variety');
+  // chart.innerRadius('40%');  // makes it a doughnut; nothing else changes
+  chart.container('container').draw();
+
+  bindAnyChart(chart, {
+    id: 'fruit-pie',
+    title: 'Fruit Sales by Variety',
+    axes: { x: 'Fruit', y: 'Units sold' },
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units sold is 30, Percentage is 26.8%". The binder stamps a `data-maidr-anychart-pie-slice` attribute on each rendered wedge in data order, so highlighting needs no manual `selectors` entry.
 
 ## Binder Options
 

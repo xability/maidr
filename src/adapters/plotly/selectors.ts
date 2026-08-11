@@ -15,7 +15,7 @@
  * py-maidr's proven approach.
  */
 
-import type { PlotlyGraphDiv } from './types';
+import type { PlotlyGraphDiv, PlotlyTrace } from './types';
 import { TraceType } from '../../type/grammar';
 
 /**
@@ -64,6 +64,9 @@ export function generatePlotlySelectors(
       // Candlestick reuses box plot rendering: boxlayer > trace.boxes > path.box
       return `${prefix}.trace.boxes .box`;
 
+    case TraceType.PIE:
+      return pieSelector(plotlyGd, traceIndex);
+
     default:
       return undefined;
   }
@@ -99,4 +102,36 @@ function lineSelector(prefix: string, mode?: string): string | undefined {
   }
   // Lines-only mode: no per-point SVG elements to highlight.
   return undefined;
+}
+
+/**
+ * Pie selector: the wedge paths of one pie trace, in drawing order.
+ *
+ * A pie has no axes, so plotly draws it in `.pielayer` rather than in a
+ * `.subplot.xy` group — the prefix every other selector here is scoped by does
+ * not exist for one. It also gives each pie a bare `<g class="trace">` with no
+ * uid class (scatter's `trace{uid}` has no pie counterpart), so the only thing
+ * distinguishing one pie from another on the same paper is its position among
+ * them. Plotly orders those groups to match the traces it drew, skipping the
+ * ones it did not, hence counting only the drawn pies before this one.
+ */
+function pieSelector(gd: PlotlyGraphDiv, traceIndex: number): string {
+  const traces = gd._fullData ?? [];
+  let drawnBefore = 0;
+  for (let i = 0; i < traceIndex; i++) {
+    if (isDrawnPie(traces[i])) {
+      drawnBefore++;
+    }
+  }
+  return `.pielayer > g.trace:nth-of-type(${drawnBefore + 1}) g.slice path.surface`;
+}
+
+/**
+ * Whether a trace is a pie plotly put on the paper. A hidden or legend-only
+ * trace gets no group in `.pielayer`, so it must not shift the count.
+ */
+function isDrawnPie(trace: PlotlyTrace | undefined): boolean {
+  return trace?.type === 'pie'
+    && trace.visible !== false
+    && trace.visible !== 'legendonly';
 }

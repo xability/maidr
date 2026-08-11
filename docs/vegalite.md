@@ -99,6 +99,9 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
 | `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
 | `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
+| `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
+
+An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the channel carrying the slice magnitudes, and an `arc` without one has no values to sonify, announce, or take percentages of. Such a spec is left unbound rather than announced as a pie whose numbers MAIDR would have to invent.
 
 ## Code Examples
 
@@ -377,6 +380,36 @@ const spec = {
 ```
 
 Both **vertical** (categorical x, quantitative y) and **horizontal** (categorical y, quantitative x) box plots are supported. See [`examples/vegalite-bindbox.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) for a runnable version.
+
+### Pie chart
+
+```js
+const spec = {
+  $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+  width: 400,
+  height: 400,
+  title: 'Units Sold by Fruit',
+  data: {
+    values: [
+      { fruit: 'Apples', units: 30 },
+      { fruit: 'Bananas', units: 50 },
+      { fruit: 'Cherries', units: 20 },
+      { fruit: 'Dates', units: 15 },
+    ],
+  },
+  mark: 'arc',
+  encoding: {
+    theta: { field: 'units', type: 'quantitative', title: 'Units' },
+    color: { field: 'fruit', type: 'nominal', title: 'Fruit' },
+  },
+};
+
+maidrVegaLite.embed('#chart', spec, { id: 'fruit-pie' });
+```
+
+An `arc` has no `x` or `y` to name its axes after, so the slice labels come from the `color` (or `fill`) channel and the magnitudes from `theta`, and the layer's axis labels are taken from those two channels' titles. Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Apples, 30, 26.1%". Adding `mark: { type: 'arc', innerRadius: 60 }` makes it a doughnut, which reads identically.
+
+See [`examples/vegalite-pie.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) for a runnable version.
 
 ## Multi-panel charts (facet, repeat, concat)
 

@@ -33,21 +33,28 @@ export interface FrappeData {
 }
 
 /**
- * A rendered Frappe Charts instance. Only the `data` field that the adapter
- * reads is declared here.
+ * A rendered Frappe Charts instance. Only the fields the adapter reads are
+ * declared here.
  */
 export interface FrappeChart {
   data: FrappeData;
+  /**
+   * The chart's resolved configuration. Only `maxSlices` is read, and only for
+   * pie / donut charts: Frappe collapses everything past that many slices into
+   * a single "Rest" wedge, and the conversion has to collapse the same way to
+   * stay aligned with the wedges it draws. Absent on a plain `{ data }` object,
+   * in which case Frappe's own default (20) is assumed.
+   */
+  config?: { maxSlices?: number };
 }
 
 /**
  * Frappe Charts chart-type strings the adapter can convert.
  *
- * Frappe additionally supports `pie`, `donut`, `percentage`, and a
- * calendar-style `heatmap`; those have no clean MAIDR equivalent and are not
- * supported by this adapter.
+ * Frappe additionally supports `percentage` and a calendar-style `heatmap`;
+ * those have no clean MAIDR equivalent and are not supported by this adapter.
  */
-export type FrappeChartType = 'axis-mixed' | 'bar' | 'line' | 'scatter';
+export type FrappeChartType = 'axis-mixed' | 'bar' | 'donut' | 'line' | 'pie' | 'scatter';
 
 /**
  * One panel of a multi-panel (small-multiples) figure built from several

@@ -10,6 +10,9 @@ import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
 
+/** How an absent value is named wherever a trace has nothing to report. */
+const MISSING_TEXT = 'missing';
+
 /**
  * Enumeration of available text output modes.
  */
@@ -81,11 +84,30 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Formats a single value using the formatter service if available.
    * Falls back to String() conversion if no formatter is configured.
    *
-   * @param value - The value to format
+   * A gap arrives here as whatever sentinel the wire carried: the `null` a
+   * producer emits for a slot it has no measurement for, or the `NaN` the bar
+   * and pie models normalize that to. Neither is a value to read out, so both
+   * are named the way `AbstractBarPlot.rangeStats` and `PieTrace` already name
+   * an absent value. Doing it here rather than per trace means every trace with
+   * gap support says the same word, and says it whether or not a formatter is
+   * wired up — `FormatUtil.wrapFormat` catches a `null` or a `NaN` only for a
+   * layer the formatter service actually has an entry for, and never catches an
+   * infinity.
+   *
+   * Only an absent NUMBER is caught. A measured `0` is a real reading and an
+   * empty category label is a label, so both go on to be formatted as usual.
+   *
+   * @param value - The value to format, absent when the point is a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string representation of the value
    */
-  private formatSingleValue(value: number | string, axis: AxisType): string {
+  private formatSingleValue(value: number | string | null | undefined, axis: AxisType): string {
+    if (value === null || value === undefined) {
+      return MISSING_TEXT;
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return MISSING_TEXT;
+    }
     if (this.formatter && this.currentLayerId) {
       return this.formatter.formatSingleValue(value, this.currentLayerId, axis);
     }
@@ -93,18 +115,25 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Formats an array of values using the formatter service if available.
-   * Falls back to String() conversion for each element if no formatter is configured.
+   * Formats an array of values, one element at a time.
    *
-   * @param values - The array of values to format
+   * Each element goes through {@link formatSingleValue} rather than through
+   * the formatter's own array method. The two are the same operation —
+   * `FormatterService.formatArrayValue` is a per-element map over the very
+   * formatter `formatSingleValue` looks up — so delegating costs nothing and
+   * means the two cannot drift: an absent element reads as "missing" here
+   * for the same reason it does anywhere else, rather than because this
+   * method remembered to say so.
+   *
+   * @param values - The array of values to format, elements absent on a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Array of formatted strings
    */
-  private formatArrayValue(values: (number | string)[], axis: AxisType): string[] {
-    if (this.formatter && this.currentLayerId) {
-      return this.formatter.formatArrayValue(values, this.currentLayerId, axis);
-    }
-    return values.map(v => String(v));
+  private formatArrayValue(
+    values: (number | string | null | undefined)[],
+    axis: AxisType,
+  ): string[] {
+    return values.map(value => this.formatSingleValue(value, axis));
   }
 
   /**
@@ -479,7 +508,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(Constant.IS, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
     }
 
-    // Format for heatmap and scatter plot.
+    // Format for the plots that carry a third value: the heatmap's cell value,
+    // the segmented bar's level, the candlestick's trend, the pie's percentage.
+    // Reads as ", Percentage is 33.3%" after the label and the value.
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;
@@ -495,6 +526,26 @@ export class TextService implements Observer<PlotState>, Disposable {
         Constant.IS,
         zValue,
       );
+    }
+
+    // The running total a stacked point sits inside. Reads as ", Total is 30,
+    // 40% of it" after the point's own value, so the two magnitudes a stacked
+    // area draws are never announced as one. Verbose only: the terse reading
+    // stays one point per utterance, and the chart type — announced as
+    // "stacked area" — already tells the reader which of the two `cross` is.
+    if (state.stack !== undefined) {
+      verbose.push(
+        Constant.COMMA_SPACE,
+        state.stack.label,
+        Constant.IS,
+        this.formatSingleValue(state.stack.value, crossAxisType),
+      );
+      if (state.stack.share !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          `${(state.stack.share * 100).toFixed(1)}% of it`,
+        );
+      }
     }
 
     return verbose.join(Constant.EMPTY);
@@ -558,7 +609,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
-    // Format for heatmap and segmented plots.
+    // Format for heatmap, segmented and pie plots. Terse drops the label, so a
+    // pie slice reads "Apples, 30, 33.3%".
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;

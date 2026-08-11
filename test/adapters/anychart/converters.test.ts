@@ -4,10 +4,11 @@ import type {
   AnyChartIterator,
   AnyChartSeries,
 } from '@adapters/anychart/types';
-import type { BarPoint, BoxSelector, MaidrLayer } from '@type/grammar';
+import type { BarPoint, BoxSelector, MaidrLayer, PiePoint } from '@type/grammar';
 import {
   anyChartsToMaidr,
   anyChartToMaidr,
+  bindAnyChart,
   bindAnyCharts,
   mapSeriesType,
 } from '@adapters/anychart/converters';
@@ -68,6 +69,122 @@ function createBarSeries(data: Array<[string, number]>): AnyChartSeries {
   return createSeries('column', data.map(([x, value]) => ({ x, value })));
 }
 
+/**
+ * A drawn AnyChart pie. A real one exposes NO series API — `getSeriesCount()`
+ * and `getSeriesAt()` are absent and its slices live on `chart.data()` — so
+ * the mock omits them deliberately: the conversion has to work without them.
+ */
+function createPieChart(
+  title: string,
+  slices: Array<[string, number | null]>,
+  extra: { container?: HTMLElement } = {},
+): AnyChartInstance {
+  const rows = slices.map(([x, value]) => ({ x, value }));
+  return {
+    title: () => title,
+    container: () => extra.container ?? '',
+    getType: () => 'pie',
+    data: () => ({ getIterator: () => createIterator(rows) }),
+  } as unknown as AnyChartInstance;
+}
+
+/**
+ * Append a rendered pie to a container's `<svg>`: one AnyChart layer holding
+ * `count` wedge paths plus a straight label connector, which shares the layer
+ * but is not a wedge.
+ */
+function appendPieWedges(
+  container: HTMLElement,
+  count: number,
+  outlines?: 'after' | 'before',
+): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+
+  const arc = 'M 100 100 L 150 100 A 50 50 0 0 1 100 150 Z';
+  const wedges: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const wedge = document.createElementNS(SVG_NS, 'path');
+    wedge.id = `ac_path_${i}`;
+    wedge.setAttribute('d', arc);
+    wedge.setAttribute('fill', '#1f77b4');
+    // A real chart draws each slice twice: the fill, then a stroke-only twin
+    // over the same arc. `before` emits them the other way round, which
+    // AnyChart does not do today — the point is that nothing may depend on
+    // that.
+    const outline = document.createElementNS(SVG_NS, 'path');
+    outline.id = `ac_path_${i}_outline`;
+    outline.setAttribute('d', arc);
+    outline.setAttribute('fill', 'none');
+
+    if (outlines === 'before')
+      layer.appendChild(outline);
+    layer.appendChild(wedge);
+    if (outlines === 'after')
+      layer.appendChild(outline);
+    wedges.push(wedge);
+  }
+
+  const connector = document.createElementNS(SVG_NS, 'path');
+  connector.id = 'ac_path_connector';
+  connector.setAttribute('d', 'M 150 100 L 180 90');
+  layer.appendChild(connector);
+
+  return wedges;
+}
+
+/**
+ * Append a rendered candlestick series to a container's `<svg>`: `count` candle
+ * paths inside an AnyChart layer.
+ *
+ * A real series layer carries the `clip-path` that bounds it to the plot area,
+ * which is how the lookup tells it apart from the axes and background layers.
+ * Pass `clipped: false` for a chart whose layers do not carry one, and
+ * `layered: false` for an SVG with no AnyChart layer structure at all.
+ */
+function appendCandlePaths(
+  container: HTMLElement,
+  count: number,
+  options: { clipped?: boolean; layered?: boolean } = {},
+): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  let parent = svg;
+  if (options.layered !== false) {
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = 'ac_layer_1';
+    if (options.clipped !== false) {
+      layer.setAttribute('clip-path', 'url(#ac_clip_1)');
+    }
+    svg.appendChild(layer);
+    parent = layer as unknown as SVGElement;
+  }
+
+  const candles: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const candle = document.createElementNS(SVG_NS, 'path');
+    candle.id = `ac_path_${i}`;
+    // Wick plus body: a real candle always draws more than one command, which
+    // is how the stamper rejects single-command clip-boundary sentinels.
+    candle.setAttribute('d', 'M 10 0 L 10 40 M 5 10 L 15 10 L 15 30 L 5 30 Z');
+    candle.setAttribute('fill', '#00aa00');
+    parent.appendChild(candle);
+    candles.push(candle);
+  }
+
+  return candles;
+}
+
+function createCandlestickChart(
+  title: string,
+  days: string[],
+  extra: Omit<MockChartConfig, 'title' | 'series'> = {},
+): AnyChartInstance {
+  const rows = days.map(x => ({ x, open: 1, high: 4, low: 0.5, close: 3 }));
+  return createChart({ title, series: [createSeries('candlestick', rows)], ...extra });
+}
+
 function createAxis(titleText: string): AnyChartAxis {
   return {
     title: () => ({ text: () => titleText }),
@@ -82,14 +199,14 @@ interface MockChartConfig {
   type?: string;
   xTitle?: string;
   yTitle?: string;
-  /** Chart-level data rows (heatmap-style single-dataset charts). */
-  heatRows?: Array<Record<string, unknown>>;
+  /** Chart-level data rows (single-dataset charts: heatmap, pie). */
+  dataRows?: Array<Record<string, unknown>>;
 }
 
 function createChart(config: MockChartConfig): AnyChartInstance {
   const series = config.series ?? [];
   const chartType = config.type;
-  const heatRows = config.heatRows;
+  const dataRows = config.dataRows;
   const xTitle = config.xTitle;
   const yTitle = config.yTitle;
   return {
@@ -98,8 +215,8 @@ function createChart(config: MockChartConfig): AnyChartInstance {
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     ...(chartType ? { getType: () => chartType } : {}),
-    ...(heatRows
-      ? { data: () => ({ getIterator: () => createIterator(heatRows) }) }
+    ...(dataRows
+      ? { data: () => ({ getIterator: () => createIterator(dataRows) }) }
       : {}),
     ...(xTitle ? { xAxis: () => createAxis(xTitle) } : {}),
     ...(yTitle ? { yAxis: () => createAxis(yTitle) } : {}),
@@ -195,8 +312,278 @@ describe('anyChartToMaidr (single panel, unchanged)', () => {
   });
 
   it('returns null for a chart with no convertible series', () => {
-    const chart = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const chart = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     expect(anyChartToMaidr(chart)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pie charts (single-dataset, no series API)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (pie chart)', () => {
+  it('emits a flat pie layer from the chart-level data view', () => {
+    const chart = createPieChart('Fruit sales', [
+      ['Apples', 30],
+      ['Bananas', 50],
+      ['Cherries', 20],
+    ]);
+
+    const result = anyChartToMaidr(chart);
+
+    expect(result?.title).toBe('Fruit sales');
+    const layer = result!.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.PIE);
+    expect(layer.selectors).toBe('[data-maidr-anychart-pie-slice^="0-"]');
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('names the two dimensions a pie has no axis to name', () => {
+    const chart = createPieChart('Fruit', [['Apples', 30]]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Label' }, y: { label: 'Value' } });
+  });
+
+  it('keeps caller-supplied axis labels', () => {
+    const chart = createPieChart('Fruit', [['Apples', 30]]);
+
+    const layer = anyChartToMaidr(chart, { axes: { x: 'Fruit', y: 'Units' } })!
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Fruit' }, y: { label: 'Units' } });
+  });
+
+  it('drops slices with no numeric value, which AnyChart draws no wedge for', () => {
+    const chart = createPieChart('Fruit', [
+      ['Apples', 30],
+      ['Bananas', null],
+      ['Cherries', 20],
+    ]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.data as PiePoint[]).toEqual([
+      { x: 'Apples', y: 30 },
+      { x: 'Cherries', y: 20 },
+    ]);
+  });
+
+  it('scopes pie selectors to the panel token in multi-panel mode', () => {
+    const pie = createPieChart('Pie', [['Apples', 30]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[pie, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).type).toBe(TraceType.PIE);
+    expect(firstLayer(result!, 0, 0).selectors).toBe(
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-pie-slice^="fig-0-0:0-"]',
+    );
+  });
+});
+
+describe('bindAnyChart (pie stamping)', () => {
+  it('stamps one attribute per wedge, in slice order, and skips the connector', () => {
+    const container = createContainerWithSvg('pie-bind');
+    const wedges = appendPieWedges(container, 3);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20]],
+      { container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    // The straight label connector is not a wedge and must stay unstamped.
+    const connector = container.querySelector('#ac_path_connector');
+    expect(connector?.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    // Every stamped wedge is reachable through the layer's own selector.
+    expect(container.querySelectorAll('[data-maidr-anychart-pie-slice^="0-"]'))
+      .toHaveLength(3);
+
+    // Binding wraps the container in a host element; drop the pair so the
+    // multi-panel bind tests below still find their own host first.
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('counts only the slices the layer emits, so a null row does not warn', () => {
+    // AnyChart draws no wedge for a valueless row, so a three-row pie renders
+    // two wedges — and the layer emits two slices. Counting the raw rows would
+    // report a shortfall on a chart that is in fact perfectly aligned.
+    const container = createContainerWithSvg('pie-null');
+    const wedges = appendPieWedges(container, 2);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', null], ['Cherries', 20]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1']);
+    expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('pie wedges');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it.each([
+    ['after the fill, as AnyChart emits them', 'after' as const],
+    ['before the fill, which nothing may depend on not happening', 'before' as const],
+  ])('skips the stroke-only twin drawn %s', (_case, order) => {
+    // AnyChart draws every slice twice — once filled, once `fill="none"` for
+    // the stroke — so four slices offer eight arc paths and the count guard
+    // used to fire on a chart that was working. Taking the first N in DOM
+    // order picked the fills only because the fills come first; were that
+    // ever to flip, every highlight would land on an invisible path while the
+    // announcement carried on naming the right slice.
+    const container = createContainerWithSvg(`pie-outline-${order}`);
+    const wedges = appendPieWedges(container, 4, order);
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20], ['Dates', 10]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(wedges.map(w => w.getAttribute('data-maidr-anychart-pie-slice')))
+      .toEqual(['0-0', '0-1', '0-2', '0-3']);
+    // Eight candidates, four slices: the guard used to report a mismatch here.
+    expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('pie wedges');
+    // Nothing invisible was stamped, so a highlight cannot land on an outline.
+    expect(container.querySelectorAll('[data-maidr-anychart-pie-slice]'))
+      .toHaveLength(4);
+    expect(
+      container.querySelector('#ac_path_0_outline')
+        ?.getAttribute('data-maidr-anychart-pie-slice'),
+    ).toBeNull();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('runs only the pie stamper, so a working pie logs nothing', () => {
+    // A pie carries no series API at all, so every XY stamper threw on one and
+    // warned before the pie stamper did the real work: two console warnings on
+    // a correctly rendered chart, in exactly the place someone debugging a
+    // genuine stamping failure would look.
+    const container = createContainerWithSvg('pie-quiet');
+    appendPieWedges(container, 3, 'after');
+    const chart = createPieChart(
+      'Fruit',
+      [['Apples', 30], ['Bananas', 50], ['Cherries', 20]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('warns and stamps nothing when no AnyChart layer holds an arc path', () => {
+    // The wedge-DOM assumption has failed: the layers are there but nothing in
+    // them is arc-drawn. Stamping the first arc-shaped paths found anywhere in
+    // the SVG would point slice 0 at a legend marker or a rounded frame, so
+    // the highlight is dropped and the reason is reported instead.
+    const container = createContainerWithSvg('pie-no-arcs');
+    const svg = container.querySelector('svg') as unknown as SVGElement;
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = 'ac_layer_1';
+    svg.appendChild(layer);
+    const straight = document.createElementNS(SVG_NS, 'path');
+    straight.id = 'ac_path_0';
+    straight.setAttribute('d', 'M 0 0 L 10 10 Z');
+    layer.appendChild(straight);
+    // An arc-drawn path outside every layer — exactly what the whole-SVG
+    // fallback would have mistaken for slice 0.
+    const decoration = document.createElementNS(SVG_NS, 'path');
+    decoration.id = 'ac_path_frame';
+    decoration.setAttribute('d', 'M 0 0 A 4 4 0 0 1 8 0 Z');
+    svg.appendChild(decoration);
+    const chart = createPieChart('Fruit', [['Apples', 30]], { container });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(decoration.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    expect(straight.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
+    expect(warnSpy.mock.calls.flat().join(' ')).toContain('no pie wedges to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+describe('bindAnyChart (candlestick stamping)', () => {
+  it('stamps one attribute per candle, in point order', () => {
+    const container = createContainerWithSvg('candle-bind');
+    const candles = appendCandlePaths(container, 3);
+    const chart = createCandlestickChart('Prices', ['Mon', 'Tue', 'Wed'], { container });
+
+    bindAnyChart(chart);
+
+    expect(candles.map(c => c.getAttribute('data-maidr-anychart-candlestick-cell')))
+      .toEqual(['0-0', '0-1', '0-2']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('falls back to the whole SVG when there is no AnyChart layer structure', () => {
+    // No `ac_layer_*` group anywhere: the lookup's assumption has not failed,
+    // there is simply nothing to scope to, and whole-SVG querying is the only
+    // way to reach the candles. This fallback must survive.
+    const container = createContainerWithSvg('candle-unlayered');
+    const candles = appendCandlePaths(container, 2, { layered: false });
+    const chart = createCandlestickChart('Prices', ['Mon', 'Tue'], { container });
+
+    bindAnyChart(chart);
+
+    expect(candles.map(c => c.getAttribute('data-maidr-anychart-candlestick-cell')))
+      .toEqual(['0-0', '0-1']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('warns and stamps nothing when no AnyChart layer is clipped to the plot area', () => {
+    // The candle-DOM assumption has failed: the layers are there but none of
+    // them is a clipped series layer. Stamping the first `ac_path_*` elements
+    // found anywhere in the SVG would label a legend marker or a decorative
+    // frame as candle 0, so the highlight is dropped and the reason reported.
+    const container = createContainerWithSvg('candle-unclipped');
+    appendCandlePaths(container, 1, { clipped: false });
+    const svg = container.querySelector('svg') as unknown as SVGElement;
+    // A multi-command path outside every layer — exactly what the whole-SVG
+    // fallback would have mistaken for candle 0.
+    const decoration = document.createElementNS(SVG_NS, 'path');
+    decoration.id = 'ac_path_frame';
+    decoration.setAttribute('d', 'M 0 0 L 10 0 L 10 10 Z');
+    decoration.setAttribute('stroke', '#000000');
+    svg.appendChild(decoration);
+    const chart = createCandlestickChart('Prices', ['Mon'], { container });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(decoration.getAttribute('data-maidr-anychart-candlestick-cell')).toBeNull();
+    expect(container.querySelectorAll('[data-maidr-anychart-candlestick-cell]'))
+      .toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('no candlestick paths to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
   });
 });
 
@@ -292,7 +679,7 @@ describe('anyChartsToMaidr', () => {
     const heat = createChart({
       title: 'Heat',
       type: 'heat-map',
-      heatRows: [
+      dataRows: [
         { x: 'X1', y: 'Y1', heat: 1 },
         { x: 'X2', y: 'Y1', heat: 2 },
       ],
@@ -335,7 +722,7 @@ describe('anyChartsToMaidr', () => {
   });
 
   it('drops panels with no convertible series, keeping original tokens', () => {
-    const bad = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const bad = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     const good = createBarChart('Good');
 
     const result = anyChartsToMaidr([[bad, good]], { id: 'fig' });
@@ -349,7 +736,7 @@ describe('anyChartsToMaidr', () => {
   });
 
   it('returns null when no panel is convertible', () => {
-    const bad = createChart({ series: [createSeries('pie', [{ x: 'A', value: 1 }])] });
+    const bad = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     expect(anyChartsToMaidr([[bad]], { id: 'fig' })).toBeNull();
   });
 
@@ -659,7 +1046,7 @@ describe('mapSeriesType', () => {
   });
 
   it('returns null for a series type the adapter cannot represent', () => {
-    expect(mapSeriesType('pie')).toBeNull();
+    expect(mapSeriesType('funnel')).toBeNull();
   });
 });
 

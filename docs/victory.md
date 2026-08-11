@@ -69,6 +69,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryHistogram` | Histogram | ⚠️ | The adapter derives equal-width bins from the raw values, which may not exactly match Victory's rendered bins. |
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
+| `VictoryPie` | Pie chart | ✅ | A doughnut is the same component with an `innerRadius`. Standing alone it has no `VictoryAxis` to read labels from, so the axes are named `Category` and `Value`; wrap it in a `<VictoryChart>` with axis labels to override. |
 
 > Box and candlestick are composite shapes (rects + lines) with no semantic classes, so the adapter classifies their parts by geometry. If a future Victory version changes that layout, highlighting degrades gracefully — audio, text, and braille are unaffected.
 
@@ -211,6 +212,24 @@ Provide pre-computed quartile statistics. The adapter reads these directly and d
 </MaidrVictory>
 ```
 
+### Pie Chart
+
+`VictoryPie` follows Victory's usual `x`/`y` convention: `x` names the slice, `y` is its magnitude. It stands on its own — no `VictoryChart`, no `VictoryAxis`:
+
+```tsx
+<MaidrVictory id="pie-example" title="Units Sold by Fruit">
+  <VictoryPie
+    data={[
+      { x: 'Apples', y: 30 },
+      { x: 'Bananas', y: 50 },
+      { x: 'Cherries', y: 20 },
+    ]}
+  />
+</MaidrVictory>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Category is Apples, Value is 30, Percentage is 30.0%". Victory renders the wedges in data order, so highlighting is index-aligned with no extra configuration, and an `innerRadius` makes it a doughnut without changing any of that.
+
 ## Multi-Panel Figures
 
 Nest two or more `<VictoryChart>` components inside one `<MaidrVictory>` to build a multi-panel (small-multiples) figure. Each chart becomes one MAIDR subplot: arrow keys move between panels, `Enter` drills into the focused panel, and `Escape` returns to panel navigation. Give each chart a `title` prop — it becomes the panel's name in subplot announcements.
@@ -318,7 +337,8 @@ type VictoryComponentType =
   | 'VictoryBoxPlot'
   | 'VictoryCandlestick'
   | 'VictoryHistogram'
-  | 'VictoryStack';
+  | 'VictoryStack'
+  | 'VictoryPie';
 ```
 
 ## Advanced
