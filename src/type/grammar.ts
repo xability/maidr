@@ -445,6 +445,51 @@ export interface GaugePoint {
 }
 
 /**
+ * One row of a dumbbell chart: a category and the pair of values compared at
+ * it.
+ *
+ * The pair is what the chart is for -- before and after, two groups, two
+ * years -- and the segment drawn between the dots is the comparison. Which of
+ * the two is larger is not fixed: a dumbbell showing a decline draws `end`
+ * below `start`, and a chart usually contains both directions at once.
+ *
+ * The change between them is deliberately absent, and derived instead. A
+ * drawn segment cannot disagree with the dots it joins, so an authored delta
+ * is a second source of truth for a quantity that already has one -- and the
+ * one a reader would be told is the one the chart did not draw.
+ */
+export interface DumbbellPoint {
+  /** Position along the category axis. */
+  x: number | string;
+  /** The value the segment starts at -- the earlier, or the reference, one. */
+  start: number;
+  /** The value the segment ends at. */
+  end: number;
+}
+
+/**
+ * A dumbbell chart: its rows, and what its two ends are called.
+ *
+ * An object rather than a bare array -- as {@link HeatmapData} and
+ * {@link GaugePoint} already are -- because the names of the two ends belong
+ * to the chart and not to any one row. Repeating them on every point would
+ * let a producer emit rows that disagree about what the chart is comparing.
+ *
+ * Those names are the content of the comparison. Announced as "start" and
+ * "end", a chart of life expectancy in 1990 against 2020 tells the reader
+ * which dot they are on and not which year it is, which is the one thing the
+ * legend gives a sighted reader for free.
+ */
+export interface DumbbellData {
+  /** The rows, in the order the chart draws them. */
+  points: DumbbellPoint[];
+  /** What the starting end is called -- "1990", "before", "control". */
+  startLabel?: string;
+  /** What the finishing end is called -- "2020", "after", "treatment". */
+  endLabel?: string;
+}
+
+/**
  * Data structure for heatmap charts with x/y labels and 2D point values.
  */
 export interface HeatmapData {
@@ -705,6 +750,7 @@ export interface MaidrLayer {
     | BarPoint[]
     | BoxPoint[]
     | CandlestickPoint[]
+    | DumbbellData
     | ErrorBarPoint[]
     | GaugePoint
     | HeatmapData
@@ -752,6 +798,13 @@ export enum TraceType {
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
   DODGED = 'dodged_bar',
+  /**
+   * Two values per category joined by a segment -- before and after, two
+   * groups, two years. The gap is the message, so the trace announces the
+   * change alongside each end rather than leaving the reader to subtract two
+   * numbers they heard one at a time.
+   */
+  DUMBBELL = 'dumbbell',
   /**
    * An estimate with the interval drawn around it — an error bar, a
    * confidence interval, a point range. Navigated as a grid of
