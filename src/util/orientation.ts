@@ -46,6 +46,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // Slices are arranged around a circle, not along an axis: there is no
   // orientation to declare and none to fall back to.
   [TraceType.PIE]: false,
+  // Spokes sit around a circle rather than along an axis, so there is no main
+  // and cross axis to swap -- the same answer a pie gives.
+  [TraceType.POLAR_AREA]: false,
+  [TraceType.RADAR]: false,
   [TraceType.SCATTER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,

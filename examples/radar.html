@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Radar Chart Example — Model Comparison</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A radar puts its categories around a circle rather than along an axis,
+        and the one thing that makes it a radar rather than a row of bars is
+        where each spoke sits.
+
+        So the stereo position follows the spoke's angle instead of its index:
+        12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again, 9
+        o'clock hard left. Sweeping the six spokes goes out and comes back,
+        which is what a circle sounds like - the same treatment the pie chart
+        already gets.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="radar-models" maidr='{&#10;  &quot;id&quot;: &quot;radar-models&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;radar-models-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;radar-models-layer&quot;,&#10;            &quot;type&quot;: &quot;radar&quot;,&#10;            &quot;title&quot;: &quot;Model Comparison&quot;,&#10;            &quot;name&quot;: &quot;Model comparison&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Attribute&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Score&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Model&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;radar-series-a&#x27;] &gt; circle&quot;,&#10;              &quot;g[id=&#x27;radar-series-b&#x27;] &gt; circle&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;Speed&quot;,&#10;                  &quot;y&quot;: 8,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Range&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Comfort&quot;,&#10;                  &quot;y&quot;: 6,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Price&quot;,&#10;                  &quot;y&quot;: 9,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Economy&quot;,&#10;                  &quot;y&quot;: 5,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Safety&quot;,&#10;                  &quot;y&quot;: 7,&#10;                  &quot;z&quot;: &quot;Model A&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;Speed&quot;,&#10;                  &quot;y&quot;: 5,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Range&quot;,&#10;                  &quot;y&quot;: 7,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Comfort&quot;,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Price&quot;,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Economy&quot;,&#10;                  &quot;y&quot;: 8,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Safety&quot;,&#10;                  &quot;y&quot;: 6,&#10;                  &quot;z&quot;: &quot;Model B&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="radar-grid">
+            <circle cx="360" cy="220" r="35.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360" cy="220" r="70.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360" cy="220" r="105.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360" cy="220" r="140.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <line x1="360" y1="220" x2="360.0" y2="80.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            <line x1="360" y1="220" x2="481.2" y2="150.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            <line x1="360" y1="220" x2="481.2" y2="290.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            <line x1="360" y1="220" x2="360.0" y2="360.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            <line x1="360" y1="220" x2="238.8" y2="290.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            <line x1="360" y1="220" x2="238.8" y2="150.0" style="stroke: #bdbdbd; stroke-width: 1" />
+            </g>
+            <polygon points="360.0,108.0 408.5,192.0 432.7,262.0 360.0,346.0 299.4,255.0 275.1,171.0" style="fill: #4c72b0; fill-opacity: 0.25; stroke: #4c72b0; stroke-width: 2" />
+            <g id="radar-series-a">
+              <circle cx="360.0" cy="108.0" r="5" style="fill: #4c72b0" />
+              <circle cx="408.5" cy="192.0" r="5" style="fill: #4c72b0" />
+              <circle cx="432.7" cy="262.0" r="5" style="fill: #4c72b0" />
+              <circle cx="360.0" cy="346.0" r="5" style="fill: #4c72b0" />
+              <circle cx="299.4" cy="255.0" r="5" style="fill: #4c72b0" />
+              <circle cx="275.1" cy="171.0" r="5" style="fill: #4c72b0" />
+            </g>
+            <polygon points="360.0,150.0 444.9,171.0 396.4,241.0 360.0,248.0 263.0,276.0 287.3,178.0" style="fill: #c44e52; fill-opacity: 0.25; stroke: #c44e52; stroke-width: 2" />
+            <g id="radar-series-b">
+              <circle cx="360.0" cy="150.0" r="5" style="fill: #c44e52" />
+              <circle cx="444.9" cy="171.0" r="5" style="fill: #c44e52" />
+              <circle cx="396.4" cy="241.0" r="5" style="fill: #c44e52" />
+              <circle cx="360.0" cy="248.0" r="5" style="fill: #c44e52" />
+              <circle cx="263.0" cy="276.0" r="5" style="fill: #c44e52" />
+              <circle cx="287.3" cy="178.0" r="5" style="fill: #c44e52" />
+            </g>
+            <g id="spoke-labels">
+            <text x="360.0" y="57.6" style="font: 12px sans-serif; text-anchor: middle">Speed</text>
+            <text x="500.6" y="138.8" style="font: 12px sans-serif; text-anchor: middle">Range</text>
+            <text x="500.6" y="301.2" style="font: 12px sans-serif; text-anchor: middle">Comfort</text>
+            <text x="360.0" y="382.4" style="font: 12px sans-serif; text-anchor: middle">Price</text>
+            <text x="219.4" y="301.2" style="font: 12px sans-serif; text-anchor: middle">Economy</text>
+            <text x="219.4" y="138.8" style="font: 12px sans-serif; text-anchor: middle">Safety</text>
+            </g>
+            <g id="chart-title">
+              <text x="360" y="40" style="font: 16px sans-serif; text-anchor: middle">Model Comparison</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

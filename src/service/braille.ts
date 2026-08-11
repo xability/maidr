@@ -1127,6 +1127,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // A pie's braille state is a single row of slice magnitudes scaled
       // against that row's own range — the bar encoder's input exactly.
       [TraceType.PIE, asGeneric(new BarBrailleEncoder())],
+      // A radar's rows are series and its columns spokes, which is the line
+      // encoder's input exactly. The circle is what the *pan* carries; braille
+      // has no way to express an angle, and a row of magnitudes per series is
+      // the honest thing a display can show.
+      [TraceType.POLAR_AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.RADAR, asGeneric(new LineBrailleEncoder())],
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
       // A single row of signed contributions scaled against that row's own
       // range -- the bar encoder's input exactly, and the same magnitude the
