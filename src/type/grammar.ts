@@ -389,8 +389,17 @@ export interface WaterfallPoint {
 export interface WordCloudPoint {
   /** The term. */
   x: string;
-  /** Its weight -- a frequency, a score, a count. */
-  y: number;
+  /**
+   * Its weight -- a frequency, a score, a count.
+   *
+   * Widened to accept a string for the same reason {@link BarPoint.y} is:
+   * hand-authored JSON and some producers send numbers as strings, and the
+   * trace coerces on the way in. Declaring it `number` alone would not stop
+   * one arriving, it would only stop the compiler from admitting it -- and a
+   * string reaching the description's running total would concatenate rather
+   * than add.
+   */
+  y: number | string;
 }
 
 /**

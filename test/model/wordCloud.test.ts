@@ -107,6 +107,27 @@ describe('reading a term', () => {
   });
 });
 
+describe('string weights', () => {
+  test('sorts, sums and announces a weight sent as a string', () => {
+    // Hand-authored JSON sends numbers as strings, which is why the type
+    // admits them. The running total is the assertion that matters: `sum +
+    // weight` concatenates rather than adds if the coercion is ever dropped,
+    // so a chart of 10 and 2 would report a total of "102".
+    const asText: WordCloudPoint[] = [
+      { x: 'small', y: '2' },
+      { x: 'large', y: '10' },
+    ];
+    const trace = at(0, asText);
+
+    expect(nonEmptyState(trace).text.main.value).toBe('large');
+    expect(nonEmptyState(trace).text.cross.value).toBe(10);
+    expect(trace.description.stats).toContainEqual({
+      label: 'Total weight',
+      value: 12,
+    });
+  });
+});
+
 describe('audio', () => {
   test('pitches the weight, scaled across the cloud', () => {
     const heaviest = nonEmptyState(at(0)).audio;

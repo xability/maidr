@@ -73,7 +73,7 @@ test.describe('Word Cloud', () => {
       // sort removed entirely.
       const authored = getTerms(wordCloudLayer).map(term => term.x);
       const byWeight = [...getTerms(wordCloudLayer)]
-        .sort((a, b) => b.y - a.y)
+        .sort((a, b) => Number(b.y) - Number(a.y))
         .map(term => term.x);
 
       expect(authored).not.toEqual(byWeight);
