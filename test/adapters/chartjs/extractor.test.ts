@@ -822,6 +822,10 @@ describe('chart.js extractor', () => {
       const layer = extractMaidrData(chart).subplots[0][0].layers[0];
 
       expect(layer.data).toEqual([{ x: 1, y: 2, z: 8 }, { x: 3, y: 4 }]);
+      // One radius-less point must not suppress the label for the whole
+      // layer: the other point in this dataset does carry a size, and it is
+      // the layer that owns the axis.
+      expect(layer.axes?.z).toEqual({ label: 'Size' });
     });
   });
 });
