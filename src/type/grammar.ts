@@ -308,6 +308,35 @@ export interface CandlestickPoint {
 }
 
 /**
+ * One estimate with the interval drawn around it.
+ *
+ * The interval is the reason this is a point shape of its own rather than a
+ * scatter point: a chart drawn this way carries two magnitudes at every
+ * sample — the estimate, and how far from it the data is consistent with —
+ * and a reading that names only the first drops the part most statistical
+ * graphics are drawn to show.
+ *
+ * `lower` and `upper` are absolute positions on the value axis, not offsets
+ * from `y`. Producers disagree about which they hand out (matplotlib's
+ * `yerr` is an offset, Vega-Lite's `errorbar` computes bounds), so the
+ * schema fixes one and each adapter converts to it.
+ *
+ * The bounds are optional and independently so: a one-sided interval — an
+ * upper bound with no lower, say — is a real chart, and dropping the point
+ * for want of its other half would lose the estimate too.
+ */
+export interface ErrorBarPoint {
+  /** Position along the main axis. */
+  x: number | string;
+  /** The estimate itself: a mean, a median, a fitted value. */
+  y: number;
+  /** Absolute lower bound of the interval, when the chart draws one. */
+  yMin?: number;
+  /** Absolute upper bound of the interval, when the chart draws one. */
+  yMax?: number;
+}
+
+/**
  * Data structure for heatmap charts with x/y labels and 2D point values.
  */
 export interface HeatmapData {
@@ -567,6 +596,7 @@ export interface MaidrLayer {
     | BarPoint[]
     | BoxPoint[]
     | CandlestickPoint[]
+    | ErrorBarPoint[]
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
@@ -610,6 +640,13 @@ export enum TraceType {
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
   DODGED = 'dodged_bar',
+  /**
+   * An estimate with the interval drawn around it — an error bar, a
+   * confidence interval, a point range. Navigated as a grid of
+   * `[lower, value, upper]` against the samples, so the reader can move
+   * between the three magnitudes at one x as readily as between samples.
+   */
+  ERROR_BAR = 'error_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
   LINE = 'line',

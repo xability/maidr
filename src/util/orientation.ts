@@ -30,6 +30,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // in the JSON; it is navigated by field and candle, not by an orientation.
   [TraceType.CANDLESTICK_DELTA]: false,
   [TraceType.DODGED]: true,
+  // The interval runs along the value axis and the samples along the other,
+  // so which way round they are drawn decides which axis a bound moves on --
+  // the same reason a bar or a box is oriented.
+  [TraceType.ERROR_BAR]: true,
   [TraceType.HEATMAP]: false,
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,

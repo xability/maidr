@@ -31,6 +31,7 @@ export abstract class TestConstants {
   static readonly LINEPLOT_ID = 'line';
   static readonly STEPPLOT_ID = 'step';
   static readonly AREAPLOT_ID = 'area-revenue';
+  static readonly ERRORBAR_ID = 'errorbar-response';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
@@ -126,6 +127,7 @@ export abstract class TestConstants {
   // A multi-series trace names its group count, as the multiline entry above
   // does; the example this asserts against carries two bands.
   static readonly AREAPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked area with 2 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly ERRORBAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical error_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `formatPlotType` in src/util/orientation.ts prefixes the box type with its

@@ -1110,6 +1110,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.
       [TraceType.CANDLESTICK_DELTA, asGeneric(new CandlestickBrailleEncoder())],
       [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
+      // One row per section — a profile of lower bounds, of estimates, of
+      // upper bounds — which is the per-row height profile the line encoder
+      // renders. The reader feels the interval by moving between rows, the
+      // same way they hear it.
+      [TraceType.ERROR_BAR, asGeneric(new LineBrailleEncoder())],
       [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
