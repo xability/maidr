@@ -204,3 +204,177 @@ describe('AnnouncePositionCommand on multi-series step plots', () => {
     expect(textViewModel.update).toHaveBeenCalledWith('Line 1 of 3, Position is 3 of 10');
   });
 });
+
+/**
+ * Builds a pie trace state as `PieTrace` reports it.
+ *
+ * The angles are read from the braille row, the same route the boxplot branch
+ * takes for its own trace-specific data, so this mirrors what the trace
+ * actually puts there rather than inventing a shape.
+ */
+function pieState(values: number[], col: number): PlotState {
+  return {
+    empty: false,
+    type: 'trace',
+    traceType: TraceType.PIE,
+    plotType: 'pie',
+    audio: { panning: { x: 0, y: 0, rows: 1, cols: 2 } },
+    braille: {
+      empty: false,
+      id: 'pie',
+      values: [values],
+      min: [Math.min(...values)],
+      max: [Math.max(...values)],
+      row: 0,
+      col,
+    },
+    text: {
+      main: { label: 'Fruit', value: 'A' },
+      cross: { label: 'Units', value: values[col] },
+    },
+  } as unknown as PlotState;
+}
+
+describe('AnnouncePositionCommand on a pie', () => {
+  test('places the slice on the dial, not just in the order', () => {
+    // Four equal slices, so each is exactly a quarter turn: 12 to 3, 3 to 6,
+    // 6 to 9, 9 back to 12. Chosen so the arithmetic is checkable by eye.
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 4, from 12 o\'clock to 3 o\'clock',
+    );
+  });
+
+  test('carries on round the dial rather than restarting each slice', () => {
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 2));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, from 6 o\'clock to 9 o\'clock',
+    );
+  });
+
+  test('reads the last slice as ending at 12, not at 0', () => {
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 3));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 4 of 4, from 9 o\'clock to 12 o\'clock',
+    );
+  });
+
+  test('reads a slice thinner than an hour as a point', () => {
+    // 1 out of 200 is under a thirtieth of an hour, so its start and end round
+    // together; "from 12 o'clock to 12 o'clock" would say nothing.
+    const { command, textViewModel } = createCommand(pieState([1, 199], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 2, at 12 o\'clock',
+    );
+  });
+
+  test('measures a negative slice by the arc it occupies', () => {
+    // The wedge for -1 is drawn a quarter of the way round like any other, so
+    // the slices after it must not shift.
+    const { command, textViewModel } = createCommand(pieState([1, -1, 1, 1], 2));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, from 6 o\'clock to 9 o\'clock',
+    );
+  });
+
+  test('says only where it is when text is terse', () => {
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 1), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('from 3 o\'clock to 6 o\'clock');
+  });
+
+  test('falls back to the ordinal when nothing is drawn', () => {
+    // An all-gap pie has no dial to place anything on, and dividing by its
+    // basis would be 0/0.
+    const { command, textViewModel } = createCommand(pieState([0, 0], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Position is 1 of 2');
+  });
+
+  test('calls a slice that fills the dial the whole circle', () => {
+    // One slice starts and ends at 12, so the point branch would announce the
+    // entire circle as a single position -- the opposite of what it is.
+    const { command, textViewModel } = createCommand(pieState([100], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 1, the whole circle',
+    );
+  });
+
+  test('still calls the dial whole when the rest of it is gaps', () => {
+    // A gap and a zero are drawn as nothing, so a slice beside them is the
+    // entire basis and the plain reading is the true one.
+    const { command, textViewModel } = createCommand(
+      pieState([100, Number.NaN, 0], 0),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 3, the whole circle',
+    );
+  });
+
+  test('qualifies a slice that only rounds to the full turn', () => {
+    // 199 of 200 is 11.94 hours, so both ends still round to 12 and this must
+    // not read as a point. But the second slice is drawn, however thin, and
+    // "1 of 2, the whole circle" would contradict itself in one sentence.
+    const { command, textViewModel } = createCommand(pieState([199, 1], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 2, nearly the whole circle',
+    );
+  });
+
+  test('qualifies it however many slices share the remainder', () => {
+    // 1150 of 1152 rounds to the full turn while two other slices exist to be
+    // navigated to -- the case the per-slice threshold has to get right.
+    const { command, textViewModel } = createCommand(pieState([1150, 1, 1], 0));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 3, nearly the whole circle',
+    );
+  });
+
+  test('gives a gap between measured slices no arc of its own', () => {
+    // A gap is NaN rather than 0, and it is not drawn, so the slice after it
+    // must sit where it would if the gap were absent from the data.
+    const gapped = createCommand(pieState([1, Number.NaN, 1, 1], 2));
+    const gapless = createCommand(pieState([1, 1, 1], 1));
+
+    gapped.command.execute();
+    gapless.command.execute();
+
+    expect(gapped.textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, from 4 o\'clock to 8 o\'clock',
+    );
+    expect(gapless.textViewModel.update).toHaveBeenCalledWith(
+      'Position is 2 of 3, from 4 o\'clock to 8 o\'clock',
+    );
+  });
+});

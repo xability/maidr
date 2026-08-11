@@ -5,7 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
 import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
@@ -607,6 +607,20 @@ export class AnnouncePointCommand extends AnnounceCommand {
 }
 
 /**
+ * Turns a fraction of the way round the dial into a clock hour.
+ *
+ * Twelve o'clock is both the origin and the full turn, so a fraction of 0 and
+ * a fraction of 1 both read as 12 rather than one of them reading as 0.
+ *
+ * @param fraction - How far round the circle, from 0 at 12 o'clock
+ * @returns The hour, 1 through 12
+ */
+function toClockHour(fraction: number): number {
+  const hour = Math.round(fraction * 12) % 12;
+  return hour === 0 ? 12 : hour;
+}
+
+/**
  * Command to announce the current position in the chart.
  * Formats output based on text mode (terse/verbose) and chart type.
  */
@@ -662,6 +676,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (traceType === TraceType.BOX) {
       this.announceBoxplotPosition(state);
+    } else if (traceType === TraceType.PIE) {
+      this.announcePiePosition(state);
     } else if (traceType === TraceType.CANDLESTICK) {
       this.announceCandlestickPosition(state);
     } else if (
@@ -809,6 +825,80 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
     } else {
       this.textViewModel.update(`Position is ${position} of ${totalCandles}, ${section.toLowerCase()}`);
+    }
+  }
+
+  /**
+   * Announces where a pie slice sits on the dial, as clock positions.
+   *
+   * "Position is 2 of 3" says which slice; it does not say where it is, and a
+   * pie's whole shape is where its slices are. A sighted colleague describing
+   * one says "the big slice on the right", and until now there was no reading
+   * that could meet that.
+   *
+   * The angles come from the braille state's magnitudes, the same route
+   * {@link announceBoxplotPosition} takes for its own trace-specific data, so
+   * no state has to grow a field. A slice's arc is its share of the sum of the
+   * absolute values — the circle as drawn, matching what the percentages are
+   * of — accumulated in order from 12 o'clock, clockwise. That origin is a
+   * convention rather than something the payload declares, and it is the one
+   * every producer wired up so far uses.
+   *
+   * Clock positions rather than degrees because they are what people say out
+   * loud. Rounded to the hour for the same reason: this is for orientation and
+   * for matching someone else's description, not for measurement — the
+   * percentage already carries the precise width.
+   * @param state - The active trace state.
+   */
+  private announcePiePosition(state: NonEmptyTraceState): void {
+    const braille = state.braille as BarBrailleState;
+    const values = braille.values[0] ?? [];
+    const col = braille.col;
+
+    const magnitude = (value: number): number =>
+      Number.isFinite(value) ? Math.abs(value) : 0;
+    const basis = values.reduce((sum, value) => sum + magnitude(value), 0);
+    const position = col + 1;
+    const total = values.length;
+
+    if (basis === 0) {
+      // Nothing is drawn, so there is no dial to place anything on.
+      this.textViewModel.update(`Position is ${position} of ${total}`);
+      return;
+    }
+
+    const before = values
+      .slice(0, col)
+      .reduce((sum, value) => sum + magnitude(value), 0);
+    const start = before / basis;
+    const end = (before + magnitude(values[col])) / basis;
+
+    const startHour = toClockHour(start);
+    const endHour = toClockHour(end);
+    let where: string;
+    if (Math.round((end - start) * 12) >= 12) {
+      // A slice can be the whole dial -- a pie of one category, or one
+      // category at 100%. Both ends then round to 12, and calling that a
+      // point would be the exact opposite of what it is.
+      //
+      // A slice within half an hour of the full turn rounds the same way
+      // without being the same thing: the slices beside it still occupy arc,
+      // and "1 of 3, the whole circle" would contradict itself in one
+      // sentence. Only a slice that is the entire basis gets the plain
+      // reading.
+      where = end - start >= 1 ? 'the whole circle' : 'nearly the whole circle';
+    } else if (startHour === endHour) {
+      // A slice too thin to span an hour reads as a point rather than as a
+      // range from a position to itself.
+      where = `at ${startHour} o'clock`;
+    } else {
+      where = `from ${startHour} o'clock to ${endHour} o'clock`;
+    }
+
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      this.textViewModel.update(where);
+    } else {
+      this.textViewModel.update(`Position is ${position} of ${total}, ${where}`);
     }
   }
 
