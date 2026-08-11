@@ -23,6 +23,22 @@
  *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
  *   [target: .recharts-scatter-symbol .recharts-symbols]
  *
+ * PieChart:
+ *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
+ *   [target: .recharts-pie-sector .recharts-sector]
+ *
+ *   Recharts emits one sector group per slice in data order, so the selector
+ *   already satisfies the pie contract of N elements index-aligned to the
+ *   data. The `.recharts-pie-sector` parent scope matters here: the pie's
+ *   label lines (`<path class="recharts-curve">`) and, in an active-shape
+ *   chart, the enlarged active sector live under `.recharts-pie` too.
+ *
+ *   One exception is out of the adapter's hands: Recharts renders no sector at
+ *   all for a zero-value slice (`Pie.js` drops sectors whose start and end
+ *   angles are both 0). `PieTrace` sees fewer elements than slices and turns
+ *   highlighting off for the layer rather than mis-aligning it, so audio,
+ *   text, and braille still describe every slice including the zero.
+ *
  * Selectors are scoped to their parent container classes to avoid matching
  * Recharts utility elements (e.g. Tooltip cursor rectangles) that share the
  * same leaf class name.
@@ -45,6 +61,23 @@
  */
 
 import type { RechartsChartType } from './types';
+import { cssEscape } from '@adapters/shared/selectorUtil';
+
+/**
+ * Returns the CSS class name of the generated wrapper div for one panel of
+ * a multi-panel (subplot mode) figure. `<MaidrRecharts>` stamps this class
+ * on each panel wrapper it renders.
+ */
+export function getPanelClassName(row: number, col: number): string {
+  return `maidr-panel-${row}-${col}`;
+}
+
+/**
+ * Returns the CSS selector matching one panel's generated wrapper div.
+ */
+export function getPanelClassSelector(row: number, col: number): string {
+  return `.${getPanelClassName(row, col)}`;
+}
 
 /**
  * Returns the CSS selector string for individual data point elements
@@ -54,13 +87,31 @@ import type { RechartsChartType } from './types';
  * cannot reliably target a specific series in Recharts' SVG structure.
  * See the module-level documentation for details.
  *
+ * The generated selectors are bare page-global class selectors (e.g.
+ * `.recharts-bar-rectangle .recharts-rectangle`). MAIDR resolves them via
+ * page-global `document.querySelectorAll`, so with two or more Recharts charts
+ * on one page they would cross-match. Pass `chartId` (the `<Maidr>` config id)
+ * to scope every selector to that chart's own `#maidr-article-<id>` wrapper so
+ * the charts cannot highlight one another's elements.
+ *
+ * For multi-panel figures every panel lives inside the SAME article wrapper,
+ * so `chartId` alone is not enough: pass `panelScope` (a selector matching
+ * only that panel's container, e.g. `.maidr-panel-0-1`) to keep each panel's
+ * selectors from matching sibling panels' marks.
+ *
  * @param chartType - The Recharts chart type
  * @param seriesIndex - When set, indicates a multi-series chart — returns undefined
+ * @param chartId - When set, scopes the selector to the chart's `<Maidr>`
+ *                  article (`#maidr-article-<id>`) to avoid cross-chart matches
+ * @param panelScope - When set, additionally scopes the selector to one
+ *                     panel's container within the article (subplot mode)
  * @returns CSS selector string, or undefined for multi-series targeting
  */
 export function getRechartsSelector(
   chartType: RechartsChartType,
   seriesIndex?: number,
+  chartId?: string,
+  panelScope?: string,
 ): string | undefined {
   // Multi-series positional targeting is unreliable with CSS alone.
   // Return undefined to gracefully disable highlighting.
@@ -68,6 +119,30 @@ export function getRechartsSelector(
     return undefined;
   }
 
+  const base = baseRechartsSelector(chartType);
+  if (base === undefined) {
+    return base;
+  }
+  // Scope to the chart's own `<Maidr>` article so multiple Recharts charts on
+  // one page cannot cross-highlight under page-global selector resolution,
+  // then to the panel's own container so sibling panels cannot either.
+  const scopes: string[] = [];
+  if (chartId !== undefined) {
+    scopes.push(`#maidr-article-${cssEscape(chartId)}`);
+  }
+  if (panelScope !== undefined) {
+    scopes.push(panelScope);
+  }
+  if (scopes.length === 0) {
+    return base;
+  }
+  return `${scopes.join(' ')} ${base}`;
+}
+
+/**
+ * Returns the unscoped, page-global leaf selector for a Recharts chart type.
+ */
+function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {
     case 'bar':
     case 'stacked_bar':
@@ -79,5 +154,7 @@ export function getRechartsSelector(
       return '.recharts-line-dots .recharts-line-dot';
     case 'scatter':
       return '.recharts-scatter-symbol .recharts-symbols';
+    case 'pie':
+      return '.recharts-pie-sector .recharts-sector';
   }
 }

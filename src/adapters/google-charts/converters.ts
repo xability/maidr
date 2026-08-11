@@ -9,6 +9,7 @@
  * MAIDR uses typed data structures per chart type:
  *   BarPoint[]          = [{ x, y }, ...]
  *   LinePoint[][]       = [[{ x, y, fill? }, ...], ...]
+ *   PiePoint[]          = [{ x, y }, ...]  (flat: one entry per slice)
  *   ScatterPoint[]      = [{ x, y }, ...]
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
  *   CandlestickPoint[]  = [{ value, open, high, low, close, ... }, ...]
@@ -23,10 +24,11 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
-import type { GoogleBoundingBox, GoogleChart, GoogleChartType, GoogleDataTable } from './types';
+import type { GoogleBoundingBox, GoogleChart, GoogleChartType, GoogleDataTable, GoogleEvents } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
 
@@ -50,6 +52,18 @@ const POSITION_TOLERANCE = 2;
 const CANDLESTICK_GRID_MAX_WIDTH = 1;
 const CANDLESTICK_WICK_MAX_WIDTH = 3;
 const CANDLESTICK_BODY_MIN_WIDTH = 10;
+
+/**
+ * Matches the elliptical-arc command in an SVG path's `d` attribute.
+ *
+ * Google Charts gives its pie slices no class or id, so the wedges have to be
+ * told apart from the other paths in the SVG by their geometry. An arc
+ * command is the one thing every wedge has and no legend swatch, axis line,
+ * or gridline does; `A`/`a` cannot appear anywhere else in a `d` attribute,
+ * whose only other letters are the remaining commands and the `e` of an
+ * exponent.
+ */
+const SVG_ARC_COMMAND = /a/i;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -119,11 +133,15 @@ export function createMaidrFromGoogleChart(
   container: HTMLElement,
   options: GoogleChartAdapterOptions,
 ): Maidr {
+  // Assign a stable container id up-front (used for scoped CSS selectors)
+  // BEFORE deriving the maidr id from it. `Element.id` is `''` (never
+  // nullish) when unset, so reading it before `ensureContainerId` — and with
+  // `??`, which does not treat `''` as missing — would leave `id` empty and
+  // make the `nextId` fallback dead. This mirrors the Frappe adapter.
+  ensureContainerId(container);
+
   const id = options.id ?? container.id ?? nextId('maidr-gc');
   const title = options.title ?? '';
-
-  // Assign a stable container id up-front (used for scoped CSS selectors).
-  ensureContainerId(container);
 
   const layer = buildLayer(chart, dataTable, container, options.chartType);
 
@@ -134,6 +152,292 @@ export function createMaidrFromGoogleChart(
     ...(title ? { title } : {}),
     subplots: [[subplot]],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — multi-panel (faceted) figures
+// ---------------------------------------------------------------------------
+
+/**
+ * One panel of a multi-panel figure — the same (chart, dataTable, container,
+ * chartType) tuple {@link createMaidrFromGoogleChart} takes, plus an optional
+ * panel title announced during subplot navigation.
+ */
+export interface GoogleChartPanel {
+  /** The rendered Google Charts chart instance for this panel. */
+  chart: GoogleChart;
+  /** The DataTable (or DataView) the panel was drawn from. */
+  dataTable: GoogleDataTable;
+  /** The DOM element the panel was drawn into. Must be inside `options.root`. */
+  container: HTMLElement;
+  /** The Google Charts chart type string (see {@link GoogleChartAdapterOptions.chartType}). */
+  chartType: GoogleChartType;
+  /** Panel name announced in subplot summaries (e.g. the facet value). */
+  title?: string;
+}
+
+/**
+ * Options accepted by {@link createMaidrFromGoogleCharts}.
+ */
+export interface GoogleChartsGridOptions {
+  /**
+   * Wrapper element containing ALL panel containers. The combined `maidr`
+   * attribute must be set on this element (not on the individual panel
+   * containers): `root.setAttribute('maidr', JSON.stringify(maidr))`.
+   */
+  root: HTMLElement;
+  /** Unique ID for the MAIDR instance. Defaults to the root element's `id`. */
+  id?: string;
+  /** Figure-level title announced when the figure receives focus. */
+  title?: string;
+  /**
+   * Grid shape for a FLAT `panels` array, chunked row-major. `columns` wins
+   * when both are given; with only `rows`, columns = ceil(n / rows). Ignored
+   * when `panels` is already a 2D array.
+   */
+  layout?: { rows?: number; columns?: number };
+}
+
+/**
+ * Tolerance (in pixels) when clustering panel containers into visual rows
+ * by their `getBoundingClientRect().top`. Panels whose tops differ by no
+ * more than this are considered part of the same row.
+ */
+const ROW_CLUSTER_TOLERANCE = 10;
+
+/**
+ * Creates a single multi-panel MAIDR figure from several rendered Google
+ * Charts instances (Google Charts has no native facet/trellis concept — a
+ * "faceted" page is N chart instances in N containers).
+ *
+ * Users navigate the resulting figure at subplot level first (arrow keys move
+ * between panels, `Enter` drills into a panel, `Esc` returns).
+ *
+ * Grid shape, in priority order:
+ * 1. `panels` is a 2D array (`GoogleChartPanel[][]`) — used directly as the
+ *    subplot grid (rows may be ragged, but never empty).
+ * 2. `panels` is flat and `options.layout` is given — chunked row-major.
+ * 3. Otherwise the grid is inferred from the containers' on-screen geometry
+ *    (clustered into rows by top edge, sorted left-to-right within a row).
+ *
+ * Always supply the grid in visual reading order (top-left panel first).
+ *
+ * Call this **after every panel has finished rendering** — see
+ * {@link whenGoogleChartsReady} — then set the returned object as the `maidr`
+ * attribute on `options.root` (NOT on the individual panel containers):
+ *
+ * @param panels  - Panel specs, flat or as a 2D grid in reading order.
+ * @param options - Grid options; `root` is required.
+ * @returns A single {@link Maidr} object spanning all panels.
+ *
+ * @example
+ * ```js
+ * whenGoogleChartsReady(charts, google.visualization.events, () => {
+ *   const maidr = createMaidrFromGoogleCharts(
+ *     panels, // [{ chart, dataTable, container, chartType, title }, …]
+ *     { root: document.getElementById('grid'), layout: { columns: 2 } },
+ *   );
+ *   root.setAttribute('maidr', JSON.stringify(maidr));
+ * });
+ * charts.forEach((chart, i) => chart.draw(dataTables[i], drawOptions[i]));
+ * ```
+ */
+export function createMaidrFromGoogleCharts(
+  panels: GoogleChartPanel[] | GoogleChartPanel[][],
+  options: GoogleChartsGridOptions,
+): Maidr {
+  const root = options.root;
+  if (!root) {
+    throw new Error('createMaidrFromGoogleCharts: options.root is required '
+      + '(a wrapper element containing all panel containers).');
+  }
+
+  const grid = resolvePanelGrid(panels, options.layout);
+  validatePanelContainers(grid, root);
+
+  if (!root.id) {
+    root.id = nextId('maidr-gc');
+  }
+  const id = options.id ?? root.id;
+  const title = options.title ?? '';
+
+  const subplots: MaidrSubplot[][] = grid.map(row => row.map((panel) => {
+    ensureContainerId(panel.container);
+    const layer = buildLayer(panel.chart, panel.dataTable, panel.container, panel.chartType);
+    if (panel.title) {
+      layer.title = panel.title;
+    }
+    return {
+      layers: [layer],
+      selector: `#${panel.container.id} svg`,
+    };
+  }));
+
+  return {
+    id,
+    ...(title ? { title } : {}),
+    subplots,
+  };
+}
+
+/**
+ * Invokes `callback` once EVERY given chart has fired its `'ready'` event.
+ *
+ * Each Google chart fires `'ready'` independently, so a multi-panel figure
+ * must not be assembled until all panels have rendered. Register the gate
+ * **before** calling `chart.draw(…)` on any of the charts.
+ *
+ * @param charts   - The chart instances to wait for.
+ * @param events   - The Google Charts event helper, `google.visualization.events`.
+ * @param callback - Invoked once, after every chart has fired `'ready'`.
+ *
+ * @example
+ * ```js
+ * whenGoogleChartsReady(charts, google.visualization.events, buildMaidr);
+ * charts.forEach((chart, i) => chart.draw(dataTables[i], drawOptions[i]));
+ * ```
+ */
+export function whenGoogleChartsReady(
+  charts: readonly GoogleChart[],
+  events: GoogleEvents,
+  callback: () => void,
+): void {
+  let remaining = charts.length;
+  if (remaining === 0) {
+    callback();
+    return;
+  }
+
+  for (const chart of charts) {
+    // One-shot per chart (redraws must not double-count): the real
+    // `google.visualization.events` API detaches one-time listeners itself.
+    events.addOneTimeListener(chart, 'ready', () => {
+      remaining -= 1;
+      if (remaining === 0) {
+        callback();
+      }
+    });
+  }
+}
+
+/**
+ * Normalizes the `panels` argument of {@link createMaidrFromGoogleCharts}
+ * into a 2D grid in visual reading order (see the strategy list there).
+ */
+function resolvePanelGrid(
+  panels: GoogleChartPanel[] | GoogleChartPanel[][],
+  layout?: { rows?: number; columns?: number },
+): GoogleChartPanel[][] {
+  if (panels.length === 0) {
+    throw new Error('createMaidrFromGoogleCharts: at least one panel is required.');
+  }
+
+  if (Array.isArray(panels[0])) {
+    const grid = panels as GoogleChartPanel[][];
+    grid.forEach((row, r) => {
+      if (row.length === 0) {
+        throw new Error(`createMaidrFromGoogleCharts: grid row ${r} is empty.`);
+      }
+    });
+    return grid;
+  }
+
+  const flat = panels as GoogleChartPanel[];
+  const columns = resolveColumnCount(flat.length, layout);
+  if (columns !== undefined) {
+    return chunkRowMajor(flat, columns);
+  }
+  return inferGridFromGeometry(flat);
+}
+
+/**
+ * Derives the column count from `options.layout`, or `undefined` when no
+ * layout was requested (geometry inference applies instead).
+ */
+function resolveColumnCount(
+  panelCount: number,
+  layout?: { rows?: number; columns?: number },
+): number | undefined {
+  if (!layout || (layout.columns === undefined && layout.rows === undefined)) {
+    return undefined;
+  }
+  const requested = layout.columns ?? layout.rows!;
+  if (!Number.isInteger(requested) || requested < 1) {
+    throw new Error('createMaidrFromGoogleCharts: layout rows/columns must be a positive integer.');
+  }
+  return layout.columns ?? Math.ceil(panelCount / layout.rows!);
+}
+
+/** Splits a flat panel list into rows of `columns` panels (last row may be shorter). */
+function chunkRowMajor(flat: GoogleChartPanel[], columns: number): GoogleChartPanel[][] {
+  const grid: GoogleChartPanel[][] = [];
+  for (let i = 0; i < flat.length; i += columns) {
+    grid.push(flat.slice(i, i + columns));
+  }
+  return grid;
+}
+
+/**
+ * Infers the grid from on-screen container geometry: panels are clustered
+ * into rows by their bounding-rect top edge (within
+ * {@link ROW_CLUSTER_TOLERANCE} pixels) and sorted left-to-right within each
+ * row, yielding visual reading order.
+ */
+function inferGridFromGeometry(flat: GoogleChartPanel[]): GoogleChartPanel[][] {
+  const entries = flat.map((panel) => {
+    const rect = panel.container.getBoundingClientRect();
+    return { panel, top: rect.top, left: rect.left };
+  });
+  entries.sort((a, b) => a.top - b.top || a.left - b.left);
+
+  const rows: (typeof entries)[] = [];
+  for (const entry of entries) {
+    const currentRow = rows[rows.length - 1];
+    if (currentRow && Math.abs(entry.top - currentRow[0].top) <= ROW_CLUSTER_TOLERANCE) {
+      currentRow.push(entry);
+    } else {
+      rows.push([entry]);
+    }
+  }
+
+  return rows.map(row =>
+    row.sort((a, b) => a.left - b.left).map(entry => entry.panel),
+  );
+}
+
+/**
+ * Ensures every panel container is a proper descendant of `root` (so the
+ * `maidr` attribute on `root` covers all panels), that no two panels share a
+ * container (marking attributes would collide), and that no panel container
+ * is nested inside another panel's container (the id-scoped descendant
+ * selectors of the outer panel would also match the inner chart's elements,
+ * silently disabling the outer panel's highlighting).
+ */
+function validatePanelContainers(grid: GoogleChartPanel[][], root: HTMLElement): void {
+  const seen = new Set<HTMLElement>();
+  grid.forEach((row, r) => row.forEach((panel, c) => {
+    const container = panel.container;
+    if (!container || container === root || !root.contains(container)) {
+      throw new Error(
+        `createMaidrFromGoogleCharts: panel [${r}][${c}] container must be a descendant of options.root.`,
+      );
+    }
+    if (seen.has(container)) {
+      throw new Error(
+        `createMaidrFromGoogleCharts: panel [${r}][${c}] reuses a container already used by another panel.`,
+      );
+    }
+    for (const prev of seen) {
+      if (prev.contains(container) || container.contains(prev)) {
+        throw new Error(
+          `createMaidrFromGoogleCharts: panel [${r}][${c}] container is nested inside `
+          + '(or contains) another panel\'s container; id-scoped selectors would match '
+          + 'both charts\' elements.',
+        );
+      }
+    }
+    seen.add(container);
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +457,10 @@ function buildLayer(
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
       return buildLineLayer(chart, dt, container);
+    case 'PieChart':
+      // No `chart`: unlike the axis-based charts, a PieChart has no
+      // `getChartLayoutInterface()` to ask where each slice was drawn.
+      return buildPieLayer(dt, container);
     case 'ScatterChart':
       return buildScatterLayer(chart, dt, container);
     case 'StackedColumnChart':
@@ -169,7 +477,8 @@ function buildLayer(
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
         + 'Supported types: BarChart, CandlestickChart, ColumnChart, DodgedBarChart, '
-        + 'DodgedColumnChart, LineChart, ScatterChart, StackedBarChart, StackedColumnChart.',
+        + 'DodgedColumnChart, LineChart, PieChart, ScatterChart, StackedBarChart, '
+        + 'StackedColumnChart.',
       );
   }
 }
@@ -204,15 +513,7 @@ function buildBarLayer(
 ): MaidrLayer {
   const data: BarPoint[] = [];
   const rows = dt.getNumberOfRows();
-
-  // Find first non-role data column (defensive: don't assume column 1 is data)
-  let dataCol = 1;
-  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
-    if (!isRoleColumn(dt, c)) {
-      dataCol = c;
-      break;
-    }
-  }
+  const dataCol = firstDataColumn(dt);
 
   for (let r = 0; r < rows; r++) {
     const label = formatCellValue(dt, r, 0);
@@ -376,6 +677,103 @@ function buildScatterLayer(
 }
 
 // ---------------------------------------------------------------------------
+// Pie / doughnut
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a pie layer from a Google Charts PieChart.
+ *
+ * A doughnut is the same chart class drawn with a `pieHole` option, so it
+ * needs no separate branch. Column 0 supplies the slice labels and the first
+ * data column their magnitudes; the share of the whole is NOT emitted — the
+ * model derives it from the values, so there is exactly one source of truth.
+ *
+ * A PieChart is not axis-based, so `axes.x` / `axes.y` here name what the
+ * slice labels mean and what their values measure rather than any drawn axis.
+ */
+function buildPieLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const dataCol = firstDataColumn(dt);
+
+  const data: PiePoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    data.push({
+      x: formatCellValue(dt, r, 0),
+      y: numericValue(dt, r, dataCol),
+    });
+  }
+
+  const selector = markPieSliceElements(container, rows);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.PIE,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(dataCol) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Marks the SVG wedge paths of a pie chart and returns a selector for them.
+ *
+ * Google Charts renders each slice as one `<path>`, in DataTable row order,
+ * with no class or id to select on — so the wedges are picked out by the arc
+ * command in their `d` attribute (see {@link SVG_ARC_COMMAND}), which no
+ * legend swatch or axis line has.
+ *
+ * When the wedge count does not match the row count the mapping between data
+ * and DOM is unknown, and the marks are left off entirely: a 3-D pie draws
+ * several paths per slice, and `sliceVisibilityThreshold` folds tiny slices
+ * into a single "Other" wedge. Highlighting the wrong slice would tell a
+ * sighted collaborator one thing while the audio and text say another, so no
+ * highlight is the safer answer.
+ *
+ * @param container - The DOM container element
+ * @param sliceCount - Number of data rows (one per slice)
+ * @returns CSS selector for the marked wedges, or undefined when they could
+ *          not be identified with confidence
+ */
+function markPieSliceElements(
+  container: HTMLElement,
+  sliceCount: number,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  const existingMarked = svg.querySelectorAll('path[data-maidr-slice]');
+  existingMarked.forEach(path => path.removeAttribute('data-maidr-slice'));
+
+  const wedges = Array.from(svg.querySelectorAll('path'))
+    .filter(path => SVG_ARC_COMMAND.test(path.getAttribute('d') ?? ''));
+  if (wedges.length === 0) {
+    return undefined;
+  }
+
+  if (wedges.length !== sliceCount) {
+    console.warn(
+      `[MAIDR] Pie slice count mismatch: expected ${sliceCount}, found ${wedges.length}. `
+      + 'Visual highlighting is disabled for this chart. 3-D pies (is3D) draw several '
+      + 'paths per slice, and sliceVisibilityThreshold merges small slices into one.',
+    );
+    return undefined;
+  }
+
+  wedges.forEach((wedge, index) => wedge.setAttribute('data-maidr-slice', `${index}`));
+
+  return `#${container.id} svg path[data-maidr-slice]`;
+}
+
+// ---------------------------------------------------------------------------
 // Candlestick
 // ---------------------------------------------------------------------------
 
@@ -489,6 +887,23 @@ function isRoleColumn(dt: GoogleDataTable, c: number): boolean {
     return role !== '' && role !== 'data';
   }
   return false;
+}
+
+/**
+ * Returns the index of the first non-role data column.
+ *
+ * Defensive: a DataTable may carry a role column (tooltip, style, …) directly
+ * after the domain column, so column 1 is not necessarily data. Falls back to
+ * column 1 when every column past the domain is a role column, which leaves
+ * the value lookup to fail loudly rather than silently reading a tooltip.
+ */
+function firstDataColumn(dt: GoogleDataTable): number {
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      return c;
+    }
+  }
+  return 1;
 }
 
 /**

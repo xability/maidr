@@ -1,3 +1,171 @@
+# [4.0.0](https://github.com/xability/maidr/compare/v3.75.1...v4.0.0) (2026-08-10)
+
+
+### Bug Fixes
+
+* **amcharts:** measure a pie wedge instead of believing its reported box ([#775](https://github.com/xability/maidr/issues/775)) ([d1ac71c](https://github.com/xability/maidr/commit/d1ac71c02edc026f6ba0aadddf90e944c9f2c3b5))
+* announce gaps as missing, and stop two adapters mislabelling or dropping highlights ([#772](https://github.com/xability/maidr/issues/772)) ([6851654](https://github.com/xability/maidr/commit/6851654ff231bfdb7ef0da1976cd6bdf1de57433)), closes [#769](https://github.com/xability/maidr/issues/769) [#768](https://github.com/xability/maidr/issues/768)
+* **bar:** keep a gap in bar data out of pitch, braille, and extrema ([#728](https://github.com/xability/maidr/issues/728)) ([3fbd1b9](https://github.com/xability/maidr/commit/3fbd1b9c4e71aae63f23cb56a27bb737573c56ac))
+* **box:** describe every box's range and outliers, not one chart-wide pair ([#752](https://github.com/xability/maidr/issues/752)) ([31bbac3](https://github.com/xability/maidr/commit/31bbac3fcffdd23792e910f70df073e94215f627))
+* **ci:** make the `!` breaking marker actually reach the release ([#779](https://github.com/xability/maidr/issues/779)) ([da87056](https://github.com/xability/maidr/commit/da87056919877aae03407e9c0ae2b220f9ac0164))
+* **description:** round the numbers the chart description reads out ([#757](https://github.com/xability/maidr/issues/757)) ([0742033](https://github.com/xability/maidr/commit/07420334f8fee601d0f414d034e4b9c99538d5fa))
+* **format:** round announced values to two decimals by default ([#727](https://github.com/xability/maidr/issues/727)) ([8b3c428](https://github.com/xability/maidr/commit/8b3c428ed86947b5d9a1aae44df28b805875417a))
+* give blank axis labels a name, and stamp only the wedges a pie fills ([#773](https://github.com/xability/maidr/issues/773)) ([ffaf337](https://github.com/xability/maidr/commit/ffaf33772c73494c133a6631e9222256325cae55))
+* **model:** keep a figure navigable when a subplot has no layers ([#751](https://github.com/xability/maidr/issues/751)) ([f1c1140](https://github.com/xability/maidr/commit/f1c114055e76b9d0f72c91482643e6d978c4f6e3))
+* **model:** tell the navigate callback when the selection ends ([#777](https://github.com/xability/maidr/issues/777)) ([7a505eb](https://github.com/xability/maidr/commit/7a505ebb828c386a2747886d5069991da5fa775b)), closes [#774](https://github.com/xability/maidr/issues/774)
+* **plotly:** read normalized bar values from calcdata ([#724](https://github.com/xability/maidr/issues/724)) ([052a342](https://github.com/xability/maidr/commit/052a3427e4d3c9b8512d39afe8df207cfd029ee5))
+* **plotly:** stop announcing plotly's editor placeholders as axis names ([#719](https://github.com/xability/maidr/issues/719)) ([7a138dc](https://github.com/xability/maidr/commit/7a138dc6b5c496937e3b7127c97fb03a7cd85908))
+* **svg:** treat an unusable selector as matching nothing ([#750](https://github.com/xability/maidr/issues/750)) ([c69b3e2](https://github.com/xability/maidr/commit/c69b3e2d3df26cbfcfe548b8dc755c0867682c08))
+* **violin:** attribute the described extremes to the violin they come from ([#755](https://github.com/xability/maidr/issues/755)) ([a3debfe](https://github.com/xability/maidr/commit/a3debfee698820c0aa9dd5fcbc365fae631b9aad))
+
+
+### Features
+
+* **adapters:** bind a step chart as a step trace, not a line ([#746](https://github.com/xability/maidr/issues/746)) ([e44afd8](https://github.com/xability/maidr/commit/e44afd8c42451aa326265c660e80545ea0948f49))
+* **audio:** play the menu open/close cue for every dialog ([#753](https://github.com/xability/maidr/issues/753)) ([d2b2f1e](https://github.com/xability/maidr/commit/d2b2f1edad98e54e7fcc4d93f812b0fc40af76a4))
+* **pie:** support pie charts across the core and every adapter ([#767](https://github.com/xability/maidr/issues/767)) ([821de63](https://github.com/xability/maidr/commit/821de636cc3cef0510fcdd082371deb350c0863d))
+* **plotly:** support violin traces, and examine an unsupported chart once ([#722](https://github.com/xability/maidr/issues/722)) ([45ec611](https://github.com/xability/maidr/commit/45ec6113ce2365bd4162eb164a29af8f4674fc56))
+* **step:** add a step plot trace type for piecewise-constant data ([#723](https://github.com/xability/maidr/issues/723)) ([e26d40f](https://github.com/xability/maidr/commit/e26d40f2d3f93e254c5afddcb3385df3d32f3ec6))
+* **text:** announce orientation for every plot type that has one ([#747](https://github.com/xability/maidr/issues/747)) ([e85d1f9](https://github.com/xability/maidr/commit/e85d1f9044ce0147fa56fb3a445e19ee54f2398b))
+
+
+### Performance Improvements
+
+* **build:** ship React's production build ([#762](https://github.com/xability/maidr/issues/762)) ([3c3dd0d](https://github.com/xability/maidr/commit/3c3dd0dc009876f88a500a434fbe6ab4e80db78d)), closes [#759](https://github.com/xability/maidr/issues/759)
+* **build:** stop publishing sourcemaps to npm ([#716](https://github.com/xability/maidr/issues/716)) ([55ac889](https://github.com/xability/maidr/commit/55ac88935b2e0f0bbe21b60606b41a8cbe416e1e))
+
+
+### BREAKING CHANGES
+
+* **model:** `NavigateCallback` receives `null` when no data point is active. A callback that dereferences its argument without checking will throw on leaving a subplot. Consumers are the in-repo Chart.js plugin and amCharts binder, both updated here, plus anyone who set `onNavigate` when constructing MAIDR data programmatically.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+## [3.75.1](https://github.com/xability/maidr/compare/v3.75.0...v3.75.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* **build:** stop emitting a core ES bundle that UMD overwrites ([#667](https://github.com/xability/maidr/issues/667)) ([45741bf](https://github.com/xability/maidr/commit/45741bfc41ab70ad7f87048d1fff96fc33b9c37d))
+* **chat:** announce the chat dialog as what its heading shows ([#712](https://github.com/xability/maidr/issues/712)) ([37bc537](https://github.com/xability/maidr/commit/37bc53712011dcca683ac44ecf17273d9860f09b))
+* **chat:** give every message an id no other message can have ([#706](https://github.com/xability/maidr/issues/706)) ([be7e255](https://github.com/xability/maidr/commit/be7e2556dea47a0943a2b87cc9abbfd9070cef70))
+* **chat:** hide the live region that was rendering every message twice ([#699](https://github.com/xability/maidr/issues/699)) ([a6e726f](https://github.com/xability/maidr/commit/a6e726fff1a83785cfde54d1999d0a175297ebe2))
+* **chat:** keep KaTeX's MathML through markdown sanitisation ([#675](https://github.com/xability/maidr/issues/675)) ([79bde6d](https://github.com/xability/maidr/commit/79bde6d2c6a920242720a0a73fb980bd0a3de3e3))
+* **chat:** keep tables, headings and task lists through sanitisation ([#695](https://github.com/xability/maidr/issues/695)) ([f5e2596](https://github.com/xability/maidr/commit/f5e25969ead420741af8c9677d5e4ca0c3f9ae1f))
+* **chat:** let a link's own text be its accessible name ([#700](https://github.com/xability/maidr/issues/700)) ([5ff73fe](https://github.com/xability/maidr/commit/5ff73fe812447d51e2639cf8ff864062ce31b6a9))
+* **chat:** make footnote anchors in a chat response resolve ([#704](https://github.com/xability/maidr/issues/704)) ([21d92bc](https://github.com/xability/maidr/commit/21d92bc8399b6650a6f4b6d6233853451203ea05))
+* **ui:** give each dialog exactly one title heading ([#666](https://github.com/xability/maidr/issues/666)) ([fa94af1](https://github.com/xability/maidr/commit/fa94af16b318d3bef60846b404a5c30668cafcb2))
+
+
+### Performance Improvements
+
+* **css:** ship only woff2 for inlined KaTeX fonts ([#668](https://github.com/xability/maidr/issues/668)) ([88ad49c](https://github.com/xability/maidr/commit/88ad49cfc30e45fed98d2338975c40e3f3f4a472))
+* **css:** split KaTeX out of maidr.css and load it on demand ([#673](https://github.com/xability/maidr/issues/673)) ([d023724](https://github.com/xability/maidr/commit/d0237241a7f3422ada411ac29ee9f151fd14c1f9))
+
+# [3.75.0](https://github.com/xability/maidr/compare/v3.74.0...v3.75.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* accept SVG targets in the maidr:bindchart listener ([#653](https://github.com/xability/maidr/issues/653)) ([0c3d7c4](https://github.com/xability/maidr/commit/0c3d7c440fc1d547fe5e184d40aca1b4a0d18641))
+* **settings:** close the settings dialog on escape ([#658](https://github.com/xability/maidr/issues/658)) ([16dc4be](https://github.com/xability/maidr/commit/16dc4be98fd9b2f6c8e0070701485cd8722fa060))
+* **ui:** name the settings dialog with a rendered title ([#664](https://github.com/xability/maidr/issues/664)) ([6a96f8e](https://github.com/xability/maidr/commit/6a96f8ec44d497c67b8692f19083619e8c59b650))
+* **ui:** scope dialog aria-hidden to the modal's own parent ([#659](https://github.com/xability/maidr/issues/659)) ([dbec93c](https://github.com/xability/maidr/commit/dbec93c46dbdb7fe9c249f5eec536b40030636d5))
+
+
+### Features
+
+* **settings:** report maidr.js version, bundle source and browser in the settings dialog ([#654](https://github.com/xability/maidr/issues/654)) ([ba40d07](https://github.com/xability/maidr/commit/ba40d0775c01dd0e9f24eeba054a71d14d4a2a04))
+
+# [3.74.0](https://github.com/xability/maidr/compare/v3.73.0...v3.74.0) (2026-07-27)
+
+
+### Bug Fixes
+
+* address audiocontext suspension on menu tones ([#643](https://github.com/xability/maidr/issues/643)) ([f0ea94d](https://github.com/xability/maidr/commit/f0ea94dc3f3b5d25020081309f52e1de81286d0f))
+* **audio:** defer empty-state tones behind AudioContext.resume() ([#645](https://github.com/xability/maidr/issues/645)) ([d8176e8](https://github.com/xability/maidr/commit/d8176e8afd516b952305fe584559f3403586c016))
+* enable intersection rotor on date-axis multiline layers and speed up Go-To dialog navigation ([#646](https://github.com/xability/maidr/issues/646)) ([5259269](https://github.com/xability/maidr/commit/52592698d835355cd7f861587953be2796914d7e))
+* name merged multi-series line layers in the Vega-Lite adapter ([#649](https://github.com/xability/maidr/issues/649)) ([38f0499](https://github.com/xability/maidr/commit/38f0499a6b0f7ee889b30a247d2707b184a89e22))
+
+
+### Features
+
+* **position:** announce the group name for multiline plots ([#647](https://github.com/xability/maidr/issues/647)) ([ca49158](https://github.com/xability/maidr/commit/ca49158b2d67789733df9576c511f1137f74c28b))
+
+# [3.73.0](https://github.com/xability/maidr/compare/v3.72.1...v3.73.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **facet:** restore Y label in example and announce blank axis labels as unavailable ([#640](https://github.com/xability/maidr/issues/640)) ([ff3d508](https://github.com/xability/maidr/commit/ff3d50834d833d6e09d4bad06dc87e224d90f059))
+
+
+### Features
+
+* **candlestick:** rework delta layer with Ctrl+L toggle, OHLC nav, and directional sonification ([#635](https://github.com/xability/maidr/issues/635)) ([8618376](https://github.com/xability/maidr/commit/861837670c7f4addb56b5a327c7550334ec979e8))
+* **description:** support 'd' shortcut at multi-panel figure level ([#638](https://github.com/xability/maidr/issues/638)) ([e35d0b3](https://github.com/xability/maidr/commit/e35d0b342f80967a3bd7e8463dd01372d03eb717))
+* **go-to:** format search options, add Esc/Home/End, and open/close audio cues ([#637](https://github.com/xability/maidr/issues/637)) ([8da2ca2](https://github.com/xability/maidr/commit/8da2ca297df133956924f65ef679c4ebf6b78f63))
+* improve consistent labels, figure-wide axes, and navigation cues at the multi-panel figure overview ([#639](https://github.com/xability/maidr/issues/639)) ([0904e97](https://github.com/xability/maidr/commit/0904e9715173cd99c38f44f44ff7ca231973293f))
+
+## [3.72.1](https://github.com/xability/maidr/compare/v3.72.0...v3.72.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **text:** announce arrow navigation for single-panel plots ([#633](https://github.com/xability/maidr/issues/633)) ([233b98c](https://github.com/xability/maidr/commit/233b98c3d78cf519449d2a23cc4ffda804e9d607))
+* **text:** restore edge boundary alert for single-panel navigation ([#634](https://github.com/xability/maidr/issues/634)) ([cceb384](https://github.com/xability/maidr/commit/cceb3845d3c7b011d16518c94792bac27f32f3d4))
+
+# [3.72.0](https://github.com/xability/maidr/compare/v3.71.0...v3.72.0) (2026-07-06)
+
+
+### Bug Fixes
+
+* capture title from the json ([#616](https://github.com/xability/maidr/issues/616)) ([e347ddd](https://github.com/xability/maidr/commit/e347ddda5a47a2e03fb1ed47495cbbc319c06ec8))
+* monitor only the focused layer and stop live-region chatter in live demo ([#622](https://github.com/xability/maidr/issues/622)) ([5a22453](https://github.com/xability/maidr/commit/5a22453a38e778a160dd5d822301c603f094bb0f))
+* **rotor:** address orientation-independent candlestick compare + grid-mode re-announce ([#630](https://github.com/xability/maidr/issues/630) items 1–2) ([#631](https://github.com/xability/maidr/issues/631)) ([a112a9f](https://github.com/xability/maidr/commit/a112a9fc9df1b08bcbc33e00a82e5e4182dda2af))
+* **rotor:** re-announce compare-mode boundary messages to screen readers ([#629](https://github.com/xability/maidr/issues/629)) ([d734ff4](https://github.com/xability/maidr/commit/d734ff49a45e14f1346f9e5e5fea3a4fffaae602))
+* **rotor:** use single-announce rotor boundary messages ([#630](https://github.com/xability/maidr/issues/630) item 3) ([#632](https://github.com/xability/maidr/issues/632)) ([5ff131c](https://github.com/xability/maidr/commit/5ff131cebacf411868fe0f800715c624a260b4f9))
+
+
+### Features
+
+* **candlestick:** add bullish/bearish/neutral rotor navigation units ([#628](https://github.com/xability/maidr/issues/628)) ([28f0dfc](https://github.com/xability/maidr/commit/28f0dfc839799cd56ebed00b724a1e8ab3cd49f5))
+* **candlestick:** add virtual reference-line delta layer with F7 dialog ([#627](https://github.com/xability/maidr/issues/627)) ([ffe0496](https://github.com/xability/maidr/commit/ffe04965c03886f4c3930a6b9624bb648c073c59))
+* support multi-panel and faceted plots across all chart-library adapters ([#624](https://github.com/xability/maidr/issues/624)) ([984a7a4](https://github.com/xability/maidr/commit/984a7a4ea7679749525b9db764593f6992e6dfaa))
+
+# [3.71.0](https://github.com/xability/maidr/compare/v3.70.0...v3.71.0) (2026-06-29)
+
+
+### Features
+
+* add auditory directional guidance towards svg element with mouse ([#587](https://github.com/xability/maidr/issues/587)) ([301109b](https://github.com/xability/maidr/commit/301109b8c2e44016cda2c47a12a7eb1daac182f7)), closes [#3](https://github.com/xability/maidr/issues/3) [#2](https://github.com/xability/maidr/issues/2) [#1](https://github.com/xability/maidr/issues/1) [#4](https://github.com/xability/maidr/issues/4) [#6](https://github.com/xability/maidr/issues/6) [#7](https://github.com/xability/maidr/issues/7)
+
+# [3.70.0](https://github.com/xability/maidr/compare/v3.69.0...v3.70.0) (2026-06-15)
+
+
+### Features
+
+* add Ollama support and live model discovery to maidrAI ([#621](https://github.com/xability/maidr/issues/621)) ([498089c](https://github.com/xability/maidr/commit/498089cbcbd8d79bfc9c061ef2810b34d1317ff9))
+* add realtime/streaming data support ([#620](https://github.com/xability/maidr/issues/620)) ([10424aa](https://github.com/xability/maidr/commit/10424aa2ff0966039392f4dc3888c139115e6316))
+
+# [3.69.0](https://github.com/xability/maidr/compare/v3.68.0...v3.69.0) (2026-05-28)
+
+
+### Features
+
+* add amCharts 5 binder for MAIDR ([#544](https://github.com/xability/maidr/issues/544)) ([#560](https://github.com/xability/maidr/issues/560)) ([58294b7](https://github.com/xability/maidr/commit/58294b7d3aa7279d90a847925a3388596f4c320a))
+* add AnyChart charting library adapter ([#545](https://github.com/xability/maidr/issues/545)) ([#557](https://github.com/xability/maidr/issues/557)) ([b9bf719](https://github.com/xability/maidr/commit/b9bf719083373407770a1aa75ad8c3c621300124))
+* add Frappe Charts integration examples ([#546](https://github.com/xability/maidr/issues/546)) ([#559](https://github.com/xability/maidr/issues/559)) ([ed09586](https://github.com/xability/maidr/commit/ed095860c88f9f042a9b4e01d7d343ecd82ed3e9))
+* add Highcharts charting library adapter ([#549](https://github.com/xability/maidr/issues/549)) ([cdb0cfb](https://github.com/xability/maidr/commit/cdb0cfb12650798020920e8ca3ceb25069ab2795)), closes [#539](https://github.com/xability/maidr/issues/539)
+* add Victory charting library support ([#558](https://github.com/xability/maidr/issues/558)) ([52f3f91](https://github.com/xability/maidr/commit/52f3f9122b6d626452a300a31153dfdff941c008)), closes [#543](https://github.com/xability/maidr/issues/543)
+
+# [3.68.0](https://github.com/xability/maidr/compare/v3.67.0...v3.68.0) (2026-05-25)
+
+
+### Features
+
+* add Chart.js charting library support ([#538](https://github.com/xability/maidr/issues/538)) ([#554](https://github.com/xability/maidr/issues/554)) ([eaefcfc](https://github.com/xability/maidr/commit/eaefcfc03424f6a23f07baf334c1790b02b11df6))
+
 # [3.67.0](https://github.com/xability/maidr/compare/v3.66.1...v3.67.0) (2026-05-07)
 
 

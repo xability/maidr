@@ -8,6 +8,29 @@ permissions:
       contents: read
 
 jobs:
+  # Copilot's instruction files under .github/ are generated from CLAUDE.md and
+  # .claude/rules/, so an edit to one side must be regenerated into the other.
+  # The check is pure Node with no dependencies, so it skips npm ci and gates
+  # nothing — it reports drift on its own rather than blocking the real jobs.
+  copilot-sync:
+    name: Copilot Instructions In Sync
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Check generated instruction files
+        run: npm run sync:copilot:check
+
   commitlint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
@@ -53,32 +76,101 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-  # test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #   needs: [commitlint, lint]
+  # Nothing validated the workflow files, which matters most where a mistake is
+  # quietest: e2e_tests.yml runs on `schedule`, so a bad `if:` or an unknown
+  # context does not fail anything — the run just never happens, and nobody is
+  # watching for an absence. See issue #693.
+  #
+  # Runs on every PR rather than only those touching .github/workflows/. Job-level
+  # path filters do not exist, and a workflow-level one would gate every other job
+  # here too. The job takes seconds, so the cheaper thing is to always run it.
+  actionlint:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
 
-  #   permissions:
-  #     contents: read
+    permissions:
+      contents: read
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/*'
-  #         cache: npm
+      # actionlint hands `run:` blocks to shellcheck and, when it is missing,
+      # simply checks less without saying so. That is not hypothetical: the
+      # first local run of this change reported zero problems, and the one real
+      # finding it had to fix only appeared once shellcheck was installed.
+      # ubuntu-latest ships it — asserting that here makes the day it stops a
+      # failure rather than a silently weaker check.
+      - name: Verify shellcheck is available
+        run: shellcheck --version
 
-  #     - name: Install dependencies
-  #       run: npm ci
+      # Pinned by version and checksum rather than piping the upstream install
+      # script into bash, so a new actionlint release cannot turn an unrelated
+      # PR red and the download is verified rather than trusted.
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+          ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+        run: |
+          curl -sSLo actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum --check
+          tar xzf actionlint.tar.gz actionlint
 
-  #     - name: Install Playwright browsers
-  #       run: npm run e2e:install
+      - name: Lint workflows
+        run: ./actionlint -color
 
-  #     - name: Run unit tests
-  #       run: npm run e2e
+  # Playwright on every PR: chromium only, core bundle only. The whole
+  # chromium suite is green, so it all runs here — a subset let the specs rot
+  # for two months while PRs stayed green (see issue #626). The other two
+  # browsers stay on the scheduled e2e workflows.
+  e2e-chromium:
+    name: E2E (chromium)
+    runs-on: ubuntu-latest
+    needs: [commitlint, lint]
+    timeout-minutes: 25
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build core bundle
+        run: node scripts/build.js core
+
+      - name: Run e2e specs
+        id: e2e
+        run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium
+        env:
+          CI: true
+
+      # The chromium suite is kept green, so a failure here is a real
+      # regression — ship the report and screenshots with the PR run.
+      # Scoped to the test step so an earlier failure (npm ci, browser
+      # install) doesn't trigger an upload with nothing to upload.
+      - name: Upload Playwright report on failure
+        if: failure() && steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-chromium-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
 
   build:
     name: Build Project
@@ -103,3 +195,81 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [commitlint, lint]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: [commitlint, lint]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run type-check
+
+  # Mirrors the build steps of the Deploy Documentation workflow (docs.yml),
+  # which otherwise only runs on pushes to main — so docs/example-app build
+  # breakage surfaces on the PR instead of after merge.
+  docs-build:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    needs: [commitlint, lint]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Build documentation site
+        run: npm run docs

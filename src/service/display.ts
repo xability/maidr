@@ -2,10 +2,9 @@ import type { Context } from '@model/context';
 import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
-import { Emitter, Scope } from '@type/event';
+import { Emitter, MODAL_SCOPES, Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Stack } from '@util/stack';
-import { disconnectPlotlyObservers, isPlotlyPlot } from '../adapters/plotly';
 
 /**
  * Type for traces that support ensureInitialized method.
@@ -96,11 +95,11 @@ export class DisplayService implements Disposable {
 
     this.onChangeEmitter.dispose();
 
-    // Disconnect Plotly-specific MutationObservers to prevent memory leaks.
-    // Only affects Plotly charts; no-op for matplotlib or other chart types.
-    if (isPlotlyPlot(this.plot)) {
-      disconnectPlotlyObservers(this.plot);
-    }
+    // NOTE: Plotly MutationObservers (stroke mirror + layout) are chart-lifetime
+    // resources installed once by normalizePlotlySvg, not per focus session.
+    // They must NOT be disconnected here: DisplayService.dispose() runs on every
+    // focusout, and tearing them down would permanently break subplot highlight
+    // mirroring on refocus. True teardown belongs to chart unmount / page unload.
   }
 
   /**
@@ -198,15 +197,7 @@ export class DisplayService implements Disposable {
    */
   public toggleFocus(focus: Focus): void {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
-    this.isReturningFromModeToggle
-      = focus === 'BRAILLE'
-        || focus === 'REVIEW'
-        || focus === 'GO_TO_EXTREMA'
-        || focus === 'COMMAND_PALETTE'
-        || focus === 'DESCRIPTION'
-        || focus === 'SETTINGS'
-        || focus === 'CHAT'
-        || focus === 'HELP';
+    this.isReturningFromModeToggle = MODAL_SCOPES.has(focus);
 
     // Clear any existing instruction label when entering a modal
     if (this.isReturningFromModeToggle) {
@@ -284,7 +275,9 @@ export class DisplayService implements Disposable {
    * @param {Focus} newScope - The new focus scope
    */
   private updateFocus(newScope: Focus): void {
-    if (newScope === 'TRACE' || newScope === 'SUBPLOT') {
+    // CANDLESTICK_DELTA is plot navigation (like TRACE), so the plot element
+    // must (re)take DOM focus when the virtual delta layer becomes active.
+    if (newScope === 'TRACE' || newScope === 'SUBPLOT' || newScope === 'CANDLESTICK_DELTA') {
       this.plot.tabIndex = 0;
       setTimeout((): void => {
         // Only run first-entry init when NOT returning from a modal

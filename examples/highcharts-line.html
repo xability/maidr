@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Line Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Multi-Line Chart</h1>
+    <p>
+      A Highcharts multi-series line chart made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use arrow keys to navigate points; use Page Up/Page Down to switch series.
+    </p>
+
+    <div id="line-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('line-chart', {
+        chart: { type: 'line' },
+        title: { text: 'Weekly Sales Comparison' },
+        xAxis: {
+          categories: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
+          title: { text: 'Week' },
+        },
+        yAxis: { title: { text: 'Sales ($K)' } },
+        series: [
+          { name: 'Series A', data: [10, 15, 13, 17, 22, 19, 25] },
+          { name: 'Series B', data: [16, 5, 11, 9, 14, 20, 12] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'line-chart' });
+      document.getElementById('line-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

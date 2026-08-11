@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Heatmap Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <!--
+      chartjs-chart-matrix adds the 'matrix' chart type, which renders one
+      <rect> per data point. The MAIDR extractor maps Chart.js matrix data
+      ({x, y, v} entries) into a HeatmapData payload with separate x/y
+      label arrays and a 2D points grid.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Heatmap</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="heatmap-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      const tasks = ['Math', 'Code', 'Writing', 'Reasoning'];
+      const models = ['GPT-4', 'Claude', 'Gemini'];
+      const scores = [
+        [92, 88, 85, 90],
+        [89, 91, 93, 88],
+        [86, 84, 82, 85],
+      ];
+
+      // Matrix datasets expect flat {x, y, v} entries. The MAIDR extractor
+      // collects unique x and y labels in first-seen order and produces a
+      // points[y][x] grid.
+      const data = [];
+      for (let yi = 0; yi < models.length; yi++) {
+        for (let xi = 0; xi < tasks.length; xi++) {
+          data.push({ x: tasks[xi], y: models[yi], v: scores[yi][xi] });
+        }
+      }
+
+      new Chart(document.getElementById('heatmap-chart'), {
+        type: 'matrix',
+        data: {
+          datasets: [{
+            label: 'Task Performance',
+            data,
+            backgroundColor: (context) => {
+              const value = context.raw?.v ?? 0;
+              const alpha = Math.max(0, Math.min(1, (value - 70) / 25));
+              return `rgba(255, 99, 132, ${alpha})`;
+            },
+            borderColor: 'rgba(255, 99, 132, 0.8)',
+            borderWidth: 1,
+            width: ({ chart }) => (chart.chartArea?.width ?? 0) / tasks.length - 1,
+            height: ({ chart }) => (chart.chartArea?.height ?? 0) / models.length - 1,
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Model Scores by Task' },
+            legend: { display: false },
+          },
+          scales: {
+            x: {
+              type: 'category',
+              labels: tasks,
+              title: { display: true, text: 'Task' },
+              offset: true,
+              grid: { display: false },
+            },
+            y: {
+              type: 'category',
+              labels: models,
+              title: { display: true, text: 'Model' },
+              offset: true,
+              grid: { display: false },
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, HistogramPoint, LinePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 describe('convertRechartsToMaidr', () => {
   describe('bar chart', () => {
@@ -32,7 +32,9 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.type).toBe(TraceType.BAR);
       expect(layer.axes?.x).toEqual({ label: 'Category' });
       expect(layer.axes?.y).toEqual({ label: 'Value' });
-      expect(layer.selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      // Selector is scoped to this chart's own article wrapper so multiple
+      // Recharts charts on one page cannot cross-highlight.
+      expect(layer.selectors).toBe('#maidr-article-test-bar .recharts-bar-rectangle .recharts-rectangle');
 
       const data = layer.data as BarPoint[];
       expect(data).toHaveLength(3);
@@ -367,6 +369,64 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('pie chart', () => {
+    const pieConfig: RechartsAdapterConfig = {
+      id: 'fruit',
+      title: 'Fruit Sales',
+      data: [
+        { fruit: 'Apples', units: 30 },
+        { fruit: 'Bananas', units: 50 },
+        { fruit: 'Cherries', units: 20 },
+      ],
+      chartType: 'pie',
+      xKey: 'fruit',
+      yKeys: ['units'],
+      xLabel: 'Fruit',
+      yLabel: 'Units',
+    };
+
+    it('converts pie data to a flat PiePoint[]', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.PIE);
+      expect(layer.axes?.x).toEqual({ label: 'Fruit' });
+      expect(layer.axes?.y).toEqual({ label: 'Units' });
+
+      // Flat, never nested: PieTrace wraps the slices into its single row itself.
+      const data = layer.data as PiePoint[];
+      expect(data).toEqual([
+        { x: 'Apples', y: 30 },
+        { x: 'Bananas', y: 50 },
+        { x: 'Cherries', y: 20 },
+      ]);
+    });
+
+    it('targets the sector paths, in slice order', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-fruit .recharts-pie-sector .recharts-sector',
+      );
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...pieConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      expect(layer.orientation).toBeUndefined();
+    });
+
+    it('carries no percentage on the wire (the model derives it)', () => {
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      for (const point of layer.data as PiePoint[]) {
+        expect(point).not.toHaveProperty('percentage');
+      }
+    });
+  });
+
   describe('composed chart (layers mode)', () => {
     it('creates mixed layers from layer configs', () => {
       const config: RechartsAdapterConfig = {
@@ -430,9 +490,10 @@ describe('convertRechartsToMaidr', () => {
       const layers = result.subplots[0][0].layers;
 
       // Each type appears only once, so no seriesIndex is passed and
-      // getRechartsSelector returns the CSS selector for highlighting.
-      expect(layers[0].selectors).toBe('.recharts-bar-rectangle .recharts-rectangle');
-      expect(layers[1].selectors).toEqual(['.recharts-line-dots .recharts-line-dot']);
+      // getRechartsSelector returns the CSS selector for highlighting,
+      // scoped to this chart's own article wrapper.
+      expect(layers[0].selectors).toBe('#maidr-article-composed .recharts-bar-rectangle .recharts-rectangle');
+      expect(layers[1].selectors).toEqual(['#maidr-article-composed .recharts-line-dots .recharts-line-dot']);
     });
   });
 

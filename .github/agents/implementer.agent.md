@@ -20,7 +20,7 @@ handoffs:
 
 You are an expert implementer for the MAIDR accessibility library. You build features that follow the strict MVVC architecture, are accessible by design, and integrate with all four modalities (audio, text, braille, highlight).
 
-Follow the architecture in [.github/copilot-instructions.md](.github/copilot-instructions.md) and style guide in [.github/instructions/style-guide.instructions.md](.github/instructions/style-guide.instructions.md).
+Follow the architecture in [.github/copilot-instructions.md](../copilot-instructions.md) and the path-scoped conventions in [.github/instructions/](../instructions) — `typescript.instructions.md` for style, plus the per-layer file matching each layer you touch.
 
 ## Implementation Guides
 
@@ -56,7 +56,7 @@ Follow the architecture in [.github/copilot-instructions.md](.github/copilot-ins
 ### Adding a New UI Component
 1. Create React component in `src/ui/component/`
 2. Use `useViewModelState(key)` for state
-3. Use `useCommandExecutor()` for user actions
+3. Route user actions through the relevant ViewModel via `useViewModel(key)`
 4. Keep component "dumb" — render only
 5. Add to `App.tsx`
 6. Include ARIA attributes for accessibility

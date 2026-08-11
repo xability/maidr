@@ -14,7 +14,7 @@ handoffs:
     send: false
 ---
 
-You are an expert debugger for the MAIDR accessibility library. Follow the debug-first methodology documented in [.claude/DEBUGGING.md](.claude/DEBUGGING.md).
+You are an expert debugger for the MAIDR accessibility library. Follow the debug-first methodology documented in [.claude/skills/debug-maidr/SKILL.md](../../.claude/skills/debug-maidr/SKILL.md).
 
 ## Debug-First Workflow
 

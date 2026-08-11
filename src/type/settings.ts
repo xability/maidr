@@ -1,4 +1,5 @@
 import type { Llm, LlmVersion } from './llm';
+import { DEFAULT_OLLAMA_BASE_URL } from './llm';
 
 /**
  * Default number of characters rendered per braille row when no user setting
@@ -23,6 +24,51 @@ export const MAX_BRAILLE_LINES = 20;
 // headroom for unrecognized hardware while still rejecting obviously bogus
 // manual input.
 export const MAX_BRAILLE_SIZE = 160;
+
+/**
+ * Upper bound on `general.echoCount`.
+ *
+ * The Settings field is free-typed and its value persists, so both the dialog
+ * and the audio service clamp against this — a stray digit would otherwise
+ * queue that many oscillator and convolver graphs on every navigation step.
+ */
+export const MAX_ECHO_COUNT = 20;
+
+/** Echoes a point at z = zMax produces, before the user changes it. */
+export const DEFAULT_ECHO_COUNT = 5;
+
+/** Bounds on `general.echoDuration`, the gap between successive echoes (seconds). */
+export const MIN_ECHO_DURATION = 0.05;
+export const MAX_ECHO_DURATION = 2;
+
+/** Gap between successive echoes, in seconds, before the user changes it. */
+export const DEFAULT_ECHO_DURATION = 0.3;
+
+/**
+ * Brings an echo count into the range the audio service can schedule.
+ *
+ * @param value - The raw setting value, which may come from a free-typed field
+ * @returns A whole count within [0, {@link MAX_ECHO_COUNT}]
+ */
+export function clampEchoCount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_ECHO_COUNT;
+  }
+  return Math.min(MAX_ECHO_COUNT, Math.max(0, Math.floor(value)));
+}
+
+/**
+ * Brings an echo duration into the range the audio service can schedule.
+ *
+ * @param value - The raw setting value in seconds
+ * @returns A duration within [{@link MIN_ECHO_DURATION}, {@link MAX_ECHO_DURATION}]
+ */
+export function clampEchoDuration(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_ECHO_DURATION;
+  }
+  return Math.min(MAX_ECHO_DURATION, Math.max(MIN_ECHO_DURATION, value));
+}
 
 export const BRAILLE_DISPLAY_KINDS = ['single', 'multi', 'manual'] as const;
 export type BrailleDisplayKind = (typeof BRAILLE_DISPLAY_KINDS)[number];
@@ -76,6 +122,7 @@ export type HoverMode = 'off' | 'pointermove' | 'click';
  */
 export interface LlmModelSettings {
   name: string;
+  /** API key for cloud providers; server base URL for Ollama. */
   apiKey: string;
   enabled: boolean;
   version: LlmVersion;
@@ -139,9 +186,9 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   general: {
     volume: 50,
-    echoCount: 5,
+    echoCount: DEFAULT_ECHO_COUNT,
     echoVolume: 50,
-    echoDuration: 0.3,
+    echoDuration: DEFAULT_ECHO_DURATION,
     highlightColor: '#03c809',
     highContrastMode: false,
     highContrastLevels: 2,
@@ -165,19 +212,28 @@ export const DEFAULT_SETTINGS: Settings = {
         enabled: false,
         apiKey: '',
         name: 'OpenAI',
-        version: 'gpt-4o',
+        version: 'gpt-5.5',
       },
       ANTHROPIC_CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Anthropic Claude',
-        version: 'claude-3-7-sonnet-latest',
+        version: 'claude-opus-4-8',
       },
       GOOGLE_GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Google Gemini',
-        version: 'gemini-2.0-flash',
+        version: 'gemini-3.5-flash',
+      },
+      // Ollama runs locally and needs no API key; the apiKey field holds the
+      // server base URL instead, so the shared "enabled + non-empty key"
+      // readiness checks apply uniformly across providers.
+      OLLAMA: {
+        enabled: false,
+        apiKey: DEFAULT_OLLAMA_BASE_URL,
+        name: 'Ollama',
+        version: 'llama3.2',
       },
     },
   },

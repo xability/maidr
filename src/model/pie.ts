@@ -1,0 +1,424 @@
+import type { MaidrLayer, PiePoint } from '@type/grammar';
+import type { Movable } from '@type/movable';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
+import { MathUtil } from '@util/math';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
+import { isMeasured, toBarValue } from './bar';
+import { MovableGrid } from './movable';
+
+/** Label the percentage rides under in text and in the data table. */
+const PERCENTAGE_LABEL = 'Percentage';
+
+/** How a gap is named wherever a slice has no measurement to report. */
+const MISSING_TEXT = 'missing';
+
+/**
+ * Formats one slice's share of the whole.
+ *
+ * A gap has no share to report, so it reads the way its value does. A total of
+ * zero has no share to divide by either: `0 / 0` is `NaN`, and "NaN percent" is
+ * the one thing this must never announce. It reports an exact zero rather than
+ * the one-decimal form used for real ratios, because nothing was rounded to
+ * get there.
+ *
+ * The share is of the circle **as drawn**, so it divides by the sum of the
+ * absolute values rather than the signed total. That is the span a producer
+ * lays a pie out over: ggplot2 gives `c(60, -40, 30)` a range of 130, which is
+ * `60 + 40 + 30`, and draws the wedges at 46.2%, 30.8% and 23.1% of the
+ * circle. Dividing by the signed total (50) would announce shares no slice
+ * occupies and that sum to 260%.
+ *
+ * With no negatives the two bases are the same number, so every existing pie
+ * reports exactly what it reported before.
+ *
+ * @param value - The slice's value, `NaN` when it is a gap
+ * @param basis - The sum of the absolute values of every measured slice
+ * @returns The percentage as display text, e.g. `33.3%`
+ */
+function toPercentage(value: number, basis: number): string {
+  if (!isMeasured(value)) {
+    return MISSING_TEXT;
+  }
+  if (basis === 0) {
+    return '0%';
+  }
+  return `${((Math.abs(value) / basis) * 100).toFixed(1)}%`;
+}
+
+/**
+ * Where each slice sits on the dial, in radians clockwise from 12 o'clock.
+ *
+ * The angle a slice occupies is its share of the circle, so the midpoint of
+ * slice *i* is everything before it plus half of itself. Producers lay a pie
+ * out from 12 o'clock going clockwise — matplotlib, `graphics::pie`, ggplot2's
+ * `coord_polar`, amCharts and AnyChart all do — so that is the origin used
+ * here. The payload states no start angle, so a producer that ever laid one
+ * out differently would pan the wrong way round; that is a grammar question,
+ * noted in #780.
+ *
+ * A gap occupies no angle, having contributed nothing to the basis. It still
+ * gets a midpoint — wherever the sweep has reached — so panning it is
+ * meaningful rather than `NaN`.
+ *
+ * @param values - Every slice's value, `NaN` for a gap
+ * @param basis - The sum of the absolute values of the measured slices
+ * @returns One angle per slice, in the same order
+ */
+function toMidAngles(values: readonly number[], basis: number): number[] {
+  if (basis === 0) {
+    // Nothing is drawn, so every slice sits at 12 o'clock and pans centre.
+    return values.map(() => 0);
+  }
+  let swept = 0;
+  return values.map((value) => {
+    const share = isMeasured(value) ? Math.abs(value) / basis : 0;
+    const mid = swept + share / 2;
+    swept += share;
+    return mid * 2 * Math.PI;
+  });
+}
+
+/**
+ * Whether a screen-space point falls inside an element's filled geometry.
+ *
+ * `isPointInFill` works in the element's own user space, so the point has to be
+ * pushed back through the screen transform first. Both that transform and the
+ * method itself are absent on a non-geometry element (a producer whose selector
+ * resolves to the `<g>` wrapping each wedge) and in non-rendering environments;
+ * there the slice simply cannot be hit-tested, which costs pointer guidance and
+ * nothing else.
+ *
+ * @param element - The candidate wedge
+ * @param x - Screen-space x position of the pointer
+ * @param y - Screen-space y position of the pointer
+ * @returns True when the pointer is inside the wedge
+ */
+function containsScreenPoint(element: SVGElement, x: number, y: number): boolean {
+  const geometry = element as SVGGeometryElement;
+  if (
+    typeof geometry.isPointInFill !== 'function'
+    || typeof geometry.getScreenCTM !== 'function'
+  ) {
+    return false;
+  }
+
+  const screenToUser = geometry.getScreenCTM()?.inverse();
+  if (!screenToUser) {
+    return false;
+  }
+
+  return geometry.isPointInFill(new DOMPoint(x, y).matrixTransform(screenToUser));
+}
+
+/**
+ * A pie chart: N slices stepped through one at a time, left and right.
+ *
+ * They are one row to navigate and a circle to listen to — the pan follows
+ * each slice around the dial rather than along the row, so a sweep goes out
+ * and comes back.
+ *
+ * Extends {@link AbstractTrace} directly rather than `AbstractBarPlot`, which
+ * bakes an orientation into its bar values, audio panning, text axes and
+ * description. A pie has no orientation — its slices are arranged around a
+ * circle, not along an axis — so every one of those derived values would have
+ * to be undone again here.
+ *
+ * The slices are wrapped in a single row so {@link MovableGrid} navigates
+ * them: with one row, up and down are out of bounds by its own bounds checks,
+ * which is exactly the navigation a pie wants.
+ */
+export class PieTrace extends AbstractTrace {
+  protected readonly movable: Movable;
+
+  protected readonly points: PiePoint[][];
+  protected readonly highlightValues: SVGElement[][] | null;
+
+  /** Slice magnitudes, in the same single-row shape as {@link points}. */
+  private readonly sliceValues: number[][];
+  /** Each slice's share of the whole, as display text. */
+  private readonly percentages: string[];
+
+  private readonly min: number;
+  private readonly max: number;
+  private readonly total: number;
+  private readonly shareBasis: number;
+  private readonly hasNegative: boolean;
+  /** Each slice's angular midpoint, radians clockwise from 12 o'clock. */
+  private readonly midAngles: number[];
+
+  protected readonly supportsExtrema = false;
+
+  /**
+   * Constructs a new PieTrace instance.
+   * @param layer - The MAIDR layer configuration
+   */
+  public constructor(layer: MaidrLayer) {
+    super(layer);
+
+    this.points = [layer.data as PiePoint[]];
+
+    // `toBarValue` and not a pie-specific reader: a negative slice keeps its
+    // sign, and once it does the two are the same function. It used to be read
+    // as a gap, on the grounds that a negative is not meaningful in a pie --
+    // but the producer that emits one draws it. `geom_col` + `coord_polar` is
+    // a stacked bar bent into a circle, where a value below the baseline is
+    // ordinary, and it lays `c(60, -40, 30)` out as three wedges. Calling the
+    // middle one missing left a screen-reader user hearing two slices where a
+    // sighted reader sees three, with no figure in common (#771).
+    const values = this.points[0].map(point => toBarValue(point.y));
+    this.sliceValues = [values];
+
+    // A gap is not a measurement, so it must take part in neither the range
+    // every slice's pitch is scaled against nor the total the percentages are
+    // shares of — a missing slice that silently counted as zero would still
+    // shrink every other slice's reported share.
+    const measured = values.filter(isMeasured);
+    this.min = MathUtil.safeMin(measured);
+    this.max = MathUtil.safeMax(measured);
+    this.total = measured.reduce((sum, value) => sum + value, 0);
+    // What the circle is divided into, which is not the total once a slice is
+    // negative: the wedge for -40 occupies 40 of the circle, not -40 of it.
+    this.shareBasis = measured.reduce((sum, value) => sum + Math.abs(value), 0);
+    this.hasNegative = measured.some(value => value < 0);
+
+    // Derived once here, not per state read: the state getters are called on
+    // every navigation step (and again by getStateAt for monitor mode), and
+    // they must stay cheap and side-effect free.
+    this.percentages = values.map(value => toPercentage(value, this.shareBasis));
+    this.midAngles = toMidAngles(values, this.shareBasis);
+
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.movable = new MovableGrid<PiePoint>(this.points);
+  }
+
+  /**
+   * Cleans up pie resources including points and percentages.
+   *
+   * {@link sliceValues} is deliberately left alone: {@link dimension} reads it,
+   * and a disposed trace can still be asked for an out-of-bounds state.
+   */
+  public override dispose(): void {
+    this.points.length = 0;
+    this.percentages.length = 0;
+
+    super.dispose();
+  }
+
+  protected get audio(): AudioState {
+    // Pitch maps the raw magnitude, not the percentage. The two are a monotone
+    // rescale of each other, so the pitch ordering is identical either way, and
+    // the raw value keeps audio agreeing with braille and the reported stats.
+    //
+    // The pan follows the slice around the dial rather than its index. Panning
+    // by index is what a bar chart does -- hard left to hard right, a straight
+    // line -- and it made a pie sound like one. `AudioService` reads the pan as
+    // `interpolate(x, 0, cols - 1, -1, 1)`, so `cols: 2` makes the mapping
+    // `2x - 1` and `x = (sin θ + 1) / 2` lands the pan on `sin θ` exactly:
+    // 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again, 9
+    // o'clock hard left. Sweeping the slices now goes out and comes back,
+    // which is what distinguishes a circle from a row.
+    const pan = Math.sin(this.midAngles[this.col]);
+    return {
+      freq: {
+        min: this.min,
+        max: this.max,
+        raw: this.sliceValues[this.row][this.col],
+      },
+      panning: {
+        x: (pan + 1) / 2,
+        y: 0,
+        rows: 1,
+        cols: 2,
+      },
+    };
+  }
+
+  protected get braille(): BrailleState {
+    // The bar encoding, over a single row: each cell's height is the slice's
+    // magnitude within the range of the pie's slices.
+    return {
+      empty: false,
+      id: this.id,
+      values: this.sliceValues,
+      min: [this.min],
+      max: [this.max],
+      row: this.row,
+      col: this.col,
+    };
+  }
+
+  protected get text(): TextState {
+    const point = this.points[this.row][this.col];
+
+    // The percentage rides the optional z slot, which the text service renders
+    // as ", Percentage is 33.3%" after the label and the value.
+    return {
+      main: { label: this.xAxis, value: point.x },
+      cross: { label: this.yAxis, value: this.sliceValues[this.row][this.col] },
+      z: { label: PERCENTAGE_LABEL, value: this.percentages[this.col] },
+      mainAxis: 'x',
+      crossAxis: 'y',
+    };
+  }
+
+  /**
+   * Gets the description state for the pie trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    // A pie of nothing but gaps has no range and nothing to add up, and
+    // safeMin/safeMax answer an empty set with ±Infinity. Report all three the
+    // way every other modality reports an absent value, rather than announcing
+    // an infinity or a total of zero that was never measured.
+    const hasMeasured = isMeasured(this.min);
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of slices', value: this.points[0].length },
+      { label: 'Min value', value: hasMeasured ? this.min : MISSING_TEXT },
+      { label: 'Max value', value: hasMeasured ? this.max : MISSING_TEXT },
+      { label: 'Total', value: hasMeasured ? this.total : MISSING_TEXT },
+    ];
+
+    // Said here rather than on every move, and here rather than in the cue for
+    // entering a subplot: a single-panel pie is never entered from a lobby, so
+    // a caveat placed there would be heard only in multi-panel figures. This
+    // is the one summary every layout can reach, on `d`.
+    if (this.hasNegative) {
+      stats.push({
+        label: 'Note',
+        value:
+          'This pie contains a negative value, so a slice cannot be a share of '
+          + 'the total. Percentages are shares of the circle as drawn, out of '
+          + `${defaultFormat(this.shareBasis)}.`,
+      });
+    }
+
+    const headers = [this.xAxis, this.yAxis, PERCENTAGE_LABEL];
+    // A gap is spelled out rather than left as the NaN the dialog would blank:
+    // a blank cell and a cell nobody filled in read the same way to a screen
+    // reader walking the table, and the percentage column has to say something
+    // in any case.
+    const rows: (string | number)[][] = this.points[0].map((point, col) => [
+      point.x,
+      isMeasured(this.sliceValues[0][col]) ? this.sliceValues[0][col] : MISSING_TEXT,
+      this.percentages[col],
+    ]);
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
+  protected get dimension(): Dimension {
+    return {
+      rows: 1,
+      cols: this.sliceValues[this.row].length,
+    };
+  }
+
+  protected get values(): number[][] {
+    return this.sliceValues;
+  }
+
+  /**
+   * Resolves the layer's selector to one SVG element per slice.
+   *
+   * The contract is exactly N elements in slice order, so data index k and
+   * element k are the same slice. A different count means the selector is
+   * addressing something other than the wedges, and index-aligning it anyway
+   * would highlight the wrong slice — better to report no highlight for this
+   * layer than a confidently wrong one.
+   *
+   * @param selector - The layer's CSS selector, when it declares one
+   * @returns The single row of wedge elements, or null when unresolvable
+   */
+  private mapToSvgElements(selector?: string): SVGElement[][] | null {
+    if (!selector) {
+      return null;
+    }
+
+    const wedges = Svg.selectAllElements(selector);
+    if (wedges.length !== this.points[0].length) {
+      // Discard the just-inserted hidden clones so they don't leak into the
+      // DOM (dispose only removes elements reachable via highlightValues).
+      wedges.forEach(wedge => wedge.remove());
+      return null;
+    }
+
+    return [wedges];
+  }
+
+  /**
+   * Finds the slice under the specified coordinates.
+   *
+   * Hit-tests the wedge geometry itself rather than its bounding box, which is
+   * what the bar and box traces can get away with: a wedge's box covers a whole
+   * quadrant of the circle and overlaps its neighbours', so a box test would
+   * routinely report a slice the pointer is nowhere near.
+   *
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @returns The slice under the pointer, or null when it is between slices
+   */
+  protected findNearestPoint(x: number, y: number): NearestPoint | null {
+    if (!this.highlightValues) {
+      return null;
+    }
+
+    const wedges = this.highlightValues[0];
+    for (let col = 0; col < wedges.length; col++) {
+      const wedge = wedges[col];
+      if (!containsScreenPoint(wedge, x, y)) {
+        continue;
+      }
+
+      const box = wedge.getBoundingClientRect();
+      return {
+        element: wedge,
+        row: 0,
+        col,
+        centerX: box.x + box.width / 2,
+        centerY: box.y + box.height / 2,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Moves to the next slice that matches the comparison criteria in rotor mode.
+   *
+   * A gap loses every comparison — `NaN < x` and `NaN > x` are both false — so
+   * an unmeasured slice is stepped over rather than being offered as the next
+   * larger or smaller one.
+   *
+   * @param direction - The direction to move (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a matching slice was found, false otherwise
+   */
+  public override moveToNextCompareValue(
+    direction: 'left' | 'right',
+    type: 'lower' | 'higher',
+  ): boolean {
+    const values = this.sliceValues[this.row];
+    const current = this.col;
+    const step = direction === 'right' ? 1 : -1;
+
+    for (let i = current + step; i >= 0 && i < values.length; i += step) {
+      if (this.compare(values[i], values[current], type)) {
+        this.col = i;
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+
+    this.notifyRotorBounds();
+    return false;
+  }
+}

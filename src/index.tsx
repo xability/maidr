@@ -1,15 +1,19 @@
-import type { JSX } from 'react';
+import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { useCallback } from 'react';
-import { createRoot } from 'react-dom/client';
-import { extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
-import { Maidr as MaidrComponent } from './maidr-component';
+import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
+import { initMaidrOnElement } from './util/initMaidr';
 
 declare global {
   interface Window {
     maidr?: Maidr;
+    /**
+     * Realtime/streaming data API. Use `setData` to replace chart data and
+     * `appendData` to stream individual points into live charts.
+     */
+    maidrLive?: MaidrLiveApi;
     /**
      * Disconnects all MAIDR MutationObservers to free memory.
      * Call this when cleaning up in SPAs or before page unload.
@@ -17,6 +21,15 @@ declare global {
     disconnectMaidrObservers?: () => void;
   }
 }
+
+// Expose the realtime data API globally for script-tag consumers.
+if (window.maidrLive) {
+  console.warn('[maidr] window.maidrLive is being redefined — was the maidr script loaded twice?');
+}
+window.maidrLive = {
+  setData: maidr => liveDataManager.setData(maidr),
+  appendData: (point, options) => liveDataManager.appendData(point, options),
+};
 
 /** Stores active MutationObservers for cleanup. */
 let maidrAttributeObserver: MutationObserver | null = null;
@@ -51,8 +64,31 @@ if (document.readyState === 'loading') {
   main();
 }
 
+// Support for third-party adapters (e.g. maidr/anychart) that bind charts
+// after the initial DOM scan.  When an adapter sets `maidr-data` on an
+// element and dispatches this event, we initialise MAIDR for that element.
+//
+// This listener is intentionally permanent (never removed) because adapter
+// bindings can happen at any point during the page's lifetime — there is no
+// deterministic teardown moment.  A WeakSet or similar guard in the adapter
+// prevents duplicate initialisation for the same element.
+document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
+  const target = event.target;
+
+  // `Element`, not `HTMLElement`: adapters bind the element their charting
+  // library rendered, which is usually an `<svg>` — an `SVGElement`. Narrowing
+  // to `HTMLElement` here silently dropped every SVG-rooted chart.
+  if (!(target instanceof Element))
+    return;
+
+  const json = target.getAttribute(Constant.MAIDR_DATA);
+  if (json) {
+    parseAndInit(target, json, 'maidr-data');
+  }
+}) as EventListener);
+
 function parseAndInit(
-  plot: HTMLElement,
+  plot: Element,
   json: string,
   source: 'maidr' | 'maidr-data',
 ): void {
@@ -64,7 +100,13 @@ function parseAndInit(
       normalizePlotlySvg(plot as unknown as SVGSVGElement, maidr);
     }
 
-    initMaidr(maidr, plot);
+    initMaidrOnElement(maidr, plot);
+
+    // Stamp the initialised value so the [maidr] attribute observer skips this
+    // element when React re-adopts it (childList mutation) and keys any later
+    // re-init off a consistent value. Set after init so it survives the DOM
+    // replace but before the observer's async callback runs.
+    plot.setAttribute('data-maidr-value', json);
   } catch (error) {
     console.error(`Error parsing ${source} attribute:`, error);
   }
@@ -74,53 +116,43 @@ function main(): void {
   const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
     Constant.MAIDR_JSON_SELECTOR,
   );
+  const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
 
   if (plotsWithMaidr.length > 0) {
     plotsWithMaidr.forEach((plot) => {
       const maidrAttr = plot.getAttribute(Constant.MAIDR);
-
-      if (!maidrAttr) {
-        return;
+      if (maidrAttr) {
+        parseAndInit(plot, maidrAttr, 'maidr');
       }
-
-      parseAndInit(plot, maidrAttr, 'maidr');
     });
-
-    return;
-  }
-
-  const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
-  plots.forEach((plot) => {
-    const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
-    if (!maidrData) {
-      return;
-    }
-
-    parseAndInit(plot, maidrData, 'maidr-data');
-  });
-
-  // Fall back to window.maidr if no attribute found.
-  // TODO: Need to be removed along with `window.d.ts`,
-  //  once attribute method is migrated.
-  if (plots.length !== 0) {
-    return;
-  }
-
-  const maidr = window.maidr;
-  if (maidr) {
+  } else if (plots.length > 0) {
+    plots.forEach((plot) => {
+      const maidrData = plot.getAttribute(Constant.MAIDR_DATA);
+      if (maidrData) {
+        parseAndInit(plot, maidrData, 'maidr-data');
+      }
+    });
+  } else if (window.maidr) {
+    // Fall back to window.maidr if no attribute found.
+    // TODO: Need to be removed along with `window.d.ts`,
+    //  once attribute method is migrated.
+    const maidr = window.maidr;
     const plot = document.getElementById(maidr.id);
-    if (!plot) {
+    if (plot) {
+      initMaidrOnElement(maidr, plot);
+    } else {
       console.error('Plot not found for maidr:', maidr.id);
-      return;
     }
-    initMaidr(maidr, plot);
-    return;
+  } else {
+    // Auto-detect plotly.js charts without any maidr attributes.
+    // Kept in the nothing-found fallback so a chart already bound via a
+    // [maidr]/[maidr-data] attribute is never auto-initialised a second time.
+    autoInitPlotlyCharts();
   }
 
-  // Auto-detect plotly.js charts without any maidr attributes.
-  autoInitPlotlyCharts();
-
-  // Watch for dynamically-added [maidr] attributes (e.g., Google Charts).
+  // Always watch for dynamically-added [maidr] attributes (e.g., Google
+  // Charts that set [maidr] in a ready callback) and re-init on data change,
+  // regardless of what was already initialised above.
   observeForMaidrAttributes();
 }
 
@@ -155,13 +187,12 @@ function autoInitPlotlyCharts(): void {
  * Extracts data and initialises MAIDR for a fully-rendered Plotly chart.
  * Only proceeds when `svg.main-svg` exists — never replaces the graph
  * div itself, which would break Plotly's internal event pipeline.
+ *
+ * Which charts this looks at, and how often, is
+ * {@link claimPlotlyExamination}'s to decide.
  */
 function initPlotlyChart(gd: HTMLElement): void {
   if (gd.hasAttribute('data-maidr-auto'))
-    return;
-
-  const maidrData = extractPlotlyData(gd);
-  if (!maidrData)
     return;
 
   // Require the SVG to exist. Replacing the graph div in the DOM would
@@ -170,9 +201,16 @@ function initPlotlyChart(gd: HTMLElement): void {
   if (!svg)
     return;
 
+  if (!claimPlotlyExamination(gd))
+    return;
+
+  const maidrData = extractPlotlyData(gd);
+  if (!maidrData)
+    return;
+
   gd.setAttribute('data-maidr-auto', '1');
   normalizePlotlySvg(svg, maidrData);
-  initMaidr(maidrData, svg as unknown as HTMLElement);
+  initMaidrOnElement(maidrData, svg);
 }
 
 /**
@@ -190,6 +228,8 @@ function observeForPlotlyDivs(): void {
     return;
 
   plotlyDivObserver = new MutationObserver(() => {
+    // Charts MAIDR bound are done with; every other one is offered to
+    // `initPlotlyChart`, which decides from the traces it holds now.
     const divs = document.querySelectorAll<HTMLElement>(
       '.js-plotly-plot:not([data-maidr-auto])',
     );
@@ -235,7 +275,10 @@ function observeForMaidrAttributes(): void {
         const target = mutation.target as HTMLElement;
         const maidrAttr = target.getAttribute(Constant.MAIDR);
 
-        if (!maidrAttr)
+        // Only JSON-shaped values are maidr configs. Chart exports (e.g.
+        // matplotlib) stamp unrelated `maidr="<uuid>"` attributes on SVG
+        // groups; parsing those would just log JSON errors.
+        if (!maidrAttr || !maidrAttr.startsWith('{'))
           continue;
 
         // Skip if attribute value hasn't changed (allows re-init on data change)
@@ -258,9 +301,9 @@ function observeForMaidrAttributes(): void {
 
           const element = node as HTMLElement;
 
-          // Check the element itself
+          // Check the element itself (JSON-shaped values only — see above)
           const maidrAttr = element.getAttribute(Constant.MAIDR);
-          if (maidrAttr) {
+          if (maidrAttr && maidrAttr.startsWith('{')) {
             const previousValue = element.getAttribute('data-maidr-value');
             if (previousValue !== maidrAttr) {
               element.setAttribute('data-maidr-value', maidrAttr);
@@ -268,8 +311,8 @@ function observeForMaidrAttributes(): void {
             }
           }
 
-          // Check descendants
-          const descendants = element.querySelectorAll<HTMLElement>(`[${Constant.MAIDR}]`);
+          // Check descendants (the selector already filters to JSON-shaped values)
+          const descendants = element.querySelectorAll<HTMLElement>(Constant.MAIDR_JSON_SELECTOR);
           for (const desc of descendants) {
             const descAttr = desc.getAttribute(Constant.MAIDR);
             if (descAttr) {
@@ -291,50 +334,4 @@ function observeForMaidrAttributes(): void {
     attributes: true,
     attributeFilter: [Constant.MAIDR],
   });
-}
-
-/**
- * Adopts an existing DOM node into React's tree via a ref callback.
- * Used by the script-tag entry point to render a pre-existing plot element
- * as children of the {@link MaidrComponent}.
- */
-function DomNodeAdapter({ node }: { node: HTMLElement }): JSX.Element {
-  const ref = useCallback(
-    (container: HTMLDivElement | null) => {
-      if (container) {
-        // Setup: adopt the existing DOM node into React's tree.
-        if (!container.contains(node)) {
-          container.appendChild(node);
-        }
-      } else {
-        // Cleanup (unmount / Strict Mode remount): detach the node so it
-        // can be re-adopted when the ref callback fires again with a new container.
-        node.parentNode?.removeChild(node);
-      }
-    },
-    [node],
-  );
-
-  return <div ref={ref} style={{ display: 'contents' }} />;
-}
-
-/**
- * Initializes MAIDR for a plot element by rendering the {@link MaidrComponent}
- * React component. The existing plot element is adopted into React's tree
- * via {@link DomNodeAdapter}, giving both script-tag and React consumers
- * the same single code path.
- */
-function initMaidr(maidr: Maidr, plot: HTMLElement): void {
-  // Create a transparent container for the React root.
-  // Replace the plot in the DOM; it will be re-adopted inside <Maidr>.
-  const container = document.createElement(Constant.DIV);
-  container.style.display = 'contents';
-  plot.parentNode!.replaceChild(container, plot);
-
-  const root = createRoot(container, { identifierPrefix: maidr.id });
-  root.render(
-    <MaidrComponent data={maidr}>
-      <DomNodeAdapter node={plot} />
-    </MaidrComponent>,
-  );
 }

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr Live Data Example</title>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      #controls {
+        margin-bottom: 1rem;
+      }
+      svg {
+        border: 1px solid #ccc;
+        background: #fff;
+      }
+    </style>
+    <script>
+      // Live streaming line chart: a simulated sensor pushes one reading per
+      // second. `live: true` enables in-place updates and the 'M' (monitor
+      // mode) key; `maxWidth` keeps a sliding window of the last 20 points.
+      var maidr = {
+        id: 'live-sensor',
+        title: 'Live Sensor Readings',
+        live: true,
+        maxWidth: 20,
+        subplots: [
+          [
+            {
+              layers: [
+                {
+                  id: 'sensor-layer',
+                  type: 'line',
+                  title: 'Live Sensor Readings',
+                  axes: {
+                    x: { label: 'Tick' },
+                    y: { label: 'Reading' },
+                  },
+                  data: [
+                    [
+                      { x: 0, y: 50 },
+                      { x: 1, y: 52 },
+                      { x: 2, y: 49 },
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+        ],
+      };
+    </script>
+  </head>
+  <body>
+    <h1>maidr Live / Streaming Data Demo</h1>
+    <p>
+      Click the chart (or Tab to it), then use arrow keys to navigate.
+      Press <kbd>M</kbd> to toggle <strong>monitor mode</strong>: every new
+      data point is automatically sonified and announced while you keep your
+      current position. Press <kbd>S</kbd>/<kbd>T</kbd>/<kbd>B</kbd> for
+      sonification, text, and braille modes as usual.
+    </p>
+    <div id="controls">
+      <button id="start" type="button">Start streaming</button>
+      <button id="stop" type="button" disabled>Stop streaming</button>
+    </div>
+
+    <svg id="live-sensor" width="640" height="320" viewBox="0 0 640 320">
+      <polyline id="sensor-line" fill="none" stroke="steelblue" stroke-width="2" points="" />
+    </svg>
+
+    <script>
+      (function () {
+        var tick = 2;
+        var value = 49;
+        var timer = null;
+        // The SVG redraw keeps its own copy of the points: the drawing code
+        // below stands in for your charting library, which renders
+        // independently of MAIDR. Mutating this local array is fine — never
+        // mutate data already handed to MAIDR (use appendData/setData).
+        // Keep its window size equal to maxWidth so the visual stays in
+        // sync with what MAIDR exposes.
+        var windowSize = 20;
+        var points = maidr.subplots[0][0].layers[0].data[0].slice();
+
+        function redraw() {
+          // Map the sliding window onto the SVG viewport.
+          var w = 640;
+          var h = 320;
+          var pad = 20;
+          var n = Math.max(points.length - 1, 1);
+          var coords = points.map(function (p, i) {
+            var x = pad + (i / n) * (w - 2 * pad);
+            var y = h - pad - ((p.y - 30) / 40) * (h - 2 * pad);
+            return x.toFixed(1) + ',' + y.toFixed(1);
+          });
+          document.getElementById('sensor-line').setAttribute('points', coords.join(' '));
+        }
+
+        function step() {
+          tick += 1;
+          // Random walk between 30 and 70.
+          value = Math.max(30, Math.min(70, value + (Math.random() * 10 - 5)));
+          var point = { x: tick, y: Math.round(value * 10) / 10 };
+
+          points.push(point);
+          if (points.length > windowSize) {
+            points.shift();
+          }
+          redraw();
+
+          // Push the same point into maidr: navigation, sonification, text,
+          // and braille all reflect the new data immediately.
+          window.maidrLive.appendData(point, { id: 'live-sensor' });
+        }
+
+        document.getElementById('start').addEventListener('click', function () {
+          if (timer) return;
+          timer = setInterval(step, 1000);
+          this.disabled = true;
+          document.getElementById('stop').disabled = false;
+        });
+
+        document.getElementById('stop').addEventListener('click', function () {
+          clearInterval(timer);
+          timer = null;
+          this.disabled = true;
+          document.getElementById('start').disabled = false;
+        });
+
+        redraw();
+      })();
+    </script>
+  </body>
+</html>

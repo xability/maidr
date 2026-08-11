@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Multi-Panel - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+    <style>
+      #dashboard {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        max-width: 1200px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Multi-Panel Figure with MAIDR</h1>
+      <p>
+        Four independent Frappe charts grouped into one MAIDR figure. Arrow keys
+        move between panels, <kbd>Enter</kbd> drills into a panel,
+        <kbd>Esc</kbd> returns to panel navigation.
+      </p>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <!-- The `maidr` attribute goes on THIS wrapper (set by the script below),
+           not on the individual panel containers - a per-panel attribute would
+           create four separate MAIDR figures instead of one 2x2 grid. -->
+      <div id="dashboard">
+        <div id="panel-bar"></div>
+        <div id="panel-line"></div>
+        <div id="panel-scatter"></div>
+        <div id="panel-mixed"></div>
+      </div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the four panels and hand them to the MAIDR adapter as one figure.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        const barChart = new frappe.Chart('#panel-bar', {
+          title: 'Weekly Visitors',
+          type: 'bar',
+          height: 300,
+          data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            datasets: [{ name: 'Visitors', values: [120, 240, 180, 300, 150] }],
+          },
+        });
+
+        // dotSize > 0 renders per-point <circle> dots, which the adapter's line
+        // selector targets for highlighting.
+        const lineChart = new frappe.Chart('#panel-line', {
+          title: 'Annual Revenue',
+          type: 'line',
+          height: 300,
+          lineOptions: { dotSize: 5 },
+          data: {
+            labels: ['2021', '2022', '2023', '2024', '2025'],
+            datasets: [{ name: 'Revenue', values: [71, 85, 93, 110, 125] }],
+          },
+        });
+
+        // Frappe has no native scatter type: a line chart with the line hidden
+        // renders only the dots, which the adapter treats as scatter points.
+        const scatterChart = new frappe.Chart('#panel-scatter', {
+          title: 'Temperature vs Altitude',
+          type: 'line',
+          height: 300,
+          lineOptions: { hideLine: 1, dotSize: 6 },
+          data: {
+            labels: [10, 20, 30, 40, 50, 60],
+            datasets: [{ name: 'Temperature', values: [22, 25, 28, 24, 31, 35] }],
+          },
+        });
+
+        const mixedChart = new frappe.Chart('#panel-mixed', {
+          title: 'Sales with Trend',
+          type: 'axis-mixed',
+          height: 300,
+          lineOptions: { dotSize: 5 },
+          data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+            datasets: [
+              { name: 'Sales', chartType: 'bar', values: [50, 70, 85, 60, 95] },
+              { name: 'Trend', chartType: 'line', values: [55, 65, 75, 70, 80] },
+            ],
+          },
+        });
+
+        // The panel grid, in visual reading order (row-major, top-left first),
+        // matching the CSS grid layout above.
+        const panels = [
+          [
+            {
+              chart: barChart,
+              container: document.querySelector('#panel-bar'),
+              chartType: 'bar',
+              title: 'Weekly Visitors',
+              axes: { x: 'Day', y: 'Visitors' },
+            },
+            {
+              chart: lineChart,
+              container: document.querySelector('#panel-line'),
+              chartType: 'line',
+              title: 'Annual Revenue',
+              axes: { x: 'Year', y: 'Revenue (thousands USD)' },
+            },
+          ],
+          [
+            {
+              chart: scatterChart,
+              container: document.querySelector('#panel-scatter'),
+              chartType: 'scatter',
+              title: 'Temperature vs Altitude',
+              axes: { x: 'Altitude (m)', y: 'Temperature (C)' },
+            },
+            {
+              chart: mixedChart,
+              container: document.querySelector('#panel-mixed'),
+              chartType: 'axis-mixed',
+              title: 'Sales with Trend',
+              axes: { x: 'Month', y: 'Value (units)' },
+            },
+          ],
+        ];
+
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until EVERY panel's DOM stops mutating before handing
+        // the group to MAIDR, so MAIDR captures the final, stable elements for
+        // highlighting in all four panels.
+        const wrapper = document.querySelector('#dashboard');
+        Promise.all(
+          panels.flat().map(panel => whenChartSettled(panel.container)),
+        ).then(() => {
+          const maidr = maidrFrappe.createMaidrFromFrappeCharts(panels, wrapper, {
+            title: 'Store Performance Dashboard',
+          });
+          wrapper.setAttribute('maidr', JSON.stringify(maidr));
+        });
+
+        function whenChartSettled(container) {
+          return new Promise((resolve) => {
+            requestAnimationFrame(function waitForSvg() {
+              if (!container.querySelector('svg.frappe-chart')) {
+                requestAnimationFrame(waitForSvg);
+                return;
+              }
+              let settleTimer;
+              const observer = new MutationObserver(scheduleSettle);
+              function scheduleSettle() {
+                clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                  observer.disconnect();
+                  resolve();
+                }, 300);
+              }
+              observer.observe(container, { childList: true, subtree: true, attributes: true });
+              scheduleSettle();
+            });
+          });
+        }
+      }
+    </script>
+  </body>
+</html>

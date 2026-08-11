@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Stacked Area Example — Revenue by Line of Business</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A stacked area chart draws TWO magnitudes at every sample, which is the
+        whole reason it is a trace type of its own rather than a filled line:
+
+          - a band's HEIGHT is that series' own value, and
+          - a band's TOP EDGE is the running total of every series at that x.
+
+        The layer below carries the first of those — Services is 5, 20, 70, 25,
+        30, its own revenue — and MAIDR derives the second by summing the
+        series, so the verbose announcement reads out both ("Total is 100,
+        70.0% of it") and neither number has to be guessed at.
+
+        Each band is drawn the way every renderer draws one: out along its top
+        edge through each sample, then back along the edge beneath it, then
+        closed. That is 2N vertices for N samples, and only the first N are
+        data — MAIDR keeps those and drops the return journey, so a highlight
+        never lands on a baseline. `test/model/areaHighlight.test.ts` pins it.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="area-revenue" maidr='{&#10;  "id": "area-revenue",&#10;  "subplots": [&#10;    [&#10;      {&#10;        "id": "area-revenue-subplot",&#10;        "layers": [&#10;          {&#10;            "id": "area-revenue-layer",&#10;            "type": "stacked_area",&#10;            "title": "Revenue by Line of Business",&#10;            "axes": {&#10;              "x": {&#10;                "label": "Year"&#10;              },&#10;              "y": {&#10;                "label": "Revenue (millions)"&#10;              },&#10;              "z": {&#10;                "label": "Line of business"&#10;              }&#10;            },&#10;            "selectors": [&#10;              "g[id=&apos;area-revenue-subscriptions&apos;] path",&#10;              "g[id=&apos;area-revenue-services&apos;] path"&#10;            ],&#10;            "data": [&#10;              [&#10;                {&#10;                  "x": "2019",&#10;                  "y": 10,&#10;                  "z": "Subscriptions"&#10;                },&#10;                {&#10;                  "x": "2020",&#10;                  "y": 20,&#10;                  "z": "Subscriptions"&#10;                },&#10;                {&#10;                  "x": "2021",&#10;                  "y": 30,&#10;                  "z": "Subscriptions"&#10;                },&#10;                {&#10;                  "x": "2022",&#10;                  "y": 45,&#10;                  "z": "Subscriptions"&#10;                },&#10;                {&#10;                  "x": "2023",&#10;                  "y": 50,&#10;                  "z": "Subscriptions"&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  "x": "2019",&#10;                  "y": 5,&#10;                  "z": "Services"&#10;                },&#10;                {&#10;                  "x": "2020",&#10;                  "y": 20,&#10;                  "z": "Services"&#10;                },&#10;                {&#10;                  "x": "2021",&#10;                  "y": 70,&#10;                  "z": "Services"&#10;                },&#10;                {&#10;                  "x": "2022",&#10;                  "y": 25,&#10;                  "z": "Services"&#10;                },&#10;                {&#10;                  "x": "2023",&#10;                  "y": 30,&#10;                  "z": "Services"&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="axes-background">
+              <path d="M 80 380  L 660 380  L 660 60  L 80 60  z " style="fill: #ffffff" />
+            </g>
+            <g id="grid">
+          <path d="M 80 380 L 660 380 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 80 300 L 660 300 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 80 220 L 660 220 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 80 140 L 660 140 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 80 60 L 660 60 " style="stroke: #dddddd; stroke-width: 0.8" />
+            </g>
+            <g id="axis_x">
+          <text x="80" y="400" style="font: 12px sans-serif; text-anchor: middle">2019</text>
+          <text x="225" y="400" style="font: 12px sans-serif; text-anchor: middle">2020</text>
+          <text x="370" y="400" style="font: 12px sans-serif; text-anchor: middle">2021</text>
+          <text x="515" y="400" style="font: 12px sans-serif; text-anchor: middle">2022</text>
+          <text x="660" y="400" style="font: 12px sans-serif; text-anchor: middle">2023</text>
+            </g>
+        <g id="area-revenue-subscriptions">
+          <path d="M 80 348 L 225 316 L 370 284 L 515 236 L 660 220 L 660 380 L 515 380 L 370 380 L 225 380 L 80 380 Z" style="fill: #4c78a8; fill-opacity: 0.85; stroke: #4c78a8; stroke-width: 1.5" />
+        </g>
+        <g id="area-revenue-services">
+          <path d="M 80 332 L 225 252 L 370 60 L 515 156 L 660 124 L 660 220 L 515 236 L 370 284 L 225 316 L 80 348 Z" style="fill: #f58518; fill-opacity: 0.85; stroke: #f58518; stroke-width: 1.5" />
+        </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

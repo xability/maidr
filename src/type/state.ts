@@ -21,6 +21,17 @@ export type FigureState
     title: string;
     subtitle: string;
     caption: string;
+    /**
+     * Figure-wide X axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level x label; callers
+     * then fall back to the focused subplot's own axis.
+     */
+    xAxis: string;
+    /**
+     * Figure-wide Y axis label shared across all subplots (facet grids).
+     * Empty string when the JSON authored no figure-level y label.
+     */
+    yAxis: string;
     size: number;
     index: number;
     subplot: SubplotState;
@@ -91,6 +102,14 @@ export type TraceState
        */
       groupCount?: number;
       /**
+       * Label and name of the group/series the cursor is currently on, e.g.
+       * `{ label: 'Group', value: 'Series 1' }`. Only present for multiline
+       * plots (plotType === 'multiline') whose data names its groups; absent
+       * when the spec authors no names, so consumers can omit group wording
+       * rather than announce a positional placeholder.
+       */
+      group?: { label: string; value: string };
+      /**
        * Plot orientation, if applicable (e.g. bar, box, violin).
        */
       orientation?: Orientation;
@@ -141,23 +160,25 @@ export interface AudioState {
     max: number;
     raw: number | number[];
   };
+  /**
+   * Stereo position, read by `AudioService` as
+   * `interpolate(x, 0, cols - 1, -1, 1)` and clamped to that range.
+   *
+   * `x` and `cols` are usually a column index and a column count, which pans a
+   * trace left to right. They are not required to be: what the service needs
+   * is a position and the range to read it against. `PieTrace` supplies
+   * `cols: 2` and a fractional `x` so the pan follows a slice around the dial
+   * rather than along a row — a circle sweeps out and back, which an index
+   * cannot express.
+   *
+   * When a chord's tones sit at different x positions, `x` stays the single
+   * representative position every non-chord path reads (empty tone, zero tone,
+   * click, glide, smooth, position announcement) and the per-tone slots go in
+   * {@link AudioState.panX}.
+   */
   panning: {
     y: number;
-    /**
-     * Stereo pan position along the x axis (0..cols-1).
-     *
-     * Use a single number when every tone in the emitted frequency chord
-     * shares the same horizontal location (e.g. scatter COL mode, line
-     * navigation). Use an array, parallel to `freq.raw`, when the chord
-     * spans different x positions and each tone should pan to its own slot
-     * (e.g. scatter ROW mode, where the row's chord is multiple points at
-     * different x values).
-     *
-     * The audio service resolves the array per iteration of the chord; out
-     * of range indices fall back to entry zero, so traces never need to
-     * pad.
-     */
-    x: number | number[];
+    x: number;
     rows: number;
     cols: number;
   };
@@ -180,6 +201,23 @@ export interface AudioState {
    */
   trend?: CandlestickTrend;
   /**
+   * When true, a raw value of exactly 0 plays a percussive click instead of
+   * the default low "null" tone. Used by the candlestick delta layer, where
+   * zero means "exactly on the reference line" — a meaningful data point,
+   * not missing data.
+   */
+  zeroClick?: boolean;
+  /**
+   * Pitch-glide direction for the tone. When set, the tone glides its pitch
+   * over the note duration to convey a direction while `freq.raw` still sets
+   * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps
+   * downward (a falling drop). Used by the candlestick delta layer so
+   * above-line points rise and below-line points fall, independent of the
+   * base pitch that still encodes the delta magnitude. Ignored for the zero
+   * (`zeroClick`) path.
+   */
+  glide?: 'up' | 'down';
+  /**
    * Volume multiplier for dynamic volume control.
    * Used to scale audio volume based on data characteristics (e.g., violin plot width).
    * If undefined, defaults to 1.0 (no volume scaling).
@@ -199,7 +237,41 @@ export interface AudioState {
    * Currently set by 3D scatter plots and drives echo count in the audio service.
    */
   zIntensity?: number | number[];
+  /**
+   * Per-tone stereo slots, index-aligned with `freq.raw` when that is an array
+   * and read against the same `panning.cols`. Present only when one navigation
+   * step emits a chord whose tones sit at different x positions — a 3D scatter
+   * ROW plays one note per point, and collapsing them onto `panning.x` would
+   * saturate the whole row into one ear.
+   *
+   * Absent everywhere else, so no existing consumer has to narrow a union:
+   * `panning.x` remains a plain number for every reader that wants one
+   * position, which is all of them but the chord loop.
+   */
+  panX?: number[];
 }
+
+/**
+ * Directional guidance state for pointer/touch exploration near a curve.
+ *
+ * Position fields describe where the **curve point** sits relative to the
+ * cursor, so they line up directly with the audio output: `curveVertical:
+ * 'above'` plays a high pitch (point is up there), `curveHorizontal:
+ * 'left'` pans audio to the left (point is to the left). `'center'`
+ * signals exact horizontal alignment so the resolver can drop pan to zero
+ * instead of choosing an arbitrary direction.
+ */
+export type PointerGuidanceState
+  = | { onCurve: true }
+    | {
+      onCurve: false;
+      /** Distance in screen pixels from pointer/finger to the nearest curve point center. */
+      distancePx: number;
+      /** Where the curve point sits vertically relative to the cursor. */
+      curveVertical: 'above' | 'below';
+      /** Where the curve point sits horizontally relative to the cursor. */
+      curveHorizontal: 'left' | 'right' | 'center';
+    };
 
 /**
  * Union type for all braille display states across different plot types.
@@ -278,7 +350,29 @@ export type AxisType = 'x' | 'y' | 'z';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
+  /**
+   * Third-dimension value for heatmaps, segmented bars, pie slices and 3D
+   * scatter. `number[]` when one navigation step covers several points that
+   * each carry their own z (a 3D scatter column or row); `TextService`
+   * formats each entry and joins them, exactly as it already does for an
+   * array `main`/`cross`.
+   */
   z?: { label: string; value: number | number[] | string };
+  /**
+   * The running total a stacked point sits inside, alongside the point's own
+   * value in `cross`.
+   *
+   * A stacked area draws two magnitudes at once: a band's height is its
+   * series' value, and the band's top edge is the total of every series below
+   * it. `cross` carries the first; without somewhere to put the second, the
+   * announcement names a number the chart shows twice over and leaves the
+   * reader unable to tell which one they heard. `share` is that value as a
+   * fraction of the total, which is what a stacked chart is read for and what
+   * a listener cannot divide out in their head mid-navigation.
+   *
+   * Absent on every unstacked trace, so nothing else changes shape.
+   */
+  stack?: { label: string; value: number; share?: number };
   range?: { min: number; max: number };
   section?: string;
   /**
@@ -354,10 +448,20 @@ export interface DescriptionState {
   };
   /** Chart-specific summary statistics */
   stats: DescriptionStat[];
-  /** Data table for raw data display */
+  /**
+   * Data table for raw data display.
+   *
+   * A cell holds a `number[]` when one row carries several numbers for a
+   * column — a box plot's outliers are the only case today. Traces hand those
+   * over unjoined so `DescriptionService` can round each one before joining
+   * them for display; a pre-joined string would arrive as opaque text. The
+   * array form is numeric on purpose: a column of several *strings* has no
+   * caller, and widening it would mean rounding logic for a shape nothing
+   * produces.
+   */
   dataTable: {
     headers: string[];
-    rows: (string | number)[][];
+    rows: (string | number | number[])[][];
   };
   /**
    * List of all subplots in the figure, populated only when the figure has
@@ -365,6 +469,21 @@ export interface DescriptionState {
    * without having to navigate through them.
    */
   subplots?: SubplotSummary[];
+}
+
+/**
+ * A description whose values have been rounded for display — what
+ * `DescriptionService` hands the ViewModel, and what the dialog renders.
+ *
+ * The one difference from {@link DescriptionState} is the cell type: a
+ * multi-value cell has been rounded value by value and joined by the time it
+ * gets here, so the view never has to deal with an array.
+ */
+export interface DisplayDescriptionState extends Omit<DescriptionState, 'dataTable'> {
+  dataTable: {
+    headers: string[];
+    rows: (string | number)[][];
+  };
 }
 
 /**

@@ -4,10 +4,14 @@ import type { Observer } from '@type/observable';
 import type { PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
+import { focusedSubplotTitle } from '@model/plot';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
+
+/** How an absent value is named wherever a trace has nothing to report. */
+const MISSING_TEXT = 'missing';
 
 /**
  * Enumeration of available text output modes.
@@ -41,7 +45,6 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   private mode: TextMode;
   private currentState: PlotState | null = null;
-  private currentSubplotIndex: number | null = null;
   private currentLayerId: string | null = null;
   private hasHadFirstNavigation: boolean = false;
 
@@ -81,11 +84,30 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Formats a single value using the formatter service if available.
    * Falls back to String() conversion if no formatter is configured.
    *
-   * @param value - The value to format
+   * A gap arrives here as whatever sentinel the wire carried: the `null` a
+   * producer emits for a slot it has no measurement for, or the `NaN` the bar
+   * and pie models normalize that to. Neither is a value to read out, so both
+   * are named the way `AbstractBarPlot.rangeStats` and `PieTrace` already name
+   * an absent value. Doing it here rather than per trace means every trace with
+   * gap support says the same word, and says it whether or not a formatter is
+   * wired up — `FormatUtil.wrapFormat` catches a `null` or a `NaN` only for a
+   * layer the formatter service actually has an entry for, and never catches an
+   * infinity.
+   *
+   * Only an absent NUMBER is caught. A measured `0` is a real reading and an
+   * empty category label is a label, so both go on to be formatted as usual.
+   *
+   * @param value - The value to format, absent when the point is a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Formatted string representation of the value
    */
-  private formatSingleValue(value: number | string, axis: AxisType): string {
+  private formatSingleValue(value: number | string | null | undefined, axis: AxisType): string {
+    if (value === null || value === undefined) {
+      return MISSING_TEXT;
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return MISSING_TEXT;
+    }
     if (this.formatter && this.currentLayerId) {
       return this.formatter.formatSingleValue(value, this.currentLayerId, axis);
     }
@@ -93,26 +115,25 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Formats an array of values using the formatter service if available.
-   * Falls back to String() conversion for each element if no formatter is configured.
+   * Formats an array of values, one element at a time.
    *
-   * @param values - The array of values to format
+   * Each element goes through {@link formatSingleValue} rather than through
+   * the formatter's own array method. The two are the same operation —
+   * `FormatterService.formatArrayValue` is a per-element map over the very
+   * formatter `formatSingleValue` looks up — so delegating costs nothing and
+   * means the two cannot drift: an absent element reads as "missing" here
+   * for the same reason it does anywhere else, rather than because this
+   * method remembered to say so.
+   *
+   * @param values - The array of values to format, elements absent on a gap
    * @param axis - The axis type ('x', 'y', or 'z')
    * @returns Array of formatted strings
    */
-  private formatArrayValue(values: (number | string)[], axis: AxisType): string[] {
-    if (this.formatter && this.currentLayerId) {
-      return this.formatter.formatArrayValue(values, this.currentLayerId, axis);
-    }
-    return values.map(v => String(v));
-  }
-
-  /**
-   * Get the current state that was last processed by the TextService
-   * This provides access to state information without violating dependency flow
-   */
-  public getCurrentState(): PlotState | null {
-    return this.currentState;
+  private formatArrayValue(
+    values: (number | string | null | undefined)[],
+    axis: AxisType,
+  ): string[] {
+    return values.map(value => this.formatSingleValue(value, axis));
   }
 
   /**
@@ -132,47 +153,6 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     return null;
-  }
-
-  /**
-   * Check if the current state represents a layer switch
-   * Returns true if the subplot index has changed
-   */
-  public isLayerSwitch(): boolean {
-    if (!this.currentState || this.currentState.empty || this.currentState.type !== 'subplot') {
-      return false;
-    }
-
-    const newSubplotIndex = this.currentState.index;
-
-    if (this.currentSubplotIndex !== null && this.currentSubplotIndex !== newSubplotIndex) {
-      // Layer switch detected - subplot index changed
-      this.currentSubplotIndex = newSubplotIndex;
-      return true;
-    } else if (this.currentSubplotIndex === null) {
-      // First time setting the subplot index
-      this.currentSubplotIndex = newSubplotIndex;
-      // If this is not the first layer (index 0), treat it as a layer switch
-      return newSubplotIndex !== 0;
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if the first navigation has occurred
-   * Returns true if the user has navigated at least once
-   */
-  public getHasHadFirstNavigation(): boolean {
-    return this.hasHadFirstNavigation;
-  }
-
-  /**
-   * Enable announcements after first navigation
-   * This method can be called externally to enable announcements
-   */
-  public enableAnnouncements(): void {
-    this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
   /**
@@ -213,7 +193,10 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Add z/type information (for line plots this includes group/type like "MAV=3")
     if (text.z && text.z.value !== undefined) {
-      parts.push(`${text.z.label} is ${text.z.value}`);
+      const zValue = Array.isArray(text.z.value)
+        ? this.formatArrayValue(text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
+        : this.formatSingleValue(text.z.value as number | string, 'z');
+      parts.push(`${text.z.label} is ${zValue}`);
     }
 
     return parts.length > 0 ? parts.join(', ') : null;
@@ -255,7 +238,10 @@ export class TextService implements Observer<PlotState>, Disposable {
         parts.push(`${state.text.cross.label} is ${crossValue}`);
       }
       if (state.text.z && state.text.z.value !== undefined) {
-        parts.push(`${state.text.z.label} is ${state.text.z.value}`);
+        const zValue = Array.isArray(state.text.z.value)
+          ? this.formatArrayValue(state.text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
+          : this.formatSingleValue(state.text.z.value as number | string, 'z');
+        parts.push(`${state.text.z.label} is ${zValue}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -278,7 +264,12 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
       return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
     } else if (state.type === 'figure') {
-      return this.formatFigureText(state.index, state.size, state.traceTypes);
+      return this.formatFigureText(
+        state.index,
+        state.size,
+        state.traceTypes,
+        focusedSubplotTitle(state),
+      );
     } else if (state.type === 'subplot') {
       return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
     } else if (this.mode === TextMode.VERBOSE) {
@@ -293,13 +284,128 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param index - Current subplot index
    * @param size - Total number of subplots
    * @param traceTypes - Array of trace type names in the figure
+   * @param subplotTitle - Authored title of the focused subplot ('' when none)
    * @returns Formatted figure description text
    */
-  private formatFigureText(index: number, size: number, traceTypes: string[]): string {
+  private formatFigureText(index: number, size: number, traceTypes: string[], subplotTitle: string): string {
+    // A subplot authored with an empty `layers` array contributes no trace
+    // types. Say the panel is empty instead of building "a multi-layered plot
+    // containing  plots" and inviting an ENTER that cannot do anything.
+    if (traceTypes.length === 0) {
+      return this.emptySubplotText(index, size, subplotTitle) ?? Constant.EMPTY;
+    }
+    // Terse: keep lobby navigation quick to scan by reading back just the
+    // focused subplot's own title (e.g. a facet label) — no "Subplot N"
+    // framing. Only when the subplot has no authored title does it fall back
+    // to the bare position identifier.
+    if (this.mode === TextMode.TERSE) {
+      return this.terseSubplotLabel(index, subplotTitle);
+    }
     const details = traceTypes.length === 1
       ? `This is a ${traceTypes[0]} plot`
       : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
-    return `Subplot ${index} of ${size}: ${details}. Press 'ENTER' to select this subplot.`;
+    // Verbose: the full framing, now naming the panel by its authored title
+    // (when present) alongside the position.
+    const titlePart = subplotTitle ? `, ${subplotTitle}` : '';
+    return `Subplot ${index} of ${size}${titlePart}: ${details}. Press 'ENTER' to select this subplot.`;
+  }
+
+  /**
+   * The terse identifier for a lobby subplot: its authored title, or the bare
+   * "Subplot N" position when the subplot has no title. The single terse rule
+   * shared by the arrow-navigation description ({@link formatFigureText}) and
+   * the entry cue ({@link subplotEntryText}).
+   * @param index - 1-based visual position of the subplot.
+   * @param title - The subplot's authored title ('' when none).
+   * @returns The terse panel identifier.
+   */
+  private terseSubplotLabel(index: number, title: string): string {
+    return title || `Subplot ${index}`;
+  }
+
+  /**
+   * Builds the spoken cue for ENTERING a subplot from the multi-panel figure
+   * lobby, respecting the current text mode:
+   *  - OFF: `null` (only the enter tone signals the transition);
+   *  - TERSE: the panel's title alone (or bare "Subplot N" when untitled);
+   *  - VERBOSE: the full transition, e.g.
+   *    "Entered subplot 2 of 4, Sales in North, bar plot.".
+   *
+   * Lives here (not in the command layer) so all lobby wording and its
+   * terse/verbose rules share one home with {@link formatFigureText}.
+   * @param index - 1-based visual position of the entered subplot.
+   * @param size - Total number of subplots in the figure.
+   * @param plotType - The entered trace's plot type ('' to omit).
+   * @param title - The entered subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public subplotEntryText(index: number, size: number, plotType: string, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    if (this.mode === TextMode.TERSE) {
+      return this.terseSubplotLabel(index, title);
+    }
+    const titlePart = title ? `, ${title}` : '';
+    const suffix = plotType ? `, ${plotType} plot` : '';
+    return `Entered subplot ${index} of ${size}${titlePart}${suffix}.`;
+  }
+
+  /**
+   * Builds the wording for a subplot that has nothing to describe — one the
+   * producer authored with an empty `layers` array, which is legitimate for an
+   * unoccupied cell in a non-rectangular grid or a panel whose geom MAIDR does
+   * not support yet. Respects the current text mode:
+   *  - OFF: `null`;
+   *  - TERSE: "<title or Subplot N>, empty";
+   *  - VERBOSE: "Subplot 2 of 4 is empty, nothing to describe.".
+   *
+   * Shared by the lobby navigation text ({@link formatFigureText}) and the
+   * refused-entry cue, so both name the panel the same way.
+   * @param index - 1-based visual position of the subplot.
+   * @param size - Total number of subplots in the figure.
+   * @param title - The subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public emptySubplotText(index: number, size: number, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    if (this.mode === TextMode.TERSE) {
+      return `${this.terseSubplotLabel(index, title)}, empty`;
+    }
+    const titlePart = title ? `, ${title}` : '';
+    return `Subplot ${index} of ${size}${titlePart} is empty, nothing to describe.`;
+  }
+
+  /**
+   * Builds the spoken cue for EXITING a subplot back to the multi-panel figure
+   * lobby, respecting the current text mode:
+   *  - OFF: `null` (only the exit tone signals the transition);
+   *  - TERSE: "Figure, <title>" — the "Figure," marker signals the return, then
+   *    the panel's title alone (or bare "Figure, subplot N" when untitled);
+   *  - VERBOSE: the full return, e.g.
+   *    "Returned to figure overview, subplot 2 of 4, Sales in North.".
+   *
+   * Shares the lobby wording rules with {@link subplotEntryText} and
+   * {@link formatFigureText}.
+   * @param state - The figure lobby state returned to.
+   * @param title - The focused subplot's authored title ('' when none).
+   * @returns The message to announce, or `null` when text mode is OFF.
+   */
+  public subplotExitText(state: PlotState, title: string): string | null {
+    if (this.mode === TextMode.OFF) {
+      return null;
+    }
+    const terse = this.mode === TextMode.TERSE;
+    if (state.type === 'figure' && !state.empty) {
+      if (terse) {
+        return title ? `Figure, ${title}` : `Figure, subplot ${state.index}`;
+      }
+      const titlePart = title ? `, ${title}` : '';
+      return `Returned to figure overview, subplot ${state.index} of ${state.size}${titlePart}.`;
+    }
+    return terse ? 'Figure' : 'Returned to figure overview.';
   }
 
   /**
@@ -408,7 +514,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       verbose.push(Constant.IS, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
     }
 
-    // Format for heatmap and scatter plot.
+    // Format for the plots that carry a third value: the heatmap's cell value,
+    // the segmented bar's level, the candlestick's trend, the pie's percentage.
+    // Reads as ", Percentage is 33.3%" after the label and the value.
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;
@@ -426,6 +534,26 @@ export class TextService implements Observer<PlotState>, Disposable {
         Constant.IS,
         zValue,
       );
+    }
+
+    // The running total a stacked point sits inside. Reads as ", Total is 30,
+    // 40% of it" after the point's own value, so the two magnitudes a stacked
+    // area draws are never announced as one. Verbose only: the terse reading
+    // stays one point per utterance, and the chart type — announced as
+    // "stacked area" — already tells the reader which of the two `cross` is.
+    if (state.stack !== undefined) {
+      verbose.push(
+        Constant.COMMA_SPACE,
+        state.stack.label,
+        Constant.IS,
+        this.formatSingleValue(state.stack.value, crossAxisType),
+      );
+      if (state.stack.share !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          `${(state.stack.share * 100).toFixed(1)}% of it`,
+        );
+      }
     }
 
     return verbose.join(Constant.EMPTY);
@@ -478,34 +606,19 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for cross axis values.
-    // For candlestick plots, we show section (type) first, then cross.value (price)
-    // For box plots, we also show section (type) first, then cross.value
-    if (state.section !== undefined && state.z !== undefined) {
-      // For candlestick: show section (type) first, then cross.value (price)
-      terse.push(state.section!, Constant.SPACE);
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
-    } else if (state.section !== undefined && state.z === undefined) {
-      // For box plots: show section (type) first, then cross.value
-      terse.push(state.section!, Constant.SPACE);
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
+    // For candlestick and box plots, show section (type) first, then cross.value
+    // (price/value); other plots show cross.value normally.
+    if (state.section !== undefined) {
+      terse.push(state.section, Constant.SPACE);
+    }
+    if (!Array.isArray(state.cross.value)) {
+      terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else {
-      // For other plots: show cross.value normally
-      if (!Array.isArray(state.cross.value)) {
-        terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
+      terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
     }
 
-    // Format for heatmap and segmented plots.
+    // Format for heatmap, segmented and pie plots. Terse drops the label, so a
+    // pie slice reads "Apples, 30, 33.3%".
     if (state.z !== undefined) {
       // Convert candlestick trend values to lowercase for text mode
       let zValue: string;
@@ -517,12 +630,8 @@ export class TextService implements Observer<PlotState>, Disposable {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
 
-      // For candlestick plots, add comma before trend value to show "open 100, bear"
-      if (state.section !== undefined) {
-        terse.push(Constant.COMMA_SPACE, zValue);
-      } else {
-        terse.push(Constant.COMMA_SPACE, zValue);
-      }
+      // For candlestick plots this reads e.g. "open 100, bear"
+      terse.push(Constant.COMMA_SPACE, zValue);
     }
 
     return terse.join(Constant.EMPTY);
@@ -624,11 +733,55 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @param state - The new plot state to process
    */
   public update(state: PlotState): void {
-    if (this.mode === TextMode.OFF) {
+    // Out-of-bounds events (empty trace state, no `warning`) are fired by
+    // AbstractTrace.notifyOutOfBounds() when navigation hits a boundary. The
+    // user stays at the last valid data point, so we must NOT overwrite
+    // `currentState` (used by the AI chat) — hence the early return before that
+    // bookkeeping below.
+    //
+    // We still announce a boundary alert so reaching an edge is not silent,
+    // respecting text mode: OFF stays silent, TERSE gets the short "No more
+    // data" cue, and VERBOSE gets "No more data to display". These literals are
+    // LOCAL to this edge branch (not from format()) so the wording applies only
+    // to edge navigation — the warning/rotor-bounds path (excluded by
+    // `!state.warning`) still flows through format() and keeps its original,
+    // mode-independent "No plot info to display" wording. Returning early also
+    // avoids firing `first_navigation` for an empty state, keeping
+    // announce-gating intact.
+    if (
+      state
+      && state.empty
+      && state.type === 'trace'
+      && !state.warning
+    ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
+        this.onChangeEmitter.fire({ value: text });
+      }
       return;
     }
 
-    // Store the current state for access by ViewModels
+    // Figure-level out-of-bounds: navigating subplots in the multi-panel lobby
+    // and hitting an edge. Mirror the trace edge cue with subplot wording,
+    // respecting text mode (OFF silent, TERSE short, VERBOSE full). Returns
+    // early like the trace branch so the empty state does not overwrite
+    // `currentState` (the user stayed on the current subplot).
+    if (
+      state
+      && state.empty
+      && state.type === 'figure'
+      && !state.warning
+    ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.mode === TextMode.TERSE ? 'No more subplots' : 'No more subplots to display';
+        this.onChangeEmitter.fire({ value: text });
+      }
+      return;
+    }
+
+    // Store the current state for access by ViewModels. This bookkeeping runs
+    // regardless of text mode so the AI chat's "current position" stays fresh
+    // even after the user toggles text mode OFF and keeps navigating.
     this.currentState = state;
 
     // Track current layer ID for formatting
@@ -636,6 +789,32 @@ export class TextService implements Observer<PlotState>, Disposable {
       this.currentLayerId = state.layerId;
     } else if (state.type === 'subplot' && !state.empty && !state.trace.empty) {
       this.currentLayerId = state.trace.layerId;
+    }
+
+    // In OFF mode, skip all text emission and notification below; the state
+    // bookkeeping above has already been applied.
+    if (this.mode === TextMode.OFF) {
+      return;
+    }
+
+    // Enable screen-reader announcements on the user's first navigation, at
+    // whatever plot level that navigation happens.
+    //
+    // The initial instruction is shown visually with announcements suppressed
+    // (Controller.showInitialInstructionInText -> setAnnounce(false)); the
+    // first model-driven update that reaches this point is the user's first
+    // arrow-key navigation, after which nav text must be announced.
+    //
+    // This previously only fired for figure-type states ("first navigation in
+    // multi-panel plots"). But single-subplot plots start navigation at the
+    // trace level and never emit a figure-type state, so `announce` stayed
+    // false forever and their terse/verbose nav text was silently gated out
+    // of the alert region — while rotor/notification messages (which ignore
+    // `announce`) still spoke. Firing on the first non-empty update of ANY
+    // level fixes single-panel plots and keeps multi-panel behavior identical.
+    if (!this.hasHadFirstNavigation && !state.empty) {
+      this.hasHadFirstNavigation = true;
+      this.onNavigationEmitter.fire({ type: 'first_navigation' });
     }
 
     // Use the type guard and formatter for layer switches
@@ -651,12 +830,6 @@ export class TextService implements Observer<PlotState>, Disposable {
         this.notification.notify(text);
       }
       return;
-    }
-
-    // Handle figure-level navigation - this is the first navigation in multi-panel plots
-    if (state.type === 'figure' && !state.empty && !this.hasHadFirstNavigation) {
-      this.hasHadFirstNavigation = true;
-      this.onNavigationEmitter.fire({ type: 'first_navigation' });
     }
 
     const text = this.format(state);

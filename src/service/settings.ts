@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 
-const SETTINGS_KEY = 'maidr-settings';
+export const SETTINGS_KEY = 'maidr-settings';
 
 function getValue<T>(settings: any, key: string): T | undefined {
   return key.split('.').reduce((acc, part) => {
@@ -61,11 +61,10 @@ export class SettingsService implements Disposable {
     this.display = display;
     this.observers = [];
 
+    this.defaultSettings = structuredClone(DEFAULT_SETTINGS);
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
     const saved = this.storage.load<Settings>(SETTINGS_KEY);
-    this.defaultSettings = structuredClone(DEFAULT_SETTINGS);
-
     // Deep-merge so that newly added default settings are available even when
     // the user has an older saved object in localStorage that lacks the new keys.
     const merged = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
@@ -89,6 +88,10 @@ export class SettingsService implements Disposable {
 
     this.storage.save(SETTINGS_KEY, this.currentSettings);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
+    // Notify Observer<Settings> registrants (e.g. Mousebindingservice) so that
+    // observer-based consumers such as hover-mode react immediately. This is a
+    // separate audience from the onChange emitter, so no double-notification.
+    this.notifyStateUpdate();
   }
 
   public resetSettings(): Settings {
@@ -97,6 +100,7 @@ export class SettingsService implements Disposable {
 
     this.storage.remove(SETTINGS_KEY);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, this.currentSettings));
+    this.notifyStateUpdate();
     return this.currentSettings;
   }
 

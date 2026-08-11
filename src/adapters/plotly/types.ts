@@ -17,6 +17,12 @@ export interface PlotlyTrace {
   name?: string;
   uid?: string;
   visible?: boolean | 'legendonly';
+  /**
+   * Line styling. `shape` is how plotly joins consecutive samples: `linear`
+   * and `spline` interpolate, while `hv`, `vh`, `hvh` and `vhv` draw a
+   * piecewise-constant staircase.
+   */
+  line?: { shape?: string };
   x?: (number | string)[];
   y?: (number | string)[];
   z?: number[][];
@@ -30,6 +36,11 @@ export interface PlotlyTrace {
   lowerfence?: number[];
   upperfence?: number[];
   mean?: number[];
+  // Violin-specific
+  /** Inner box overlay. Plotly draws `path.box` only when `visible` is true. */
+  box?: { visible?: boolean };
+  /** Mean line overlay drawn across the violin. */
+  meanline?: { visible?: boolean };
   // Candlestick-specific
   open?: number[];
   high?: number[];
@@ -37,6 +48,23 @@ export interface PlotlyTrace {
   close?: number[];
   // Histogram-specific
   xbins?: { start?: number; end?: number; size?: number };
+  // Pie-specific
+  /** Slice labels, in the order the trace was authored. */
+  labels?: (number | string)[];
+  /** Slice magnitudes, parallel to {@link labels}. */
+  values?: (number | string)[];
+  /**
+   * Whether plotly reorders the slices largest-first before drawing them.
+   * Defaults to true, so the authored order is NOT the drawn order unless a
+   * trace turns this off.
+   */
+  sort?: boolean;
+  /**
+   * Fraction of the paper the trace occupies, `[start, end]` in [0, 1] on each
+   * side. A pie is positioned by this rather than by axes, so it is the only
+   * thing that says where one sits relative to its siblings.
+   */
+  domain?: { x?: [number, number]; y?: [number, number] };
   // Heatmap colorbar
   colorbar?: { title?: { text?: string } | string };
 }
@@ -45,14 +73,63 @@ export interface PlotlyLayout {
   title?: { text?: string } | string;
   xaxis?: PlotlyAxis;
   yaxis?: PlotlyAxis;
-  grid?: { rows?: number; columns?: number };
+  grid?: {
+    rows?: number;
+    columns?: number;
+    pattern?: string;
+    roworder?: string;
+  };
+  annotations?: PlotlyAnnotation[];
   [key: string]: unknown;
+}
+
+/**
+ * A layout annotation. plotly.py (Plotly Express facets, `make_subplots`
+ * row/column/subplot titles) emits facet labels (e.g. "sex=Male") as
+ * annotations with `xref: 'paper'` / `yref: 'paper'` positioned via paper
+ * coordinates; hand-authored charts may instead use axis-domain references
+ * such as `'x2 domain'`. Both shapes are recognised by the extractor.
+ */
+export interface PlotlyAnnotation {
+  text?: string;
+  xref?: string;
+  yref?: string;
+  x?: number | string;
+  y?: number | string;
+  showarrow?: boolean;
+  textangle?: number | string;
 }
 
 export interface PlotlyFullLayout extends PlotlyLayout {
   barmode?: string;
   barnorm?: string;
+  /**
+   * The placeholder titles Plotly resolves an *absent* title to. Plotly's own
+   * title renderer compares against this container to decide that a title is
+   * a placeholder, and only draws it in editable mode.
+   */
+  _dfltTitle?: PlotlyDfltTitle;
   [key: string]: unknown;
+}
+
+/**
+ * Plotly's placeholder title strings, one per title slot. Populated by
+ * plotly.js through its localisation dictionary, so the values are translated
+ * on a chart configured with a non-English locale.
+ *
+ * The slots below are the ones plotly.js 3.1.1 fills. The index signature
+ * carries the rest: a version that adds a slot should have it recognised as a
+ * placeholder rather than announced, and without it `Object.entries` widens
+ * each value to `any`.
+ */
+export interface PlotlyDfltTitle {
+  plot?: string;
+  subtitle?: string;
+  x?: string;
+  y?: string;
+  colorbar?: string;
+  annotation?: string;
+  [key: string]: string | undefined;
 }
 
 export interface PlotlyAxis {
@@ -64,6 +141,23 @@ export interface PlotlyAxis {
   tickvals?: number[];
   type?: string;
   categories?: string[];
+  /** Fraction of the plot area this axis spans: `[start, end]` in [0, 1]. */
+  domain?: [number, number];
+  /** The axis this one is anchored to (e.g. `'y2'`). */
+  anchor?: string;
+  /** Axis id whose range this axis mirrors (facet-style shared axes). */
+  matches?: string;
+  /** Computed pixel offset of the axis within the SVG (plotly internal). */
+  _offset?: number;
+  /** Computed pixel length of the axis within the SVG (plotly internal). */
+  _length?: number;
+  /** Category labels in axis order, indexed by a categorical coordinate. */
+  _categories?: (number | string)[];
+  /**
+   * Converts a data coordinate to a pixel position within the plot area
+   * (plotly internal, available once the chart has been drawn).
+   */
+  c2p?: (value: number) => number;
 }
 
 export interface PlotlyCalcData {
@@ -87,10 +181,34 @@ export interface PlotlyCalcData {
   uo?: number; // upper outlier threshold
   pts?: PlotlyCalcPoint[];
   pts2?: PlotlyCalcPoint[];
+  // Violin calc data
+  /** KDE samples: `t` is the value-axis coordinate, `v` the density there. */
+  density?: PlotlyDensitySample[];
+  /** Pixel centre of this violin on the position axis, set when plotly draws it. */
+  posCenterPx?: number;
+  /** Per-trace calc metadata; plotly stores it on the first entry of a trace. */
+  t?: PlotlyCalcMeta;
+  // Pie calc data
+  /** Slice magnitude, after plotly dropped the values it would not draw. */
+  v?: number;
+  /** Slice label. */
+  label?: number | string;
   // Heatmap
   z?: number[][];
   trace?: PlotlyTrace;
   [key: string]: unknown;
+}
+
+export interface PlotlyDensitySample {
+  /** Density at this position. */
+  v: number;
+  /** Value-axis coordinate of the sample. */
+  t: number;
+}
+
+export interface PlotlyCalcMeta {
+  /** Offset from the position-axis centre, non-zero for grouped box/violin traces. */
+  bPos?: number;
 }
 
 export interface PlotlyCalcPoint {

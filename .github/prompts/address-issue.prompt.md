@@ -31,7 +31,7 @@ git checkout -b <branch-name>
 Now, you can start implementing your solution. As you code, please remember to:
 
 - Follow the project's architectural design, detailed in `.github/copilot-instructions.md`.
-- Adhere to the coding style guide found in `.github/instructions/style-guide.instructions.md`.
+- Adhere to the path-scoped conventions in `.github/instructions/` — `typescript.instructions.md` for style, plus the per-layer files that match the code you change.
 
 **4. Verify Your Changes**
 

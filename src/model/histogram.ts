@@ -1,7 +1,6 @@
 import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { MathUtil } from '@util/math';
 import { AbstractBarPlot } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
@@ -25,8 +24,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bins', value: points.length },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      ...this.rangeStats(),
       { label: 'Bin range', value: `${binRangeMin} to ${binRangeMax}` },
     ];
 
@@ -51,7 +49,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     };
   }
 
-  protected get text(): TextState {
+  protected override get text(): TextState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const point = this.points[this.row][this.col];
 
@@ -71,30 +69,6 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
    * @returns boolean (true: if target was found, false: else)
    */
   public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const currentGroup = this.row;
-    if (currentGroup < 0 || currentGroup >= this.barValues.length) {
-      return false;
-    }
-
-    const groupValues = this.barValues[currentGroup];
-    if (!groupValues || groupValues.length === 0) {
-      return false;
-    }
-
-    const currentIndex = this.col;
-    const step = direction === 'right' ? 1 : -1;
-    let i = currentIndex + step;
-
-    while (i >= 0 && i < groupValues.length) {
-      if (this.compare(groupValues[i], groupValues[currentIndex], type)) {
-        this.col = i;
-        this.updateVisualPointPosition();
-        this.notifyStateUpdate();
-        return true;
-      }
-      i += step;
-    }
-    this.notifyRotorBounds();
-    return false;
+    return this.compareSearchInRow(direction, type);
   }
 }

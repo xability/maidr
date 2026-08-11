@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Pie Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // Wait for Google Charts to load
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawPieChart();
+        drawDoughnutChart();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Pie Chart
+      // ---------------------------------------------------------------
+      function drawPieChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Task', 'Hours per Day'],
+          ['Work', 11],
+          ['Eat', 2],
+          ['Commute', 2],
+          ['Watch TV', 2],
+          ['Sleep', 7],
+        ]);
+
+        var container = document.getElementById('pie-chart');
+        var chart = new google.visualization.PieChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'PieChart',
+          title: 'My Daily Activities',
+        });
+
+        // `is3D` is not supported: a 3-D pie draws several paths per slice,
+        // so the adapter cannot tell which path belongs to which slice and
+        // turns visual highlighting off (the audio, text, and braille still
+        // work). Leave it flat to keep the highlight.
+        chart.draw(data, {
+          title: 'My Daily Activities',
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Doughnut Chart — a PieChart drawn with a pieHole
+      // ---------------------------------------------------------------
+      function drawDoughnutChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Browser', 'Share'],
+          ['Chrome', 64],
+          ['Safari', 19],
+          ['Edge', 5],
+          ['Firefox', 3],
+          ['Other', 9],
+        ]);
+
+        var container = document.getElementById('doughnut-chart');
+        var chart = new google.visualization.PieChart(container);
+
+        // Google has no separate doughnut class, so the adapter chart type is
+        // 'PieChart' here too.
+        bindMaidr(chart, data, container, {
+          chartType: 'PieChart',
+          title: 'Browser Market Share',
+        });
+
+        chart.draw(data, {
+          title: 'Browser Market Share',
+          pieHole: 0.4,
+          width: 600,
+          height: 400,
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts Pie Charts</h1>
+    <p>
+      Each chart below is rendered by Google Charts and then made accessible
+      via MAIDR. Click on a chart and use the left and right arrow keys to move
+      between slices; each one is announced with its label, its value, and its
+      share of the whole.
+    </p>
+
+    <h2>Pie Chart</h2>
+    <div id="pie-chart" class="chart-container"></div>
+
+    <h2>Doughnut Chart</h2>
+    <div id="doughnut-chart" class="chart-container"></div>
+  </body>
+</html>

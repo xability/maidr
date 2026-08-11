@@ -1,7 +1,14 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import {
+  announcementsSince,
+  installAnnouncementRecorder,
+  waitForAnnouncementAfter,
+} from '../utils/announcements';
 import { TestConstants } from '../utils/constants';
 import { AssertionError, KeypressError } from '../utils/errors';
+import { modifierKey } from '../utils/platform';
+import { normalizeText } from '../utils/text';
 
 /**
  * Base page object that all other page objects extend
@@ -9,6 +16,20 @@ import { AssertionError, KeypressError } from '../utils/errors';
  */
 export class BasePage {
   protected readonly page: Page;
+
+  /**
+   * Announcement count captured immediately before the most recent action that
+   * waited for one. Assertions read the window after this mark rather than the
+   * region's current text, so a later announcement replacing theirs — or an
+   * earlier one arriving late — cannot turn a real pass into a failure.
+   *
+   * Null until an awaited action sets it, and reset to null once a check has
+   * consumed it. That makes the positional contract self-limiting: a check
+   * with no awaited action before it takes the region fallback instead of
+   * matching against an unrelated earlier announcement, which would be a
+   * silent false positive rather than a visible failure.
+   */
+  private actionAnnouncementMark: number | null = null;
 
   /**
    * Common selectors used across different pages
@@ -55,7 +76,7 @@ export class BasePage {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Navigation failed to path "${path}": ${errorMessage}`);
+      throw new Error(`Navigation failed to path "${path}": ${errorMessage}`, { cause: error });
     }
   }
 
@@ -151,7 +172,22 @@ export class BasePage {
    * @throws KeypressError if key press fails
    */
   public async pressKey(key: string, context: string): Promise<void> {
+    // Any key pressed outside `awaitingAnnouncement` invalidates the recorded
+    // window: whatever lands after the mark no longer belongs solely to the
+    // action the mark was taken for, so a later check reading it could match an
+    // older action's message. `toggleAxisTitle` is the live case — it presses
+    // two keys and waits on the display instead. Clearing here rather than at
+    // each call site means a new unwrapped keypress cannot reintroduce the bug.
+    //
+    // `awaitingAnnouncement` publishes its own mark after the action runs, so
+    // this does not interfere with the wrapped path.
+    this.actionAnnouncementMark = null;
+
     try {
+      // The one sanctioned keyboard.press in the page objects: everything else
+      // goes through here so the mark above is always cleared. See the rule's
+      // note in eslint.config.ts.
+      // eslint-disable-next-line no-restricted-syntax
       await this.page.keyboard.press(key);
     } catch (error) {
       throw new KeypressError(
@@ -163,27 +199,101 @@ export class BasePage {
   }
 
   /**
+   * Resolves the control/command modifier, wrapping a failure the way the key
+   * helpers do. Callers pass the result straight into `pressKeyCombination`,
+   * which evaluates its arguments before its own try block — so without this
+   * a page-evaluate failure would escape unwrapped.
+   * @param context - Context description for error reporting
+   * @returns The modifier key name for this browser
+   * @throws KeypressError if the modifier cannot be resolved
+   */
+  protected async resolveModifier(context: string): Promise<string> {
+    try {
+      return await modifierKey(this.page);
+    } catch (error) {
+      // "Meta/Control" rather than "modifier": KeypressError renders this as
+      // `Failed to press key "..." during <context>`, and naming the two
+      // candidates says what could not be decided. The keypress genuinely did
+      // not happen, so the type is right even though the cause is a page read.
+      throw new KeypressError(
+        'Meta/Control',
+        context,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+
+  /**
+   * Presses a key and waits for MAIDR to announce the result.
+   *
+   * This is the synchronisation point the assertions depend on. Reading the
+   * live region straight after a keypress races the announcement, and waiting
+   * afterwards cannot recover one that has already been replaced — so the wait
+   * has to start before the key is pressed.
+   *
+   * Silent keypresses are fine: the wait resolves false and the caller's own
+   * assertion still decides.
+   * @param key - The key to press
+   * @param context - Context description for error reporting
+   * @throws KeypressError if the key press itself fails
+   */
+  protected async pressKeyAwaitingAnnouncement(key: string, context: string): Promise<void> {
+    await this.awaitingAnnouncement(() => this.pressKey(key, context));
+  }
+
+  /**
+   * Runs a key action and waits for the announcement it causes, recording
+   * where the action started so assertions can read only its announcements.
+   * @param act - The key action to run
+   */
+  private async awaitingAnnouncement(act: () => Promise<void>): Promise<void> {
+    // Install and mark in one page call: this path now runs on nearly every
+    // interaction in the suite, so a second round trip per action is not free.
+    const mark = await installAnnouncementRecorder(this.page);
+
+    // Clear here rather than leaving it to `pressKey`. `act()` is sometimes
+    // `pressKeyCombination`, which holds the modifier down before it reaches
+    // `pressKey` — so an action that throws on `keyboard.down` would never
+    // reach the clearing site and would leave an earlier action's mark in
+    // place. Nothing swallows a KeypressError today, so that stale mark has no
+    // route to a later check; this makes the invalidation independent of that
+    // staying true.
+    this.actionAnnouncementMark = null;
+
+    // Publish only once the action has actually run, so a throwing action
+    // leaves the mark cleared: a caller that swallowed the failure and carried
+    // on cannot be handed a window belonging to an action that never happened.
+    await act();
+    this.actionAnnouncementMark = mark;
+
+    await waitForAnnouncementAfter(this.page, mark);
+  }
+
+  /**
    * Presses a key combination (e.g., Command + key)
-   * @param modifierKey - The modifier key (e.g., Command, Shift)
+   *
+   * Named `modifier` rather than `modifierKey` so it does not shadow the
+   * imported `modifierKey()` helper, which callers pass the result of.
+   * @param modifier - The already-resolved modifier key (e.g., Meta, Shift)
    * @param key - The key to press
    * @param context - Context description for error reporting
    * @param delay - Optional delay between key presses
    * @throws KeypressError if key combination fails
    */
   protected async pressKeyCombination(
-    modifierKey: string,
+    modifier: string,
     key: string,
     context: string,
     delay = 50,
   ): Promise<void> {
     try {
-      await this.page.keyboard.down(modifierKey);
+      await this.page.keyboard.down(modifier);
       await this.page.waitForTimeout(delay);
       await this.pressKey(key, context);
-      await this.page.keyboard.up(modifierKey);
+      await this.page.keyboard.up(modifier);
     } catch (error) {
       throw new KeypressError(
-        `${modifierKey}+${key}`,
+        `${modifier}+${key}`,
         context,
         error instanceof Error ? error : undefined,
       );
@@ -224,7 +334,7 @@ export class BasePage {
   ): Promise<void> {
     const _modal = this.page.locator(modalSelector);
     const closeButton = this.page.locator('//button[text()=\'Close\']');
-    closeButton.click();
+    await closeButton.click();
     await expect(this.page.locator(modalSelector)).not.toBeVisible({ timeout });
   }
 
@@ -249,7 +359,7 @@ export class BasePage {
    * @throws KeypressError if toggling fails
    */
   protected async toggleMode(key: string, modeName: string): Promise<void> {
-    await this.pressKey(key, modeName);
+    await this.pressKeyAwaitingAnnouncement(key, modeName);
   }
 
   /**
@@ -291,7 +401,7 @@ export class BasePage {
   public async showHelpMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show help menu'),
         TestConstants.SLASH_KEY,
         'show help menu',
       );
@@ -304,7 +414,7 @@ export class BasePage {
       await this.clickElement(this.selectors.helpModalClose);
       await this.closeModal(this.selectors.helpModal);
     } catch (error) {
-      throw new AssertionError('Failed to show help menu');
+      throw new AssertionError('Failed to show help menu', { cause: error });
     }
   }
 
@@ -315,7 +425,7 @@ export class BasePage {
   public async showSettingsMenu(): Promise<void> {
     try {
       await this.pressKeyCombination(
-        TestConstants.COMMAND_KEY,
+        await this.resolveModifier('show settings menu'),
         TestConstants.COMMA_KEY,
         'show settings menu',
         100,
@@ -331,6 +441,101 @@ export class BasePage {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AssertionError(
         `Failed to show settings menu: ${errorMessage}`,
+        { cause: error },
+      );
+    }
+  }
+
+  /**
+   * Opens the help dialog and leaves it open, for tests that need to inspect
+   * the dialog itself rather than the open-then-close round trip.
+   * @throws KeypressError if the shortcut fails
+   */
+  public async openHelpMenu(): Promise<void> {
+    await this.pressKeyCombination(
+      await this.resolveModifier('open help menu'),
+      TestConstants.SLASH_KEY,
+      'open help menu',
+    );
+  }
+
+  /**
+   * Opens the settings dialog and leaves it open, for tests that need to
+   * inspect the dialog itself rather than the open-then-close round trip.
+   * @throws KeypressError if the shortcut fails
+   */
+  public async openSettingsMenu(): Promise<void> {
+    await this.pressKeyCombination(
+      await this.resolveModifier('open settings menu'),
+      TestConstants.COMMA_KEY,
+      'open settings menu',
+      100,
+    );
+  }
+
+  /**
+   * Shows the Settings menu and verifies the Escape key closes it
+   * @throws AssertionError if Settings menu does not appear or Escape does not close it
+   */
+  public async closeSettingsMenuWithEscape(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        await this.resolveModifier('show settings menu'),
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.closeModal(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Failed to close settings menu with Escape: ${errorMessage}`,
+        { cause: error },
+      );
+    }
+  }
+
+  /**
+   * Shows the Settings menu and verifies a backdrop click leaves it open
+   *
+   * The settings dialog is a form holding unsaved edits, so unlike the other
+   * dialogs it must not discard them on a stray click outside itself — only
+   * Escape and the Close button close it.
+   * @throws AssertionError if Settings menu does not appear or the backdrop click closes it
+   */
+  public async verifySettingsMenuIgnoresBackdropClick(): Promise<void> {
+    try {
+      await this.pressKeyCombination(
+        await this.resolveModifier('show settings menu'),
+        TestConstants.COMMA_KEY,
+        'show settings menu',
+        100,
+      );
+
+      await this.verifyModal(
+        this.selectors.settingsModal,
+        TestConstants.SETTINGS_MENU_TITLE,
+      );
+
+      await this.page
+        .locator(TestConstants.MAIDR_MODAL_BACKDROP)
+        .first()
+        .click({ position: { x: 5, y: 5 }, force: true });
+
+      await expect(this.page.locator(this.selectors.settingsModal)).toBeVisible();
+
+      await this.closeSettingsMenu(this.selectors.settingsModal);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AssertionError(
+        `Settings menu did not survive a backdrop click: ${errorMessage}`,
+        { cause: error },
       );
     }
   }
@@ -359,6 +564,7 @@ export class BasePage {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AssertionError(
         `Failed to show chat dialog: ${errorMessage}`,
+        { cause: error },
       );
     }
   }
@@ -370,7 +576,7 @@ export class BasePage {
    * @throws KeypressError if operation fails
    */
   protected async changeSpeed(key: string, action: string): Promise<void> {
-    await this.pressKey(key, action);
+    await this.pressKeyAwaitingAnnouncement(key, action);
   }
 
   /**
@@ -398,18 +604,11 @@ export class BasePage {
   }
 
   /**
-   * Replays the current data point
-   * @throws KeypressError if operation fails
-   */
-  public async replayCurrentPoint(): Promise<void> {
-    await this.pressKey(TestConstants.SPACE_KEY, 'replay current point');
-  }
-
-  /**
    * Moves to a specific data point using a key combination
    * @param key - The key to press
    * @param action - Description of the movement action
-   * @param useMetaKey - Whether to use the Meta key
+   * @param useMetaKey - Whether to hold the control/command modifier, which
+   * resolves to Meta or Control depending on what the browser reports
    * @throws KeypressError if operation fails
    */
   protected async moveToDataPoint(
@@ -418,9 +617,12 @@ export class BasePage {
     useMetaKey = false,
   ): Promise<void> {
     if (useMetaKey) {
-      await this.pressKeyCombination(TestConstants.META_KEY, key, action);
+      const modifier = await this.resolveModifier(action);
+      await this.awaitingAnnouncement(
+        () => this.pressKeyCombination(modifier, key, action),
+      );
     } else {
-      await this.pressKey(key, action);
+      await this.pressKeyAwaitingAnnouncement(key, action);
     }
   }
 
@@ -519,8 +721,53 @@ export class BasePage {
    * @throws KeypressError if operation fails
    */
   protected async toggleAxisTitle(axisKey: string, axisName: string): Promise<void> {
+    // Wait on the displayed text, not on an announcement. The axis title only
+    // reaches the alert once the cursor is on a data point, and these specs
+    // assert it straight after activation — so an announcement wait finds
+    // nothing and spends its whole timeout, which passes only because the
+    // delay works as a sleep. The assertion reads this container, so a change
+    // here is the event it actually depends on.
+    //
+    // This also settles the two-keypress sequence: entering label scope warns
+    // when text mode is off, and that announcement lands inside this wait
+    // rather than leaking into the next action's.
+    const container = this.page.locator(
+      `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER}`,
+    );
+    const before = normalizeText((await container.textContent()) ?? '');
+
     await this.pressKey(TestConstants.LABEL_KEY, 'label scope');
     await this.pressKey(axisKey, axisName);
+
+    // Written with `waitForFunction` rather than `expect(...).not.toHaveText()`
+    // so this can swallow the same narrow thing `waitForAnnouncementAfter`
+    // does: only a timeout means "the display never changed", and anything
+    // else is a broken run that must not pass for one. `expect` rejects with a
+    // plain `Error` — an `ExpectError`, whose `name` is "Error" — so there is
+    // nothing to narrow on, while `waitForFunction` rejects with a named
+    // `TimeoutError`.
+    //
+    // The strict-mode check is not lost: the `textContent()` above exercises
+    // this same locator with nothing catching it, so a selector matching
+    // several elements raises there, before this wait is reached.
+    //
+    // The normalisation is repeated inline because this predicate runs in the
+    // page, where `normalizeText` does not exist.
+    try {
+      await this.page.waitForFunction(
+        ({ containerId, previous }) => {
+          const element = document.getElementById(containerId);
+          return (element?.textContent ?? '').replace(/\s+/g, ' ').trim() !== previous;
+        },
+        { containerId: TestConstants.MAIDR_NOTIFICATION_CONTAINER, previous: before },
+        { timeout: TestConstants.ANNOUNCEMENT_TIMEOUT, polling: 16 },
+      );
+    } catch (error) {
+      if (!(error instanceof Error && error.name === 'TimeoutError')) {
+        throw error;
+      }
+      // The display never changed. The caller's assertion decides.
+    }
   }
 
   /**
@@ -552,22 +799,55 @@ export class BasePage {
         timeout: 10000,
       });
     } catch (error) {
-      throw new Error('Plot failed to load correctly');
+      throw new Error('Plot failed to load correctly', { cause: error });
     }
   }
 
   /**
-   * Verifies if the SVG element is focused
-   * @throws Error if SVG is not focused
+   * Verifies that MAIDR's plot is the active (focused) element.
+   *
+   * MAIDR wraps the chart's SVG in a focusable `<div role="img"/"application"
+   * tabindex="0">` inside `#maidr-figure-*`; Tab/click activation focuses that
+   * wrapper, not the raw `<svg>`. Some SVG-native adapters instead focus the
+   * `<svg>` directly. Accept either so the check reflects "MAIDR is active"
+   * rather than an outdated assumption about which node holds focus.
+   * @throws Error if neither the SVG nor MAIDR's focusable wrapper is focused
    */
   protected async verifySvgFocused(): Promise<void> {
-    const activeElementInfo = await this.getActiveElementInfo();
-    if (activeElementInfo.tagName !== 'svg') {
+    const isPlotFocused = await this.isMaidrPlotFocused();
+    if (!isPlotFocused) {
+      const activeElementInfo = await this.getActiveElementInfo();
       throw new Error(
-        `Expected SVG element to be focused, `
+        `Expected MAIDR plot to be focused, `
         + `but found ${activeElementInfo.tagName}`,
       );
     }
+  }
+
+  /**
+   * Returns whether MAIDR's plot is currently focused — either the raw SVG or
+   * the focusable wrapper MAIDR renders around it.
+   * @returns Promise resolving to true when the plot (or its wrapper) is focused
+   */
+  protected async isMaidrPlotFocused(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const active = document.activeElement;
+      if (!active) {
+        return false;
+      }
+      if (active.tagName?.toLowerCase() === 'svg') {
+        return true;
+      }
+      // MAIDR's focusable wrapper: a tabbable node that wraps the plot SVG
+      // inside the maidr figure. Role flips img -> application on activation.
+      const role = active.getAttribute('role');
+      return (
+        active.getAttribute('tabindex') === '0'
+        && (role === 'img' || role === 'application')
+        && active.querySelector('svg') !== null
+        && active.closest('[id^="maidr-figure"]') !== null
+      );
+    });
   }
 
   /**
@@ -580,10 +860,10 @@ export class BasePage {
   protected async activateMaidr(svgSelector: string, _plotId: string): Promise<void> {
     try {
       await this.verifyPlotLoaded(svgSelector);
-      await this.page.keyboard.press(TestConstants.TAB_KEY);
+      await this.pressKey(TestConstants.TAB_KEY, 'activate maidr');
       await this.verifySvgFocused();
     } catch (error) {
-      throw new Error('Failed to activate MAIDR');
+      throw new Error('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -600,7 +880,7 @@ export class BasePage {
       await this.page.click(svgSelector);
       await this.verifySvgFocused();
     } catch (error) {
-      throw new Error('Failed to activate MAIDR by clicking');
+      throw new Error('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -613,9 +893,9 @@ export class BasePage {
   protected async getInstructionText(notificationSelector: string): Promise<string> {
     try {
       const text = await this.getElementText(notificationSelector);
-      return text.replace(/\s+/g, ' ').trim();
+      return normalizeText(text);
     } catch (error) {
-      throw new Error('Failed to get instruction text');
+      throw new Error('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -626,17 +906,73 @@ export class BasePage {
    * @param modeMessages - Map of mode values to expected messages
    * @returns Promise resolving to true if mode is active, false otherwise
    * @throws Error if mode status cannot be checked
+   *
+   * Note: on the recorded path a false result is immediate — the window is
+   * already known, so a mismatch costs nothing. The fallback below is what
+   * pays the full wait timeout, and it is reached in three cases: no awaited
+   * action preceded the check, the action announced nothing, or this is the
+   * second check after a single action, since the first read consumes the
+   * mark. All three still answer correctly, just from the region rather than
+   * from what was announced — so a check that wants the stronger guarantee
+   * should follow its own awaited action.
    */
   protected async isModeActive(
     notificationSelector: string,
     mode: string,
     modeMessages: Record<string, string>,
   ): Promise<boolean> {
+    const expected = modeMessages[mode];
+
+    // Prefer what the action actually announced. The region holds one message
+    // at a time, so by the time this runs the mode message may already have
+    // been replaced — an announcement from an earlier, un-awaited action
+    // arriving late is enough — and sampling the current text would then report
+    // a mode that did toggle as inactive.
+    const mark = this.actionAnnouncementMark;
+    this.actionAnnouncementMark = null;
+    if (mark !== null) {
+      const announced = await announcementsSince(this.page, mark);
+      if (announced.length > 0) {
+        // `some`, not "the last one": an action can announce more than once,
+        // and the mode message is not necessarily last. Entering label scope
+        // warns when text mode is off before announcing the label, and that is
+        // the same shape. Matching only the last entry would report those as
+        // inactive.
+        //
+        // Safe because the window holds this action's announcements and no one
+        // else's: the mark is taken immediately before the action and any
+        // unwrapped keypress invalidates it. An earlier action's message
+        // cannot be sitting in here to match by accident.
+        return announced.some(text => normalizeText(text) === normalizeText(expected));
+      }
+    }
+
+    // Nothing recorded for this action, so fall back to the region. Note this
+    // path reads `#maidr-text-container`, which is the displayed text and not
+    // the `role="alert"` node a screen reader hears — the two agree for every
+    // `notify()`-driven message, which is all of these, but the fallback does
+    // not carry the same guarantee as the recorded path above. A timeout here is
+    // deliberately not fatal: the read below is the authoritative check and
+    // answers either way, so rethrowing would only turn a "mode never
+    // announced" expectation into a page-object error. Callers assert on the
+    // boolean.
+    // The catch is broad on purpose but not lossy: a structural problem such as
+    // a strict-mode violation from a selector matching several elements is
+    // raised again by `getElementText` below and surfaces as "Failed to check
+    // <mode> status" with the violation as its cause. Only a genuine
+    // "never announced" reaches the boolean. Verified, not assumed.
+    await expect(this.page.locator(notificationSelector))
+      .toHaveText(expected, { timeout: TestConstants.REGION_FALLBACK_TIMEOUT })
+      .catch(() => { /* the read below decides */ });
+
     try {
       const notificationText = await this.getElementText(notificationSelector);
-      return notificationText === modeMessages[mode];
+      // Normalise both sides. `toHaveText` collapses whitespace, so a raw
+      // strict compare could contradict the wait that just succeeded, and the
+      // announcement markup wraps its text across lines.
+      return normalizeText(notificationText) === normalizeText(expected);
     } catch (error) {
-      throw new Error(`Failed to check ${mode} status`);
+      throw new Error(`Failed to check ${mode} status`, { cause: error });
     }
   }
 
@@ -650,7 +986,7 @@ export class BasePage {
     try {
       return await this.getElementText(infoSelector);
     } catch (error) {
-      throw new Error('Failed to get axis title');
+      throw new Error('Failed to get axis title', { cause: error });
     }
   }
 
@@ -665,7 +1001,7 @@ export class BasePage {
       const speedText = await this.getElementText(speedIndicatorSelector);
       return Number.parseFloat(speedText);
     } catch (error) {
-      throw new Error('Failed to get playback speed');
+      throw new Error('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -679,7 +1015,7 @@ export class BasePage {
     try {
       return await this.getElementText(infoSelector);
     } catch (error) {
-      throw new Error('Failed to get current data point information');
+      throw new Error('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -704,13 +1040,18 @@ export class BasePage {
     const directionName = direction === 'forward' ? 'forward' : direction === 'reverse' ? 'reverse' : direction === 'downward' ? 'downward' : 'upward';
 
     try {
-      await this.page.keyboard.down(TestConstants.META_KEY);
+      // Resolve once: it costs a page round-trip and cannot change mid-test.
+      // Inside the try so a failure is wrapped like every other step here.
+      const modifier = await this.resolveModifier(`start ${directionName} autoplay`);
+
+      await this.page.keyboard.down(modifier);
       await this.page.keyboard.down(TestConstants.SHIFT_KEY);
       await this.pressKey(arrowKey, `start ${directionName} autoplay`);
 
-      await this.page.keyboard.up(TestConstants.META_KEY);
+      // Only the two modifiers are still held: `pressKey` above is a full
+      // press, so the arrow key was already released.
+      await this.page.keyboard.up(modifier);
       await this.page.keyboard.up(TestConstants.SHIFT_KEY);
-      await this.page.keyboard.up(arrowKey);
 
       if (expectedContent) {
         await this.waitForElementContent(
@@ -721,7 +1062,7 @@ export class BasePage {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to complete ${directionName} autoplay: ${errorMessage}`);
+      throw new Error(`Failed to complete ${directionName} autoplay: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -766,6 +1107,7 @@ export class BasePage {
       throw new Error(
         `Timeout waiting for element "${selector}" to have content "${expectedContent}". `
         + `Actual content: "${actualContent}". ${errorMessage}`,
+        { cause: error },
       );
     }
   }

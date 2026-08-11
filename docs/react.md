@@ -155,6 +155,7 @@ enum TraceType {
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  STEP = 'step',
 }
 ```
 
@@ -195,6 +196,13 @@ const data: MaidrData = {
 
 Line chart data is a 2D array — each inner array is one line series:
 
+Each point also takes an optional `label`, for a line whose y axis is a
+category rather than a magnitude — a sleep stage, a Likert response, a severity
+grade. `y` stays numeric because it drives sonification, braille and the
+min/max range, and `label` names the level that number encodes; it is announced
+in place of the number, so the chart reads "Sleep stage is REM" rather than
+"Sleep stage is 4". Omit it for the continuous y most line charts have.
+
 ```typescript
 const data: MaidrData = {
   id: 'temperature-line',
@@ -208,6 +216,44 @@ const data: MaidrData = {
         { x: 1, y: 32, fill: '2023' },
         { x: 2, y: 35, fill: '2023' },
         { x: 3, y: 45, fill: '2023' },
+      ]],
+    }],
+  }]],
+};
+```
+
+### Step Chart
+
+A step chart holds its value across an interval and then jumps, so it is the
+right type for piecewise-constant data — a hypnogram's sleep stages, a status
+timeline, a rate that changes on fixed dates. Data is nested like a line chart,
+one inner array per series.
+
+`label` is the same per-point ordinal name described under Line Chart above,
+and is read identically here; a hypnogram is its canonical case, which is why
+every point in the example carries one.
+
+`stepDirection` is a layer property, not a per-point one: `'hv'` holds until the
+next x value then jumps (matplotlib `steps-post`, ggplot2's default), `'vh'`
+jumps at the current x value then holds (`steps-pre`), and `'mid'` jumps midway
+between the two x values (`steps-mid`). Omit it when your chart library does not
+report one — MAIDR then describes the chart without naming a direction:
+
+```typescript
+const data: MaidrData = {
+  id: 'hypnogram',
+  title: 'Sleep Stage Through One Night',
+  subplots: [[{
+    layers: [{
+      id: '0',
+      type: 'step',
+      stepDirection: 'hv',
+      axes: { x: { label: 'Time since lights out (h)' }, y: { label: 'Sleep stage' } },
+      data: [[
+        { x: 0, y: 5, label: 'Awake' },
+        { x: 0.5, y: 3, label: 'N1' },
+        { x: 1, y: 2, label: 'N2' },
+        { x: 1.5, y: 1, label: 'N3' },
       ]],
     }],
   }]],
@@ -288,6 +334,67 @@ function Dashboard() {
   );
 }
 ```
+
+## Live & Streaming Data
+
+Charts configured with `live: true` support realtime updates. Passing a new `data` prop replaces the chart data **in place**, preserving the user's navigation position and active modes:
+
+```tsx
+import { Maidr, type MaidrData } from 'maidr/react';
+import { useEffect, useState } from 'react';
+
+function LiveSensorChart() {
+  const [data, setData] = useState<MaidrData>({
+    id: 'live-sensor',
+    title: 'Live Sensor Readings',
+    live: true, // enable in-place updates and the 'M' monitor key
+    maxWidth: 20, // sliding window: keep the latest 20 points
+    subplots: [[{
+      layers: [{
+        id: 'sensor-layer',
+        type: 'line',
+        axes: { x: { label: 'Tick' }, y: { label: 'Reading' } },
+        data: [[{ x: 0, y: 50 }]],
+      }],
+    }]],
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setData((prev) => {
+        const points = (prev.subplots[0][0].layers[0].data as { x: number; y: number }[][])[0];
+        // Note: `maxWidth` only applies to appendMaidrData; when replacing
+        // data via the prop (setData), trim the window yourself.
+        const next = [...points, { x: Date.now(), y: 30 + Math.random() * 40 }].slice(-20);
+        return {
+          ...prev,
+          subplots: [[{
+            layers: [{ ...prev.subplots[0][0].layers[0], data: [next] }],
+          }]],
+        };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Maidr data={data}>
+      <MyLineSvg data={data} />
+    </Maidr>
+  );
+}
+```
+
+For streaming individual points, prefer the imperative helpers: they avoid rebuilding the data object by hand and apply the `maxWidth` sliding window automatically:
+
+```tsx
+import { appendMaidrData, setMaidrData } from 'maidr/react';
+
+appendMaidrData({ x: 42, y: 3.14 }, { id: 'live-sensor' }); // stream one point
+setMaidrData(updatedMaidrJson); // replace everything
+```
+
+While focused on a live chart, users can press **M** to toggle **monitor mode**, which auto-sonifies and announces each new point without moving their position. See the [Live & Streaming Data](docs/LIVE_DATA.html) guide for the full API.
 
 ## Axis Value Formatting
 

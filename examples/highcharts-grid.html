@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Small Multiples Grid - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+    <style>
+      .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 380px);
+        gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Highcharts Small Multiples (2×2 Grid)</h1>
+    <p>
+      Four separate Highcharts chart instances — one per region — combined into a single MAIDR
+      figure with <code>highchartsGridToMaidr()</code>. Click on the grid, use arrow keys to move
+      between panels, press Enter to drill into a panel, and Escape to return to panel navigation.
+    </p>
+
+    <div id="sales-grid" class="chart-grid">
+      <div id="region-north" style="height: 280px"></div>
+      <div id="region-east" style="height: 280px"></div>
+      <div id="region-south" style="height: 280px"></div>
+      <div id="region-west" style="height: 280px"></div>
+    </div>
+
+    <script>
+      const categories = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+      function regionChart(containerId, regionName, values) {
+        return Highcharts.chart(containerId, {
+          chart: { type: 'column' },
+          title: { text: regionName },
+          legend: { enabled: false },
+          xAxis: { categories, title: { text: 'Quarter' } },
+          yAxis: { title: { text: 'Sales ($K)' } },
+          series: [{ name: 'Sales', data: values }],
+        });
+      }
+
+      // Charts in visual reading order (top-left first).
+      const charts = [
+        regionChart('region-north', 'North', [42, 51, 47, 60]),
+        regionChart('region-east', 'East', [35, 38, 44, 41]),
+        regionChart('region-south', 'South', [28, 33, 30, 39]),
+        regionChart('region-west', 'West', [50, 46, 58, 62]),
+      ];
+
+      const maidrData = maidrHighcharts.highchartsGridToMaidr(charts, {
+        id: 'sales-grid',
+        title: 'Quarterly Sales by Region',
+        layout: { columns: 2 },
+      });
+
+      // Attach to the wrapper enclosing all four chart divs.
+      document.getElementById('sales-grid').setAttribute('maidr-data', JSON.stringify(maidrData));
+      charts.forEach((chart) => maidrHighcharts.createHighchartsSync(chart));
+    </script>
+  </body>
+</html>

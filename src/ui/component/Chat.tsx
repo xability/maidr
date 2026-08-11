@@ -10,8 +10,9 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MessageBubble } from '../components/MessageBubble';
 import { Suggestions } from '../components/Suggestions';
 
@@ -22,6 +23,7 @@ const Chat: React.FC = () => {
   const viewModel = useViewModel('chat');
   const settingsViewModel = useViewModel('settings');
   const { messages, suggestions } = useViewModelState('chat');
+  const { modalRef, container } = useModalContainer();
   const disabled = !viewModel.canSend;
 
   const [inputMessage, setInputMessage] = useState('');
@@ -30,9 +32,27 @@ const Chat: React.FC = () => {
   const lastScrollHeightRef = useRef<number>(0);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
 
-  const handleOpenSettings = (): void => {
+  const handleOpenSettings = useCallback((): void => {
     settingsViewModel.toggle();
-  };
+  }, [settingsViewModel]);
+
+  // Stable callback so memoized message bubbles do not re-render on every
+  // keystroke in the input. Only touches the container ref, so no deps.
+  const handleTypingUpdate = useCallback((): void => {
+    // Auto-scroll during typing animation
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
+      if (isNearBottom) {
+        requestAnimationFrame(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'auto',
+          });
+        });
+      }
+    }
+  }, []);
 
   const scrollToBottom = (force = false): void => {
     if (!messagesContainerRef.current)
@@ -190,11 +210,14 @@ const Chat: React.FC = () => {
     <Dialog
       id={id}
       role="dialog"
+      aria-labelledby={`${id}-title`}
       open={true}
       onClose={handleClose}
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       sx={{
         '& .MuiDialog-paper': {
           height: '70vh',
@@ -202,15 +225,30 @@ const Chat: React.FC = () => {
         },
       }}
     >
-      <DialogTitle component="h2" sx={{ p: 2 }}>
+      {/* A layout row, not a heading: it holds the close button as well as the
+          title, so naming the dialog after it appended "Close chat dialog" to
+          the name, and its `component="h2"` wrapped the heading below in a
+          second one. The explicit id keeps it from claiming the title's id —
+          MUI hands `DialogContext.titleId` (the `aria-labelledby` above) to
+          any `DialogTitle` that has none of its own. */}
+      <DialogTitle component="div" id={`${id}-titlebar`} sx={{ p: 2 }}>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid size="auto">
+            {/* No `aria-label` here, so the name is the visible text. This
+                heading names the dialog as well as itself (the
+                `aria-labelledby` above points at it), and it used to carry
+                `aria-label="Chart Assistant - AI Chat Interface"` — announcing
+                more than it showed, in both roles. The suffix restated what
+                `role="dialog"` already conveys, and among MAIDR's five dialogs
+                "Chart Assistant" is unambiguous on its own. Naming it after
+                what is on screen also serves voice control, which speaks the
+                visible text. */}
             <Typography
+              id={`${id}-title`}
               variant="h6"
               fontWeight="bold"
               component="h2"
               sx={{ margin: 0 }}
-              aria-label="Chart Assistant - AI Chat Interface"
             >
               Chart Assistant
             </Typography>
@@ -257,21 +295,7 @@ const Chat: React.FC = () => {
                 message={message}
                 disabled={disabled}
                 _onOpenSettings={handleOpenSettings}
-                onTypingUpdate={() => {
-                  // Auto-scroll during typing animation
-                  if (messagesContainerRef.current) {
-                    const container = messagesContainerRef.current;
-                    const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
-                    if (isNearBottom) {
-                      requestAnimationFrame(() => {
-                        container.scrollTo({
-                          top: container.scrollHeight,
-                          behavior: 'auto',
-                        });
-                      });
-                    }
-                  }
-                }}
+                onTypingUpdate={handleTypingUpdate}
               />
             ))}
             <div ref={messagesEndRef} />

@@ -1,8 +1,9 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
-import type { TraceState } from '@type/state';
+import type { AutoplayState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
@@ -33,8 +34,8 @@ enum AutoplaySettings {
   DURATION = 'general.autoplayDuration',
 }
 
-/** Type alias for the interval ID returned by setInterval. */
-type AutoplayId = ReturnType<typeof setInterval>;
+/** Type alias for the timer ID returned by setTimeout. */
+type AutoplayId = ReturnType<typeof setTimeout>;
 
 /**
  * Service responsible for managing automatic navigation through data points at configurable speeds.
@@ -43,6 +44,7 @@ export class AutoplayService implements Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly settings: SettingsService;
+  private readonly audio: AudioService;
 
   private autoplayId: AutoplayId | null;
   private currentDirection: MovableDirection | null;
@@ -55,6 +57,7 @@ export class AutoplayService implements Disposable {
   private autoplayRate: number;
   private readonly interval: number;
   private totalDuration: number;
+  private lastAutoplay: AutoplayState | null;
 
   private readonly onChangeEmitter: Emitter<AutoplayChangeEvent>;
   public readonly onChange: Event<AutoplayChangeEvent>;
@@ -64,11 +67,18 @@ export class AutoplayService implements Disposable {
    * @param context - Navigation context for moving through data
    * @param notification - Service for user notifications
    * @param settings - Service for managing settings
+   * @param audio - Service reporting how long the current point sounds for
    */
-  public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
+  public constructor(
+    context: Context,
+    notification: NotificationService,
+    settings: SettingsService,
+    audio: AudioService,
+  ) {
     this.notification = notification;
     this.context = context;
     this.settings = settings;
+    this.audio = audio;
 
     this.autoplayId = null;
     this.currentDirection = null;
@@ -80,8 +90,8 @@ export class AutoplayService implements Disposable {
 
     this.interval = DEFAULT_INTERVAL;
     this.autoplayRate = this.defaultSpeed;
-    this.interval = DEFAULT_INTERVAL;
     this.totalDuration = settings.get<number>(AutoplaySettings.DURATION);
+    this.lastAutoplay = null;
     settings.onChange((event) => {
       if (event.affectsSetting(AutoplaySettings.DURATION)) {
         this.totalDuration = event.get<number>(AutoplaySettings.DURATION);
@@ -112,24 +122,73 @@ export class AutoplayService implements Disposable {
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
+    this.scheduleStep(direction);
+  }
 
-    this.autoplayId = setInterval(() => {
-      if (this.context.isMovable(direction)) {
-        this.context.moveOnce(direction);
-      } else {
-        this.stop();
+  /**
+   * Queues the next autoplay step.
+   *
+   * The delay is the configured autoplay rate, held open until the 3D echo tail
+   * of the point currently sounding has finished — otherwise the next point's
+   * tone starts on top of the previous point's echoes and the two points are
+   * heard as one. A trace with no z data reports no tail, so for every 2D plot
+   * this is exactly the configured rate.
+   *
+   * A self-rescheduling timeout rather than an interval, because the wait is
+   * decided per point: the number of echoes, and so the tail, scales with that
+   * point's z value.
+   *
+   * @param direction - Direction to move on each step
+   */
+  private scheduleStep(direction: MovableDirection): void {
+    const tailRemaining = Math.max(0, this.audio.echoTailDeadline - Date.now());
+    const delay = Math.max(this.autoplayRate, tailRemaining);
+
+    const stepId: AutoplayId = setTimeout(() => {
+      // A stop() landing between scheduling and firing clears or replaces
+      // autoplayId; this step is then stale and must not move anything.
+      if (this.autoplayId !== stepId) {
+        return;
       }
-    }, this.autoplayRate);
+
+      // Autoplay is a trace-level operation. If the active context has been
+      // popped out of the trace (e.g. Esc escalates to the subplot), stop
+      // instead of blindly auto-navigating the parent element.
+      if (this.context.state.type !== 'trace') {
+        this.stop();
+        return;
+      }
+      if (!this.context.isMovable(direction)) {
+        this.stop();
+        return;
+      }
+
+      this.context.moveOnce(direction);
+      // moveOnce notifies observers synchronously, so the audio service has
+      // already scheduled this point's echoes: echoTailDeadline now describes
+      // the sonification the next step has to wait out.
+      if (this.autoplayId === stepId) {
+        this.scheduleStep(direction);
+      }
+    }, delay);
+
+    this.autoplayId = stepId;
   }
 
   /**
    * Stops any active autoplay and clears the interval.
    */
   public stop(): void {
-    if (this.autoplayId) {
-      clearInterval(this.autoplayId);
+    // When autoplay is not running, skip the emitter fire. STOP_AUTOPLAY is
+    // bound to the plain arrow keys, so this runs on every navigation keypress;
+    // firing 'stop' when idle triggers a needless Redux dispatch on the hottest
+    // path. Genuine stops (boundary, arrow during playback, dispose) still fire.
+    if (this.autoplayId === null) {
+      this.currentDirection = null;
+      return;
     }
 
+    clearTimeout(this.autoplayId);
     this.autoplayId = null;
     this.currentDirection = null;
     this.onChangeEmitter.fire({ type: 'stop' });
@@ -140,7 +199,7 @@ export class AutoplayService implements Disposable {
    */
   private restart(): void {
     if (this.autoplayId) {
-      clearInterval(this.autoplayId);
+      clearTimeout(this.autoplayId);
     }
 
     if (this.currentDirection) {
@@ -195,14 +254,20 @@ export class AutoplayService implements Disposable {
    * @returns Autoplay rate in milliseconds
    */
   private getAutoplayRate(direction: MovableDirection, state?: TraceState): number {
+    // Remember the point counts so restart() — which passes no state — can
+    // recompute the rate from the current totalDuration after a mid-playback
+    // duration change, instead of reusing the stale defaultSpeed.
+    if (state && !state.empty) {
+      this.lastAutoplay = state.autoplay;
+    }
+
     if (this.userSpeed !== null) {
       return this.userSpeed;
     }
 
-    if (state && !state.empty) {
-      const calculatedRate = Math.ceil(
-        this.totalDuration / state.autoplay[direction],
-      );
+    const pointCount = this.lastAutoplay?.[direction];
+    if (pointCount !== undefined) {
+      const calculatedRate = Math.ceil(this.totalDuration / pointCount);
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);
       return calculatedRate;

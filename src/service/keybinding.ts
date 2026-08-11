@@ -6,6 +6,7 @@ import type { KeybindingEntry, Keys } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { CommandFactory } from '@command/factory';
+import { PointerGuidanceCommand } from '@command/pointerGuidance';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
 import { Platform } from '@util/platform';
@@ -60,6 +61,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
   TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
@@ -79,6 +81,77 @@ const BRAILLE_KEYMAP = {
 } as const;
 
 /**
+ * Keymap configuration for the virtual candlestick delta layer. Mirrors the
+ * trace scope minus layer switching (the delta layer is not a subplot layer)
+ * and with ESC bound to exiting back to the real chart layer.
+ */
+const CANDLESTICK_DELTA_KEYMAP = {
+  EXIT_CANDLESTICK_DELTA: key(`esc`, 'Exit Comparison and Return to Chart'),
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Turn Off Reference Comparison', { helpKey: `${Platform.alt} + L` }),
+  SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Change Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
+
+  // Label scope ('l') is intentionally NOT bound here: TRACE_LABEL's Escape
+  // (DEACTIVATE_TRACE_LABEL_SCOPE) hard-returns to Scope.TRACE, which would
+  // desync the keyboard scope from the still-active virtual delta layer. The
+  // delta layer's own announcements already spell out the axes, so the
+  // separate label mode is redundant here.
+
+  // Autoplay
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpKey: `${Platform.ctrl} + shift + left` }),
+
+  STOP_AUTOPLAY: key(`${Platform.ctrl}, up, down, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
+  SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
+  SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
+  RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
+
+  // Navigation
+  MOVE_UP: key(`up`, 'Navigate Up'),
+  MOVE_DOWN: key(`down`, 'Navigate Down'),
+  MOVE_RIGHT: key(`right`, 'Navigate Right'),
+  MOVE_LEFT: key(`left`, 'Navigate Left'),
+
+  MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
+  MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
+
+  // Modes
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
+
+  // Misc
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
+
+  // Description
+  ANNOUNCE_POINT: key(`space`, 'Replay Current Point'),
+  ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
+
+  // Go To functionality
+  GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
+
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
+  // rotor functionality
+  ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
+  ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
+} as const;
+
+/**
+ * Keymap configuration for the candlestick delta reference picker (Ctrl+Shift+L).
+ */
+const CANDLESTICK_DELTA_SETTINGS_KEYMAP = {
+  // Reference picker listbox navigation (standard UI, not shown in help)
+  CANDLESTICK_DELTA_REF_MOVE_UP: key(`up`, 'Previous Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_MOVE_DOWN: key(`down`, 'Next Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_SELECT: key(`enter`, 'Select Reference Line', { showInHelp: false }),
+  CANDLESTICK_DELTA_REF_CLOSE: key(`esc`, 'Close Reference Picker', { showInHelp: false }),
+} as const;
+
+/**
  * Keymap configuration for chat interface interactions.
  */
 const CHAT_KEYMAP = {
@@ -93,6 +166,11 @@ const FIGURE_LABEL_KEYMAP = {
   DEACTIVATE_FIGURE_LABEL_SCOPE: key(`escape`, 'Exit Label Mode', { showInHelp: false }),
 
   // Description
+  // Mirrors TRACE_LABEL so the figure lobby exposes the same L-chord labels
+  // (l x / l y / l z / l t / l s / l c) as an individual subplot.
+  ANNOUNCE_X: key(`x`, 'Announce X Label'),
+  ANNOUNCE_Y: key(`y`, 'Announce Y Label'),
+  ANNOUNCE_Z: key(`z`, 'Announce Z Label'),
   ANNOUNCE_TITLE: key(`t`, 'Announce Plot Title'),
   ANNOUNCE_SUBTITLE: key(`s`, 'Announce Subtitle'),
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
@@ -116,9 +194,14 @@ const SUBPLOT_KEYMAP = {
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
-  ANNOUNCE_TITLE: key(`t`, 'Announce Title'),
+  // Title / subtitle / caption / axis labels are reached through the label
+  // scope (l t / l x / l y / l z / l s / l c), not a bare key — mirroring trace
+  // scope, where a bare 't' is TOGGLE_TEXT (below) rather than the title.
   ANNOUNCE_POINT: key(`space`, 'Announce Current Subplot'),
   ANNOUNCE_POSITION: key(`p`, 'Announce Position'),
+
+  // Chart description
+  TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
   // Navigation
   MOVE_UP: key(`up`, 'Move Up'),
@@ -133,7 +216,16 @@ const SUBPLOT_KEYMAP = {
 
   MOVE_TO_TRACE_CONTEXT: key(`${Platform.enter}`, 'Activate Current Subplot', { helpKey: `${Platform.enter}` }),
 
+  // Modes
+  // Text and sonification toggles work at the lobby (they are global modes).
+  // Braille has no figure-level meaning, so pressing it here announces a
+  // "not available" warning (see ToggleBrailleCommand) rather than doing nothing.
+  TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
+  TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
+  TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
+  TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
@@ -177,11 +269,15 @@ const REVIEW_KEYMAP = {
 
 /**
  * Keymap configuration for settings interface interactions.
+ *
+ * Deliberately empty. The settings dialog is a MUI Modal, and MUI calls
+ * `stopPropagation()` on the Escape keydown before it reaches the
+ * document-level hotkeys-js listener, so a binding registered here could never
+ * fire. Escape is handled by the dialog's own `onClose`
+ * (see `src/ui/component/Settings.tsx`). The scope still matters — it keeps
+ * chart shortcuts from firing while the dialog is open.
  */
-const SETTINGS_KEYMAP = {
-  // Misc
-  TOGGLE_SETTINGS: key(`esc`, 'Close Settings', { showInHelp: false }),
-} as const;
+const SETTINGS_KEYMAP = {} as const;
 
 /**
  * Keymap configuration for trace scope interactions and navigation.
@@ -211,7 +307,12 @@ const TRACE_KEYMAP = {
   MOVE_TO_LEFT_EXTREME: key(`${Platform.ctrl}+left`, 'Go to Left Extreme', { helpKey: `${Platform.ctrl} + left` }),
   MOVE_TO_RIGHT_EXTREME: key(`${Platform.ctrl}+right`, 'Go to Right Extreme', { helpKey: `${Platform.ctrl} + right` }),
 
-  MOVE_TO_SUBPLOT_CONTEXT: key(`esc`, 'Return to Subplot', { showInHelp: false }),
+  // `backspace` is an alternate to `esc` for returning from a subplot to the
+  // multi-panel figure lobby. It is bound only in TRACE scope (never in the
+  // braille/review text areas, which the hotkeys filter allow-lists), so it
+  // never collides with the text-delete meaning of Backspace inside an editable
+  // field — it only acts as a "navigate back" key while reading a chart.
+  MOVE_TO_SUBPLOT_CONTEXT: key(`esc,backspace`, 'Return to Subplot', { showInHelp: false }),
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
   MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
 
@@ -221,6 +322,7 @@ const TRACE_KEYMAP = {
   TOGGLE_AUDIO: key(`s`, 'Toggle Sonification Mode'),
   TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
   TOGGLE_HIGH_CONTRAST: key(`c`, 'Toggle High Contrast Mode'),
+  TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
   TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
@@ -237,6 +339,10 @@ const TRACE_KEYMAP = {
 
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
+  // Candlestick reference comparison (virtual delta layer)
+  TOGGLE_CANDLESTICK_DELTA_LAYER: key(`${Platform.alt}+l`, 'Toggle Candlestick Reference Comparison', { helpKey: `${Platform.alt} + L` }),
+  SELECT_CANDLESTICK_DELTA_REFERENCE: key(`${Platform.ctrl}+shift+l`, 'Choose Candlestick Reference Line', { helpKey: `${Platform.ctrl} + shift + L` }),
 
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
@@ -291,6 +397,8 @@ const GRID_CELL_KEYMAP = {
  */
 export const SCOPED_KEYMAP = {
   [Scope.BRAILLE]: BRAILLE_KEYMAP,
+  [Scope.CANDLESTICK_DELTA]: CANDLESTICK_DELTA_KEYMAP,
+  [Scope.CANDLESTICK_DELTA_SETTINGS]: CANDLESTICK_DELTA_SETTINGS_KEYMAP,
   [Scope.CHAT]: CHAT_KEYMAP,
   [Scope.COMMAND_PALETTE]: COMMAND_PALETTE_KEYMAP,
   [Scope.DESCRIPTION]: DESCRIPTION_KEYMAP,
@@ -373,7 +481,7 @@ export class KeybindingService {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', Scope.TRACE, (event: KeyboardEvent): void => {
+          hotkeys('*', scope, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               const command = this.commandFactory.create(commandName);
               command.execute(event);
@@ -406,7 +514,10 @@ export class KeybindingService {
  * Service for managing mouse interactions with plot elements based on hover settings.
  */
 export class Mousebindingservice implements Observer<Settings>, Disposable {
-  private mouseListener!: (event: MouseEvent) => void;
+  private pointermoveListener!: (event: PointerEvent) => void;
+  private clickListener!: (event: MouseEvent) => void;
+  private pointerLeaveListener!: () => void;
+  private readonly pointerGuidanceCommand: PointerGuidanceCommand;
 
   private readonly commandContext: CommandContext;
   private hoverMode: string = 'none';
@@ -429,6 +540,10 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
     const initialSettings = settingsService.loadSettings();
     this.hoverMode = initialSettings.general.hoverMode;
     this.plot = displayService.plot;
+    this.pointerGuidanceCommand = new PointerGuidanceCommand(
+      this.commandContext.context,
+      this.commandContext.audioService,
+    );
 
     // Register as observer to listen for settings changes
     this.settingsService.addObserver(this);
@@ -438,24 +553,44 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
    * Registers mouse event listeners based on the current hover mode setting.
    */
   public registerEvents(): void {
-    // Create the mouse listener if it doesn't exist
-    if (!this.mouseListener) {
-      this.mouseListener = (event: MouseEvent) => {
-        const x = event.clientX;
-        const y = event.clientY;
+    // Lazily create listeners. pointermove gets full guidance behaviour;
+    // click only navigates so a click between points does not trigger a
+    // directional guidance beep (data sonification still fires via the
+    // Observer chain on a successful move).
+    if (!this.pointermoveListener) {
+      this.pointermoveListener = (event: PointerEvent) => {
+        this.pointerGuidanceCommand.execute(event);
+      };
+    }
 
-        this.commandContext.context.moveToPoint(x, y);
+    if (!this.clickListener) {
+      this.clickListener = (event: MouseEvent) => {
+        this.pointerGuidanceCommand.executeNavigateOnly(event);
+      };
+    }
+
+    if (!this.pointerLeaveListener) {
+      this.pointerLeaveListener = () => {
+        this.pointerGuidanceCommand.reset();
       };
     }
 
     // Remove any existing listeners first to avoid duplicates
     this.removeEventListeners();
 
-    // Add appropriate listeners based on hover mode
+    // Add appropriate listeners based on hover mode.
+    // `pointerleave` is only attached for `pointermove` mode: it exists to
+    // clear throttle state that `pointermove` builds up during continuous
+    // hover. `click` mode produces a single discrete event with no throttle
+    // state to clear, so it intentionally skips the leave handler — the
+    // removal guard in `removeEventListeners` still no-ops safely.
     if (this.hoverMode === 'pointermove') {
-      this.plot.addEventListener('pointermove', this.mouseListener);
+      this.plot.addEventListener('pointermove', this.pointermoveListener);
+      this.plot.addEventListener('pointerleave', this.pointerLeaveListener);
     } else if (this.hoverMode === 'click') {
-      this.plot.addEventListener('click', this.mouseListener);
+      this.plot.addEventListener('click', this.clickListener);
+    } else {
+      this.pointerGuidanceCommand.reset();
     }
   }
 
@@ -463,10 +598,16 @@ export class Mousebindingservice implements Observer<Settings>, Disposable {
    * Removes all mouse event listeners from the plot element.
    */
   private removeEventListeners(): void {
-    if (this.mouseListener) {
-      this.plot.removeEventListener('pointermove', this.mouseListener);
-      this.plot.removeEventListener('click', this.mouseListener);
+    if (this.pointermoveListener) {
+      this.plot.removeEventListener('pointermove', this.pointermoveListener);
     }
+    if (this.clickListener) {
+      this.plot.removeEventListener('click', this.clickListener);
+    }
+    if (this.pointerLeaveListener) {
+      this.plot.removeEventListener('pointerleave', this.pointerLeaveListener);
+    }
+    this.pointerGuidanceCommand.reset();
   }
 
   /**

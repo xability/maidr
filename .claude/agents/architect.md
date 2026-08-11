@@ -29,10 +29,12 @@ You are the MAIDR architecture guardian. Your role is to ensure all design decis
 
 ## When invoked
 
-1. Read the relevant architectural docs:
-   - `.claude/ARCHITECTURE.md` for architecture deep-dive
-   - `.claude/PATTERNS.md` for design patterns (Observer, Command, Factory, Composite, Strategy, Emitter, Disposable)
-   - `.github/copilot-instructions.md` for layer rules
+1. Ground yourself in the layer contracts. The project rules in
+   `.claude/rules/` load into your context automatically — `architecture.md`
+   for the layer contracts and data flow, and the per-layer rules
+   (`model.md`, `service.md`, `viewmodel.md`, `ui.md`, `command.md`) for the
+   patterns each layer must use. Read `.github/copilot-instructions.md` as well
+   if the change touches conventions shared with other tooling.
 2. Analyze the proposed change or feature
 3. Identify which layer(s) it affects
 4. Verify dependency direction is respected

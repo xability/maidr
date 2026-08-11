@@ -19,8 +19,8 @@ You are a senior code reviewer for the MAIDR accessibility library. Review all c
 ## Review Process
 
 1. Examine the changed files for context
-2. Check architecture compliance against [.github/copilot-instructions.md](.github/copilot-instructions.md)
-3. Verify coding style against [.github/instructions/style-guide.instructions.md](.github/instructions/style-guide.instructions.md)
+2. Check architecture compliance against [.github/copilot-instructions.md](../copilot-instructions.md)
+3. Verify coding style and layer conventions against the path-scoped files in [.github/instructions/](../instructions) — `typescript.instructions.md` plus whichever per-layer file matches the changed code
 4. Assess accessibility impact
 5. Check for security issues
 

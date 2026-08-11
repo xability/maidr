@@ -14,6 +14,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId, useState } from 'react';
 
@@ -32,7 +33,7 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
 
   return (
     <>
-      <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
+      <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
         Data
         {' '}
         (
@@ -106,6 +107,7 @@ const Description: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('description');
   const { data } = useViewModelState('description');
+  const { modalRef, container } = useModalContainer();
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -128,16 +130,19 @@ const Description: React.FC = () => {
       maxWidth="md"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
       aria-modal="true"
       aria-labelledby={`${id}-title`}
     >
-      <Grid container component={DialogTitle}>
-        <Grid size="grow">
-          <Typography id={`${id}-title`} variant="h6" fontWeight="bold">
-            Chart Description
-          </Typography>
-        </Grid>
-      </Grid>
+      {/* The id sits on `DialogTitle` itself rather than on a `Typography`
+          inside it. MUI resolves the title's id as `idProp ?? titleId`, where
+          `titleId` is the `aria-labelledby` above — so an inner element
+          carrying that id leaves two elements claiming it, and the wrapper
+          being a heading too puts the title in the outline twice. */}
+      <DialogTitle id={`${id}-title`} sx={{ fontWeight: 'bold' }}>
+        Chart Description
+      </DialogTitle>
 
       <DialogContent>
         {/* Chart type and title */}
@@ -160,7 +165,7 @@ const Description: React.FC = () => {
         {data.subplots && data.subplots.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
-            <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
               Subplots
               {' '}
               (
@@ -185,7 +190,7 @@ const Description: React.FC = () => {
         {/* Axes */}
         {axisEntries.length > 0 && (
           <>
-            <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
               Axes
             </Typography>
             {axisEntries.map(([key, value]) => (
@@ -202,7 +207,7 @@ const Description: React.FC = () => {
         {/* Stats */}
         {data.stats.length > 0 && (
           <>
-            <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
               Summary
             </Typography>
             {data.stats

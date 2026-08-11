@@ -1,3 +1,4 @@
+import type { CompareModeInfo, RotorFilterUnit } from '@model/abstract';
 import type { Context } from '@model/context';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
@@ -49,11 +50,12 @@ export class RotorNavigationService {
    * Creates a new RotorNavigationService instance.
    * @param context - The context providing access to the active trace
    * @param text - Provides terse/verbose/off mode for message formatting
-   * @param notification - Used to push intersection-mode messages through the
-   *   text alert region. The alert region re-mounts on every dispatch (keyed
-   *   by a revision counter), which is what causes screen readers to
-   *   re-announce on repeat key presses. Without this, identical messages
-   *   dispatched only to the rotor area do not re-announce.
+   * @param notification - Used to push rotor boundary messages (intersection
+   *   and compare mode) through the text alert region. The alert region
+   *   re-mounts on every dispatch (keyed by a revision counter), which is what
+   *   causes screen readers to re-announce on repeat key presses. Without
+   *   this, identical messages dispatched only to the rotor area do not
+   *   re-announce.
    */
   public constructor(context: Context, text: TextService, notification: NotificationService) {
     this.context = context;
@@ -132,9 +134,9 @@ export class RotorNavigationService {
       if (xValue !== null) {
         const moved = activeTrace.moveToNextCompareValue(direction, compareType);
         if (!moved) {
-          const msg = this.getMessage(compareType, direction);
+          const msg = this.getMessage(this.getCompareNoun(compareType), direction);
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       } else {
         console.error('Unable to retrieve the current X value.');
@@ -168,7 +170,12 @@ export class RotorNavigationService {
       // screen readers re-announce on repeat key presses; returning the
       // message only to the rotor area would announce once and stay silent
       // for subsequent identical hits.
-      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
+      return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
+    }
+
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'up');
     }
 
     const activeTrace = this.context.active;
@@ -176,9 +183,9 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveUpRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'above');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'above');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -204,7 +211,12 @@ export class RotorNavigationService {
     if (mode === Constant.INTERSECTION_MODE) {
       // See moveUp() — model not moved; route through notification so the
       // alert region re-mounts and the SR re-announces on repeat presses.
-      return this.announceIntersectionMessage(this.getIntersectionVerticalUnavailableMessage());
+      return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
+    }
+
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'down');
     }
 
     const activeTrace = this.context.active;
@@ -212,9 +224,9 @@ export class RotorNavigationService {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveDownRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'below');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'below');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -241,14 +253,19 @@ export class RotorNavigationService {
       return this.moveIntersection('left');
     }
 
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'left');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveLeftRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'left');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'left');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -275,14 +292,19 @@ export class RotorNavigationService {
       return this.moveIntersection('right');
     }
 
+    const filterUnit = this.getActiveFilterUnit(mode);
+    if (filterUnit) {
+      return this.moveFilter(filterUnit, 'right');
+    }
+
     const activeTrace = this.context.active;
     try {
       if (activeTrace instanceof AbstractTrace) {
         const moved = activeTrace.moveRightRotor(this.getCompareType());
         if (!moved) {
-          const msg = this.getMessage(this.getCompareType(), 'right');
+          const msg = this.getMessage(this.getCompareNoun(this.getCompareType()), 'right');
           console.warn(msg);
-          return msg;
+          return this.announceRotorMessage(msg);
         }
       }
     } catch {
@@ -330,26 +352,54 @@ export class RotorNavigationService {
   }
 
   /**
+   * Gets the compare-mode labels and message nouns for the active trace.
+   * Traces can rename the two compare units (e.g., the candlestick delta
+   * layer exposes them as "above line" / "below line"); everything else
+   * falls back to the classic lower/higher value modes.
+   */
+  private getCompareInfo(): CompareModeInfo {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      return activeTrace.compareModeInfo();
+    }
+    return {
+      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
+      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+    };
+  }
+
+  /**
    * Gets the comparison type for the current rotor mode.
    * @returns 'lower' or 'higher' based on the current mode
    */
   public getCompareType(): 'lower' | 'higher' {
+    const info = this.getCompareInfo();
     const currMode = this.getMode();
-    if (currMode === Constant.HIGHER_VALUE_MODE) {
+    if (currMode === info.higher.label) {
       return 'higher';
-    } else if (currMode === Constant.LOWER_VALUE_MODE) {
+    } else if (currMode === info.lower.label) {
       return 'lower';
     }
     return 'lower'; // fallback
   }
 
-  public getMessage(navType: string, direction: string): string {
+  /**
+   * Gets the noun used in boundary messages for a compare type, honoring
+   * trace-specific renames (e.g., "point above the line").
+   * @param type - The compare type to describe
+   * @returns The noun for "No {noun} found ..." messages
+   */
+  private getCompareNoun(type: 'lower' | 'higher'): string {
+    return this.getCompareInfo()[type].noun;
+  }
+
+  public getMessage(noun: string, direction: string): string {
     const isVertical = direction === 'above' || direction === 'below';
     const preposition = isVertical ? '' : 'on the ';
     const position = isVertical ? `${direction} ` : `to the ${direction} of `;
     return this.buildMessage(
-      `No ${navType} value found ${preposition}${direction}`,
-      `No ${navType} value found ${position}the current value.`,
+      `No ${noun} found ${preposition}${direction}`,
+      `No ${noun} found ${position}the current value.`,
     );
   }
 
@@ -363,7 +413,9 @@ export class RotorNavigationService {
    *   2. LOWER_VALUE_MODE   (if supportsCompareMode)
    *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
    *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
-   *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
+   *   5. POINT_MODE         (if supportsPointMode — e.g. scatter points)
+   *   6. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
+   *   7. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
@@ -373,8 +425,9 @@ export class RotorNavigationService {
       modes.push(activeTrace.dataModeName());
 
       if (activeTrace.supportsCompareMode()) {
-        modes.push(Constant.LOWER_VALUE_MODE);
-        modes.push(Constant.HIGHER_VALUE_MODE);
+        const compareInfo = activeTrace.compareModeInfo();
+        modes.push(compareInfo.lower.label);
+        modes.push(compareInfo.higher.label);
       }
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
@@ -388,6 +441,10 @@ export class RotorNavigationService {
       if (activeTrace.supportsIntersectionMode()) {
         modes.push(Constant.INTERSECTION_MODE);
       }
+
+      for (const unit of activeTrace.getRotorFilterUnits()) {
+        modes.push(unit.label);
+      }
     } else {
       modes.push(Constant.DATA_MODE);
     }
@@ -396,10 +453,99 @@ export class RotorNavigationService {
   }
 
   /**
-   * Checks if the given mode name is a data mode (either DATA_MODE or ROW_COL_MODE).
+   * Resolves the trace's rotor filter unit matching the current mode, or null
+   * when the current mode is a built-in (data/compare/grid/intersection) mode.
+   * Filter units are matched by label, the same string cycled through the
+   * rotor, so a stale index from a previous trace cannot resolve to the wrong
+   * unit.
+   * @returns The active filter unit, or null
+   */
+  private getActiveFilterUnit(mode: string): RotorFilterUnit | null {
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      return null;
+    }
+    return activeTrace.getRotorFilterUnits().find(unit => unit.label === mode) ?? null;
+  }
+
+  /**
+   * Delegates movement within a rotor filter unit to the active trace and maps
+   * a failed move to a user-facing boundary message.
+   *
+   * Return convention matches the sibling move methods: null on success
+   * (nothing to announce), a message string when bounded/unavailable.
+   *
+   * Filter units navigate along one axis only (e.g. candles left/right), so
+   * up/down are announced as unavailable-in-this-mode — phrasing distinct
+   * from a real positional boundary, mirroring intersection mode — without
+   * touching the model.
+   *
+   * All messages route through notification.notify so the text alert region
+   * re-mounts (it is keyed by a revision counter) and screen readers
+   * re-announce on every repeat key press — trend filters bound frequently
+   * (e.g. few bullish candles), so silent repeats would strand a
+   * screen-reader user at a boundary with no feedback.
+   * @param unit - The active filter unit
+   * @param direction - The direction to move
+   * @returns Boundary/unavailable message on failure, null on success
+   */
+  private moveFilter(
+    unit: RotorFilterUnit,
+    direction: 'up' | 'down' | 'left' | 'right',
+  ): string | null {
+    if (direction === 'up' || direction === 'down') {
+      return this.announceRotorMessage(this.getFilterVerticalUnavailableMessage(unit));
+    }
+
+    const activeTrace = this.context.active;
+    if (!(activeTrace instanceof AbstractTrace)) {
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
+    }
+    const moved = activeTrace.moveToRotorFilter(unit.key, direction);
+    if (!moved) {
+      return this.announceRotorMessage(this.getMessage(unit.noun, direction));
+    }
+    return null;
+  }
+
+  /**
+   * User-facing message when Up/Down is pressed inside a filter unit. Trend
+   * filtering is horizontal-only, so vertical directions are announced as
+   * unavailable rather than reusing the generic boundary message (which would
+   * read as "No bullish point found above ..." and imply a real vertical
+   * bound exists). Mirrors {@link getIntersectionVerticalUnavailableMessage}.
+   * @param unit - The active filter unit, used to name the mode
+   * @returns The terse/verbose/off message
+   */
+  private getFilterVerticalUnavailableMessage(unit: RotorFilterUnit): string {
+    return this.buildMessage(
+      `Up/down unavailable in ${unit.noun} mode`,
+      `Up and down navigation is not available in ${unit.noun} mode.`,
+    );
+  }
+
+  /**
+   * Checks if the given mode name is a data mode. Besides the two classic
+   * names, the active trace's own dataModeName() counts — traces like the
+   * candlestick delta layer rename their default unit.
    */
   private isDataMode(mode: string): boolean {
-    return mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE;
+    if (mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE) {
+      return true;
+    }
+    const activeTrace = this.context.active;
+    return activeTrace instanceof AbstractTrace && mode === activeTrace.dataModeName();
+  }
+
+  /**
+   * Resets the rotor to the default data mode. Called when the navigation
+   * target changes wholesale (e.g., the candlestick delta layer activates or
+   * deactivates) so a compare mode from the previous trace cannot silently
+   * map onto a different unit of the new one.
+   */
+  public resetToDataMode(): void {
+    this.rotorIndex = 0;
+    this.setMode();
   }
 
   /**
@@ -428,7 +574,7 @@ export class RotorNavigationService {
       // mode list build and the key press. Return an unavailable message
       // (not null — null means "move succeeded" to callers) so the user is
       // told their key press had no effect.
-      return this.announceIntersectionMessage(this.buildMessage(
+      return this.announceRotorMessage(this.buildMessage(
         'Intersection mode unavailable',
         'Intersection navigation is not available in the current context.',
       ));
@@ -439,20 +585,21 @@ export class RotorNavigationService {
     if (moved) {
       return null;
     }
-    return this.announceIntersectionMessage(this.getIntersectionBoundMessage(direction));
+    return this.announceRotorMessage(this.getIntersectionBoundMessage(direction));
   }
 
   /**
-   * Push an intersection-mode message through the notification service so the
-   * text alert region re-mounts (it is keyed by a revision counter), forcing
+   * Push a rotor-area message through the notification service so the text
+   * alert region re-mounts (it is keyed by a revision counter), forcing
    * screen readers to re-announce on every keystroke. Without this, repeated
    * identical messages dispatched only to the rotor area announce once and
-   * then stay silent. Returns the message unchanged so callers can chain.
-   * Empty strings (text-off mode) are passed through; NotificationService
-   * already no-ops on empty input.
+   * then stay silent. Used by the intersection, compare-mode, and filter-unit
+   * boundary paths. Returns the message unchanged so callers can chain. Empty
+   * strings (text-off mode) are passed through; NotificationService already
+   * no-ops on empty input.
    * @param message The text to announce; returned unchanged.
    */
-  private announceIntersectionMessage(message: string): string {
+  private announceRotorMessage(message: string): string {
     this.notification.notify(message);
     return message;
   }
@@ -540,7 +687,7 @@ export class RotorNavigationService {
   private movePoint(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!isPointNavigable(activeTrace)) {
-      return this.getMessage('point', direction);
+      return this.announceRotorMessage(this.getMessage('point', direction));
     }
 
     switch (direction) {
@@ -568,7 +715,12 @@ export class RotorNavigationService {
   private moveGrid(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!isGridNavigable(activeTrace) || !activeTrace.supportsGridMode()) {
-      return this.getMessage('grid', direction);
+      // Route through announceRotorMessage so this boundary re-announces on
+      // repeat presses like every other rotor boundary path. Defensive only:
+      // GRID_MODE is offered by getAvailableModes() only when supportsGridMode()
+      // is true, so this branch is not reachable through the normal getMode()
+      // dispatch — hence there is no black-box test for it.
+      return this.announceRotorMessage(this.getMessage('grid value', direction));
     }
 
     // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text

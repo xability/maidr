@@ -5,11 +5,15 @@
  * The converter handles:
  *   - Single-view specs (`mark` + `encoding`)
  *   - Layered specs (`layer`)
- *   - Composite specs (`hconcat`, `vconcat`, `concat`)
+ *   - Composite specs (`hconcat`, `vconcat`, `concat` + `columns`)
+ *   - Faceted specs (`facet` operator, `encoding.row` / `encoding.column`
+ *     shorthand, and wrapped facets via `facet.field` + `columns`)
+ *   - Repeated specs (`repeat` row/column arrays or wrapped `repeat: [...]`)
  *
- * Faceted (`facet`) and repeated (`repeat`) specs are not yet supported;
- * the converter logs a warning and returns an empty MAIDR schema in
- * those cases.
+ * Multi-panel specs produce a `Maidr.subplots` grid (one subplot per
+ * panel, in visual reading order); MAIDR core then starts in SUBPLOT
+ * navigation scope where arrow keys move between panels and Enter drills
+ * into one.
  */
 
 import type {
@@ -21,22 +25,49 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
 } from '@type/grammar';
+import type { FacetDescriptor, RepeatCellMapping, RepeatDescriptor } from './facets';
 import type {
   VegaLiteChannelDef,
   VegaLiteEncoding,
+  VegaLiteFilterPredicate,
   VegaLiteSpec,
   VegaLiteToMaidrOptions,
   VegaView,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import {
+  chunkIntoRows,
+  describeFacet,
+  describeRepeat,
+  facetCellAttrValue,
+  facetCellScope,
+  repeatChildName,
+  resolveDomainKeys,
+  scopeSelector,
+  substituteRepeatFields,
+} from './facets';
 import { buildLineSelectors, buildSelector } from './selectors';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/**
+ * A converted layer kept next to the spec fragment it was built from.
+ *
+ * `MaidrLayer` intentionally carries no trace of its Vega-Lite origin, but
+ * merging sibling line layers needs the source spec to recover each
+ * series' name, so the two travel together until the merge is done.
+ */
+interface ConvertedLayer {
+  layer: MaidrLayer;
+  spec: VegaLiteSpec;
+}
 
 /**
  * Convert a Vega-Lite spec (and optionally its compiled Vega view) into a
@@ -67,29 +98,39 @@ export function vegaLiteToMaidr(
     return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns);
   }
 
-  // Unsupported composite spec types — warn and return an empty chart.
-  if (spec.facet) {
-    console.warn('[maidr/vegalite] Faceted specs are not yet supported.');
-    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  // Faceted specs — the `facet` operator (row/column or wrapped) and the
+  // `encoding.row` / `encoding.column` shorthand both normalise to the
+  // same descriptor.
+  const facetDescriptor = describeFacet(spec);
+  if (facetDescriptor) {
+    return buildFacetMaidr(id, title, subtitle, caption, spec, facetDescriptor, view, domOrder);
   }
-  if (spec.repeat) {
-    console.warn('[maidr/vegalite] Repeat specs are not yet supported.');
-    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+
+  // Repeated specs.
+  const repeatDescriptor = describeRepeat(spec);
+  if (repeatDescriptor) {
+    return buildRepeatMaidr(id, title, subtitle, caption, spec, repeatDescriptor, view, domOrder);
   }
-  if (spec.spec && !spec.mark && !spec.layer) {
-    console.warn('[maidr/vegalite] Wrapped "spec" compositions are not yet supported.');
+
+  // Unsupported composite spec shapes — warn and return an empty chart.
+  if (spec.facet || spec.repeat || (spec.spec && !spec.mark && !spec.layer)) {
+    console.warn('[maidr/vegalite] Unsupported composition shape (facet/repeat without a child "spec", or a bare wrapped "spec").');
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
 
   // Handle layered specs.
   const isLayered = spec.layer != null && spec.layer.length > 0;
   if (isLayered) {
-    const rawLayers = spec.layer!.map((layerSpec, i) =>
-      convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder),
-    ).filter(Boolean) as MaidrLayer[];
+    // Keep each converted layer paired with the spec it came from: the
+    // series names a merge needs live in the spec (color datum, filter,
+    // title), not in the converted layer.
+    const rawLayers = spec.layer!.map((layerSpec, i) => {
+      const layer = convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder);
+      return layer ? { layer, spec: layerSpec } : null;
+    }).filter(Boolean) as ConvertedLayer[];
 
     // Coalesce sibling LINE layers with matching axes into a single
     // multi-series LINE layer. This handles the common Altair case where
@@ -98,7 +139,7 @@ export function vegaLiteToMaidr(
     // with a `color` encoding. Without coalescing, maidr core sees N
     // independent LINE traces and the user can only navigate within one
     // series at a time.
-    const layers = coalesceSiblingLineLayers(rawLayers);
+    const layers = coalesceSiblingLineLayers(rawLayers, spec.encoding);
 
     return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
@@ -128,35 +169,49 @@ export function vegaLiteToMaidr(
  * LINE pairs (linreplot) are NOT collapsed because the SCATTER mark is
  * not LINE-typed and the predicate skips it.
  */
-function coalesceSiblingLineLayers(layers: MaidrLayer[]): MaidrLayer[] {
-  if (layers.length < 2)
-    return layers;
+function coalesceSiblingLineLayers(
+  entries: ConvertedLayer[],
+  parentEncoding?: VegaLiteEncoding,
+): MaidrLayer[] {
+  if (entries.length < 2)
+    return entries.map(e => e.layer);
 
   const out: MaidrLayer[] = [];
   let i = 0;
 
-  while (i < layers.length) {
-    const current = layers[i];
+  while (i < entries.length) {
+    const current = entries[i];
 
-    if (current.type !== TraceType.LINE) {
-      out.push(current);
+    // Unstacked areas join the same run: sibling `mark_area()` layers are
+    // independent bands over shared axes, exactly the case this merge exists
+    // for. The stacked variants are deliberately excluded — Vega-Lite stacks
+    // within one mark, never across `alt.layer(...)`, so a run of them would
+    // not be one stack and merging would invent a total that is not drawn.
+    if (current.layer.type !== TraceType.LINE
+      && current.layer.type !== TraceType.STEP
+      && current.layer.type !== TraceType.AREA) {
+      out.push(current.layer);
       i += 1;
       continue;
     }
 
-    // Walk forward gathering consecutive LINE layers whose axes match.
-    const run: MaidrLayer[] = [current];
+    // Walk forward gathering consecutive line-family layers whose axes match.
+    // A step layer only joins a run of steps that jump the same way: the
+    // merged layer announces one convention, so a run mixing two would
+    // describe one of them wrongly.
+    const run: ConvertedLayer[] = [current];
     let j = i + 1;
-    while (j < layers.length && layers[j].type === TraceType.LINE
-      && axesAreCompatible(current.axes, layers[j].axes)) {
-      run.push(layers[j]);
+    while (j < entries.length && entries[j].layer.type === current.layer.type
+      && entries[j].layer.stepDirection === current.layer.stepDirection
+      && axesAreCompatible(current.layer.axes, entries[j].layer.axes)) {
+      run.push(entries[j]);
       j += 1;
     }
 
     if (run.length === 1) {
-      out.push(current);
+      out.push(current.layer);
     } else {
-      out.push(mergeLineLayers(run));
+      out.push(mergeLineLayers(run, parentEncoding));
     }
     i = j;
   }
@@ -177,20 +232,77 @@ function axesAreCompatible(
   return ax === bx && ay === by;
 }
 
-function mergeLineLayers(run: MaidrLayer[]): MaidrLayer {
+/**
+ * True when a point's `z` actually identifies a series.
+ *
+ * Empty counts as unnamed, not named. `extractLineData` keys its groups on
+ * `String(row[colorField] ?? '')`, so a layer whose rows lack the colour
+ * field — common when a `color` encoding is hoisted onto a layered parent —
+ * yields `z: ''`. Treating that as a real name would both block the merge
+ * from filling it and let the layer vouch for a dimension it isn't in.
+ */
+function hasSeriesName(z: string | undefined): boolean {
+  return z !== undefined && z !== '';
+}
+
+function mergeLineLayers(
+  run: ConvertedLayer[],
+  parentEncoding?: VegaLiteEncoding,
+): MaidrLayer {
   // Each input layer's `data` is already `LinePoint[][]` with exactly
   // one inner series (because per-layer single-line extraction returns
   // `[pts]`). Flatten by concatenating those inner arrays so the merged
   // layer ends up as `[layer0_series, layer1_series, ...]`.
   const mergedData: LinePoint[][] = [];
   const mergedSelectors: string[] = [];
+  let named = false;
+  // Every sub-layer's answer, `undefined` included — see the z-axis
+  // decision below, which requires unanimity.
+  const dimensionLabels = new Set<string | undefined>();
 
-  for (const layer of run) {
+  for (const { layer, spec } of run) {
+    const encoding: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    // Name the series this sub-layer contributes. Layers extracted via a
+    // `color`/`fill` *field* already carry a per-point `z`; those keep it
+    // and only anonymous points are filled in, so a run that mixes both
+    // shapes never has a derived name overwrite a real one.
+    const seriesName = resolveLayerSeriesName(spec, encoding);
+    const dimensionLabel = resolveSeriesDimensionLabel(spec, encoding, seriesName);
+    let everySeriesNamed = true;
+    let contributedSeries = false;
+
     if (Array.isArray(layer.data)) {
       for (const series of layer.data as LinePoint[][]) {
-        mergedData.push(series);
+        contributedSeries = true;
+        const points = seriesName === undefined
+          ? series
+          : series.map(point =>
+              hasSeriesName(point.z) ? point : { ...point, z: seriesName },
+            );
+        if (hasSeriesName(points[0]?.z)) {
+          named = true;
+        } else {
+          everySeriesNamed = false;
+        }
+        mergedData.push(points);
       }
     }
+    // Only sub-layers that actually contributed a series get a vote.
+    //
+    // A colour-encoded layer whose dataset resolves empty produces no
+    // series at all — `extractLineData` returns `[...groups.values()]`,
+    // which is `[]` for zero rows — and a layer that drew nothing has no
+    // stake in what the run's dimension is. Letting it vote would decide
+    // the z axis on a layer the user never encounters.
+    //
+    // Among layers that did contribute: one that still yields an unnamed
+    // series cannot vouch for the dimension either, so it abstains, which
+    // the unanimity check below treats as disagreement. Without that, a
+    // layer inheriting a `color` *field* from the parent reports that
+    // field as the dimension even when its own rows lack it and its
+    // series came out blank.
+    if (contributedSeries)
+      dimensionLabels.add(everySeriesNamed ? dimensionLabel : undefined);
     if (Array.isArray(layer.selectors)) {
       for (const sel of layer.selectors as string[]) {
         mergedSelectors.push(sel);
@@ -200,11 +312,223 @@ function mergeLineLayers(run: MaidrLayer[]): MaidrLayer {
     }
   }
 
-  return {
-    ...run[0],
+  const merged: MaidrLayer = {
+    ...run[0].layer,
     selectors: mergedSelectors,
     data: mergedData,
   };
+
+  // Only advertise a z axis once the merge produced names AND every
+  // sub-layer agrees on the same dimension. A label is a claim about all
+  // the merged series at once, so one dissenting sub-layer invalidates it:
+  // whether it names a *different* dimension or none at all, its series do
+  // not belong to the dimension the others describe, and titling the axis
+  // would mislabel them. Without a label, LineTrace's own "Group" default
+  // reads better than a fabricated axis title.
+  const [dimensionLabel] = [...dimensionLabels];
+  if (named && dimensionLabels.size === 1 && dimensionLabel) {
+    merged.axes = { ...merged.axes, z: { label: dimensionLabel } };
+  }
+
+  return merged;
+}
+
+/**
+ * Matches a filter expression that is a single equality test against one
+ * `datum` field, e.g. `(datum.species === 'Adelie')`,
+ * `datum['Origin'] == "Europe"`, `(datum.year === 2020)` or
+ * `(datum.flag === true)`.
+ *
+ * The right-hand side may be a quoted string, a number, or a boolean —
+ * Altair emits all three unquoted-as-appropriate for
+ * `transform_filter(alt.datum.f == v)`, so restricting this to strings
+ * would silently drop names from every numerically grouped chart.
+ *
+ * Each quoted form is spelled out separately (`'([^']*)'` / `"([^"]*)"`)
+ * rather than sharing a backreferenced delimiter with a lazy body. A lazy
+ * `(.*?)` only has to reach *a* matching quote before the end anchor, so it
+ * happily swallows an operator: `datum.a === 'x' && datum.b === 'y'` parsed
+ * as the single value `x' && datum.b === 'y`. Excluding the delimiter from
+ * the body makes the match stop at the closing quote, so a compound
+ * predicate fails outright — while a value containing the *other* quote
+ * character still parses, which is how Altair escapes.
+ *
+ * Deliberately anchored and deliberately narrow otherwise: anything with a
+ * boolean operator, a comparison other than equality, or a non-literal
+ * right-hand side fails to match and yields no name. A compound predicate
+ * does not describe a single named series, so guessing one would mislabel
+ * the line.
+ *
+ * Note this pattern is coupled to how Altair stringifies
+ * `transform_filter` today. If a future version changes its spacing,
+ * quoting, or parenthesisation, this stops matching and layers simply go
+ * unnamed — the pre-PR behaviour, not a break. That degradation is silent
+ * by design, which also means no test here will catch it: the fixtures are
+ * frozen captures, so confirming continued support means re-capturing them
+ * against a newer Altair rather than trusting a green suite.
+ */
+const SINGLE_EQUALITY_FILTER
+  = /^datum(?:\.([A-Z_$][\w$]*)|\[(['"])([^'"]*)\2\])\s*===?\s*(?:'([^']*)'|"([^"]*)"|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)|(true|false))$/i;
+
+/**
+ * Remove one *balanced* pair of wrapping parentheses, which is how Altair
+ * emits its filter expressions (`(datum.species === 'Adelie')`).
+ *
+ * An expression containing any further parenthesis is returned untouched,
+ * so it fails {@link SINGLE_EQUALITY_FILTER} and yields no name. That keeps
+ * unbalanced or compound input — `(datum.f === 'v'`, `(a) === (b)` — out,
+ * rather than letting independently-optional parens in the pattern accept it.
+ */
+function stripBalancedOuterParens(expression: string): string {
+  const trimmed = expression.trim();
+  if (!trimmed.startsWith('(') || !trimmed.endsWith(')'))
+    return trimmed;
+  const inner = trimmed.slice(1, -1);
+  if (inner.includes('(') || inner.includes(')'))
+    return trimmed;
+  return inner.trim();
+}
+
+/**
+ * Read a layer's `filter` transform, but only when it declares exactly one.
+ *
+ * A layer narrowed by several filters (say `site` *and* `year`) is not
+ * identified by any one of them: two layers agreeing on `site` but
+ * differing on `year` would both resolve to the same name and collide
+ * under one misleading label. Both the predicate-object and the
+ * expression-string forms go through this gate so neither can name a
+ * compound-filtered layer.
+ *
+ * Non-`filter` transforms (`density`, `aggregate`, …) are not counted —
+ * they narrow nothing and routinely sit alongside a filter.
+ *
+ * @returns The sole filter, or `undefined` when the layer declares none
+ * or more than one.
+ */
+function getSoleFilterTransform(
+  spec: VegaLiteSpec,
+): string | VegaLiteFilterPredicate | undefined {
+  if (!Array.isArray(spec.transform))
+    return undefined;
+  const filters = spec.transform
+    .map(t => t?.filter)
+    .filter((f): f is string | VegaLiteFilterPredicate => f !== undefined);
+  return filters.length === 1 ? filters[0] : undefined;
+}
+
+/**
+ * Parse `datum.<field> === '<value>'` into its field and value.
+ *
+ * @returns The parsed pair, or `undefined` when the expression is not a
+ * lone equality test.
+ */
+function parseSingleEqualityFilter(
+  expression: string,
+): { field: string; value: string } | undefined {
+  const match = SINGLE_EQUALITY_FILTER.exec(stripBalancedOuterParens(expression));
+  if (!match)
+    return undefined;
+  const field = match[1] ?? match[3];
+  // Exactly one right-hand alternative matches; the rest are undefined.
+  const value = match[4] ?? match[5] ?? match[6] ?? match[7];
+  // An empty literal names nothing — `z: ''` would read as a real group
+  // downstream while displaying as blank.
+  if (!field || !value)
+    return undefined;
+  return { field, value };
+}
+
+/**
+ * Resolve the display name of the series drawn by one layer of a layered
+ * spec, so a merge can label it.
+ *
+ * Sources, most explicit first:
+ *  1. `encoding.color.datum` / `encoding.fill.datum` — the constant
+ *     Vega-Lite binds to a layer purely to name it in the legend.
+ *  2. A `filter` transform's `{field, equal}` predicate — the value the
+ *     layer was narrowed to.
+ *  3. The layer's own `title`.
+ *  4. A `filter` transform written as a lone `datum.f === 'v'` expression,
+ *     which is what Altair emits for `transform_filter(alt.datum.f == v)`.
+ *
+ * @returns The series name, or `undefined` when the spec names it nowhere.
+ * Callers must leave `z` unset in that case: an invented name is worse
+ * than none, because it reads as authoritative to a screen reader user.
+ */
+function resolveLayerSeriesName(
+  spec: VegaLiteSpec,
+  encoding: VegaLiteEncoding,
+): string | undefined {
+  const datum = encoding.color?.datum ?? encoding.fill?.datum;
+  if (datum != null && String(datum).length > 0)
+    return String(datum);
+
+  const filter = getSoleFilterTransform(spec);
+
+  // `!= null` keeps a legitimate `0` / `false`; the length check drops an
+  // empty one, matching the `datum` branch above. An empty name would be
+  // stamped onto every point and then render blank.
+  if (typeof filter === 'object' && filter.equal != null
+    && String(filter.equal).length > 0) {
+    return String(filter.equal);
+  }
+
+  const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
+  if (title)
+    return title;
+
+  if (typeof filter === 'string') {
+    const parsed = parseSingleEqualityFilter(filter);
+    if (parsed)
+      return parsed.value;
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolve the label of the *dimension* the merged series vary along —
+ * the z-axis title, e.g. `"species"` for per-species density curves.
+ *
+ * Distinct from {@link resolveLayerSeriesName}, which names one series.
+ * The two must stay correlated: a label is a claim that the names are
+ * values of* that dimension. A colour channel always qualifies, since
+ * whatever it holds is what the names came from. A filter only qualifies
+ * when it narrowed the layer to the very value the name reports —
+ * otherwise a layer titled `Trend A` and filtered on `site` would be
+ * announced as site `Trend A`, which the spec never says.
+ *
+ * @param spec - The layer's own spec fragment.
+ * @param encoding - The layer's encoding, merged with any parent's.
+ * @param seriesName - The name {@link resolveLayerSeriesName} resolved for
+ * this layer, used to confirm a filter actually produced it.
+ * @returns The dimension label, or `undefined` when the spec does not say.
+ */
+function resolveSeriesDimensionLabel(
+  spec: VegaLiteSpec,
+  encoding: VegaLiteEncoding,
+  seriesName: string | undefined,
+): string | undefined {
+  const channel = encoding.color ?? encoding.fill;
+  // `||`, not `??`: an explicitly empty title should fall back to the
+  // field name rather than discard it and drop through to the filter.
+  const channelLabel = channel?.title || channel?.field;
+  if (channelLabel)
+    return channelLabel;
+
+  if (seriesName === undefined)
+    return undefined;
+
+  const filter = getSoleFilterTransform(spec);
+  if (typeof filter === 'object' && filter.equal != null && filter.field)
+    return String(filter.equal) === seriesName ? filter.field : undefined;
+  if (typeof filter === 'string') {
+    const parsed = parseSingleEqualityFilter(filter);
+    if (parsed)
+      return parsed.value === seriesName ? parsed.field : undefined;
+  }
+
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +571,31 @@ function getMarkType(spec: VegaLiteSpec): string | null {
 }
 
 /**
+ * Where each stepping `interpolate` value puts the riser, in
+ * {@link StepDirection} terms. Vega-Lite hands these to the matching d3
+ * curve, so `step-after` rises after the horizontal run at the next x
+ * (`hv`), `step-before` rises first at the current x (`vh`), and plain
+ * `step` rises at the midpoint (`mid`). Every other value — `linear`,
+ * `monotone`, `basis`, absent — interpolates and is not a step.
+ */
+const STEP_DIRECTION_BY_INTERPOLATE: Partial<Record<string, StepDirection>> = {
+  'step': 'mid',
+  'step-before': 'vh',
+  'step-after': 'hv',
+};
+
+/**
+ * The step convention a spec's mark draws, or `undefined` when it draws an
+ * ordinary interpolated line.
+ */
+function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
+  if (!spec.mark || typeof spec.mark === 'string')
+    return undefined;
+  const { interpolate } = spec.mark;
+  return interpolate === undefined ? undefined : STEP_DIRECTION_BY_INTERPOLATE[interpolate];
+}
+
+/**
  * Map a Vega-Lite mark type + encoding to a MAIDR trace type.
  *
  * Some marks produce different MAIDR types depending on encoding:
@@ -254,10 +603,15 @@ function getMarkType(spec: VegaLiteSpec): string | null {
  *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
  *   - `rect`                           → HEATMAP
  *   - `tick`                           → SCATTER (individual value marks)
+ *   - `line` with a stepping `interpolate` → STEP
+ *   - `area`                           → AREA / STACKED_AREA / NORMALIZED_AREA
+ *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
+ *     with an `innerRadius`, and reads identically)
  */
 function resolveTraceType(
   mark: string,
   encoding?: VegaLiteEncoding,
+  stepDirection?: StepDirection,
 ): TraceType | null {
   switch (mark) {
     case 'bar': {
@@ -282,18 +636,48 @@ function resolveTraceType(
       return TraceType.BAR;
     }
     case 'line':
-      return TraceType.LINE;
+      return stepDirection ? TraceType.STEP : TraceType.LINE;
+    // An area used to fall through to `line`, which read a stacked chart's
+    // band height as if it were the only magnitude drawn. Vega-Lite stacks an
+    // area by default as soon as a series channel is present — `stack` has to
+    // be turned *off* to get overlapping bands — so the default branch here
+    // is the stacked one, the opposite of `bar` above.
+    case 'area': {
+      // `??` cannot read this pair: Vega-Lite spells "do not stack" as either
+      // `false` or `null`, and a nullish coalesce discards the `null` before
+      // it can be seen, falling through to the other axis and reporting
+      // `undefined` — which reads as "stack by default" and is the opposite
+      // of what the spec asked for.
+      const stack = encoding?.y?.stack !== undefined
+        ? encoding.y.stack
+        : encoding?.x?.stack;
+      if (stack === 'normalize') {
+        return TraceType.NORMALIZED_AREA;
+      }
+      const hasSeries = !!encoding?.color?.field || !!encoding?.fill?.field;
+      if (hasSeries && stack !== false && stack !== null) {
+        return TraceType.STACKED_AREA;
+      }
+      // Unstacked, so the bands are independent and each reads as its own
+      // series. A stepped one keeps its staircase reading: with nothing
+      // accumulating, STEP loses nothing that AREA would preserve.
+      return stepDirection ? TraceType.STEP : TraceType.AREA;
+    }
     case 'point':
     case 'circle':
     case 'square':
     case 'tick':
       return TraceType.SCATTER;
-    case 'area':
-      return TraceType.LINE;
     case 'rect':
       return TraceType.HEATMAP;
     case 'boxplot':
       return TraceType.BOX;
+    // `theta` is what turns an arc into a pie: it is the channel the slice
+    // magnitudes ride on. An arc encoded by `radius` alone is a radial plot
+    // with no slices to navigate, so it stays unsupported rather than being
+    // announced as a pie whose values MAIDR would have to invent.
+    case 'arc':
+      return encoding?.theta ? TraceType.PIE : null;
     default:
       return null;
   }
@@ -316,6 +700,150 @@ function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
 }
 
 /**
+ * Read a layer's data from its compiled Vega **mark** dataset
+ * (`layer_<N>_marks`), which Vega registers alongside the data pipelines.
+ *
+ * Every item in that dataset is a scenegraph mark instance carrying the
+ * exact source row it was rendered from on `datum`, in DOM order. That
+ * makes it the only source that is both correct per layer and aligned
+ * with the highlight selectors.
+ *
+ * The name-based fallback in {@link resolveData} cannot do either. It
+ * guesses pipeline names (`data_0`, `data_1`, …), but Vega-Lite numbers
+ * those sequentially over the *whole* compiled spec, not per layer, and
+ * skips indices for layers that need no transform. An Altair
+ * `transform_density` + `alt.layer(...)` chart compiles to `data_1` /
+ * `data_2` / `data_3` with no `data_0`, so the guesses land one dataset
+ * short from layer 1 onward: layers 1 and 2 both draw the wrong series
+ * and the last series never appears at all.
+ *
+ * @returns The layer's rows, or `undefined` when the dataset is absent or
+ * does not look like mark items — in which case the caller falls back to
+ * name guessing, preserving the previous behaviour. A dataset present but
+ * holding zero items counts as absent for the same reason
+ * {@link readViewDataset} gives: MAIDR core cannot navigate a zero-point
+ * trace, so an empty result is not a usable answer. The cost is that a
+ * layer which legitimately renders nothing takes the fallback and may show
+ * another dataset's rows.
+ */
+function resolveMarkItemData(
+  view: VegaView,
+  markDatasetName: string,
+): Record<string, unknown>[] | undefined {
+  let items: unknown;
+  try {
+    items = view.data(markDatasetName);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(items) || items.length === 0)
+    return undefined;
+
+  const rows: Record<string, unknown>[] = [];
+  for (const item of items) {
+    const datum = (item as { datum?: unknown })?.datum;
+    // Bail on the whole dataset rather than emitting a partial series:
+    // dropping points would silently shorten the line.
+    if (typeof datum !== 'object' || datum === null || Array.isArray(datum))
+      return undefined;
+    rows.push(datum as Record<string, unknown>);
+  }
+  return rows;
+}
+
+/**
+ * Enumerate every dataset registered on a compiled Vega view, keyed by name.
+ *
+ * Two traps here, both silent, both validated against vega 6.3.1:
+ *
+ * 1. `getState`'s `data` option is a **predicate** — `(name, object) =>
+ *    boolean` — not a boolean. Passing `true` makes Vega throw
+ *    `options.data is not a function`.
+ * 2. The values it returns are Vega's internal state descriptors, **not
+ *    rows**. `getState(...).data.data_2` is `{}`; only
+ *    `view.data('data_2')` yields the records.
+ *
+ * So this returns names only. Anything that reads a value off `getState`
+ * and tests it with `Array.isArray` silently finds nothing.
+ *
+ * @returns Every registered dataset name, or `[]` when the view exposes no
+ * usable `getState`.
+ */
+function getViewDatasetNames(view: VegaView): string[] {
+  try {
+    const stateGetter = view.getState;
+    if (typeof stateGetter !== 'function')
+      return [];
+    const datasets = stateGetter.call(view, { data: () => true })?.data;
+    return datasets && typeof datasets === 'object' ? Object.keys(datasets) : [];
+  } catch (error) {
+    // Degrading to "no datasets" is the safe direction, but it is also how
+    // the `{ data: true }` bug above stayed invisible for so long. A view
+    // that has `getState` and still throws is unexpected, so say so rather
+    // than let a future regression here look like an empty chart.
+    console.warn(
+      '[maidr/vegalite] view.getState() failed; falling back to dataset '
+      + 'name guessing.',
+      error,
+    );
+    return [];
+  }
+}
+
+/**
+ * Fetch a dataset's rows by name, or `undefined` when it holds none.
+ *
+ * Pairs with {@link getViewDatasetNames}: enumeration gives names, this
+ * gives rows. Vega rejects names outside the current scope by throwing.
+ *
+ * A zero-row dataset is deliberately reported the same as a missing one,
+ * so callers fall through rather than adopt it. MAIDR core cannot navigate
+ * a zero-point trace — `buildFacetMaidr` drops such layers outright for
+ * that reason — so an empty result is not a usable answer here. The cost is
+ * that a layer which legitimately renders nothing takes the fallback and
+ * may show another dataset's rows instead of being empty; that trade is
+ * pre-existing and is exercised by the fallback tests.
+ */
+function readViewDataset(
+  view: VegaView,
+  name: string,
+): Record<string, unknown>[] | undefined {
+  try {
+    const rows = view.data(name);
+    return Array.isArray(rows) && rows.length > 0 ? rows : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * True for compiled-Vega dataset names that hold layout / legend / header
+ * internals rather than chart data. Facet compilations register
+ * `row_domain` / `column_domain` / `facet_domain*`, header / footer group
+ * datasets, and the `cell` scenegraph dataset; repeat compilations
+ * register one `<childName>_group` dataset per cell.
+ */
+function isInternalDatasetName(name: string): boolean {
+  return name === 'root'
+    || name === 'cell'
+    || name.endsWith('_domain')
+    || name.includes('_domain_')
+    || name.endsWith('_group')
+    || name.endsWith('_header')
+    || name.endsWith('_footer')
+    || name.includes('-title');
+}
+
+/**
+ * True when a dataset row is a Vega scenegraph item (group mark instance)
+ * rather than a plain data record. Scenegraph items carry `mark` /
+ * `bounds` bookkeeping fields that no user dataset would have together.
+ */
+function isSceneGraphRow(row: Record<string, unknown>): boolean {
+  return 'mark' in row && 'bounds' in row && 'items' in row;
+}
+
+/**
  * Resolve the data array for a layer.
  *
  * Tries the compiled Vega view first (more accurate since it includes
@@ -326,7 +854,16 @@ function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
   view?: VegaView,
+  markDatasetName?: string,
 ): Record<string, unknown>[] {
+  // Exact path first: a layer's own mark dataset. See
+  // `resolveMarkItemData` — the name-guessing below is a fallback.
+  if (view && markDatasetName) {
+    const markRows = resolveMarkItemData(view, markDatasetName);
+    if (markRows)
+      return markRows;
+  }
+
   // Common Vega dataset names produced by the VL compiler.
   // Include layer-specific dataset names for composite specs.
   const datasetNames = [
@@ -366,33 +903,23 @@ function resolveData(
     // `bin_maxbins_10_value`); a stricter check would break
     // histograms. A field-aware redesign that recognises bin/aggregate
     // transforms is tracked as a follow-up.
-    try {
-      // `view.getState({ data: true })` returns all datasets keyed by name.
-      // The exact return shape is loosely typed across Vega versions, so
-      // narrow defensively.
-
-      const stateGetter = (view as any).getState as
-        | ((opts?: { data?: boolean }) => unknown)
-        | undefined;
-      if (typeof stateGetter === 'function') {
-        const state = stateGetter.call(view, { data: true }) as
-          | { data?: Record<string, unknown> }
-          | undefined;
-        const datasets = state?.data;
-        if (datasets && typeof datasets === 'object') {
-          for (const [name, rows] of Object.entries(datasets)) {
-            // Skip the names we already tried above.
-            if (datasetNames.includes(name))
-              continue;
-            if (Array.isArray(rows) && rows.length > 0
-              && typeof rows[0] === 'object' && rows[0] !== null) {
-              return rows as Record<string, unknown>[];
-            }
-          }
-        }
+    for (const name of getViewDatasetNames(view)) {
+      // Skip the names we already tried above.
+      if (datasetNames.includes(name))
+        continue;
+      // Faceted / repeated compilations register layout-internal
+      // datasets (facet/row/column domains, headers, footers, and
+      // per-group scenegraph items like `cell` or `child__*_group`)
+      // that hold no chart data. Skip them by name pattern, and skip
+      // any dataset whose rows are scenegraph items rather than
+      // data records.
+      if (isInternalDatasetName(name))
+        continue;
+      const rows = readViewDataset(view, name);
+      if (rows && typeof rows[0] === 'object' && rows[0] !== null
+        && !isSceneGraphRow(rows[0])) {
+        return rows;
       }
-    } catch {
-      // getState() shape varies across Vega versions; ignore and fall through.
     }
   }
 
@@ -448,6 +975,34 @@ function determineDomMapping(
 // Data extraction per chart type
 // ---------------------------------------------------------------------------
 
+/**
+ * Read a channel's value from a compiled Vega row, accounting for the
+ * name-mangling Vega-Lite applies to aggregated fields.
+ *
+ * Vega-Lite compiles an aggregate encoding such as
+ * `{ aggregate: 'mean', field: 'b' }` into an output column named
+ * `<op>_<field>` (e.g. `mean_b`), so the raw field name (`b`) is absent
+ * from the aggregated dataset. Count aggregates without an explicit field
+ * instead emit the synthetic `__count` column.
+ *
+ * Lookup order: the explicit field FIRST (source of truth when present),
+ * then the `<aggregate>_<field>` compiled name, then `__count`.
+ *
+ * @returns The resolved value, or `undefined` when no candidate is present.
+ */
+function readEncodedValue(
+  row: Record<string, unknown>,
+  channel: VegaLiteChannelDef | undefined,
+  field: string,
+): unknown {
+  if (row[field] != null)
+    return row[field];
+  const aggregate = channel?.aggregate;
+  if (aggregate != null && row[`${aggregate}_${field}`] != null)
+    return row[`${aggregate}_${field}`];
+  return (row as Record<string, unknown>).__count;
+}
+
 function extractBarData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -479,15 +1034,38 @@ function extractBarData(
   return rows.map((row) => {
     if (xIsQuantitative && !yIsQuantitative) {
       return {
-        x: Number(row[xField] ?? (row as Record<string, unknown>).__count ?? 0),
+        x: Number(readEncodedValue(row, encoding.x, xField) ?? 0),
         y: String(row[yField] ?? ''),
       };
     }
     return {
       x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
+      y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
     };
   });
+}
+
+/**
+ * Read one slice per row: the colour channel names it, `theta` measures it.
+ *
+ * Rows stay in dataset order, which for an arc mark IS the drawn order — the
+ * `stack` transform Vega-Lite compiles a `theta` encoding into computes each
+ * slice's start and end angle without reordering the rows it reads. So no
+ * visual-order pass is needed at bind time the way simple bars need one: slice
+ * k is already wedge k.
+ */
+function extractPieData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): PiePoint[] {
+  const labelChannel = encoding.color ?? encoding.fill;
+  const labelField = labelChannel?.field ?? 'category';
+  const thetaField = encoding.theta?.field ?? 'theta';
+
+  return rows.map(row => ({
+    x: String(row[labelField] ?? ''),
+    y: Number(readEncodedValue(row, encoding.theta, thetaField) ?? 0),
+  }));
 }
 
 function extractHistogramData(
@@ -537,6 +1115,16 @@ function extractSegmentedData(
   const yField = encoding.y?.field ?? 'y';
   const colorField = encoding.color?.field ?? encoding.fill?.field ?? 'group';
 
+  // Detect horizontal orientation the same way extractBarData does: when x
+  // is the quantitative channel and y is the category, the bars run
+  // horizontally (e.g. `y:{field:'variety',type:'nominal'}`,
+  // `x:{field:'yield',type:'quantitative'}`).
+  const xIsQuantitative = encoding.x?.type === 'quantitative'
+    || encoding.x?.aggregate != null;
+  const yIsQuantitative = encoding.y?.type === 'quantitative'
+    || encoding.y?.aggregate != null;
+  const isHorizontal = xIsQuantitative && !yIsQuantitative;
+
   // Group by fill value. Each group becomes a row in the 2D array.
   // Insertion order is preserved so navigation order follows Vega's
   // data-flow order. The MAIDR `SegmentedTrace.mapToSvgElements`
@@ -545,20 +1133,27 @@ function extractSegmentedData(
   // or `{ order: 'column', groupDirection: 'forward' }` for dodged
   // (subject-major DOM).
   //
-  // Vega-Lite emits a synthetic `__count` field whenever the channel uses
-  // `aggregate: 'count'` without an explicit `field`. The same fallback
-  // is required here as in extractBarData / extractHistogramData.
+  // For horizontal charts the value lives on x and the category on y, so
+  // emit `{ x: value, y: category }` (mirroring extractBarData and the
+  // chartjs adapter's `indexAxis: 'y'` handling); the core AbstractBarPlot
+  // reads the value from `point.x` when `orientation` is HORIZONTAL.
   //
-  // Lookup order: explicit field FIRST, `__count` only as fallback. See
-  // the matching note in `extractBarData` for why explicit fields win.
+  // `readEncodedValue` resolves aggregate-mangled columns (e.g. `sum_yield`)
+  // and the synthetic `__count` field; the explicit field wins when present.
   const groups = new Map<string, SegmentedPoint[]>();
   for (const row of rows) {
     const fill = String(row[colorField] ?? '');
-    const pt: SegmentedPoint = {
-      x: String(row[xField] ?? ''),
-      y: Number(row[yField] ?? (row as Record<string, unknown>).__count ?? 0),
-      z: fill,
-    };
+    const pt: SegmentedPoint = isHorizontal
+      ? {
+          x: Number(readEncodedValue(row, encoding.x, xField) ?? 0),
+          y: String(row[yField] ?? ''),
+          z: fill,
+        }
+      : {
+          x: String(row[xField] ?? ''),
+          y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
+          z: fill,
+        };
     if (!groups.has(fill))
       groups.set(fill, []);
     groups.get(fill)!.push(pt);
@@ -585,7 +1180,7 @@ function extractLineData(
       const key = String(row[colorField] ?? '');
       const pt: LinePoint = {
         x: (row[xField] ?? 0) as number | string,
-        y: Number(row[yField] ?? 0),
+        y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
         z: key,
       };
       if (!groups.has(key))
@@ -597,7 +1192,7 @@ function extractLineData(
 
   const pts: LinePoint[] = rows.map(row => ({
     x: (row[xField] ?? 0) as number | string,
-    y: Number(row[yField] ?? 0),
+    y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
   }));
   return [pts];
 }
@@ -810,6 +1405,8 @@ function convertLayerSpec(
   parentEncoding?: VegaLiteEncoding,
   isLayered?: boolean,
   domOrderOverride?: 'series-major' | 'subject-major',
+  selectorOverride?: { layerIndex: number; markGroupPrefix: string; cellScope?: string },
+  rowsOverride?: Record<string, unknown>[],
 ): MaidrLayer | null {
   const mark = getMarkType(spec);
   if (!mark)
@@ -821,12 +1418,11 @@ function convertLayerSpec(
     ...spec.encoding,
   };
 
-  const traceType = resolveTraceType(mark, encoding);
+  const stepDirection = getStepDirection(spec);
+  const traceType = resolveTraceType(mark, encoding, stepDirection);
 
   if (!traceType)
     return null;
-
-  const rows = resolveData(spec, index, view);
 
   const axes: MaidrLayer['axes'] = {
     x: getAxisConfig(encoding.x),
@@ -834,6 +1430,23 @@ function convertLayerSpec(
   };
 
   const layered = isLayered ?? false;
+
+  // Concat children render their mark groups under Vega class tokens like
+  // `concat_<i>_marks` / `concat_<i>_layer_<j>_marks`, not the bare `marks`
+  // / `layer_<N>_marks` used by single-view and layered specs. When a
+  // selector override is supplied, use its local layer index and class
+  // prefix so highlight selectors match those concat mark groups.
+  const selectorLayerIndex = selectorOverride?.layerIndex ?? index;
+  const markGroupPrefix = selectorOverride?.markGroupPrefix ?? '';
+
+  // Faceted callers pre-filter the resolved dataset down to one panel's
+  // rows and pass them here, bypassing dataset-name resolution.
+  const rows = rowsOverride ?? resolveData(
+    spec,
+    index,
+    view,
+    layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
+  );
 
   let data: MaidrLayer['data'];
   let selectors: MaidrLayer['selectors'];
@@ -843,7 +1456,7 @@ function convertLayerSpec(
   switch (traceType) {
     case TraceType.BAR: {
       data = extractBarData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       const xIsQuant = encoding.x?.type === 'quantitative'
         || encoding.x?.aggregate != null;
       const yIsQuant = encoding.y?.type === 'quantitative'
@@ -855,14 +1468,25 @@ function convertLayerSpec(
     }
     case TraceType.HISTOGRAM: {
       data = extractHistogramData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     }
     case TraceType.STACKED:
     case TraceType.DODGED:
     case TraceType.NORMALIZED: {
       data = extractSegmentedData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // Horizontal segmented bars (x=quantitative, y=nominal) carry the
+      // value on x and the category on y. The core SegmentedTrace reads
+      // the value from `point.x` only when `orientation` is HORIZONTAL,
+      // mirroring the BAR and BOX cases above.
+      const xIsQuant = encoding.x?.type === 'quantitative'
+        || encoding.x?.aggregate != null;
+      const yIsQuant = encoding.y?.type === 'quantitative'
+        || encoding.y?.aggregate != null;
+      if (xIsQuant && !yIsQuant) {
+        orientation = Orientation.HORIZONTAL;
+      }
       // Only populate `domMapping` when the caller has explicitly
       // requested an order via `options.domOrder`. When omitted, leave
       // it undefined so bind-time runtime detection (in
@@ -875,24 +1499,42 @@ function convertLayerSpec(
       }
       break;
     }
-    case TraceType.LINE: {
+    // A step mark is a line Vega-Lite draws as a staircase, and an area is a
+    // line plus a fill that is drawn rather than encoded. Same points, same
+    // one-path-per-series geometry, so the extraction is identical for all of
+    // them; the stacked area variants differ only in what `AreaTrace`
+    // announces on top of it.
+    case TraceType.LINE:
+    case TraceType.AREA:
+    case TraceType.NORMALIZED_AREA:
+    case TraceType.STACKED_AREA:
+    case TraceType.STEP: {
       const lineData = extractLineData(rows, encoding);
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
-      selectors = buildLineSelectors(mark, lineData.length, index, layered);
+      selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
       break;
     }
     case TraceType.SCATTER:
       data = extractScatterData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     case TraceType.HEATMAP:
       data = extractHeatmapData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      break;
+    case TraceType.PIE:
+      data = extractPieData(rows, encoding);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // An arc has no x or y to name the axes after — the pair built above is
+      // two empty labels. The slice labels come from the colour channel and
+      // the magnitudes from `theta`, so the layer's axes are named after those.
+      axes.x = getAxisConfig(encoding.color ?? encoding.fill);
+      axes.y = getAxisConfig(encoding.theta);
       break;
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);
-      selectors = buildSelector(mark, index, layered);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       // Vega-Lite boxplot orientation is implicit from encoding type:
       // x=quantitative + y=nominal/ordinal => HORIZONTAL.
       // Mirrors the BAR detection at lines 748-754. maidr core needs the
@@ -915,6 +1557,19 @@ function convertLayerSpec(
       return null;
   }
 
+  // Scope selectors to one facet cell. All facet cells share identical
+  // mark-group classes (`child_marks` / `child_layer_<j>_marks`), so the
+  // only way to address one panel's marks is via the `data-maidr-cell`
+  // attribute stamped on the cell's item <g> at bind time.
+  const cellScope = selectorOverride?.cellScope;
+  if (cellScope) {
+    if (typeof selectors === 'string') {
+      selectors = scopeSelector(selectors, cellScope);
+    } else if (Array.isArray(selectors)) {
+      selectors = (selectors as string[]).map(sel => scopeSelector(sel, cellScope));
+    }
+  }
+
   const layer: MaidrLayer = {
     id: String(index),
     type: traceType,
@@ -923,6 +1578,9 @@ function convertLayerSpec(
     data,
   };
 
+  if (stepDirection && traceType === TraceType.STEP) {
+    layer.stepDirection = stepDirection;
+  }
   if (orientation) {
     layer.orientation = orientation;
   }
@@ -946,6 +1604,7 @@ function buildConcatMaidr(
   direction: 'horizontal' | 'vertical' | 'wrap',
   view?: VegaView,
   domOrder?: 'series-major' | 'subject-major',
+  columns?: number,
 ): Maidr {
   // Track a global layer counter so that each concat child resolves
   // dataset names independently (Vega names datasets sequentially
@@ -953,9 +1612,28 @@ function buildConcatMaidr(
   let globalLayerIndex = 0;
 
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
+    // Each concat child compiles to a per-cell Vega scope group
+    // (`concat_<i>_group`) wrapping the panel's background path. Pointing
+    // the subplot selector at that background gives MAIDR core a real
+    // per-panel element to measure, which is what lets it compute the
+    // visual panel order (and vertical arrow direction) for multi-row
+    // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
+    const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
     if (childSpec.layer) {
       const layers = childSpec.layer.map((layerSpec, j) => {
-        const layer = convertLayerSpec(layerSpec, globalLayerIndex, view, childSpec.encoding, true, domOrder);
+        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+        // (local layer index `j`, not the global data index), so drive the
+        // selector off those while keeping `globalLayerIndex` for the data
+        // lookup, which follows Vega's sequential dataset numbering.
+        const layer = convertLayerSpec(
+          layerSpec,
+          globalLayerIndex,
+          view,
+          childSpec.encoding,
+          true,
+          domOrder,
+          { layerIndex: j, markGroupPrefix: `concat_${i}_` },
+        );
         // Assign a unique ID that encodes both the concat index and the
         // layer index within the child to avoid duplicates across subplots.
         if (layer)
@@ -963,22 +1641,526 @@ function buildConcatMaidr(
         globalLayerIndex++;
         return layer;
       }).filter(Boolean) as MaidrLayer[];
-      return { layers };
+      return { layers, selector };
     }
-    const layer = convertLayerSpec(childSpec, globalLayerIndex, view, undefined, false, domOrder);
+    // A single-view concat child renders under `concat_<i>_marks` (or the
+    // sugar-expanded `concat_<i>_layer_0_marks`).
+    const layer = convertLayerSpec(
+      childSpec,
+      globalLayerIndex,
+      view,
+      undefined,
+      false,
+      domOrder,
+      { layerIndex: 0, markGroupPrefix: `concat_${i}_` },
+    );
     if (layer)
       layer.id = `${i}_0`;
     globalLayerIndex++;
-    return { layers: layer ? [layer] : [] };
+    return { layers: layer ? [layer] : [], selector };
   });
 
+  // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
+  // model on focus; collapse to the same single empty figure other
+  // unsupported specs produce (bindVegaLite skips mounting that shape).
+  if (subplotEntries.some(entry => entry.layers.length === 0)) {
+    console.warn('[maidr/vegalite] Concat spec contains a child with an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
   // vconcat produces one subplot per row (column layout).
-  // hconcat / concat produce all subplots in a single row.
+  // hconcat produces all subplots in a single row.
+  // General `concat` wraps into rows of `columns` panels (Vega-Lite's
+  // default when `columns` is omitted is a single unbounded row).
   let subplots: MaidrSubplot[][];
   if (direction === 'vertical') {
     subplots = subplotEntries.map(s => [s]);
+  } else if (direction === 'wrap') {
+    subplots = chunkIntoRows(subplotEntries, columns);
   } else {
     subplots = [subplotEntries];
+  }
+
+  return buildMaidr(id, title, subtitle, caption, subplots);
+}
+
+// ---------------------------------------------------------------------------
+// Faceted views (facet operator / encoding shorthand / wrapped facet)
+// ---------------------------------------------------------------------------
+
+/** One facet panel: dataset row filters plus the announced panel title. */
+interface FacetCellDef {
+  filters: Array<[field: string, key: string]>;
+  title: string;
+}
+
+/**
+ * Resolve the raw source dataset (pre-transform rows carrying the facet
+ * fields). Used when the layer's own dataset resolution lands on a table
+ * that lost the facet fields.
+ */
+function resolveSourceRows(
+  spec: VegaLiteSpec,
+  view?: VegaView,
+): Record<string, unknown>[] {
+  if (view) {
+    try {
+      const rows = view.data('source_0');
+      if (Array.isArray(rows) && rows.length > 0)
+        return rows;
+    } catch {
+      // No source dataset — fall through to inline data.
+    }
+  }
+  const data = spec.data as { values?: Record<string, unknown>[] } | undefined;
+  if (data && typeof data === 'object' && Array.isArray(data.values))
+    return data.values;
+  return [];
+}
+
+/**
+ * Resolve one dataset per layer for a **faceted** layered spec, by taking
+ * the compiled `data_<N>` pipelines in ascending order.
+ *
+ * Faceted specs cannot use the exact `layer_<N>_marks` lookup that
+ * {@link resolveMarkItemData} gives non-faceted ones: Vega nests a facet's
+ * marks inside the per-cell group, so `child_layer_<N>_marks` is not a
+ * top-level dataset and `view.data()` rejects it. What Vega does expose at
+ * the top level is one fully-computed pipeline per layer, spanning every
+ * cell — precisely the pre-filter rows the caller slices per cell.
+ *
+ * Name guessing cannot pick those apart. An Altair `transform_density` +
+ * `alt.layer(...)` chart wrapped in a facet compiles to `data_2` / `data_3`
+ * with no `data_0` or `data_1` at top level, so every layer resolves to
+ * `data_2` and each series draws the first layer's curve.
+ *
+ * Deliberately fails closed: it returns rows only when the number of
+ * plausible pipelines matches the number of layers exactly. Any other
+ * count means the mapping is ambiguous — layers sharing one dataset, or an
+ * intermediate pipeline being counted — and the caller keeps its existing
+ * behaviour rather than acting on a guess.
+ *
+ * **The ascending-order rule is empirical, not a documented Vega-Lite
+ * contract.** It is validated against vega 6.3.1 / vega-lite 6.4.x with
+ * two-layer facets, including one whose layers transform asymmetrically
+ * (`facetedAsymmetricLayers.ts`) — the shape that makes a *repeat* spec
+ * number its layers in reverse (`repeatLayeredLine.ts`), which is why the
+ * rule is not extended there. A three-layer facet was measured too
+ * (`facetedThreeLayers.ts`) and falls back rather than mapping: only two
+ * of its layers keep a pipeline spanning every cell, so the coverage check
+ * rejects the third and the count no longer matches.
+ *
+ * Still unverified: a facet where three or more layers *all* keep
+ * full-coverage pipelines, and future compiler versions. The guards keep a
+ * changed numbering scheme falling back rather than misbehaving, but they
+ * cannot catch a reordering that preserves both the count and the
+ * coverage. Re-check against the fixtures before relying on this more
+ * widely.
+ *
+ * @returns One row array per layer, or `undefined` when no unambiguous
+ * mapping exists.
+ */
+/**
+ * True when `rows` contain every facet value the chart renders.
+ *
+ * @param rows - The candidate dataset's rows.
+ * @param expected - Facet field to the full set of its values.
+ */
+function coversEveryFacetValue(
+  rows: Record<string, unknown>[],
+  expected: Map<string, Set<string>>,
+): boolean {
+  for (const [field, values] of expected) {
+    const present = new Set<string>();
+    for (const row of rows)
+      present.add(String(row[field]));
+    for (const value of values) {
+      if (!present.has(value))
+        return false;
+    }
+  }
+  return true;
+}
+
+function resolveFacetLayerDatasets(
+  view: VegaView | undefined,
+  layerCount: number,
+  facetFields: string[],
+  sourceRows: Record<string, unknown>[],
+): Record<string, unknown>[][] | undefined {
+  if (!view || layerCount < 2 || facetFields.length === 0)
+    return undefined;
+
+  // Every facet value the chart will render. Vega registers these in its
+  // compiled domain datasets, which is more reliable than the source rows
+  // (an Altair spec names its data, so `source_0` often does not exist).
+  const expected = new Map<string, Set<string>>();
+  for (const field of facetFields) {
+    const values = new Set<string>();
+    for (const domain of ['column_domain', 'row_domain', 'facet_domain']) {
+      const rows = readViewDataset(view, domain);
+      if (!rows || !(field in rows[0]))
+        continue;
+      for (const row of rows)
+        values.add(String(row[field]));
+    }
+    if (values.size === 0) {
+      for (const row of sourceRows) {
+        if (field in row)
+          values.add(String(row[field]));
+      }
+    }
+    // Without a known domain there is nothing to check coverage against,
+    // and an unchecked mapping is exactly what this guard exists to stop.
+    if (values.size === 0)
+      return undefined;
+    expected.set(field, values);
+  }
+
+  const candidates: { index: number; rows: Record<string, unknown>[] }[] = [];
+  for (const name of getViewDatasetNames(view)) {
+    const match = /^data_(\d+)$/.exec(name);
+    if (!match || isInternalDatasetName(name))
+      continue;
+    const rows = readViewDataset(view, name);
+    if (!rows)
+      continue;
+    const first = rows[0];
+    if (typeof first !== 'object' || first === null || isSceneGraphRow(first))
+      continue;
+    // Facet fields are always groupby keys, so a pipeline that lost them
+    // is an intermediate stage rather than a layer's rendered data.
+    if (!facetFields.every(field => field in first))
+      continue;
+    // And it must span every facet value, because the caller slices it per
+    // cell. Vega also leaves *cell-scoped* datasets registered under
+    // `data_<N>` names — a layer that reads the faceted source directly
+    // never gets a pre-facet pipeline of its own, and the leftovers hold
+    // one cell's rows each. Those pass the field check and can even match
+    // the layer count exactly, so without this the mapping would hand each
+    // layer a single panel's data and blank out every other panel.
+    if (!coversEveryFacetValue(rows, expected))
+      continue;
+    candidates.push({ index: Number(match[1]), rows });
+  }
+
+  if (candidates.length !== layerCount)
+    return undefined;
+  return candidates.sort((a, b) => a.index - b.index).map(c => c.rows);
+}
+
+/**
+ * Build a multi-subplot Maidr for a faceted spec.
+ *
+ * Grid construction: row facet values become grid rows and column facet
+ * values become grid columns, in Vega's layout order (the compiled
+ * `row_domain` / `column_domain` / `facet_domain` datasets when a view is
+ * available, ascending value order otherwise). Wrapped facets chunk the
+ * single facet field's values into rows of `columns` panels. Cross facets
+ * are sparse: Vega only renders a cell for (row, column) combinations
+ * present in the data, so the grid emits exactly those combinations
+ * (rows may be ragged), keeping the subplot order aligned with the
+ * rendered cell order.
+ *
+ * Every panel's layers are converted from the shared child spec with the
+ * resolved dataset pre-filtered down to that panel's facet value(s), and
+ * the panel's first layer title carries the facet value (e.g. `site: A`)
+ * — MAIDR core uses that as the panel display name in subplot summaries.
+ *
+ * Selectors are scoped per panel with a `data-maidr-cell` attribute that
+ * `stampFacetCells` (see `facets.ts`) writes onto each rendered cell at
+ * bind time, because all facet cells share identical Vega mark classes.
+ */
+function buildFacetMaidr(
+  id: string,
+  title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
+  spec: VegaLiteSpec,
+  descriptor: FacetDescriptor,
+  view?: VegaView,
+  domOrder?: 'series-major' | 'subject-major',
+): Maidr {
+  const childSpec = descriptor.childSpec;
+  const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
+  const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
+  const facetFields = [
+    descriptor.rowChannel?.field,
+    descriptor.columnChannel?.field,
+    descriptor.wrapChannel?.field,
+  ].filter((field): field is string => field != null);
+
+  // Resolve each layer's full dataset once; cells filter it below. When a
+  // layer's dataset resolution lands on a table without the facet fields
+  // (they are always groupby keys, so this signals a wrong dataset), fall
+  // back to the raw source rows.
+  // Prefer an unambiguous per-layer mapping over name guessing, which
+  // collapses every layer of a faceted layered spec onto one dataset.
+  const perLayerDatasets = resolveFacetLayerDatasets(
+    view,
+    layerSpecs.length,
+    facetFields,
+    resolveSourceRows(spec, view),
+  );
+  const layerRows = layerSpecs.map((layerSpec, j) => {
+    if (perLayerDatasets)
+      return perLayerDatasets[j];
+    const specForData: VegaLiteSpec = layerSpec.data != null
+      ? layerSpec
+      : { ...layerSpec, data: childSpec.data ?? spec.data };
+    let rows = resolveData(specForData, j, view);
+    if (rows.length > 0 && !facetFields.every(field => field in rows[0])) {
+      const source = resolveSourceRows(spec, view);
+      if (source.length > 0 && facetFields.every(field => field in source[0])) {
+        rows = source;
+      }
+    }
+    return rows;
+  });
+  // Union across ALL layers: a sparse layer declared first (e.g. an
+  // annotation layer covering a subset of facet values) must not hide
+  // panels that a fuller layer's data would produce.
+  const allRows = layerRows.flat();
+
+  // Build the grid of cell definitions in visual reading order.
+  const grid: FacetCellDef[][] = [];
+  if (descriptor.wrapChannel?.field) {
+    const field = descriptor.wrapChannel.field;
+    const keys = resolveDomainKeys(field, allRows, view, 'facet_domain');
+    const cells = keys.map(key => ({
+      filters: [[field, key]] as FacetCellDef['filters'],
+      title: `${field}: ${key}`,
+    }));
+    grid.push(...chunkIntoRows(cells, descriptor.columns));
+  } else {
+    const rowField = descriptor.rowChannel?.field;
+    const colField = descriptor.columnChannel?.field;
+    const rowKeys: (string | null)[] = rowField
+      ? resolveDomainKeys(rowField, allRows, view, 'row_domain')
+      : [null];
+    const colKeys: (string | null)[] = colField
+      ? resolveDomainKeys(colField, allRows, view, 'column_domain')
+      : [null];
+
+    // Cross facets are sparse: Vega only renders cells for (row, column)
+    // combinations present in the data. The combo key is joined with NUL
+    // (which cannot appear in field values) - a bare space would make
+    // row="East Coast"/col="City" collide with row="East"/col="Coast City".
+    const comboKey = (rowValue: unknown, colValue: unknown): string =>
+      `${String(rowValue)}\u0000${String(colValue)}`;
+    const combos = new Set<string>();
+    if (rowField && colField) {
+      for (const row of allRows) {
+        combos.add(comboKey(row[rowField], row[colField]));
+      }
+    }
+
+    for (const rowKey of rowKeys) {
+      const cellsInRow: FacetCellDef[] = [];
+      for (const colKey of colKeys) {
+        if (rowField && colField && !combos.has(comboKey(rowKey, colKey))) {
+          continue;
+        }
+        const filters: FacetCellDef['filters'] = [];
+        const titleParts: string[] = [];
+        if (rowField && rowKey !== null) {
+          filters.push([rowField, rowKey]);
+          titleParts.push(`${rowField}: ${rowKey}`);
+        }
+        if (colField && colKey !== null) {
+          filters.push([colField, colKey]);
+          titleParts.push(`${colField}: ${colKey}`);
+        }
+        cellsInRow.push({ filters, title: titleParts.join(', ') });
+      }
+      if (cellsInRow.length > 0) {
+        grid.push(cellsInRow);
+      }
+    }
+  }
+
+  if (grid.length === 0) {
+    console.warn('[maidr/vegalite] Faceted spec produced no panels (empty data?).');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  const parentEncoding = isLayered ? childSpec.encoding : undefined;
+  const subplots: MaidrSubplot[][] = [];
+  let flatIndex = 0;
+  let hasEmptyPanel = false;
+  for (let r = 0; r < grid.length; r++) {
+    const subplotRow: MaidrSubplot[] = [];
+    for (let c = 0; c < grid[r].length; c++) {
+      const cell = grid[r][c];
+      const scope = facetCellScope(facetCellAttrValue(id, r, c));
+      const rawLayers = layerSpecs.map((layerSpec, j) => {
+        const cellRows = layerRows[j].filter(row =>
+          cell.filters.every(([field, key]) => String(row[field]) === key),
+        );
+        // Skip layers whose rows don't cover this facet value (e.g. an
+        // annotation layer with its own dataset covering only some cells).
+        // convertLayerSpec would happily emit a layer with `data: []`,
+        // and a zero-point trace crashes MAIDR core's state getters the
+        // moment the user PageUp/PageDown's onto it.
+        if (cellRows.length === 0) {
+          return null;
+        }
+        const layer = convertLayerSpec(
+          layerSpec,
+          j,
+          view,
+          parentEncoding,
+          isLayered,
+          domOrder,
+          { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope },
+          cellRows,
+        );
+        return layer ? { layer, spec: layerSpec } : null;
+      }).filter(Boolean) as ConvertedLayer[];
+      const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
+      layers.forEach((layer, j) => {
+        layer.id = `${flatIndex}_${j}`;
+      });
+      if (layers.length === 0) {
+        hasEmptyPanel = true;
+      } else {
+        // The FIRST layer's title is the panel display name in MAIDR's
+        // subplot summaries — announce the facet value(s) there.
+        layers[0].title = cell.title;
+      }
+      subplotRow.push({ layers, selector: `${scope} > path.background` });
+      flatIndex++;
+    }
+    subplots.push(subplotRow);
+  }
+
+  // A panel with zero layers crashes MAIDR core's Subplot model; fall back
+  // to the same single empty figure other unsupported specs produce.
+  if (hasEmptyPanel) {
+    console.warn('[maidr/vegalite] Faceted spec uses an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  return buildMaidr(id, title, subtitle, caption, subplots);
+}
+
+// ---------------------------------------------------------------------------
+// Repeated views (repeat operator)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a multi-subplot Maidr for a `repeat` spec.
+ *
+ * The grid comes straight from the repeat definition: `repeat.row` fields
+ * become grid rows and `repeat.column` fields become grid columns
+ * (row-major); the wrapped array form (`repeat: [...]` + `columns`) is
+ * chunked into rows. Each cell converts the shared child spec with its
+ * `{repeat: ...}` field references substituted for that cell's fields.
+ *
+ * Unlike facets, repeat cells compile to per-cell Vega child views whose
+ * mark classes are already unique *within one chart*
+ * (`child__row_<rf>column_<cf>_marks` etc.), so selectors are class-scoped
+ * and no bind-time stamping is needed. Cross-chart uniqueness (two charts
+ * built from the same repeated fields compile to identical class names) is
+ * handled at bind time, where `bindVegaLite` prefixes every selector with
+ * the chart container's id.
+ */
+function buildRepeatMaidr(
+  id: string,
+  title: string,
+  subtitle: string | undefined,
+  caption: string | undefined,
+  spec: VegaLiteSpec,
+  descriptor: RepeatDescriptor,
+  view?: VegaView,
+  domOrder?: 'series-major' | 'subject-major',
+): Maidr {
+  const childSpec = descriptor.childSpec;
+
+  // Grid of per-cell field mappings in reading order.
+  interface RepeatCellDef { mapping: RepeatCellMapping; title: string }
+  let grid: RepeatCellDef[][];
+  if (descriptor.wrapFields) {
+    const cells = descriptor.wrapFields.map(field => ({
+      mapping: { repeat: field },
+      title: field,
+    }));
+    grid = chunkIntoRows(cells, descriptor.columns);
+  } else {
+    const rowFields: (string | undefined)[] = descriptor.rowFields ?? [undefined];
+    const colFields: (string | undefined)[] = descriptor.columnFields ?? [undefined];
+    grid = rowFields.map(rowField => colFields.map((colField) => {
+      const mapping: RepeatCellMapping = {};
+      if (rowField !== undefined) {
+        mapping.row = rowField;
+      }
+      if (colField !== undefined) {
+        mapping.column = colField;
+      }
+      const cellTitle = rowField !== undefined && colField !== undefined
+        ? `${rowField} vs ${colField}`
+        : rowField ?? colField ?? '';
+      return { mapping, title: cellTitle };
+    }));
+  }
+
+  if (grid.length === 0) {
+    console.warn('[maidr/vegalite] Repeat spec produced no panels.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
+  }
+
+  // Track a global layer counter for dataset-name guessing, mirroring
+  // buildConcatMaidr: Vega numbers `data_<k>` datasets sequentially across
+  // the whole compiled spec, not per repeated child.
+  let globalLayerIndex = 0;
+  let flatIndex = 0;
+  let hasEmptyPanel = false;
+
+  const subplots: MaidrSubplot[][] = grid.map(rowCells => rowCells.map((cell) => {
+    const cellSpec = substituteRepeatFields(childSpec, cell.mapping);
+    if (cellSpec.data == null) {
+      cellSpec.data = spec.data;
+    }
+    const childName = repeatChildName(cell.mapping);
+    const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
+    const layerSpecs = isLayered ? cellSpec.layer! : [cellSpec];
+    const parentEncoding = isLayered ? cellSpec.encoding : undefined;
+
+    const rawLayers = layerSpecs.map((layerSpec, j) => {
+      const specForData: VegaLiteSpec = layerSpec.data != null
+        ? layerSpec
+        : { ...layerSpec, data: cellSpec.data };
+      const layer = convertLayerSpec(
+        specForData,
+        globalLayerIndex,
+        view,
+        parentEncoding,
+        isLayered,
+        domOrder,
+        { layerIndex: j, markGroupPrefix: `${childName}_` },
+      );
+      globalLayerIndex++;
+      return layer ? { layer, spec: specForData } : null;
+    }).filter(Boolean) as ConvertedLayer[];
+    const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
+    layers.forEach((layer, j) => {
+      layer.id = `${flatIndex}_${j}`;
+    });
+    if (layers.length === 0) {
+      hasEmptyPanel = true;
+    } else {
+      layers[0].title = cell.title;
+    }
+    flatIndex++;
+    return {
+      layers,
+      selector: `g.mark-group.role-scope.${childName}_group > g > path.background`,
+    };
+  }));
+
+  if (hasEmptyPanel) {
+    console.warn('[maidr/vegalite] Repeat spec uses an unsupported mark type.');
+    return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
 
   return buildMaidr(id, title, subtitle, caption, subplots);

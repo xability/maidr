@@ -2,13 +2,14 @@ import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/gra
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { extremeStat, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -157,21 +158,17 @@ export class ViolinBoxTrace extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
       { label: 'Sections', value: this.sections.join(', ') },
-      { label: 'Min', value: this.min },
-      { label: 'Max', value: this.max },
+      ...this.rangeStats(),
     ];
 
     const headers = ['Group', ...this.sections];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
 
-    const rows: (string | number)[][] = this.points.map((point, pointIdx) => {
+    const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
         const value = isHorizontal
           ? this.boxValues[pointIdx]?.[sectionIdx]
           : this.boxValues[sectionIdx]?.[pointIdx];
-        if (Array.isArray(value)) {
-          return value.join(', ');
-        }
         return value ?? '';
       });
       return [point.z, ...sectionValues];
@@ -186,7 +183,43 @@ export class ViolinBoxTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  /**
+   * Builds the range rows of the summary.
+   *
+   * Each violin carries its own ends, so a single chart-wide Min/Max pair reads
+   * as though a chart of several violins had one minimum and one maximum. Each
+   * extreme is instead attributed to the violin it came from, and the per-group
+   * breakdown is left to the data table below.
+   *
+   * Only sections the violin actually draws get a row. The minimum is always
+   * drawn, but the maximum rides on `showExtrema`, and naming a maximum the
+   * user cannot navigate to would describe a section that is not there.
+   *
+   * @returns The range rows, minus any whose section this violin omits.
+   */
+  private rangeStats(): DescriptionState['stats'] {
+    const stats = [
+      extremeStat(
+        this.points,
+        { single: 'Minimum', grouped: 'Lowest minimum' },
+        p => p.min,
+        isLower,
+      ),
+    ];
+
+    if (this.sections.includes(BoxplotSection.MAX)) {
+      stats.push(extremeStat(
+        this.points,
+        { single: 'Maximum', grouped: 'Highest maximum' },
+        p => p.max,
+        isHigher,
+      ));
+    }
+
+    return stats;
+  }
+
+  public override dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
@@ -197,10 +230,11 @@ export class ViolinBoxTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // boxValues is orientation-normalized (row = navigation row, col =
+    // navigation col), so rows/cols map directly to its shape.
     return {
-      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row]?.length ?? 0,
-      cols: isHorizontal ? this.boxValues[this.row]?.length ?? 0 : this.boxValues.length,
+      rows: this.boxValues.length,
+      cols: this.boxValues[this.row]?.length ?? 0,
     };
   }
 
@@ -335,7 +369,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   /**
    * Returns the violin index for layer switching.
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     if (this.orientation === Orientation.VERTICAL) {
       return this.col >= 0 ? this.col : null;
     }
@@ -345,7 +379,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   /**
    * Moves to a violin index, resetting to MIN section.
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -622,7 +656,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     if (!original) {
       return Svg.createEmptyElement();
     }
-    const clone = original.cloneNode(true) as SVGElement;
+    const clone = Svg.markOwned(original.cloneNode(true) as SVGElement);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     original.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
@@ -659,7 +693,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     if (!this.highlightCenters) {
       return null;
     }
@@ -684,17 +718,29 @@ export class ViolinBoxTrace extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
   /**
-   * Disabled for violin box plots.
+   * Hover-driven movement is disabled for violin box plots, but pointer
+   * guidance still surfaces directional cues toward the nearest element.
+   *
+   * Parameters retained on the signature (rather than the zero-arg form
+   * TypeScript permits) so the override matches the base contract at a
+   * glance.
    */
-  public moveToPoint(_x: number, _y: number): void {
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    _nearest: NearestPoint,
+    _onCurve: boolean,
+  ): void {
     // Disabled for violin box plots
   }
 
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;

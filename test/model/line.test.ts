@@ -1,5 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer } from '@type/grammar';
+import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { LineTrace } from '@model/line';
 import { TraceType } from '@type/grammar';
@@ -29,6 +30,19 @@ function createLineLayer(data: MaidrLayer['data']): MaidrLayer {
  */
 function getIntersectionTargets(targets: ExtremaTarget[]): ExtremaTarget[] {
   return targets.filter(target => target.type === 'intersection');
+}
+
+/**
+ * Read the trace's current state, asserting it is a populated one.
+ * @param trace The trace to read
+ * @returns The non-empty trace state
+ */
+function nonEmptyState(trace: LineTrace): NonEmptyTraceState {
+  const state = trace.state;
+  if (state.empty) {
+    throw new Error('Expected a non-empty trace state');
+  }
+  return state;
 }
 
 describe('LineTrace intersection classification', () => {
@@ -242,5 +256,174 @@ describe('LineTrace intersection rotor navigation', () => {
 
     expect(trace.moveToNextIntersection()).toBe(false);
     expect(trace.moveToPrevIntersection()).toBe(false);
+  });
+});
+
+describe('LineTrace intersections with categorical x values', () => {
+  // Shape mirrors a candlestick moving-average layer: x values are date
+  // strings and lines start at different offsets (longer windows begin later).
+
+  test('navigates to a shared sampled point across offset date-string lines', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: '2019-11-01', y: 3, z: 'MA short' },
+        { x: '2019-11-04', y: 4, z: 'MA short' },
+        { x: '2019-11-05', y: 5, z: 'MA short' },
+        { x: '2019-11-06', y: 4, z: 'MA short' },
+      ],
+      [
+        { x: '2019-11-04', y: 6, z: 'MA long' },
+        { x: '2019-11-05', y: 5, z: 'MA long' },
+        { x: '2019-11-06', y: 6, z: 'MA long' },
+      ],
+    ]));
+    trace.col = 0;
+
+    // Both lines sample (2019-11-05, 5); rotor navigation must land there.
+    expect(trace.moveToNextIntersection()).toBe(true);
+    expect(trace.col).toBe(2);
+
+    expect(trace.moveToNextIntersection()).toBe(false);
+    expect(trace.col).toBe(2);
+
+    trace.col = 3;
+    expect(trace.moveToPrevIntersection()).toBe(true);
+    expect(trace.col).toBe(2);
+  });
+
+  test('classifies date-string intersections and labels them with the nearest x value', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: '2019-11-01', y: 0 },
+        { x: '2019-11-04', y: 2 },
+      ],
+      [
+        { x: '2019-11-01', y: 2 },
+        { x: '2019-11-04', y: 0 },
+      ],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    // A segment-only crossing between the two dates: slope intersection whose
+    // label shows the nearest sampled date, not a raw ordinal coordinate.
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].intersectionKind).toBe('slope');
+    expect(intersections[0].label).toContain('x=2019-11-01');
+  });
+
+  test('classifies a shared date-string sample as a point intersection', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: '2019-11-01', y: 0 },
+        { x: '2019-11-04', y: 1 },
+        { x: '2019-11-05', y: 0 },
+      ],
+      [
+        { x: '2019-11-01', y: 1 },
+        { x: '2019-11-04', y: 1 },
+        { x: '2019-11-05', y: 2 },
+      ],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].intersectionKind).toBe('point');
+    expect(intersections[0].label).toContain('x=2019-11-04');
+  });
+
+  test('falls back to the exhaustive scan for lines not sorted by x', () => {
+    // The other line's x values run backwards, so the sorted sweep cannot be
+    // used; the fallback path must still find the crossing at (5, 5).
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+      ],
+      [
+        { x: 10, y: 0 },
+        { x: 0, y: 10 },
+      ],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].intersectionKind).toBe('slope');
+    expect(intersections[0].value).toBe(5);
+  });
+});
+
+describe('lineTrace ordinal levels', () => {
+  /**
+   * A hypnogram drawn as a line rather than as steps: the y values are level
+   * codes, and the names of those levels ride alongside as `label`.
+   */
+  const HYPNOGRAM: MaidrLayer['data'] = [[
+    { x: 0, y: 3, label: 'Awake' },
+    { x: 1, y: 1, label: 'N2' },
+    { x: 2, y: 2, label: 'REM' },
+  ]];
+
+  test('announces the level name instead of the numeric level', () => {
+    const trace = new LineTrace(createLineLayer(HYPNOGRAM));
+    trace.moveOnce('FORWARD');
+
+    const { text } = nonEmptyState(trace);
+    expect(text.cross).toEqual({ label: 'Y', value: 'Awake' });
+    expect(text.main).toEqual({ label: 'X', value: 0 });
+  });
+
+  test('falls back to the numeric value when the data names no level', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 3 },
+      { x: 1, y: 1 },
+    ]]));
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.cross).toEqual({ label: 'Y', value: 3 });
+  });
+
+  test('treats an empty level name as absent rather than announcing nothing', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 3, label: '' },
+      { x: 1, y: 1, label: '' },
+    ]]));
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.cross).toEqual({ label: 'Y', value: 3 });
+  });
+
+  test('sonifies and brailles the numeric level, not the name', () => {
+    const trace = new LineTrace(createLineLayer(HYPNOGRAM));
+    trace.moveOnce('FORWARD');
+
+    const { audio, braille } = nonEmptyState(trace);
+    expect(audio.freq).toEqual({ min: 1, max: 3, raw: 3 });
+    expect(braille).toMatchObject({
+      empty: false,
+      values: [[3, 1, 2]],
+      min: [1],
+      max: [3],
+    });
+  });
+
+  test('keeps the series name alongside the level name on a multi-series line', () => {
+    const trace = new LineTrace(createLineLayer([
+      [
+        { x: 0, y: 3, label: 'Awake', z: 'Night one' },
+        { x: 1, y: 1, label: 'N2', z: 'Night one' },
+      ],
+      [
+        { x: 0, y: 2, label: 'REM', z: 'Night two' },
+        { x: 1, y: 1, label: 'N2', z: 'Night two' },
+      ],
+    ]));
+    trace.moveOnce('FORWARD');
+
+    const { text } = nonEmptyState(trace);
+    expect(text.cross).toEqual({ label: 'Y', value: 'Awake' });
+    expect(text.z).toEqual({ label: 'Group', value: 'Night one' });
   });
 });

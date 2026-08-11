@@ -2,9 +2,33 @@ name: Scheduled Playwright Tests
 
 on:
   schedule:
-    # Run every 2 days at 9 PM CDT (2 AM UTC next day)
-    - cron: '0 2 */2 * *'
+    # Every 2 days at 9:37 PM CDT (2:37 AM UTC next day).
+    #
+    # Off the hour on purpose: minute 0 is the busiest slot on GitHub's
+    # scheduler and scheduled runs queued there are routinely delayed, which
+    # for a 60-minute suite means the delay competes with the timeout.
+    - cron: '37 2 */2 * *'
   workflow_dispatch: # Allow manual triggering
+
+# One run at a time. Two overlapping runs — a manual dispatch started while a
+# scheduled run is still going — both read the open failure issues, and both
+# then close and comment on the same ones, because each fetched its list
+# before the other had closed anything. The result is duplicate "green again"
+# comments on an issue that only went green once.
+#
+# cancel-in-progress must stay false. Cancelling the running suite would be
+# worse than the race: the report step treats a cancelled run as a failure,
+# so a manual dispatch would file a failure issue about the run it just
+# interrupted. Queuing costs at most one delayed run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # The report step files and updates the rolling report issue, and on a green
+  # run also closes and comments on the failure issues it had filed.
+  issues: write
 
 jobs:
   test:
@@ -16,10 +40,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # `lts/*` rather than a pin, to match every job in ci.yml. The scheduled
+      # suite and the chromium job that gates PRs then run the same Node, so a
+      # scheduled failure is reproducible from a pull request instead of
+      # possibly being a version difference nothing reports on.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 'lts/*'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -27,73 +56,63 @@ jobs:
       - name: Install Playwright browsers
         run: npm run e2e:install
 
+      # The specs drive the example pages against the built bundles via
+      # file://, and dist/ is gitignored — without this step every test
+      # fails on a fresh checkout.
+      - name: Build library
+        run: npm run build
+
+      # continue-on-error so the report step below always gets the output;
+      # the final step re-raises the failure. tee captures the list-reporter
+      # output into the file the report step reads — outside playwright-report/,
+      # which the html reporter wipes when it writes.
       - name: Run Playwright tests
-        run: npm run e2e
+        id: e2e
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee test-results.txt
         env:
           CI: true
+
+      # The issue below carries the reporter's text; this carries the traces
+      # `retain-on-failure` writes, which the issue cannot.
+      #
+      # `always() && != 'success'` rather than `failure()`: continue-on-error on
+      # the step above masks its conclusion to success, so `failure()` would
+      # never fire — only `outcome` keeps the real result — and `always()` stops
+      # this being skipped when the job is cancelled. Not skipped is not the
+      # same as reached, though: the 60-minute timeout force-kills after
+      # cancelling, so this runs only if the tests exit inside the grace window.
+      #
+      # Failure-only, narrower than the deleted e2e.yml's `always()`: a passing
+      # run has no traces, and its text is already in the issue.
+      - name: Upload Playwright report
+        if: always() && steps.e2e.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
 
       - name: Create or update test report issue
         if: always()
         uses: actions/github-script@v7
+        env:
+          TEST_STATUS: ${{ steps.e2e.outcome }}
         with:
           script: |
-            const fs = require('fs');
-            const { repo, owner } = context.repo;
-            const run_id = context.runId;
-            const run_url = `https://github.com/${owner}/${repo}/actions/runs/${run_id}`;
+            // The body lives in scripts/ci/e2eReport.cjs so that eslint and the
+            // unit suite can reach it directly. Absolute path via the workspace:
+            // github-script resolves a relative require against its own action
+            // directory, not the checkout. See issue #694.
+            const report = require(`${process.env.GITHUB_WORKSPACE}/scripts/ci/e2eReport.cjs`);
+            await report({ github, context, core });
 
-            // Generate report content
-            const reportContent = [
-              '## Test Execution Report',
-              `Date: ${new Date().toISOString()}`,
-              `Repository: ${context.repo.owner}/${context.repo.repo}`,
-              `Branch: ${context.ref}`,
-              `Commit: ${context.sha}`,
-              '',
-              '### Test Results',
-              '```',
-              fs.readFileSync('playwright-report/test-results.txt', 'utf8'),
-              '```',
-              '',
-              `[View Workflow Run](${run_url})`
-            ].join('\n');
-
-            // Determine issue title and labels based on test status
-            const isFailure = process.env.TEST_STATUS === 'failure';
-            const title = isFailure
-              ? `test: Some e2e tests failed - ${new Date().toISOString()}`
-              : `Test Report - ${new Date().toISOString()}`;
-            const labels = isFailure ? ['test-failure'] : ['test-report'];
-
-            // Search for existing issue
-            const issues = await github.rest.issues.listForRepo({
-              owner,
-              repo,
-              labels,
-              state: 'open'
-            });
-
-            const existingIssue = issues.data.find(issue =>
-              issue.title.includes(isFailure ? 'test: Some e2e tests failed' : 'Test Report') &&
-              issue.body.includes(run_url)
-            );
-
-            if (existingIssue) {
-              // Update existing issue
-              await github.rest.issues.update({
-                owner,
-                repo,
-                issue_number: existingIssue.number,
-                title,
-                body: reportContent
-              });
-            } else {
-              // Create new issue
-              await github.rest.issues.create({
-                owner,
-                repo,
-                title,
-                body: reportContent,
-                labels
-              });
-            }
+      # The test step ran with continue-on-error so the report above always
+      # publishes; surface the real outcome as the workflow conclusion.
+      - name: Propagate test outcome
+        if: steps.e2e.outcome != 'success'
+        run: exit 1

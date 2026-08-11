@@ -62,10 +62,33 @@ export {
 export { Maidr, type MaidrProps } from './maidr-component';
 
 /**
+ * Realtime/streaming data API.
+ *
+ * React consumers of live charts (`live: true` in the data) can either pass
+ * an updated `data` prop (full replacement, equivalent to `setData`) or push
+ * incremental points imperatively:
+ *
+ * @example
+ * ```tsx
+ * import { appendMaidrData } from 'maidr/react';
+ *
+ * // Stream a new point into the chart with id 'sensor-chart'.
+ * appendMaidrData({ x: Date.now(), y: reading }, { id: 'sensor-chart' });
+ * ```
+ */
+export {
+  type AppendDataOptions,
+  appendMaidrData,
+  type LiveDataPoint,
+  type MaidrLiveApi,
+  setMaidrData,
+} from './service/liveData';
+
+/**
  * Re-exported types for constructing the MAIDR data prop.
  * `MaidrData` is the root type passed to `<Maidr data={...}>`.
  */
-export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from './type/grammar';
+export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot, NavigateCallback } from './type/grammar';
 
 /**
  * Re-exported enums for specifying plot trace types and orientations.

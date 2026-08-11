@@ -24,6 +24,7 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Toggle Text Mode                        | T                           | T                           |
 | Toggle Review Mode                      | R                           | R                           |
 | Toggle High Contrast Mode               | C                           | C                           |
+| Toggle Monitor Mode (live charts)       | M                           | M                           |
 | Repeat current sound                    | Space                       | Space                       |
 | Auto-play outward in direction of arrow | Control + Shift + Arrow key | Command + Shift + Arrow key |
 | Stop Auto-play                          | Control                     | Command                     |
@@ -32,6 +33,10 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
+
+## Monitor Mode (Live Charts)
+
+On charts configured with `live: true`, press **M** to toggle monitor mode. While monitoring is on, every newly streamed data point is automatically sonified and announced by your screen reader without moving your current position. See the [Live & Streaming Data](LIVE_DATA.html) guide for details.
 
 ## Label Mode (Announce Axis Labels)
 

@@ -57,15 +57,21 @@ export function markToCssClass(mark: string): string {
  * with a single user-visible mark may produce a `.layer_0_marks`
  * group instead of `.marks`. Trying both patterns in the same
  * selector avoids having to detect each Vega expansion in the converter.
+ *
+ * `markGroupPrefix` scopes the mark-group class tokens to a composite
+ * child. Vega-Lite compiles concat children to `concat_<i>_marks` /
+ * `concat_<i>_layer_<j>_marks` classes, so callers pass `concat_<i>_`
+ * to match them. Defaults to `''` for single-view and layered specs.
  */
 export function buildSelector(
   mark: string,
   layerIndex: number,
   isLayered: boolean,
+  markGroupPrefix = '',
 ): string {
   const cssClass = markToCssClass(mark);
   const childElement = mark === 'tick' ? 'line' : 'path';
-  const layeredClass = `layer_${layerIndex}_marks`;
+  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
   if (isLayered) {
     // Layered specs always render as `.layer_N_marks`; no fallback needed.
     return `g.${cssClass}.role-mark.${layeredClass} ${childElement}`;
@@ -74,7 +80,7 @@ export function buildSelector(
   // `.layer_0_marks` when mark sugar (e.g. `mark.point: true`) expands
   // into siblings. Cover both.
   return (
-    `g.${cssClass}.role-mark.marks ${childElement}, `
+    `g.${cssClass}.role-mark.${markGroupPrefix}marks ${childElement}, `
     + `g.${cssClass}.role-mark.${layeredClass} ${childElement}`
   );
 }
@@ -107,15 +113,19 @@ export function buildSelector(
  * selector matching every line `<path>` under any line-mark group; the
  * caller (`LineTrace.mapViaPathParsing`) is expected to resolve the Nth
  * series via document-order indexing (`Svg.selectNthElement(sel, r)`).
+ *
+ * `markGroupPrefix` scopes the mark-group class tokens to a composite
+ * child (e.g. `concat_<i>_` for concat children). Defaults to `''`.
  */
 export function buildLineSelectors(
   mark: string,
   seriesCount: number,
   layerIndex: number,
   isLayered: boolean,
+  markGroupPrefix = '',
 ): string[] {
   const cssClass = markToCssClass(mark);
-  const layeredClass = `layer_${layerIndex}_marks`;
+  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
   const selectors: string[] = [];
   for (let i = 0; i < seriesCount; i++) {
     if (isLayered) {
@@ -134,7 +144,7 @@ export function buildLineSelectors(
       // so `:nth-child(2)` etc. never match. The caller picks the rth
       // match in document order via Svg.selectNthElement.
       selectors.push(
-        `g.${cssClass}.role-mark.marks > path, `
+        `g.${cssClass}.role-mark.${markGroupPrefix}marks > path, `
         + `g.${cssClass}.role-mark.${layeredClass} > path`,
       );
     }

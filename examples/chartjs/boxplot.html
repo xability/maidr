@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Boxplot Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <!--
+      @sgratzl/chartjs-chart-boxplot adds 'boxplot' and 'violin' chart types
+      to Chart.js. The v4 UMD bundle auto-registers its controllers and
+      elements, so no extra Chart.register call is required for the boxplot
+      itself.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Boxplot</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="boxplot-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // Each data entry already provides pre-computed quartiles and the
+      // raw outlier set. The MAIDR extractor splits `outliers` into
+      // lowerOutliers (< min) and upperOutliers (> max) when building
+      // BoxPoint entries.
+      new Chart(document.getElementById('boxplot-chart'), {
+        type: 'boxplot',
+        data: {
+          labels: ['Group A', 'Group B', 'Group C'],
+          datasets: [{
+            label: 'Distribution',
+            data: [
+              { min: 15, q1: 25, median: 35, q3: 45, max: 55, outliers: [5, 8, 62, 70] },
+              { min: 20, q1: 30, median: 42, q3: 52, max: 65, outliers: [12, 72] },
+              { min: 10, q1: 22, median: 30, q3: 40, max: 50, outliers: [58] },
+            ],
+            backgroundColor: 'rgba(135, 206, 235, 0.5)',
+            borderColor: 'rgb(135, 206, 235)',
+            borderWidth: 1,
+          }],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Distribution by Group' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Group' } },
+            y: { title: { display: true, text: 'Value' }, beginAtZero: true },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
