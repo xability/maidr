@@ -392,6 +392,16 @@ const GRID_CELL_KEYMAP = {
   GRID_CELL_MOVE_LEFT: key('left', 'Navigate Left in Cell', { showInHelp: false }),
   GRID_CELL_MOVE_RIGHT: key('right', 'Navigate Right in Cell', { showInHelp: false }),
   EXIT_GRID_CELL: key('esc', 'Exit Grid Cell', { showInHelp: false }),
+
+  // Sweeping a dense cell is the whole reason for entering one, so autoplay
+  // has to be reachable here. Horizontal only: a cell's points are one list,
+  // and up/down are not bound above either.
+  AUTOPLAY_FORWARD: key(`${Platform.ctrl}+shift+right`, 'Autoplay Forward', { helpKey: `${Platform.ctrl} + shift + right` }),
+  AUTOPLAY_BACKWARD: key(`${Platform.ctrl}+shift+left`, 'Autoplay Backward', { helpKey: `${Platform.ctrl} + shift + left` }),
+  STOP_AUTOPLAY: key(`${Platform.ctrl}, left, right`, 'Stop Autoplay', { helpKey: `${Platform.ctrl}` }),
+  SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
+  SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
+  RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 } as const;
 
 /**
