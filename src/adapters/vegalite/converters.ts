@@ -608,6 +608,36 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
  *     with an `innerRadius`, and reads identically)
  */
+/**
+ * Reads the `stack` setting a spec declares, from whichever axis carries it.
+ *
+ * `??` cannot do this job, and the difference is not cosmetic: Vega-Lite
+ * spells "do not stack" as either `false` or `null`, and a nullish coalesce
+ * discards the `null` before any check can see it, falls through to the other
+ * axis, and reports `undefined` — which every caller reads as "stack by
+ * default", the exact opposite of what the spec asked for.
+ *
+ * `undefined` here therefore means "no axis declared one", and only that.
+ *
+ * @param encoding - The layer's encoding, when it has one
+ * @returns The declared stack setting, or undefined when none is declared
+ */
+function declaredStack(encoding?: VegaLiteEncoding): unknown {
+  return encoding?.y?.stack !== undefined
+    ? encoding.y.stack
+    : encoding?.x?.stack;
+}
+
+/**
+ * Whether a declared stack setting turns stacking off.
+ *
+ * @param stack - The value {@link declaredStack} returned
+ * @returns True when the spec asked for unstacked marks
+ */
+function isUnstacked(stack: unknown): boolean {
+  return stack === false || stack === null;
+}
+
 function resolveTraceType(
   mark: string,
   encoding?: VegaLiteEncoding,
@@ -619,13 +649,13 @@ function resolveTraceType(
         return TraceType.HISTOGRAM;
       }
       if (encoding?.color?.field || encoding?.fill?.field) {
-        const stack = encoding?.y?.stack ?? encoding?.x?.stack;
+        const stack = declaredStack(encoding);
         // `xOffset` (or `yOffset`) with a field is the modern Vega-Lite way
         // to dodge bars side-by-side. Treat its presence as a DODGED hint
         // even when `stack` is not explicitly disabled.
         const hasOffsetField
           = !!encoding?.xOffset?.field || !!encoding?.yOffset?.field;
-        if (hasOffsetField || stack === false || stack === null) {
+        if (hasOffsetField || isUnstacked(stack)) {
           return TraceType.DODGED;
         }
         if (stack === 'normalize') {
@@ -643,19 +673,12 @@ function resolveTraceType(
     // be turned *off* to get overlapping bands — so the default branch here
     // is the stacked one, the opposite of `bar` above.
     case 'area': {
-      // `??` cannot read this pair: Vega-Lite spells "do not stack" as either
-      // `false` or `null`, and a nullish coalesce discards the `null` before
-      // it can be seen, falling through to the other axis and reporting
-      // `undefined` — which reads as "stack by default" and is the opposite
-      // of what the spec asked for.
-      const stack = encoding?.y?.stack !== undefined
-        ? encoding.y.stack
-        : encoding?.x?.stack;
+      const stack = declaredStack(encoding);
       if (stack === 'normalize') {
         return TraceType.NORMALIZED_AREA;
       }
       const hasSeries = !!encoding?.color?.field || !!encoding?.fill?.field;
-      if (hasSeries && stack !== false && stack !== null) {
+      if (hasSeries && !isUnstacked(stack)) {
         return TraceType.STACKED_AREA;
       }
       // Unstacked, so the bands are independent and each reads as its own
