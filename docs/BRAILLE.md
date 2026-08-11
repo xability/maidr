@@ -436,6 +436,42 @@ same half of it.
 
 Gantt charts use one line per lane on a multiline display, so several lanes'
 workloads can be compared with one sweep rather than by toggling between rows.
+## Parallel coordinates
+
+One row per observation, one cell per axis, each row scaled from 0 to 1.
+
+The scaling is the whole point, and it happens **before** the encoder sees the
+data. Every other multi-row trace hands the encoder raw values and lets it
+scale each row against that row's own extent, which is right when a row is one
+quantity sampled repeatedly. A parallel coordinates row is not: it holds one
+observation across every variable, so scaling it row-wise would compare a car's
+fuel economy against its own kerb weight, and the cell heights would encode
+which variable happens to use bigger numbers rather than anything about the
+car.
+
+So the trace normalizes first. Each cell is its value's position **on its own
+axis**, which is exactly what the pitch plays and what the chart draws. A row
+of the display is then that observation's profile across the variables, and two
+rows can be compared cell by cell:
+
+```
+⠉⠉⣀    high economy, high power, low weight
+⣀⣀⠉    low economy, low power, high weight
+```
+
+Two rows whose heights swap between adjacent cells are the crossing lines that
+mean negative correlation — the pattern the chart is drawn for, available by
+touch as well as by ear.
+
+An axis whose observations all share one value has no spread to place anything
+within, so every cell on it sits at the midpoint. Both extremes would claim a
+rank the data does not support.
+
+### Multiline Displays
+
+Parallel coordinates use one line per observation on a multiline display, so
+several observations' profiles can be compared with one sweep rather than by
+toggling between rows.
 
 ## Multiline Braille Display Support
 

@@ -698,7 +698,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       (traceType === TraceType.LINE
         || traceType === TraceType.STEP
         || traceType === TraceType.RADAR
-        || traceType === TraceType.POLAR_AREA)
+        || traceType === TraceType.POLAR_AREA
+        || traceType === TraceType.PARALLEL)
       && state.groupCount
       && state.groupCount > 1
     ) {
@@ -716,7 +717,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // Without this the announcement falls through to the generic 2-D one
         // -- "column 3 of 4, row 2 of 2" -- which drops the series name a
         // reader needs to know which outline they are tracing.
-        traceType === TraceType.LINE ? 'Line' : 'Series',
+        traceType === TraceType.LINE
+          ? 'Line'
+          : traceType === TraceType.PARALLEL ? 'Observation' : 'Series',
       );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird

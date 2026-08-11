@@ -12,6 +12,7 @@ import { GaugeTrace } from './gauge';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
+import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
 import { ScatterTrace } from './scatter';
@@ -72,6 +73,9 @@ export abstract class TraceFactory {
 
       case TraceType.LINE:
         return new LineTrace(layer);
+
+      case TraceType.PARALLEL:
+        return new ParallelTrace(layer);
 
       case TraceType.PIE:
         return new PieTrace(layer);
