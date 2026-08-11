@@ -15,6 +15,10 @@ describe('resolveOrientation', () => {
     // The interval runs along the value axis and the samples along the other,
     // so which way round they are drawn decides which axis a bound moves on.
     TraceType.ERROR_BAR,
+    // Lanes run one way and the axis the other, so which way round they are
+    // drawn decides which axis an interval's ends move on. A timeline drawn
+    // down the page is the ordinary alternative, not an exotic one.
+    TraceType.GANTT,
     TraceType.HISTOGRAM,
     TraceType.NORMALIZED,
     TraceType.STACKED,

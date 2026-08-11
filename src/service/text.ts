@@ -540,7 +540,21 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis values.
-    if (!Array.isArray(state.cross.value)) {
+    //
+    // A span on the cross axis replaces the single value, the same way
+    // `state.range` replaces the main one for a histogram bin. A gantt
+    // interval is the case: what the chart draws is a start and an end, and
+    // announcing either alone names one edge of a bar as though it were the
+    // bar. Every trace that carries one value is unaffected -- `crossRange`
+    // is absent on all of them.
+    if (state.crossRange !== undefined) {
+      verbose.push(
+        Constant.IS,
+        this.formatSingleValue(state.crossRange.min, crossAxisType),
+        Constant.THROUGH,
+        this.formatSingleValue(state.crossRange.max, crossAxisType),
+      );
+    } else if (!Array.isArray(state.cross.value)) {
       verbose.push(Constant.IS, this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else if (state.cross.value.length > 1) {
       verbose.push(Constant.ARE, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));

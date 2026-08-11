@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Gantt Chart Example — Project Schedule</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A schedule is the chart with no workable fallback. Most unsupported
+        chart types degrade to a table or a sentence; this one does not,
+        because what a reader wants from it is relational - what overlaps
+        what, what hands over to what, where the slack is - and those facts
+        grow with the square of the task count.
+
+        So the two channels carry the two questions. Pitch is the length, and
+        stereo position is the start, mapped along the whole axis rather than
+        by column index. Build starts exactly where Design's first bar ends,
+        so the handover is audible as a pitch change at the same pan; Review
+        runs inside Build, so the overlap is two lanes sounding from nearly
+        the same place. Launch is empty on purpose: a lane with nothing
+        booked is a real statement about a schedule, and it is the one row a
+        reader can enter and hear nothing from.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="gantt-project-schedule" maidr='{&#10;  &quot;id&quot;: &quot;gantt-project-schedule&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;gantt-project-schedule-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;gantt-project-schedule-layer&quot;,&#10;            &quot;type&quot;: &quot;gantt&quot;,&#10;            &quot;title&quot;: &quot;Project Schedule&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Day&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Phase&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;gantt-bars&#x27;] &gt; rect&quot;,&#10;            &quot;data&quot;: {&#10;              &quot;unit&quot;: &quot;days&quot;,&#10;              &quot;points&quot;: [&#10;                [&#10;                  {&#10;                    &quot;x&quot;: &quot;Design&quot;,&#10;                    &quot;start&quot;: 0,&#10;                    &quot;end&quot;: 30,&#10;                    &quot;label&quot;: &quot;Wireframes&quot;&#10;                  },&#10;                  {&#10;                    &quot;x&quot;: &quot;Design&quot;,&#10;                    &quot;start&quot;: 60,&#10;                    &quot;end&quot;: 75,&#10;                    &quot;label&quot;: &quot;Revisions&quot;&#10;                  }&#10;                ],&#10;                [&#10;                  {&#10;                    &quot;x&quot;: &quot;Build&quot;,&#10;                    &quot;start&quot;: 30,&#10;                    &quot;end&quot;: 100,&#10;                    &quot;label&quot;: &quot;Implementation&quot;&#10;                  }&#10;                ],&#10;                [&#10;                  {&#10;                    &quot;x&quot;: &quot;Review&quot;,&#10;                    &quot;start&quot;: 75,&#10;                    &quot;end&quot;: 90&#10;                  }&#10;                ],&#10;                []&#10;              ]&#10;            }&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="gantt-bars">
+          <rect x="180.0" y="110" width="144.0" height="24" rx="3" style="fill: #4c72b0" />
+          <rect x="468.0" y="110" width="72.0" height="24" rx="3" style="fill: #4c72b0" />
+          <rect x="324.0" y="170" width="336.0" height="24" rx="3" style="fill: #4c72b0" />
+          <rect x="540.0" y="230" width="72.0" height="24" rx="3" style="fill: #4c72b0" />
+            </g>
+            <g id="axis_y">
+          <text x="168" y="126" style="font: 14px sans-serif; text-anchor: end">Design</text>
+          <text x="168" y="186" style="font: 14px sans-serif; text-anchor: end">Build</text>
+          <text x="168" y="246" style="font: 14px sans-serif; text-anchor: end">Review</text>
+          <text x="168" y="306" style="font: 14px sans-serif; text-anchor: end">Launch</text>
+            </g>
+            <g id="axis_x">
+          <text x="180.0" y="390" style="font: 12px sans-serif; text-anchor: middle">0</text>
+          <text x="300.0" y="390" style="font: 12px sans-serif; text-anchor: middle">25</text>
+          <text x="420.0" y="390" style="font: 12px sans-serif; text-anchor: middle">50</text>
+          <text x="540.0" y="390" style="font: 12px sans-serif; text-anchor: middle">75</text>
+          <text x="660.0" y="390" style="font: 12px sans-serif; text-anchor: middle">100</text>
+              <text x="420" y="415" style="font: 13px sans-serif; text-anchor: middle">Day</text>
+            </g>
+            <g id="chart-title">
+              <text x="420" y="60" style="font: 16px sans-serif; text-anchor: middle">Project Schedule</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

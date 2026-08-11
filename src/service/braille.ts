@@ -1116,6 +1116,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // same way they hear it.
       [TraceType.DUMBBELL, asGeneric(new LineBrailleEncoder())],
       [TraceType.ERROR_BAR, asGeneric(new LineBrailleEncoder())],
+      // One row per lane, holding each interval's length -- the per-row
+      // profile the line encoder renders, and the same magnitude the pitch
+      // carries. A span drawn along the axis would be the literal picture, but
+      // at a typical 40 cells a year-long schedule gives each cell nine days,
+      // so a fortnight and three weeks become the same dot. Exact about how
+      // long beats approximate about when.
+      [TraceType.GANTT, asGeneric(new LineBrailleEncoder())],
       // A single cell scaled against the dial's own ends -- the bar encoder's
       // input with one column, so the reader feels where on the dial the
       // measure sits rather than only that it exists.

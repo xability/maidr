@@ -35,6 +35,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // the same reason a bar or a box is oriented.
   [TraceType.DUMBBELL]: true,
   [TraceType.ERROR_BAR]: true,
+  // Lanes run one way and the axis the other, so which way round they are
+  // drawn decides which axis an interval's ends move on -- the same reason a
+  // bar or a box is oriented. A timeline drawn down the page is the ordinary
+  // alternative, not an exotic one.
+  [TraceType.GANTT]: true,
   // One measure on a dial. There is no second axis for it to be read against,
   // so there is nothing an orientation could swap.
   [TraceType.GAUGE]: false,
