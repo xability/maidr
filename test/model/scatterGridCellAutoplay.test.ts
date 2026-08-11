@@ -122,12 +122,13 @@ describe('autoplay inside an entered grid cell', () => {
     const trace = traceInsideCell();
     const update = jest.fn();
     trace.addObserver({ update });
+    const before = trace.getGridPosition();
 
     expect(trace.moveOnce('UPWARD')).toBe(false);
 
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0][0]).toMatchObject({ empty: true });
-    expect(trace.getGridPosition()).toEqual(trace.getGridPosition());
+    expect(trace.getGridPosition()).toEqual(before);
     expect(trace.isInCellMode()).toBe(true);
   });
 });
