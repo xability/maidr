@@ -256,3 +256,146 @@ describe('ScatterTrace autoplay-driven movement (moveOnce / isMovable)', () => {
     });
   });
 });
+
+describe('ScatterTrace rotor cursor reporting', () => {
+  /** Reads the audio panning a mode emits for its current cursor. */
+  function panningOf(trace: ScatterTrace): { x: number; y: number; rows: number; cols: number } {
+    const state = trace.state;
+    if (state.empty || state.type !== 'trace') {
+      throw new Error('expected a populated trace state');
+    }
+    const { x, y, rows, cols } = state.audio.panning;
+    return { x: x as number, y, rows, cols };
+  }
+
+  describe('point mode', () => {
+    test('entering the mode consumes the initial-entry handshake', () => {
+      // Regression: moveOnce checks isInitialEntry before the mode branches,
+      // so an armed flag made autoplay's first tick notify without moving —
+      // replaying the point the user was already standing on and losing a
+      // step. Note this trace is deliberately NOT pre-cleared.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 2 },
+        { x: 1, y: 2 },
+        { x: 0, y: 1 },
+      ]));
+      expect(trace.isInitialEntry).toBe(true);
+
+      trace.setPointMode(true);
+      expect(trace.isInitialEntry).toBe(false);
+
+      const before = panningOf(trace);
+      expect(trace.moveOnce('FORWARD')).toBe(true);
+      expect(panningOf(trace)).not.toEqual(before);
+    });
+
+    test('position reports the point within its own x-column, not a flat row 1 of 1', () => {
+      // Two points share x=0. Announce Position reads panning y/rows, so a
+      // fixed {y: 0, rows: 1} would describe both identically — in the one
+      // mode whose whole purpose is telling individual points apart.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 1, y: 3 },
+      ]));
+      trace.setPointMode(true);
+
+      // Entry seeds the top of the current x-column, i.e. (0,2); reading
+      // order is y desc, x asc, so one step right lands on (0,1).
+      const upper = panningOf(trace);
+      expect(trace.movePointRight()).toBe(true);
+      const lower = panningOf(trace);
+
+      expect(upper.x).toBe(lower.x); // same x-column
+      expect(upper.rows).toBe(2); // that column stacks two points
+      expect(upper.y).not.toBe(lower.y); // and they are told apart
+      expect([lower.y, upper.y]).toEqual([0, 1]);
+    });
+
+    test('the boundary chime pans where the cursor is, not at a stale column', () => {
+      // The base out-of-bounds state reads row/col, which point mode never
+      // touches: walking to the right-hand edge used to chime hard left.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 3 },
+        { x: 1, y: 2 },
+        { x: 2, y: 1 },
+      ]));
+      trace.setPointMode(true);
+      const update = jest.fn();
+      trace.addObserver({ update });
+
+      while (trace.isMovable('FORWARD')) {
+        trace.movePointRight();
+      }
+      const lastInBounds = panningOf(trace);
+      expect(lastInBounds.x).toBe(2); // right-most column
+
+      update.mockClear();
+      expect(trace.movePointRight()).toBe(false);
+
+      const bounds = update.mock.calls[0][0] as { empty: boolean; audio: { x: number; cols: number } };
+      expect(bounds.empty).toBe(true);
+      expect(bounds.audio.x).toBe(lastInBounds.x);
+      expect(bounds.audio.cols).toBe(lastInBounds.cols);
+    });
+
+    test('up and down walk the column order independently of left and right', () => {
+      // columnOrder is (x asc, y desc), so within one x-column "up" is a
+      // step backward through it. Only the reading axis had coverage.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 5 },
+        { x: 1, y: 3 },
+      ]));
+      trace.setPointMode(true);
+
+      // Entry seeds the top of column x=0, i.e. (0,5).
+      expect(panningOf(trace)).toMatchObject({ x: 0, y: 1, rows: 2 });
+      expect(trace.movePointUp()).toBe(false); // already the top of the order
+      expect(trace.movePointDown()).toBe(true);
+      expect(panningOf(trace)).toMatchObject({ x: 0, y: 0, rows: 2 }); // (0,1)
+      expect(trace.movePointDown()).toBe(true);
+      expect(panningOf(trace)).toMatchObject({ x: 1, rows: 1 }); // (1,3)
+      expect(trace.movePointDown()).toBe(false);
+    });
+  });
+
+  describe('intersection mode', () => {
+    test('COL position advances through the stack instead of freezing at row 1', () => {
+      // panning.y is what Announce Position reports; pinning it to 0 said
+      // "row 1 of 3" at every step of a three-point stack.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 0, y: 3 },
+        { x: 1, y: 9 },
+      ]));
+      trace.isInitialEntry = false;
+      trace.col = 0;
+      trace.setIntersectionMode(true);
+
+      const seen = [panningOf(trace).y];
+      while (trace.moveToNextIntersection()) {
+        seen.push(panningOf(trace).y);
+      }
+      expect(seen).toEqual([0, 1, 2]);
+      expect(panningOf(trace).rows).toBe(3);
+    });
+
+    test('entering the mode consumes the initial-entry handshake', () => {
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+      ]));
+      expect(trace.isInitialEntry).toBe(true);
+
+      trace.setIntersectionMode(true);
+
+      expect(trace.isInitialEntry).toBe(false);
+      // handleInitialEntry() would have reset row/col/mode and re-anchored
+      // the stack this mode walks; only the flag may change.
+      expect(trace.col).toBe(0);
+      expect(trace.moveOnce('FORWARD')).toBe(true);
+    });
+  });
+});

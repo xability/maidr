@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
 import type { SubplotCue } from './subplotCue';
@@ -428,24 +429,37 @@ export class ExitBrailleAndSubplotCommand implements Command {
 export class MoveToNextTraceCommand implements Command {
   private readonly context: Context;
   private readonly candlestickDeltaService: CandlestickDeltaService;
+  private readonly rotor: RotorNavigationService;
 
   /**
    * Creates an instance of MoveToNextTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before switching.
    */
-  public constructor(context: Context, candlestickDeltaService: CandlestickDeltaService) {
+  public constructor(
+    context: Context,
+    candlestickDeltaService: CandlestickDeltaService,
+    rotor: RotorNavigationService,
+  ) {
     this.context = context;
     this.candlestickDeltaService = candlestickDeltaService;
+    this.rotor = rotor;
   }
 
   /**
    * Executes the move operation to step to the next trace upward.
    * The virtual delta layer is not a subplot layer, so it must be released
    * first (reachable from braille mode, where PageUp stays bound).
+   *
+   * A rotor mode is an index here but a boolean on the trace, so the rotor is
+   * handed back to data mode while the outgoing trace is still active — its
+   * flag is cleared with it, and the incoming trace is never left with arrow
+   * keys routed into a mode it did not enter.
    */
   public execute(): void {
     this.candlestickDeltaService.deactivateIfActive();
+    this.rotor.resetToDataMode();
     this.context.stepTrace('UPWARD');
   }
 }
@@ -456,24 +470,35 @@ export class MoveToNextTraceCommand implements Command {
 export class MoveToPrevTraceCommand implements Command {
   private readonly context: Context;
   private readonly candlestickDeltaService: CandlestickDeltaService;
+  private readonly rotor: RotorNavigationService;
 
   /**
    * Creates an instance of MoveToPrevTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before switching.
    */
-  public constructor(context: Context, candlestickDeltaService: CandlestickDeltaService) {
+  public constructor(
+    context: Context,
+    candlestickDeltaService: CandlestickDeltaService,
+    rotor: RotorNavigationService,
+  ) {
     this.context = context;
     this.candlestickDeltaService = candlestickDeltaService;
+    this.rotor = rotor;
   }
 
   /**
    * Executes the move operation to step to the previous trace downward.
    * The virtual delta layer is not a subplot layer, so it must be released
    * first (reachable from braille mode, where PageDown stays bound).
+   *
+   * See {@link MoveToNextTraceCommand.execute} for why the rotor is reset
+   * before the trace is swapped.
    */
   public execute(): void {
     this.candlestickDeltaService.deactivateIfActive();
+    this.rotor.resetToDataMode();
     this.context.stepTrace('DOWNWARD');
   }
 }

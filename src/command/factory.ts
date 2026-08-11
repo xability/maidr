@@ -231,9 +231,9 @@ export class CommandFactory {
       case 'EXIT_BRAILLE_AND_SUBPLOT':
         return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.subplotCue);
       case 'MOVE_TO_NEXT_TRACE':
-        return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService);
+        return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService, this.rotorService);
       case 'MOVE_TO_PREV_TRACE':
-        return new MoveToPrevTraceCommand(this.context, this.candlestickDeltaService);
+        return new MoveToPrevTraceCommand(this.context, this.candlestickDeltaService, this.rotorService);
 
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);

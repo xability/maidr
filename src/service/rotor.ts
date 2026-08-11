@@ -327,6 +327,13 @@ export class RotorNavigationService {
       return;
     }
     this.context.setRotorEnabled(true);
+    // Clear every mode before enabling the new one. Enabling first would leave
+    // the trace briefly reporting two modes at once, and the state getters
+    // resolve them in a fixed order — so a cycle from intersection to point
+    // mode would read the intersection branch for the point cursor.
+    this.notifyGridMode(false);
+    this.notifyPointMode(false);
+    this.notifyIntersectionMode(false);
     this.notifyGridMode(currMode === Constant.GRID_MODE);
     this.notifyPointMode(currMode === Constant.POINT_MODE);
     this.notifyIntersectionMode(currMode === Constant.INTERSECTION_MODE);
@@ -335,13 +342,14 @@ export class RotorNavigationService {
   /**
    * Gets the current rotor mode name.
    *
-   * Known limitation: rotorIndex is not reset when the active plot/trace
-   * changes. If the user cycles to a capability-gated mode (GRID_MODE or
-   * INTERSECTION_MODE) and focus then moves to a trace that does not
-   * advertise that capability, the modulo below silently wraps the index
-   * onto a different mode without announcing the switch. Resetting the
-   * rotor on context change is a broader UX decision tracked separately
-   * from this file.
+   * The rotor mode is rotorIndex here but a boolean on the trace, so the two
+   * must be resynced whenever the active trace changes underneath it. The
+   * paths that swap traces — PageUp/PageDown between layers, and a live data
+   * update rebuilding the figure — call {@link resetToDataMode} first, which
+   * clears the outgoing trace's flags while it is still active and lands the
+   * new one in data mode. Without that, a capability-gated mode would keep
+   * routing arrow keys to a trace that never entered it: dead keys, or a
+   * mode announced that the trace is not actually in.
    * @returns The display name of the current rotor mode
    */
   public getMode(): string {

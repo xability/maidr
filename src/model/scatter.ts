@@ -44,12 +44,21 @@ enum NavMode {
 
 /**
  * A single scatter datapoint as the point-navigation rotor sees it,
- * paired with its rendered SVG element (when one was found).
+ * paired with its rendered SVG element (when one was found) and with the
+ * grid coordinates the rest of the trace already speaks in.
+ *
+ * `xIndex` / `yIndexInColumn` are resolved once at construction, from the
+ * same numbers `xPoints` was grouped from, so the per-keystroke audio path
+ * never scans an array and never compares two floats for equality.
  */
 interface FlatPoint {
   x: number;
   y: number;
   svg: SVGElement | null;
+  /** Index of this point's x among the sorted unique x values (`xPoints`). */
+  xIndex: number;
+  /** Index of this point's y within `xPoints[xIndex].y` (ascending). */
+  yIndexInColumn: number;
 }
 
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable {
@@ -213,11 +222,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // index (the same index correspondence buildGridCells relies on), then
     // build two sort orders. Both orders are full permutations of the flat
     // points list — the same N indices, just visited in different sequences.
-    this.flatPoints = data.map((p, i) => ({
-      x: p.x,
-      y: p.y,
-      svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
-    }));
+    const xIndexByValue = new Map(this.xValues.map((xv, i) => [xv, i]));
+    this.flatPoints = data.map((p, i) => {
+      // Both lookups key off the very numbers xPoints was grouped from, so
+      // they hit exactly; the fallbacks only guard a malformed layer.
+      const xIndex = xIndexByValue.get(p.x) ?? 0;
+      const column = this.xPoints[xIndex]?.y ?? [];
+      return {
+        x: p.x,
+        y: p.y,
+        svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
+        xIndex,
+        yIndexInColumn: Math.max(0, column.indexOf(p.y)),
+      };
+    });
     this.readingOrder = this.flatPoints
       .map((_, i) => i)
       .sort((a, b) => {
@@ -447,7 +465,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       const panX = isCol
         ? this.col
         : Math.max(0, this.xValues.indexOf(value));
-      const panY = isCol ? 0 : this.row;
+      // COL walks a stack at one x, so the stack index IS the vertical
+      // position — pair it with rows = stack.length below. Reporting 0 here
+      // would announce "row 1 of N" at every step of the stack, which is the
+      // one thing the position key exists to tell the user apart. ROW walks
+      // across x at a fixed y, so the row index is already the answer there.
+      const panY = isCol ? idx : this.row;
       const rows = isCol ? Math.max(1, stack.length) : Math.max(1, this.yPoints.length);
       const cols = Math.max(1, this.xPoints.length);
       return {
@@ -461,7 +484,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // Pan by position among unique x values so points at the same x produce
       // identical horizontal panning; xValues is sorted ascending in the
       // constructor.
-      const xIndex = this.xValues.indexOf(point.x);
+      //
+      // y / rows report the point's place inside its own x-column rather than
+      // a flat {y: 0, rows: 1}. Panning is what AnnouncePositionCommand reads,
+      // and point mode is precisely the mode where several points share an x:
+      // a fixed row would announce "row 1 of 1" for every one of them, leaving
+      // a blind user unable to tell two stacked points apart. Stereo placement
+      // is unaffected — only panning.x reaches the oscillator.
       return {
         freq: {
           raw: point.y,
@@ -469,9 +498,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           max: this.maxY,
         },
         panning: {
-          y: 0,
-          x: xIndex < 0 ? 0 : xIndex,
-          rows: 1,
+          y: point.yIndexInColumn,
+          x: point.xIndex,
+          rows: Math.max(1, this.xPoints[point.xIndex]?.y.length ?? 1),
           cols: this.xValues.length,
         },
       };
@@ -788,10 +817,29 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
-   * Returns out-of-bounds state with correct position for grid mode panning.
-   * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
+   * Returns out-of-bounds state positioned where the cursor actually is, so
+   * the boundary chime pans to the same place as the tone before it.
+   *
+   * The base implementation reads `row` / `col`, which only default
+   * navigation maintains. Each rotor mode tracks its own cursor — grid mode
+   * `gridRow` / `gridCol`, the other two `pointModeIndex` /
+   * `intersectionStackIndex` — so a user who walked point mode to the
+   * right-hand edge would otherwise hear every data tone pan right and then
+   * the "no more data" chime pan hard left, contradicting the spatial cue.
+   * Point and intersection mode reuse their own audio panning, which is
+   * built from exactly those cursors; the branch order matches the state
+   * getters above.
    */
   protected override get outOfBoundsState(): TraceEmptyState {
+    if (this.isInIntersectionMode || (this.isInPointMode && this.flatPoints.length > 0)) {
+      const { x, y, rows, cols } = this.audio.panning;
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: { x, y, rows, cols },
+      };
+    }
     // Use grid position when in grid mode for correct panning
     if (this.isInGridMode && this.gridCells) {
       return {
@@ -1411,6 +1459,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.isInIntersectionMode = enabled;
     if (enabled) {
       this.intersectionStackIndex = 0;
+      // See setPointMode: entering the mode anchors the cursor on a real
+      // point, so the ROW_COL initial-entry handshake is spent. Assigning the
+      // flag directly rather than calling handleInitialEntry() matters here —
+      // that would reset row/col/mode and re-anchor the stack this mode walks.
+      this.isInitialEntry = false;
     }
   }
 
@@ -1495,6 +1548,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.isInPointMode = enabled;
     if (enabled) {
       this.pointModeIndex = this.computeEntryPointIndex();
+      // Seeding the cursor IS the entry into the data, so consume the
+      // initial-entry handshake here. Leaving it armed makes moveOnce swallow
+      // autoplay's first tick — it takes the initial-entry branch, notifies
+      // without moving, and replays the point the user is already standing on.
+      this.isInitialEntry = false;
     }
   }
 

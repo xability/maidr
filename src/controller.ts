@@ -372,6 +372,12 @@ export class Controller implements Disposable {
       this.notificationService.notify('Reference comparison closed by a data update.');
     }
 
+    // A rotor mode is rotorIndex on the service but a flag on the trace, and
+    // the swap below replaces every trace. Reset while the current trace is
+    // still active so its flag is cleared with it; otherwise the rotor would
+    // keep routing arrow keys into a mode the rebuilt trace never entered.
+    this.rotorNavigationService.resetToDataMode();
+
     // Ordering is load-bearing: the sliding-window shift must be resolved
     // against the OLD figure (the user's current position) before the swap,
     // while announceAppendedPoint below runs against the NEW figure.
