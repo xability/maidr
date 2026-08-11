@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible smooth plot interaction.
  */
 
-import type { Maidr, MaidrLayer, SmoothPoint } from '../../../type/grammar';
-import type { D3BinderResult, D3SmoothConfig } from '../types';
+import type { MaidrLayer, SmoothPoint } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3SmoothConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, queryD3Elements, resolveAccessor } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, queryD3Elements, resolveAccessor } from '../util';
 
 /**
  * Binds a D3.js smooth/regression curve to MAIDR.
@@ -53,11 +54,18 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildSmoothLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for smooth/regression curves. See {@link buildBarLayer}
+ * for the single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildSmoothLayer(root: Element, config: D3SmoothConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
@@ -65,12 +73,11 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
     y: yAccessor = 'y',
     svgX: svgXAccessor = 'svg_x',
     svgY: svgYAccessor = 'svg_y',
-    autoApply,
   } = config;
 
-  const elements = queryD3Elements(svg, selector);
+  const elements = queryD3Elements(root, selector);
   if (elements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'smooth curve point');
+    throw buildNoElementsError(root, selector, 'smooth curve point');
   }
 
   // Guard: smooth curves need SVG-space coords so MAIDR can highlight points
@@ -115,27 +122,17 @@ export function bindD3Smooth(svg: Element, config: D3SmoothConfig): D3BinderResu
 
   const data: SmoothPoint[][] = [points];
 
-  const layerId = generateId();
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.SMOOTH,
     title,
     // Wrap in an array so the per-line length check inside
     // `mapToSvgElements` compares array length to line count (1). A bare
     // string would compare character count to 1 and always fail.
-    selectors: [scopeSelector(svg, selector)],
+    selectors: [scopeSelector(root, selector, panel)],
     axes: buildAxes(axes, format),
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{ layers: [layer] }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer };
 }

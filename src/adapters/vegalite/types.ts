@@ -34,29 +34,88 @@ export interface VegaView {
    * visible chart.
    */
   scale: (name: string) => { domain: () => unknown[] } | undefined;
+  /**
+   * Serialise the view's state. The adapter uses it for one thing only:
+   * enumerating the **names** of every registered dataset, so it can reach
+   * pipelines it cannot address by a name it derived.
+   *
+   * Two details of the real signature are easy to get wrong, and both fail
+   * silently — see `getViewDatasetNames`:
+   *
+   *  - `data` is a **predicate**, not a boolean. Vega throws
+   *    `options.data is not a function` when handed `true`.
+   *  - The returned values are Vega's internal state descriptors, **not**
+   *    rows. Use {@link VegaView.data} to read records.
+   *
+   * Optional because the adapter must tolerate a view that predates it or
+   * a host that stubs only part of the API.
+   */
+  getState?: (options?: {
+    data?: (name?: string, object?: unknown) => boolean;
+    signals?: (name?: string, operator?: unknown) => boolean;
+    recurse?: boolean;
+  }) => { data?: Record<string, unknown>; signals?: Record<string, unknown> } | undefined;
 }
+
+/**
+ * Top-level `facet` operator definition.
+ *
+ * Two shapes exist in Vega-Lite:
+ *   - Row/column faceting: `{ row?: {field}, column?: {field} }`.
+ *   - Wrapped faceting: a single field definition (`{ field, type }`)
+ *     combined with the top-level `columns` property.
+ */
+export interface VegaLiteFacetDef {
+  row?: VegaLiteChannelDef;
+  column?: VegaLiteChannelDef;
+  field?: string;
+  type?: string;
+  title?: string;
+}
+
+/**
+ * Top-level `repeat` operator definition.
+ *
+ * Either a plain field array (wrapped layout, combined with `columns`)
+ * or `{ row?: string[], column?: string[] }` for a repeat grid.
+ */
+export type VegaLiteRepeatDef = string[] | { row?: string[]; column?: string[] };
 
 /**
  * Minimal Vega-Lite top-level specification shape.
  *
- * Covers single-view, layered (`layer`), and composite (`hconcat` / `vconcat`
- * / `concat`) specs. Faceted (`facet`) and repeated (`repeat`) specs are
- * recognised but not yet supported by the adapter.
+ * Covers single-view, layered (`layer`), composite (`hconcat` / `vconcat`
+ * / `concat`), faceted (`facet` operator or `encoding.row` /
+ * `encoding.column` shorthand), and repeated (`repeat`) specs.
  */
 export interface VegaLiteSpec {
   $schema?: string;
   title?: string | { text?: string; subtitle?: string };
   description?: string;
   data?: unknown;
-  mark?: string | { type: string };
+  transform?: VegaLiteTransform[];
+  /**
+   * The mark, as a shorthand string or a mark def. `interpolate` is how
+   * Vega-Lite joins consecutive points: the `step`, `step-before` and
+   * `step-after` values draw a piecewise-constant staircase, the rest
+   * interpolate. `innerRadius` is what turns an `arc` pie into a doughnut —
+   * purely visual, so the two convert identically.
+   */
+  mark?: string | { type: string; interpolate?: string; innerRadius?: number };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];
   hconcat?: VegaLiteSpec[];
   vconcat?: VegaLiteSpec[];
   concat?: VegaLiteSpec[];
-  facet?: unknown;
+  facet?: VegaLiteFacetDef;
   spec?: VegaLiteSpec;
-  repeat?: unknown;
+  repeat?: VegaLiteRepeatDef;
+  /**
+   * Wrap column count for `concat`, wrapped `facet` (single-field form),
+   * and wrapped `repeat` (array form). Vega-Lite's default when omitted
+   * is an unbounded number of columns (a single row).
+   */
+  columns?: number;
 }
 
 /**
@@ -75,6 +134,12 @@ export interface VegaLiteEncoding {
   xOffset?: VegaLiteChannelDef;
   /** Vertical counterpart of `xOffset`. */
   yOffset?: VegaLiteChannelDef;
+  /**
+   * Angular extent of an `arc` mark — the channel that makes one a pie (or,
+   * with `mark.innerRadius`, a doughnut). It carries the slice magnitudes;
+   * the slice labels come from `color`/`fill`, since an arc has no x or y.
+   */
+  theta?: VegaLiteChannelDef;
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
   row?: VegaLiteChannelDef;
@@ -83,15 +148,56 @@ export interface VegaLiteEncoding {
 
 /**
  * Subset of a Vega-Lite channel definition fields read by the adapter.
+ *
+ * Note on `field`: inside a `repeat` spec's child, Vega-Lite allows a
+ * repeat reference object (`{ repeat: 'row' | 'column' | 'repeat' }`)
+ * instead of a field name. The adapter substitutes those references with
+ * concrete field names (per repeated cell) *before* any conversion runs,
+ * so every code path past `substituteRepeatFields` only ever sees strings.
  */
 export interface VegaLiteChannelDef {
   field?: string;
+  /**
+   * A constant bound to the channel instead of a data field
+   * (`{"color": {"datum": "Adelie"}}`).
+   *
+   * Vega-Lite's documented idiom for giving each child of a `layer:` spec
+   * its own legend entry; Altair emits it for `color=alt.datum(name)`.
+   * Because the constant *is* the series' display name, the adapter uses
+   * it to label layers that a merge would otherwise leave anonymous.
+   */
+  datum?: string | number | boolean;
   type?: string;
   aggregate?: string;
   title?: string;
   axis?: { title?: string } | null;
   bin?: boolean | Record<string, unknown>;
   stack?: boolean | string | null;
+}
+
+/**
+ * The object form of a `filter` transform predicate.
+ *
+ * Vega-Lite accepts either a predicate object (`{field, equal}`) or a raw
+ * expression string; Altair emits the former for
+ * `alt.FieldEqualPredicate(...)` and the latter for `alt.datum.f == v`.
+ */
+export interface VegaLiteFilterPredicate {
+  field?: string;
+  equal?: string | number | boolean;
+}
+
+/**
+ * A single entry of a spec's `transform` array.
+ *
+ * Only `filter` is modelled — it is the one transform that identifies the
+ * subset of the data a layer draws, and therefore the only one that can
+ * name a per-group layer. Every other transform (`density`, `aggregate`,
+ * `calculate`, …) is passed over.
+ */
+export interface VegaLiteTransform {
+  filter?: string | VegaLiteFilterPredicate;
+  [key: string]: unknown;
 }
 
 /**

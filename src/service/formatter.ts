@@ -57,6 +57,17 @@ export class FormatterService implements Disposable {
   }
 
   /**
+   * Rebuilds all layer formatters from updated MAIDR data.
+   * Called after a live data update replaces the chart data.
+   *
+   * @param maidr - The updated MAIDR data
+   */
+  public refresh(maidr: Maidr): void {
+    this.formatters.clear();
+    this.initializeFormatters(maidr);
+  }
+
+  /**
    * Extracts and resolves format configurations from all layers in the MAIDR data.
    */
   private initializeFormatters(maidr: Maidr): void {
@@ -103,22 +114,6 @@ export class FormatterService implements Disposable {
       return defaultFormat;
     }
     return layerFormatters[axis];
-  }
-
-  /**
-   * Checks if a layer has a custom formatter for the specified axis.
-   *
-   * @param layerId - The ID of the layer
-   * @param axis - The axis type ('x', 'y', or 'z')
-   * @returns True if a custom formatter is configured
-   */
-  public hasCustomFormatter(layerId: string, axis: AxisType): boolean {
-    const layerFormatters = this.formatters.get(layerId);
-    if (!layerFormatters) {
-      return false;
-    }
-    // Check if the formatter is not the default
-    return layerFormatters[axis] !== defaultFormat;
   }
 
   /**

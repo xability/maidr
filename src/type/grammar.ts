@@ -148,6 +148,24 @@ export interface ViolinKdePoint {
  * };
  * ```
  */
+/**
+ * Callback invoked when the active data point changes during navigation.
+ * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+ *
+ * `null` means no data point is active — the cursor has left a subplot for the
+ * figure lobby of a multi-panel chart. A consumer drawing an overlay must clear
+ * it, since there is no other signal that the selection ended: without one, the
+ * last point's highlight stays on screen and follows the user to another panel,
+ * pointing at a chart it does not belong to.
+ *
+ * @param info - The current navigation position, or `null` when nothing is
+ *   selected
+ * @param info.layerId - The ID of the active layer/trace
+ * @param info.row - The current row index (e.g., dataset index)
+ * @param info.col - The current column index (e.g., data point index)
+ */
+export type NavigateCallback = (info: { layerId: string; row: number; col: number } | null) => void;
+
 export interface Maidr {
   /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
@@ -158,10 +176,55 @@ export interface Maidr {
   /** Chart caption. */
   caption?: string;
   /**
+   * Optional figure-wide axis labels shared across every subplot — e.g. a facet
+   * grid whose panels all sit on one common X and Y axis drawn at the figure
+   * margins. Only `label` is honored at the figure level, so the type is
+   * narrowed to `Pick<AxisConfig, 'label'>` (a layer's `min` / `max` /
+   * `tickStep` / `format` have no figure-wide meaning and would be silently
+   * ignored — the narrower type surfaces that as a compile error instead).
+   *
+   * When present and authored, the figure lobby's `l x` / `l y` announce these
+   * as the figure-wide label; when omitted they fall back to the focused
+   * subplot's own axis, so existing charts are unaffected.
+   *
+   * @example
+   * axes: { x: { label: "Year" }, y: { label: "Revenue" } }
+   */
+  axes?: {
+    x?: Pick<AxisConfig, 'label'>;
+    y?: Pick<AxisConfig, 'label'>;
+  };
+  /**
    * 2D grid of subplots. Each row is an array of subplots.
    * For a single chart, use `[[{ layers: [...] }]]`.
    */
   subplots: MaidrSubplot[][];
+  /**
+   * Enables live/realtime mode for this chart. When true:
+   * - React consumers can update the `data` prop to replace the chart data in place.
+   * - Script-tag consumers can push updates via `window.maidrLive.setData()` /
+   *   `window.maidrLive.appendData()`.
+   * - The 'M' key toggles monitor mode, which auto-sonifies and announces
+   *   newly appended data points.
+   *
+   * Static charts (the default) are unaffected.
+   */
+  live?: boolean;
+  /**
+   * Sliding window size for streaming data. When set, appending a data point
+   * beyond this width drops the oldest point(s), keeping at most `maxWidth`
+   * points per series. Only applies to `appendData` updates.
+   */
+  maxWidth?: number;
+  /**
+   * Optional callback invoked when the active data point changes.
+   * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,
+   * since canvas elements cannot be targeted with CSS selectors.
+   *
+   * This field is not serializable as JSON; it is only available when constructing
+   * MAIDR data programmatically (e.g., via the Chart.js plugin or React API).
+   */
+  onNavigate?: NavigateCallback;
 }
 
 /**
@@ -270,6 +333,43 @@ export interface LinePoint {
   x: number | string;
   y: number;
   z?: string;
+  /**
+   * Ordinal level name announced in place of the raw numeric `y`, for a chart
+   * whose y axis is a category rather than a magnitude — a hypnogram's sleep
+   * stages, a Likert response, a severity grade. `y` stays numeric because it
+   * drives sonification, braille and the min/max range, so the human-readable
+   * name has to travel alongside it.
+   *
+   * An empty string counts as absent, so a producer that emits `''` for an
+   * unnamed level gets the numeric announcement rather than a blank one.
+   * Omitting it entirely is the right shape for a continuous y.
+   *
+   * @example
+   * { x: 1.5, y: 3, label: 'REM' }
+   */
+  label?: string;
+}
+
+/**
+ * Data point for one slice of a pie chart.
+ *
+ * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
+ * order the slices are drawn — never the nested group array the bar-family
+ * types use.
+ *
+ * `y` is strictly numeric, unlike {@link BarPoint.y}: it is both the sonified
+ * magnitude and the numerator of the slice's percentage, and a percentage
+ * derived from a string is not a percentage.
+ *
+ * There is deliberately no `percentage` field. The share of the whole is
+ * derived once in the model as `y / sum(y) * 100`, so an authored percentage
+ * can never disagree with the values it is supposedly derived from.
+ */
+export interface PiePoint {
+  /** Slice label, e.g. the category the slice stands for. */
+  x: string | number;
+  /** Slice magnitude. Negative values are not meaningful in a pie. */
+  y: number;
 }
 
 /**
@@ -296,6 +396,34 @@ export interface SmoothPoint {
   svg_x: number;
   svg_y: number;
 }
+
+/**
+ * Where a step chart jumps between two consecutive samples.
+ *
+ * - `hv` — hold `y[i]` until `x[i+1]`, then jump (matplotlib `steps-post`).
+ * - `vh` — jump at `x[i]`, then hold until `x[i+1]` (matplotlib `steps-pre`).
+ * - `mid` — jump at the midpoint of the two x values (matplotlib `steps-mid`).
+ *
+ * `hv` is what `ggplot2::geom_step()` draws by default, but MAIDR substitutes
+ * no default of its own: see {@link MaidrLayer.stepDirection}.
+ */
+export type StepDirection = 'hv' | 'vh' | 'mid';
+
+/**
+ * Data point for step charts — structurally a {@link LinePoint}.
+ *
+ * The ordinal `label` that lets a hypnogram announce "REM" instead of "3"
+ * started here, but it is not a step-only pairing: a line or path over the
+ * same ordinal y needs it just as much, so it now lives on `LinePoint` and
+ * every trace in the line family reads it.
+ *
+ * The name is kept because a step layer's `data` is authored as
+ * `StepPoint[][]`, and it says which chart the points belong to.
+ *
+ * @example
+ * { x: 1.5, y: 3, label: 'REM' }
+ */
+export type StepPoint = LinePoint;
 
 /**
  * Canonical axis configuration. Every axis (x, y, z) must be specified as an
@@ -366,7 +494,7 @@ export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
-  selectors?: string | string[] | BoxSelector[] | CandlestickSelector;
+  selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in
@@ -425,6 +553,16 @@ export interface MaidrLayer {
    * Controls which summary statistics are shown in the violin box overlay.
    */
   violinOptions?: ViolinOptions;
+  /**
+   * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
+   * every other trace type. Omit it when the producing library does not report
+   * one: MAIDR does not substitute a default, so the description stays silent
+   * about the convention rather than naming one the data never authored.
+   *
+   * @example
+   * stepDirection: 'hv'
+   */
+  stepDirection?: StepDirection;
   data:
     | BarPoint[]
     | BoxPoint[]
@@ -432,9 +570,11 @@ export interface MaidrLayer {
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | PiePoint[]
     | ScatterPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
+    | StepPoint[][]
     | ViolinKdePoint[][];
 }
 
@@ -451,17 +591,44 @@ export interface MaidrLayer {
  * ```
  */
 export enum TraceType {
+  /**
+   * A filled band between a series and a baseline. Navigates exactly as
+   * {@link TraceType.LINE} does — the fill is what the mark looks like, not
+   * an extra magnitude — so several `AREA` series are read independently of
+   * one another. Use {@link TraceType.STACKED_AREA} when the bands sit on
+   * top of each other instead.
+   */
+  AREA = 'area',
   BAR = 'bar',
   BOX = 'box',
   CANDLESTICK = 'candlestick',
+  /**
+   * Virtual layer comparing candlestick OHLC fields against a reference
+   * line (e.g. a moving average). Never declared in MAIDR JSON — created at
+   * runtime by the candlestick delta feature (Alt+L to toggle, Ctrl+Shift+L
+   * to pick the reference line).
+   */
+  CANDLESTICK_DELTA = 'candlestick_delta',
   DODGED = 'dodged_bar',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
+  /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
+  NORMALIZED_AREA = 'stacked_normalized_area',
+  PIE = 'pie',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  /**
+   * Area bands stacked on one another, so a band's *height* is its own
+   * series' value while the band's *top edge* is the running total. Reading
+   * such a layer as a {@link TraceType.LINE} announces one number where the
+   * chart draws two, with nothing to say which one was heard — which is why
+   * this is a type of its own rather than a line with a fill.
+   */
+  STACKED_AREA = 'stacked_area',
+  STEP = 'step',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
 }

@@ -74,7 +74,8 @@ export class HighContrastService implements Disposable {
   private readonly settingsService: SettingsService;
   private readonly notificationService: NotificationService;
   private readonly displayService: DisplayService;
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see setFigure).
+  private figure: Figure;
   private readonly context: Context;
 
   // Disposable for settings change subscription
@@ -173,6 +174,26 @@ export class HighContrastService implements Disposable {
     // High contrast will be applied when:
     // 1. The real Controller is created on focus-in (via initializeHighContrast)
     // 2. The user toggles high contrast mode via keyboard/settings
+  }
+
+  /**
+   * Points this service at a rebuilt figure after a live data update and
+   * re-captures original element colors. When high contrast is active, it is
+   * re-applied to the new model's elements.
+   *
+   * @param figure - The replacement figure
+   */
+  public setFigure(figure: Figure): void {
+    this.figure = figure;
+    this.originalColorInfo = null;
+    // Invalidate the trace-element cache so getAllTraceElements() rebuilds from
+    // the new figure. Without this, colour classification would run against the
+    // replaced figure's detached SVG elements and pin them in memory.
+    this.traceElementsCache = null;
+    this.captureOriginalColors();
+    if (this.highContrastMode) {
+      this.applyHighContrast();
+    }
   }
 
   /**
@@ -331,24 +352,34 @@ export class HighContrastService implements Disposable {
       }
     });
 
-    // Handle line chart exception
+    // Handle line chart exception. Step charts render as the same kind of
+    // stroked polyline, so they need the same treatment.
     if ('type' in this.context.instructionContext) {
-      if (this.context.instructionContext.type === 'line') {
+      if (
+        this.context.instructionContext.type === 'line'
+        || this.context.instructionContext.type === 'step'
+      ) {
         document.getElementById(this.context.id)?.classList.add('high-contrast');
       }
     }
 
-    // Apply plot fill style
-    this.displayService.plot.setAttribute(
-      'style',
-      `fill:${this.highContrastLightColor}`,
-    );
+    // Apply plot fill style. Set only the `fill` property so any other inline
+    // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
+    this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
-    // Handle stacked/dodged bar exception: apply patterns
+    // Handle stacked/dodged bar and pie exceptions: apply patterns.
+    //
+    // These are the chart types whose marks touch each other, so the boundary
+    // between two of them is carried by their fill alone. High contrast then
+    // pushes neighbouring fills toward the same end of the ramp and the marks
+    // merge into one shape — adjacent pie wedges of a similar hue are the worst
+    // case, since a pie is nothing but touching marks. A distinct pattern per
+    // original fill keeps them separable without relying on colour.
     if ('type' in this.context.instructionContext) {
       if (
         this.context.instructionContext.type === 'stacked_bar'
         || this.context.instructionContext.type === 'dodged_bar'
+        || this.context.instructionContext.type === 'pie'
       ) {
         this.applyPatternsToElements(highContrastElInfo);
       }
@@ -386,9 +417,12 @@ export class HighContrastService implements Disposable {
       }
     });
 
-    // Handle line chart exception
+    // Handle line chart exception. Mirrors the add path above, including step.
     if ('type' in this.context.instructionContext) {
-      if (this.context.instructionContext.type === 'line') {
+      if (
+        this.context.instructionContext.type === 'line'
+        || this.context.instructionContext.type === 'step'
+      ) {
         document
           .getElementById(this.context.id)
           ?.classList
@@ -396,11 +430,9 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    // Restore plot fill style
-    this.displayService.plot.setAttribute(
-      'style',
-      `fill:${this.defaultForegroundColor}`,
-    );
+    // Restore plot fill style by removing only the `fill` property we set,
+    // leaving all other inline styles on the plot element intact.
+    this.displayService.plot.style.removeProperty('fill');
 
     // Clean up pattern service
     if (this.patternService) {
@@ -750,20 +782,14 @@ export class HighContrastService implements Disposable {
         return colorArray[0];
       }
 
-      if (colorArray.length === 1) {
-        return colorArray[0];
-      }
-
       let closestColor = colorArray[0];
-      if (colorArray.length > 1) {
-        let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[1]));
+      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[0]));
 
-        for (let i = 1; i < colorArray.length; i++) {
-          const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestColor = colorArray[i];
-          }
+      for (let i = 1; i < colorArray.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestColor = colorArray[i];
         }
       }
 

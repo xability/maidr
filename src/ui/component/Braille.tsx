@@ -10,11 +10,18 @@ const Braille: React.FC = () => {
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
   const lastIndexRef = useRef<number>(index);
+  // Keep the latest braille content in a ref so the selectionchange handler
+  // (registered once with an empty dependency array) validates the caret
+  // against the current string length instead of the value captured at mount.
+  // Without this, switching to a longer layer while braille stays open blocks
+  // cursor routing into the tail of the new content.
+  const valueRef = useRef(value);
+  valueRef.current = value;
   // Handle Selection Change
   const handleSelectionChange = (event: Event): void => {
     const textArea = event.target as HTMLTextAreaElement;
     const newIndex = textArea.selectionStart;
-    if (newIndex >= value.length) {
+    if (newIndex >= valueRef.current.length) {
       textArea.setSelectionRange(lastIndexRef.current, lastIndexRef.current);
       return;
     }

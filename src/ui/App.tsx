@@ -6,6 +6,7 @@ import { MaidrContext } from '@state/context';
 import { useViewModelState } from '@state/hook/useViewModel';
 import { Provider } from 'react-redux';
 import Braille from './component/Braille';
+import CandlestickDeltaSettings from './component/CandlestickDeltaSettings';
 import Chat from './component/Chat';
 import CommandPalette from './component/CommandPalette';
 import Description from './component/Description';
@@ -27,6 +28,9 @@ const App: FC<AppProps> = ({ plot }) => {
     switch (focused) {
       case 'BRAILLE':
         return <Braille />;
+
+      case 'CANDLESTICK_DELTA_SETTINGS':
+        return <CandlestickDeltaSettings />;
 
       case 'CHAT':
         return <Chat />;

@@ -18,6 +18,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -34,7 +35,8 @@ import {
   Typography,
 } from '@mui/material';
 import { LlmValidationService } from '@service/llmValidation';
-import { MODEL_VERSIONS } from '@service/modelVersions';
+import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
   MAX_BRAILLE_LINES,
@@ -52,27 +54,42 @@ import {
   selectBraillePreset,
   SINGLE_LINE_BRAILLE_PRESETS,
 } from '@util/braillePreset';
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import { copyToClipboard } from '@util/clipboard';
+import {
+  collectDiagnostics,
+  describeMaidrSource,
+  formatDiagnostics,
+  redactScriptUrl,
+} from '@util/diagnostics';
+import { resolveVersionOptions } from '@util/llm';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
+
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
+const COPY_STATUS_MESSAGE: Record<CopyStatus, string> = {
+  idle: '',
+  copied: 'Copied to clipboard',
+  failed: 'Could not copy — select the values above and copy them manually',
+};
+
+interface CopyState {
+  readonly status: CopyStatus;
+  /**
+   * Counts attempts so a repeat copy still reaches the user. Setting the same
+   * status twice changes no text, and unchanged text is no DOM mutation — a
+   * live region announces on the mutation, not on the state update, so without
+   * this a second successful copy would be silent to a screen reader.
+   */
+  readonly attempt: number;
+}
 
 // Letter portion of the dialog accelerator keys. Shared between the
 // keydown handler and the aria-keyshortcuts attributes so the two
 // cannot drift apart and announce a shortcut that no longer fires.
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
-
-function getValidVersion(
-  modelKey: Llm,
-  currentVersion: string | undefined,
-): LlmVersion {
-  const config = MODEL_VERSIONS[modelKey];
-  const validOptions = config.options as readonly LlmVersion[];
-  if (!currentVersion || !validOptions.includes(currentVersion as LlmVersion)) {
-    return config.default;
-  }
-  return currentVersion as LlmVersion;
-}
 
 interface SettingRowProps {
   label: string;
@@ -116,6 +133,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
 }) => {
   const labelId = useId();
   const hintId = useId();
+  const { modalRef, container } = useModalContainer();
   return (
     <SettingRow
       label={rowLabel}
@@ -135,7 +153,7 @@ const BraillePresetSelect: React.FC<BraillePresetSelectProps> = ({
                 ...(hint ? { 'aria-describedby': hintId } : {}),
               },
             }}
-            MenuProps={{ disablePortal: true }}
+            MenuProps={{ disablePortal: true, ref: modalRef, container }}
           >
             <MenuItem value="" disabled>
               {placeholder}
@@ -177,53 +195,94 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeVersion,
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
+  const { modalRef, container } = useModalContainer();
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
+  // Models available to this credential, probed from the provider's models
+  // API (or the local Ollama server) when the credential validates; replaces
+  // the curated suggestion list so users pick from what actually exists.
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+  // Ollama is a local server: the credential field holds its base URL and
+  // "validation" means reachability, so most labels differ from the cloud
+  // providers' API-key wording.
+  const isOllama = modelKey === 'OLLAMA';
+  const credentialLabel = isOllama ? 'Server URL' : 'API Key';
 
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
     if (isValidating)
-      return 'Validating API key...';
-    if (isValid === false)
-      return `${modelSettings.name} API key is invalid`;
+      return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
+    if (isValid === false) {
+      return isOllama
+        ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
+        : `${modelSettings.name} API key is invalid`;
+    }
     if (isValid === true)
-      return `${modelSettings.name} API key is valid`;
+      return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
     return '';
   };
 
-  const validateApiKey = async (apiKey: string): Promise<void> => {
+  // The debounce only spaces out request starts; it cannot cancel a request
+  // already in flight. isStale lets a superseded cycle (newer keystroke or
+  // unmount) discard its response so a slow early probe can never overwrite
+  // the state of a newer one.
+  const validateApiKey = async (apiKey: string, isStale: () => boolean): Promise<void> => {
     if (!modelSettings.enabled || !apiKey.trim()) {
-      setIsValid(null);
+      if (!isStale()) {
+        setIsValid(null);
+        setAvailableModels([]);
+        // Also clear the spinner: a superseded in-flight request skips its
+        // own finally-cleanup as stale, so this cycle owns the state.
+        setIsValidating(false);
+      }
       return;
     }
 
     setIsValidating(true);
     try {
-      const result = await LlmValidationService.validateApiKey(
-        modelKey,
-        apiKey,
-      );
-      setIsValid(result.isValid);
+      // A single probe answers both credential validity and the live list of
+      // models the credential can access, for every provider.
+      const probe = await LlmValidationService.probeProvider(modelKey, apiKey);
+      if (isStale()) {
+        return;
+      }
+      setIsValid(probe.isValid);
+      setAvailableModels(probe.models);
     } catch (error) {
-      setIsValid(false);
+      if (!isStale()) {
+        setIsValid(false);
+        setAvailableModels([]);
+      }
     } finally {
-      setIsValidating(false);
+      if (!isStale()) {
+        setIsValidating(false);
+      }
     }
   };
 
   useEffect(() => {
+    let cancelled = false;
     const debounceTimer = setTimeout(() => {
-      validateApiKey(modelSettings.apiKey);
+      validateApiKey(modelSettings.apiKey, () => cancelled);
     }, 500);
 
-    return () => clearTimeout(debounceTimer);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+    };
   }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
-    return config.options.map((version) => {
-      const label = config.labels[version as keyof typeof config.labels];
+    const options: readonly string[] = resolveVersionOptions(
+      config.options,
+      availableModels,
+      validVersion,
+    );
+    return options.map((version) => {
+      const label = config.labels[version as keyof typeof config.labels] ?? version;
       const isSelected = modelSettings.version === version;
       return (
         <MenuItem
@@ -262,13 +321,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 size="small"
                 value={modelSettings.apiKey}
                 onChange={e => onChangeKey(modelKey, e.target.value)}
-                placeholder={`Enter ${modelSettings.name} API Key`}
-                type="password"
+                placeholder={
+                  isOllama
+                    ? 'Enter Ollama server URL (e.g. http://localhost:11434)'
+                    : `Enter ${modelSettings.name} API Key`
+                }
+                type={isOllama ? 'text' : 'password'}
                 error={isValid === false}
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} API Key`,
+                    'aria-label': `${modelSettings.name} ${credentialLabel}`,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -278,11 +341,17 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                           aria-live="polite"
                           aria-label={
                             isValidating
-                              ? 'Validating API key'
+                              ? isOllama
+                                ? 'Checking Ollama server'
+                                : 'Validating API key'
                               : isValid === true
-                                ? 'API key is valid'
+                                ? isOllama
+                                  ? 'Ollama server is reachable'
+                                  : 'API key is valid'
                                 : isValid === false
-                                  ? 'API key is invalid'
+                                  ? isOllama
+                                    ? 'Ollama server is unreachable'
+                                    : 'API key is invalid'
                                   : ''
                           }
                         >
@@ -329,6 +398,8 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 }}
                 MenuProps={{
                   disablePortal: true,
+                  ref: modalRef,
+                  container,
                   PaperProps: {
                     className: 'settings-menu-paper',
                   },
@@ -336,6 +407,18 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               >
                 {renderMenuItems()}
               </Select>
+              {isValid === true
+                && availableModels.length > 0
+                && !availableModels.includes(validVersion) && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  role="status"
+                  sx={{ mt: 0.5 }}
+                >
+                  {`"${validVersion}" is not in ${modelSettings.name}'s current model list — it may have been retired. Consider selecting another model.`}
+                </Typography>
+              )}
             </FormControl>
           </Grid>
         </Grid>
@@ -348,6 +431,8 @@ const Settings: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
+  const dialog = useModalContainer();
+  const expertiseMenu = useModalContainer();
   const { general, llm } = viewModel.state;
 
   // SettingsService normalizes braille display fields at construction
@@ -355,6 +440,33 @@ const Settings: React.FC = () => {
   // arrives in a coherent shape and does not need to re-normalize here.
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
+
+  const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
+  const titleId = `${id}-title`;
+  const copyStatusId = `${id}-copy-status`;
+  // The bundle source and the browser cannot change while the dialog is open,
+  // so the DOM scan behind this runs once per mount rather than per render.
+  const diagnostics = useMemo(() => collectDiagnostics(), []);
+  // Displayed with the same redaction the copied block uses: a screenshot of
+  // this dialog is handed to a maintainer just as readily as the pasted text,
+  // so both have to drop the OS username and any signed-URL token.
+  const sourceUrl = useMemo(
+    () => (diagnostics.source.url ? redactScriptUrl(diagnostics.source.url) : null),
+    [diagnostics],
+  );
+
+  const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
+    let status: CopyStatus;
+    try {
+      await copyToClipboard(formatDiagnostics(diagnostics));
+      status = 'copied';
+    } catch (error) {
+      console.error('[Settings] Failed to copy diagnostics', error);
+      status = 'failed';
+    }
+    // Always a fresh object, so an unchanged status still re-renders.
+    setCopyState(prev => ({ status, attempt: prev.attempt + 1 }));
+  }, [diagnostics]);
 
   useEffect(() => {
     viewModel.load();
@@ -444,6 +556,20 @@ const Settings: React.FC = () => {
     viewModel.toggle();
   }, [viewModel]);
 
+  // MUI's Modal calls stopPropagation() on the Escape keydown before it can
+  // reach the document-level hotkeys-js listener, so the SETTINGS scope keymap
+  // never sees the key — Escape has to be handled by the dialog itself.
+  // Only `escapeKeyDown` closes: a backdrop click stays inert so a stray click
+  // outside the dialog cannot discard unsaved edits.
+  const handleDialogClose = useCallback(
+    (_event: object, reason: 'backdropClick' | 'escapeKeyDown'): void => {
+      if (reason === 'escapeKeyDown') {
+        handleClose();
+      }
+    },
+    [handleClose],
+  );
+
   const handleSave = useCallback((): void => {
     // Clamp before persisting so a Save click before the field blurs
     // can't bypass the [1, MAX] bound. The onChange path intentionally
@@ -455,7 +581,10 @@ const Settings: React.FC = () => {
       brailleDisplayLines: clampBrailleLines(generalSettings.brailleDisplayLines),
     };
     viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
-    chatViewModel.refreshInitialMessage();
+    // Update the welcome bubble's model info in place instead of resetting the
+    // chat slice, so saving a setting (e.g. volume) never discards an ongoing
+    // conversation.
+    chatViewModel.updateWelcomeMessage();
   }, [viewModel, chatViewModel, generalSettings, llmSettings]);
 
   const handleSelectClick = useCallback((e: React.MouseEvent) => {
@@ -504,19 +633,36 @@ const Settings: React.FC = () => {
     <Dialog
       id={id}
       role="dialog"
-      aria-label="Settings"
+      // Names the dialog. `aria-label` cannot do it here: MUI applies
+      // `role` and `aria-labelledby` to the paper — the `role="dialog"`
+      // element — but spreads everything else, `aria-label` included, onto
+      // the modal root, which is `role="presentation"` and names nothing.
+      // Passing the id also settles the reference MUI derives from it for
+      // `DialogContext`; left to generate its own, it points the paper at a
+      // `DialogTitle` that need not exist.
+      aria-labelledby={titleId}
       open={true}
+      onClose={handleDialogClose}
       maxWidth="sm"
       fullWidth
       disablePortal
+      ref={dialog.modalRef}
+      container={dialog.container}
       disableEnforceFocus
       onClick={e => e.stopPropagation()}
       onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
+      {/* Renders as an `h2`, so the dialog also gains the top-level heading
+          it lacked — the section headings below were the only ones in it,
+          leaving nothing to land on when navigating by heading. */}
+      <DialogTitle id={titleId} className="settings-dialog-title">
+        Settings
+      </DialogTitle>
+
       <DialogContent className="settings-dialog-content">
         <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
+          <Typography variant="h6" component="h3" fontWeight="bold" gutterBottom>
             General Settings
           </Typography>
         </Grid>
@@ -844,6 +990,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Minimum Frequency',
+                          'min': 0,
                         },
                       },
                     }}
@@ -871,6 +1018,7 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Maximum Frequency',
+                          'min': 0,
                         },
                       },
                     }}
@@ -982,6 +1130,7 @@ const Settings: React.FC = () => {
           <Grid size={12}>
             <Typography
               variant="h6"
+              component="h3"
               fontWeight="bold"
               gutterBottom
               className="settings-section-title"
@@ -1029,6 +1178,8 @@ const Settings: React.FC = () => {
                     }}
                     MenuProps={{
                       disablePortal: true,
+                      ref: expertiseMenu.modalRef,
+                      container: expertiseMenu.container,
                       PaperProps: {
                         className: 'llm-model-setting-select-menu',
                       },
@@ -1092,6 +1243,117 @@ const Settings: React.FC = () => {
               </Grid>
             </Grid>
           )}
+        </Grid>
+
+        <Grid size={12}>
+          <Divider className="settings-divider" />
+        </Grid>
+
+        {/* About */}
+        <Grid container spacing={0.5} className="settings-section">
+          <Grid size={12}>
+            <Typography
+              variant="h6"
+              component="h3"
+              fontWeight="bold"
+              gutterBottom
+              className="settings-section-title"
+            >
+              About
+            </Typography>
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="maidr.js Version"
+              input={(
+                <Typography variant="body2">{diagnostics.version}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Loaded From"
+              alignLabel={sourceUrl ? 'flex-start' : 'center'}
+              input={(
+                <>
+                  <Typography variant="body2">
+                    {describeMaidrSource(diagnostics.source)}
+                  </Typography>
+                  {sourceUrl && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'text.secondary', wordBreak: 'break-all' }}
+                    >
+                      {sourceUrl}
+                    </Typography>
+                  )}
+                </>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Browser"
+              input={(
+                <Typography variant="body2">{diagnostics.browser}</Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Operating System"
+              input={(
+                <Typography variant="body2">
+                  {diagnostics.operatingSystem}
+                </Typography>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Diagnostics"
+              input={(
+                <Grid container spacing={1} alignItems="center">
+                  <Grid size="auto">
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      size="small"
+                      onClick={handleCopyDiagnostics}
+                      aria-label="Copy diagnostics to clipboard"
+                      aria-describedby={copyStatusId}
+                    >
+                      Copy diagnostics
+                    </Button>
+                  </Grid>
+                  <Grid size="auto">
+                    {/* Rendered even while empty: a live region has to be in
+                        the DOM before its text changes for the update to be
+                        announced. */}
+                    <Typography
+                      id={copyStatusId}
+                      variant="caption"
+                      role="status"
+                      aria-live="polite"
+                      sx={{
+                        color: copyState.status === 'failed'
+                          ? 'error.main'
+                          : 'text.secondary',
+                      }}
+                    >
+                      {/* Keyed by attempt so React swaps the node on every
+                          copy. Re-rendering the same text would leave the
+                          region untouched, and an untouched live region is
+                          never announced. */}
+                      <span key={copyState.attempt}>
+                        {COPY_STATUS_MESSAGE[copyState.status]}
+                      </span>
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+            />
+          </Grid>
         </Grid>
 
         <Grid size={12}>

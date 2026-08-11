@@ -6,11 +6,12 @@ To achieve this,
 our system translates the plot's visual elements and data points into a corresponding tactile representation
 using Braille patterns.
 For different plot types, such as bar plot, boxplot, heatmap, and scatter plot,
-maidr employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends.
+MAIDR employs unique encoding strategies tailored to effectively convey the data distribution, patterns, and trends.
 These tactile encodings range from using distinct Braille characters to represent value ranges,
 to using characters that visually resemble the corresponding sections of a plot.
 By providing a comprehensive Braille representation for various plot types,
-maidr enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
+MAIDR enables users with visual impairments to gain a deeper understanding of the underlying data and its insights.
+For multiline braille display setup, see [Multiline Braille Display Support](#multiline-braille-display-support).
 
 ## Bar plot
 
@@ -28,6 +29,10 @@ Given the four height levels of Braille, the encoding is as follows:
 This tactile encoding allows users to easily differentiate between the various value ranges in the bar plot,
 facilitating their understanding of the data distribution and its underlying trends.
 
+### Multiline Displays
+
+Bar plots use a single-line representation. On multiline braille displays, the bar plot appears on the first line and the remaining lines are unused.
+
 ## Heatmap
 
 In the Braille representation of a heatmap, values are depicted based on their relative magnitude within the plot,
@@ -41,6 +46,12 @@ With three height levels of Braille, the encoding is as follows:
 - ⠉ represents values from 66% to 100%
 - "⠀" (braille space) represents null or empty values
 - "⢳" represents a row separator
+
+### Multiline Displays
+
+In multiline braille displays, all rows of the heatmap are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of each cell in the corresponding row. Vertically, each line of the braille display corresponds to a different row of the heatmap, allowing users to perceive the distribution of values across the entire heatmap at once.
+
+In single-line braille displays, use the up and down arrow keys to move between rows. The braille representation updates to show the current row.
 
 ## Box plot
 
@@ -88,6 +99,12 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 
 ⠂ ⠒⠒⠒⠒⠿⠿⠿⠸⠇⠿⠿⠿⠒⠒⠒⠒⠒⠒ ⠂ ⠂
 
+### Multiline Displays
+
+Multiline braille displays represent grouped boxplots, such as horizontal boxplots and vertical boxplots with multiple groups, by displaying each group on a separate line of the braille display. Each line corresponds to a different group, allowing users to compare the distributions of multiple groups simultaneously. The same encoding principles for boxplots apply to each line, with Braille characters representing the various sections of the boxplot for each group.
+
+Single-line braille displays represent grouped boxplots by allowing users to navigate vertically between groups using the up and down arrow keys. As the user navigates, the braille representation updates to show the boxplot for the current group, enabling users to explore each group's distribution one at a time.
+
 ## Scatter plot
 
 In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
@@ -101,6 +118,14 @@ With four height levels of Braille, the encoding is as follows:
 - ⠒ represents values from 50% to 75%
 - ⠉ represents values from 75% to 100%
 
+### Multiline Displays
+
+When the grid navigation rotor is activated, the braille representation of the scatter plot changes to highlight the number of points in each grid cell. The representation is similar to that of a heatmap, where the number of points in each cell is represented by the height of the Braille character.
+
+In multiline braille displays, all cells are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the number of data points in the corresponding grid cell. Vertically, each line of the braille display corresponds to a different row of the grid, allowing users to perceive the distribution of points across the entire grid at once.
+
+In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
+
 ## Segmented Bar Plots
 
 Stacked bar, dodged bar, and normalized stacked bar all share the same system:
@@ -110,6 +135,12 @@ In the braille representation of segmented bar plots, braille depends on where y
 - Regular level: Braille appears similar to a bar plot, with braille values corresponding to the size of the level's value for this point.
 - Summary level: Same as regular level, but values now reflect the combined size of all levels' values for this point.
 - Combined level: Similar to heatmap, where there are groups of magnitudes for each point separated by a ⢳ character. The first group has braille characters for each level for the first point, then a separator, then the second group has braille characters for each level in the second point, then a separator, and so on.
+
+### Multiline Displays
+
+In multiline braille displays, all levels are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the size of the level's value for a particular point. Vertically, each line of the braille display corresponds to a different level, allowing users to perceive the distribution of values across all levels at once.
+
+In single-line braille displays, use the up and down arrow keys to move between levels. The braille representation updates to show the current level.
 
 ## Violin Plot
 
@@ -130,9 +161,123 @@ The braille string represents the density profile of the current violin from bot
 
 The braille representation for the box layer is identical to the standard box plot encoding described above. It uses the same characters and proportional allocation algorithm to represent whiskers, quartiles, median, and outliers.
 
+### Multiline Displays
+
+In multiline braille displays, each violin is represented on its own line using the KDE or box encodings above, depending on the selected layer. Horizontally, the braille characters represent the density profile and summary statistics along the value axis for that violin. Vertically, each line corresponds to a different violin, allowing users to compare categories simultaneously. In single-line braille displays, use the up and down arrow keys to move between violins; the braille representation updates to the current violin.
+
 ## Line plot
 
 In the Braille representation of a line plot, braille is nearly identical to the above bar plot:
 data values are encoded as Braille characters based on their relative magnitude within the plot.
 Low values are denoted by Braille characters that have dots only along the bottom,
 while high values are indicated by characters that have dots higher up.
+
+### Multiline Displays
+
+In multiline braille displays, all data series are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the series for a particular point. Vertically, each line of the braille display corresponds to a different series in the plot, allowing users to perceive the distribution of values across all series at once.
+
+In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
+
+## Area plot
+
+An area plot's braille is the line plot encoding above, unchanged: each series
+becomes a height profile, and the fill under the curve is not encoded because
+it carries no value the curve does not already carry.
+
+For a stacked area plot the profile is each band's **own** height, not the
+height of the stack it sits in. That matches what the audio plays and what the
+text announces as the cross-axis value, so the three modalities describe the
+same number. The running total is available in the verbose text announcement
+and in the chart description; it is deliberately not folded into the braille,
+because a profile that silently switched from series values to cumulative ones
+would read as the same shape with different numbers behind it.
+
+### Multiline Displays
+
+As for a line plot: each line of the display is one series, and the user moves
+between series with the up and down arrow keys on a single-line display.
+
+## Step plot
+
+A step plot's braille is the line plot encoding above, unchanged: each data
+point becomes one Braille character whose dot height is its numeric `y` relative
+to the row's own range. The staircase corners the chart draws are not encoded —
+braille represents the samples, not the rendered geometry — so a run of equal
+levels reads as a run of identical characters and a transition reads as a change
+in dot height.
+
+### Known limitation: ordinal levels collapse
+
+The line encoder quarters each row's range into **four** buckets:
+
+- ⣀ represents values from 0% to 25%
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+
+A step plot whose Y axis is an ordinal scale with **five or more levels**
+therefore has more levels than the encoding has heights, and adjacent levels
+land on the same character. A hypnogram coded N3=1, N2=2, N1=3, REM=4, Awake=5
+quarters into bands of one unit, so N3 and N2 both render as ⣀ and cannot be
+told apart by touch alone.
+
+The exact stage name is still available: it comes from the text announcement,
+which reads the point's `label` ("Sleep stage is N2") rather than its numeric
+code. Use braille for the shape of the night — how long each run is, where the
+transitions fall — and the text output to name the level you are standing on.
+
+### Multiline Displays
+
+Step plots follow the line plot rules. In multiline braille displays, each
+series occupies its own line, so several step series can be compared at once. In
+single-line displays, the up and down arrow keys move between series and the
+braille representation updates to the current one.
+
+## Pie chart
+
+A pie's slices are a single row, so its braille is the bar plot encoding above,
+unchanged: one Braille character per slice, in the order the slices are drawn,
+whose dot height is that slice's magnitude relative to the range of the pie's
+own slice values.
+
+- ⣀ represents values from 0% to 25% of the range
+- ⠤ represents values from 25% to 50%
+- ⠒ represents values from 50% to 75%
+- ⠉ represents values from 75% to 100%
+- "⠀" (braille space) represents a zero slice or one with no value
+
+Note that the bands are relative to the smallest and largest slice, not to the
+whole circle: the smallest measured slice reads as ⣀ and the largest as ⠉,
+however close their shares are. Read the braille for which slices are large
+relative to one another, and the text output for what share of the whole any one
+of them is.
+
+The heights encode the raw values, not the percentages — the two are a monotone
+rescale of each other, so the characters come out identical either way, and the
+raw values keep braille agreeing with the sonification and the reported
+statistics. The percentage itself is not encoded in braille; it is announced in
+text as ", Percentage is 33.3%" after the slice label and its value.
+
+Slices with no measurement are left out of the range entirely, so one missing
+slice cannot compress every other slice's dot height, and they read as a braille
+space the same way a zero slice does.
+
+### Multiline Displays
+
+Pie charts use a single-line representation. On multiline braille displays the
+pie appears on the first line and the remaining lines are unused.
+
+## Multiline Braille Display Support
+
+By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.
+
+### Setup
+
+Users can set up multiline braille display support by following these steps:
+
+1. Open any plot in MAIDR.
+2. Press `Ctrl+,` (`Command+,` on macOS) to open the settings dialog.
+3. Press Tab to reach the Braille Display options.
+	- If your braille display model is listed, choose "Single line" or "Multi-line", then tab to the Single-Line Display or Multi-Line Display dropdown and select your braille display model.
+	- If your braille display model is not listed, choose "Configure manually", then enter Braille Display Size (cells per row) and Braille Display Lines (rows). Set the number of lines to 1 for a single-line display.
+4. Press `Alt+S` to save and close the settings dialog.

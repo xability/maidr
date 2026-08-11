@@ -8,14 +8,15 @@
  * @packageDocumentation
  */
 
-export { convertRechartsToMaidr } from './converters';
+export { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 export { MaidrRecharts } from './MaidrRecharts';
-export { getRechartsSelector } from './selectors';
+export { getPanelClassName, getRechartsSelector } from './selectors';
 export type {
   HistogramBinConfig,
   MaidrRechartsProps,
   RechartsAdapterConfig,
   RechartsChartType,
   RechartsLayerConfig,
+  RechartsSubplotConfig,
 } from './types';
 export { useRechartsAdapter } from './useRechartsAdapter';

@@ -57,8 +57,9 @@ Break into ordered, atomic tasks:
 ## Architecture Validation
 
 Before finalizing the plan, validate against MVVC architecture:
-- Read `.claude/ARCHITECTURE.md` for dependency flow rules
-- Read `.claude/PATTERNS.md` for correct design pattern usage
+- The project rules in `.claude/rules/` are already in your context —
+  `architecture.md` covers the dependency flow, and the per-layer rules cover
+  the patterns each layer must use
 - Verify tasks respect unidirectional dependency: UI → ViewModel → Service → Model
 
 ## Output format

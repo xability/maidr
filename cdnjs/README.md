@@ -1,0 +1,140 @@
+# cdnjs submission
+
+`maidr.json` in this directory is the payload for listing MAIDR on
+[cdnjs](https://cdnjs.com). It is not read by any build step here — cdnjs
+serves packages from its own repository, and a copy has to be sent there. It
+lives in this repo so the contents are reviewed, versioned and tested alongside
+the build that produces the files it mirrors, rather than being retyped from
+memory the next time something about `dist` changes.
+
+## Why cdnjs as well as jsDelivr
+
+jsDelivr already serves every published version, and the documentation points
+at it. The reason to be on both is that sandboxed embedding contexts allow a
+fixed set of CDN hosts, and the two big ones are not interchangeable: a page
+whose `script-src` names `cdnjs.cloudflare.com` cannot load MAIDR from
+jsDelivr, however well jsDelivr works everywhere else. Being on both removes a
+class of "the CDN I was told to use does not carry it" failure, and costs one
+JSON file.
+
+## Submitting
+
+Fork [`cdnjs/packages`](https://github.com/cdnjs/packages) — **not**
+`cdnjs/cdnjs`, which is robot-only — and copy this file verbatim:
+
+```bash
+cp cdnjs/maidr.json path/to/packages/packages/m/maidr.json
+```
+
+Work on a branch rather than `master` — cdnjs asks for a descriptive name, so
+`add-maidr` — and commit as `Add maidr w/ npm auto-update`, which is their
+`Add <library> w/ npm/git auto-update` convention. Then open the pull request.
+CI validates the file against cdnjs's schema, and approval is at cdnjs
+maintainer discretion.
+
+The branch convention, the commit format and the minification cdnjs performs
+were read from
+[their CONTRIBUTING.md](https://github.com/cdnjs/packages/blob/master/CONTRIBUTING.md)
+on 2026-08-03. That process has changed before, so read it again rather than
+trusting this file if the submission happens much later.
+
+After the first release lands on cdnjs, nothing further is needed for
+subsequent releases: `autoupdate` pulls each new version straight from npm.
+Changing what is mirrored, though, means another pull request to
+`cdnjs/packages` — this file is the source to edit, and the change only takes
+effect once that pull request is merged.
+
+## What is mirrored, and why only this
+
+```
+dist/maidr.js        the library — the only file a page needs to link
+dist/maidr.css       a 406-byte placeholder, kept so that pages which still
+                     link it (as this README used to instruct) do not 404
+dist/maidr-math.css  KaTeX, fetched at runtime when a chat response has maths
+```
+
+Three files, listed one by one. cdnjs
+[asks explicitly](https://github.com/cdnjs/packages/issues/186) that file globs
+stay narrow, and a `dist/*.js` here would pull in every adapter bundle
+(amcharts, chartjs, vegalite and the rest, each around 1.9 MB) plus their
+sourcemaps — `dist/maidr.js.map` alone is 8.7 MB. None of that belongs on a
+CDN mirror.
+
+`maidr-math.css` is the one entry that is easy to leave out and expensive to
+get wrong. `src/util/katex.ts` links it at runtime, resolving it _relative to
+the URL `maidr.js` was loaded from_ — so on a page served from cdnjs it
+resolves to a cdnjs URL, and if cdnjs is not mirroring the file that URL 404s.
+The failure is quiet and narrow: LaTeX in AI chat responses renders unstyled,
+everything else is fine, and no page that never opens the chat notices. Keep it
+in the `fileMap`.
+
+Adding a file to `dist` does not mean adding it here. Mirror a file when a page
+loading MAIDR from a CDN needs to fetch it by URL — which is what separates
+these three from the adapter bundles, whose users name them in a `<script>` tag
+and can be served by either CDN.
+
+`filename` names the file cdnjs offers as the default copy-paste URL. It is
+`maidr.min.js`, a file cdnjs will have even though this build never emits one:
+their CONTRIBUTING.md commits to generating it — "for JavaScript and CSS files,
+we'll automatically generate minified versions of them and make them available
+at `filename.min.js` or `filename.min.css`" — and that generation is on unless a
+package opts out through the optional `optimization` property, which this
+manifest does not set. KaTeX's own cdnjs entry names `katex.min.js` on the same
+basis. Should their checker disagree anyway, `maidr.js` is the safe substitute.
+
+## Keeping it honest
+
+`test/cdnjs/manifest.test.ts` pins this file to the rest of the repository:
+`name`, `description`, `homepage`, `license` and `repository` against
+`package.json`, and every mirrored filename against what `scripts/build.js`
+actually emits. Rename an output or drop a field and that test fails here,
+rather than the mirror quietly serving a 404 for however long it takes someone
+to notice.
+
+The test cannot see cdnjs. It checks that this file is right about _this_
+repository; whether cdnjs has been told about a change is still a matter of
+having opened that second pull request.
+
+## It is listed
+
+The pull request to `cdnjs/packages` was merged and
+[the library](https://cdnjs.com/libraries/maidr) is live. What was verified
+once the files actually appeared, since each was a way this could have been
+quietly wrong:
+
+- `maidr.min.js` exists (1,866,505 bytes, and minified rather than a copy of
+  `maidr.js` at 1,893,803). cdnjs generates it, exactly as their
+  CONTRIBUTING.md commits to — so the `filename` in the manifest resolves and
+  does not need swapping for `maidr.js`.
+- `maidr-math.css` exists and is byte-identical to npm's, KaTeX rules and all.
+  This is the entry the notes above call easy to leave out and expensive to
+  get wrong: `src/util/katex.ts` resolves it against the URL `maidr.js` was
+  loaded from, so a page served from cdnjs would render LaTeX in AI chat
+  responses unstyled if the mirror lacked it.
+- `maidr.css` is the 406-byte placeholder, matching what the build emits.
+- Ten versions were backfilled (3.68.0 through 3.75.1), so `autoupdate` is
+  reading npm correctly rather than pinning the submitted version.
+
+`README.md` documents the cdnjs URL. The `docs/` guides deliberately do not:
+cdnjs serves no floating alias, so every mention is a hard-coded version that
+goes stale at the next release, and those pages are mostly about adapter
+bundles that are not mirrored at all. One pinned URL in the README, next to
+the reason someone would want it, costs one edit per release instead of ten.
+
+## After each release
+
+Two things, neither automated:
+
+- **Bump the version in `README.md`'s cdnjs URL.** cdnjs serves no floating
+  alias, so that example names a release and keeps naming it. Nothing fails
+  when it goes stale — the URL still resolves, it just serves an older build
+  — which is what makes it easy to miss. semantic-release owns `package.json`
+  and this repo has no release checklist to hang the step on, so it is
+  written here, in the file about cdnjs upkeep. Pinning it to `package.json`
+  with a test would catch it, but semantic-release commits the bump itself
+  and the test would then fail on `main` after every release until someone
+  edited the README; making that safe means teaching the release job to
+  rewrite the URL, which is a change to the pipeline rather than to a doc.
+- **Check `https://cdnjs.com/libraries/maidr` picked the release up on its
+  own.** If it did not, the `autoupdate` block is wrong and needs another
+  pull request to `cdnjs/packages`.

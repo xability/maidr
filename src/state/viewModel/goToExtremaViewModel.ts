@@ -14,6 +14,17 @@ interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
 }
 
+/**
+ * An X value paired with its display label. `value` is the raw XValue used for
+ * navigation (moveToXValue matches on the raw value); `label` is the x-axis
+ * formatted string that is shown, filtered, and announced in the search
+ * combobox so it matches the terse layer text and the extrema target labels.
+ */
+export interface XValueOption {
+  value: XValue;
+  label: string;
+}
+
 export interface GoToExtremaState {
   visible: boolean;
   targets: any[];
@@ -77,7 +88,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     this.formatter = formatter;
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }
@@ -108,7 +119,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       // Store the targets and description in the state
       this.store.dispatch(show({ targets: formattedTargets, description }));
 
-      // Then change scope to show the modal
+      // Then change scope to show the modal. The scope change is what plays
+      // the shared "menu open" cue, from DisplayViewModel.
       this.goToExtremaService.toggle(state);
     }
   }
@@ -116,7 +128,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   public hide(): void {
     this.store.dispatch(hide());
 
-    // Return scope to TRACE so plot navigation works again
+    // Return scope to TRACE so plot navigation works again. Leaving the
+    // GO_TO_EXTREMA scope is what plays the shared "menu close" cue, from
+    // DisplayViewModel, so every dismissal path sounds it exactly once.
     this.goToExtremaService.returnToTraceScope();
   }
 
@@ -146,6 +160,22 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
   }
 
+  /**
+   * Moves the selection to an explicit index (WAI-ARIA Home/End support).
+   * Clamps to [0, targets.length]; targets.length is the virtual search option,
+   * mirroring moveDown()'s upper bound so any valid position is addressable.
+   * @param index - The target selection index.
+   */
+  public moveToIndex(index: number): void {
+    const currentState = this.state;
+
+    if (currentState.targets.length > 0) {
+      const maxIndex = currentState.targets.length; // includes virtual search option
+      const clamped = Math.max(0, Math.min(maxIndex, index));
+      this.store.dispatch(updateSelectedIndex(clamped));
+    }
+  }
+
   public selectCurrent(): void {
     const currentState = this.state;
 
@@ -163,11 +193,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
       try {
-        // First hide the modal to ensure proper scope change
-        this.store.dispatch(hide());
-
-        // Return to trace scope before navigation
-        this.goToExtremaService.returnToTraceScope();
+        // Hide the modal (dispatches hide, restores TRACE scope, plays the
+        // close cue) before navigating so the scope change and cue happen once.
+        this.hide();
 
         // Then navigate to the target
         activeTrace.navigateToExtrema(target);
@@ -182,10 +210,16 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
   /**
    * Format extrema target labels by replacing raw xValues with formatted ones.
-   * When no custom formatter is configured the labels pass through unchanged.
+   *
+   * Every layer is formatted, not only those with an author-supplied
+   * `AxisFormat`: the default formatter rounds a long float to two decimals,
+   * which is what the announcement says, and a dialog label that disagreed with
+   * the announcement for the same point would be worse than either. A value the
+   * formatter leaves alone is detected below and passes through untouched.
    */
   private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
-    if (!this.formatter || !this.formatter.hasCustomFormatter(layerId, 'x')) {
+    const formatter = this.formatter;
+    if (!formatter) {
       return targets;
     }
 
@@ -193,7 +227,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       if (target.xValue === undefined) {
         return target;
       }
-      const formatted = this.formatter!.formatSingleValue(target.xValue, layerId, 'x');
+      const formatted = formatter.formatSingleValue(target.xValue, layerId, 'x');
       const raw = String(target.xValue);
       if (formatted === raw) {
         return target;
@@ -224,6 +258,52 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       return (activeTrace as PlotWithXValues).getAvailableXValues();
     }
     return [];
+  }
+
+  /**
+   * Get available X values paired with their display label. `value` is the raw
+   * XValue (navigation matches on it); `label` is the x-axis formatted string so
+   * the search options read the same as the terse layer text and the extrema
+   * target labels (e.g. "Nov 3" rather than the raw "2019-11-03"). Falls back to
+   * String(value) only when no formatter was injected or the active layer has
+   * no id — every known layer is formatted, configured or not.
+   * @returns Array of {value, label} options for the search combobox.
+   */
+  public getAvailableXValueOptions(): XValueOption[] {
+    const rawValues = this.getAvailableXValues();
+    if (rawValues.length === 0) {
+      return [];
+    }
+
+    const formatter = this.formatter;
+    const layerId = this.activeLayerId();
+    // Same rule the extrema target labels follow (formatTargetLabels): format
+    // whenever there is a formatter and a layer to look it up by, so these
+    // labels round the way the announcement does.
+    if (!formatter || layerId === null) {
+      return rawValues.map(value => ({ value, label: String(value) }));
+    }
+
+    // String()-coerce the formatter output (custom `function` formatters are
+    // built via new Function and only nominally return a string) so the label
+    // is always safe to call string methods on downstream, matching the
+    // tolerance of formatTargetLabels.
+    return rawValues.map(value => ({
+      value,
+      label: String(formatter.formatSingleValue(value, layerId, 'x')),
+    }));
+  }
+
+  /**
+   * Layer id of the active trace, or null when the active plot is not a
+   * non-empty trace. The plot stack is unchanged while the modal is open (the
+   * GO_TO_EXTREMA scope is a keyboard scope only), so context.state resolves to
+   * the same trace whose X values are being listed.
+   * @returns The active layer id, or null.
+   */
+  private activeLayerId(): string | null {
+    const state = this.context.state;
+    return state.type === 'trace' && !state.empty ? state.layerId : null;
   }
 
   /**

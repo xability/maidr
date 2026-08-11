@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  Regression fixture for issue #749: a subplot authored with an empty `layers`
+  array used to throw during figure construction, so MAIDR never attached and
+  the whole figure went inert — well-formed panels included.
+
+  This lives here rather than in `examples/` on purpose: it is a deliberately
+  degenerate input, not a demonstration of a chart type, and it should not be
+  copied into the published example gallery. Producers do emit this shape —
+  r-maidr emits a zero-layer subplot for an unoccupied cell in a
+  non-rectangular patchwork layout — so the figure must stay navigable and the
+  empty panel must announce that it has nothing to describe.
+
+  Panel 1 (top) has no layers at all. Panel 2 (bottom) is a well-formed bar
+  plot, and is what proves a malformed sibling no longer takes the whole
+  figure down with it.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>Empty subplot (regression fixture)</title>
+    <link rel="stylesheet" href="../../dist/maidr.css" />
+    <script type="text/javascript" src="../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <svg
+      id="empty-subplot-figure"
+      xmlns="http://www.w3.org/2000/svg"
+      width="400"
+      height="400"
+      viewBox="0 0 400 400"
+      version="1.1"
+      maidr-data='{"id":"empty-subplot-figure","title":"Empty subplot regression","subplots":[[{"id":"sp-empty","selector":"#panel1 > rect","layers":[]}],[{"id":"sp-bars","selector":"#bars > rect","layers":[{"id":"layer-bars","type":"bar","title":"Well-formed panel","axes":{"x":{"label":"Category"},"y":{"label":"Value"}},"data":[{"x":"A","y":1},{"x":"B","y":2},{"x":"C","y":3}],"selectors":"#bars > rect"}]}]]}'
+    >
+      <g id="axes_1">
+        <g id="panel1">
+          <rect x="10" y="10" width="120" height="120" style="fill: #dddddd" />
+        </g>
+      </g>
+      <g id="axes_2">
+        <g id="bars">
+          <rect x="10" y="350" width="30" height="40" style="fill: #4477aa" />
+          <rect x="50" y="320" width="30" height="70" style="fill: #4477aa" />
+          <rect x="90" y="290" width="30" height="100" style="fill: #4477aa" />
+        </g>
+      </g>
+    </svg>
+  </body>
+</html>

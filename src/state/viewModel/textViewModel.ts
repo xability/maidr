@@ -16,8 +16,11 @@ export interface TextState {
   announce: boolean;
   value: string;
   /**
-   * Monotonic counter that increments on every update (including same-text updates).
-   *  Used by the View to detect re-announcement requests without invisible characters.
+   * Monotonic counter that increments on every text update AND every
+   * notification (including same-text/same-message dispatches). The View keys
+   * the screen-reader alert region on it, so bumping it here is what forces a
+   * re-announcement (via re-mount) even when the text/message is unchanged —
+   * without relying on invisible Unicode characters.
    */
   revision: number;
   message: string | null;
@@ -47,6 +50,11 @@ const textSlice = createSlice({
     },
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
+      // Bump revision so the alert region re-mounts and screen readers
+      // re-announce even when the same message is dispatched repeatedly (e.g.
+      // holding a direction key at a rotor boundary). Without this, an
+      // identical repeat notify() produces no DOM change and stays silent.
+      state.revision += 1;
     },
     clearMessage(state): void {
       state.message = null;
@@ -64,6 +72,16 @@ const { update, announceText, toggle, notify, clearMessage, reset } = textSlice.
 export class TextViewModel extends AbstractViewModel<TextState> {
   private readonly audioService: AudioService;
   private readonly textService: TextService;
+
+  /**
+   * Whether autoplay is currently running. Autoplay deliberately suppresses
+   * per-point screen-reader announcements (it toggles `announce` off on start
+   * and back on when it stops). The `first_navigation` event also enables
+   * announcements, and it can fire mid-playback when autoplay is the user's
+   * very first navigation — so this flag lets that handler defer to autoplay's
+   * suppression instead of re-enabling announcements underneath it.
+   */
+  private autoplayActive = false;
 
   /**
    * Creates a new TextViewModel instance and registers event listeners.
@@ -89,7 +107,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   /**
    * Disposes the view model and resets text state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }
@@ -105,7 +123,10 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     }));
 
     this.disposables.push(this.textService.onNavigation((e) => {
-      if (e.type === 'first_navigation') {
+      // Enable announcements on the first navigation, unless autoplay is
+      // running — autoplay owns the announce flag while active and re-enables
+      // it on stop, so overriding here would defeat its per-point suppression.
+      if (e.type === 'first_navigation' && !this.autoplayActive) {
         this.setAnnounce(true);
       }
     }));
@@ -117,9 +138,11 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     this.disposables.push(autoplay.onChange((e) => {
       switch (e.type) {
         case 'start':
+          this.autoplayActive = true;
           this.setAnnounce(false);
           break;
         case 'stop':
+          this.autoplayActive = false;
           this.setAnnounce(true);
           break;
       }

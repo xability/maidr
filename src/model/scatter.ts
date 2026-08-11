@@ -1,8 +1,8 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointNavigable } from '@type/navigation';
-import type { AudioState, AutoplayState, BrailleState, DescriptionState, HighlightState, TextState, TraceState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { AudioState, AutoplayState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState } from '@type/state';
+import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -68,6 +68,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
+
+  // highlightCenters holds viewport coordinates from getBoundingClientRect(),
+  // which shift when the page scrolls or the window resizes. Rather than
+  // recompute every rect on each pointermove, mark the cache stale on
+  // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
+  private highlightCentersDirty = false;
+
+  private readonly invalidateHighlightCenters = (): void => {
+    this.highlightCentersDirty = true;
+  };
 
   private readonly minX: number;
   private readonly maxX: number;
@@ -170,6 +180,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
+
+    // Invalidate the cached pointer-hover centers when the viewport moves.
+    // Capture phase catches scrolling of any ancestor container, not just window.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.addEventListener('resize', this.invalidateHighlightCenters);
+    }
 
     // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
     this.isInGridMode = false;
@@ -289,18 +306,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   /**
    * Cleans up resources and removes all highlight elements from the DOM.
    */
-  public dispose(): void {
+  public override dispose(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
+      window.removeEventListener('resize', this.invalidateHighlightCenters);
+    }
+
     this.movable.dispose();
 
     this.xPoints.length = 0;
     this.yPoints.length = 0;
 
     if (this.highlightXValues) {
-      this.highlightXValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightXValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightXValues.length = 0;
     }
     if (this.highlightYValues) {
-      this.highlightYValues.forEach(row => row.forEach(el => el.remove()));
+      this.highlightYValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightYValues.length = 0;
     }
 
@@ -321,7 +343,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Returns an empty object to avoid grouping scatter points by audio tone.
    * @returns Empty object without groupIndex to maintain consistent audio feedback
    */
-  protected getAudioGroupIndex(): { groupIndex?: number } {
+  protected override getAudioGroupIndex(): { groupIndex?: number } {
     // Rationale for returning empty object instead of groupIndex:
     //
     // Scatterplots fundamentally differ from other plot types in their grouping semantics:
@@ -398,7 +420,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
 
     // Normal row/col mode: braille not supported (return empty state)
-    return this.outOfBoundsState as BrailleState;
+    return this.outOfBoundsState;
   }
 
   protected get audio(): AudioState {
@@ -525,7 +547,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         },
         panning: {
           y: this.row,
-          x: panXArray,
+          x: panXArray[0] ?? 0,
+          xPerTone: panXArray,
           rows: this.yPoints.length,
           cols: Math.max(1, this.xPoints.length),
         },
@@ -684,7 +707,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     };
   }
 
-  protected get highlight(): HighlightState {
+  protected override get highlight(): HighlightState {
     if (this.isInIntersectionMode) {
       // Highlight a single point in the current stack. Parallel SVG arrays
       // for each axis line up with the corresponding xPoints / yPoints
@@ -694,12 +717,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         ? this.xPointsSvg?.[this.col]
         : this.yPointsSvg?.[this.row];
       if (!svgStack) {
-        return this.outOfBoundsState as HighlightState;
+        return this.outOfBoundsState;
       }
       const idx = Math.min(this.intersectionStackIndex, Math.max(0, svgStack.length - 1));
       const element = svgStack[idx] ?? null;
       if (!element) {
-        return this.outOfBoundsState as HighlightState;
+        return this.outOfBoundsState;
       }
       return {
         empty: false,
@@ -710,7 +733,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (this.isInPointMode) {
       const point = this.flatPoints[this.pointModeIndex];
       if (!point.svg) {
-        return this.outOfBoundsState as HighlightState;
+        return this.outOfBoundsState;
       }
       return {
         empty: false,
@@ -725,7 +748,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       if (this.isInGridCellMode && this.cellSvgGroups.length > 0) {
         const elements = this.cellSvgGroups[this.cellPointIndex];
         if (!elements || elements.length === 0) {
-          return this.outOfBoundsState as HighlightState;
+          return this.outOfBoundsState;
         }
         return {
           empty: false,
@@ -735,7 +758,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
       // Grid cell overview - highlight all points in cell
       if (cell.svgElements.length === 0) {
-        return this.outOfBoundsState as HighlightState;
+        return this.outOfBoundsState;
       }
       return {
         empty: false,
@@ -744,14 +767,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
 
     if (this.highlightValues === null) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     const elements = this.mode === NavMode.COL
       ? this.col < this.highlightValues.length ? this.highlightValues![this.col] : null
       : this.row < this.highlightValues.length ? this.highlightValues![this.row] : null;
     if (!elements) {
-      return this.outOfBoundsState as HighlightState;
+      return this.outOfBoundsState;
     }
 
     return {
@@ -760,7 +783,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     };
   }
 
-  protected get hasMultiPoints(): boolean {
+  protected override get hasMultiPoints(): boolean {
     return true;
   }
 
@@ -768,7 +791,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Returns out-of-bounds state with correct position for grid mode panning.
    * In grid mode, uses gridCol/gridRow for correct left/right audio panning.
    */
-  protected get outOfBoundsState(): TraceState {
+  protected override get outOfBoundsState(): TraceEmptyState {
     // Use grid position when in grid mode for correct panning
     if (this.isInGridMode && this.gridCells) {
       return {
@@ -836,7 +859,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
   }
 
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -973,7 +996,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
   }
 
-  public moveToExtreme(direction: MovableDirection): boolean {
+  public override moveToExtreme(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -1017,10 +1040,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     return true;
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  public override moveToIndex(row: number, col: number): boolean {
+    // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
+    // (ROW mode). NavigationService.moveToXValueInValues preserves X across
+    // layer switches by calling moveToIndex(0, xIndex), so COL mode must read
+    // the column argument (previously it read `row`, always landing on x=0).
     if (this.mode === NavMode.COL) {
-      if (row >= 0 && row < this.xPoints.length) {
-        this.col = row;
+      if (col >= 0 && col < this.xPoints.length) {
+        this.col = col;
         this.row = 0;
         this.notifyStateUpdate();
         return true;
@@ -1029,9 +1056,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         return false;
       }
     } else {
-      if (col >= 0 && col < this.yPoints.length) {
-        this.col = col;
-        this.row = 0;
+      if (row >= 0 && row < this.yPoints.length) {
+        this.row = row;
+        // Keep the x cursor inside the target row's bounds: ROW-mode panning
+        // and highlight lookup index yPoints[row].x by this.col.
+        this.col = Math.max(0, Math.min(this.col, this.yPoints[row].x.length - 1));
         this.notifyStateUpdate();
         return true;
       } else {
@@ -1046,9 +1075,17 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * @param target - Direction or coordinate to check
    * @returns True if movement is possible, false otherwise
    */
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
-      return false;
+      // Array targets are raw cursor coordinates, used by
+      // Context.restoreTracePosition to keep the user's position across
+      // live data updates. A rebuilt trace always starts in COL mode, where
+      // the cursor is (0, xIndex); ROW mode uses (yIndex, xIndex).
+      const [row, col] = target;
+      if (this.mode === NavMode.COL) {
+        return row === 0 && col >= 0 && col < this.xPoints.length;
+      }
+      return row >= 0 && row < this.yPoints.length && col >= 0 && col < this.xPoints.length;
     }
 
     // Check grid mode boundaries
@@ -1699,6 +1736,21 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         }
       }
 
+      // Highcharts (and other path-rendered marker libraries) embed the
+      // marker center in the `d` attribute as `M x y …`. Parse the initial
+      // moveTo command to recover (x, y) when none of the explicit attribute
+      // fallbacks matched.
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const d = element.getAttribute('d');
+        if (d) {
+          const match = d.match(/M\s*([\d.eE+-]+)[\s,]+([\d.eE+-]+)/);
+          if (match) {
+            x = Number.parseFloat(match[1]);
+            y = Number.parseFloat(match[2]);
+          }
+        }
+      }
+
       if (!Number.isNaN(x)) {
         if (!xGroups.has(x))
           xGroups.set(x, []);
@@ -1771,7 +1823,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   public findNearestPoint(
     _x: number,
     _y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
+    // Rebuild stale centers lazily: scroll/resize invalidated the cached
+    // viewport coordinates (see invalidateHighlightCenters).
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -1797,27 +1856,33 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
   /**
-   * Moves to the nearest scatter point at the specified screen coordinates.
-   * @param x - The x-coordinate in screen space
-   * @param y - The y-coordinate in screen space
+   * Switches scatter into column-navigation mode only when committing the
+   * hovered point. Off-curve guidance probes intentionally skip the mode
+   * change: `moveToPointAndGetPointerGuidance` fires on every pointermove,
+   * and an unconditional reset would silently erase a `ROW` mode the user
+   * set via keyboard while exploring nearby.
    */
-  public moveToPoint(x: number, y: number): void {
-    // set to vertical mode
-    this.mode = NavMode.COL;
-
-    const nearest = this.findNearestPoint(x, y);
-    if (nearest) {
-      if (this.isPointInBounds(x, y, nearest)) {
-        // don't move if we're already there
-        if (this.row === nearest.row && this.col === nearest.col) {
-          return;
-        }
-        this.moveToIndex(nearest.row, nearest.col);
-      }
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
     }
+    this.mode = NavMode.COL;
+    // highlightCenters stores the x-group index in `row`; feed it as the
+    // column argument so moveToIndex (COL mode: col = x index) lands on the
+    // hovered x position. Calling moveToIndex directly rather than delegating
+    // to super avoids the base early-return guard, which compares against the
+    // wrong fields for scatter's (mode, row, col) coordinate system.
+    this.moveToIndex(0, nearest.row);
   }
 }

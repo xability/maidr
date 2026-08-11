@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Stacked Panels (Multi-Panel) Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Stacked Axis Panels</h1>
+    <p>
+      A single Chart.js chart using axis stacking (<code>scales.y.stack</code> /
+      <code>scales.y2.stack</code>) renders two vertically stacked panels — price
+      on top, volume below. MAIDR exposes each panel as its own subplot: use
+      arrow keys to move between subplots (Up Arrow moves to the panel above),
+      press 'Enter' to drill into a panel, and 'Escape' to return to subplot
+      navigation. Panels are numbered bottom-up — "Subplot 1" is the volume
+      panel at the bottom, where navigation starts.
+    </p>
+
+    <div style="width: 700px; height: 500px">
+      <canvas id="stacked-panels-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('stacked-panels-chart'), {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [
+            {
+              label: 'Price',
+              data: [102, 110, 108, 121, 119, 127],
+              borderColor: '#2ca02c',
+              tension: 0.2,
+              // Defaults to yAxisID: 'y' — the top panel.
+            },
+            {
+              label: 'Volume',
+              data: [34, 51, 42, 65, 48, 70],
+              borderColor: '#1f77b4',
+              tension: 0.2,
+              yAxisID: 'y2', // the bottom panel
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Stock Price and Trading Volume' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Month' } },
+            y: {
+              stack: 'panels',
+              stackWeight: 2,
+              title: { display: true, text: 'Price ($)' },
+            },
+            y2: {
+              stack: 'panels',
+              stackWeight: 1,
+              offset: true,
+              title: { display: true, text: 'Volume (M shares)' },
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

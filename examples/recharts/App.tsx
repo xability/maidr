@@ -8,6 +8,7 @@ import { HistogramExample } from './examples/HistogramExample';
 import { LineChartExample } from './examples/LineChartExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
+import { FacetExample } from './examples/FacetExample';
 
 const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Bar Chart', component: BarChartExample },
@@ -18,6 +19,7 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Line Chart', component: LineChartExample },
   { name: 'Scatter Chart', component: ScatterChartExample },
   { name: 'Composed Chart', component: ComposedChartExample },
+  { name: 'Faceted (Multi-Panel)', component: FacetExample },
 ];
 
 export function App(): JSX.Element {

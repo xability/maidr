@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Pie Chart</title>
+
+    <!-- 1. Load amCharts 5 (core + percent charts, which is where PieChart lives) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 600px;
+        height: 380px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Pie Chart</h1>
+    <p>
+      Click the chart and use the left and right arrow keys to move between
+      slices — a pie is a single row, so up and down are out of bounds. Each
+      slice announces its label, its value, and its share of the whole. Toggle
+      B for Braille, T for Text, S for Sonification, and R for Review mode.
+    </p>
+    <p>
+      amCharts renders to a canvas, so there is no SVG wedge for MAIDR to
+      outline. <code>bindAmCharts</code> draws its own highlight box over the
+      active slice instead; a box around a wedge is coarse, but it tracks which
+      way round the circle navigation has moved.
+    </p>
+
+    <h2>Pie Chart</h2>
+    <div id="pie-chart" class="chart"></div>
+
+    <h2>Doughnut (a pie with an inner radius)</h2>
+    <p>
+      The same series with <code>innerRadius</code> set. It is the same
+      <code>PieSeries</code> underneath and reads identically.
+    </p>
+    <div id="doughnut-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      var FRUIT_DATA = [
+        { fruit: "Apples", units: 300 },
+        { fruit: "Bananas", units: 500 },
+        { fruit: "Cherries", units: 200 },
+        { fruit: "Dates", units: 120 },
+        { fruit: "Elderberries", units: 80 },
+      ];
+
+      // Build one pie chart into `elId`. `innerRadius` (optional) turns it into
+      // a doughnut without changing anything MAIDR reads.
+      function makePie(elId, title, innerRadius) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5percent.PieChart.new(root, {
+            layout: root.verticalLayout,
+            innerRadius: innerRadius,
+          })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+        var series = chart.series.push(
+          am5percent.PieSeries.new(root, {
+            name: "Units sold",
+            valueField: "units",
+            categoryField: "fruit",
+          })
+        );
+        series.data.setAll(FRUIT_DATA);
+
+        register(root, {
+          title: title,
+          // A pie is bound to no axis, so there is no axis title to extract.
+          // These name what each dimension holds; drop them and the adapter
+          // falls back to "Label" and "Value".
+          axisLabels: { x: "Fruit", y: "Units sold" },
+        });
+      }
+
+      makePie("pie-chart", "Fruit Sales by Variety");
+      makePie("doughnut-chart", "Fruit Sales by Variety", am5.percent(50));
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

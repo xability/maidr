@@ -58,7 +58,7 @@ export class HelpViewModel extends AbstractViewModel<HelpMenuState> {
   /**
    * Disposes the view model and resets help menu state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

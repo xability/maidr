@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible line chart interaction.
  */
 
-import type { LinePoint, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3LineConfig, DataAccessor } from '../types';
+import type { LinePoint, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor } from '../types';
 import { TraceType } from '../../../type/grammar';
-import { cssEscape, ensureContainerId, scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+import { scopeSelector, selectorPrefix } from '../selectors';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js line chart to MAIDR, generating the accessible data representation.
@@ -56,21 +57,27 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for line charts. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
     pointSelector,
-    autoApply,
   } = config;
 
-  const lineElements = queryD3Elements(svg, selector);
+  const lineElements = queryD3Elements(root, selector);
   if (lineElements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'line path');
+    throw buildNoElementsError(root, selector, 'line path');
   }
 
   // Infer accessors from a sample point-level datum when the user was silent.
@@ -78,7 +85,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   // the path's datum is typically an array of points — take its first item.
   let sampleDatum: unknown;
   if (pointSelector) {
-    const samplePointEl = svg.querySelector(pointSelector);
+    const samplePointEl = root.querySelector(pointSelector);
     sampleDatum = samplePointEl ? getD3Datum(samplePointEl) : undefined;
   } else {
     const pathDatum = lineElements[0].datum;
@@ -107,19 +114,24 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   );
 
   const data: LinePoint[][] = [];
+  // Tracks the `<path>` element that produced each data row (parallel to
+  // `data`). `null` marks a row whose rendering path could not be reliably
+  // identified, so the emitted selectors degrade to no-highlight instead of
+  // mis-highlighting a different series.
+  const rowPaths: (Element | null)[] = [];
 
   if (pointSelector) {
     // Determine whether line paths have distinct parent elements.
     // Pattern A: Each <path> lives in its own <g> with its <circle> points.
     // Pattern B: All <path>s and <circle>s share a single parent <g>.
     const parents = new Set(
-      lineElements.map(({ element }) => element.parentElement ?? svg),
+      lineElements.map(({ element }) => element.parentElement ?? root),
     );
 
     if (parents.size >= lineElements.length) {
       // Pattern A: distinct parents – scope point queries per parent
       for (const { element } of lineElements) {
-        const parent = element.parentElement ?? svg;
+        const parent = element.parentElement ?? root;
         const points = queryD3Elements(parent, pointSelector);
         const lineData = extractPointsFromElements(
           points,
@@ -130,11 +142,14 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
         );
         if (lineData.length > 0) {
           data.push(lineData);
+          // This path contributed this row; pair them so the emitted selector
+          // targets exactly this line even if other paths are dropped.
+          rowPaths.push(element);
         }
       }
     } else {
       // Pattern B: shared parent – query all points once and group by fill
-      const allPoints = queryD3Elements(svg, pointSelector);
+      const allPoints = queryD3Elements(root, pointSelector);
       if (allPoints.length === 0) {
         throw new Error(
           `No point elements found for selector "${pointSelector}" within the SVG.`,
@@ -168,11 +183,19 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
       for (const key of lineOrder) {
         data.push(lineMap.get(key)!);
       }
+
+      // Map each fill group (data row) back to the `<path>` that renders it so
+      // per-series highlighting targets the correct line. Trusted only when
+      // every group resolves to a distinct path via the path's own bound fill;
+      // otherwise all rows are `null` and highlighting degrades gracefully.
+      for (const path of resolvePatternBPaths(lineElements, lineOrder, fillAccessor)) {
+        rowPaths.push(path);
+      }
     }
   } else {
     // Extract data from the path element's bound data directly
     // D3 line charts typically bind an array of points to each path
-    for (const { datum } of lineElements) {
+    for (const { element, datum } of lineElements) {
       if (datum === undefined || datum === null) {
         throw new Error(
           `No D3 data bound to line path element. `
@@ -196,6 +219,8 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 
       if (lineData.length > 0) {
         data.push(lineData);
+        // This path's datum produced this row; pair them for a precise stamp.
+        rowPaths.push(element);
       }
     }
   }
@@ -209,13 +234,12 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     }
   }
 
-  const layerId = generateId();
-
   // Ensure the SVG has a stable id so we can emit absolutely-scoped selectors
   // (the model resolves selectors via global `document.querySelector`, so they
-  // MUST be unique page-wide). `ensureContainerId` auto-assigns an id when
-  // the user-supplied SVG lacks one, mirroring `scopeSelector`'s behaviour.
-  const svgId = ensureContainerId(svg);
+  // MUST be unique page-wide). `selectorPrefix` auto-assigns an id when the
+  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
+  // the `data-maidr-panel` segment on multi-panel binds.
+  const prefix = selectorPrefix(root, panel);
 
   // LineTrace's `mapToSvgElements` requires one selector per line (it uses
   // `Svg.selectElement(selectors[r])` to grab a single <path> per series for
@@ -232,17 +256,37 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
   // Google Charts adapter's `data-maidr-line-series` / `data-maidr-point`
   // convention and survives any DOM reordering that leaves the path itself
   // intact.
-  const selectorValue: string | string[] = data.length > 1
-    ? lineElements.map(({ element }, lineIndex) => {
+  // Emit selectors from the same rows that produced `data`. `rowPaths` is
+  // parallel to `data`, so stamping each path with its row index guarantees
+  // `selectors.length === data.length` — even when some paths were dropped
+  // (empty series) or the path↔series mapping was ambiguous. When any surviving
+  // row lacks an identified path, we cannot emit a safe per-series selector, so
+  // degrade to no-highlight (`undefined`) instead of mis-highlighting.
+  //
+  // Stamp a MAIDR-owned `data-maidr-line-index` attribute (absolutely scoped by
+  // the SVG's id) rather than a structural `:nth-child` selector, which is
+  // fragile to DOM reordering. This matches the Google Charts adapter's
+  // `data-maidr-line-series` convention and survives any reordering that leaves
+  // the path itself intact.
+  let selectorValue: string | string[] | undefined;
+  if (lineElements.length > 1) {
+    if (rowPaths.length === data.length && rowPaths.every(el => el !== null)) {
+      selectorValue = rowPaths.map((element, rowIndex) => {
         // Clear any prior stamp so rebinding after a D3 data update produces
         // a clean, deterministic state.
-        element.removeAttribute('data-maidr-line-index');
-        element.setAttribute('data-maidr-line-index', String(lineIndex));
-        return `#${cssEscape(svgId)} ${selector}[data-maidr-line-index="${lineIndex}"]`;
-      })
-    : scopeSelector(svg, selector);
+        element!.removeAttribute('data-maidr-line-index');
+        element!.setAttribute('data-maidr-line-index', String(rowIndex));
+        return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
+      });
+    } else {
+      selectorValue = undefined;
+    }
+  } else {
+    // Exactly one path matched → a single scoped selector highlights it.
+    selectorValue = scopeSelector(root, selector, panel);
+  }
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.LINE,
     title,
     selectors: selectorValue,
@@ -250,19 +294,7 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
     data,
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{
-      ...(legend.length > 0 ? { legend } : {}),
-      layers: [layer],
-    }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer, legend };
 }
 
 /**
@@ -291,4 +323,51 @@ function extractPointsFromElements(
     lineData.push(point);
   }
   return lineData;
+}
+
+/**
+ * Resolves the `<path>` element that renders each fill group in Pattern B
+ * (shared-parent multi-line charts), keyed to the group order in `lineOrder`.
+ *
+ * Correspondence is trusted only when the path count equals the group count
+ * AND every group maps to a distinct path via that path's own D3-bound fill
+ * (its datum, or the first item when the datum is an array of points). When it
+ * cannot be established, an all-`null` array is returned so the caller degrades
+ * to no-highlight rather than mis-highlighting a different series.
+ *
+ * @param lineElements - The queried line `<path>` elements with their D3 data.
+ * @param lineOrder    - Fill-group keys in the order rows were pushed to `data`.
+ * @param fillAccessor - Accessor used to read a datum's fill/series key.
+ * @returns One entry per group (parallel to `lineOrder`): the matching path, or
+ *          `null` for every group when the mapping is ambiguous.
+ */
+function resolvePatternBPaths(
+  lineElements: { element: Element; datum: unknown; index: number }[],
+  lineOrder: string[],
+  fillAccessor: DataAccessor<string>,
+): (Element | null)[] {
+  const unresolved: (Element | null)[] = lineOrder.map(() => null);
+  if (lineElements.length !== lineOrder.length) {
+    return unresolved;
+  }
+
+  const pathByFill = new Map<string, Element>();
+  for (const { element, datum } of lineElements) {
+    const sample = Array.isArray(datum) ? datum[0] : datum;
+    let key = '__default__';
+    if (sample !== undefined && sample !== null && typeof sample === 'object') {
+      const fill = resolveAccessorOptional<string>(sample, fillAccessor, 0);
+      if (fill !== undefined) {
+        key = fill;
+      }
+    }
+    if (!pathByFill.has(key)) {
+      pathByFill.set(key, element);
+    }
+  }
+
+  const matched: (Element | null)[] = lineOrder.map(key => pathByFill.get(key) ?? null);
+  const allResolved = matched.every(el => el !== null);
+  const allDistinct = new Set(matched).size === matched.length;
+  return allResolved && allDistinct ? matched : unresolved;
 }

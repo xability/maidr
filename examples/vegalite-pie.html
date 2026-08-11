@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Pie Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Pie Chart</h1>
+    <p>
+      Click on the chart and use left and right arrow keys to navigate slices;
+      each one announces its label, its value and its share of the whole.
+      Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="pie-chart"
+      aria-label="Pie chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Pie: `arc` mark with the magnitudes on `theta` and the slice labels
+      // on `color`. Adding `innerRadius` to the mark makes it a doughnut,
+      // which the MAIDR binder reads identically. Both map to PIE.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 400,
+        height: 400,
+        title: 'Units Sold by Fruit',
+        data: {
+          values: [
+            { fruit: 'Apples', units: 30 },
+            { fruit: 'Bananas', units: 50 },
+            { fruit: 'Cherries', units: 20 },
+            { fruit: 'Dates', units: 15 },
+          ],
+        },
+        mark: 'arc',
+        encoding: {
+          theta: { field: 'units', type: 'quantitative', title: 'Units' },
+          color: { field: 'fruit', type: 'nominal', title: 'Fruit' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#pie-chart', spec, { id: 'fruit-pie' })
+        .catch((err) => console.error('[vegalite-pie]', err));
+    </script>
+  </body>
+</html>

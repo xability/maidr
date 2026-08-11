@@ -199,7 +199,6 @@ export class NavigationService implements Disposable {
     let bestRow = -1;
     let bestCol = -1;
     let bestDist = Number.POSITIVE_INFINITY;
-    let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
 
     if (Array.isArray(points)) {
       for (let row = 0; row < points.length; row++) {
@@ -213,26 +212,22 @@ export class NavigationService implements Disposable {
           // Fallback: find nearest/categorical in this row
           const nearestCol = this.findNearestPointIndexByX(rowPoints, xValue);
           if (nearestCol !== -1) {
-            const _actualX = extractXValue(rowPoints[nearestCol]);
-            let dist = Number.POSITIVE_INFINITY;
-            if (typeof xValue === 'number' && typeof _actualX === 'number') {
-              dist = Math.abs(_actualX - xValue);
+            const actualX = extractXValue(rowPoints[nearestCol]);
+            if (typeof xValue === 'number' && typeof actualX === 'number') {
+              const dist = Math.abs(actualX - xValue);
               if (dist < bestDist) {
                 bestDist = dist;
                 bestRow = row;
                 bestCol = nearestCol;
-                fallbackType = 'numeric';
               }
-            } else if (typeof xValue === 'string' && typeof _actualX === 'string') {
+            } else if (typeof xValue === 'string' && typeof actualX === 'string') {
               if (bestRow === -1) {
                 bestRow = row;
                 bestCol = nearestCol;
-                fallbackType = 'categorical';
               }
             } else if (bestRow === -1) {
               bestRow = row;
               bestCol = nearestCol;
-              fallbackType = 'generic';
             }
           }
         }
@@ -240,15 +235,8 @@ export class NavigationService implements Disposable {
     }
 
     if (bestRow !== -1 && bestCol !== -1) {
-      const rowPoints = points[bestRow];
-      let _actualX;
-      if (Array.isArray(rowPoints)) {
-        _actualX = extractXValue(rowPoints[bestCol]);
-      }
-      if (fallbackType !== null) {
-        moveToIndex(bestRow, bestCol);
-        return true;
-      }
+      moveToIndex(bestRow, bestCol);
+      return true;
     }
 
     return false;
@@ -269,7 +257,6 @@ export class NavigationService implements Disposable {
     let bestRow = -1;
     let bestCol = -1;
     let bestDist = Number.POSITIVE_INFINITY;
-    let fallbackType: 'numeric' | 'categorical' | 'generic' | null = null;
     for (let row = 0; row < values.length; row++) {
       for (let col = 0; col < values[row].length; col++) {
         const value = values[row][col];
@@ -285,33 +272,21 @@ export class NavigationService implements Disposable {
             bestDist = dist;
             bestRow = row;
             bestCol = col;
-            fallbackType = 'numeric';
           }
         } else if (typeof xValue === 'string' && typeof valueToCompare === 'string') {
           if (bestRow === -1) {
             bestRow = row;
             bestCol = col;
-            fallbackType = 'categorical';
           }
         } else if (bestRow === -1) {
           bestRow = row;
           bestCol = col;
-          fallbackType = 'generic';
         }
       }
     }
     if (bestRow !== -1 && bestCol !== -1) {
-      const _actualX = this.extractXFromValue(values[bestRow][bestCol]);
-      if (fallbackType === 'numeric') {
-        moveToIndex(bestRow, bestCol);
-        return true;
-      } else if (fallbackType === 'categorical') {
-        moveToIndex(bestRow, bestCol);
-        return true;
-      } else {
-        moveToIndex(bestRow, bestCol);
-        return true;
-      }
+      moveToIndex(bestRow, bestCol);
+      return true;
     }
     return false;
   }
@@ -395,7 +370,6 @@ export class NavigationService implements Disposable {
         }
       }
       if (bestIdx !== -1) {
-        const _actualX = extractXValue(points[bestIdx]);
         return bestIdx;
       }
     } else if (typeof xValue === 'string') {
@@ -429,7 +403,6 @@ export class NavigationService implements Disposable {
           }
         }
         if (bestIdx !== -1) {
-          const _actualX = extractXValue(points[bestIdx]);
           return bestIdx;
         }
       }
@@ -441,7 +414,6 @@ export class NavigationService implements Disposable {
       }
     }
     if (points.length > 0) {
-      const _actualX = extractXValue(points[0]);
       return 0;
     }
     return -1;

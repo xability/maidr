@@ -1,11 +1,15 @@
+import type { AppendedPointInfo } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
-import type { Maidr } from '@type/grammar';
+import type { Maidr, NavigateCallback } from '@type/grammar';
+import type { Observer } from '@type/observable';
+import type { TraceState } from '@type/state';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
 import { AutoplayService } from '@service/autoplay';
 import { BrailleService } from '@service/braille';
+import { CandlestickDeltaService } from '@service/candlestickDelta';
 import { ChatService } from '@service/chat';
 import { CommandExecutor } from '@service/commandExecutor';
 import { CommandPaletteService } from '@service/commandPalette';
@@ -17,6 +21,8 @@ import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { isAppendedPointFocused } from '@service/liveData';
+import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
@@ -24,6 +30,7 @@ import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TextService } from '@service/text';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
+import { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
 import { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
 import { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
@@ -41,7 +48,8 @@ import { resolveSubplotLayout } from '@util/subplotLayout';
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
  */
 export class Controller implements Disposable {
-  private readonly figure: Figure;
+  // Mutable: replaced in place on live data updates (see updateData).
+  private figure: Figure;
   private readonly context: Context;
 
   private readonly displayService: DisplayService;
@@ -51,6 +59,7 @@ export class Controller implements Disposable {
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
+  private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly goToExtremaService: GoToExtremaService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
@@ -58,6 +67,7 @@ export class Controller implements Disposable {
 
   private readonly autoplayService: AutoplayService;
   private readonly highContrastService: HighContrastService;
+  private readonly monitorService: MonitorService;
   private readonly highlightService: HighlightService;
   private readonly descriptionService: DescriptionService;
   private readonly helpService: HelpService;
@@ -65,6 +75,7 @@ export class Controller implements Disposable {
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
+  private readonly candlestickDeltaViewModel: CandlestickDeltaViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly descriptionViewModel: DescriptionViewModel;
@@ -101,6 +112,12 @@ export class Controller implements Disposable {
       this.displayService,
     );
     this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
+    this.monitorService = new MonitorService(
+      maidr.live === true,
+      this.audioService,
+      this.textService,
+      this.notificationService,
+    );
 
     this.brailleService = new BrailleService(
       this.context,
@@ -151,7 +168,7 @@ export class Controller implements Disposable {
     );
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.descriptionViewModel = new DescriptionViewModel(store, this.descriptionService);
-    this.displayViewModel = new DisplayViewModel(store, this.displayService);
+    this.displayViewModel = new DisplayViewModel(store, this.displayService, this.audioService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
@@ -163,6 +180,26 @@ export class Controller implements Disposable {
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,
       this.rotorNavigationService,
+    );
+    this.candlestickDeltaService = new CandlestickDeltaService(
+      this.context,
+      this.notificationService,
+      this.displayService,
+      this.rotorNavigationService,
+    );
+    // Runtime-created virtual traces are not covered by registerObservers(),
+    // so the delta service wires the same observer set itself on creation.
+    this.candlestickDeltaService.setObserverWirer((trace) => {
+      trace.addObserver(this.audioService);
+      trace.addObserver(this.brailleService);
+      trace.addObserver(this.textService);
+      trace.addObserver(this.reviewService);
+      trace.addObserver(this.highlightService);
+    });
+    this.candlestickDeltaViewModel = new CandlestickDeltaViewModel(
+      store,
+      this.candlestickDeltaService,
+      this.notificationService,
     );
     this.chatViewModel = new ChatViewModel(
       store,
@@ -185,15 +222,18 @@ export class Controller implements Disposable {
       audioService: this.audioService,
       autoplayService: this.autoplayService,
       brailleService: this.brailleService,
+      candlestickDeltaService: this.candlestickDeltaService,
       displayService: this.displayService,
       highContrastService: this.highContrastService,
       highlightService: this.highlightService,
+      monitorService: this.monitorService,
       notificationService: this.notificationService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
       textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
+      candlestickDeltaViewModel: this.candlestickDeltaViewModel,
       chatViewModel: this.chatViewModel,
       commandPaletteViewModel: this.commandPaletteViewModel,
       descriptionViewModel: this.descriptionViewModel,
@@ -211,15 +251,18 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         brailleService: this.brailleService,
+        candlestickDeltaService: this.candlestickDeltaService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        monitorService: this.monitorService,
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
+        candlestickDeltaViewModel: this.candlestickDeltaViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
@@ -241,15 +284,18 @@ export class Controller implements Disposable {
         audioService: this.audioService,
         autoplayService: this.autoplayService,
         brailleService: this.brailleService,
+        candlestickDeltaService: this.candlestickDeltaService,
         displayService: this.displayService,
         highContrastService: this.highContrastService,
         highlightService: this.highlightService,
+        monitorService: this.monitorService,
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
+        candlestickDeltaViewModel: this.candlestickDeltaViewModel,
         chatViewModel: this.chatViewModel,
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
@@ -260,7 +306,6 @@ export class Controller implements Disposable {
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
       },
-      this.context.scope,
     );
 
     // Inject command execution callback into CommandPaletteViewModel (deferred due to circular dependency)
@@ -270,27 +315,11 @@ export class Controller implements Disposable {
 
     this.registerViewModels();
     this.registerObservers();
+    if (maidr.onNavigate) {
+      this.registerNavigateCallback(maidr.onNavigate);
+    }
     this.keybinding.register(this.context.scope);
     this.mousebinding.registerEvents();
-  }
-
-  /**
-   * Announces the initial instruction to screen readers using a live region.
-   */
-  public announceInitialInstruction(): void {
-    const instruction = this.displayService.getInstruction(false);
-    // Use textViewModel.update() so the revision counter is bumped,
-    // which forces the View to re-mount the role="alert" element and
-    // triggers a screen-reader announcement.
-    this.textViewModel.update(instruction);
-  }
-
-  /**
-   * Retrieves the initial instruction text for the plot.
-   * @returns The initial instruction text
-   */
-  public getInitialInstruction(): string {
-    return this.displayService.getInstruction(false);
   }
 
   /**
@@ -320,6 +349,116 @@ export class Controller implements Disposable {
   }
 
   /**
+   * Replaces the chart data in place (live/realtime update).
+   *
+   * Rebuilds the model layer (Figure/Subplot/Trace) from the new data while
+   * preserving the user's navigation position, then rewires all observers.
+   * Services, view models, and keybindings are untouched, so the update is
+   * cheap enough for streaming scenarios.
+   *
+   * The swap itself is silent; when monitor mode is enabled and the update
+   * appended a point, that point is sonified and announced without moving
+   * the user's position.
+   *
+   * @param maidr - The complete replacement MAIDR config (caller-owned copy)
+   * @param appended - Location of the newly appended point, for appendData updates
+   */
+  public updateData(maidr: Maidr, appended?: AppendedPointInfo): void {
+    // The virtual delta layer is derived from the current model; a data
+    // update rebuilds the figure underneath it, so close it first to keep
+    // the navigation stack and keyboard scope consistent.
+    if (this.candlestickDeltaService.isActive) {
+      this.candlestickDeltaService.deactivate({ silent: true });
+      this.notificationService.notify('Reference comparison closed by a data update.');
+    }
+
+    // Ordering is load-bearing: the sliding-window shift must be resolved
+    // against the OLD figure (the user's current position) before the swap,
+    // while announceAppendedPoint below runs against the NEW figure.
+    const activeColShift = this.resolveActiveColShift(appended);
+
+    this.figure = this.context.replaceFigure(() => {
+      const figure = new Figure(maidr);
+      figure.applyLayout(resolveSubplotLayout(figure.subplots));
+      return figure;
+    }, { activeColShift });
+
+    this.highContrastService.setFigure(this.figure);
+    this.formatterService.refresh(maidr);
+    this.chatService.updateData(maidr);
+    this.monitorService.setLive(maidr.live === true);
+    this.registerObservers();
+    if (maidr.onNavigate) {
+      this.registerNavigateCallback(maidr.onNavigate);
+    }
+
+    if (appended) {
+      this.announceAppendedPoint(appended);
+    }
+  }
+
+  /**
+   * Computes how far the active trace's cursor must shift left so it stays
+   * on the same data point after a sliding-window trim. Zero when nothing
+   * was trimmed or the user is positioned on a different trace/group.
+   *
+   * @param appended - Append info for the incoming update, if any
+   * @returns The column shift to apply during position restoration
+   */
+  private resolveActiveColShift(appended?: AppendedPointInfo): number {
+    if (!appended || appended.trimmed === 0 || appended.trimShift !== 'col') {
+      return 0;
+    }
+    try {
+      // The cursor follows trimmed data only on the focused layer/series —
+      // the same focus rule that scopes monitor announcements. Evaluating the
+      // predicate against the OLD figure is safe even for appends that start
+      // a new series: the window trims per group, so a brand-new group (one
+      // point) always has trimmed === 0 and returns above.
+      return isAppendedPointFocused(this.figure, appended) ? appended.trimmed : 0;
+    } catch (error) {
+      console.warn('[maidr] Failed to resolve sliding-window shift:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Sonifies and announces a newly appended data point through the monitor
+   * service, computing its state without moving the user's cursor.
+   *
+   * Only appends to the layer the user is currently focused on are
+   * announced: multi-layer charts stream one point per layer per tick, and
+   * sonifying every layer would bury the focused signal in overlapping
+   * tones. Switching layers (PageUp/PageDown) switches what is monitored.
+   *
+   * @param appended - Location of the appended point in the new figure
+   */
+  private announceAppendedPoint(appended: AppendedPointInfo): void {
+    if (!this.monitorService.isEnabled) {
+      return;
+    }
+    try {
+      if (!isAppendedPointFocused(this.figure, appended)) {
+        return;
+      }
+      // The focused layer's trace IS the active trace (one single-trace row
+      // per layer; see Subplot.activeLayerIndex); the focus predicate above
+      // guarantees the indices are in range. It is null only for a subplot
+      // with no layers, which has no appended point to announce. Compute the
+      // new point's state without moving the user's cursor; observers are
+      // only notified via MonitorService.
+      const trace = this.figure.activeSubplot.activeTrace;
+      if (!trace) {
+        return;
+      }
+      const state = trace.getStateAt(appended.row, appended.col);
+      this.monitorService.handleNewPoint(state);
+    } catch (error) {
+      console.warn('[maidr] Failed to announce appended data point:', error);
+    }
+  }
+
+  /**
    * Cleans up all services, view models, and event listeners.
    */
   public dispose(): void {
@@ -335,6 +474,7 @@ export class Controller implements Disposable {
     this.displayViewModel.dispose();
     this.goToExtremaViewModel.dispose();
     this.reviewViewModel.dispose();
+    this.candlestickDeltaViewModel.dispose();
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
@@ -343,7 +483,10 @@ export class Controller implements Disposable {
     this.highContrastService.dispose();
     this.highlightService.dispose();
     this.autoplayService.dispose();
+    this.monitorService.dispose();
 
+    this.chatService.dispose();
+    this.candlestickDeltaService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
@@ -374,6 +517,7 @@ export class Controller implements Disposable {
   private registerViewModels(): void {
     this.viewModelRegistry.register('text', this.textViewModel);
     this.viewModelRegistry.register('braille', this.brailleViewModel);
+    this.viewModelRegistry.register('candlestickDelta', this.candlestickDeltaViewModel);
     this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
     this.viewModelRegistry.register('review', this.reviewViewModel);
     this.viewModelRegistry.register('description', this.descriptionViewModel);
@@ -393,11 +537,13 @@ export class Controller implements Disposable {
     this.figure.addObserver(this.textService);
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
+    this.figure.addObserver(this.reviewService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);
       subplot.addObserver(this.brailleService);
       subplot.addObserver(this.highlightService);
+      subplot.addObserver(this.reviewService);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
         trace.addObserver(this.audioService);
         trace.addObserver(this.brailleService);
@@ -406,5 +552,38 @@ export class Controller implements Disposable {
         trace.addObserver(this.highlightService);
       }));
     }));
+  }
+
+  /**
+   * Registers a navigate callback observer on all traces.
+   * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+   */
+  private registerNavigateCallback(callback: NavigateCallback): void {
+    const observer: Observer<TraceState> = {
+      update: (state: TraceState) => {
+        if (!state.empty && !state.braille.empty) {
+          callback({
+            layerId: state.layerId,
+            row: state.braille.row,
+            col: state.braille.col,
+          });
+        }
+      },
+    };
+    this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
+      subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
+        trace.addObserver(observer);
+      }));
+    }));
+
+    // Leaving a subplot makes the figure active rather than a trace, so the
+    // trace observers above go quiet and say nothing about having stopped.
+    // A consumer drawing an overlay would keep the last point highlighted and
+    // carry it to whichever panel the user moved to next, pointing at a chart
+    // it does not belong to. The figure is the only element that hears the
+    // move, so it is what reports the selection ending.
+    this.figure.addObserver({
+      update: () => callback(null),
+    });
   }
 }

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Pie Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Pie Chart</h1>
+    <p>Click on the chart and use left and right arrow keys to move between slices. Press 'b' for braille, 't' for text descriptions.</p>
+    <div id="chart"></div>
+
+    <script>
+      // Sample data
+      const data = [
+        { fruit: 'Apples', units: 30 },
+        { fruit: 'Bananas', units: 50 },
+        { fruit: 'Cherries', units: 20 },
+        { fruit: 'Dates', units: 12 },
+        { fruit: 'Elderberries', units: 8 },
+      ];
+
+      // Chart dimensions
+      const width = 480;
+      const height = 420;
+      const radius = Math.min(width, height) / 2 - 20;
+
+      // Create SVG
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-pie-chart')
+        .attr('width', width)
+        .attr('height', height)
+        .append('g')
+        .attr('transform', `translate(${width / 2},${height / 2})`);
+
+      // Layout. `.sort(null)` keeps the wedges in data order on screen; the
+      // binder works either way, because d3.pie() returns its arcs in data
+      // order even when it sorts them for drawing.
+      const pie = d3.pie()
+        .sort(null)
+        .value(d => d.units);
+
+      // Set innerRadius above 0 to draw a doughnut instead — the wedges are
+      // still one <path> each, so the MAIDR call below is unchanged.
+      const arc = d3.arc()
+        .innerRadius(0)
+        .outerRadius(radius);
+
+      const color = d3.scaleOrdinal()
+        .domain(data.map(d => d.fruit))
+        .range(d3.schemeTableau10);
+
+      const arcs = pie(data);
+
+      // Slices
+      svg.selectAll('path.slice')
+        .data(arcs)
+        .join('path')
+        .attr('class', 'slice')
+        .attr('d', arc)
+        .attr('fill', d => color(d.data.fruit))
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1);
+
+      // Slice labels
+      svg.selectAll('text.slice-label')
+        .data(arcs)
+        .join('text')
+        .attr('class', 'slice-label')
+        .attr('transform', d => `translate(${arc.centroid(d)})`)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '12px')
+        .style('fill', '#ffffff')
+        .text(d => d.data.fruit);
+
+      // Title
+      svg.append('text')
+        .attr('x', 0)
+        .attr('y', -height / 2 + 24)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '16px')
+        .text('Fruit Sales');
+
+      // === MAIDR Integration ===
+      // Use the D3 binder to generate MAIDR data from the D3 chart
+      const svgElement = document.getElementById('d3-pie-chart');
+      const result = maidrD3.bindD3Pie(svgElement, {
+        selector: 'path.slice',
+        title: 'Fruit Sales',
+        axes: { x: 'Fruit', y: 'Units' },
+        // Read against YOUR datum, not the d3.pie() arc around it. The slice
+        // magnitude needs no accessor: the layout already computed it.
+        x: 'fruit',
+      });
+      // The binder auto-applies `maidr-data` to the SVG. Pass `autoApply: false`
+      // in the config above if you want to handle the attribute yourself.
+      void result;
+    </script>
+  </body>
+</html>

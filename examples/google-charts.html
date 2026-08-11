@@ -26,6 +26,7 @@
         drawStackedBarChart();
         drawDodgedBarChart();
         drawCandlestickChart();
+        drawFacetedCharts();
       }
 
       // Helper: wire up a Google Charts chart with MAIDR.
@@ -217,6 +218,60 @@
           height: 400,
         });
       }
+
+      // ---------------------------------------------------------------
+      // Multi-Panel (Faceted) Charts — one MAIDR figure, four panels
+      // ---------------------------------------------------------------
+      function drawFacetedCharts() {
+        // Google Charts has no native facet concept: a faceted figure is
+        // several chart instances grouped into ONE MAIDR figure. Arrow keys
+        // then move between panels; Enter drills into a panel.
+        var facets = [
+          { id: 'facet-lunch-no', title: 'Lunch, Non-Smoker', rows: [['Thur', 61], ['Fri', 3]] },
+          { id: 'facet-lunch-yes', title: 'Lunch, Smoker', rows: [['Thur', 17], ['Fri', 4]] },
+          { id: 'facet-dinner-no', title: 'Dinner, Non-Smoker', rows: [['Thur', 1], ['Fri', 4], ['Sat', 45], ['Sun', 57]] },
+          { id: 'facet-dinner-yes', title: 'Dinner, Smoker', rows: [['Fri', 8], ['Sat', 42], ['Sun', 19]] },
+        ];
+
+        var panels = facets.map(function (facet) {
+          var data = google.visualization.arrayToDataTable(
+            [['Day', 'Tips']].concat(facet.rows)
+          );
+          var container = document.getElementById(facet.id);
+          var chart = new google.visualization.ColumnChart(container);
+          return {
+            chart: chart,
+            dataTable: data,
+            container: container,
+            chartType: 'ColumnChart',
+            title: facet.title,
+          };
+        });
+
+        var root = document.getElementById('facet-grid');
+        var charts = panels.map(function (panel) { return panel.chart; });
+
+        // Each chart fires 'ready' independently — build the combined figure
+        // only after ALL panels have rendered, then stamp the maidr attribute
+        // on the wrapper element (NOT on the individual panel containers).
+        maidrGoogleCharts.whenGoogleChartsReady(charts, google.visualization.events, function () {
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleCharts(panels, {
+            root: root,
+            title: 'Tips by Day, faceted by Time and Smoker',
+            layout: { columns: 2 },
+          });
+          root.setAttribute('maidr', JSON.stringify(maidr));
+        });
+
+        panels.forEach(function (panel, i) {
+          panel.chart.draw(panel.dataTable, {
+            title: facets[i].title,
+            legend: { position: 'none' },
+            width: 360,
+            height: 260,
+          });
+        });
+      }
     </script>
 
     <style>
@@ -229,6 +284,11 @@
       h1 { margin-bottom: 4px; }
       h2 { margin-top: 32px; }
       .chart-container { margin-bottom: 24px; }
+      .facet-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 360px);
+        gap: 8px;
+      }
     </style>
   </head>
   <body>
@@ -256,5 +316,18 @@
 
     <h2>Candlestick Chart</h2>
     <div id="candlestick-chart" class="chart-container"></div>
+
+    <h2>Multi-Panel (Faceted) Charts</h2>
+    <p>
+      Four column charts grouped into a single MAIDR figure. Focus the grid and
+      use arrow keys to move between panels, <kbd>Enter</kbd> to explore a
+      panel's data, and <kbd>Esc</kbd> to return to panel navigation.
+    </p>
+    <div id="facet-grid" class="chart-container facet-grid">
+      <div id="facet-lunch-no"></div>
+      <div id="facet-lunch-yes"></div>
+      <div id="facet-dinner-no"></div>
+      <div id="facet-dinner-yes"></div>
+    </div>
   </body>
 </html>

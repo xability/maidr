@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -43,7 +43,7 @@ export class Heatmap extends AbstractTrace {
     this.min = min;
     this.max = max;
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.highlightValues = this.mapToSvgElements(layer.selectors as string | string[][] | undefined);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<number>(this.heatmapValues);
   }
@@ -51,7 +51,7 @@ export class Heatmap extends AbstractTrace {
   /**
    * Cleans up resources and disposes of the heatmap instance
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.heatmapValues.length = 0;
 
     this.x.length = 0;
@@ -133,13 +133,43 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  private mapToSvgElements(selector?: string): SVGElement[][] | null {
+  private mapToSvgElements(selector?: string | string[][]): SVGElement[][] | null {
     if (!selector) {
       return null;
     }
 
     const numRows = this.heatmapValues.length;
     const numCols = this.heatmapValues[0].length;
+
+    // Per-cell selector grid: `selector[r][c]` resolves to the SVG element for
+    // logical row `r`, column `c`. Used by adapters (e.g. Highcharts) that
+    // stamp coordinate attributes onto cells so the model→DOM mapping is
+    // independent of DOM insertion order.
+    if (Array.isArray(selector)) {
+      if (selector.length !== numRows) {
+        return null;
+      }
+      const svgElements: SVGElement[][] = [];
+      for (let r = 0; r < numRows; r++) {
+        const rowSelectors = selector[r];
+        if (!Array.isArray(rowSelectors) || rowSelectors.length !== numCols) {
+          return null;
+        }
+        const row: SVGElement[] = [];
+        for (let c = 0; c < numCols; c++) {
+          // Routed through `Svg` rather than `document` so a grid cell holding
+          // an unusable selector degrades to "no highlight" instead of throwing.
+          const el = Svg.selectElement<SVGElement>(rowSelectors[c], false);
+          if (!el) {
+            return null;
+          }
+          row.push(el);
+        }
+        svgElements.push(row);
+      }
+      return svgElements;
+    }
+
     const domElements = Svg.selectAllElements(selector, false);
 
     // Plotly renders heatmaps as a single <image> element (canvas PNG).
@@ -239,6 +269,7 @@ export class Heatmap extends AbstractTrace {
         rect.setAttribute('fill', 'transparent');
         rect.setAttribute('stroke', 'none');
         rect.setAttribute('pointer-events', 'none');
+        Svg.markOwned(rect);
         parent.appendChild(rect);
         row.push(rect);
       }
@@ -251,7 +282,7 @@ export class Heatmap extends AbstractTrace {
   /**
    * Updates the visual position of the current point to safe bounds
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     // Ensure we're within bounds
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
@@ -285,7 +316,7 @@ export class Heatmap extends AbstractTrace {
    * @returns True if a matching value was found
    */
   public search_in_row(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const cols = this.y.length;
+    const cols = this.heatmapValues[this.row].length;
     const current_col = this.col;
 
     const step = direction === 'left' ? -1 : 1;
@@ -310,7 +341,7 @@ export class Heatmap extends AbstractTrace {
    * @returns True if a matching value was found
    */
   public search_in_col(direction: 'up' | 'down', type: 'lower' | 'higher'): boolean {
-    const rows = this.x.length;
+    const rows = this.heatmapValues.length;
     const current_row = this.row;
 
     const step = direction === 'up' ? 1 : -1;
@@ -324,6 +355,7 @@ export class Heatmap extends AbstractTrace {
       }
       i += step;
     }
+    this.notifyRotorBounds();
     return false;
   }
 
@@ -394,7 +426,7 @@ export class Heatmap extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -420,6 +452,8 @@ export class Heatmap extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 

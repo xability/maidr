@@ -2,7 +2,7 @@ import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AutoplayState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -148,7 +148,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  public override dispose(): void {
     this.points.length = 0;
     this.densityValues.length = 0;
     this.yValues.length = 0;
@@ -474,14 +474,14 @@ export class ViolinKdeTrace extends AbstractTrace {
   /**
    * Returns the violin index (row) for layer switching.
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     return this.row >= 0 && this.row < this.points.length ? this.row : null;
   }
 
   /**
    * Moves to the specified violin, resetting to bottom of curve.
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -657,7 +657,7 @@ export class ViolinKdeTrace extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     if (!this.highlightCenters) {
       return null;
     }
@@ -682,10 +682,12 @@ export class ViolinKdeTrace extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;

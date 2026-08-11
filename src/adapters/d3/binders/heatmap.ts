@@ -5,11 +5,12 @@
  * the MAIDR JSON schema for accessible heatmap interaction.
  */
 
-import type { HeatmapData, Maidr, MaidrLayer } from '../../../type/grammar';
-import type { D3BinderResult, D3HeatmapConfig } from '../types';
+import type { HeatmapData, MaidrLayer } from '../../../type/grammar';
+import type { D3PanelScope } from '../selectors';
+import type { D3BinderResult, D3BuiltLayer, D3HeatmapConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
 
 /**
  * Binds a D3.js heatmap to MAIDR, generating the accessible data representation.
@@ -53,20 +54,26 @@ import { applyMaidrData, buildAxes, buildNoDatumError, buildNoElementsError, gen
  * ```
  */
 export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildHeatmapLayer(svg, config));
+}
+
+/**
+ * Pure extraction core for heatmaps. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * @internal
+ */
+export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
-    id = generateId(),
     title,
-    subtitle,
-    caption,
     axes,
     format,
     selector,
-    autoApply,
   } = config;
 
-  const elements = queryD3Elements(svg, selector);
+  const elements = queryD3Elements(root, selector);
   if (elements.length === 0) {
-    throw buildNoElementsError(svg, selector, 'heatmap cell');
+    throw buildNoElementsError(root, selector, 'heatmap cell');
   }
 
   // Infer accessors from the first datum's keys when the user did not specify.
@@ -157,12 +164,11 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     points,
   };
 
-  const layerId = generateId();
   const layer: MaidrLayer = {
-    id: layerId,
+    id: generateId(),
     type: TraceType.HEATMAP,
     title,
-    selectors: scopeSelector(svg, selector),
+    selectors: scopeSelector(root, selector, panel),
     axes: buildAxes(axes, format),
     data,
     // D3 heatmaps typically join rects in row-major order (outer loop over
@@ -173,14 +179,5 @@ export function bindD3Heatmap(svg: Element, config: D3HeatmapConfig): D3BinderRe
     domMapping: { order: 'row' },
   };
 
-  const maidr: Maidr = {
-    id,
-    title,
-    subtitle,
-    caption,
-    subplots: [[{ layers: [layer] }]],
-  };
-
-  applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer };
+  return { layer };
 }

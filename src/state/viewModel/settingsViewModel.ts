@@ -47,7 +47,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   /**
    * Disposes the view model and resets settings state.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

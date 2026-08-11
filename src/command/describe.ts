@@ -7,6 +7,8 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
+import { focusedSubplotTitle } from '@model/plot';
+import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -52,9 +54,136 @@ abstract class AnnounceCommand implements Command {
    * Uses DisplayService to properly manage the focus stack and restore
    * the correct scope (TRACE, BRAILLE, etc.) regardless of which scope
    * was active before entering label mode.
+   *
+   * Only exits when a label scope (TRACE_LABEL or FIGURE_LABEL) is actually
+   * active. Every current caller (announce x/y/z/title/subtitle/caption) is
+   * bound only inside a label scope, so this guard is defensive: it keeps the
+   * command safe if a future keybinding ever invokes it from a non-label
+   * scope, where exiting unconditionally would flip navigation into TRACE
+   * scope via the stale focus stack and break subplot activation.
    */
   protected restoreScope(): void {
-    this.displayService.exitLabelScope();
+    const scope = this.context.scope;
+    if (scope === Scope.TRACE_LABEL || scope === Scope.FIGURE_LABEL) {
+      this.displayService.exitLabelScope();
+    }
+  }
+
+  /**
+   * Resolves the populated trace state whose labels (x / y / z) should be
+   * announced, regardless of the current navigation level:
+   *  - trace level: the active trace itself;
+   *  - figure lobby (multi-panel) or subplot level: the *currently focused*
+   *    subplot's active trace. In a facet figure every panel shares the same
+   *    axes, so this is the figure-wide label; in a general multi-panel figure
+   *    each panel may differ, so the announcement tracks whichever subplot the
+   *    cursor is on (and updates as the user navigates between subplots).
+   *
+   * Returns null when no populated trace is reachable (e.g. an empty state),
+   * so callers can fall back to an "unavailable" announcement.
+   */
+  protected resolveActiveTraceState(): NonEmptyTraceState | null {
+    const state = this.context.state;
+    if (state.empty) {
+      return null;
+    }
+    if (state.type === 'trace') {
+      return state;
+    }
+    // Defensive: at runtime the context stack never holds a bare Subplot (it is
+    // always paired with a Trace on top, see Context.enterSubplot), so this
+    // branch is unreachable in practice — kept for completeness like the
+    // 'subplot' fallback in AnnounceTitleCommand.
+    if (state.type === 'subplot') {
+      return state.trace.empty ? null : state.trace;
+    }
+    // Figure lobby: read the focused subplot's active trace. Narrow the
+    // subplot to its non-empty variant first so `trace` is well-typed.
+    const subplot = state.subplot;
+    if (subplot.empty || subplot.trace.empty) {
+      return null;
+    }
+    return subplot.trace;
+  }
+
+  /**
+   * Prefix that names which subplot an announced label belongs to.
+   *
+   * At the multi-panel figure lobby the cursor sits on one subplot at a time
+   * and each panel may carry different axes, so an axis/level announcement is
+   * prefixed with the focused subplot's position (e.g. "Subplot 2, "). Returns
+   * an empty string once the user is inside a subplot (trace/subplot level) or
+   * in a single-panel figure, where the source is already unambiguous — and in
+   * terse mode, which stays minimal by design.
+   */
+  protected labelSourcePrefix(): string {
+    if (this.textService.isTerse()) {
+      return '';
+    }
+    const state = this.context.state;
+    if (state.type === 'figure' && !state.empty) {
+      return `Subplot ${state.index}, `;
+    }
+    return '';
+  }
+
+  /**
+   * The authored figure-wide axis label to announce at the multi-panel figure
+   * lobby, or null when none was authored (so the caller falls back to the
+   * focused subplot's own axis). Only applies at the lobby (figure state):
+   * once the user is inside a subplot the trace's own axis is authoritative,
+   * so this returns null there and existing single-panel behavior is untouched.
+   * @param {'x' | 'y'} axis - Which figure-wide axis label to resolve.
+   */
+  protected figureWideAxisLabel(axis: 'x' | 'y'): string | null {
+    const state = this.context.state;
+    if (state.type !== 'figure' || state.empty) {
+      return null;
+    }
+    const label = axis === 'x' ? this.context.figureXAxis : this.context.figureYAxis;
+    return this.context.isAuthoredAxisLabel(label) ? label : null;
+  }
+
+  /**
+   * Shared X/Y axis announcement: an authored figure-wide label wins at the
+   * lobby ("Figure X label is ..."), otherwise the focused subplot's own axis
+   * is used ("Subplot N, X label is ...") — falling through to "not available"
+   * when no populated trace is reachable. Z is intentionally not routed here:
+   * it reads a different field (`text.z`) with different wording and has no
+   * figure-wide equivalent.
+   * @param {'x' | 'y'} axis - Which axis to announce.
+   */
+  protected announceAxisLabel(axis: 'x' | 'y'): void {
+    const axisName = axis === 'x' ? 'X' : 'Y';
+
+    const figureLabel = this.figureWideAxisLabel(axis);
+    if (figureLabel !== null) {
+      const text = this.textService.isTerse()
+        ? figureLabel
+        : `Figure ${axisName} label is ${figureLabel}`;
+      this.textViewModel.update(text);
+      this.restoreScope();
+      return;
+    }
+
+    const traceState = this.resolveActiveTraceState();
+    const label = traceState !== null ? (axis === 'x' ? traceState.xAxis : traceState.yAxis) : '';
+    // A blank / whitespace-only label is announced as "not available" (matching
+    // the title/subtitle/caption commands), so an authored `axes.x.label: ""`
+    // never speaks a bare "X label is ".
+    if (traceState !== null && label.trim() !== '') {
+      const text = this.textService.isTerse()
+        ? label
+        : `${this.labelSourcePrefix()}${axisName} label is ${label}`;
+      this.textViewModel.update(text);
+    } else {
+      const text = this.textService.isTerse()
+        ? 'unavailable'
+        : `${axisName} label is not available`;
+      this.textViewModel.update(text);
+      this.audioService.playWarningToneIfEnabled();
+    }
+    this.restoreScope();
   }
 }
 
@@ -82,22 +211,15 @@ export class AnnounceXCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the X-axis label.
+   *
+   * Precedence at the figure lobby: an authored figure-wide X label wins
+   * ("Figure X label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, X label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
-      const text = this.textService.isTerse()
-        ? state.xAxis
-        : `X label is ${state.xAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'X label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('x');
   }
 }
 
@@ -125,29 +247,22 @@ export class AnnounceYCommand extends AnnounceCommand {
 
   /**
    * Executes the command to display the Y-axis label.
+   *
+   * Precedence at the figure lobby: an authored figure-wide Y label wins
+   * ("Figure Y label is ..."); otherwise {@link resolveActiveTraceState} reads
+   * the focused subplot's trace ("Subplot N, Y label is ..."). Inside a
+   * subplot / single-panel the trace's own axis is used unchanged. A blank or
+   * whitespace-only label is announced as "not available".
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace' && !state.empty) {
-      const text = this.textService.isTerse()
-        ? state.yAxis
-        : `Y label is ${state.yAxis}`;
-      this.textViewModel.update(text);
-    } else {
-      const text = this.textService.isTerse()
-        ? 'unavailable'
-        : 'Y label is not available';
-      this.textViewModel.update(text);
-      this.audioService.playWarningToneIfEnabled();
-    }
-    this.restoreScope();
+    this.announceAxisLabel('y');
   }
 }
 
 /**
  * Command to describe the z (level) property.
  * Works with candlestick (trend), heatmap (z value), segmented bars (level),
- * and multi-series line charts (group).
+ * multi-series line charts (group), and pie charts (percentage).
  */
 export class AnnounceZCommand extends AnnounceCommand {
   /**
@@ -171,29 +286,38 @@ export class AnnounceZCommand extends AnnounceCommand {
   /**
    * Executes the command to display the z (level) information.
    * Checks for valid z-axis data which is in state.text.z with label and value properties.
-   * Supports: candlestick (trend), heatmap (z), segmented bars (level), multi-line (group).
+   * Supports: candlestick (trend), heatmap (z), segmented bars (level),
+   * multi-line (group), pie (percentage).
+   *
+   * Works at the figure lobby too: {@link resolveActiveTraceState} reads the
+   * active subplot's trace so `l z` announces its level/group label in
+   * multi-panel/facet figures, degrading to "not available" for chart types
+   * (e.g. box, single-line) that have no z.
    */
   public execute(): void {
-    const state = this.context.state;
+    const traceState = this.resolveActiveTraceState();
 
-    // Check if we have valid z-axis data
-    // state.text.z is optional and may be undefined for some chart types (e.g., box, single-line)
-    const zData = state.type === 'trace' && !state.empty ? state.text.z : undefined;
+    // text.z is optional and may be undefined for some chart types (e.g. box,
+    // single-line). A blank label is also rejected below so an authored
+    // `axes.z.label: ""` announces "not available" rather than a bare
+    // "Z label is ", matching the X/Y label commands.
+    const zData = traceState?.text.z;
     const hasValidZ = zData !== undefined
       && zData.value !== undefined
       && zData.value !== null
-      && zData.value !== 'undefined';
+      && zData.value !== 'undefined'
+      && zData.label.trim() !== '';
 
     if (hasValidZ) {
       const zLabel = zData!.label;
       const text = this.textService.isTerse()
         ? zLabel
-        : `Z label is ${zLabel}`;
+        : `${this.labelSourcePrefix()}Z label is ${zLabel}`;
       this.textViewModel.update(text);
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Z-axis is not available';
+        : 'Z label is not available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -224,11 +348,21 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Executes the command to display the title based on state type.
+   * Executes the command to display the title sourced from the MAIDR JSON.
    *
-   * - Single-panel plots: announces the figure title as "Title is ...".
-   * - Multi-panel at figure level: announces "Figure title is ...".
-   * - Multi-panel at trace level: announces "Subplot title is ...".
+   * Only announces titles authored in the JSON; the model's placeholder
+   * defaults are treated as "no title". Announces "No title available"
+   * when nothing was authored at either level.
+   *
+   * - Figure-level scope (multi-panel): prefers the figure title as
+   *   "Figure title is ...", then falls back to the focused subplot's title as
+   *   "Subplot N title is ..." so the lobby still names the panel the cursor is
+   *   on when no figure title was authored.
+   * - Trace-level scope, single-panel: prefers the layer title, then the
+   *   figure title, announced as "Title is ...".
+   * - Trace-level scope, multi-panel: prefers the layer title as
+   *   "Subplot title is ...", then falls back to the figure title as
+   *   "Figure title is ..." so the announcement disambiguates the source.
    */
   public execute(): void {
     const state = this.context.state;
@@ -240,7 +374,21 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     }
 
     if (state.type === 'figure') {
-      this.announce(state.title, 'Figure title');
+      if (this.context.isAuthoredTitle(state.title)) {
+        this.announce(state.title, 'Figure title');
+        this.restoreScope();
+        return;
+      }
+      // No figure title: fall back to the focused subplot's own title, reusing
+      // the shared focusedSubplotTitle() traversal (already placeholder-filtered
+      // via isAuthoredTitle), the single source of truth also used by move.ts
+      // and text.ts.
+      const subplotTitle = focusedSubplotTitle(state);
+      if (subplotTitle) {
+        this.announce(subplotTitle, `Subplot ${state.index} title`);
+      } else {
+        this.announceUnavailable();
+      }
       this.restoreScope();
       return;
     }
@@ -267,20 +415,29 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   }
 
   /**
-   * Announces the appropriate title when in trace context:
-   * subplot title for multi-panel, figure title for single-panel.
+   * Announces the appropriate title when in trace context.
+   *
+   * Mirrors {@link DescriptionService.getDescription} precedence: prefer the
+   * authored layer/trace title (labeled "Subplot title" in multi-panel figures
+   * and "Title" in single-panel figures), then fall back to the figure title
+   * (labeled "Figure title" in multi-panel and "Title" in single-panel so the
+   * announcement makes the source self-describing), then to "No title
+   * available". Keeps `l t` consistent with `d` for plots that only set a
+   * layer title (e.g. multiline_plot.html).
+   * @param {string} traceTitle - The trace-level title from the current state.
    */
   private announceTraceTitle(traceTitle: string): void {
-    // Multi-panel: show the subplot-level title if available.
-    if (this.context.isMultiPanel && traceTitle !== 'unavailable') {
-      this.announce(traceTitle, 'Subplot title');
+    if (this.context.isAuthoredTitle(traceTitle)) {
+      const label = this.context.isMultiPanel ? 'Subplot title' : 'Title';
+      this.announce(traceTitle, label);
       return;
     }
 
-    // Single-panel (or multi-panel without subplot title): show figure title.
+    // Trace title was a placeholder; fall back to the figure-level title.
     const figureTitle = this.context.figureTitle;
-    if (figureTitle !== 'unavailable') {
-      this.announce(figureTitle, 'Title');
+    if (this.context.isAuthoredTitle(figureTitle)) {
+      const fallbackLabel = this.context.isMultiPanel ? 'Figure title' : 'Title';
+      this.announce(figureTitle, fallbackLabel);
       return;
     }
 
@@ -293,7 +450,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
   private announceUnavailable(): void {
     const text = this.textService.isTerse()
       ? 'unavailable'
-      : 'Title is not available';
+      : 'No title available';
     this.textViewModel.update(text);
     this.audioService.playWarningToneIfEnabled();
   }
@@ -324,11 +481,14 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
   /**
    * Executes the command to display the subtitle.
    * Accesses subtitle from the figure level via Context, since subtitle
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a subtitle; otherwise announces "No subtitle
+   * available", matching the unavailable phrasing used by sibling title
+   * and caption commands.
    */
   public execute(): void {
     const subtitle = this.context.figureSubtitle;
-    if (subtitle !== 'unavailable') {
+    if (this.context.isAuthoredSubtitle(subtitle)) {
       const text = this.textService.isTerse()
         ? subtitle
         : `Subtitle is ${subtitle}`;
@@ -336,7 +496,7 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Subtitle is not available';
+        : 'No subtitle available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -369,11 +529,14 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
   /**
    * Executes the command to display the caption.
    * Accesses caption from the figure level via Context, since caption
-   * is a figure-level property not available on trace state.
+   * is a figure-level property not available on trace state. Only announces
+   * when the JSON authored a caption; otherwise announces "No caption
+   * available", matching the unavailable phrasing used by sibling title
+   * and subtitle commands.
    */
   public execute(): void {
     const caption = this.context.figureCaption;
-    if (caption !== 'unavailable') {
+    if (this.context.isAuthoredCaption(caption)) {
       const text = this.textService.isTerse()
         ? caption
         : `Caption is ${caption}`;
@@ -381,7 +544,7 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
     } else {
       const text = this.textService.isTerse()
         ? 'unavailable'
-        : 'Caption is not available';
+        : 'No caption available';
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
@@ -490,13 +653,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
-    // Get position from audio.panning (contains x, y, rows, cols).
-    // panning.x may be a per-tone array when the chord spans multiple x
-    // positions (scatter ROW mode); the position announcement only needs
-    // a single representative slot, so collapse to entry zero.
+    // Get position from audio.panning (contains x, y, rows, cols)
     const { panning } = state.audio;
-    const { y, rows, cols } = panning;
-    const x = Array.isArray(panning.x) ? (panning.x[0] ?? 0) : panning.x;
+    const { x, y, rows, cols } = panning;
 
     // Check for special chart types
     const traceType = state.traceType;
@@ -519,10 +678,23 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // Single smooth/violin plot: 1D position within the curve
         this.announceSmoothPosition(x, cols);
       }
-    } else if (traceType === TraceType.LINE && state.groupCount && state.groupCount > 1) {
+    } else if (
+      (traceType === TraceType.LINE || traceType === TraceType.STEP)
+      && state.groupCount
+      && state.groupCount > 1
+    ) {
       // Check for multi plots (multiline, panel, layer, facet)
       // Multi-line plots: x=position in the line, y=line index
-      this.announceMultiLinePosition(x, cols, y, rows);
+      // A step trace navigates identically — series on one axis, samples on
+      // the other — so it wants the same announcement, not the generic 2-D one.
+      this.announceMultiLinePosition(
+        x,
+        cols,
+        y,
+        rows,
+        state.group,
+        traceType === TraceType.STEP ? 'Series' : 'Line',
+      );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
@@ -693,23 +865,39 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Announces position for multi-line plots.
-   * Always shows "Plot X of Y" prefix, followed by position within the line.
+   *
+   * Lines are identified as "Line X of Y", not "Plot X of Y" — the whole
+   * multiline chart is the plot; its members are lines. A step chart passes
+   * "Series" instead, so the position announcement does not call something a
+   * line when every other surface of the same chart calls it a step.
+   *
+   * Verbose spells out both the line's ordinal and its group name:
+   * "Line 1 of 3, Group is Series 1, Position is 3 of 10". Terse keeps only
+   * the shortest identity that still locates the cursor — the group name when
+   * the data provides one, since it identifies the line better than an index
+   * does, otherwise the ordinal — plus the position as a percentage:
+   * "Series 1, 22%" or "Line 1 of 3, 22%".
    */
   private announceMultiLinePosition(
     posIndex: number,
     totalPos: number,
     lineIndex: number,
     totalLines: number,
+    group?: { label: string; value: string },
+    seriesNoun: string = 'Line',
   ): void {
     const linePos = lineIndex + 1;
     const pos = posIndex + 1;
-    const plotPrefix = `Plot ${linePos} of ${totalLines}`;
+    const linePrefix = `${seriesNoun} ${linePos} of ${totalLines}`;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${plotPrefix}, ${posPercent}%`);
+      this.textViewModel.update(`${group ? group.value : linePrefix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update(`${plotPrefix}, Position is ${pos} of ${totalPos}`);
+      const groupSuffix = group ? `, ${group.label} is ${group.value}` : '';
+      this.textViewModel.update(
+        `${linePrefix}${groupSuffix}, Position is ${pos} of ${totalPos}`,
+      );
     }
   }
 

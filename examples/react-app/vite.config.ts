@@ -59,6 +59,7 @@ export default defineConfig({
   resolve: {
     alias: {
       'maidr/react': path.resolve(__dirname, '../../src/react-entry.ts'),
+      '@adapters': path.resolve(__dirname, '../../src/adapters'),
       '@command': path.resolve(__dirname, '../../src/command'),
       '@model': path.resolve(__dirname, '../../src/model'),
       '@state': path.resolve(__dirname, '../../src/state'),

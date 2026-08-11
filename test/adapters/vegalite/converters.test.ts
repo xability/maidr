@@ -1,5 +1,5 @@
 import type { VegaLiteSpec } from '@adapters/vegalite/types';
-import type { BoxPoint } from '@type/grammar';
+import type { BoxPoint, MaidrLayer } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -196,6 +196,104 @@ describe('vega-Lite converters', () => {
 
       const result = vegaLiteToMaidr(spec);
       expect(result.title).toBe('Vega-Lite Chart');
+    });
+  });
+
+  describe('stepped marks', () => {
+    const VALUES = [
+      { day: 1, level: 10 },
+      { day: 2, level: 10 },
+      { day: 3, level: 20 },
+    ];
+
+    function steppedSpec(interpolate?: string, type = 'line'): VegaLiteSpec {
+      return {
+        mark: interpolate === undefined ? { type } : { type, interpolate },
+        data: { values: VALUES },
+        encoding: {
+          x: { field: 'day', type: 'quantitative' },
+          y: { field: 'level', type: 'quantitative' },
+        },
+      };
+    }
+
+    function onlyLayer(spec: VegaLiteSpec): MaidrLayer {
+      return vegaLiteToMaidr(spec).subplots[0][0].layers[0];
+    }
+
+    it.each([
+      ['step', 'mid'],
+      ['step-before', 'vh'],
+      ['step-after', 'hv'],
+    ])('binds interpolate %s as a step layer jumping %s', (interpolate, direction) => {
+      const layer = onlyLayer(steppedSpec(interpolate));
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe(direction);
+      expect(layer.data).toEqual([[
+        { x: 1, y: 10 },
+        { x: 2, y: 10 },
+        { x: 3, y: 20 },
+      ]]);
+    });
+
+    it('binds a stepped area mark as a step too', () => {
+      const layer = onlyLayer(steppedSpec('step-after', 'area'));
+
+      expect(layer.type).toBe(TraceType.STEP);
+      expect(layer.stepDirection).toBe('hv');
+    });
+
+    it.each([undefined, 'linear', 'monotone'])(
+      'keeps an interpolated mark a line (%s)',
+      (interpolate) => {
+        const layer = onlyLayer(steppedSpec(interpolate));
+
+        expect(layer.type).toBe(TraceType.LINE);
+        expect(layer.stepDirection).toBeUndefined();
+      },
+    );
+
+    it('keeps sibling steps that jump differently in separate layers', () => {
+      const spec: VegaLiteSpec = {
+        data: { values: VALUES },
+        encoding: {
+          x: { field: 'day', type: 'quantitative' },
+          y: { field: 'level', type: 'quantitative' },
+        },
+        layer: [
+          { mark: { type: 'line', interpolate: 'step-after' } },
+          { mark: { type: 'line', interpolate: 'step-before' } },
+        ],
+      };
+
+      const layers = vegaLiteToMaidr(spec).subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.type, layer.stepDirection])).toEqual([
+        [TraceType.STEP, 'hv'],
+        [TraceType.STEP, 'vh'],
+      ]);
+    });
+
+    it('merges sibling steps that jump the same way', () => {
+      const spec: VegaLiteSpec = {
+        data: { values: VALUES },
+        encoding: {
+          x: { field: 'day', type: 'quantitative' },
+          y: { field: 'level', type: 'quantitative' },
+        },
+        layer: [
+          { mark: { type: 'line', interpolate: 'step-after' } },
+          { mark: { type: 'line', interpolate: 'step-after' } },
+        ],
+      };
+
+      const layers = vegaLiteToMaidr(spec).subplots[0][0].layers;
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.STEP);
+      expect(layers[0].stepDirection).toBe('hv');
+      expect(layers[0].data).toHaveLength(2);
     });
   });
 

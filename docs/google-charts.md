@@ -87,8 +87,11 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Candlestick | `CandlestickChart` | `'CandlestickChart'` |
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
+| Pie / Doughnut | `PieChart` (a doughnut is the same class with `pieHole`) | `'PieChart'` |
 
 **Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
+
+> **Pie note:** column 0 supplies the slice labels and the first non-role column their values; `axes.x` / `axes.y` take those two column labels, since a `PieChart` has no drawn axis to name. Google Charts gives its wedges no class or id, so the adapter picks them out of the SVG by the arc command in their `d` attribute. When the wedge count does not match the row count the data-to-DOM mapping is unknown and highlighting is dropped for that chart — which is what happens with `is3D: true` (several paths per slice) and with `sliceVisibilityThreshold` (small slices folded into one "Other" wedge). Audio, text, and braille are unaffected.
 
 ## Code Examples
 
@@ -302,6 +305,110 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 </script>
 ```
 
+### Pie Chart
+
+```html
+<div id="pie-chart"></div>
+<script>
+  var data = google.visualization.arrayToDataTable([
+    ['Task', 'Hours per Day'],
+    ['Work', 11],
+    ['Eat', 2],
+    ['Commute', 2],
+    ['Watch TV', 2],
+    ['Sleep', 7],
+  ]);
+
+  var container = document.getElementById('pie-chart');
+  var chart = new google.visualization.PieChart(container);
+
+  google.visualization.events.addListener(chart, 'ready', function () {
+    var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, {
+      chartType: 'PieChart',
+      title: 'My Daily Activities',
+    });
+    container.setAttribute('maidr', JSON.stringify(maidr));
+  });
+
+  chart.draw(data, {
+    title: 'My Daily Activities',
+    width: 600,
+    height: 400,
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Work, 11, 45.8%". Draw a doughnut by adding `pieHole: 0.4` to the draw options; the adapter `chartType` stays `'PieChart'`.
+
+## Multi-Panel (Faceted) Figures
+
+Google Charts has no native facet/trellis concept — a "faceted" page is several chart instances drawn into separate containers. `createMaidrFromGoogleCharts` (plural) groups those instances into **one** MAIDR figure: arrow keys move between panels, `Enter` drills into a panel's data, and `Esc` returns to panel navigation.
+
+Each panel is the same `{ chart, dataTable, container, chartType }` tuple the single-chart API takes, plus an optional `title` announced during panel navigation. All panel containers must live inside a single wrapper element, passed as `options.root` — and the combined `maidr` attribute is set on that wrapper, **not** on the individual containers. Panel containers must not be nested inside one another (e.g. don't pass a card `<div>` that wraps another panel's chart `<div>`): the adapter's container-scoped selectors would match both charts' elements, so nested containers are rejected with an error.
+
+Because every chart fires its `ready` event independently, use the `whenGoogleChartsReady` helper to build the figure only after all panels have rendered. Register the gate before calling `draw()` on any chart.
+
+```html
+<div id="facet-grid">
+  <div id="panel-east"></div>
+  <div id="panel-west"></div>
+</div>
+<script>
+  var root = document.getElementById('facet-grid');
+
+  var panels = [
+    { id: 'panel-east', title: 'East', rows: [['Q1', 100], ['Q2', 200]] },
+    { id: 'panel-west', title: 'West', rows: [['Q1', 80], ['Q2', 140]] },
+  ].map(function (facet) {
+    var container = document.getElementById(facet.id);
+    return {
+      chart: new google.visualization.ColumnChart(container),
+      dataTable: google.visualization.arrayToDataTable([['Quarter', 'Revenue']].concat(facet.rows)),
+      container: container,
+      chartType: 'ColumnChart',
+      title: facet.title,
+    };
+  });
+
+  var charts = panels.map(function (panel) { return panel.chart; });
+
+  // Build the combined figure once ALL panels have rendered.
+  maidrGoogleCharts.whenGoogleChartsReady(charts, google.visualization.events, function () {
+    var maidr = maidrGoogleCharts.createMaidrFromGoogleCharts(panels, {
+      root: root,
+      title: 'Revenue by Region',
+      layout: { columns: 2 },
+    });
+    root.setAttribute('maidr', JSON.stringify(maidr));
+  });
+
+  panels.forEach(function (panel) {
+    panel.chart.draw(panel.dataTable, { legend: { position: 'none' }, width: 360, height: 260 });
+  });
+</script>
+```
+
+### Grid Shape
+
+The grid shape is resolved in priority order:
+
+1. **2D array** — pass `panels` as `GoogleChartPanel[][]` to use it directly as the subplot grid (rows may be ragged, but never empty).
+2. **Flat array + `options.layout`** — `{ columns: n }` chunks the panels row-major into rows of `n`; `{ rows: n }` derives the column count instead.
+3. **Neither** — the grid is inferred from each container's on-screen position (clustered into rows by top edge, sorted left-to-right).
+
+Always supply panels in visual reading order (top-left panel first) so announcements match what sighted users see.
+
+### `createMaidrFromGoogleCharts` Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `root` | `HTMLElement` | Yes | Wrapper element containing all panel containers; receives the `maidr` attribute |
+| `title` | `string` | No | Figure-level title announced when the figure receives focus |
+| `id` | `string` | No | Unique ID for the MAIDR instance (defaults to the root's `id`) |
+| `layout` | `{ rows?, columns? }` | No | Grid shape for a flat panel array (ignored for 2D arrays) |
+
+Panel titles (e.g. the facet value, `'East'`) are announced in subplot summaries; per-panel axis labels come from each panel's own DataTable. Mixed chart types across panels are supported — any type from the table above works per panel.
+
 ## Configuration Options
 
 The adapter accepts a `GoogleChartAdapterOptions` object:
@@ -317,7 +424,11 @@ The adapter accepts a `GoogleChartAdapterOptions` object:
 For bundled projects, import the adapter directly:
 
 ```typescript
-import { createMaidrFromGoogleChart } from 'maidr/google-charts';
+import {
+  createMaidrFromGoogleChart,
+  createMaidrFromGoogleCharts,
+  whenGoogleChartsReady,
+} from 'maidr/google-charts';
 
 // Use in your chart's ready callback
 const maidr = createMaidrFromGoogleChart(chart, dataTable, container, {

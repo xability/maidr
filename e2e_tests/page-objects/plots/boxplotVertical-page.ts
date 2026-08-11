@@ -11,7 +11,7 @@ export class BoxplotVerticalPage extends BasePage {
   /**
    * Selectors for various UI elements
    */
-  protected readonly selectors = {
+  protected override readonly selectors = {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
     info: `#${TestConstants.MAIDR_INFO_CONTAINER} ${TestConstants.PARAGRAPH}`,
     speedIndicator: `#${TestConstants.MAIDR_SPEED_INDICATOR}${TestConstants.BOXPLOT_VERTICAL_ID}`,
@@ -41,7 +41,7 @@ export class BoxplotVerticalPage extends BasePage {
       await super.navigateTo('examples/boxplot-vertical.html');
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to navigate to Boxplot Vertical');
+      throw new BoxplotVerticalError('Failed to navigate to Boxplot Vertical', { cause: error });
     }
   }
 
@@ -50,11 +50,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated
    * @throws BoxplotVerticalError if MAIDR cannot be activated
    */
-  public async activateMaidr(): Promise<void> {
+  public override async activateMaidr(): Promise<void> {
     try {
       await super.activateMaidr(this.selectors.svg, TestConstants.BOXPLOT_VERTICAL_ID);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to activate MAIDR');
+      throw new BoxplotVerticalError('Failed to activate MAIDR', { cause: error });
     }
   }
 
@@ -63,11 +63,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving when MAIDR is activated via click
    * @throws BoxplotVerticalError if MAIDR cannot be activated by clicking
    */
-  public async activateMaidrOnClick(): Promise<void> {
+  public override async activateMaidrOnClick(): Promise<void> {
     try {
       await super.activateMaidrOnClick(this.selectors.svg, TestConstants.BOXPLOT_VERTICAL_ID);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to activate MAIDR by clicking');
+      throw new BoxplotVerticalError('Failed to activate MAIDR by clicking', { cause: error });
     }
   }
 
@@ -76,11 +76,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving to the instruction text
    * @throws BoxplotVerticalError if instruction text cannot be retrieved
    */
-  public async getInstructionText(): Promise<string> {
+  public override async getInstructionText(): Promise<string> {
     try {
       return await super.getInstructionText(this.selectors.notification);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get instruction text');
+      throw new BoxplotVerticalError('Failed to get instruction text', { cause: error });
     }
   }
 
@@ -99,7 +99,7 @@ export class BoxplotVerticalPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, textMode, modeMessages);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to check text mode status');
+      throw new BoxplotVerticalError('Failed to check text mode status', { cause: error });
     }
   }
 
@@ -117,7 +117,7 @@ export class BoxplotVerticalPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, brailleMode, modeMessages);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to check braille mode status');
+      throw new BoxplotVerticalError('Failed to check braille mode status', { cause: error });
     }
   }
 
@@ -135,7 +135,7 @@ export class BoxplotVerticalPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, sonificationMode, modeMessages);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to check sonification mode status');
+      throw new BoxplotVerticalError('Failed to check sonification mode status', { cause: error });
     }
   }
 
@@ -153,7 +153,7 @@ export class BoxplotVerticalPage extends BasePage {
       };
       return await super.isModeActive(this.selectors.notification, reviewMode, modeMessages);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to check review mode status');
+      throw new BoxplotVerticalError('Failed to check review mode status', { cause: error });
     }
   }
 
@@ -166,7 +166,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get X-axis title');
+      throw new BoxplotVerticalError('Failed to get X-axis title', { cause: error });
     }
   }
 
@@ -179,7 +179,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       return await super.getAxisTitle(this.selectors.info);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get Y-axis title');
+      throw new BoxplotVerticalError('Failed to get Y-axis title', { cause: error });
     }
   }
 
@@ -188,11 +188,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving to the current speed value
    * @throws BoxplotVerticalError if speed cannot be retrieved
    */
-  public async getPlaybackSpeed(): Promise<number> {
+  public override async getPlaybackSpeed(): Promise<number> {
     try {
       return await super.getPlaybackSpeed(this.selectors.speedIndicator);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get playback speed');
+      throw new BoxplotVerticalError('Failed to get playback speed', { cause: error });
     }
   }
 
@@ -201,11 +201,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving to the current data point information
    * @throws BoxplotVerticalError if data point information cannot be retrieved
    */
-  public async getCurrentDataPointInfo(): Promise<string> {
+  public override async getCurrentDataPointInfo(): Promise<string> {
     try {
       return await super.getCurrentDataPointInfo(this.selectors.info);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get current data point information');
+      throw new BoxplotVerticalError('Failed to get current data point information', { cause: error });
     }
   }
 
@@ -218,7 +218,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       return await this.getElementText(this.selectors.notification);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to get speed toggle information');
+      throw new BoxplotVerticalError('Failed to get speed toggle information', { cause: error });
     }
   }
 
@@ -237,7 +237,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       await super.startAutoplay('forward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to start forward autoplay');
+      throw new BoxplotVerticalError('Failed to start forward autoplay', { cause: error });
     }
   }
 
@@ -256,7 +256,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       await super.startAutoplay('reverse', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to start reverse autoplay');
+      throw new BoxplotVerticalError('Failed to start reverse autoplay', { cause: error });
     }
   }
 
@@ -275,7 +275,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       await super.startAutoplay('downward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to start downward autoplay');
+      throw new BoxplotVerticalError('Failed to start downward autoplay', { cause: error });
     }
   }
 
@@ -294,7 +294,7 @@ export class BoxplotVerticalPage extends BasePage {
     try {
       await super.startAutoplay('upward', this.selectors.info, expectedContent, options);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to start upward autoplay');
+      throw new BoxplotVerticalError('Failed to start upward autoplay', { cause: error });
     }
   }
 
@@ -303,11 +303,11 @@ export class BoxplotVerticalPage extends BasePage {
    * @returns Promise resolving when verification is complete
    * @throws BoxplotVerticalError if plot is not loaded correctly
    */
-  public async verifyPlotLoaded(): Promise<void> {
+  public override async verifyPlotLoaded(): Promise<void> {
     try {
       await super.verifyPlotLoaded(this.selectors.svg);
     } catch (error) {
-      throw new BoxplotVerticalError('Boxplot Vertical failed to load correctly');
+      throw new BoxplotVerticalError('Boxplot Vertical failed to load correctly', { cause: error });
     }
   }
 
@@ -315,11 +315,11 @@ export class BoxplotVerticalPage extends BasePage {
    * Moves to the data point below the current position
    * @throws BoxplotVerticalError if movement fails
    */
-  public async moveToDataPointBelow(): Promise<void> {
+  public override async moveToDataPointBelow(): Promise<void> {
     try {
-      await this.page.keyboard.press('ArrowDown');
+      await this.pressKeyAwaitingAnnouncement('ArrowDown', 'move to data point below');
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to move to data point below');
+      throw new BoxplotVerticalError('Failed to move to data point below', { cause: error });
     }
   }
 
@@ -327,11 +327,11 @@ export class BoxplotVerticalPage extends BasePage {
    * Moves to the last box in the plot
    * @throws BoxplotVerticalError if movement fails
    */
-  public async moveToLastBox(): Promise<void> {
+  public override async moveToLastBox(): Promise<void> {
     try {
-      await this.page.keyboard.press('End');
+      await this.pressKeyAwaitingAnnouncement('End', 'move to last box');
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to move to last box');
+      throw new BoxplotVerticalError('Failed to move to last box', { cause: error });
     }
   }
 
@@ -341,9 +341,12 @@ export class BoxplotVerticalPage extends BasePage {
    */
   public async moveToTop(): Promise<void> {
     try {
-      await this.pressKeyCombination(TestConstants.META_KEY, TestConstants.UP_ARROW_KEY, 'Move to top');
+      // Via `moveToDataPoint` rather than `pressKeyCombination` directly: this
+      // announces, and an un-awaited announcement can land inside the next
+      // action's window and satisfy its wait early.
+      await this.moveToDataPoint(TestConstants.UP_ARROW_KEY, 'Move to top', true);
     } catch (error) {
-      throw new BoxplotVerticalError('Failed to move to last box');
+      throw new BoxplotVerticalError('Failed to move to top', { cause: error });
     }
   }
 }

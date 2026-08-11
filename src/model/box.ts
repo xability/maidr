@@ -1,13 +1,14 @@
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension } from './abstract';
+import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { extremeStat, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -132,19 +133,26 @@ export class BoxTrace extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
       { label: 'Group names', value: groupNames },
-      { label: 'Min', value: this.min },
-      { label: 'Max', value: this.max },
+      ...this.rangeStats(),
     ];
 
-    const headers = ['Group', 'Min', 'Q1', 'Q2', 'Q3', 'Max'];
-    const rows: (string | number)[][] = this.points.map(p => [
-      p.z,
-      p.min,
-      p.q1,
-      p.q2,
-      p.q3,
-      p.max,
-    ]);
+    // Both the headers and the cells walk `this.sections`, so every section the
+    // user can navigate to — the outliers included — gets a column, and the two
+    // stay aligned if the section list ever changes.
+    const headers = ['Group', ...this.sections];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
+      const sectionValues = this.sections.map((_, sectionIdx) => {
+        const value = isHorizontal
+          ? this.boxValues[pointIdx]?.[sectionIdx]
+          : this.boxValues[sectionIdx]?.[pointIdx];
+        // Outlier sections hold an array, which travels on unjoined so the
+        // description service can round each value before joining them.
+        return value ?? '';
+      });
+      return [point.z, ...sectionValues];
+    });
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -155,7 +163,37 @@ export class BoxTrace extends AbstractTrace {
     };
   }
 
-  public dispose(): void {
+  /**
+   * Builds the two range rows of the summary.
+   *
+   * Every box carries its own whisker ends, so a single chart-wide Min/Max pair
+   * reads as though a chart of several boxes had one minimum and one maximum. A
+   * lone group reports its whisker ends plainly; several report each extreme
+   * attributed to the group it came from, and the per-group breakdown is left
+   * to the data table below.
+   *
+   * These are whisker ends, not the trace-wide `min`/`max` used for
+   * sonification: those fold the outliers in, which would contradict the
+   * Minimum and Maximum columns of the very table underneath.
+   */
+  private rangeStats(): DescriptionState['stats'] {
+    return [
+      extremeStat(
+        this.points,
+        { single: 'Minimum', grouped: 'Lowest minimum' },
+        p => p.min,
+        isLower,
+      ),
+      extremeStat(
+        this.points,
+        { single: 'Maximum', grouped: 'Highest maximum' },
+        p => p.max,
+        isHigher,
+      ),
+    ];
+  }
+
+  public override dispose(): void {
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
@@ -230,10 +268,11 @@ export class BoxTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // boxValues is orientation-normalized (row = navigation row, col =
+    // navigation col), so rows/cols map directly to its shape.
     return {
-      rows: isHorizontal ? this.boxValues.length : this.boxValues[this.row].length,
-      cols: isHorizontal ? this.boxValues[this.row].length : this.boxValues.length,
+      rows: this.boxValues.length,
+      cols: this.boxValues[this.row].length,
     };
   }
 
@@ -297,13 +336,13 @@ export class BoxTrace extends AbstractTrace {
     // Phase 2: Clone and create elements from originals (DOM queries complete)
     originals.forEach((original, boxIdx) => {
       const lowerOutliers = original.lowerOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
+        const clone = Svg.markOwned(el.cloneNode(true) as SVGElement);
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         el.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
       });
       const upperOutliers = original.upperOutliers.map((el) => {
-        const clone = el.cloneNode(true) as SVGElement;
+        const clone = Svg.markOwned(el.cloneNode(true) as SVGElement);
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         el.insertAdjacentElement(Constant.AFTER_END, clone);
         return clone;
@@ -364,7 +403,7 @@ export class BoxTrace extends AbstractTrace {
     if (!original) {
       return Svg.createEmptyElement();
     }
-    const clone = original.cloneNode(true) as SVGElement;
+    const clone = Svg.markOwned(original.cloneNode(true) as SVGElement);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     original.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
@@ -373,7 +412,7 @@ export class BoxTrace extends AbstractTrace {
   /**
    * Moves to the next boxplot section that matches the comparison criteria.
    */
-  public moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
+  public override moveToNextCompareValue(direction: 'left' | 'right' | 'up' | 'down', type: 'lower' | 'higher'): boolean {
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.boxValues.length) {
       return false;
@@ -399,7 +438,10 @@ export class BoxTrace extends AbstractTrace {
       const current_value = values[currentIndex];
       const next_value = values[i];
       if (Array.isArray(next_value) || Array.isArray(current_value)) {
-        return true;
+        // Outlier sections hold arrays, not scalar section values; skip them
+        // instead of falsely reporting a successful move.
+        i += step;
+        continue;
       }
 
       if (this.compare(next_value, current_value, type)) {
@@ -425,7 +467,7 @@ export class BoxTrace extends AbstractTrace {
     }
   }
 
-  public moveUpRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveUpRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('UPWARD');
       return true;
@@ -433,7 +475,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('up', mode);
   }
 
-  public moveDownRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveDownRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.VERTICAL) {
       this.moveOnce('DOWNWARD');
       return true;
@@ -441,7 +483,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('down', mode);
   }
 
-  public moveLeftRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveLeftRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('BACKWARD');
       return true;
@@ -449,7 +491,7 @@ export class BoxTrace extends AbstractTrace {
     return this.moveToNextCompareValue('left', mode);
   }
 
-  public moveRightRotor(mode: 'lower' | 'higher'): boolean {
+  public override moveRightRotor(mode: 'lower' | 'higher'): boolean {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.moveOnce('FORWARD');
       return true;
@@ -496,7 +538,7 @@ export class BoxTrace extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     if (!this.highlightCenters) {
       return null;
     }
@@ -521,13 +563,25 @@ export class BoxTrace extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
   /**
-   * Moves to the nearest point at the specified coordinates (disabled for boxplots).
+   * Hover-driven movement is disabled for boxplots, but pointer guidance
+   * still surfaces directional cues toward the nearest box element.
+   *
+   * Parameters retained on the signature (rather than the zero-arg form
+   * TypeScript permits) so the override matches the base contract at a
+   * glance.
    */
-  public moveToPoint(_x: number, _y: number): void {
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    _nearest: NearestPoint,
+    _onCurve: boolean,
+  ): void {
     // Disabled for boxplots
   }
 }

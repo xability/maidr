@@ -63,12 +63,41 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Bar | `type: 'bar'` | [Bar chart](examples.html) |
 | Scatter | `type: 'scatter'`, `mode: 'markers'` | [Scatter plot](examples.html) |
 | Line | `type: 'scatter'`, `mode: 'lines'` | [Line chart](examples.html) |
+| Step | `type: 'scatter'`, `mode: 'lines'`, `line: { shape: 'hv' \| 'vh' \| 'hvh' \| 'vhv' }` | [Step chart](examples.html) |
 | Box Plot | `type: 'box'` | [Box plot](examples.html) |
+| Violin Plot | `type: 'violin'` | [Violin plot](examples.html) |
 | Heatmap | `type: 'heatmap'` | [Heatmap](examples.html) |
 | Histogram | `type: 'histogram'` | [Histogram](examples.html) |
 | Candlestick | `type: 'candlestick'` | [Candlestick](examples.html) |
+| Pie | `type: 'pie'` | [Pie chart](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
+| Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
+
+**Notes on chart-type detection:**
+
+- A line trace whose `line.shape` is one of the step-wise shapes is piecewise
+  constant — the value is held and then jumps — so it maps to MAIDR's step
+  trace rather than to a line, and is announced and navigated as a step plot
+  (including the Transitions rotor, which moves only between the points where
+  the level changes). `hv` and `vh` carry across to MAIDR's `stepDirection`
+  unchanged, and `hvh` becomes `mid`. `vhv` binds as a step but names no
+  convention: its flat segments sit at the mean of the two levels rather than
+  at either one, which none of MAIDR's three conventions describes.
+
+- A pie trace is bound to no axes — Plotly positions it by its own `domain`
+  instead — so each pie becomes its own MAIDR subplot rather than joining
+  whichever cartesian panel happens to use the first axis pair. `axes.x` and
+  `axes.y` are named `Label` and `Value`, since there is no drawn axis title to
+  read them from. A doughnut (`hole`) is the same trace and reads identically.
+
+- Plotly sorts pie slices by descending value unless the trace sets
+  `sort: false`, so the authored order is not necessarily the drawn order. The
+  adapter reads the slices Plotly actually drew where the rendered chart exposes
+  them; where it can only see the authored order and Plotly may have re-sorted,
+  it emits the layer without selectors, since slice *k* is then not wedge *k*.
+  That costs visual highlighting only — audio, text, and braille are unaffected.
+  Set `sort: false` to keep both.
 
 ## Code Examples
 
@@ -155,6 +184,37 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   });
 </script>
 ```
+
+### Violin Plot
+
+A violin becomes two layers in one subplot: the quartile summary (`violin_box`)
+you land on, and the density curve (`violin_kde`) behind it. `PageUp` and
+`PageDown` switch between them. Both come from Plotly's own calculations, so
+the numbers announced are the ones the chart was drawn from.
+
+```html
+<div id="violin-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('violin-chart', [
+    { y: [2.3, 2.5, 2.8, 3.0, 3.2, 3.4, 3.6, 4.0, 4.5], type: 'violin', name: 'Setosa', box: { visible: true }, meanline: { visible: true } },
+    { y: [4.7, 4.9, 5.2, 5.5, 5.9, 6.0, 6.3, 6.5, 7.0], type: 'violin', name: 'Versicolor', box: { visible: true }, meanline: { visible: true } }
+  ], {
+    title: { text: 'Iris Sepal Length Distribution' },
+    xaxis: { title: { text: 'Species' } },
+    yaxis: { title: { text: 'Sepal Length (cm)' } }
+  });
+</script>
+```
+
+The inner box (`box: { visible: true }`) and the mean line
+(`meanline: { visible: true }`) are optional: without them the statistics stay
+navigable, they simply have no drawn element to highlight, and the mean is left
+out of the sections.
+
+Those two settings are per trace, while the sections a violin plot offers are
+one list for the whole plot. So when only some traces draw a mean line, every
+violin still has a mean to read — it is a statistic of each of them — and only
+the ones drawn with a mean line highlight it.
 
 ### Heatmap
 
@@ -250,6 +310,81 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   });
 </script>
 ```
+
+### Pie Chart
+
+```html
+<div id="pie-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('pie-chart', [{
+    labels: ['Apples', 'Bananas', 'Cherries', 'Dates'],
+    values: [30, 50, 20, 15],
+    type: 'pie',
+    sort: false
+  }], {
+    title: { text: 'Units Sold by Fruit' }
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie
+is a single row. Each slice announces its label, its value, and its share of the
+whole — "Apples, 30, 26.1%". The share is derived from the values themselves, so
+there is nothing to author for it.
+
+### Subplots (2x2 Grid)
+
+Figures with multiple panels — whether built with manual axis pairs, `layout.grid`, or Python's `make_subplots` — become a navigable 2D grid. MAIDR reads each panel's axis domains to recover the visual layout (including ragged grids), so arrow keys move between panels in reading order, `Enter` drills into a panel, and `Escape` returns to panel navigation. The selected panel is outlined visually.
+
+```html
+<div id="subplot-chart" style="width: 900px; height: 600px"></div>
+<script>
+  Plotly.newPlot('subplot-chart', [
+    { x: ['Mon', 'Tue'], y: [20, 14], type: 'bar', name: 'Tips' },
+    { x: [1, 2, 3], y: [10, 15, 13], type: 'scatter', mode: 'lines+markers', name: 'Sales', xaxis: 'x2', yaxis: 'y2' },
+    { x: [5.1, 4.9, 4.7], y: [1.4, 1.4, 1.3], type: 'scatter', mode: 'markers', name: 'Iris', xaxis: 'x3', yaxis: 'y3' },
+    { x: [1.2, 1.9, 2.1, 2.4, 3.0], type: 'histogram', name: 'Distribution', xaxis: 'x4', yaxis: 'y4' }
+  ], {
+    title: { text: 'Four Views of the Data' },
+    grid: { rows: 2, columns: 2, pattern: 'independent' }
+  });
+</script>
+```
+
+Each panel announces its trace name (e.g. "Subplot 1 of 4") while navigating; inset plots and overlaid dual-axis charts are kept as a flat panel list rather than forced into a grid.
+
+### Facets (Plotly Express style)
+
+Faceted figures — shared `matches:` axes plus facet-label annotations, the pattern Plotly Express emits for `facet_row`/`facet_col` — are fully supported:
+
+- Facet labels (e.g. `"sex=Male"`) become the panel names announced during navigation.
+- Axis titles carried only by the outer (matched) axis are resolved for every inner panel.
+
+Both annotation shapes are recognized:
+
+- **Paper refs** (`xref: 'paper'`, `yref: 'paper'`) — what plotly.py actually emits for Plotly Express facet labels and `make_subplots` `row_titles`/`column_titles`/`subplot_titles`. These are matched to panels geometrically: column titles above the top row, rotated row titles at the right edge, and per-panel titles (e.g. `facet_col_wrap`) just above each panel.
+- **Axis-domain refs** (`xref: 'x2 domain'`) — hand-authored facet labels tied explicitly to a panel's axes, as in the example below.
+
+```html
+<div id="facet-chart" style="width: 900px; height: 450px"></div>
+<script>
+  Plotly.newPlot('facet-chart', [
+    { x: [16.99, 10.34, 21.01], y: [1.01, 1.66, 3.5], type: 'scatter', mode: 'markers' },
+    { x: [8.77, 26.88, 15.04], y: [2.0, 3.12, 1.96], type: 'scatter', mode: 'markers', xaxis: 'x2', yaxis: 'y2' }
+  ], {
+    xaxis: { domain: [0, 0.48], title: { text: 'Total Bill ($)' } },
+    xaxis2: { domain: [0.52, 1], matches: 'x' },
+    yaxis: { title: { text: 'Tip ($)' } },
+    yaxis2: { matches: 'y', anchor: 'x2' },
+    annotations: [
+      { text: 'sex=Female', xref: 'x domain', yref: 'y domain', x: 0.5, y: 1.05, showarrow: false },
+      { text: 'sex=Male', xref: 'x2 domain', yref: 'y2 domain', x: 0.5, y: 1.05, showarrow: false }
+    ]
+  });
+</script>
+```
+
+Charts generated from Python (`plotly.express` facets, `make_subplots`) work the same way — the adapter reads the rendered figure, so no extra configuration is needed.
 
 ## Dynamic Charts
 

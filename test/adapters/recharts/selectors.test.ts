@@ -29,6 +29,10 @@ describe('getRechartsSelector', () => {
     it('returns scoped scatter symbol selector for scatter type', () => {
       expect(getRechartsSelector('scatter')).toBe('.recharts-scatter-symbol .recharts-symbols');
     });
+
+    it('returns scoped pie sector selector for pie type', () => {
+      expect(getRechartsSelector('pie')).toBe('.recharts-pie-sector .recharts-sector');
+    });
   });
 
   describe('multi-series (with seriesIndex)', () => {
