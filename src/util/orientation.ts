@@ -33,6 +33,7 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // The interval runs along the value axis and the samples along the other,
   // so which way round they are drawn decides which axis a bound moves on --
   // the same reason a bar or a box is oriented.
+  [TraceType.DUMBBELL]: true,
   [TraceType.ERROR_BAR]: true,
   // One measure on a dial. There is no second axis for it to be read against,
   // so there is nothing an orientation could swap.

@@ -8,6 +8,10 @@ describe('resolveOrientation', () => {
     TraceType.BOX,
     TraceType.CANDLESTICK,
     TraceType.DODGED,
+    // A dumbbell is commonly drawn with its categories running down the page,
+    // and the pair runs along the value axis either way -- so which axis a dot
+    // moves on depends on which way it was drawn.
+    TraceType.DUMBBELL,
     // The interval runs along the value axis and the samples along the other,
     // so which way round they are drawn decides which axis a bound moves on.
     TraceType.ERROR_BAR,

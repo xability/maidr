@@ -354,6 +354,33 @@ quantities; they are announced in text instead, which is where a reader asking
 Gauges use a single-line representation. On multiline braille displays the
 measure appears on the first line and the remaining lines are unused.
 
+## Dumbbell
+
+A dumbbell's braille is **two rows** — the starting values and the finishing
+ones — one cell per category, with each row scaled against **its own** range.
+
+That per-row scaling is the same treatment a multi-line plot gets, and it is
+what makes the two rows comparable as *shapes*: the point of the chart is
+whether the second row's profile sits differently from the first, and a single
+shared range would flatten both toward the middle of the combined spread when
+the two ends occupy different parts of the value axis.
+
+The rows keep the chart's own order — start first, then end — rather than being
+sorted by magnitude. A dumbbell normally contains rises and falls at once, so
+sorting would put a declining row's finishing value on the line that holds
+every other row's start, and the reader would have no way to know which line
+they were feeling.
+
+The change itself is not encoded. It is what the text announcement carries at
+both ends of every row, and a third line of deltas would read as a third series
+rather than as the gap between the first two.
+
+### Multiline Displays
+
+Dumbbell charts use both lines on a multiline display: the starting values on
+the first and the finishing ones on the second, so the two profiles can be
+compared with one sweep rather than by toggling between rows.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

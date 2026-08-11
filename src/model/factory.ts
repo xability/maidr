@@ -5,6 +5,7 @@ import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
 import { Candlestick } from './candlestick';
+import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
 import { GaugeTrace } from './gauge';
 import { Heatmap } from './heatmap';
@@ -48,6 +49,9 @@ export abstract class TraceFactory {
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);
+
+      case TraceType.DUMBBELL:
+        return new DumbbellTrace(layer);
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
