@@ -677,6 +677,25 @@ export interface MaidrLayer {
   id: string;
   type: TraceType;
   title?: string;
+  /**
+   * What this layer is, when a subplot's layers are the same kind of thing.
+   *
+   * Announced on a layer switch in place of the trace type. Without it, two
+   * layers of one type are indistinguishable — a hue-split error bar chart
+   * announces "Layer 1 of 2: error_bar plot" and then "Layer 2 of 2:
+   * error_bar plot", so a reader hears two different sets of numbers and is
+   * never told that the first is Male and the second Female, which is the
+   * whole content of the split and what a legend gives a sighted reader for
+   * free.
+   *
+   * Distinct from `title`, which names the *chart* rather than the layer:
+   * producers put the figure's title there for every layer of a figure, so it
+   * cannot say which layer this is.
+   *
+   * @example
+   * name: 'Male'
+   */
+  name?: string;
   selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
   orientation?: Orientation;
   /**

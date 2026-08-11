@@ -214,7 +214,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Set currentLayerId for formatting
     this.currentLayerId = state.layerId;
 
-    let announcement = `Layer ${state.index} of ${state.size}: ${state.plotType || state.traceType} plot`;
+    // The layer's own name when it has one, and the trace type otherwise.
+    // A subplot whose layers are the same kind of thing -- one per hue level
+    // -- is announced identically at every layer without this, so the reader
+    // hears two sets of numbers and never learns which series each belongs
+    // to. A figure whose layers differ in kind is better served by the type,
+    // which is why this falls back to it rather than to a placeholder.
+    const identity = state.name ?? `${state.plotType || state.traceType} plot`;
+    let announcement = `Layer ${state.index} of ${state.size}: ${identity}`;
     if (state.text) {
       const parts: string[] = [];
 

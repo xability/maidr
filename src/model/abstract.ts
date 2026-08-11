@@ -391,6 +391,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
+  /** What this layer is, when the producer named it. See `MaidrLayer.name`. */
+  protected readonly name: string | undefined;
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
@@ -407,6 +409,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
+    // Undefined rather than defaulted: the announcement falls back to naming
+    // the trace type, which is the better answer for a figure whose layers
+    // differ in kind, and a default here would replace it with a placeholder.
+    this.name = layer.name?.trim() || undefined;
 
     this.xAxis = named(layer.axes?.x?.label, DEFAULT_X_AXIS);
     this.yAxis = named(layer.axes?.y?.label, DEFAULT_Y_AXIS);
@@ -465,6 +471,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
+      name: this.name,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       z: this.z,
