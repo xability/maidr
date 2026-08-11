@@ -58,6 +58,10 @@ interface FlatPoint {
   y: number;
   z: number;
   svg: SVGElement | null;
+  /** Index of this point's x among the sorted unique x values (`xPoints`). */
+  xIndex: number;
+  /** Index of this point's y within `xPoints[xIndex].y` (ascending). */
+  yIndexInColumn: number;
 }
 
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable {
@@ -245,12 +249,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // index (the same index correspondence buildGridCells relies on), then
     // build two sort orders. Both orders are full permutations of the flat
     // points list — the same N indices, just visited in different sequences.
-    this.flatPoints = data.map((p, i) => ({
-      x: p.x,
-      y: p.y,
-      z: typeof p.z === 'number' ? p.z : Number.NaN,
-      svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
-    }));
+    this.flatPoints = data.map((p, i) => {
+      // Both lookups key off the very numbers xPoints was grouped from, so
+      // they hit exactly; the fallbacks only guard a malformed layer.
+      const xIndex = this.xIndexOf(p.x);
+      const column = this.xPoints[xIndex]?.y ?? [];
+      return {
+        x: p.x,
+        y: p.y,
+        z: typeof p.z === 'number' ? p.z : Number.NaN,
+        svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
+        xIndex,
+        yIndexInColumn: Math.max(0, column.indexOf(p.y)),
+      };
+    });
     this.readingOrder = this.flatPoints
       .map((_, i) => i)
       .sort((a, b) => {
@@ -510,7 +522,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       const panX = isCol
         ? this.col
         : this.xIndexOf(value);
-      const panY = isCol ? 0 : this.row;
+      // COL walks a stack at one x, so the stack index IS the vertical
+      // position — it pairs with rows = stack.length below. Reporting 0 would
+      // announce "row 1 of N" at every step of the stack, which is the one
+      // thing the position key exists to tell apart. ROW walks across x at a
+      // fixed y, so the row index is already the answer there.
+      const panY = isCol ? idx : this.row;
       const rows = isCol ? Math.max(1, stack.length) : Math.max(1, this.yPoints.length);
       const cols = Math.max(1, this.xPoints.length);
       return {
@@ -528,7 +545,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // Pan by position among unique x values so points at the same x produce
       // identical horizontal panning; xValues is sorted ascending in the
       // constructor.
-      const xIndex = this.xIndexOf(point.x);
+      //
+      // y / rows report the point's place inside its own x-column rather than
+      // a flat {y: 0, rows: 1}. Panning is what AnnouncePositionCommand reads,
+      // and point mode is precisely the mode where several points share an x:
+      // a fixed row announces "row 1 of 1" for every one of them, leaving a
+      // blind user unable to tell two stacked points apart. Stereo placement
+      // is unaffected — only panning.x reaches the oscillator.
       return {
         freq: {
           raw: point.y,
@@ -536,9 +559,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           max: this.maxY,
         },
         panning: {
-          y: 0,
-          x: xIndex < 0 ? 0 : xIndex,
-          rows: 1,
+          y: point.yIndexInColumn,
+          x: point.xIndex,
+          rows: this.pointColumnHeight(point),
           cols: this.xValues.length,
         },
         zIntensity: this.zIntensityFor([point.z])?.[0],
@@ -643,6 +666,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    */
   private xIndexOf(value: number): number {
     return this.xIndexByValue.get(value) ?? 0;
+  }
+
+  /**
+   * How many points share this point's x — the denominator of the "row n of m"
+   * that point mode announces. Read by both the in-bounds audio state and the
+   * out-of-bounds one so the boundary chime describes the same geometry as the
+   * tone before it.
+   */
+  private pointColumnHeight(point: FlatPoint): number {
+    return Math.max(1, this.xPoints[point.xIndex]?.y.length ?? 1);
   }
 
   /**
@@ -910,9 +943,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         type: 'trace',
         traceType: this.type,
         audio: {
-          y: 0,
-          x: this.xIndexOf(point.x),
-          rows: 1,
+          y: point.yIndexInColumn,
+          x: point.xIndex,
+          rows: this.pointColumnHeight(point),
           cols: Math.max(1, this.xValues.length),
         },
       };
@@ -927,7 +960,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         type: 'trace',
         traceType: this.type,
         audio: {
-          y: isCol ? 0 : this.row,
+          y: isCol ? idx : this.row,
           x: isCol ? this.col : this.xIndexOf(stack[idx] ?? 0),
           rows: isCol ? Math.max(1, stack.length) : Math.max(1, this.yPoints.length),
           cols: Math.max(1, this.xPoints.length),
@@ -1486,6 +1519,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.isInIntersectionMode = enabled;
     if (enabled) {
       this.intersectionStackIndex = 0;
+      // See setPointMode: entering the mode anchors the cursor on a real
+      // point, so the ROW_COL initial-entry handshake is spent. Assigning the
+      // flag directly rather than calling handleInitialEntry() matters here —
+      // that would reset row/col/mode and re-anchor the stack this mode walks.
+      this.isInitialEntry = false;
     }
   }
 
@@ -1583,6 +1621,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.isInPointMode = enabled;
     if (enabled) {
       this.pointModeIndex = this.computeEntryPointIndex();
+      // Seeding the cursor IS the entry into the data, so consume the
+      // initial-entry handshake here. Leaving it armed makes moveOnce swallow
+      // autoplay's first tick — it takes the initial-entry branch, notifies
+      // without moving, and replays the point the user is already standing on.
+      this.isInitialEntry = false;
     }
   }
 
