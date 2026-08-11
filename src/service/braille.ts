@@ -1115,6 +1115,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // renders. The reader feels the interval by moving between rows, the
       // same way they hear it.
       [TraceType.ERROR_BAR, asGeneric(new LineBrailleEncoder())],
+      // A single cell scaled against the dial's own ends -- the bar encoder's
+      // input with one column, so the reader feels where on the dial the
+      // measure sits rather than only that it exists.
+      [TraceType.GAUGE, asGeneric(new BarBrailleEncoder())],
       [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],

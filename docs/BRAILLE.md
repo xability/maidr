@@ -336,6 +336,24 @@ announces, and a display of five cells cannot carry five words.
 Word clouds use a single-line representation. On multiline braille displays
 the terms appear on the first line and the remaining lines are unused.
 
+## Gauge and bullet chart
+
+A gauge's braille is a **single cell**, scaled against the dial's own ends
+rather than against the value -- so the cell's dot height is where along the
+dial the measure sits, not merely that a measure exists.
+
+That is the whole of what braille can carry here, and it is worth carrying: a
+reader running a finger along a dashboard row feels each tile's fill level
+without leaving braille mode. The target, the band and the range are not
+encoded, because one cell has four height levels and no room for four
+quantities; they are announced in text instead, which is where a reader asking
+"how far off target" is already looking.
+
+### Multiline Displays
+
+Gauges use a single-line representation. On multiline braille displays the
+measure appears on the first line and the remaining lines are unused.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

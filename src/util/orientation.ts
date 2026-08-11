@@ -34,6 +34,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // so which way round they are drawn decides which axis a bound moves on --
   // the same reason a bar or a box is oriented.
   [TraceType.ERROR_BAR]: true,
+  // One measure on a dial. There is no second axis for it to be read against,
+  // so there is nothing an orientation could swap.
+  [TraceType.GAUGE]: false,
   [TraceType.HEATMAP]: false,
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,
