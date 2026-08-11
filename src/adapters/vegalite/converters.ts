@@ -622,7 +622,9 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  * @param encoding - The layer's encoding, when it has one
  * @returns The declared stack setting, or undefined when none is declared
  */
-function declaredStack(encoding?: VegaLiteEncoding): unknown {
+function declaredStack(
+  encoding?: VegaLiteEncoding,
+): VegaLiteChannelDef['stack'] {
   return encoding?.y?.stack !== undefined
     ? encoding.y.stack
     : encoding?.x?.stack;
@@ -634,7 +636,7 @@ function declaredStack(encoding?: VegaLiteEncoding): unknown {
  * @param stack - The value {@link declaredStack} returned
  * @returns True when the spec asked for unstacked marks
  */
-function isUnstacked(stack: unknown): boolean {
+function isUnstacked(stack: VegaLiteChannelDef['stack']): boolean {
   return stack === false || stack === null;
 }
 
