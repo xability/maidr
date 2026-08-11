@@ -110,6 +110,11 @@ test.describe('Gauge', () => {
 
       const announcement = normalizeText(await gaugePage.getInstructionText());
 
+      // The measure's own name comes first. Asserting only on the numbers
+      // would pass while the dial's ends stood in the slot the name belongs
+      // in -- "Measure is 0 through 100" carries every number below and still
+      // never says what was measured.
+      expect(announcement).toContain('Measure is Conversion');
       expect(announcement).toContain('73');
       expect(announcement).toContain('100');
       expect(announcement).toContain('80');

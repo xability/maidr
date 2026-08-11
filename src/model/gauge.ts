@@ -96,6 +96,20 @@ export class GaugeTrace extends AbstractTrace {
     return drawn.length > 0 ? [[drawn[0]]] : null;
   }
 
+  /**
+   * Whether the rotor should offer its lower/higher compare modes.
+   *
+   * A gauge is one point, so there is nothing to compare it against -- the
+   * same reason {@link GaugeTrace.supportsExtrema} is false. Left at the
+   * default the rotor would offer "Navigate to Lower Value" on a chart with
+   * no other value to reach.
+   *
+   * @returns False, always
+   */
+  public override supportsCompareMode(): boolean {
+    return false;
+  }
+
   protected get values(): number[][] {
     return [[this.value]];
   }
@@ -142,7 +156,14 @@ export class GaugeTrace extends AbstractTrace {
       cross: { label: this.yAxis, value: this.value },
       // What the value is out of. A gauge's reading is a position on a dial,
       // and without the dial's ends the number is unanchored.
-      range: { min: this.min, max: this.max },
+      //
+      // Carried in `z` -- the slot for a third quantity -- and NOT in `range`,
+      // which would look like the natural home. `TextService` treats `range`
+      // as *replacing* the main-axis value rather than supplementing it, the
+      // way a histogram announces a bin's span instead of a single x. Setting
+      // it here would drop the measure's name from every announcement and
+      // render the dial's ends through the category axis's formatter.
+      z: { label: 'Range', value: `${this.min} to ${this.max}` },
       mainAxis: 'x',
       crossAxis: 'y',
     };

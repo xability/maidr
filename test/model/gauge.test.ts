@@ -1,8 +1,10 @@
+import type { NotificationService } from '@service/notification';
 import type { GaugePoint, MaidrLayer } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { GaugeTrace } from '@model/gauge';
+import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -62,6 +64,28 @@ function gauge(data: GaugePoint = KPI): GaugeTrace {
   return trace;
 }
 
+/**
+ * Read the sentence a screen reader receives for the trace's current point.
+ *
+ * The `TextState` a trace returns is an intermediate: which fields it fills
+ * decides how `TextService` composes the sentence, and a field in the wrong
+ * slot can leave every assertion on the state passing while the announcement
+ * says something else. This renders the sentence itself.
+ * @param trace The positioned trace
+ * @returns The announcement, in the default verbose mode
+ */
+function announce(trace: GaugeTrace): string {
+  const notification = { notify: jest.fn() } as unknown as NotificationService;
+  const text = new TextService(notification);
+  const listener = jest.fn();
+  const disposable = text.onChange(listener);
+
+  text.update(trace.state);
+  disposable.dispose();
+
+  return (listener.mock.calls[0][0] as { value: string }).value;
+}
+
 describe('gauge registration', () => {
   test('the factory builds a GaugeTrace', () => {
     expect(TraceFactory.create(createLayer(KPI))).toBeInstanceOf(GaugeTrace);
@@ -87,7 +111,15 @@ describe('the reading is relational', () => {
     const { text } = nonEmptyState(gauge());
 
     expect(text.cross.value).toBe(73);
-    expect(text.range).toEqual({ min: 0, max: 100 });
+    expect(text.z).toEqual({ label: 'Range', value: '0 to 100' });
+  });
+
+  test('keeps the range out of `range`, which would replace the measure', () => {
+    // `TextService.formatVerboseTraceText` renders `range` *instead of*
+    // `main.value`, not alongside it. Putting the dial's ends there drops the
+    // measure's name from every announcement -- "Measure is 0 through 100"
+    // rather than "Measure is Conversion" -- so the field has to stay unset.
+    expect(nonEmptyState(gauge()).text.range).toBeUndefined();
   });
 
   test('carries the target a bullet chart draws', () => {
@@ -103,6 +135,26 @@ describe('the reading is relational', () => {
 
   test('names the measure rather than repeating the number', () => {
     expect(nonEmptyState(gauge()).text.main.value).toBe('Conversion');
+  });
+});
+
+describe('the announcement a reader hears', () => {
+  test('names the measure, the band, the value, the range and the target', () => {
+    // Asserted on the rendered sentence rather than on the `TextState`, which
+    // is what a wrong field choice hides behind: the dial's ends in `range`
+    // rather than `z` left every state assertion above passing while the
+    // sentence read "Measure is 0 through 100" and dropped 'Conversion'.
+    expect(announce(gauge())).toBe(
+      'Measure is Conversion, ok Percent is 73, Range is 0 to 100, Target is 80',
+    );
+  });
+
+  test('still names the measure on a bare gauge with no band or target', () => {
+    const plain: GaugePoint = { label: 'Load', value: 42, min: 0, max: 50 };
+
+    expect(announce(gauge(plain))).toBe(
+      'Measure is Load, Percent is 42, Range is 0 to 50',
+    );
   });
 });
 

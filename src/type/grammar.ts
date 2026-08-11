@@ -703,10 +703,10 @@ export interface MaidrLayer {
   stepDirection?: StepDirection;
   data:
     | BarPoint[]
-    | GaugePoint
     | BoxPoint[]
     | CandlestickPoint[]
     | ErrorBarPoint[]
+    | GaugePoint
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
