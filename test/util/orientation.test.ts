@@ -25,12 +25,17 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    // An area trace is navigated along its series and then between series,
+    // exactly as a line is, whichever way the band is drawn.
+    TraceType.AREA,
     TraceType.CANDLESTICK_DELTA,
     TraceType.HEATMAP,
     TraceType.LINE,
+    TraceType.NORMALIZED_AREA,
     TraceType.PIE,
     TraceType.SCATTER,
     TraceType.SMOOTH,
+    TraceType.STACKED_AREA,
     TraceType.STEP,
   ];
 

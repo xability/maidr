@@ -528,6 +528,26 @@ export class TextService implements Observer<PlotState>, Disposable {
       );
     }
 
+    // The running total a stacked point sits inside. Reads as ", Total is 30,
+    // 40% of it" after the point's own value, so the two magnitudes a stacked
+    // area draws are never announced as one. Verbose only: the terse reading
+    // stays one point per utterance, and the chart type — announced as
+    // "stacked area" — already tells the reader which of the two `cross` is.
+    if (state.stack !== undefined) {
+      verbose.push(
+        Constant.COMMA_SPACE,
+        state.stack.label,
+        Constant.IS,
+        this.formatSingleValue(state.stack.value, crossAxisType),
+      );
+      if (state.stack.share !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          `${(state.stack.share * 100).toFixed(1)}% of it`,
+        );
+      }
+    }
+
     return verbose.join(Constant.EMPTY);
   }
 

@@ -591,6 +591,14 @@ export interface MaidrLayer {
  * ```
  */
 export enum TraceType {
+  /**
+   * A filled band between a series and a baseline. Navigates exactly as
+   * {@link TraceType.LINE} does — the fill is what the mark looks like, not
+   * an extra magnitude — so several `AREA` series are read independently of
+   * one another. Use {@link TraceType.STACKED_AREA} when the bands sit on
+   * top of each other instead.
+   */
+  AREA = 'area',
   BAR = 'bar',
   BOX = 'box',
   CANDLESTICK = 'candlestick',
@@ -606,10 +614,20 @@ export enum TraceType {
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
+  /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
+  NORMALIZED_AREA = 'stacked_normalized_area',
   PIE = 'pie',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
+  /**
+   * Area bands stacked on one another, so a band's *height* is its own
+   * series' value while the band's *top edge* is the running total. Reading
+   * such a layer as a {@link TraceType.LINE} announces one number where the
+   * chart draws two, with nothing to say which one was heard — which is why
+   * this is a type of its own rather than a line with a fill.
+   */
+  STACKED_AREA = 'stacked_area',
   STEP = 'step',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
