@@ -300,6 +300,38 @@ describe('extrema', () => {
     expect(state.text.section).toBe('2020');
   });
 
+  test('does not report a rise on a chart where everything fell', () => {
+    // `extremeChange('max')` takes the most *positive* change, which on an
+    // all-declining chart is the row that fell least. Naming that "largest
+    // increase" reports a rise the chart does not contain; naming it "largest
+    // decrease" reports the wrong row as the biggest faller.
+    //
+    // The label is what the go-to-extrema menu renders as its option text and
+    // its `aria-label`, so it is read out as a claim rather than shown beside
+    // the number that would correct it.
+    const allFalling: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 5 },
+        { x: 'b', start: 20, end: 1 },
+      ],
+    };
+
+    expect(dumbbell(0, 0, allFalling).getExtremaTargets().map(t => t.label))
+      .toEqual(['Smallest decrease at a', 'Largest decrease at b']);
+  });
+
+  test('does not report a fall on a chart where everything rose', () => {
+    const allRising: DumbbellData = {
+      points: [
+        { x: 'a', start: 1, end: 20 },
+        { x: 'b', start: 5, end: 10 },
+      ],
+    };
+
+    expect(dumbbell(0, 0, allRising).getExtremaTargets().map(t => t.label))
+      .toEqual(['Largest increase at a', 'Smallest increase at b']);
+  });
+
   test('offers one target when every row moved the same way', () => {
     // Naming the same row as both extremes would report a spread the chart
     // does not have.
@@ -335,6 +367,25 @@ describe('description', () => {
       label: 'Largest decrease',
       value: 'Latvia, 5.1',
     });
+  });
+
+  test('names them by the direction they have, not the one expected', () => {
+    // The same defect the extrema targets had: the most positive change on an
+    // all-declining chart is not an increase.
+    const allFalling: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 5 },
+        { x: 'b', start: 20, end: 1 },
+      ],
+    };
+    const labels = dumbbell(0, 0, allFalling)
+      .description
+      .stats
+      .map(stat => stat.label);
+
+    expect(labels).toContain('Smallest decrease');
+    expect(labels).toContain('Largest decrease');
+    expect(labels).not.toContain('Largest increase');
   });
 
   test('heads the data table with the chart\'s own names for its ends', () => {

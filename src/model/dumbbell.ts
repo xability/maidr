@@ -55,6 +55,35 @@ function changeOf(point: DumbbellPoint): number {
 }
 
 /**
+ * Names a ranked change, so the name matches the direction it actually has.
+ *
+ * The two extremes of a dumbbell are the most positive change and the most
+ * negative one, and neither is necessarily a rise or a fall. On a chart where
+ * every row declined, the most positive change is the row that fell *least* —
+ * calling that "largest increase" reports a rise the chart does not contain,
+ * and calling it "largest decrease" reports the wrong row as the biggest
+ * faller. It is the smallest decrease, and that is what it is called.
+ *
+ * This matters more here than the wording usually would: the label is what the
+ * "go to extrema" menu renders as its option text and its `aria-label`, so it
+ * is read out as a claim about the finding rather than shown beside the number
+ * that would correct it.
+ *
+ * @param kind - Which end of the ranking this change came from
+ * @param change - The signed change
+ * @returns How to name it
+ */
+function rankLabel(kind: 'max' | 'min', change: number): string {
+  if (change === 0) {
+    return 'No change';
+  }
+  if (kind === 'max') {
+    return change > 0 ? 'Largest increase' : 'Smallest decrease';
+  }
+  return change < 0 ? 'Largest decrease' : 'Smallest increase';
+}
+
+/**
  * Trace implementation for dumbbell charts: two values per category, joined.
  *
  * A dumbbell is drawn to be read as a comparison, not as two numbers. The
@@ -215,10 +244,16 @@ export class DumbbellTrace extends AbstractTrace {
         label: isHorizontal ? this.xAxis : this.yAxis,
         value: this.endValues[this.row][this.col],
       },
-      // Which of the two dots the cursor is on. Announced ahead of the axis
-      // label, and lower-cased on the way, by the same text service branch an
-      // error bar's bounds travel on -- so these are the chart's own names for
-      // its ends and are left in whatever case the producer wrote them.
+      // Which of the two dots the cursor is on. The chart's own name for the
+      // end, passed through as the producer wrote it.
+      //
+      // Verbose mode lower-cases it on the way out and terse mode does not, so
+      // a `startLabel` of "Control" is announced two ways depending on the
+      // text mode. That is `TextService`'s doing rather than this trace's --
+      // the same branch already lower-cases a box plot's "Minimum" -- and it
+      // is not corrected here, because lower-casing the label in the model to
+      // make the two agree would destroy a distinction ("Q1 2024") that the
+      // formatting layer, not the data, chose to drop. Tracked in #830.
       section: this.endLabels[ENDS[this.row]],
       // The gap, named by direction rather than signed. "Decrease is 3.1"
       // needs no interpretation; "-3.1" asks the reader to hear a minus sign
@@ -259,13 +294,13 @@ export class DumbbellTrace extends AbstractTrace {
     const smallest = this.extremeChange('min');
     if (largest !== null) {
       stats.push({
-        label: `Largest ${largest.change >= 0 ? 'increase' : 'decrease'}`,
+        label: rankLabel('max', largest.change),
         value: `${this.points[largest.index].x}, ${Math.abs(largest.change)}`,
       });
     }
     if (smallest !== null && smallest.index !== largest?.index) {
       stats.push({
-        label: `Largest ${smallest.change >= 0 ? 'increase' : 'decrease'}`,
+        label: rankLabel('min', smallest.change),
         value: `${this.points[smallest.index].x}, ${Math.abs(smallest.change)}`,
       });
     }
@@ -337,7 +372,7 @@ export class DumbbellTrace extends AbstractTrace {
     }
 
     const targets: ExtremaTarget[] = [{
-      label: `Largest increase at ${this.points[largest.index].x}`,
+      label: `${rankLabel('max', largest.change)} at ${this.points[largest.index].x}`,
       value: largest.change,
       pointIndex: largest.index,
       segment: 'end',
@@ -351,7 +386,7 @@ export class DumbbellTrace extends AbstractTrace {
     // the chart does not have.
     if (smallest.index !== largest.index) {
       targets.push({
-        label: `Largest decrease at ${this.points[smallest.index].x}`,
+        label: `${rankLabel('min', smallest.change)} at ${this.points[smallest.index].x}`,
         value: smallest.change,
         pointIndex: smallest.index,
         segment: 'end',
