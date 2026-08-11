@@ -95,6 +95,7 @@ import {
   CommandPaletteMoveDownCommand,
   CommandPaletteMoveUpCommand,
   CommandPaletteSelectCommand,
+  ExitLabelScopeCommand,
   ToggleAudioCommand,
   ToggleBrailleCommand,
   ToggleChatCommand,
@@ -327,12 +328,11 @@ export class CommandFactory {
 
       case 'ACTIVATE_FIGURE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.FIGURE_LABEL, this.textViewModel, this.displayService);
-      case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.SUBPLOT);
       case 'ACTIVATE_TRACE_LABEL_SCOPE':
         return new ToggleScopeCommand(this.context, Scope.TRACE_LABEL, this.textViewModel, this.displayService);
+      case 'DEACTIVATE_FIGURE_LABEL_SCOPE':
       case 'DEACTIVATE_TRACE_LABEL_SCOPE':
-        return new ToggleScopeCommand(this.context, Scope.TRACE);
+        return new ExitLabelScopeCommand(this.context, this.displayService);
       case 'AUTOPLAY_UPWARD':
         return new AutoplayUpwardCommand(this.context, this.autoplayService);
       case 'AUTOPLAY_DOWNWARD':

@@ -38,8 +38,9 @@ critical — they regress the property the whole codebase is built on.
 **2. Accessibility.** This is an accessibility library, so a11y defects are
 correctness defects. Does a new trace type produce audio, text, braille, *and*
 highlight output? Are announcements routed through `NotificationService` with
-the right politeness? Is every new interaction keyboard-reachable and listed in
-`help.ts`? Is focus managed and visible?
+the right politeness? Is every new interaction keyboard-reachable, with a
+keybinding description that puts it in the help menu? Is focus managed and
+visible?
 
 **3. Type safety.** Every `any` is a finding — name the type it should be.
 Check for non-null assertions hiding a real null case, non-exhaustive

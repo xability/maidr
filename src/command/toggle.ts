@@ -357,6 +357,46 @@ export class ToggleScopeCommand implements Command {
     }
   }
 }
+
+/**
+ * Command to leave a label scope, returning to whichever scope the user opened
+ * it from.
+ *
+ * `enterLabelScope` deliberately leaves that scope on the focus stack, so
+ * exiting has to read it back rather than assume one: pressing `l` is bound in
+ * braille mode as well as at trace and subplot level, and a fixed return scope
+ * would drop a braille reader into trace scope while their cursor is still in
+ * the braille field.
+ *
+ * The guard mirrors `AnnounceCommand.restoreScope()`, the other way out of a
+ * label scope: only exit when a label scope is genuinely active, since the
+ * focus stack is only known to match the live scope while one is.
+ */
+export class ExitLabelScopeCommand implements Command {
+  private readonly context: Context;
+  private readonly displayService: DisplayService;
+
+  /**
+   * Creates an instance of ExitLabelScopeCommand.
+   * @param {Context} context - The application context.
+   * @param {DisplayService} displayService - The display service holding the focus stack.
+   */
+  public constructor(context: Context, displayService: DisplayService) {
+    this.context = context;
+    this.displayService = displayService;
+  }
+
+  /**
+   * Returns to the scope that was active before label scope was entered.
+   */
+  public execute(): void {
+    const { scope } = this.context;
+    if (scope === Scope.TRACE_LABEL || scope === Scope.FIGURE_LABEL) {
+      this.displayService.exitLabelScope();
+    }
+  }
+}
+
 /**
  * Command to toggle the chart description modal on or off.
  */

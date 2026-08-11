@@ -55,8 +55,8 @@ keypress
   `src/state/viewModel/` dispatches, a component reads it with
   `useViewModelState()`. See `viewmodel.instructions.md` and `ui.instructions.md`.
 - **New keyboard action** → command in `src/command/`, keybinding in
-  `src/service/keybinding.ts`, help entry in `src/service/help.ts`.
-  See `command.instructions.md`.
+  `src/service/keybinding.ts` with a description — `src/service/help.ts`
+  generates the help menu from it. See `command.instructions.md`.
 
 ## Working style
 

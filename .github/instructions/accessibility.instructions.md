@@ -39,7 +39,8 @@ meaningful output for it.
 ## Keyboard
 
 - Every interaction must be reachable without a pointer, and every new shortcut
-  must be added to `src/service/help.ts`.
+  must carry a description in `src/service/keybinding.ts` so it reaches the
+  help menu.
 - Do not trap focus. Anything that opens must close with `Escape` and return
   focus to where the user was.
 - Keep visible focus indicators intact; never set `outline: none` without an
