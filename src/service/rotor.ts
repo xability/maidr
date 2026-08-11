@@ -327,10 +327,15 @@ export class RotorNavigationService {
       return;
     }
     this.context.setRotorEnabled(true);
-    // Clear every mode before enabling the new one. Enabling first would leave
-    // the trace briefly reporting two modes at once, and the state getters
-    // resolve them in a fixed order — so a cycle from intersection to point
-    // mode would read the point cursor through the intersection branch.
+    // Clear every mode before enabling the new one, so the trace is never in
+    // two at once. Nothing observes the gap today — none of the three setters
+    // notifies, and these calls run synchronously — so this guards an
+    // invariant rather than fixing a live bug. It is worth the three lines
+    // because the invariant is not obvious: the trace's state getters resolve
+    // the modes in a fixed order, so a trace left in both intersection and
+    // point mode would read the point cursor through the intersection branch,
+    // and the day any setter starts notifying, enabling first would surface
+    // exactly that.
     this.notifyGridMode(false);
     this.notifyPointMode(false);
     this.notifyIntersectionMode(false);

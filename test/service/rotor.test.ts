@@ -567,9 +567,10 @@ describe('RotorNavigationService point mode', () => {
   });
 
   test('cycling from intersection to point mode hands the cursor over cleanly', () => {
-    // The state getters resolve intersection before point, so a trace left in
-    // both modes would read the point cursor through the intersection branch.
-    // setMode clears every mode before enabling the new one to rule that out.
+    // The trace must end up in exactly one mode. The getters resolve
+    // intersection before point, so a trace left in both would read the point
+    // cursor through the intersection branch; setMode clears every mode before
+    // enabling the new one so that state is unreachable.
     const trace = createScatterTraceWithStack();
     const service = createService(createMockContext(trace));
 
