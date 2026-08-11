@@ -1,0 +1,338 @@
+import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
+import type { Movable } from '@type/movable';
+import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Dimension, NearestPoint } from './abstract';
+import { Orientation } from '@type/grammar';
+import { MathUtil } from '@util/math';
+import { Svg } from '@util/svg';
+import { AbstractTrace } from './abstract';
+import { MovableGrid } from './movable';
+
+/**
+ * The three magnitudes an interval chart draws at one sample, bottom to top.
+ *
+ * Ordered rather than alphabetical: moving up the grid moves up the value
+ * axis, so the cursor's direction matches the chart's.
+ */
+const SECTIONS = ['lower', 'value', 'upper'] as const;
+
+type Section = (typeof SECTIONS)[number];
+
+/** How each section is announced. */
+const SECTION_LABEL: Record<Section, string> = {
+  lower: 'lower bound',
+  value: 'value',
+  upper: 'upper bound',
+};
+
+/**
+ * Reads one section's magnitude off a point.
+ *
+ * @param point - The point to read
+ * @param section - Which of the three magnitudes to take
+ * @returns The magnitude, or NaN when the chart draws no such bound here
+ */
+function magnitudeOf(point: ErrorBarPoint, section: Section): number {
+  switch (section) {
+    case 'lower':
+      return point.yMin ?? Number.NaN;
+    case 'upper':
+      return point.yMax ?? Number.NaN;
+    default:
+      return point.y;
+  }
+}
+
+/**
+ * Whether a magnitude is one the chart actually drew.
+ *
+ * A missing bound travels as `NaN`, and `NaN` spreads: letting one into a
+ * range would hand the whole trace a `NaN` pitch scale.
+ *
+ * @param value - A magnitude read off a point
+ * @returns True when the value is real
+ */
+function isMeasured(value: number): boolean {
+  return Number.isFinite(value);
+}
+
+/**
+ * Strips binary floating-point noise from a subtracted magnitude.
+ *
+ * The interval width is derived, not authored: `4.6 - 3.8` is
+ * `0.30000000000000071` in IEEE 754, and announcing that to a screen reader
+ * spells out sixteen digits of an artifact the chart does not contain.
+ *
+ * Twelve significant figures rather than a fixed number of decimals, because
+ * the decimals a chart needs depend on its scale — rounding to two would
+ * report an interval of 0.003 as zero, which is worse than the noise.
+ *
+ * @param value - A magnitude obtained by subtraction
+ * @returns The same magnitude without the trailing artifact
+ */
+function withoutFloatNoise(value: number): number {
+  return Number(value.toPrecision(12));
+}
+
+/**
+ * Trace implementation for charts that draw an estimate together with the
+ * interval around it — error bars, confidence intervals, point ranges.
+ *
+ * Uncertainty is not decoration in a statistical graphic; it is frequently
+ * the finding. Whether two group means differ is answered by whether their
+ * intervals overlap, and until this trace existed that was the one thing a
+ * MAIDR reader could not hear: the estimate was announced and the interval
+ * was dropped, so the comparison the chart was drawn to support could not be
+ * made at all.
+ *
+ * Navigation follows {@link Candlestick}: the sections are the grid's rows
+ * and the samples its columns, so moving up and down at one x walks the
+ * bound, the estimate and the other bound, while left and right walk the
+ * samples. That is what lets a reader trace one interval rather than
+ * reconstructing it from three separate passes over the chart.
+ *
+ * Which sections exist is decided by the data. A layer whose points carry no
+ * `yMin` gets no lower row at all rather than a row of silence — an empty
+ * lane the cursor can enter and hear nothing in reads as a broken chart, not
+ * as an absent bound.
+ */
+export class ErrorBarTrace extends AbstractTrace {
+  protected readonly supportsExtrema = true;
+  protected readonly movable: Movable;
+
+  private readonly points: ErrorBarPoint[];
+  private readonly sections: readonly Section[];
+  private readonly sectionValues: number[][];
+  private readonly orientation: Orientation;
+
+  private readonly min: number;
+  private readonly max: number;
+  private readonly perRowMin: number[];
+  private readonly perRowMax: number[];
+
+  /** Row the estimate lives on — the entry row, and the pointer's target. */
+  private readonly valueRow: number;
+
+  protected readonly highlightValues: SVGElement[][] | null;
+
+  /**
+   * Creates a new error bar trace.
+   *
+   * @param layer - The MAIDR layer carrying the interval data
+   */
+  public constructor(layer: MaidrLayer) {
+    super(layer);
+
+    this.points = layer.data as ErrorBarPoint[];
+    this.orientation = layer.orientation ?? Orientation.VERTICAL;
+    this.sections = SECTIONS.filter(section =>
+      section === 'value'
+      || this.points.some(point => isMeasured(magnitudeOf(point, section))),
+    );
+
+    this.sectionValues = this.sections.map(section =>
+      this.points.map(point => magnitudeOf(point, section)),
+    );
+
+    const measured = this.sectionValues.flat().filter(isMeasured);
+    const { min, max } = MathUtil.minMax(measured);
+    this.min = min;
+    this.max = max;
+    this.perRowMin = this.sectionValues.map(row =>
+      MathUtil.safeMin(row.filter(isMeasured)),
+    );
+    this.perRowMax = this.sectionValues.map(row =>
+      MathUtil.safeMax(row.filter(isMeasured)),
+    );
+
+    this.valueRow = Math.max(0, this.sections.indexOf('value'));
+    this.highlightValues = this.mapToSvgElements(layer.selectors);
+    // Enter on the estimate, not on whichever section happens to be last.
+    // A reader arriving at a sample is asking what the value is; landing them
+    // on the upper bound answers a question they have not asked yet, and does
+    // it with a number that looks like the value until they move.
+    this.movable = new MovableGrid<number>(this.sectionValues, {
+      row: this.valueRow,
+    });
+  }
+
+  /**
+   * Resolves the layer's selectors to one element per sample, repeated across
+   * the sections.
+   *
+   * A chart draws one whip per sample, not one element per bound, so every
+   * section of a column highlights the same element. Announcing a move
+   * between bounds while the highlight sits still is the honest rendering of
+   * that — the alternative is inventing three elements the chart never drew.
+   *
+   * @param selectors - The layer's selectors, when it has any
+   * @returns Elements shaped sections x samples, or null when unresolvable
+   */
+  private mapToSvgElements(
+    selectors?: MaidrLayer['selectors'],
+  ): SVGElement[][] | null {
+    if (typeof selectors !== 'string' && !Array.isArray(selectors)) {
+      return null;
+    }
+
+    const flat = typeof selectors === 'string'
+      ? Svg.selectAllElements(selectors)
+      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+
+    if (flat.length !== this.points.length) {
+      return null;
+    }
+    return this.sections.map(() => flat);
+  }
+
+  protected get values(): number[][] {
+    return this.sectionValues;
+  }
+
+  protected get dimension(): Dimension {
+    // Orientation-independent, matching `Candlestick.dimension`: up and down
+    // walk the sections and left and right walk the samples in BOTH
+    // orientations, so rows must always be the section count. `AutoplayState`
+    // is keyed by direction, so conditioning this on orientation mis-paces
+    // autoplay and mis-clamps the `isMovable` bounds.
+    return {
+      rows: this.sectionValues.length,
+      cols: this.points.length,
+    };
+  }
+
+  protected get audio(): AudioState {
+    return {
+      freq: {
+        // One scale across every section, not per row: the bounds and the
+        // estimate are the same quantity on the same axis, so a bound has to
+        // sound higher than the estimate it sits above. Per-row scaling would
+        // put them at the same pitch and erase the interval by ear.
+        min: this.min,
+        max: this.max,
+        raw: this.sectionValues[this.row][this.col],
+      },
+      panning: {
+        // The grid stays sections-by-samples whichever way the chart is
+        // drawn, so panning has to swap here instead: stereo position tracks
+        // where a point sits on screen, and on a horizontal chart the samples
+        // run down the page rather than across it.
+        x: this.orientation === Orientation.HORIZONTAL ? this.row : this.col,
+        y: this.orientation === Orientation.HORIZONTAL ? this.col : this.row,
+        rows: this.sectionValues.length,
+        cols: this.points.length,
+      },
+    };
+  }
+
+  protected get braille(): BrailleState {
+    return {
+      empty: false,
+      id: this.id,
+      values: this.sectionValues,
+      min: this.perRowMin,
+      max: this.perRowMax,
+      row: this.row,
+      col: this.col,
+    };
+  }
+
+  protected get text(): TextState {
+    const point = this.points[this.col];
+    const section = this.sections[this.row];
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+
+    return {
+      main: { label: isHorizontal ? this.yAxis : this.xAxis, value: point.x },
+      cross: {
+        label: isHorizontal ? this.xAxis : this.yAxis,
+        value: this.sectionValues[this.row][this.col],
+      },
+      // The same field the box plot and the candlestick use to say which of a
+      // point's several magnitudes is being read. Without it "3.8" and "4.6"
+      // at one x are indistinguishable from two samples.
+      section: SECTION_LABEL[section],
+      // Which real axis each value came from, so the formatter service picks
+      // the right per-axis format. It defaults to x/y when absent, which is
+      // silently wrong for a horizontal layer whose two axes format
+      // differently — a currency estimate would be announced as a bare
+      // number, and the category as currency.
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
+    };
+  }
+
+  public get description(): DescriptionState {
+    const widths = this.points
+      .map(point => Number(point.yMax) - Number(point.yMin))
+      .filter(isMeasured)
+      .map(withoutFloatNoise);
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of points', value: this.points.length },
+      { label: 'Min value', value: this.min },
+      { label: 'Max value', value: this.max },
+    ];
+
+    if (widths.length > 0) {
+      // The width of the interval is what a reader is judging when they ask
+      // whether two estimates differ, and it is not recoverable from the
+      // per-section ranges above: those describe the bounds across the whole
+      // chart, not the spread at any one sample.
+      stats.push(
+        { label: 'Narrowest interval', value: Math.min(...widths) },
+        { label: 'Widest interval', value: Math.max(...widths) },
+      );
+    }
+
+    const headers = [this.xAxis, this.yAxis, 'Lower', 'Upper'];
+    const rows: (string | number)[][] = this.points.map(point => [
+      point.x,
+      point.y,
+      point.yMin ?? '',
+      point.yMax ?? '',
+    ]);
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
+  /**
+   * Finds the sample whose drawn element is nearest a pointer position.
+   *
+   * Resolves to the estimate's row rather than to whichever bound happens to
+   * be closest: a pointer lands on the whip as a whole, and the estimate is
+   * the magnitude a reader arriving there is asking for.
+   *
+   * @param x - Viewport x of the pointer
+   * @param y - Viewport y of the pointer
+   * @returns The nearest sample, or null when nothing is resolvable
+   */
+  protected findNearestPoint(x: number, y: number): NearestPoint | null {
+    const elements = this.highlightValues?.[0];
+    if (!elements || elements.length === 0) {
+      return null;
+    }
+
+    let nearest: NearestPoint | null = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (let col = 0; col < elements.length; col++) {
+      const box = elements[col].getBoundingClientRect();
+      const centerX = box.left + box.width / 2;
+      const centerY = box.top + box.height / 2;
+      const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = { element: elements[col], row: this.valueRow, col, centerX, centerY };
+      }
+    }
+
+    return nearest;
+  }
+}

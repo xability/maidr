@@ -8,6 +8,9 @@ describe('resolveOrientation', () => {
     TraceType.BOX,
     TraceType.CANDLESTICK,
     TraceType.DODGED,
+    // The interval runs along the value axis and the samples along the other,
+    // so which way round they are drawn decides which axis a bound moves on.
+    TraceType.ERROR_BAR,
     TraceType.HISTOGRAM,
     TraceType.NORMALIZED,
     TraceType.STACKED,

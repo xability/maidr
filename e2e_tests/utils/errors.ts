@@ -136,6 +136,22 @@ export class LinePlotError extends Error {
 }
 
 /**
+ * Error thrown when Error bar plot related operations fail
+ */
+export class ErrorBarPlotError extends Error {
+  /**
+   * Creates a new ErrorBarPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ErrorBarPlotError';
+  }
+}
+
+/**
  * Error thrown when Area plot related operations fail
  */
 export class AreaPlotError extends Error {

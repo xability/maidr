@@ -197,6 +197,28 @@ would read as the same shape with different numbers behind it.
 As for a line plot: each line of the display is one series, and the user moves
 between series with the up and down arrow keys on a single-line display.
 
+## Error bar plot
+
+An error bar layer becomes one braille row per magnitude it draws — the lower
+bounds, the estimates, the upper bounds — each scaled against its own row's
+range, exactly as a multi-series line plot is.
+
+Rows are ordered bottom to top, so moving down the display moves down the
+value axis. A layer whose data carries no lower bound has no lower row: an
+empty lane the reader can enter and feel nothing in reads as a broken chart
+rather than as an absent bound.
+
+The interval itself is not encoded as a span. Feeling the width means moving
+between the rows at one column, which is the same motion that hears it — the
+audio, the announcement and the braille all describe the same three
+magnitudes rather than three different summaries of them.
+
+### Multiline Displays
+
+Each line of the display is one magnitude, so a multi-line display shows the
+whole interval at once. On a single-line display the up and down arrows move
+between the bounds and the estimate.
+
 ## Step plot
 
 A step plot's braille is the line plot encoding above, unchanged: each data
