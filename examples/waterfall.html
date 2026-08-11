@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Waterfall Example — Quarterly Budget Bridge</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A waterfall shows how a starting value reaches an ending one through a
+        sequence of signed contributions. Each step draws a bar FLOATING
+        between the running total before it and the running total after it, so
+        a step carries two numbers a bar chart would conflate: the
+        contribution (the bar's height) and the total it produced (the bar's
+        position).
+
+        Both are announced, because they answer different questions. "How big
+        was marketing's effect" is the contribution; "where did that leave us"
+        is the running total. The contribution is what the pitch carries -- the
+        running totals of a waterfall drift within a narrow band, so scaling
+        pitch to them would compress every step into a near-identical tone,
+        while the deltas span the full signed range and make the large movers
+        audible at once.
+
+        `kind` distinguishes the opening and closing bars, which restate the
+        running total rather than changing it, from the steps that move it.
+        Those sit on the baseline instead of floating.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="waterfall-budget" maidr='{&#10;  &quot;id&quot;: &quot;waterfall-budget&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;waterfall-budget-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;waterfall-budget-layer&quot;,&#10;            &quot;type&quot;: &quot;waterfall&quot;,&#10;            &quot;title&quot;: &quot;Quarterly Budget Bridge&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Step&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Amount (thousands)&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;waterfall-budget-0&#x27;]&quot;,&#10;              &quot;g[id=&#x27;waterfall-budget-1&#x27;]&quot;,&#10;              &quot;g[id=&#x27;waterfall-budget-2&#x27;]&quot;,&#10;              &quot;g[id=&#x27;waterfall-budget-3&#x27;]&quot;,&#10;              &quot;g[id=&#x27;waterfall-budget-4&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Opening&quot;,&#10;                &quot;start&quot;: 0,&#10;                &quot;end&quot;: 1200,&#10;                &quot;delta&quot;: 1200,&#10;                &quot;kind&quot;: &quot;total&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Marketing&quot;,&#10;                &quot;start&quot;: 1200,&#10;                &quot;end&quot;: 950,&#10;                &quot;delta&quot;: -250,&#10;                &quot;kind&quot;: &quot;decrease&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Sales&quot;,&#10;                &quot;start&quot;: 950,&#10;                &quot;end&quot;: 1430,&#10;                &quot;delta&quot;: 480,&#10;                &quot;kind&quot;: &quot;increase&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Support&quot;,&#10;                &quot;start&quot;: 1430,&#10;                &quot;end&quot;: 1360,&#10;                &quot;delta&quot;: -70,&#10;                &quot;kind&quot;: &quot;decrease&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Closing&quot;,&#10;                &quot;start&quot;: 0,&#10;                &quot;end&quot;: 1360,&#10;                &quot;delta&quot;: 1360,&#10;                &quot;kind&quot;: &quot;total&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="axes-background">
+              <path d="M 110 380  L 650 380  L 650 60  L 110 60  z " style="fill: #ffffff" />
+            </g>
+            <g id="axis_x">
+          <text x="164" y="400" style="font: 12px sans-serif; text-anchor: middle">Opening</text>
+          <text x="272" y="400" style="font: 12px sans-serif; text-anchor: middle">Marketing</text>
+          <text x="380" y="400" style="font: 12px sans-serif; text-anchor: middle">Sales</text>
+          <text x="488" y="400" style="font: 12px sans-serif; text-anchor: middle">Support</text>
+          <text x="596" y="400" style="font: 12px sans-serif; text-anchor: middle">Closing</text>
+            </g>
+            <g id="connectors">
+          <path d="M 199 124 L 237 124" style="stroke: #99a3ad; stroke-width: 1; stroke-dasharray: 4 3" />
+          <path d="M 307 177.333 L 345 177.333" style="stroke: #99a3ad; stroke-width: 1; stroke-dasharray: 4 3" />
+          <path d="M 415 74.9333 L 453 74.9333" style="stroke: #99a3ad; stroke-width: 1; stroke-dasharray: 4 3" />
+          <path d="M 523 89.8667 L 561 89.8667" style="stroke: #99a3ad; stroke-width: 1; stroke-dasharray: 4 3" />
+            </g>
+        <g id="waterfall-budget-0">
+          <rect x="129" y="124" width="70" height="256" style="fill: #5b6b7f" />
+        </g>
+        <g id="waterfall-budget-1">
+          <rect x="237" y="124" width="70" height="53.3333" style="fill: #a83232" />
+        </g>
+        <g id="waterfall-budget-2">
+          <rect x="345" y="74.9333" width="70" height="102.4" style="fill: #2c7d59" />
+        </g>
+        <g id="waterfall-budget-3">
+          <rect x="453" y="74.9333" width="70" height="14.9333" style="fill: #a83232" />
+        </g>
+        <g id="waterfall-budget-4">
+          <rect x="561" y="89.8667" width="70" height="290.133" style="fill: #5b6b7f" />
+        </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

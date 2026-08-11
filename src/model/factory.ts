@@ -16,6 +16,7 @@ import { createSmoothTrace } from './smoothtraceFactory';
 import { StepTrace } from './step';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
+import { WaterfallTrace } from './waterfall';
 
 /**
  * Abstract factory class for creating appropriate trace instances based on layer type.
@@ -69,6 +70,9 @@ export abstract class TraceFactory {
 
       case TraceType.STEP:
         return new StepTrace(layer);
+
+      case TraceType.WATERFALL:
+        return new WaterfallTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:

@@ -340,7 +340,14 @@ export interface TextState {
    * fraction of the total, which is what a stacked chart is read for and what
    * a listener cannot divide out in their head mid-navigation.
    *
-   * Absent on every unstacked trace, so nothing else changes shape.
+   * A waterfall step carries it for the same reason under a different name:
+   * the bar's height is that step's contribution and its position is the
+   * running total the step produced, so `cross` announces the one and this
+   * announces the other. `label` is what distinguishes them to the reader,
+   * which is why it travels with the value rather than being assumed.
+   *
+   * Absent on traces that draw a single magnitude, so nothing else changes
+   * shape.
    */
   stack?: { label: string; value: number; share?: number };
   range?: { min: number; max: number };

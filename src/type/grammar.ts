@@ -337,6 +337,48 @@ export interface ErrorBarPoint {
 }
 
 /**
+ * What a waterfall step does to the running total.
+ *
+ * `total` marks a step that restates the running total rather than changing
+ * it — the opening and closing bars, and any subtotal drawn along the way.
+ * Those sit on the baseline instead of floating, and a reader told a subtotal
+ * "rose by 950" would be hearing a contribution the chart never made.
+ */
+export type WaterfallKind = 'increase' | 'decrease' | 'total';
+
+/**
+ * One step of a waterfall chart.
+ *
+ * A waterfall answers "how did we get from here to there", so a step carries
+ * two numbers that a bar chart would conflate: the contribution it made
+ * (`delta`) and the running total it produced (`end`). The bar is drawn
+ * floating between `start` and `end`, which is why neither alone describes it
+ * — the height is the contribution and the position is the total.
+ *
+ * `start` and `end` are absolute positions on the value axis, so a producer
+ * that only knows offsets has to accumulate them before emitting, the same
+ * way {@link ErrorBarPoint} fixes absolute bounds.
+ */
+export interface WaterfallPoint {
+  /** The step's label along the category axis. */
+  x: number | string;
+  /** Running total before this step. */
+  start: number;
+  /** Running total after this step. */
+  end: number;
+  /**
+   * The signed contribution, `end - start`.
+   *
+   * Carried rather than derived because a producer may round the two totals
+   * for display, and a delta recomputed from rounded ends is not the number
+   * the chart's own label shows.
+   */
+  delta: number;
+  /** Whether the step adds, subtracts, or restates the total. */
+  kind: WaterfallKind;
+}
+
+/**
  * Data structure for heatmap charts with x/y labels and 2D point values.
  */
 export interface HeatmapData {
@@ -605,7 +647,8 @@ export interface MaidrLayer {
     | SegmentedPoint[][]
     | SmoothPoint[][]
     | StepPoint[][]
-    | ViolinKdePoint[][];
+    | ViolinKdePoint[][]
+    | WaterfallPoint[];
 }
 
 /**
@@ -668,4 +711,11 @@ export enum TraceType {
   STEP = 'step',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
+  /**
+   * A sequence of signed contributions carrying a starting value to an ending
+   * one — the staple of financial and product reporting. Each step draws a
+   * floating bar from its running total before to its running total after, so
+   * the point carries both the contribution and the total it produced.
+   */
+  WATERFALL = 'waterfall',
 }

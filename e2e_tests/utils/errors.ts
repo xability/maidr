@@ -152,6 +152,22 @@ export class ErrorBarPlotError extends Error {
 }
 
 /**
+ * Error thrown when Waterfall plot related operations fail
+ */
+export class WaterfallPlotError extends Error {
+  /**
+   * Creates a new WaterfallPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'WaterfallPlotError';
+  }
+}
+
+/**
  * Error thrown when Area plot related operations fail
  */
 export class AreaPlotError extends Error {
