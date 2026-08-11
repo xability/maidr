@@ -435,6 +435,7 @@ export class MoveToNextTraceCommand implements Command {
    * Creates an instance of MoveToNextTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before stepping, so the incoming trace never inherits a mode it did not enter.
    */
   public constructor(
     context: Context,
@@ -475,6 +476,7 @@ export class MoveToPrevTraceCommand implements Command {
    * Creates an instance of MoveToPrevTraceCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {CandlestickDeltaService} candlestickDeltaService - Deactivates the virtual delta layer before switching.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before stepping, so the incoming trace never inherits a mode it did not enter.
    */
   public constructor(
     context: Context,
