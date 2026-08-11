@@ -142,7 +142,12 @@ export function computeTargetMaps(
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
       }
+      // A filled band is drawn from the same dataset a line is, one per
+      // series, so it indexes identically — the fill changes the mark, not
+      // where a point lives. A staircase is the same again.
       case TraceType.LINE:
+      case TraceType.AREA:
+      case TraceType.STACKED_AREA:
       case TraceType.STEP: {
         // One MAIDR row per backing dataset, in MAIDR row order.
         const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);

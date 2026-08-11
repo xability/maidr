@@ -718,6 +718,67 @@ function stepDirectionOf(
   return stepped === true ? 'hv' : STEP_DIRECTION_BY_OPTION[stepped];
 }
 
+/**
+ * Whether a line dataset is filled, making it an area band rather than a line.
+ *
+ * A dataset's own `fill` wins over the chart's `elements.line` default, which
+ * is how Chart.js resolves it — the same precedence `stepDirectionOf` uses.
+ *
+ * Only `false` and an absent setting mean "no fill". Everything else names a
+ * boundary and draws a band, and the awkward case is `fill: 0` — a legitimate
+ * instruction to fill to dataset 0, and falsy. Testing for truthiness here
+ * would read that chart as a plain line.
+ *
+ * @param dataset - The dataset to classify
+ * @param chart - The chart it belongs to, for its element defaults
+ * @returns True when the dataset draws a filled band
+ */
+function isFilledLine(dataset: ChartJsDataset, chart: ChartJsChart): boolean {
+  const fill = dataset.fill ?? chart.options.elements?.line?.fill;
+  if (fill === undefined || fill === false) {
+    return false;
+  }
+  // The object form is only a fill when it actually names a target.
+  if (typeof fill === 'object') {
+    return fill.target !== undefined && fill.target !== false;
+  }
+  return true;
+}
+
+/** One layer's worth of line datasets, keyed by what makes them one layer. */
+interface LineGroup {
+  /** The step convention, or '' for an interpolated line. */
+  direction: StepDirection | '';
+  /** Whether the datasets are filled to a boundary. */
+  filled: boolean;
+  /** Indices of the datasets, in chart order. */
+  indices: number[];
+}
+
+/**
+ * The trace type a group of line datasets reads as.
+ *
+ * A filled band that also stacks is announced as a stacked area even when it
+ * is stepped: losing the staircase costs a nuance, while losing the stacking
+ * makes the announced number ambiguous — the band's height and the stack's top
+ * edge are different magnitudes and nothing would say which was heard. An
+ * unstacked stepped band keeps STEP, because nothing accumulates and the
+ * staircase is then the more specific reading.
+ *
+ * @param group - The group to classify
+ * @param stacked - Whether the chart's scales stack
+ * @returns The trace type for the group's layer
+ */
+function lineGroupType(group: LineGroup, stacked: boolean): TraceType {
+  if (group.filled) {
+    if (stacked) {
+      return TraceType.STACKED_AREA;
+    }
+    return group.direction === '' ? TraceType.AREA : TraceType.STEP;
+  }
+  return group.direction === '' ? TraceType.LINE : TraceType.STEP;
+}
+
 function extractLineLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
@@ -761,14 +822,19 @@ function extractLineLayers(
   // belongs to a step layer instead — one per convention, since a layer
   // announces a single `stepDirection` for all of its series. Datasets keep
   // their chart order within whichever layer they land in.
-  const groups = new Map<StepDirection | '', number[]>();
+  //
+  // A filled dataset splits the same way and for the same reason: a band and a
+  // line are different trace types, so they cannot share a layer.
+  const groups = new Map<string, LineGroup>();
   for (let dsIdx = 0; dsIdx < data.datasets.length; dsIdx++) {
-    const key = stepDirectionOf(data.datasets[dsIdx], chart) ?? '';
+    const direction = stepDirectionOf(data.datasets[dsIdx], chart) ?? '';
+    const filled = isFilledLine(data.datasets[dsIdx], chart);
+    const key = `${direction}|${filled}`;
     const bucket = groups.get(key);
     if (bucket) {
-      bucket.push(dsIdx);
+      bucket.indices.push(dsIdx);
     } else {
-      groups.set(key, [dsIdx]);
+      groups.set(key, { direction, filled, indices: [dsIdx] });
     }
   }
 
@@ -778,17 +844,26 @@ function extractLineLayers(
   };
 
   const layers: MaidrLayer[] = [];
-  // Plain lines first, so a mixed chart keeps the line layer where it was.
-  const ordered = [...groups].sort(([a], [b]) => Number(a !== '') - Number(b !== ''));
-  for (const [direction, indices] of ordered) {
+  const stacked = isStacked(chart);
+  // Plain lines first, so a mixed chart keeps the line layer where it was;
+  // then bands, then the stepped variants of each. Ranking rather than sorting
+  // on the composite key keeps that order readable and stable.
+  const rank = (group: LineGroup): number =>
+    Number(group.direction !== '') * 2 + Number(group.filled);
+  const ordered = [...groups.values()].sort((a, b) => rank(a) - rank(b));
+  for (const group of ordered) {
     const id = String(layers.length);
-    datasetIndices?.set(id, indices);
+    datasetIndices?.set(id, group.indices);
+    const type = lineGroupType(group, stacked);
     layers.push({
       id,
-      type: direction === '' ? TraceType.LINE : TraceType.STEP,
+      type,
       axes,
-      ...(direction === '' ? {} : { stepDirection: direction }),
-      data: indices.map(dsIdx => linePoints(data.datasets[dsIdx], dsIdx)),
+      // Only a layer actually read as a staircase announces a convention. A
+      // stacked band that happens to be stepped is read as an area, and
+      // declaring a direction on it would describe navigation it does not have.
+      ...(type === TraceType.STEP ? { stepDirection: group.direction as StepDirection } : {}),
+      data: group.indices.map(dsIdx => linePoints(data.datasets[dsIdx], dsIdx)),
     });
   }
 
