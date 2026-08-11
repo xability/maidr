@@ -5,6 +5,7 @@ import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { TraceType } from '@type/grammar';
+import { clampEchoCount, clampEchoDuration } from '@type/settings';
 import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 import { resolvePointerGuidanceBeep } from './pointerGuidance';
@@ -73,8 +74,56 @@ enum AudioMode {
 
 enum AudioSettings {
   VOLUME = 'general.volume',
+  ECHO_COUNT = 'general.echoCount',
+  ECHO_VOLUME = 'general.echoVolume',
+  ECHO_DURATION = 'general.echoDuration',
   MIN_FREQUENCY = 'general.minFrequency',
   MAX_FREQUENCY = 'general.maxFrequency',
+}
+
+// Synthetic impulse response parameters (reference: ellvix/reverb-testing).
+const REVERB_IR_DECAY = 2;
+const REVERB_IR_DURATION = 1.5;
+// Per-echo reverb ramp. The original tone gets none; each subsequent echo's
+// wet-gain and tail length scale with its position out of `maxEchoCount`,
+// reaching these caps at the conceptual final echo position. Kept subtle on
+// purpose — the echoes themselves carry the 3D cue, the reverb is colour.
+//
+// The wet gain deliberately exceeds unity. A ConvolverNode normalizes its
+// impulse response by default, so a wet path at 1.0 sits well below the dry
+// tone it is colouring and the tail is inaudible against it; the boost buys
+// back that headroom. It cannot clip: the wet path meets the dry one at a
+// DynamicsCompressorNode, which limits rather than wraps, and the echo it
+// applies to is already attenuated by its own `volumeScale`.
+const MAX_ECHO_REVERB_WET = 1.6;
+const MAX_ECHO_REVERB_TAIL = 0.3;
+
+/**
+ * Wall-clock length in milliseconds of the echo tail a point produces: the
+ * onset of its final echo, plus that echo's own tone and its reverb decay.
+ * Mirrors the scheduling in `scheduleEchoes` and `playOscillator`.
+ *
+ * Exported so the arithmetic autoplay paces itself by can be tested without
+ * standing up an `AudioContext`.
+ *
+ * @param numEchoes - Echoes actually scheduled for the point
+ * @param maxEchoCount - Configured maximum, which sets the reverb ramp
+ * @param echoDurationSeconds - Delay between consecutive echoes
+ * @returns Tail length in milliseconds; 0 when no echoes are scheduled
+ */
+export function echoTailMs(
+  numEchoes: number,
+  maxEchoCount: number,
+  echoDurationSeconds: number,
+): number {
+  if (numEchoes <= 0 || maxEchoCount <= 0) {
+    return 0;
+  }
+  return (
+    numEchoes * echoDurationSeconds
+    + DEFAULT_DURATION
+    + MAX_ECHO_REVERB_TAIL * (numEchoes / maxEchoCount)
+  ) * 1e3;
 }
 
 /**
@@ -97,14 +146,33 @@ export class AudioService implements Observer<PlotState>, Disposable {
   private isCombinedAudio: boolean;
   private mode: AudioMode;
   private readonly activeAudioIds: Map<AudioId, AudioNode | AudioNode[]>;
+  // Pending setTimeouts for queued echoes. Tracked separately from
+  // activeAudioIds so navigation can cancel queued echoes without disturbing
+  // already-sounding tones.
+  private readonly pendingEchoTimeouts: Set<AudioId>;
 
   private volume: number;
+  private maxEchoCount: number;
+  // Multiplier (0-1) applied to the main tone's volume for the Nth echo.
+  // Each echo position lerps from 1.0 (original tone) to this value at i = maxEchoCount.
+  private echoVolume: number;
+  // Delay between successive echoes, in seconds.
+  private echoDuration: number;
   private minFrequency: number;
   private maxFrequency: number;
   private readonly audioContext: AudioContext;
   private readonly compressor: DynamicsCompressorNode;
   private nextPointerGuidanceBeepAt: number;
   private pendingCue: (() => void) | null;
+  private reverbIR: AudioBuffer | null = null;
+  // Wall-clock time (Date.now scale) at which the 3D echo tail of the most
+  // recently sonified point falls silent. 0 when that point scheduled no
+  // echoes, which is every point of every trace without z data.
+  private echoTailEndsAt: number;
+  // Timer for the pending step of the chord currently playing out, so a new
+  // point can cancel the old one's chain instead of letting it keep scheduling
+  // tones and echoes for a point the user has already left.
+  private chordChainId: AudioId | null;
 
   /**
    * Creates an instance of AudioService.
@@ -123,13 +191,28 @@ export class AudioService implements Observer<PlotState>, Disposable {
     this.mode = AudioMode.SEPARATE;
     this.updateMode(state);
     this.activeAudioIds = new Map();
+    this.pendingEchoTimeouts = new Set();
+    this.echoTailEndsAt = 0;
+    this.chordChainId = null;
 
     this.volume = this.normalizeVolume(settings.get<number>(AudioSettings.VOLUME));
+    this.maxEchoCount = this.normalizeEchoCount(settings.get<number>(AudioSettings.ECHO_COUNT));
+    this.echoVolume = this.normalizeEchoVolume(settings.get<number>(AudioSettings.ECHO_VOLUME));
+    this.echoDuration = this.normalizeEchoDuration(settings.get<number>(AudioSettings.ECHO_DURATION));
     this.minFrequency = settings.get<number>(AudioSettings.MIN_FREQUENCY);
     this.maxFrequency = settings.get<number>(AudioSettings.MAX_FREQUENCY);
     settings.onChange((event) => {
       if (event.affectsSetting(AudioSettings.VOLUME)) {
         this.volume = this.normalizeVolume(event.get<number>(AudioSettings.VOLUME));
+      }
+      if (event.affectsSetting(AudioSettings.ECHO_COUNT)) {
+        this.maxEchoCount = this.normalizeEchoCount(event.get<number>(AudioSettings.ECHO_COUNT));
+      }
+      if (event.affectsSetting(AudioSettings.ECHO_VOLUME)) {
+        this.echoVolume = this.normalizeEchoVolume(event.get<number>(AudioSettings.ECHO_VOLUME));
+      }
+      if (event.affectsSetting(AudioSettings.ECHO_DURATION)) {
+        this.echoDuration = this.normalizeEchoDuration(event.get<number>(AudioSettings.ECHO_DURATION));
       }
       if (event.affectsSetting(AudioSettings.MIN_FREQUENCY)) {
         this.minFrequency = event.get<number>(AudioSettings.MIN_FREQUENCY);
@@ -155,6 +238,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // must not schedule audio against the closing context.
     this.pendingCue = null;
     this.stopAll();
+    this.reverbIR = null;
     this.audioPalette.dispose();
 
     if (this.audioContext.state !== 'closed') {
@@ -217,7 +301,15 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   public update(state: PlotState): void {
     this.updateMode(state);
-    // TODO: Clean up previous audio state once syncing with Autoplay interval.
+
+    // Cancel any echoes queued from the previous navigation so they don't
+    // bleed into the new point's playback, and the chord chain with them: it
+    // outlives update() and would otherwise keep queueing tones and echoes for
+    // a point the user has already left. Already-sounding tones are left alone
+    // to avoid an audible click from cutting them off mid-envelope; autoplay
+    // paces itself past those by reading echoTailDeadline.
+    this.cancelPendingEchoes();
+    this.cancelChordChain();
 
     // Play audio only if turned on.
     if (this.mode === AudioMode.OFF) {
@@ -300,42 +392,65 @@ export class AudioService implements Observer<PlotState>, Disposable {
         return;
       }
 
+      // Per-tone stereo slots, parallel to freq.raw, when the chord spans
+      // different x positions (a scatter ROW plays one note per point).
+      // Falls back to the shared position for the common case.
+      const panAt = (i: number): number => audio.panX?.[i] ?? audio.panning.x;
+
+      // zIntensity is also per-tone (array) or shared (scalar). Drives the
+      // 3D echo cue downstream of each tone.
+      const zArray = Array.isArray(audio.zIntensity) ? audio.zIntensity : undefined;
+      const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
+
       let currentIndex = 0;
       const playRate = this.mode === AudioMode.SEPARATE ? 50 : 0;
       const activeIds = new Array<AudioId>();
       const playNext = (): void => {
         if (currentIndex < values.length) {
-          this.playTone(
-            {
-              min: audio.freq.min,
-              max: audio.freq.max,
-              raw: values[currentIndex++],
-            },
-            {
-              x: audio.panning.x,
-              y: audio.panning.y,
-              rows: audio.panning.rows,
-              cols: audio.panning.cols,
-            },
+          const i = currentIndex++;
+          const toneFreq = {
+            min: audio.freq.min,
+            max: audio.freq.max,
+            raw: values[i],
+          };
+          const tonePanning: Panning = {
+            x: panAt(i),
+            y: audio.panning.y,
+            rows: audio.panning.rows,
+            cols: audio.panning.cols,
+          };
+          this.playTone(toneFreq, tonePanning, paletteEntry);
+          this.scheduleEchoes(
+            toneFreq,
+            tonePanning,
             paletteEntry,
+            zArray !== undefined ? zArray[i] : zScalar,
           );
           // Register the chain timer so stopAll()/dispose() can cancel a
           // pending step; otherwise a queued tone fires against a closed
-          // AudioContext after disposal. The timer removes itself when it runs.
+          // AudioContext after disposal. Also held in chordChainId so a new
+          // navigation step can cancel a chord the user has already left.
           const chainId = setTimeout(() => {
             this.activeAudioIds.delete(chainId);
+            this.chordChainId = null;
             playNext();
           }, playRate);
           this.activeAudioIds.set(chainId, []);
+          this.chordChainId = chainId;
           activeIds.push(chainId);
         } else {
           this.stop(activeIds);
         }
       };
 
+      // Marked before the chord starts, not from inside the chain: the last
+      // tone of a staggered chord schedules its echoes playRate * (n - 1) ms
+      // from now, and autoplay reads this deadline on the current step.
+      this.markEchoTail(audio.zIntensity, Math.max(0, values.length - 1) * playRate);
       playNext();
     } else {
       const value = audio.freq.raw as number;
+      const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
       if (value === 0) {
         // A trace can opt into a percussive click for exact zeros (e.g. the
         // candlestick delta layer, where zero means "on the reference line").
@@ -344,10 +459,18 @@ export class AudioService implements Observer<PlotState>, Disposable {
         } else {
           this.playZeroTone(audio.panning);
         }
+        // A zero-magnitude point still carries a z value; the echo train is the
+        // only channel that conveys it, so it plays over the zero/click marker.
+        this.scheduleEchoes(audio.freq, audio.panning, paletteEntry, zScalar);
+        this.markEchoTail(zScalar);
       } else if (audio.glide) {
+        // The glide already uses the full note duration to carry direction;
+        // layering echoes on it would blur the sweep it exists to convey.
         this.playGlideTone(audio.freq, audio.panning, audio.glide);
       } else {
         this.playTone(audio.freq, audio.panning, paletteEntry);
+        this.scheduleEchoes(audio.freq, audio.panning, paletteEntry, zScalar);
+        this.markEchoTail(zScalar);
       }
     }
   }
@@ -456,11 +579,17 @@ export class AudioService implements Observer<PlotState>, Disposable {
     return audioId;
   }
 
-  private playTone(freq: Frequency, panning: Panning, paletteEntry?: AudioPaletteEntry): AudioId {
+  private playTone(
+    freq: Frequency,
+    panning: Panning,
+    paletteEntry?: AudioPaletteEntry,
+    volumeScale: number = 1,
+    reverbAmount: number = 0,
+  ): AudioId {
     const frequency = MathUtil.interpolate(freq.raw as number, freq.min, freq.max, this.minFrequency, this.maxFrequency);
     const x = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
     // Y-axis not used for stereo panning
-    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry);
+    return this.playOscillator(frequency, { x, y: 0 }, paletteEntry, volumeScale, reverbAmount);
   }
 
   /**
@@ -514,6 +643,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     frequency: number,
     position: SpatialPosition = { x: 0, y: 0 },
     paletteEntry?: AudioPaletteEntry,
+    volumeScale: number = 1,
+    reverbAmount: number = 0,
   ): AudioId {
     const duration = DEFAULT_DURATION;
     const startTime = this.audioContext.currentTime;
@@ -543,10 +674,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
       }
     }
 
+    const scaledVolume = this.volume * Math.max(0, volumeScale);
+
     // Create gain nodes with ADSR envelope for each oscillator
     for (let i = 0; i < oscillators.length; i++) {
       const gainNode = this.audioContext.createGain();
-      let oscillatorVolume = this.volume;
+      let oscillatorVolume = scaledVolume;
 
       if (i === 0) {
         // Primary oscillator uses fundamental amplitude
@@ -579,18 +712,50 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const stereoPanner = this.audioContext.createStereoPanner();
     stereoPanner.pan.value = position.x; // position.x is already -1 (left) to 1 (right)
 
-    // Connect audio graph: oscillators → gain nodes → stereo panner → compressor
+    // Connect oscillators → gain nodes → stereo panner.
     for (let i = 0; i < oscillators.length; i++) {
       oscillators[i].connect(gainNodes[i]);
       gainNodes[i].connect(stereoPanner);
     }
-    stereoPanner.connect(this.compressor);
+
+    // Echoes layer a small reverb tail on top, scaled by their position out of
+    // maxEchoCount so the effect ramps from none on the original tone to
+    // MAX_ECHO_REVERB_* at the conceptual final echo. The dry path is left
+    // unattenuated so echo volume stays controlled by `volumeScale` alone.
+    const reverb = MathUtil.clamp(reverbAmount, 0, 1);
+    const reverbActive = reverb > 0;
+    const tailLen = reverbActive ? MAX_ECHO_REVERB_TAIL * reverb : 0;
+    let convolver: ConvolverNode | null = null;
+    let wetGain: GainNode | null = null;
+    if (reverbActive) {
+      convolver = this.audioContext.createConvolver();
+      convolver.buffer = this.getReverbIR();
+
+      const wetAmount = MAX_ECHO_REVERB_WET * reverb;
+      wetGain = this.audioContext.createGain();
+      wetGain.gain.setValueAtTime(wetAmount, startTime);
+      wetGain.gain.setValueAtTime(wetAmount, startTime + duration);
+      // Ramps to near-silence rather than exactly 0 only for symmetry with the
+      // envelope ramps above; either is legal for a linear ramp. Nothing is
+      // left sounding afterwards regardless — `cleanUp` disconnects the wet
+      // gain and the convolver `lifetimeMs` (tail + 50 ms) later.
+      wetGain.gain.linearRampToValueAtTime(1e-4, startTime + duration + tailLen);
+
+      stereoPanner.connect(this.compressor);
+      stereoPanner.connect(convolver);
+      convolver.connect(wetGain);
+      wetGain.connect(this.compressor);
+    } else {
+      stereoPanner.connect(this.compressor);
+    }
 
     // Start all oscillators
     oscillators.forEach(osc => osc.start(startTime));
 
     const cleanUp = (audioId: AudioId): void => {
       stereoPanner.disconnect();
+      wetGain?.disconnect();
+      convolver?.disconnect();
       for (let i = 0; i < oscillators.length; i++) {
         oscillators[i].stop();
         oscillators[i].disconnect();
@@ -599,9 +764,141 @@ export class AudioService implements Observer<PlotState>, Disposable {
       this.activeAudioIds.delete(audioId);
     };
 
-    const audioId = setTimeout(() => cleanUp(audioId), duration * 1e3 * 2);
+    // When reverb is active, wait for the tail to finish before tearing down
+    // so it doesn't get clipped mid-fade.
+    const lifetimeMs = reverbActive
+      ? (duration + tailLen) * 1e3 + 50
+      : duration * 1e3 * 2;
+    const audioId = setTimeout(() => cleanUp(audioId), lifetimeMs);
     this.activeAudioIds.set(audioId, oscillators);
     return audioId;
+  }
+
+  /**
+   * Schedules echo tones for a 3D point.
+   *
+   * Number of echoes scales with z: round(zIntensity * maxEchoCount). Each
+   * echo at index i is identical to the original tone except the volume is
+   * lerped between 1.0 (i=0, the original) and {@link echoVolume} (i=maxEchoCount).
+   * Volumes are pinned to position, not count — the 2nd echo always sounds at
+   * the same level whether 2 or 5 total echoes play. Echoes fire at i *
+   * echoDuration after the original.
+   *
+   * Skipped entirely when zIntensity is undefined (non-3D traces) or 0, and
+   * when maxEchoCount is 0.
+   */
+  private scheduleEchoes(
+    freq: Frequency,
+    panning: Panning,
+    paletteEntry: AudioPaletteEntry | undefined,
+    zIntensity: number | undefined,
+  ): void {
+    if (zIntensity === undefined || this.maxEchoCount <= 0) {
+      return;
+    }
+    // A suspended context reports currentTime === 0, so every echo would be
+    // scheduled at the same instant and fire as one stacked chord when the
+    // context later resumes. The tone the echoes colour was dropped for the
+    // same reason, so skip rather than defer.
+    if (this.audioContext.state !== 'running') {
+      return;
+    }
+    const z = MathUtil.clamp(zIntensity, 0, 1);
+    const numEchoes = Math.round(z * this.maxEchoCount);
+    if (numEchoes <= 0) {
+      return;
+    }
+
+    for (let i = 1; i <= numEchoes; i++) {
+      const delayMs = i * this.echoDuration * 1000;
+      const positionFraction = i / this.maxEchoCount;
+      const volumeScale = 1 - positionFraction * (1 - this.echoVolume);
+      // Reverb ramps with echo position out of the configured max — so the
+      // last echo when z = zMax gets the full small tail, while a mid-z
+      // point's last echo gets a proportionally smaller one.
+      const reverbAmount = positionFraction;
+      const timeoutId: AudioId = setTimeout(() => {
+        this.pendingEchoTimeouts.delete(timeoutId);
+        // Re-check after the gap: the user can mute, or the context can close,
+        // between the original tone and its last echo — up to maxEchoCount *
+        // echoDuration later, which is seconds rather than milliseconds.
+        if (this.mode === AudioMode.OFF || this.audioContext.state !== 'running') {
+          return;
+        }
+        this.playTone(freq, panning, paletteEntry, volumeScale, reverbAmount);
+      }, delayMs);
+      this.pendingEchoTimeouts.add(timeoutId);
+    }
+  }
+
+  /**
+   * Wall-clock timestamp ({@link Date.now} scale, milliseconds) at which the 3D
+   * echo tail of the most recently sonified point stops sounding.
+   *
+   * Returns 0 when that point scheduled no echoes — every point of every trace
+   * without z data — so a caller pacing itself by this value cannot slow down a
+   * 2D plot.
+   */
+  public get echoTailDeadline(): number {
+    return this.echoTailEndsAt;
+  }
+
+  /**
+   * Records when the echo tail of the point just sonified will fall silent, so
+   * autoplay can wait it out instead of stepping over it.
+   *
+   * Computed from the state synchronously rather than accumulated inside
+   * {@link scheduleEchoes}, because a chord schedules most of its echoes from a
+   * deferred chain — by the time those run, autoplay has already read this.
+   *
+   * @param zIntensity - Normalized z for the point: scalar, or per-tone array
+   * @param leadMs - Delay before the last tone of a staggered chord starts
+   */
+  private markEchoTail(zIntensity: number | number[] | undefined, leadMs = 0): void {
+    if (zIntensity === undefined || this.maxEchoCount <= 0) {
+      return;
+    }
+    // Mirrors the guard in scheduleEchoes: a suspended context queues no echoes
+    // at all, so publishing a deadline would have autoplay wait out a tail that
+    // is never going to sound.
+    if (this.audioContext.state !== 'running') {
+      return;
+    }
+
+    const zValues = Array.isArray(zIntensity) ? zIntensity : [zIntensity];
+    const numEchoes = zValues.reduce((longest, z) => {
+      const clamped = MathUtil.clamp(z, 0, 1);
+      return Math.max(longest, Math.round(clamped * this.maxEchoCount));
+    }, 0);
+
+    const tailMs = echoTailMs(numEchoes, this.maxEchoCount, this.echoDuration);
+    if (tailMs <= 0) {
+      return;
+    }
+
+    this.echoTailEndsAt = Math.max(this.echoTailEndsAt, Date.now() + leadMs + tailMs);
+  }
+
+  private cancelPendingEchoes(): void {
+    this.pendingEchoTimeouts.forEach(id => clearTimeout(id));
+    this.pendingEchoTimeouts.clear();
+    // Nothing is queued any more, so nothing is left for autoplay to wait on.
+    this.echoTailEndsAt = 0;
+  }
+
+  /**
+   * Cancels the pending step of a chord that is still playing out.
+   *
+   * A chord plays one tone per timer tick, so without this the chain keeps
+   * sounding — and keeps queueing echoes — for a point the user has already
+   * navigated away from.
+   */
+  private cancelChordChain(): void {
+    if (this.chordChainId !== null) {
+      clearTimeout(this.chordChainId);
+      this.activeAudioIds.delete(this.chordChainId);
+      this.chordChainId = null;
+    }
   }
 
   private playSmooth(
@@ -1381,6 +1678,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private stopAll(): void {
+    this.cancelPendingEchoes();
+    this.cancelChordChain();
     this.activeAudioIds.forEach((node, audioId) => {
       clearTimeout(audioId);
       const nodes = Array.isArray(node) ? node : [node];
@@ -1393,5 +1692,53 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
   private normalizeVolume(volume: number): number {
     return (volume / 100) * (volume / 100);
+  }
+
+  /**
+   * Clamps the configured maximum echo count to a non-negative integer.
+   * 0 disables echoes entirely.
+   */
+  private normalizeEchoCount(value: number): number {
+    return clampEchoCount(value);
+  }
+
+  /**
+   * Normalizes the echo-volume setting (0-100 percent) to a 0-1 multiplier
+   * that's applied to the main tone volume for the Nth echo.
+   */
+  private normalizeEchoVolume(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0.5;
+    }
+    return MathUtil.clamp(value / 100, 0, 1);
+  }
+
+  /**
+   * Clamps the echo-duration setting to a sensible delay (in seconds) between
+   * consecutive echoes. Floors well above zero so echoes are distinguishable.
+   */
+  private normalizeEchoDuration(value: number): number {
+    return clampEchoDuration(value);
+  }
+
+  /**
+   * Lazily builds a stereo impulse response (random noise × exponential decay).
+   * Reference: https://github.com/ellvix/reverb-testing/blob/master/main.js
+   */
+  private getReverbIR(): AudioBuffer {
+    if (this.reverbIR) {
+      return this.reverbIR;
+    }
+    const rate = this.audioContext.sampleRate;
+    const length = Math.max(1, Math.floor(rate * REVERB_IR_DURATION));
+    const impulse = this.audioContext.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const channel = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        channel[i] = (Math.random() * 2 - 1) * (1 - i / length) ** REVERB_IR_DECAY;
+      }
+    }
+    this.reverbIR = impulse;
+    return impulse;
   }
 }

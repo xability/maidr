@@ -35,6 +35,32 @@ export function isGridNavigable(plot: unknown): plot is GridNavigable {
 }
 
 /**
+ * Interface for traces that support point-by-point navigation.
+ * In point mode, every individual data point is navigable in two
+ * orthogonal sort orders: reading order (left/right) and column-major
+ * order (up/down).
+ */
+export interface PointNavigable {
+  setPointMode: (enabled: boolean) => void;
+  movePointLeft: () => boolean;
+  movePointRight: () => boolean;
+  movePointUp: () => boolean;
+  movePointDown: () => boolean;
+}
+
+/**
+ * Type guard to check if a plot supports point navigation.
+ */
+export function isPointNavigable(plot: unknown): plot is PointNavigable {
+  return (
+    plot !== null
+    && typeof plot === 'object'
+    && 'setPointMode' in plot
+    && typeof (plot as PointNavigable).setPointMode === 'function'
+  );
+}
+
+/**
  * Union type for all point types that have an 'x' property
  */
 export type PointWithX = BarPoint | LinePoint | ScatterPoint | SegmentedPoint | SmoothPoint;

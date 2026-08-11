@@ -193,7 +193,10 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Add z/type information (for line plots this includes group/type like "MAV=3")
     if (text.z && text.z.value !== undefined) {
-      parts.push(`${text.z.label} is ${text.z.value}`);
+      const zValue = Array.isArray(text.z.value)
+        ? this.formatArrayValue(text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
+        : this.formatSingleValue(text.z.value as number | string, 'z');
+      parts.push(`${text.z.label} is ${zValue}`);
     }
 
     return parts.length > 0 ? parts.join(', ') : null;
@@ -235,7 +238,10 @@ export class TextService implements Observer<PlotState>, Disposable {
         parts.push(`${state.text.cross.label} is ${crossValue}`);
       }
       if (state.text.z && state.text.z.value !== undefined) {
-        parts.push(`${state.text.z.label} is ${state.text.z.value}`);
+        const zValue = Array.isArray(state.text.z.value)
+          ? this.formatArrayValue(state.text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
+          : this.formatSingleValue(state.text.z.value as number | string, 'z');
+        parts.push(`${state.text.z.label} is ${zValue}`);
       }
       if (parts.length > 0) {
         announcement += ` at ${parts.join(', ')}`;
@@ -516,6 +522,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       let zValue: string;
       if (state.z.value === 'Bull' || state.z.value === 'Bear') {
         zValue = state.z.value.toLowerCase();
+      } else if (Array.isArray(state.z.value)) {
+        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
       } else {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }
@@ -616,6 +624,8 @@ export class TextService implements Observer<PlotState>, Disposable {
       let zValue: string;
       if (state.z.value === 'Bull' || state.z.value === 'Bear') {
         zValue = state.z.value.toLowerCase();
+      } else if (Array.isArray(state.z.value)) {
+        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
       } else {
         zValue = this.formatSingleValue(state.z.value as number | string, 'z');
       }

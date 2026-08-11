@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
@@ -33,8 +34,8 @@ enum AutoplaySettings {
   DURATION = 'general.autoplayDuration',
 }
 
-/** Type alias for the interval ID returned by setInterval. */
-type AutoplayId = ReturnType<typeof setInterval>;
+/** Type alias for the timer ID returned by setTimeout. */
+type AutoplayId = ReturnType<typeof setTimeout>;
 
 /**
  * Service responsible for managing automatic navigation through data points at configurable speeds.
@@ -43,6 +44,7 @@ export class AutoplayService implements Disposable {
   private readonly context: Context;
   private readonly notification: NotificationService;
   private readonly settings: SettingsService;
+  private readonly audio: AudioService;
 
   private autoplayId: AutoplayId | null;
   private currentDirection: MovableDirection | null;
@@ -65,11 +67,18 @@ export class AutoplayService implements Disposable {
    * @param context - Navigation context for moving through data
    * @param notification - Service for user notifications
    * @param settings - Service for managing settings
+   * @param audio - Service reporting how long the current point sounds for
    */
-  public constructor(context: Context, notification: NotificationService, settings: SettingsService) {
+  public constructor(
+    context: Context,
+    notification: NotificationService,
+    settings: SettingsService,
+    audio: AudioService,
+  ) {
     this.notification = notification;
     this.context = context;
     this.settings = settings;
+    this.audio = audio;
 
     this.autoplayId = null;
     this.currentDirection = null;
@@ -113,8 +122,35 @@ export class AutoplayService implements Disposable {
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
+    this.scheduleStep(direction);
+  }
 
-    this.autoplayId = setInterval(() => {
+  /**
+   * Queues the next autoplay step.
+   *
+   * The delay is the configured autoplay rate, held open until the 3D echo tail
+   * of the point currently sounding has finished — otherwise the next point's
+   * tone starts on top of the previous point's echoes and the two points are
+   * heard as one. A trace with no z data reports no tail, so for every 2D plot
+   * this is exactly the configured rate.
+   *
+   * A self-rescheduling timeout rather than an interval, because the wait is
+   * decided per point: the number of echoes, and so the tail, scales with that
+   * point's z value.
+   *
+   * @param direction - Direction to move on each step
+   */
+  private scheduleStep(direction: MovableDirection): void {
+    const tailRemaining = Math.max(0, this.audio.echoTailDeadline - Date.now());
+    const delay = Math.max(this.autoplayRate, tailRemaining);
+
+    const stepId: AutoplayId = setTimeout(() => {
+      // A stop() landing between scheduling and firing clears or replaces
+      // autoplayId; this step is then stale and must not move anything.
+      if (this.autoplayId !== stepId) {
+        return;
+      }
+
       // Autoplay is a trace-level operation. If the active context has been
       // popped out of the trace (e.g. Esc escalates to the subplot), stop
       // instead of blindly auto-navigating the parent element.
@@ -122,12 +158,21 @@ export class AutoplayService implements Disposable {
         this.stop();
         return;
       }
-      if (this.context.isMovable(direction)) {
-        this.context.moveOnce(direction);
-      } else {
+      if (!this.context.isMovable(direction)) {
         this.stop();
+        return;
       }
-    }, this.autoplayRate);
+
+      this.context.moveOnce(direction);
+      // moveOnce notifies observers synchronously, so the audio service has
+      // already scheduled this point's echoes: echoTailDeadline now describes
+      // the sonification the next step has to wait out.
+      if (this.autoplayId === stepId) {
+        this.scheduleStep(direction);
+      }
+    }, delay);
+
+    this.autoplayId = stepId;
   }
 
   /**
@@ -143,7 +188,7 @@ export class AutoplayService implements Disposable {
       return;
     }
 
-    clearInterval(this.autoplayId);
+    clearTimeout(this.autoplayId);
     this.autoplayId = null;
     this.currentDirection = null;
     this.onChangeEmitter.fire({ type: 'stop' });
@@ -154,7 +199,7 @@ export class AutoplayService implements Disposable {
    */
   private restart(): void {
     if (this.autoplayId) {
-      clearInterval(this.autoplayId);
+      clearTimeout(this.autoplayId);
     }
 
     if (this.currentDirection) {

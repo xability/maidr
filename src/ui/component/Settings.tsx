@@ -39,8 +39,11 @@ import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
+  clampEchoCount,
+  clampEchoDuration,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
+  MAX_ECHO_COUNT,
 } from '@type/settings';
 import {
   clampBrailleLines,
@@ -579,6 +582,10 @@ const Settings: React.FC = () => {
       ...generalSettings,
       brailleDisplaySize: clampBrailleSize(generalSettings.brailleDisplaySize),
       brailleDisplayLines: clampBrailleLines(generalSettings.brailleDisplayLines),
+      // The echo count field is free-typed, so its min/max inputProps are a
+      // hint rather than a limit; persist a value the audio service can use.
+      echoCount: clampEchoCount(generalSettings.echoCount),
+      echoDuration: clampEchoDuration(generalSettings.echoDuration),
     };
     viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
     // Update the welcome bubble's model info in place instead of resetting the
@@ -688,6 +695,88 @@ const Settings: React.FC = () => {
                         'aria-valuemax': 100,
                         'aria-label': 'Volume',
                         'aria-labelledby': 'volume-label',
+                      },
+                    }}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="3D Echo Count"
+              labelId={`${id}-echo-count-label`}
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.echoCount}
+                    onChange={e =>
+                      handleGeneralChange('echoCount', Number(e.target.value))}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'min': 0,
+                          'max': MAX_ECHO_COUNT,
+                          'step': 1,
+                          'aria-labelledby': `${id}-echo-count-label`,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Echo Volume"
+              labelId={`${id}-echo-volume-label`}
+              input={(
+                <FormControl fullWidth>
+                  <Slider
+                    value={generalSettings.echoVolume}
+                    onChange={(_, value) =>
+                      handleGeneralChange('echoVolume', Number(value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                    valueLabelDisplay="auto"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0,
+                        'aria-valuemax': 100,
+                        'aria-labelledby': `${id}-echo-volume-label`,
+                      },
+                    }}
+                    className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Echo Duration (s)"
+              labelId={`${id}-echo-duration-label`}
+              input={(
+                <FormControl fullWidth>
+                  <Slider
+                    value={generalSettings.echoDuration}
+                    onChange={(_, value) =>
+                      handleGeneralChange('echoDuration', Number(value))}
+                    min={0.05}
+                    max={2}
+                    step={0.05}
+                    valueLabelDisplay="auto"
+                    slotProps={{
+                      input: {
+                        'aria-valuemin': 0.05,
+                        'aria-valuemax': 2,
+                        'aria-labelledby': `${id}-echo-duration-label`,
                       },
                     }}
                     className="settings-slider-value-label"

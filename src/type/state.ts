@@ -170,6 +170,11 @@ export interface AudioState {
    * `cols: 2` and a fractional `x` so the pan follows a slice around the dial
    * rather than along a row — a circle sweeps out and back, which an index
    * cannot express.
+   *
+   * When a chord's tones sit at different x positions, `x` stays the single
+   * representative position every non-chord path reads (empty tone, zero tone,
+   * click, glide, smooth, position announcement) and the per-tone slots go in
+   * {@link AudioState.panX}.
    */
   panning: {
     y: number;
@@ -226,6 +231,24 @@ export interface AudioState {
    * Range is 0.0 to 1.0, where 0.0 = quietest and 1.0 = loudest.
    */
   volumeScale?: number;
+  /**
+   * Normalized z-axis intensity (0-1) for a third-dimension sonification cue.
+   * Scalar for a single tone; array (index-aligned with `freq.raw`) for group playback.
+   * Currently set by 3D scatter plots and drives echo count in the audio service.
+   */
+  zIntensity?: number | number[];
+  /**
+   * Per-tone stereo slots, index-aligned with `freq.raw` when that is an array
+   * and read against the same `panning.cols`. Present only when one navigation
+   * step emits a chord whose tones sit at different x positions — a 3D scatter
+   * ROW plays one note per point, and collapsing them onto `panning.x` would
+   * saturate the whole row into one ear.
+   *
+   * Absent everywhere else, so no existing consumer has to narrow a union:
+   * `panning.x` remains a plain number for every reader that wants one
+   * position, which is all of them but the chord loop.
+   */
+  panX?: number[];
 }
 
 /**
@@ -327,7 +350,14 @@ export type AxisType = 'x' | 'y' | 'z';
 export interface TextState {
   main: { label: string; value: number | number[] | string };
   cross: { label: string; value: number | number[] | string };
-  z?: { label: string; value: number | string };
+  /**
+   * Third-dimension value for heatmaps, segmented bars, pie slices and 3D
+   * scatter. `number[]` when one navigation step covers several points that
+   * each carry their own z (a 3D scatter column or row); `TextService`
+   * formats each entry and joins them, exactly as it already does for an
+   * array `main`/`cross`.
+   */
+  z?: { label: string; value: number | number[] | string };
   /**
    * The running total a stacked point sits inside, alongside the point's own
    * value in `cross`.

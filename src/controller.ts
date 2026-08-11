@@ -135,7 +135,12 @@ export class Controller implements Disposable {
       this.textService,
     );
 
-    this.autoplayService = new AutoplayService(this.context, this.notificationService, this.settingsService);
+    this.autoplayService = new AutoplayService(
+      this.context,
+      this.notificationService,
+      this.settingsService,
+      this.audioService,
+    );
     this.highContrastService = new HighContrastService(
       this.settingsService,
       this.notificationService,

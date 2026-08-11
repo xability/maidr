@@ -653,7 +653,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
-    // Get position from audio.panning (contains x, y, rows, cols)
+    // Get position from audio.panning (contains x, y, rows, cols).
     const { panning } = state.audio;
     const { x, y, rows, cols } = panning;
 

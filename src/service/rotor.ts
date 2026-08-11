@@ -3,7 +3,7 @@ import type { Context } from '@model/context';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
-import { isGridNavigable } from '@type/navigation';
+import { isGridNavigable, isPointNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 
 /**
@@ -160,6 +160,9 @@ export class RotorNavigationService {
     if (mode === Constant.GRID_MODE) {
       return this.moveGrid('up');
     }
+    if (mode === Constant.POINT_MODE) {
+      return this.movePoint('up');
+    }
     if (mode === Constant.INTERSECTION_MODE) {
       // The model is intentionally NOT moved here — vertical navigation is
       // unavailable in intersection mode. We still must push the message
@@ -202,6 +205,9 @@ export class RotorNavigationService {
     if (mode === Constant.GRID_MODE) {
       return this.moveGrid('down');
     }
+    if (mode === Constant.POINT_MODE) {
+      return this.movePoint('down');
+    }
     if (mode === Constant.INTERSECTION_MODE) {
       // See moveUp() — model not moved; route through notification so the
       // alert region re-mounts and the SR re-announces on repeat presses.
@@ -240,6 +246,9 @@ export class RotorNavigationService {
     if (mode === Constant.GRID_MODE) {
       return this.moveGrid('left');
     }
+    if (mode === Constant.POINT_MODE) {
+      return this.movePoint('left');
+    }
     if (mode === Constant.INTERSECTION_MODE) {
       return this.moveIntersection('left');
     }
@@ -276,6 +285,9 @@ export class RotorNavigationService {
     if (mode === Constant.GRID_MODE) {
       return this.moveGrid('right');
     }
+    if (mode === Constant.POINT_MODE) {
+      return this.movePoint('right');
+    }
     if (mode === Constant.INTERSECTION_MODE) {
       return this.moveIntersection('right');
     }
@@ -310,10 +322,14 @@ export class RotorNavigationService {
     if (this.isDataMode(currMode)) {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
+      this.notifyPointMode(false);
+      this.notifyIntersectionMode(false);
       return;
     }
     this.context.setRotorEnabled(true);
     this.notifyGridMode(currMode === Constant.GRID_MODE);
+    this.notifyPointMode(currMode === Constant.POINT_MODE);
+    this.notifyIntersectionMode(currMode === Constant.INTERSECTION_MODE);
   }
 
   /**
@@ -397,8 +413,9 @@ export class RotorNavigationService {
    *   2. LOWER_VALUE_MODE   (if supportsCompareMode)
    *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
    *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
-   *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
-   *   6. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
+   *   5. POINT_MODE         (if supportsPointMode — e.g. scatter points)
+   *   6. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
+   *   7. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
@@ -415,6 +432,10 @@ export class RotorNavigationService {
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
         modes.push(Constant.GRID_MODE);
+      }
+
+      if (activeTrace.supportsPointMode()) {
+        modes.push(Constant.POINT_MODE);
       }
 
       if (activeTrace.supportsIntersectionMode()) {
@@ -629,6 +650,65 @@ export class RotorNavigationService {
     if (isGridNavigable(activeTrace)) {
       activeTrace.setGridMode(enabled);
     }
+  }
+
+  /**
+   * Notifies the active trace to enter or exit point-by-point navigation mode.
+   * No-op for traces that don't implement {@link PointNavigable}.
+   */
+  private notifyPointMode(enabled: boolean): void {
+    const activeTrace = this.context.active;
+    if (isPointNavigable(activeTrace)) {
+      activeTrace.setPointMode(enabled);
+    }
+  }
+
+  /**
+   * Notifies the active trace that it has entered or left INTERSECTION_MODE.
+   *
+   * `context.active` is a {@link Plot}, which may be the figure or a subplot
+   * rather than a trace, so the narrowing is load-bearing rather than
+   * defensive. Every *trace* is safe to call: {@link AbstractTrace} defaults
+   * it to a no-op, and only traces whose state output differs in intersection
+   * mode — scatter, which otherwise plays the whole column as a chord —
+   * override it to flip an internal flag. Line-style traces need not know.
+   */
+  private notifyIntersectionMode(enabled: boolean): void {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      activeTrace.setIntersectionMode(enabled);
+    }
+  }
+
+  /**
+   * Handles point-by-point navigation in the specified direction.
+   * Boundaries are signalled by the trace via notifyOutOfBounds (which feeds
+   * the audio/text bounds chime), so we return null on both success and
+   * boundary cases — matching the moveGrid contract.
+   * @returns Error message if point mode is unavailable, null otherwise
+   */
+  private movePoint(direction: 'up' | 'down' | 'left' | 'right'): string | null {
+    const activeTrace = this.context.active;
+    if (!isPointNavigable(activeTrace)) {
+      return this.announceRotorMessage(this.getMessage('point', direction));
+    }
+
+    switch (direction) {
+      case 'up':
+        activeTrace.movePointUp();
+        break;
+      case 'down':
+        activeTrace.movePointDown();
+        break;
+      case 'left':
+        activeTrace.movePointLeft();
+        break;
+      case 'right':
+        activeTrace.movePointRight();
+        break;
+    }
+
+    return null;
   }
 
   /**
