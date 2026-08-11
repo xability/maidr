@@ -153,6 +153,61 @@ describe('braille', () => {
   });
 });
 
+describe('extrema navigation', () => {
+  test('offers the biggest mover in each direction', () => {
+    // What a waterfall is read to answer. Finding it by ear otherwise means
+    // walking every step while holding the running maximum in your head.
+    const targets = at(0).getExtremaTargets();
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toMatchObject({ type: 'max', value: 480, pointIndex: 2 });
+    expect(targets[1]).toMatchObject({ type: 'min', value: -250, pointIndex: 1 });
+  });
+
+  test('excludes the totals, which are not contributions', () => {
+    // The opening and closing bars carry the largest magnitudes here (1200 and
+    // 1360). Including them would make "largest increase" mean "the closing
+    // balance" on nearly every waterfall and bury the answer.
+    for (const target of at(0).getExtremaTargets()) {
+      expect(Math.abs(target.value)).toBeLessThan(1200);
+    }
+  });
+
+  test('moves the cursor to a chosen target', () => {
+    // The base implementation throws when `supportsExtrema` is true, so a
+    // trace that advertises extrema without this is worse than one that does
+    // not advertise them at all.
+    const trace = at(0);
+    const [largest] = trace.getExtremaTargets();
+
+    trace.navigateToExtrema(largest);
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Sales');
+  });
+
+  test('offers one target when every step moves the same way', () => {
+    // Naming the same bar as both the biggest rise and the biggest fall would
+    // tell the reader the chart has two movers when it has one.
+    const rising: WaterfallPoint[] = [
+      { x: 'Open', start: 0, end: 100, delta: 100, kind: 'total' },
+      { x: 'A', start: 100, end: 180, delta: 80, kind: 'increase' },
+    ];
+    const targets = at(0, rising).getExtremaTargets();
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]).toMatchObject({ type: 'max', value: 80 });
+  });
+
+  test('offers nothing when the chart is all totals', () => {
+    const totalsOnly: WaterfallPoint[] = [
+      { x: 'Open', start: 0, end: 500, delta: 500, kind: 'total' },
+      { x: 'Close', start: 0, end: 500, delta: 500, kind: 'total' },
+    ];
+
+    expect(at(0, totalsOnly).getExtremaTargets()).toEqual([]);
+  });
+});
+
 describe('description', () => {
   test('reports where the chart starts and ends', () => {
     // Not recoverable from the contributions without summing every one of

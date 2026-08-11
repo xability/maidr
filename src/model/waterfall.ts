@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, WaterfallKind, WaterfallPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -7,7 +8,15 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
-/** How each kind of step is announced. */
+/**
+ * How each kind of step is announced.
+ *
+ * Lower case deliberately: `TextService.announcesSectionBeforeLabel` is true
+ * for a state carrying a section and no `z`, which a waterfall step does, and
+ * that branch lower-cases the section before announcing it. Capitalising these
+ * would therefore be silently undone in verbose mode and kept in terse mode,
+ * so the same step would read two different ways.
+ */
 const KIND_LABEL: Record<WaterfallKind, string> = {
   increase: 'increase',
   decrease: 'decrease',
@@ -201,6 +210,76 @@ export class WaterfallTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Offers the biggest mover in each direction as an extrema target.
+   *
+   * "What drove the change" is the question a waterfall is read to answer, and
+   * finding it by ear otherwise means walking every step and holding the
+   * running maximum in your head.
+   *
+   * Totals are excluded. The opening and closing bars carry the largest
+   * magnitudes on most charts — they restate the whole running value — so
+   * including them would make "largest increase" mean "the closing balance"
+   * on nearly every waterfall and bury the answer the reader wanted. Same
+   * exclusion as the `Largest contribution` description stat, for the same
+   * reason.
+   *
+   * @returns The largest increase and the largest decrease, when the chart
+   * draws any step that moves the total
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const moving = this.points
+      .map((point, index) => ({ point, index }))
+      .filter(({ point }) => point.kind !== 'total'
+        && Number.isFinite(Number(point.delta)));
+
+    if (moving.length === 0) {
+      return [];
+    }
+
+    const deltaOf = ({ point }: { point: WaterfallPoint }): number =>
+      Number(point.delta);
+    const largest = moving.reduce((a, b) => (deltaOf(b) > deltaOf(a) ? b : a));
+    const smallest = moving.reduce((a, b) => (deltaOf(b) < deltaOf(a) ? b : a));
+
+    const targets: ExtremaTarget[] = [{
+      label: `Largest increase at ${largest.point.x}`,
+      value: deltaOf(largest),
+      pointIndex: largest.index,
+      segment: 'waterfall',
+      type: 'max',
+      navigationType: 'point',
+      xValue: largest.point.x,
+    }];
+
+    // A chart whose steps all move the same way has one mover, not two, and
+    // offering the same step under both labels would tell the reader the
+    // biggest rise and the biggest fall are the same bar.
+    if (smallest.index !== largest.index) {
+      targets.push({
+        label: `Largest decrease at ${smallest.point.x}`,
+        value: deltaOf(smallest),
+        pointIndex: smallest.index,
+        segment: 'waterfall',
+        type: 'min',
+        navigationType: 'point',
+        xValue: smallest.point.x,
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Moves the cursor to a chosen extrema target.
+   *
+   * @param target - The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    this.col = target.pointIndex;
+    this.finalizeNavigation();
   }
 
   /**
