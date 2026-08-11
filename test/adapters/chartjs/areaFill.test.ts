@@ -72,6 +72,20 @@ describe('chart.js line fill detection', () => {
       .toBe(TraceType.LINE);
   });
 
+  it('reads the absolute-value object form as an area', () => {
+    // `{ value }` fills to a constant on the value axis and names no target at
+    // all, so reading only `target` would take this for a plain line.
+    expect(layersOf(lineChart([series('Revenue', { value: 5 })]))[0].type)
+      .toBe(TraceType.AREA);
+  });
+
+  it('reads a value of zero as an area', () => {
+    // Same falsy trap as `fill: 0`, one level down: filling to the constant 0
+    // is the commonest value form there is.
+    expect(layersOf(lineChart([series('Revenue', { value: 0 })]))[0].type)
+      .toBe(TraceType.AREA);
+  });
+
   it('honours the chart-wide element default', () => {
     const chart = lineChart([series('Revenue')], { elements: { line: { fill: 'origin' } } });
 

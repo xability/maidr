@@ -738,9 +738,12 @@ function isFilledLine(dataset: ChartJsDataset, chart: ChartJsChart): boolean {
   if (fill === undefined || fill === false) {
     return false;
   }
-  // The object form is only a fill when it actually names a target.
+  // The object form comes two ways: `{ target }` names a boundary, and
+  // `{ value }` fills to a constant on the value axis with no target at all.
+  // Reading only `target` would take the second for a plain line.
   if (typeof fill === 'object') {
-    return fill.target !== undefined && fill.target !== false;
+    return (fill.target !== undefined && fill.target !== false)
+      || fill.value !== undefined;
   }
   return true;
 }

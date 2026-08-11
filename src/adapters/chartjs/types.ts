@@ -80,10 +80,15 @@ export interface ChartJsDataset {
    *
    * Chart.js accepts a boundary name (`'origin'`, `'start'`, `'end'`), a
    * dataset index to fill to (absolute `2`, or relative `'+1'` / `'-1'`), the
-   * bare `true` for the origin, `false` for no fill, or an object naming the
-   * target. Every one of those except `false` draws a band.
+   * bare `true` for the origin, `false` for no fill, or an object — either
+   * `{ target }` naming any of the above, or `{ value }` filling to a constant
+   * on the value axis. Every one of those except `false` draws a band.
    */
-  fill?: boolean | number | string | { target?: boolean | number | string };
+  fill?:
+    | boolean
+    | number
+    | string
+    | { target?: boolean | number | string; value?: number };
 }
 
 /**
