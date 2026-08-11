@@ -695,7 +695,10 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         this.announceSmoothPosition(x, cols);
       }
     } else if (
-      (traceType === TraceType.LINE || traceType === TraceType.STEP)
+      (traceType === TraceType.LINE
+        || traceType === TraceType.STEP
+        || traceType === TraceType.RADAR
+        || traceType === TraceType.POLAR_AREA)
       && state.groupCount
       && state.groupCount > 1
     ) {
@@ -709,7 +712,11 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         y,
         rows,
         state.group,
-        traceType === TraceType.STEP ? 'Series' : 'Line',
+        // A radar's rows are series around a circle, not lines along an axis.
+        // Without this the announcement falls through to the generic 2-D one
+        // -- "column 3 of 4, row 2 of 2" -- which drops the series name a
+        // reader needs to know which outline they are tracing.
+        traceType === TraceType.LINE ? 'Line' : 'Series',
       );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird

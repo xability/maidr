@@ -123,6 +123,24 @@ export class RadarTrace extends LineTrace {
     };
   }
 
+  protected override get seriesLabels(): {
+    count: string;
+    perSeries: string;
+    names: string;
+    column: string;
+  } {
+    // The description dialog renders these literally, so inheriting the line's
+    // wording tells a reader opening it that they are on a chart with "lines"
+    // and "points per line" -- the same misdescription the spoken plot type is
+    // overridden to avoid, one dialog further along.
+    return {
+      count: 'Number of series',
+      perSeries: 'Spokes per series',
+      names: 'Series names',
+      column: 'Series',
+    };
+  }
+
   public override get state(): TraceState {
     const base = super.state;
     if (base.empty) {

@@ -1,3 +1,4 @@
+import type { LineTrace } from '@model/line';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
@@ -203,6 +204,46 @@ describe('spoke angles', () => {
       expect(pan(nonEmptyState(radar(0, col, TraceType.RADAR, doubled))))
         .toBeCloseTo(pan(nonEmptyState(radar(0, col))));
     }
+  });
+});
+
+describe('the description dialog', () => {
+  test('names series and spokes rather than lines and points', () => {
+    // The dialog renders these labels literally, so inheriting the line
+    // trace's wording tells a reader opening it that they are on a chart with
+    // "lines" -- the same misdescription the spoken plot type avoids, one
+    // dialog further along.
+    const labels = radar().description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Number of series');
+    expect(labels).toContain('Spokes per series');
+    expect(labels).toContain('Series names');
+    expect(labels).not.toContain('Number of lines');
+    expect(labels).not.toContain('Points per line');
+  });
+
+  test('heads the data table with the series rather than the line', () => {
+    expect(radar().description.dataTable?.headers).toEqual([
+      'Attribute',
+      'Score',
+      'Series',
+    ]);
+  });
+
+  test('leaves a line chart\'s own wording alone', () => {
+    // The labels are parameterised on `LineTrace`, so this is what says the
+    // parameterisation did not change the chart it is named after.
+    const line = TraceFactory.create({
+      id: 'l',
+      type: TraceType.LINE,
+      title: 't',
+      axes: { x: { label: 'X' }, y: { label: 'Y' } },
+      data: SPECS,
+    }) as LineTrace;
+    const labels = line.description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Number of lines');
+    expect(labels).toContain('Points per line');
   });
 });
 
