@@ -71,26 +71,28 @@ jobs:
         if: steps.semantic-release.outputs.new_release == 'true'
         run: npm publish --access public --provenance
 
-      # r-maidr ships a copy of this package's built bundle, and refreshes it
-      # from npm. Left to itself it discovers a release on a daily poll, so a
-      # fix can sit unread by users for up to a day after it is published.
-      # Telling it directly closes that gap to minutes.
+      # Both language bindings ship a copy of this package's built bundle and
+      # refresh it from npm. Left to themselves they discover a release on
+      # their own cadence, so a fix can sit unread for a day or longer.
+      # Telling them directly closes that gap to minutes.
       #
-      # Deliberately after the publish step and gated on it: the receiver
-      # fetches the tarball straight from the registry, so announcing before
-      # the package is actually there would just make it fail.
+      # Deliberately after the publish step and gated on it: the receivers
+      # fetch the tarball straight from the registry, so announcing before
+      # the package is actually there would just make them fail.
       #
-      # py-maidr is not notified, and that is not an oversight. It bundles
-      # upstream at *its own* release time so each py-maidr release pins the
-      # version it was tested against, rather than tracking upstream
-      # continuously. Pinging it would work against that design.
+      # What each does with the news is its own call, not this step's.
+      # r-maidr commits the refreshed bundle to `main`, and `main` is what it
+      # ships, because CRAN submissions are manual. py-maidr also commits to
+      # `main`, but as a `chore:`, which by design does not cut a PyPI
+      # release: its release workflow re-resolves upstream when a release is
+      # actually cut, so the news reaches its users then rather than now.
       #
       # continue-on-error, because the release is the thing that matters
-      # here. A missed ping costs at most a day -- r-maidr keeps its
-      # scheduled refresh precisely as the backstop for this step failing --
-      # whereas a red release job costs a manual re-run of a publish that
-      # already happened.
-      - name: Tell r-maidr the new version is on npm
+      # here. A missed ping costs a binding some currency -- each keeps its
+      # own refresh path as the backstop for this step failing -- whereas a
+      # red release job costs a manual re-run of a publish that already
+      # happened.
+      - name: Tell the language bindings the new version is on npm
         if: steps.semantic-release.outputs.new_release == 'true'
         continue-on-error: true
         env:
@@ -99,15 +101,33 @@ jobs:
         run: |
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "DOWNSTREAM_DISPATCH_TOKEN is not configured."
-            echo "r-maidr will pick v${VERSION} up on its next scheduled refresh."
+            echo "The bindings will pick v${VERSION} up on their own schedules."
             exit 0
           fi
+
           # jq builds the body so the version reaches JSON as data rather
           # than as text spliced into a quoted string.
-          jq -n --arg version "$VERSION" \
-            '{event_type: "maidr-released", client_payload: {version: $version}}' \
-            | gh api repos/xability/r-maidr/dispatches --input -
-          echo "Notified r-maidr of v${VERSION}."
+          BODY=$(jq -n --arg version "$VERSION" \
+            '{event_type: "maidr-released", client_payload: {version: $version}}')
+
+          # Each binding is notified independently. Looping with the whole run
+          # gated on the first call would let one repository being unreachable
+          # decide whether the other ever hears about the release, which is
+          # exactly the coupling this step exists to avoid.
+          missed=0
+          for repo in xability/r-maidr xability/py-maidr; do
+            if printf '%s' "$BODY" | gh api "repos/$repo/dispatches" --input -; then
+              echo "Notified $repo of v${VERSION}."
+            else
+              echo "Could not notify $repo of v${VERSION}."
+              missed=1
+            fi
+          done
+
+          # Reported as a step failure so a silently expired or under-scoped
+          # token is visible in the run, while continue-on-error keeps it from
+          # touching a release that has already happened.
+          exit "$missed"
 
       - name: Upload npm logs on failure
         if: failure()
