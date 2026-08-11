@@ -97,11 +97,10 @@ export class RadarTrace extends LineTrace {
     return Array.from({ length: spokes }, (_, index) => (index * 2 * Math.PI) / spokes);
   }
 
-  protected override get audio(): AudioState {
-    const base = super.audio;
-    const angle = this.spokeAngles[this.col];
+  protected override panningFor(row: number, col: number): AudioState['panning'] {
+    const angle = this.spokeAngles[col];
     if (angle === undefined) {
-      return base;
+      return super.panningFor(row, col);
     }
 
     // `AudioService` reads the pan as `interpolate(x, 0, cols - 1, -1, 1)`, so
@@ -112,14 +111,16 @@ export class RadarTrace extends LineTrace {
     // `y` and `rows` stay honest rather than being zeroed: the stereo position
     // is computed from `x` and `cols` alone, so the series index costs nothing
     // to keep and is the truth about where the cursor is.
+    //
+    // Overriding here rather than in `audio` covers the intersection chord as
+    // well: two series meeting on a spoke are one point on the circle, and a
+    // chord that swept left-to-right while every other tone went out and back
+    // would place that point somewhere the chart does not have.
     return {
-      ...base,
-      panning: {
-        x: (Math.sin(angle) + 1) / 2,
-        y: this.row,
-        rows: this.lineValues.length,
-        cols: 2,
-      },
+      x: (Math.sin(angle) + 1) / 2,
+      y: row,
+      rows: this.lineValues.length,
+      cols: 2,
     };
   }
 

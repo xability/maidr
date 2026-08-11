@@ -1,6 +1,6 @@
 import type { LineTrace } from '@model/line';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { NonEmptyTraceState } from '@type/state';
+import type { AudioState, NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { RadarTrace } from '@model/radar';
@@ -84,12 +84,25 @@ function radar(
  * It reads the pan as `interpolate(x, 0, cols - 1, -1, 1)`, so asserting on
  * `panning.x` alone would pass for a trace that got `cols` wrong -- and `cols`
  * is the half of the pair that makes the arithmetic land on `sin θ`.
+ *
+ * Takes the audio state rather than the trace state so the tones of an
+ * intersection chord, which are audio states in their own right, can be
+ * measured by the same arithmetic as the cursor's own tone.
+ * @param audio The audio state to read
+ * @returns The pan, from -1 (hard left) to 1 (hard right)
+ */
+function pan(audio: AudioState): number {
+  const { x, cols } = audio.panning;
+  return (x / (cols - 1)) * 2 - 1;
+}
+
+/**
+ * The pan of a positioned trace's own tone.
  * @param state The trace state to read
  * @returns The pan, from -1 (hard left) to 1 (hard right)
  */
-function pan(state: NonEmptyTraceState): number {
-  const { x, cols } = state.audio.panning;
-  return (x / (cols - 1)) * 2 - 1;
+function panOf(state: NonEmptyTraceState): number {
+  return pan(state.audio);
 }
 
 describe('radar registration', () => {
@@ -145,17 +158,17 @@ describe('the sweep goes round rather than across', () => {
   test('places four spokes at the quarters of the circle', () => {
     // 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again,
     // 9 o'clock hard left. A linear pan would give -1, -1/3, 1/3, 1.
-    expect(pan(nonEmptyState(radar(0, 0)))).toBeCloseTo(0);
-    expect(pan(nonEmptyState(radar(0, 1)))).toBeCloseTo(1);
-    expect(pan(nonEmptyState(radar(0, 2)))).toBeCloseTo(0);
-    expect(pan(nonEmptyState(radar(0, 3)))).toBeCloseTo(-1);
+    expect(panOf(nonEmptyState(radar(0, 0)))).toBeCloseTo(0);
+    expect(panOf(nonEmptyState(radar(0, 1)))).toBeCloseTo(1);
+    expect(panOf(nonEmptyState(radar(0, 2)))).toBeCloseTo(0);
+    expect(panOf(nonEmptyState(radar(0, 3)))).toBeCloseTo(-1);
   });
 
   test('returns to where it started, which a line never does', () => {
     // The property that makes a circle audible: the first and third spokes
     // of a four-spoke chart sit at the same stereo position.
-    const first = pan(nonEmptyState(radar(0, 0)));
-    const opposite = pan(nonEmptyState(radar(0, 2)));
+    const first = panOf(nonEmptyState(radar(0, 0)));
+    const opposite = panOf(nonEmptyState(radar(0, 2)));
 
     expect(first).toBeCloseTo(opposite);
   });
@@ -163,8 +176,8 @@ describe('the sweep goes round rather than across', () => {
   test('gives every series the same angles', () => {
     // A spoke is a place on the chart, not a place in a series.
     for (let col = 0; col < 4; col++) {
-      expect(pan(nonEmptyState(radar(0, col))))
-        .toBeCloseTo(pan(nonEmptyState(radar(1, col))));
+      expect(panOf(nonEmptyState(radar(0, col))))
+        .toBeCloseTo(panOf(nonEmptyState(radar(1, col))));
     }
   });
 
@@ -189,7 +202,7 @@ describe('spoke angles', () => {
     ];
     const trace = radar(1, 2, TraceType.RADAR, ragged);
 
-    expect(Number.isFinite(pan(nonEmptyState(trace)))).toBe(true);
+    expect(Number.isFinite(panOf(nonEmptyState(trace)))).toBe(true);
   });
 
   test('divide the circle evenly whatever the values are', () => {
@@ -201,8 +214,8 @@ describe('spoke angles', () => {
     );
 
     for (let col = 0; col < 4; col++) {
-      expect(pan(nonEmptyState(radar(0, col, TraceType.RADAR, doubled))))
-        .toBeCloseTo(pan(nonEmptyState(radar(0, col))));
+      expect(panOf(nonEmptyState(radar(0, col, TraceType.RADAR, doubled))))
+        .toBeCloseTo(panOf(nonEmptyState(radar(0, col))));
     }
   });
 });
@@ -244,6 +257,48 @@ describe('the description dialog', () => {
 
     expect(labels).toContain('Number of lines');
     expect(labels).toContain('Points per line');
+  });
+});
+
+describe('an intersection is heard from where the spoke is', () => {
+  /** Two series meeting on the third spoke, at 6 o'clock. */
+  const MEETING: LinePoint[][] = [
+    [
+      { x: 'speed', y: 8, z: 'model A' },
+      { x: 'range', y: 4, z: 'model A' },
+      { x: 'comfort', y: 6, z: 'model A' },
+      { x: 'price', y: 9, z: 'model A' },
+    ],
+    [
+      { x: 'speed', y: 5, z: 'model B' },
+      { x: 'range', y: 7, z: 'model B' },
+      { x: 'comfort', y: 6, z: 'model B' },
+      { x: 'price', y: 2, z: 'model B' },
+    ],
+  ];
+
+  test('every tone in the chord pans to the spoke, not across the sweep', () => {
+    // The chord's panning is built where the intersection is found, which is
+    // a different place from the tone for the cursor's own point. If only the
+    // latter went round the circle, two series meeting at 6 o'clock would be
+    // heard at centre by one route and hard right by the other.
+    const state = nonEmptyState(radar(0, 2, TraceType.RADAR, MEETING));
+
+    expect(state.intersections).toHaveLength(2);
+    for (const intersection of state.intersections ?? []) {
+      expect(pan(intersection)).toBeCloseTo(Math.sin(Math.PI), 10);
+    }
+  });
+
+  test('the chord arrives from one place, and `group` tells the tones apart', () => {
+    // An intersection is one point several series share, so a chord that
+    // spread its tones across the field would place that point somewhere the
+    // chart does not have.
+    const state = nonEmptyState(radar(0, 2, TraceType.RADAR, MEETING));
+    const pans = new Set((state.intersections ?? []).map(pan));
+
+    expect(pans.size).toBe(1);
+    expect((state.intersections ?? []).map(i => i.group)).toEqual([0, 1]);
   });
 });
 

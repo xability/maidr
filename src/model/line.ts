@@ -168,10 +168,6 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
-   * Gets the description state for the line trace.
-   * @returns The description state containing chart metadata and data table
-   */
-  /**
    * What this chart calls its series and its samples, in the description.
    *
    * A subclass navigates the same grid but draws something else, and the
@@ -198,6 +194,10 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * Gets the description state for the line trace.
+   * @returns The description state containing chart metadata and data table
+   */
   public get description(): DescriptionState {
     const isMultiline = this.points.length > 1;
     const labels = this.seriesLabels;
@@ -311,6 +311,29 @@ export class LineTrace extends AbstractTrace {
     return graph;
   }
 
+  /**
+   * Where a cell sits in the stereo field.
+   *
+   * Split out because two places need it and they must agree: the tone for the
+   * cursor's own point, and the tones of every series a chord sounds at an
+   * intersection. A subclass that hears its columns somewhere other than a
+   * straight left-to-right sweep -- a radar's spokes go out and back around a
+   * circle -- overrides this one method and both follow, rather than one of
+   * them keeping the line's sweep and contradicting the other.
+   *
+   * @param row - The series index
+   * @param col - The column index
+   * @returns The panning for that cell
+   */
+  protected panningFor(row: number, col: number): AudioState['panning'] {
+    return {
+      x: col,
+      y: row,
+      rows: this.lineValues.length,
+      cols: this.lineValues[row].length,
+    };
+  }
+
   protected get audio(): AudioState {
     return {
       freq: {
@@ -318,12 +341,7 @@ export class LineTrace extends AbstractTrace {
         max: this.max[this.row],
         raw: this.lineValues[this.row][this.col],
       },
-      panning: {
-        x: this.col,
-        y: this.row,
-        rows: this.lineValues.length,
-        cols: this.lineValues[this.row].length,
-      },
+      panning: this.panningFor(this.row, this.col),
       group: this.row,
     };
   }
@@ -518,12 +536,11 @@ export class LineTrace extends AbstractTrace {
               max: this.max[r],
               raw: currentY,
             },
-            panning: {
-              x: this.col,
-              y: this.row,
-              rows: this.lineValues.length,
-              cols: this.lineValues[this.row].length,
-            },
+            // The cursor's own cell, not series `r`'s -- an intersection is
+            // one point that several series share, so every tone in the chord
+            // has to arrive from the same place. `group: r` is what tells them
+            // apart.
+            panning: this.panningFor(this.row, this.col),
             group: r,
           },
         );
