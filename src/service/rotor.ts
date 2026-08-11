@@ -665,10 +665,13 @@ export class RotorNavigationService {
 
   /**
    * Notifies the active trace that it has entered or left INTERSECTION_MODE.
-   * AbstractTrace has a no-op default, so calling this on any trace is safe;
-   * scatter and other traces with mode-sensitive state output override it to
-   * flip an internal flag. Line-style traces don't need to know — their state
-   * output is unchanged by the rotor mode — so this call is a no-op there.
+   *
+   * `context.active` is a {@link Plot}, which may be the figure or a subplot
+   * rather than a trace, so the narrowing is load-bearing rather than
+   * defensive. Every *trace* is safe to call: {@link AbstractTrace} defaults
+   * it to a no-op, and only traces whose state output differs in intersection
+   * mode — scatter, which otherwise plays the whole column as a chord —
+   * override it to flip an internal flag. Line-style traces need not know.
    */
   private notifyIntersectionMode(enabled: boolean): void {
     const activeTrace = this.context.active;

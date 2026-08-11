@@ -88,6 +88,13 @@ const REVERB_IR_DURATION = 1.5;
 // wet-gain and tail length scale with its position out of `maxEchoCount`,
 // reaching these caps at the conceptual final echo position. Kept subtle on
 // purpose — the echoes themselves carry the 3D cue, the reverb is colour.
+//
+// The wet gain deliberately exceeds unity. A ConvolverNode normalizes its
+// impulse response by default, so a wet path at 1.0 sits well below the dry
+// tone it is colouring and the tail is inaudible against it; the boost buys
+// back that headroom. It cannot clip: the wet path meets the dry one at a
+// DynamicsCompressorNode, which limits rather than wraps, and the echo it
+// applies to is already attenuated by its own `volumeScale`.
 const MAX_ECHO_REVERB_WET = 1.6;
 const MAX_ECHO_REVERB_TAIL = 0.3;
 
@@ -728,6 +735,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
       wetGain = this.audioContext.createGain();
       wetGain.gain.setValueAtTime(wetAmount, startTime);
       wetGain.gain.setValueAtTime(wetAmount, startTime + duration);
+      // Ramps to near-silence rather than exactly 0 only for symmetry with the
+      // envelope ramps above; either is legal for a linear ramp. Nothing is
+      // left sounding afterwards regardless — `cleanUp` disconnects the wet
+      // gain and the convolver `lifetimeMs` (tail + 50 ms) later.
       wetGain.gain.linearRampToValueAtTime(1e-4, startTime + duration + tailLen);
 
       stereoPanner.connect(this.compressor);

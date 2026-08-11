@@ -1673,6 +1673,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       targetX = group.x[0];
       targetY = group.y;
     }
+    // Exact equality is safe here, and deliberately so: both sides are the same
+    // original data values copied into two groupings, never the result of any
+    // arithmetic, so they are bit-for-bit identical. A tolerance would be the
+    // riskier choice — it could match a neighbouring point at a nearby x.
     const idx = this.flatPoints.findIndex(p => p.x === targetX && p.y === targetY);
     return idx === -1 ? 0 : idx;
   }
