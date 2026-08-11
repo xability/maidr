@@ -741,4 +741,87 @@ describe('chart.js extractor', () => {
       expect(maidr.subplots[0][0].layers[0].id).toBe('0_0');
     });
   });
+  describe('bubble charts', () => {
+    it('carries the radius as z so the size dimension is announced', () => {
+      // A Chart.js bubble datum is {x, y, r}, and r is usually the reason the
+      // chart is a bubble chart: population, market cap, sample size. Routing
+      // it through the scatter extractor used to read x and y and drop r
+      // entirely, so the chart was described as if it only ever had two
+      // variables -- a wrong reading rather than a partial one (#813).
+      const chart = createChart({
+        type: 'bubble',
+        data: {
+          datasets: [{
+            label: 'Countries',
+            data: [
+              { x: 1, y: 2, r: 30 },
+              { x: 3, y: 4, r: 5 },
+            ],
+          }],
+        },
+      });
+
+      const maidr = extractMaidrData(chart);
+      const layer = maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.SCATTER);
+      expect(layer.data).toEqual([
+        { x: 1, y: 2, z: 30 },
+        { x: 3, y: 4, z: 5 },
+      ]);
+    });
+
+    it('names the size dimension so the value is not announced bare', () => {
+      const chart = createChart({
+        type: 'bubble',
+        data: { datasets: [{ label: 'Countries', data: [{ x: 1, y: 2, r: 30 }] }] },
+      });
+
+      const layer = extractMaidrData(chart).subplots[0][0].layers[0];
+
+      expect(layer.axes?.z).toEqual({ label: 'Size' });
+    });
+
+    it('lets the page name the size dimension itself', () => {
+      // Chart.js has no scale for r, so unlike x and y there is no axis title
+      // to read the real variable name off. Only the author knows it.
+      const chart = createChart({
+        type: 'bubble',
+        data: { datasets: [{ label: 'Countries', data: [{ x: 1, y: 2, r: 30 }] }] },
+      });
+
+      const layer = extractMaidrData(chart, { axes: { z: 'Population' } })
+        .subplots[0][0]
+        .layers[0];
+
+      expect(layer.axes?.z).toEqual({ label: 'Population' });
+    });
+
+    it('leaves a plain scatter with no z axis at all', () => {
+      // The same extractor serves both. A z axis on a chart with no third
+      // variable would announce a label for something that is not there.
+      const chart = createChart({
+        type: 'scatter',
+        data: { datasets: [{ label: 'Points', data: [{ x: 1, y: 2 }, { x: 3, y: 4 }] }] },
+      });
+
+      const layer = extractMaidrData(chart).subplots[0][0].layers[0];
+
+      expect(layer.axes?.z).toBeUndefined();
+      expect(layer.data).toEqual([{ x: 1, y: 2 }, { x: 3, y: 4 }]);
+    });
+
+    it('keeps a bubble with no radius indistinguishable from a scatter point', () => {
+      // Chart.js tolerates a mixed dataset; a datum without r has no size to
+      // report, and inventing one would be worse than omitting it.
+      const chart = createChart({
+        type: 'bubble',
+        data: { datasets: [{ label: 'Mixed', data: [{ x: 1, y: 2, r: 8 }, { x: 3, y: 4 }] }] },
+      });
+
+      const layer = extractMaidrData(chart).subplots[0][0].layers[0];
+
+      expect(layer.data).toEqual([{ x: 1, y: 2, z: 8 }, { x: 3, y: 4 }]);
+    });
+  });
 });
