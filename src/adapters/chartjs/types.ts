@@ -75,6 +75,20 @@ export interface ChartJsDataset {
    * `false` or absent draws an ordinary interpolated line.
    */
   stepped?: boolean | 'before' | 'after' | 'middle';
+  /**
+   * Whether a line dataset is filled to a boundary, making it an area band.
+   *
+   * Chart.js accepts a boundary name (`'origin'`, `'start'`, `'end'`), a
+   * dataset index to fill to (absolute `2`, or relative `'+1'` / `'-1'`), the
+   * bare `true` for the origin, `false` for no fill, or an object — either
+   * `{ target }` naming any of the above, or `{ value }` filling to a constant
+   * on the value axis. Every one of those except `false` draws a band.
+   */
+  fill?:
+    | boolean
+    | number
+    | string
+    | { target?: boolean | number | string; value?: number };
 }
 
 /**
@@ -86,7 +100,10 @@ export interface ChartJsOptions {
   plugins?: Record<string, unknown>;
   /** Chart-wide element defaults; a dataset's own setting wins over these. */
   elements?: {
-    line?: { stepped?: ChartJsDataset['stepped'] };
+    line?: {
+      stepped?: ChartJsDataset['stepped'];
+      fill?: ChartJsDataset['fill'];
+    };
   };
 }
 
