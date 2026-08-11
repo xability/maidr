@@ -81,6 +81,12 @@ export type TraceState
       traceType: TraceType;
       plotType: string;
       title: string;
+      /**
+       * What this layer is, when the producer named it — see
+       * {@link MaidrLayer.name}. Announced on a layer switch in place of the
+       * trace type, which cannot tell two layers of one kind apart.
+       */
+      name?: string;
       xAxis: string;
       yAxis: string;
       z: string;
