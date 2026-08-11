@@ -1,3 +1,30 @@
+# [4.1.0](https://github.com/xability/maidr/compare/v4.0.0...v4.1.0) (2026-08-11)
+
+
+### Bug Fixes
+
+* **errorbar:** implement the extrema navigation the trace advertises ([#821](https://github.com/xability/maidr/issues/821)) ([5181cc1](https://github.com/xability/maidr/commit/5181cc132daf9c7976e6b6b89978e59915656202))
+* **help:** show braille mode its own shortcuts, not the trace menu ([#527](https://github.com/xability/maidr/issues/527)) ([d429e0b](https://github.com/xability/maidr/commit/d429e0b74ee4e998c910c2156406b5521944a8f5))
+* **line:** announce an ordinal y by name instead of by level code ([#786](https://github.com/xability/maidr/issues/786)) ([84d9003](https://github.com/xability/maidr/commit/84d9003455e2335830e0a99dd9623c0154fd4cb8)), closes [#785](https://github.com/xability/maidr/issues/785)
+* **pie:** announce a negative slice as the chart draws it ([#781](https://github.com/xability/maidr/issues/781)) ([984e5b6](https://github.com/xability/maidr/commit/984e5b66795f8a04606498ff6abf737e4852248f))
+* **scatter:** keep the rotor cursor and its announcements in step ([#823](https://github.com/xability/maidr/issues/823)) ([20981ec](https://github.com/xability/maidr/commit/20981ec0ffaa411cbdc039e2d1a23c3252fe04bf))
+* **scatter:** let autoplay sweep the points inside an entered grid cell ([#825](https://github.com/xability/maidr/issues/825)) ([cabf7c5](https://github.com/xability/maidr/commit/cabf7c5dcc0cb90fb3010a91a1e263f89323db37)), closes [#824](https://github.com/xability/maidr/issues/824)
+* **vegalite:** read a bar's stack setting without discarding null ([#817](https://github.com/xability/maidr/issues/817)) ([11c0aaa](https://github.com/xability/maidr/commit/11c0aaad2985f372cb9c83b123e62152fab9fa08))
+
+
+### Features
+
+* **area:** read an area chart as its own trace type ([#815](https://github.com/xability/maidr/issues/815)) ([97ed6d0](https://github.com/xability/maidr/commit/97ed6d0cf05d2b02a00c3cdf79e92a95503520b2)), closes [#788](https://github.com/xability/maidr/issues/788)
+* **chartjs:** read a filled line dataset as an area band ([#818](https://github.com/xability/maidr/issues/818)) ([95b8f1e](https://github.com/xability/maidr/commit/95b8f1ebb9bdeb565c6401c6c4d343b9d495be7b))
+* **dumbbell:** read a pair per category with the gap between them ([#829](https://github.com/xability/maidr/issues/829)) ([e593d9b](https://github.com/xability/maidr/commit/e593d9be09f304163587625a4cc712bc9134ba1b))
+* **errorbar:** read an estimate together with its interval ([#819](https://github.com/xability/maidr/issues/819)) ([1dd9cdb](https://github.com/xability/maidr/commit/1dd9cdb2729dfc55313ce6d6081286bf4943179e))
+* **gauge:** read a measure against its range, target and bands ([#827](https://github.com/xability/maidr/issues/827)) ([f3716fc](https://github.com/xability/maidr/commit/f3716fc34692ab0fc9c0827825c9708b1336befc))
+* **pie:** announce where a slice sits on the dial ([#784](https://github.com/xability/maidr/issues/784)) ([bfb520d](https://github.com/xability/maidr/commit/bfb520d76ebb845f95f87f8c10fb3bbb0cd5c0e8))
+* **pie:** pan a slice by where it sits on the dial ([#782](https://github.com/xability/maidr/issues/782)) ([1015a69](https://github.com/xability/maidr/commit/1015a69b8974d0feaf077b7515a20e218befe87c))
+* **scatter:** read a third dimension as an echo train, and walk points one at a time ([#619](https://github.com/xability/maidr/issues/619)) ([16446c5](https://github.com/xability/maidr/commit/16446c5013e45ba4ad6f2f1cf55c551e21f79637)), closes [#601](https://github.com/xability/maidr/issues/601)
+* **waterfall:** read a bridge as contributions with running totals ([#820](https://github.com/xability/maidr/issues/820)) ([99dc249](https://github.com/xability/maidr/commit/99dc2495080d5bcb89324b081e5d7801693f44d2))
+* **wordcloud:** read a cloud as terms walked by weight ([#822](https://github.com/xability/maidr/issues/822)) ([9d5cab4](https://github.com/xability/maidr/commit/9d5cab48bd4f5b5235a48416f4d2a961d36957ed))
+
 # [4.0.0](https://github.com/xability/maidr/compare/v3.75.1...v4.0.0) (2026-08-10)
 
 
