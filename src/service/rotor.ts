@@ -14,14 +14,22 @@ import { Constant } from '@util/constant';
  *
  * Available modes vary by trace type:
  * - Non-scatter traces: DATA_MODE → LOWER_VALUE_MODE → HIGHER_VALUE_MODE
- * - Scatter traces (with grid): ROW_COL_MODE → GRID_MODE
- * - Scatter traces (no grid): ROW_COL_MODE only
+ * - Scatter traces (with grid): ROW_COL_MODE → GRID_MODE → POINT_MODE
+ * - Scatter traces (no grid): ROW_COL_MODE → POINT_MODE
+ * - Either, when an axis stacks: … → INTERSECTION_MODE
  *
  * Mode descriptions:
  * - DATA_MODE / ROW_COL_MODE: Default data browsing. The display name is trace-specific.
  * - LOWER_VALUE_MODE: Navigate to data points with lower y-values (non-scatter only).
  * - HIGHER_VALUE_MODE: Navigate to data points with higher y-values (non-scatter only).
  * - GRID_MODE: Navigate by grid cells in scatter plots (scatter with grid config only).
+ * - POINT_MODE: Navigate individual scatter points one at a time — left/right walk
+ *   reading order, up/down walk column order (any scatter with data).
+ * - INTERSECTION_MODE: Walk the points sharing the current coordinate — the lines
+ *   crossing a multiline x, or a scatter's stacked column/row.
+ *
+ * A mode is an index here but a flag on the trace, so the two must be resynced
+ * whenever the active trace changes; see {@link RotorNavigationService.getMode}.
  *
  * Responsibilities:
  * - Track the current rotor mode and expose helpers to cycle forward/backward across modes.
@@ -421,8 +429,9 @@ export class RotorNavigationService {
    *   2. LOWER_VALUE_MODE   (if supportsCompareMode)
    *   3. HIGHER_VALUE_MODE  (if supportsCompareMode)
    *   4. GRID_MODE          (if grid-navigable and supportsGridMode)
-   *   5. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
-   *   6. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
+   *   5. POINT_MODE         (if supportsPointMode — e.g. any scatter with data)
+   *   6. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
+   *   7. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
    */
   private getAvailableModes(): string[] {
     const activeTrace = this.context.active;
