@@ -403,6 +403,48 @@ export interface WordCloudPoint {
 }
 
 /**
+ * One qualitative band of a bullet chart, named and bounded above.
+ *
+ * Bands partition the range, so only the upper edge is carried: a band starts
+ * where the previous one ended, and the first starts at the gauge's `min`.
+ * Carrying both edges would let a chart declare overlapping or gapped bands
+ * that the drawing cannot express.
+ */
+export interface GaugeBand {
+  /** Upper edge of the band, inclusive. */
+  to: number;
+  /** What the band is called -- "poor", "ok", "good". */
+  label: string;
+}
+
+/**
+ * A gauge or bullet chart: one measure against a range.
+ *
+ * Unlike every other trace's data this is a single object rather than an
+ * array, because the chart draws exactly one measure -- the same reason
+ * {@link HeatmapData} is an object. An array of one would describe a shape the
+ * chart does not have.
+ *
+ * The value alone is not the reading. "73" means nothing without the range it
+ * sits in, the target it was aiming at, and the band it lands in, and none of
+ * those are written anywhere a screen reader can reach on a drawn gauge.
+ */
+export interface GaugePoint {
+  /** The measure. */
+  value: number;
+  /** Lower end of the dial. */
+  min: number;
+  /** Upper end of the dial. */
+  max: number;
+  /** What the measure is called, when the chart names it. */
+  label?: string;
+  /** The target marker a bullet chart draws, when it has one. */
+  target?: number;
+  /** Qualitative bands, in ascending order. */
+  bands?: GaugeBand[];
+}
+
+/**
  * Data structure for heatmap charts with x/y labels and 2D point values.
  */
 export interface HeatmapData {
@@ -661,6 +703,7 @@ export interface MaidrLayer {
   stepDirection?: StepDirection;
   data:
     | BarPoint[]
+    | GaugePoint
     | BoxPoint[]
     | CandlestickPoint[]
     | ErrorBarPoint[]
@@ -716,6 +759,13 @@ export enum TraceType {
    * between the three magnitudes at one x as readily as between samples.
    */
   ERROR_BAR = 'error_bar',
+  /**
+   * A single measure read against a range -- a gauge, or a bullet chart with
+   * its target and qualitative bands. One navigable point whose meaning is
+   * entirely relational: 73 says nothing without the 100 it is out of, the 80
+   * it was aiming at, and the band it lands in.
+   */
+  GAUGE = 'gauge',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',
   LINE = 'line',

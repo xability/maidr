@@ -6,6 +6,7 @@ import { BarTrace } from './bar';
 import { BoxTrace } from './box';
 import { Candlestick } from './candlestick';
 import { ErrorBarTrace } from './errorBar';
+import { GaugeTrace } from './gauge';
 import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
@@ -50,6 +51,9 @@ export abstract class TraceFactory {
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
+
+      case TraceType.GAUGE:
+        return new GaugeTrace(layer);
 
       case TraceType.HEATMAP:
         return new Heatmap(layer);

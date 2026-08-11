@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Bullet Chart Example — Conversion Rate against Target</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A gauge draws one measure, and the number alone is not the reading. A
+        sighted reader gets the rest from geometry: how far along the dial the
+        bar reaches, which shaded band it ends in, and which side of the target
+        marker it falls on. None of that is written anywhere on the page.
+
+        So MAIDR announces the relations alongside the value - "73, of 0 to
+        100, target 80, ok" - rather than leaving the reader to hold a scale in
+        their head. The chart is a single navigable point; what makes it worth
+        a trace type is everything it carries around that point.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="gauge-conversion" maidr='{&#10;  &quot;id&quot;: &quot;gauge-conversion&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;gauge-conversion-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;gauge-conversion-layer&quot;,&#10;            &quot;type&quot;: &quot;gauge&quot;,&#10;            &quot;title&quot;: &quot;Conversion Rate against Target&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Measure&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Percent&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;gauge-conversion-measure&#x27;] &gt; rect&quot;,&#10;            &quot;data&quot;: {&#10;              &quot;label&quot;: &quot;Conversion&quot;,&#10;              &quot;value&quot;: 73,&#10;              &quot;min&quot;: 0,&#10;              &quot;max&quot;: 100,&#10;              &quot;target&quot;: 80,&#10;              &quot;bands&quot;: [&#10;                {&#10;                  &quot;to&quot;: 50,&#10;                  &quot;label&quot;: &quot;poor&quot;&#10;                },&#10;                {&#10;                  &quot;to&quot;: 75,&#10;                  &quot;label&quot;: &quot;ok&quot;&#10;                },&#10;                {&#10;                  &quot;to&quot;: 100,&#10;                  &quot;label&quot;: &quot;good&quot;&#10;                }&#10;              ]&#10;            }&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="qualitative-bands">
+          <rect x="140" y="200" width="250" height="46" style="fill: #d9d9d9" />
+          <rect x="390" y="200" width="125" height="46" style="fill: #bdbdbd" />
+          <rect x="515" y="200" width="125" height="46" style="fill: #9e9e9e" />
+            </g>
+            <g id="gauge-conversion-measure">
+              <rect x="140" y="211.5" width="365"
+                height="23" style="fill: #1a1a1a" />
+            </g>
+            <g id="target-marker">
+              <path d="M 540 194 L 540 252"
+                style="stroke: #c1272d; stroke-width: 4" />
+            </g>
+            <g id="axis_x">
+              <text x="140" y="280" style="font: 12px sans-serif; text-anchor: middle">0</text>
+              <text x="390" y="280" style="font: 12px sans-serif; text-anchor: middle">50</text>
+              <text x="640" y="280" style="font: 12px sans-serif; text-anchor: middle">100</text>
+              <text x="128" y="228" style="font: 14px sans-serif; text-anchor: end">Conversion</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

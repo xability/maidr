@@ -32,6 +32,8 @@ describe('resolveOrientation', () => {
     // exactly as a line is, whichever way the band is drawn.
     TraceType.AREA,
     TraceType.CANDLESTICK_DELTA,
+    // One measure on a dial: no second axis to swap with.
+    TraceType.GAUGE,
     TraceType.HEATMAP,
     TraceType.LINE,
     TraceType.NORMALIZED_AREA,
