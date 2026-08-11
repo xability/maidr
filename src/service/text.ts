@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { PlotState, TextState, TraceState } from '@type/state';
+import type { NonEmptyTraceState, PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
 import { focusedSubplotTitle } from '@model/plot';
@@ -214,14 +214,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Set currentLayerId for formatting
     this.currentLayerId = state.layerId;
 
-    // The layer's own name when it has one, and the trace type otherwise.
-    // A subplot whose layers are the same kind of thing -- one per hue level
-    // -- is announced identically at every layer without this, so the reader
-    // hears two sets of numbers and never learns which series each belongs
-    // to. A figure whose layers differ in kind is better served by the type,
-    // which is why this falls back to it rather than to a placeholder.
-    const identity = state.name ?? `${state.plotType || state.traceType} plot`;
-    let announcement = `Layer ${state.index} of ${state.size}: ${identity}`;
+    let announcement = `Layer ${state.index} of ${state.size}: ${TextService.layerIdentity(state)}`;
     if (state.text) {
       const parts: string[] = [];
 
@@ -424,9 +417,31 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted subplot description text
    */
   private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
-    // Use plotType if available, otherwise fall back to traceType
-    const type = traceState && !traceState.empty ? traceState.plotType : traceType;
-    return `Layer ${index} of ${size}: ${type} plot`;
+    const identity = traceState && !traceState.empty
+      ? TextService.layerIdentity(traceState)
+      : `${traceType} plot`;
+    return `Layer ${index} of ${size}: ${identity}`;
+  }
+
+  /**
+   * Names a layer for an announcement: what it is, or failing that, its kind.
+   *
+   * A subplot whose layers are the same kind of thing -- one per hue level of
+   * a grouped chart -- reads identically at every layer without the name, so
+   * the reader hears two sets of numbers and never learns which series each
+   * belongs to. A figure whose layers differ in kind is better served by the
+   * type, which is why this falls back to it rather than to a placeholder.
+   *
+   * Shared by both announcement sites rather than written twice. They compose
+   * the same sentence from different states, and the reason to make that
+   * explicit is that duplicated formatting is exactly how the two would come
+   * to disagree about the same layer.
+   *
+   * @param state - The trace state of the layer being announced
+   * @returns The layer's name, or a phrase naming its type
+   */
+  private static layerIdentity(state: NonEmptyTraceState): string {
+    return state.name ?? `${state.plotType || state.traceType} plot`;
   }
 
   /**
