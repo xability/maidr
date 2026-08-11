@@ -845,6 +845,21 @@ export enum TraceType {
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
   NORMALIZED_AREA = 'stacked_normalized_area',
   PIE = 'pie',
+  /**
+   * Categories arranged around a circle rather than along an axis, drawn as
+   * wedges whose radius is the value -- a polar area, coxcomb or rose chart.
+   * Read exactly as {@link TraceType.RADAR} is; the two differ in the mark,
+   * not in what a reader navigates.
+   */
+  POLAR_AREA = 'polar_area',
+  /**
+   * Categories arranged around a circle rather than along an axis, joined
+   * into a closed outline -- a radar or spider chart. Navigated as a
+   * multi-line layer, with each spoke a column and each series a row; what
+   * the circle adds is that a spoke's stereo position follows its angle
+   * rather than its index, so a sweep goes out and comes back.
+   */
+  RADAR = 'radar',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',

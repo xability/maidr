@@ -12,6 +12,7 @@ import { Heatmap } from './heatmap';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
 import { PieTrace } from './pie';
+import { RadarTrace } from './radar';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
@@ -70,6 +71,13 @@ export abstract class TraceFactory {
 
       case TraceType.PIE:
         return new PieTrace(layer);
+
+      // One class, two marks. A polar area draws its values as wedges and a
+      // radar joins them into an outline; a reader navigates the same spokes
+      // either way.
+      case TraceType.POLAR_AREA:
+      case TraceType.RADAR:
+        return new RadarTrace(layer);
 
       case TraceType.SCATTER:
         return new ScatterTrace(layer);

@@ -381,6 +381,26 @@ Dumbbell charts use both lines on a multiline display: the starting values on
 the first and the finishing ones on the second, so the two profiles can be
 compared with one sweep rather than by toggling between rows.
 
+## Radar and polar area
+
+A radar's braille is the multi-line encoding unchanged: **one row per series**,
+one cell per spoke, each row scaled against its own range.
+
+What braille cannot carry here is the circle. A display is a line of cells and
+a spoke's angle has nowhere to go in it, so the row reads as the sequence of
+values it is — first spoke to last, in the order the chart declares them.
+
+That is not a loss the way a missing magnitude would be, because the angle is
+carried elsewhere and better: the **stereo position** follows the spoke around
+the dial, so a sweep goes out and comes back. Braille answers "how do the
+series compare across the spokes"; audio answers "where on the circle am I".
+Encoding a rotation into cell heights would answer neither.
+
+### Multiline Displays
+
+Radar charts use one line per series on a multiline display, so several models'
+profiles can be compared with one sweep rather than by toggling between rows.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.
