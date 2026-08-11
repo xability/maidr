@@ -30,6 +30,7 @@ export abstract class TestConstants {
   static readonly HISTOGRAM_ID = 'hist';
   static readonly LINEPLOT_ID = 'line';
   static readonly STEPPLOT_ID = 'step';
+  static readonly AREAPLOT_ID = 'area-revenue';
   static readonly DODGED_BARPLOT_ID = 'dodged_bar';
   static readonly STACKED_BARPLOT_ID = 'stacked_bar';
   static readonly BOXPLOT_VERTICAL_ID = 'boxplot_vertical';
@@ -122,6 +123,9 @@ export abstract class TestConstants {
   // `StepTrace.state` overrides the inherited line plotType, so a step chart
   // announces itself as a step plot rather than as a line one.
   static readonly STEPPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: step. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  // A multi-series trace names its group count, as the multiline entry above
+  // does; the example this asserts against carries two bands.
+  static readonly AREAPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked area with 2 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `formatPlotType` in src/util/orientation.ts prefixes the box type with its
