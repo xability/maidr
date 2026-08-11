@@ -39,6 +39,9 @@ describe('resolveOrientation', () => {
     // An area trace is navigated along its series and then between series,
     // exactly as a line is, whichever way the band is drawn.
     TraceType.AREA,
+    // Competitors are the rows and periods the columns whichever way the
+    // chart is drawn -- the answer a line already gives.
+    TraceType.BUMP,
     TraceType.CANDLESTICK_DELTA,
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,

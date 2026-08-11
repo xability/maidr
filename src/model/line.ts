@@ -152,8 +152,14 @@ export class LineTrace extends AbstractTrace {
   /**
    * Human-readable name of a single line: the authored name when the spec
    * provides one, otherwise a positional fallback ("Line 2").
+   *
+   * Protected rather than private because a subclass naming a series in its
+   * own description -- which competitor led, which observation is an outlier
+   * -- has to name it the way every other announcement does, and reaching for
+   * `points[row][0].z` directly would skip the fallback and report
+   * `undefined` for an unnamed series.
    */
-  private groupNameAt(row: number): string {
+  protected groupNameAt(row: number): string {
     return this.authoredGroupNameAt(row) ?? `Line ${row + 1}`;
   }
 

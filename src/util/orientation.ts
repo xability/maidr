@@ -29,6 +29,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.
   [TraceType.CANDLESTICK_DELTA]: false,
+  // Competitors are the rows and periods the columns whichever way the chart
+  // is drawn, so there is no main and cross axis to swap -- the answer a line
+  // already gives.
+  [TraceType.BUMP]: false,
   [TraceType.DODGED]: true,
   // The interval runs along the value axis and the samples along the other,
   // so which way round they are drawn decides which axis a bound moves on --
