@@ -39,7 +39,7 @@ function magnitudeOf(point: ErrorBarPoint, section: Section): number {
     case 'upper':
       return point.yMax ?? Number.NaN;
     default:
-      return Number(point.y);
+      return point.y;
   }
 }
 
@@ -110,6 +110,9 @@ export class ErrorBarTrace extends AbstractTrace {
   private readonly perRowMin: number[];
   private readonly perRowMax: number[];
 
+  /** Row the estimate lives on — the entry row, and the pointer's target. */
+  private readonly valueRow: number;
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -142,13 +145,14 @@ export class ErrorBarTrace extends AbstractTrace {
       MathUtil.safeMax(row.filter(isMeasured)),
     );
 
+    this.valueRow = Math.max(0, this.sections.indexOf('value'));
     this.highlightValues = this.mapToSvgElements(layer.selectors);
     // Enter on the estimate, not on whichever section happens to be last.
     // A reader arriving at a sample is asking what the value is; landing them
     // on the upper bound answers a question they have not asked yet, and does
     // it with a number that looks like the value until they move.
     this.movable = new MovableGrid<number>(this.sectionValues, {
-      row: Math.max(0, this.sections.indexOf('value')),
+      row: this.valueRow,
     });
   }
 
@@ -186,6 +190,11 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   protected get dimension(): Dimension {
+    // Orientation-independent, matching `Candlestick.dimension`: up and down
+    // walk the sections and left and right walk the samples in BOTH
+    // orientations, so rows must always be the section count. `AutoplayState`
+    // is keyed by direction, so conditioning this on orientation mis-paces
+    // autoplay and mis-clamps the `isMovable` bounds.
     return {
       rows: this.sectionValues.length,
       cols: this.points.length,
@@ -204,8 +213,12 @@ export class ErrorBarTrace extends AbstractTrace {
         raw: this.sectionValues[this.row][this.col],
       },
       panning: {
-        x: this.col,
-        y: this.row,
+        // The grid stays sections-by-samples whichever way the chart is
+        // drawn, so panning has to swap here instead: stereo position tracks
+        // where a point sits on screen, and on a horizontal chart the samples
+        // run down the page rather than across it.
+        x: this.orientation === Orientation.HORIZONTAL ? this.row : this.col,
+        y: this.orientation === Orientation.HORIZONTAL ? this.col : this.row,
         rows: this.sectionValues.length,
         cols: this.points.length,
       },
@@ -239,6 +252,13 @@ export class ErrorBarTrace extends AbstractTrace {
       // point's several magnitudes is being read. Without it "3.8" and "4.6"
       // at one x are indistinguishable from two samples.
       section: SECTION_LABEL[section],
+      // Which real axis each value came from, so the formatter service picks
+      // the right per-axis format. It defaults to x/y when absent, which is
+      // silently wrong for a horizontal layer whose two axes format
+      // differently — a currency estimate would be announced as a bare
+      // number, and the category as currency.
+      mainAxis: isHorizontal ? 'y' : 'x',
+      crossAxis: isHorizontal ? 'x' : 'y',
     };
   }
 
@@ -299,7 +319,6 @@ export class ErrorBarTrace extends AbstractTrace {
       return null;
     }
 
-    const valueRow = Math.max(0, this.sections.indexOf('value'));
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
@@ -310,7 +329,7 @@ export class ErrorBarTrace extends AbstractTrace {
       const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
       if (distance < nearestDistance) {
         nearestDistance = distance;
-        nearest = { element: elements[col], row: valueRow, col, centerX, centerY };
+        nearest = { element: elements[col], row: this.valueRow, col, centerX, centerY };
       }
     }
 

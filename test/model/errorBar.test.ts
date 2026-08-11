@@ -3,7 +3,7 @@ import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { ErrorBarTrace } from '@model/errorBar';
 import { TraceFactory } from '@model/factory';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Three group means with asymmetric intervals. Every number is distinct so a
@@ -115,6 +115,69 @@ describe('sections', () => {
     const { text } = nonEmptyState(trace);
     expect(text.section).toBe('value');
     expect(text.cross.value).toBe(2);
+  });
+});
+
+describe('horizontal orientation', () => {
+  /**
+   * Build a horizontally drawn trace at a position.
+   * @param row Section row to land on
+   * @param col Sample column to land on
+   * @returns The positioned trace
+   */
+  function horizontal(row: number, col: number): ErrorBarTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(MEANS),
+      orientation: Orientation.HORIZONTAL,
+    }) as ErrorBarTrace;
+    trace.moveToIndex(row, col);
+    return trace;
+  }
+
+  test('swaps which axis is announced as the main one', () => {
+    const { text } = nonEmptyState(horizontal(1, 0));
+
+    expect(text.main.label).toBe('Response');
+    expect(text.cross.label).toBe('Group');
+  });
+
+  test('names the real axis each value came from', () => {
+    // The formatter service defaults to x/y when these are absent, which is
+    // silently wrong for a layer whose two axes format differently: a
+    // currency estimate would be announced as a bare number and the category
+    // as currency.
+    const { text } = nonEmptyState(horizontal(1, 0));
+
+    expect(text.mainAxis).toBe('y');
+    expect(text.crossAxis).toBe('x');
+  });
+
+  test('pans by where the point sits on screen', () => {
+    // The grid stays sections-by-samples whichever way the chart is drawn, so
+    // panning is where the swap has to happen: on a horizontal chart the
+    // samples run down the page rather than across it.
+    const { audio } = nonEmptyState(horizontal(0, 2));
+
+    expect(audio.panning.x).toBe(0);
+    expect(audio.panning.y).toBe(2);
+  });
+
+  test('keeps the grid shape, so autoplay stays paced by direction', () => {
+    // Deliberately NOT transposed, matching `Candlestick.dimension`: up and
+    // down walk the sections in both orientations, and `AutoplayState` is
+    // keyed by direction, so a transposed grid would mis-pace autoplay and
+    // mis-clamp the movement bounds.
+    const vertical = nonEmptyState(at(MEANS, 0, 2)).audio.panning;
+    const flipped = nonEmptyState(horizontal(0, 2)).audio.panning;
+
+    expect(flipped.rows).toBe(vertical.rows);
+    expect(flipped.cols).toBe(vertical.cols);
+  });
+
+  test('reads the same magnitudes as the vertical chart', () => {
+    expect(nonEmptyState(horizontal(0, 0)).text.cross.value).toBe(3.8);
+    expect(nonEmptyState(horizontal(2, 0)).text.cross.value).toBe(4.6);
+    expect(nonEmptyState(horizontal(2, 0)).text.section).toBe('upper bound');
   });
 });
 
