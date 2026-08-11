@@ -17,6 +17,7 @@ import { StepTrace } from './step';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
 import { WaterfallTrace } from './waterfall';
+import { WordCloudTrace } from './wordCloud';
 
 /**
  * Abstract factory class for creating appropriate trace instances based on layer type.
@@ -73,6 +74,9 @@ export abstract class TraceFactory {
 
       case TraceType.WATERFALL:
         return new WaterfallTrace(layer);
+
+      case TraceType.WORD_CLOUD:
+        return new WordCloudTrace(layer);
 
       case TraceType.DODGED:
       case TraceType.NORMALIZED:

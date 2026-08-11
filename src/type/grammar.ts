@@ -379,6 +379,21 @@ export interface WaterfallPoint {
 }
 
 /**
+ * One term of a word cloud.
+ *
+ * A word cloud is the canonical chart that carries real data while being
+ * readable only by eye: the weight is encoded as glyph size and written down
+ * nowhere on the page. Structurally it is a categorical label and a
+ * magnitude, which is why it needs no shape of its own beyond naming them.
+ */
+export interface WordCloudPoint {
+  /** The term. */
+  x: string;
+  /** Its weight -- a frequency, a score, a count. */
+  y: number;
+}
+
+/**
  * Data structure for heatmap charts with x/y labels and 2D point values.
  */
 export interface HeatmapData {
@@ -649,7 +664,8 @@ export interface MaidrLayer {
     | SmoothPoint[][]
     | StepPoint[][]
     | ViolinKdePoint[][]
-    | WaterfallPoint[];
+    | WaterfallPoint[]
+    | WordCloudPoint[];
 }
 
 /**
@@ -719,4 +735,10 @@ export enum TraceType {
    * the point carries both the contribution and the total it produced.
    */
   WATERFALL = 'waterfall',
+  /**
+   * Terms sized by weight. The layout carries no information -- it is chosen
+   * to pack glyphs, not to encode anything -- so the trace reads it as what
+   * it measures: a term and a magnitude, walked in weight order.
+   */
+  WORD_CLOUD = 'word_cloud',
 }

@@ -43,6 +43,8 @@ describe('resolveOrientation', () => {
     // A waterfall is navigated one column per step whichever way the bars
     // are drawn, so there is no main and cross axis to swap.
     TraceType.WATERFALL,
+    // Terms are packed, not laid along an axis, and are walked by weight.
+    TraceType.WORD_CLOUD,
   ];
 
   test('answers for every trace type', () => {

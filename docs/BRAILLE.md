@@ -316,6 +316,26 @@ read as one shape with different numbers behind it.
 Waterfall charts use a single-line representation. On multiline braille
 displays the steps appear on the first line and the remaining lines are unused.
 
+## Word cloud
+
+A word cloud's braille is a single row of **weights**, one cell per term,
+scaled against the row's own range -- the bar encoding above, unchanged.
+
+The row is ordered by weight, heaviest first, which is also the order the
+cursor walks. A cloud's drawn arrangement is chosen to pack glyphs into a
+rectangle and encodes nothing, so a profile in layout order would be an
+arbitrary sequence of heights; in weight order it descends, and the shape of
+that descent is the distribution -- whether one term dominates or many are
+comparable, which is what a cloud is read for.
+
+The terms themselves are not in the braille. They are what the text mode
+announces, and a display of five cells cannot carry five words.
+
+### Multiline Displays
+
+Word clouds use a single-line representation. On multiline braille displays
+the terms appear on the first line and the remaining lines are unused.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

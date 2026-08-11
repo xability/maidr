@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Word Cloud Example — Terms in the Abstracts</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A word cloud carries real data while being readable only by eye: each
+        term's weight is drawn as glyph size and written down nowhere on the
+        page. Structurally it is a term and a number, which is what the trace
+        announces - "machine, 412".
+
+        NOTE the ordering. The glyphs below are in PACKING order, which is
+        what a cloud layout produces and which encodes nothing: `machine` is
+        the second element in the document but the heaviest term. MAIDR walks
+        the terms by weight instead, and permutes the resolved elements to
+        match - so arrowing to the first term announces `machine` AND
+        highlights `machine`. Sorting the data without permuting the elements
+        would announce the right term and highlight the wrong glyph, which no
+        model-level test can see.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="wordcloud-terms" maidr='{&#10;  &quot;id&quot;: &quot;wordcloud-terms&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;wordcloud-terms-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;wordcloud-terms-layer&quot;,&#10;            &quot;type&quot;: &quot;word_cloud&quot;,&#10;            &quot;title&quot;: &quot;Terms in the Abstracts&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Term&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Occurrences&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;wordcloud-terms-0&#x27;]&quot;,&#10;              &quot;g[id=&#x27;wordcloud-terms-1&#x27;]&quot;,&#10;              &quot;g[id=&#x27;wordcloud-terms-2&#x27;]&quot;,&#10;              &quot;g[id=&#x27;wordcloud-terms-3&#x27;]&quot;,&#10;              &quot;g[id=&#x27;wordcloud-terms-4&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;neural&quot;,&#10;                &quot;y&quot;: 128&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;machine&quot;,&#10;                &quot;y&quot;: 412&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;gradient&quot;,&#10;                &quot;y&quot;: 57&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;tensor&quot;,&#10;                &quot;y&quot;: 233&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;embedding&quot;,&#10;                &quot;y&quot;: 96&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+        <g id="wordcloud-terms-0">
+          <text x="200" y="150" style="font: 26px sans-serif; fill: #4c78a8; text-anchor: middle">neural</text>
+        </g>
+        <g id="wordcloud-terms-1">
+          <text x="360" y="220" style="font: 54px sans-serif; fill: #f58518; text-anchor: middle">machine</text>
+        </g>
+        <g id="wordcloud-terms-2">
+          <text x="520" y="300" style="font: 18px sans-serif; fill: #54a24b; text-anchor: middle">gradient</text>
+        </g>
+        <g id="wordcloud-terms-3">
+          <text x="280" y="300" style="font: 38px sans-serif; fill: #b279a2; text-anchor: middle">tensor</text>
+        </g>
+        <g id="wordcloud-terms-4">
+          <text x="470" y="160" style="font: 22px sans-serif; fill: #e45756; text-anchor: middle">embedding</text>
+        </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

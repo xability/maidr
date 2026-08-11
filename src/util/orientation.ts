@@ -55,6 +55,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // reader would hear. As with LINE and STEP, there is no orientation to
   // announce.
   [TraceType.WATERFALL]: false,
+  // Terms are packed into a rectangle, not laid along an axis, and the trace
+  // walks them by weight rather than by position. There is no main and cross
+  // axis to swap, the same as a pie.
+  [TraceType.WORD_CLOUD]: false,
 };
 
 /**

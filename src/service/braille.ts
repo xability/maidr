@@ -1127,6 +1127,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // range -- the bar encoder's input exactly, and the same magnitude the
       // audio plays and `cross` announces.
       [TraceType.WATERFALL, asGeneric(new BarBrailleEncoder())],
+      // A single row of weights scaled against that row's own range -- the bar
+      // encoder's input exactly, and the same magnitude the audio plays.
+      [TraceType.WORD_CLOUD, asGeneric(new BarBrailleEncoder())],
       [TraceType.SMOOTH, asGeneric(new LineBrailleEncoder())],
       [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],
       // A step chart's braille state is LineTrace's verbatim — a per-row

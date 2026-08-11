@@ -168,6 +168,22 @@ export class WaterfallPlotError extends Error {
 }
 
 /**
+ * Error thrown when Word cloud related operations fail
+ */
+export class WordCloudPlotError extends Error {
+  /**
+   * Creates a new WordCloudPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'WordCloudPlotError';
+  }
+}
+
+/**
  * Error thrown when Area plot related operations fail
  */
 export class AreaPlotError extends Error {
