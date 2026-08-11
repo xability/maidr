@@ -74,6 +74,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.STEP]: 'Step Plot',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',
+  [TraceType.WATERFALL]: 'Waterfall Chart',
 };
 
 export interface Dimension {

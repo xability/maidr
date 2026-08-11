@@ -49,6 +49,12 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.STEP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,
+  // The steps run along the category axis and the contributions along the
+  // value axis, but the trace reads the same either way round: navigation is
+  // one column per step in both, and a horizontal waterfall swaps nothing a
+  // reader would hear. As with LINE and STEP, there is no orientation to
+  // announce.
+  [TraceType.WATERFALL]: false,
 };
 
 /**

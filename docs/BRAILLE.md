@@ -289,6 +289,33 @@ space the same way a zero slice does.
 Pie charts use a single-line representation. On multiline braille displays the
 pie appears on the first line and the remaining lines are unused.
 
+## Waterfall chart
+
+A waterfall's braille is a single row of **contributions** — one cell per step,
+scaled against the signed range of the deltas, exactly as a bar chart's row is.
+
+It is the contribution rather than the running total for the same reason the
+audio pitches the contribution: the running totals of a waterfall drift within
+a narrow band around the current value, so a profile built from them would be
+nearly flat across the whole chart and the large movers — the thing a waterfall
+is read to find — would be indistinguishable from the small ones. The deltas
+span the full signed range, so the profile has shape.
+
+A decrease is a negative value, and is encoded against the same range as the
+increases rather than by magnitude alone, so a step down reads lower than a
+step up rather than merely narrower.
+
+The running total is not encoded. It is available in the text announcement
+alongside the contribution, and in the chart description as the starting and
+ending values — the same division as a stacked area plot, and for the same
+reason: a profile that silently switched between two different quantities would
+read as one shape with different numbers behind it.
+
+### Multiline Displays
+
+Waterfall charts use a single-line representation. On multiline braille
+displays the steps appear on the first line and the remaining lines are unused.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

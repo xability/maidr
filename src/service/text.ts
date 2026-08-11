@@ -423,11 +423,23 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
-   * Determines if the current state represents a box plot.
+   * Whether a sectioned state announces its section *before* the axis label.
+   *
+   * The discrimination is between a box plot ("lower quartile Price") and a
+   * candlestick ("high Price"), and `z` is what separates them: a candlestick
+   * carries its trend there, a box plot carries nothing.
+   *
+   * Named for what it tests rather than for the box plot, because it is no
+   * longer only the box plot that answers true — an error bar and a waterfall
+   * step both carry a section with no `z`. Both read correctly on this branch,
+   * but only because their section labels are already lower case; see
+   * `KIND_LABEL` in `src/model/waterfall.ts` and `SECTION_LABEL` in
+   * `src/model/errorBar.ts`, which say so at the definition.
+   *
    * @param state - The text state to check
-   * @returns True if state has sections but no z (indicating a box plot)
+   * @returns True when the section is announced ahead of the label
    */
-  private isBoxPlotWithSection(state: TextState): boolean {
+  private announcesSectionBeforeLabel(state: TextState): boolean {
     return state.section !== undefined && state.z === undefined;
   }
 
@@ -472,7 +484,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Special handling for boxplot outlier sections
     if (
       state.section
-      && this.isBoxPlotWithSection(state)
+      && this.announcesSectionBeforeLabel(state)
       && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
       && Array.isArray(state.cross.value)
     ) {
@@ -494,7 +506,7 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Format cross-axis label.
     if (state.section !== undefined) {
-      if (this.isBoxPlotWithSection(state)) {
+      if (this.announcesSectionBeforeLabel(state)) {
         const label = state.cross.label;
         verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
       } else {
@@ -590,7 +602,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Special handling for boxplot outlier sections
     if (
       state.section
-      && this.isBoxPlotWithSection(state)
+      && this.announcesSectionBeforeLabel(state)
       && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
       && Array.isArray(state.cross.value)
     ) {

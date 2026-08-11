@@ -40,6 +40,9 @@ describe('resolveOrientation', () => {
     TraceType.SMOOTH,
     TraceType.STACKED_AREA,
     TraceType.STEP,
+    // A waterfall is navigated one column per step whichever way the bars
+    // are drawn, so there is no main and cross axis to swap.
+    TraceType.WATERFALL,
   ];
 
   test('answers for every trace type', () => {
