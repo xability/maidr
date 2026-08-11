@@ -1128,11 +1128,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
-   * Handles movement in grid mode, mapping directions to grid cell navigation.
-   * @param direction - The movement direction
-   * @returns True if movement was successful, false if at boundary
-   */
-  /**
    * Handles movement inside an entered grid cell, mapping directions to the
    * cell's own point cursor. Only left/right are meaningful — a cell's points
    * are walked as one horizontal list — so up/down report out of bounds
@@ -1159,6 +1154,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
   }
 
+  /**
+   * Handles movement in grid mode, mapping directions to grid cell selection.
+   * Only reached when the user is browsing the grid itself; once they have
+   * pressed Enter into a cell, {@link moveOnceInGridCellMode} takes over.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false if at boundary
+   */
   private moveOnceInGridMode(direction: MovableDirection): boolean {
     let moved = false;
     switch (direction) {
