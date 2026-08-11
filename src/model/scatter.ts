@@ -820,6 +820,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         cols: this.xValues.length,
       };
     }
+    if (this.isInGridCellMode) {
+      // Autoplay divides its duration budget by these, so a cell traversal
+      // must be paced over the cell's points, not the grid's cells.
+      return {
+        rows: 1,
+        cols: Math.max(1, this.cellXPoints.length),
+      };
+    }
     if (this.isInGridMode) {
       return {
         rows: this.numGridRows,
@@ -921,6 +929,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * from before the mode was entered.
    */
   protected override get outOfBoundsState(): TraceEmptyState {
+    // Inside a cell the cursor is cellPointIndex, so the bounds chime has to
+    // pan there — the grid branch below would place it at the cell's position
+    // in the grid instead, on the wrong side of the plot.
+    if (this.isInGridCellMode && this.cellXPoints.length > 0) {
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          y: 0,
+          x: this.cellPointIndex,
+          rows: 1,
+          cols: Math.max(1, this.cellXPoints.length),
+        },
+      };
+    }
+
     // Use grid position when in grid mode for correct panning
     if (this.isInGridMode && this.gridCells) {
       return {
@@ -1028,6 +1053,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return true;
     }
 
+    // Cell mode sits inside grid mode, so it has to be tested first: the grid
+    // branch below moves the cell *selection*, which is not what the user is
+    // navigating once they have pressed Enter into a cell.
+    if (this.isInGridCellMode) {
+      return this.moveOnceInGridCellMode(direction);
+    }
+
     // Handle grid mode navigation (used by autoplay and direct calls)
     if (this.isInGridMode && this.gridCells) {
       return this.moveOnceInGridMode(direction);
@@ -1100,6 +1132,33 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * @param direction - The movement direction
    * @returns True if movement was successful, false if at boundary
    */
+  /**
+   * Handles movement inside an entered grid cell, mapping directions to the
+   * cell's own point cursor. Only left/right are meaningful — a cell's points
+   * are walked as one horizontal list — so up/down report out of bounds
+   * rather than falling through and moving the grid selection underneath a
+   * user who believes they are still inside the cell.
+   *
+   * Used by autoplay, which drives movement through moveOnce; manual arrows
+   * reach the same moveCellPoint* methods through their own commands. Those
+   * methods notify observers or report bounds themselves.
+   * @param direction - The movement direction
+   * @returns True if movement was successful, false at a boundary
+   */
+  private moveOnceInGridCellMode(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'FORWARD':
+        return this.moveCellPointRight();
+      case 'BACKWARD':
+        return this.moveCellPointLeft();
+      case 'UPWARD':
+      case 'DOWNWARD':
+      default:
+        this.notifyOutOfBounds();
+        return false;
+    }
+  }
+
   private moveOnceInGridMode(direction: MovableDirection): boolean {
     let moved = false;
     switch (direction) {
@@ -1232,6 +1291,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return target === 'FORWARD' || target === 'UPWARD'
         ? this.intersectionStackIndex < stackLength - 1
         : this.intersectionStackIndex > 0;
+    }
+
+    // Check grid cell boundaries. Autoplay gates on this before every step,
+    // so it has to describe the cell's point list rather than the grid the
+    // cell sits in. Horizontal-only, matching moveOnceInGridCellMode.
+    if (this.isInGridCellMode) {
+      switch (target) {
+        case 'FORWARD':
+          return this.cellPointIndex < this.cellXPoints.length - 1;
+        case 'BACKWARD':
+          return this.cellPointIndex > 0;
+        default:
+          return false;
+      }
     }
 
     // Check grid mode boundaries
