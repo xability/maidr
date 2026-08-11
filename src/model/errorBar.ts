@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -18,7 +19,15 @@ const SECTIONS = ['lower', 'value', 'upper'] as const;
 
 type Section = (typeof SECTIONS)[number];
 
-/** How each section is announced. */
+/**
+ * How each section is announced.
+ *
+ * Lower case deliberately: the text service announces a section ahead of the
+ * axis label when the state carries a section and no `z`, which an error bar
+ * does, and that branch lower-cases the section first. Capitalising these
+ * would therefore be silently undone in verbose mode and kept in terse mode,
+ * so the same bound would read two different ways.
+ */
 const SECTION_LABEL: Record<Section, string> = {
   lower: 'lower bound',
   value: 'value',
@@ -300,6 +309,73 @@ export class ErrorBarTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Offers the highest and lowest estimate as extrema targets.
+   *
+   * The estimates are what a reader compares across samples, so they are what
+   * "go to the extreme" should mean here. The bounds are deliberately not
+   * ranked: the widest interval is a different question from the largest
+   * value, and offering both under one menu would leave the reader unable to
+   * tell which sense of "extreme" they had just jumped to.
+   *
+   * Both targets land on the estimate row, so a reader arriving there hears
+   * the value and can step up or down into its interval — the same motion the
+   * trace exists for.
+   *
+   * @returns The maximum and minimum estimate, when any sample carries one
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const estimates = this.sectionValues[this.valueRow];
+    const measured = estimates
+      .map((value, index) => ({ value, index }))
+      .filter(({ value }) => isMeasured(value));
+
+    if (measured.length === 0) {
+      return [];
+    }
+
+    const highest = measured.reduce((a, b) => (b.value > a.value ? b : a));
+    const lowest = measured.reduce((a, b) => (b.value < a.value ? b : a));
+
+    const targets: ExtremaTarget[] = [{
+      label: `Max value at ${this.points[highest.index].x}`,
+      value: highest.value,
+      pointIndex: highest.index,
+      segment: 'value',
+      type: 'max',
+      navigationType: 'point',
+      xValue: this.points[highest.index].x,
+    }];
+
+    // One sample, or a chart where every estimate is equal, has a single
+    // extreme. Naming the same sample as both would report a spread the chart
+    // does not have.
+    if (lowest.index !== highest.index) {
+      targets.push({
+        label: `Min value at ${this.points[lowest.index].x}`,
+        value: lowest.value,
+        pointIndex: lowest.index,
+        segment: 'value',
+        type: 'min',
+        navigationType: 'point',
+        xValue: this.points[lowest.index].x,
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Moves the cursor to a chosen extrema target, on the estimate row.
+   *
+   * @param target - The extrema target to navigate to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    this.row = this.valueRow;
+    this.col = target.pointIndex;
+    this.finalizeNavigation();
   }
 
   /**

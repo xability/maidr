@@ -181,6 +181,47 @@ describe('horizontal orientation', () => {
   });
 });
 
+describe('extrema navigation', () => {
+  test('offers the highest and lowest estimate', () => {
+    // The estimates are what a reader compares across samples, so they are
+    // what "go to the extreme" has to mean. The bounds are a different
+    // question -- widest interval is not largest value -- and ranking both in
+    // one menu would leave the reader unable to tell which they jumped to.
+    const targets = at(MEANS, 1, 0).getExtremaTargets();
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toMatchObject({ type: 'max', value: 7.3, pointIndex: 2 });
+    expect(targets[1]).toMatchObject({ type: 'min', value: 4.2, pointIndex: 0 });
+  });
+
+  test('lands on the estimate row, not on a bound', () => {
+    // The base `navigateToExtrema` throws when `supportsExtrema` is set, so a
+    // trace advertising extrema without this is worse than one that does not.
+    // Starting from the upper bound proves the row is set rather than kept.
+    const trace = at(MEANS, 2, 0);
+    const [highest] = trace.getExtremaTargets();
+
+    trace.navigateToExtrema(highest);
+
+    const { text } = nonEmptyState(trace);
+    expect(text.section).toBe('value');
+    expect(text.cross.value).toBe(7.3);
+  });
+
+  test('offers one target when every estimate is equal', () => {
+    // Naming the same sample as both the highest and the lowest would report
+    // a spread the chart does not have.
+    const flat: ErrorBarPoint[] = [
+      { x: 'a', y: 5, yMin: 4, yMax: 6 },
+      { x: 'b', y: 5, yMin: 3, yMax: 7 },
+    ];
+    const targets = at(flat, 1, 0).getExtremaTargets();
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]).toMatchObject({ type: 'max', value: 5 });
+  });
+});
+
 describe('audio', () => {
   test('scales every section against one range', () => {
     // The bounds and the estimate are the same quantity on the same axis, so
