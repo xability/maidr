@@ -1112,6 +1112,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // the encoder is handed values and not a direction. `docs/BRAILLE.md`
       // says so, because a reader cannot tell from the dots alone.
       [TraceType.BUMP, asGeneric(new LineBrailleEncoder())],
+      // NOT the box encoder. That one renders five named sections at
+      // proportional widths, and a letter-value ladder has a variable number
+      // of rungs -- so it would either truncate a deep ladder or pad a
+      // shallow one into looking deeper than it is. The line encoder renders
+      // the ladder as the rising profile it is, whose steepness at the ends
+      // is the heavy tail a boxen exists to show. `docs/BRAILLE.md` says so.
+      [TraceType.BOXEN, asGeneric(new LineBrailleEncoder())],
       [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],
       // The virtual delta layer reuses the candlestick encoding: height maps
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.

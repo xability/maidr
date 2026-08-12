@@ -127,6 +127,40 @@ once and never has to make that choice.
 Hexbin plots use one line per lattice row on a multiline display, so the shape
 of the cloud can be felt at once rather than row by row.
 
+## Letter-value plot (boxen)
+
+One row per distribution, one cell per rung of its quantile ladder, every row
+scaled against the **chart's** range rather than its own.
+
+**Not the box plot encoding above.** That one renders five named sections at
+proportional widths, and a letter-value ladder has a variable number of rungs
+by design — a library adds them as the sample grows. A fixed-section glyph run
+would either truncate a deep ladder or pad a shallow one into looking deeper
+than it is, and depth is exactly the fact a boxen carries that a box plot
+cannot.
+
+So the row is the ladder itself, read in value order: deepest lower quantile,
+inward to the median, outward again to the deepest upper one. That makes the
+run of cells rise monotonically, and **its steepness is the reading**:
+
+```
+⣀⣀⠤⠒⠒⠉⠉    gentle throughout — a light-tailed sample
+⣀⠤⠤⠒⠒⠒⠉    steep at the ends — a heavy tail
+```
+
+Cells that climb gently through the middle and jump at the ends are a
+heavy-tailed distribution, which is the finding a boxen is drawn to make and
+the one a box plot's single whisker flattens into a number.
+
+Because every row shares the chart's scale, two distributions can be compared
+cell by cell — a row sitting entirely higher than another is a distribution
+shifted upward, not merely one with a different spread.
+
+### Multiline Displays
+
+Letter-value plots use one line per distribution on a multiline display, so
+several groups' tails can be compared with one sweep.
+
 ## Scatter plot
 
 In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.

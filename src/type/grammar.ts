@@ -275,6 +275,58 @@ export interface BoxPoint {
 }
 
 /**
+ * One rung of a letter-value ladder: a pair of quantiles symmetric about the
+ * median.
+ *
+ * `p` is the *tail* probability, which is how letter-value plots are defined
+ * and how the libraries that draw them report it: `p = 0.25` is the rung
+ * spanning the middle half, `p = 0.125` the middle three quarters, and so on
+ * inwards from the median. The trace converts it to percentiles for the
+ * announcement, because "the 12.5th percentile" is a number a reader can
+ * place and "p is 0.125" is one they have to convert.
+ */
+export interface LetterValueLevel {
+  /**
+   * Tail probability, strictly between 0 and 0.5.
+   *
+   * The median is carried separately on `BoxenPoint` and is not a rung, so
+   * `0.5` is out of range rather than a way of naming it: a rung at `0.5`
+   * would put two positions labelled `50th percentile` either side of the one
+   * already called `median`. Values outside the range are dropped.
+   */
+  p: number;
+  /** The lower quantile of the pair: the `p` quantile. */
+  lo: number;
+  /** The upper quantile of the pair: the `1 - p` quantile. */
+  hi: number;
+}
+
+/**
+ * One boxen (letter-value) plot: a median, a ladder of quantile pairs around
+ * it, and whatever fell outside the deepest rung.
+ *
+ * A box plot's five-number summary is this shape with exactly one rung, and
+ * that fixed depth is the reason it cannot express a boxen: the point of a
+ * letter-value plot is that a large sample gets *more* rungs, so the tails
+ * stay legible instead of collapsing into a whisker and a scatter of dots.
+ */
+export interface BoxenPoint {
+  /** The category this boxen summarises. */
+  z: string;
+  /** The middle of the distribution. */
+  median: number;
+  /**
+   * The rungs, which the trace sorts outward from the median rather than
+   * trusting the order they arrive in -- a producer emitting them
+   * inward-first would otherwise be navigated backwards.
+   */
+  levels: LetterValueLevel[];
+  /** Values beyond the deepest rung, below it and above it. */
+  lowerOutliers?: number[];
+  upperOutliers?: number[];
+}
+
+/**
  * DOM selectors for boxplot visual elements.
  */
 export interface BoxSelector {
@@ -855,6 +907,7 @@ export interface MaidrLayer {
   data:
     | BarPoint[]
     | BoxPoint[]
+    | BoxenPoint[]
     | CandlestickPoint[]
     | DumbbellData
     | ErrorBarPoint[]
@@ -909,6 +962,15 @@ export enum TraceType {
    */
   BUMP = 'bump',
   BOX = 'box',
+  /**
+   * A letter-value plot: the box plot's five-number summary generalised to a
+   * variable-depth ladder of quantiles, so a large sample's tails stay
+   * legible. Navigated as a box plot is -- one distribution per row, its
+   * summary values walked along the other axis -- with the ladder read
+   * outward from the median in value order, and each rung announced as the
+   * percentile it actually is.
+   */
+  BOXEN = 'boxen',
   CANDLESTICK = 'candlestick',
   /**
    * Virtual layer comparing candlestick OHLC fields against a reference

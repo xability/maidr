@@ -4,6 +4,7 @@ import { TraceType } from '@type/grammar';
 import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
+import { BoxenTrace } from './boxen';
 import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
 import { DivergingTrace } from './diverging';
@@ -56,6 +57,8 @@ export abstract class TraceFactory {
 
       case TraceType.BUMP:
         return new BumpTrace(layer);
+      case TraceType.BOXEN:
+        return new BoxenTrace(layer);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);

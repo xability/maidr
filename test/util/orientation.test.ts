@@ -6,6 +6,9 @@ describe('resolveOrientation', () => {
   const orientedTypes = [
     TraceType.BAR,
     TraceType.BOX,
+    // The distributions run along one axis and their quantiles along the
+    // other, the same as a box plot.
+    TraceType.BOXEN,
     TraceType.CANDLESTICK,
     // A pyramid is drawn with its categories down the page and a Likert chart
     // with them across it, and the sides grow along the other axis either way.
