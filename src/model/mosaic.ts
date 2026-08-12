@@ -98,11 +98,19 @@ export class MosaicTrace extends SegmentedTrace {
     const base = super.text;
     const state: TextState = { ...base };
 
+    // Both of these sit on neither axis -- a share of the whole chart and a
+    // tally -- so they travel as asides. `section` fuses onto the cross-axis
+    // label whenever `z` is set, and a segmented trace always sets `z`, so a
+    // share put there read "15.0% of all Proportion is 0.62": the proportion
+    // announced as though it were the share. `stack` would have been
+    // formatted with the cross axis's own format, so a percent format
+    // declared for a proportion axis would announce a count of 203 as
+    // "20300.0%".
+    const asides: { label: string; value: string }[] = [];
+
     const width = this.widths[this.col];
     if (Number.isFinite(width)) {
-      // Read ahead of the axis label, which is where a sighted reader takes
-      // it from: the column's width is the first thing about it they see.
-      state.section = `${asPercent(width)} of all`;
+      asides.push({ label: 'Share of all', value: asPercent(width) });
     }
 
     // The summary row the segmented bar appends is a column total, not a
@@ -111,7 +119,11 @@ export class MosaicTrace extends SegmentedTrace {
     const cell = this.cells[this.row]?.[this.col];
     if (!isSummaryRow && typeof cell?.count === 'number'
       && Number.isFinite(cell.count)) {
-      state.stack = { label: 'Count', value: cell.count };
+      asides.push({ label: 'Count', value: String(cell.count) });
+    }
+
+    if (asides.length > 0) {
+      state.asides = asides;
     }
 
     return state;
@@ -196,13 +208,19 @@ export class MosaicTrace extends SegmentedTrace {
    * @returns The total, or null when the table carries no counts
    */
   private grandTotal(): number | null {
-    let total: number | null = null;
+    let total = 0;
     for (let col = 0; col < this.widths.length; col++) {
       const column = this.countAt(col);
-      if (column !== null) {
-        total = (total ?? 0) + column;
+      if (column === null) {
+        // A column with no counts makes the sum a partial one, and a partial
+        // sum announced as "Total observations" is a number the reader will
+        // take for the size of the table. Silence is the honest answer:
+        // counts are an all-or-nothing property of having the contingency
+        // table the chart was drawn from.
+        return null;
       }
+      total += column;
     }
-    return total;
+    return this.widths.length > 0 ? total : null;
   }
 }

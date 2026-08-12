@@ -101,14 +101,17 @@ describe('the width is data, not layout', () => {
   test('announces the column share alongside the segment', () => {
     // The number a reader cannot get any other way, and without which a
     // category of six and one of six hundred read identically.
-    expect(nonEmptyState(mosaic(0, 0)).text.section).toBe('15.0% of all');
-    expect(nonEmptyState(mosaic(0, 2)).text.section).toBe('32.0% of all');
+    expect(nonEmptyState(mosaic(0, 0)).text.asides)
+      .toContainEqual({ label: 'Share of all', value: '15.0%' });
+    expect(nonEmptyState(mosaic(0, 2)).text.asides)
+      .toContainEqual({ label: 'Share of all', value: '32.0%' });
   });
 
   test('announces the same share on every segment of a column', () => {
     // The width belongs to the column, so a reader who arrives at the second
     // segment has not lost it.
-    expect(nonEmptyState(mosaic(1, 2)).text.section).toBe('32.0% of all');
+    expect(nonEmptyState(mosaic(1, 2)).text.asides)
+      .toContainEqual({ label: 'Share of all', value: '32.0%' });
   });
 
   test('reads the share from whichever segment declares it', () => {
@@ -119,7 +122,8 @@ describe('the width is data, not layout', () => {
       [{ x: 'A', y: 0.4, z: 'No' }],
     ];
 
-    expect(nonEmptyState(mosaic(1, 0, sparse)).text.section).toBe('70.0% of all');
+    expect(nonEmptyState(mosaic(1, 0, sparse)).text.asides)
+      .toContainEqual({ label: 'Share of all', value: '70.0%' });
   });
 
   test('says nothing when the layer declares no width', () => {
@@ -130,14 +134,14 @@ describe('the width is data, not layout', () => {
       [{ x: 'A', y: 0.4, z: 'No' }],
     ];
 
-    expect(nonEmptyState(mosaic(0, 0, bare)).text.section).toBeUndefined();
+    expect(nonEmptyState(mosaic(0, 0, bare)).text.asides).toBeUndefined();
   });
 });
 
 describe('the cell count travels when the table has one', () => {
   test('announces it on a cell', () => {
-    expect(nonEmptyState(mosaic(1, 2)).text.stack)
-      .toEqual({ label: 'Count', value: 528 });
+    expect(nonEmptyState(mosaic(1, 2)).text.asides)
+      .toContainEqual({ label: 'Count', value: '528' });
   });
 
   test('says nothing on the summary row', () => {
@@ -146,8 +150,8 @@ describe('the cell count travels when the table has one', () => {
     // column is the same column.
     const summary = nonEmptyState(mosaic(2, 2));
 
-    expect(summary.text.stack).toBeUndefined();
-    expect(summary.text.section).toBe('32.0% of all');
+    expect(summary.text.asides)
+      .toEqual([{ label: 'Share of all', value: '32.0%' }]);
   });
 
   test('says nothing when the producer works from proportions', () => {
@@ -156,7 +160,8 @@ describe('the cell count travels when the table has one', () => {
       [{ x: 'A', y: 0.4, z: 'No', width: 0.5 }],
     ];
 
-    expect(nonEmptyState(mosaic(0, 0, bare)).text.stack).toBeUndefined();
+    expect(nonEmptyState(mosaic(0, 0, bare)).text.asides)
+      .toEqual([{ label: 'Share of all', value: '50.0%' }]);
   });
 });
 
@@ -190,6 +195,24 @@ describe('the description reports the marginal distribution', () => {
 
     expect(stats.find(stat => stat.label === 'Total observations')?.value)
       .toBe(1316);
+  });
+
+  test('withholds the total when only some columns carry counts', () => {
+    // A partial sum announced as "Total observations" is a number the reader
+    // will take for the size of the table.
+    const partial: MosaicPoint[][] = [
+      [
+        { x: 'A', y: 0.6, z: 'Yes', width: 0.5, count: 30 },
+        { x: 'B', y: 0.4, z: 'Yes', width: 0.5 },
+      ],
+      [
+        { x: 'A', y: 0.4, z: 'No', width: 0.5, count: 20 },
+        { x: 'B', y: 0.6, z: 'No', width: 0.5 },
+      ],
+    ];
+
+    expect(mosaic(0, 0, partial).description.stats
+      .find(stat => stat.label === 'Total observations')).toBeUndefined();
   });
 
   test('names the categories the way the chart is drawn', () => {

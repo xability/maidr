@@ -94,15 +94,19 @@ test.describe('Mosaic plot', () => {
     expect(first?.width).toBeLessThan(Number(third?.width));
   });
 
-  test('should announce the column share alongside the segment', async ({ page }) => {
+  test('should announce the column share as its own fact', async ({ page }) => {
+    // Asserted as the whole sentence rather than as a substring. A `toContain`
+    // on the percentage was true of the earlier, fused reading too --
+    // "15.0% of all Proportion is 0.62" contains it and says the proportion
+    // *is* the share, which is the ambiguity this trace exists to remove.
     const plot = new MosaicPlotPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
 
-    const announcement = normalizeText(await plot.getInstructionText());
-
-    expect(announcement).toContain('First');
-    expect(announcement).toContain('15.0% of all');
+    expect(normalizeText(await plot.getInstructionText())).toBe(
+      'Class is First, Proportion is 0.62, Outcome is Survived, '
+      + 'Share of all is 15.0%, Count is 203',
+    );
   });
 
   test('should render one braille row per series plus the total', async ({ page }) => {
