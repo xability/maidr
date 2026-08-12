@@ -107,12 +107,22 @@ jobs:
       # Pinned by version and checksum rather than piping the upstream install
       # script into bash, so a new actionlint release cannot turn an unrelated
       # PR red and the download is verified rather than trusted.
+      #
+      # `--fail` matters as much as the checksum does. Without it curl writes
+      # whatever the server returned -- an error page, a truncated body -- into
+      # the file and exits zero, and the *checksum* is then what fails. That
+      # reports a transient download problem as a hash mismatch on a pinned
+      # release, which is indistinguishable from the supply-chain attack this
+      # pinning exists to catch. `--retry-all-errors` covers the transient case
+      # so it stops reaching the checksum at all.
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: 1.7.7
           ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
         run: |
-          curl -sSLo actionlint.tar.gz \
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            --output actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum --check
           tar xzf actionlint.tar.gz actionlint
