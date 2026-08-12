@@ -928,6 +928,14 @@ export enum TraceType {
    * sweep left to right with the axis, so later is audibly later.
    */
   GANTT = 'gantt',
+  /**
+   * A population shrinking across ordered stages. Navigated as a
+   * {@link TraceType.BAR} layer is, with the one difference that decides
+   * whether the chart is readable: the number a reader wants is the
+   * **retention** between adjacent stages, not the count, so that is what the
+   * pitch carries. The counts are announced alongside it.
+   */
+  FUNNEL = 'funnel',
   GAUGE = 'gauge',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',

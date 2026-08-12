@@ -44,6 +44,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // bar or a box is oriented. A timeline drawn down the page is the ordinary
   // alternative, not an exotic one.
   [TraceType.GANTT]: true,
+  // A funnel is drawn top to bottom as often as left to right, and the stages
+  // run along one axis with the counts on the other either way -- so which
+  // axis a bar's length lies on depends on how it was drawn, exactly as it
+  // does for the bar chart this extends.
+  [TraceType.FUNNEL]: true,
   // One measure on a dial. There is no second axis for it to be read against,
   // so there is nothing an orientation could swap.
   [TraceType.GAUGE]: false,
