@@ -29,6 +29,7 @@ import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 import { StepTrace } from './step';
 import { SurvivalTrace } from './survival';
+import { TreemapTrace } from './treemap';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
 import { VolcanoTrace } from './volcano';
@@ -145,6 +146,9 @@ export abstract class TraceFactory {
 
       case TraceType.STEP:
         return new StepTrace(layer);
+
+      case TraceType.TREEMAP:
+        return new TreemapTrace(layer);
 
       case TraceType.WATERFALL:
         return new WaterfallTrace(layer);

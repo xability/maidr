@@ -739,6 +739,44 @@ export interface ContourPoint extends LinePoint {
 }
 
 /**
+ * One node of a treemap, or of any other hierarchy drawn as area.
+ *
+ * The hierarchy is declared as a **path** rather than as a parent pointer. A
+ * path is acyclic by construction and cannot dangle: there is no id to point
+ * at a node that was never emitted, and no way to author a cycle. Every
+ * producer has one -- a `d3.hierarchy` walk yields it directly, and Plotly's
+ * `labels`/`parents` pair resolves to it -- and it doubles as the breadcrumb
+ * the reader is told when they are several levels down.
+ *
+ * Interior nodes need not be declared. A layer emitting only its leaves --
+ * which is what a treemap draws -- gets its interior nodes and their totals
+ * derived from the paths.
+ *
+ * @example
+ * // A leaf three levels down, with its two ancestors named.
+ * { x: 'France', y: 67.4, path: ['World', 'Europe'] }
+ */
+export interface TreemapPoint {
+  /** What the node is called. Unique among its siblings, not chart-wide. */
+  x: string | number;
+  /**
+   * The node's magnitude.
+   *
+   * Omitted for an interior node whose value is the sum of its children,
+   * which is the ordinary case. A declared value is kept even where it
+   * disagrees with that sum: a parent may carry mass no child accounts for,
+   * and overwriting it would be inventing data.
+   */
+  y?: number;
+  /**
+   * The node's ancestors, root first, **excluding the node itself**.
+   *
+   * A top-level node omits it or declares `[]`.
+   */
+  path?: (string | number)[];
+}
+
+/**
  * Data point for one slice of a pie chart.
  *
  * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
@@ -1120,6 +1158,7 @@ export interface MaidrLayer {
     | ContourPoint[][]
     | StepPoint[][]
     | SurvivalPoint[][]
+    | TreemapPoint[]
     | ViolinKdePoint[][]
     | WaterfallPoint[]
     | WordCloudPoint[];
@@ -1332,6 +1371,13 @@ export enum TraceType {
    */
   STACKED_AREA = 'stacked_area',
   STEP = 'step',
+  /**
+   * A hierarchy drawn as nested rectangles whose area is a magnitude. It is
+   * the first trace type that is not a flat grid: a node's address is its
+   * depth and its position within that depth, and the arrow keys move between
+   * parent, child and sibling rather than along rows and columns.
+   */
+  TREEMAP = 'treemap',
   /**
    * A Kaplan-Meier survival curve: the probability of surviving past each
    * time, dropping in steps as events occur. Read as a {@link TraceType.STEP}

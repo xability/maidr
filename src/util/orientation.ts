@@ -117,6 +117,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // there is no main and cross axis to swap -- the answer a step chart
   // already gives, and this is one.
   [TraceType.SURVIVAL]: false,
+  // A tree has no axis to run along: a node sits inside its parent, and
+  // there is no reading of the chart in which that is drawn sideways.
+  [TraceType.TREEMAP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,
   // The steps run along the category axis and the contributions along the
