@@ -196,8 +196,14 @@ export class SurvivalTrace extends StepTrace {
     if (separation !== null) {
       // Whether the arms end apart, which is what a two-arm survival figure
       // is drawn to show and what a reader cannot assemble by ear without
-      // holding one curve's last value while walking the other.
-      stats.push({ label: 'Separation at the last shared time', value: separation });
+      // holding one curve's last value while walking the other. The time is
+      // named, because it is the end of the *shorter* arm's follow-up rather
+      // than the end of the chart, and a reader told only a number would
+      // reasonably assume otherwise.
+      stats.push({
+        label: 'Separation at the end of shared follow-up',
+        value: `${separation.gap} at ${separation.at}`,
+      });
     }
 
     return { ...base, stats };
@@ -238,29 +244,45 @@ export class SurvivalTrace extends StepTrace {
   }
 
   /**
-   * The gap between the highest and lowest arm at the last time they share.
+   * The gap between the highest and lowest arm at the end of shared
+   * follow-up.
    *
-   * Answers null for a single-arm chart, where there is nothing to separate,
-   * and when the arms have no common time to compare at.
+   * The time is the earliest last-observation across the arms: past it, one
+   * arm has no curve, so there is nothing to compare. Each arm's survival
+   * there is read the way a step function is read -- the value carried
+   * forward from its last point at or before that time -- rather than by
+   * lining the arms up by index.
    *
-   * @returns The separation, or null when there is none to report
+   * Index alignment is what this did first, and it is wrong for the ordinary
+   * case rather than an exotic one: independently fitted arms land on
+   * different event and censoring grids, so `arm[i]` of one is simply a
+   * different time from `arm[i]` of the other. It reported a gap measured
+   * across two different months under a label saying it was one.
+   *
+   * @returns The separation and the time it was measured at, or null when
+   *   there is none to report
    */
-  private separationAtEnd(): number | null {
+  private separationAtEnd(): { gap: number; at: number } | null {
     if (this.survivalPoints.length < 2) {
       return null;
     }
 
-    const shortest = this.survivalPoints.reduce(
-      (fewest, arm) => Math.min(fewest, arm.length),
-      Number.POSITIVE_INFINITY,
-    );
-    if (!Number.isFinite(shortest) || shortest === 0) {
+    // A time axis a survival curve can be read along has to be ordered, so a
+    // categorical x is answered with silence rather than a guess.
+    const lasts = this.survivalPoints.map((arm) => {
+      const times = arm.map(point => Number(point.x)).filter(Number.isFinite);
+      return times.length === arm.length && times.length > 0
+        ? Math.max(...times)
+        : null;
+    });
+    if (lasts.includes(null)) {
       return null;
     }
 
+    const at = Math.min(...(lasts as number[]));
     const atEnd = this.survivalPoints
-      .map(arm => arm[shortest - 1]?.y)
-      .filter((value): value is number => Number.isFinite(value));
+      .map(arm => SurvivalTrace.survivalAt(arm, at))
+      .filter((value): value is number => value !== null);
     if (atEnd.length < 2) {
       return null;
     }
@@ -268,6 +290,32 @@ export class SurvivalTrace extends StepTrace {
     // Trimmed, because the gap is a subtraction: 0.82 - 0.61 is
     // 0.20999999999999996 in IEEE 754, and announcing that spells out
     // sixteen digits of an artifact the chart does not contain.
-    return Number((Math.max(...atEnd) - Math.min(...atEnd)).toPrecision(12));
+    const gap = Number((Math.max(...atEnd) - Math.min(...atEnd)).toPrecision(12));
+    return { gap, at };
+  }
+
+  /**
+   * An arm's survival at a time, read as a step function.
+   *
+   * The curve holds its value between points, so the survival at a time is
+   * the one carried forward from the last point at or before it -- which is
+   * what makes two arms comparable at a time neither of them sampled.
+   *
+   * @param arm - The curve to read
+   * @param time - The time to read it at
+   * @returns The survival, or null when the curve starts after that time
+   */
+  private static survivalAt(arm: readonly SurvivalPoint[], time: number): number | null {
+    let held: number | null = null;
+    for (const point of arm) {
+      const x = Number(point.x);
+      if (!Number.isFinite(x) || x > time) {
+        break;
+      }
+      if (Number.isFinite(point.y)) {
+        held = point.y;
+      }
+    }
+    return held;
   }
 }

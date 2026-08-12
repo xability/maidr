@@ -191,13 +191,57 @@ describe('the description reports what the figure is quoted by', () => {
   });
 
   test('reports the gap between the arms at the end', () => {
-    // 0.79 against 0.41. What a two-arm survival figure is drawn to show,
-    // and what a reader cannot assemble by ear without holding one curve's
-    // last value while walking the other.
+    // 0.79 against 0.41 at month 18. What a two-arm survival figure is drawn
+    // to show, and what a reader cannot assemble by ear without holding one
+    // curve's last value while walking the other.
     const stats = survival().description.stats;
 
-    expect(stats.find(stat => stat.label === 'Separation at the last shared time')
-      ?.value).toBe(0.38);
+    expect(stats
+      .find(stat => stat.label === 'Separation at the end of shared follow-up')
+      ?.value).toBe('0.38 at 12');
+  });
+
+  test('compares the arms at a time, not at an index', () => {
+    // Independently fitted arms land on different event and censoring grids,
+    // so `arm[i]` of one is a different time from `arm[i]` of the other.
+    // Aligned by index this compared Control at month 5 against Treatment at
+    // month 7 and announced the gap as though it were one time.
+    //
+    // Shared follow-up ends at month 7. Control has a point at month 6, so
+    // reading it as a step function gives 0.6 there; index 2 of Control is
+    // month 5, which gives 0.7 -- and month 5 is not month 7.
+    const uneven: SurvivalPoint[][] = [
+      [
+        { x: 0, y: 1.0, z: 'Control' },
+        { x: 2, y: 0.9, z: 'Control' },
+        { x: 5, y: 0.7, z: 'Control' },
+        { x: 6, y: 0.6, z: 'Control' },
+        { x: 9, y: 0.4, z: 'Control' },
+        { x: 14, y: 0.2, z: 'Control' },
+      ],
+      [
+        { x: 0, y: 1.0, z: 'Treatment' },
+        { x: 3, y: 0.95, z: 'Treatment' },
+        { x: 7, y: 0.85, z: 'Treatment' },
+      ],
+    ];
+
+    // 0.85 against 0.60. Aligned by index it reads 0.15, comparing month 5
+    // against month 7.
+    expect(survival(0, 0, uneven).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.25 at 7');
+  });
+
+  test('says nothing when the times cannot be ordered', () => {
+    // A categorical x has no "end of follow-up" to read at, and guessing one
+    // would announce a gap measured somewhere the reader cannot name.
+    const categorical: SurvivalPoint[][] = [
+      [{ x: 'early', y: 1.0, z: 'A' }, { x: 'late', y: 0.5, z: 'A' }],
+      [{ x: 'early', y: 1.0, z: 'B' }, { x: 'late', y: 0.8, z: 'B' }],
+    ];
+
+    expect(survival(0, 0, categorical).description.stats
+      .find(stat => stat.label === 'Separation at the end of shared follow-up'))
+      .toBeUndefined();
   });
 
   test('reports no separation for a single arm', () => {
@@ -206,7 +250,7 @@ describe('the description reports what the figure is quoted by', () => {
     ];
 
     expect(survival(0, 0, alone).description.stats
-      .find(stat => stat.label === 'Separation at the last shared time'))
+      .find(stat => stat.label === 'Separation at the end of shared follow-up'))
       .toBeUndefined();
   });
 });
