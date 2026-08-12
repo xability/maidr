@@ -794,6 +794,42 @@ Contours use one line per level on a multiline display, which is the case where
 braille gives back what the announcement carries: two fingers on adjacent rows
 feel exactly where the curves crowd together and where they open out.
 
+## Treemap
+
+One row per **level** of the tree, one cell per node at that level, each row
+scaled against its own level.
+
+That scaling is the whole reason the display says anything. A tree's
+magnitudes fall by an order of magnitude per level, so a single scale across
+the chart would put every leaf on the floor of a range topped by the root and
+render the level a reader is actually walking as a flat line of empty cells.
+
+**The tree has no representation, and this is the modality's real limit.** A
+row is a sequence of cells; a level is a set of siblings belonging to
+different parents. Nothing in the dots says where one parent's children end
+and the next parent's begin, so two cells that feel adjacent may be in
+different branches. A reader relying on the display alone would read a level
+as one run of magnitudes, which is exactly the flat reading the trace exists
+to replace.
+
+So the shape is the display's contribution and the structure is the
+announcement's: every move names the node, its share of its parent, and its
+child count, and the arrow keys refuse to cross a parent boundary. The display
+shows a level's distribution; it does not show whose children they are.
+
+```
+Level   Cells
+0       ⣿⠆⠂
+1       ⣶⣿⠒⠂⠂⠂⠒⠂⠂⠂
+```
+
+### Multiline Displays
+
+Treemaps use one line per level. Two fingers on adjacent rows sit on a level
+and the level below it, which is where the parent-child relation is at least
+felt as a magnitude split into parts -- though still without the boundary that
+says which parts belong to which whole.
+
 ## Volcano and Manhattan
 
 The scatter encoding, unchanged — these are scatters, and their points carry

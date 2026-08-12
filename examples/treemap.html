@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Treemap Example — World Population</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A treemap encodes a hierarchy as nested rectangles whose area is a
+        magnitude. It is the first MAIDR trace that is not a flat grid.
+
+        THE TREE NAVIGATES AS A TREE, on the arrow keys that already exist.
+        Up returns to the parent, down enters the first child, left and right
+        walk the siblings -- the file-manager interaction, which is the one a
+        reader already has. Right from Japan does not step into Nigeria: they
+        are adjacent in the address space and belong to different continents,
+        and the tree is what says they are not neighbours.
+
+        THIS IS A CHART A NON-VISUAL READING CAN DO BETTER. Comparing areas by
+        eye is the standing criticism of the form; a reader walking the tree is
+        told each node's exact share of its parent, which is the comparison the
+        rectangles are drawn to support.
+
+        ONLY THE LEAVES ARE DECLARED HERE. Asia, Africa and Europe are not in
+        the data at all -- they are derived from the paths, and their totals
+        from their children, because a treemap draws its leaves and a producer
+        emitting only them is the ordinary case.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="400pt" viewBox="0 0 720 400" version="1.1"
+        id="treemap-population" maidr='{&#10;  &quot;id&quot;: &quot;treemap-population&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;treemap-population-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;treemap-population-layer&quot;,&#10;            &quot;type&quot;: &quot;treemap&quot;,&#10;            &quot;title&quot;: &quot;World population by region&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Region&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Population, millions&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;rect[id=&#x27;node-0&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-1&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-2&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-3&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-4&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-5&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-6&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-7&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-8&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-9&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;China&quot;,&#10;                &quot;y&quot;: 1425,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;India&quot;,&#10;                &quot;y&quot;: 1428,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Indonesia&quot;,&#10;                &quot;y&quot;: 278,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Japan&quot;,&#10;                &quot;y&quot;: 124,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Nigeria&quot;,&#10;                &quot;y&quot;: 224,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Ethiopia&quot;,&#10;                &quot;y&quot;: 127,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Egypt&quot;,&#10;                &quot;y&quot;: 113,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Russia&quot;,&#10;                &quot;y&quot;: 144,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Germany&quot;,&#10;                &quot;y&quot;: 83,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;France&quot;,&#10;                &quot;y&quot;: 68,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 400  L 720 400  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <rect id="node-0" x="40" y="30" width="535" height="149" style="fill: #2f6fa8; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-1" x="40" y="179" width="535" height="149" style="fill: #2f6fa8cc; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-2" x="40" y="328" width="535" height="29" style="fill: #2f6fa8aa; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-3" x="40" y="357" width="535" height="13" style="fill: #2f6fa888; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-4" x="575" y="30" width="76" height="164" style="fill: #a8522f; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-5" x="575" y="194" width="76" height="93" style="fill: #a8522fcc; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-6" x="575" y="287" width="76" height="83" style="fill: #a8522faa; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-7" x="651" y="30" width="48" height="166" style="fill: #3f7f4f; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-8" x="651" y="196" width="48" height="96" style="fill: #3f7f4fcc; stroke: #ffffff; stroke-width: 2" />
+          <rect id="node-9" x="651" y="292" width="48" height="78" style="fill: #3f7f4faa; stroke: #ffffff; stroke-width: 2" />
+          <text x="308" y="104" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">China</text>
+          <text x="308" y="254" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">India</text>
+          <text x="613" y="112" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">Nigeria</text>
+          <text x="613" y="240" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">Ethiopia</text>
+          <text x="613" y="328" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">Egypt</text>
+          <text x="675" y="113" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">Russia</text>
+          <text x="675" y="244" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">Germany</text>
+          <text x="675" y="331" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">France</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
