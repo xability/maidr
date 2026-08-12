@@ -244,6 +244,88 @@ describe('braille is a length profile, one row per lane', () => {
   });
 });
 
+describe('a lane with nothing booked is enterable, not a crash', () => {
+  /** Two lanes, the second holding nothing, and named so it can say so. */
+  const WITH_EMPTY: GanttPoint[][] = [
+    [{ x: 'Design', start: 0, end: 30, label: 'Wireframes' }],
+    [],
+  ];
+
+  test('arrowing onto it produces a state rather than throwing', () => {
+    // The data shape is nested precisely so an empty lane exists, and
+    // `MovableGrid` bounds-checks the row count without checking that the
+    // destination row has any columns -- so the cursor lands on a column that
+    // is not there and every getter indexing it blindly throws. The whole
+    // state push goes with it: audio, braille and highlight are computed in
+    // the same object literal as the text.
+    const trace = gantt(0, 0, WITH_EMPTY);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(() => trace.state).not.toThrow();
+  });
+
+  test('says the lane is empty rather than that the chart has ended', () => {
+    // Borrowing the out-of-bounds cue would tell a reader they had left the
+    // chart when they have not: the lane is a real row of the schedule and
+    // its emptiness is the data.
+    const trace = gantt(0, 0, WITH_EMPTY);
+    trace.moveOnce('UPWARD');
+    const state = nonEmptyState(trace);
+
+    expect(state.empty).toBe(false);
+    expect(state.text.z).toEqual({ label: 'Intervals', value: 0 });
+  });
+
+  test('has no length to pitch, so it sounds like a gap', () => {
+    // `NaN` is how this codebase says "the point exists to navigate to, it
+    // just has no value". A number here would put a length on a lane that
+    // holds none.
+    const trace = gantt(0, 0, WITH_EMPTY);
+    trace.moveOnce('UPWARD');
+
+    expect(Number.isNaN(Number(nonEmptyState(trace).audio.freq.raw))).toBe(true);
+  });
+
+  test('names itself from the declared lane names', () => {
+    // A populated lane names itself from its intervals' `x`. An empty lane
+    // holds no interval and so has nowhere to carry one -- which is why the
+    // layer can declare them.
+    const trace = TraceFactory.create({
+      id: 'l',
+      type: TraceType.GANTT,
+      title: 'Project schedule',
+      axes: { x: { label: 'Task' }, y: { label: 'Day' } },
+      data: { points: WITH_EMPTY, unit: 'days', lanes: ['Design', 'Launch'] },
+    }) as GanttTrace;
+    trace.moveToIndex(0, 0);
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Launch');
+  });
+
+  test('names an undeclared empty lane positionally rather than nothing', () => {
+    const trace = gantt(0, 0, WITH_EMPTY);
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Lane 2');
+  });
+
+  test('a declared name never overrides a lane that names itself', () => {
+    // Both present is the ordinary case for a chart with one empty lane, and
+    // a producer must not be able to make them disagree.
+    const trace = TraceFactory.create({
+      id: 'l',
+      type: TraceType.GANTT,
+      title: 'Project schedule',
+      axes: { x: { label: 'Task' }, y: { label: 'Day' } },
+      data: { points: WITH_EMPTY, lanes: ['WRONG', 'Launch'] },
+    }) as GanttTrace;
+    trace.moveToIndex(0, 0);
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Design, Wireframes');
+  });
+});
+
 describe('the description says what a schedule is', () => {
   test('counts lanes and intervals separately', () => {
     const stats = gantt().description.stats;

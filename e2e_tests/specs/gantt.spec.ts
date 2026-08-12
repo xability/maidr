@@ -114,6 +114,27 @@ test.describe('Gantt', () => {
     expect(announcement).toContain('30 days');
   });
 
+  test('should let a reader arrow onto the empty lane and be told so', async ({ page }) => {
+    // The shipped example's `Launch` lane is empty on purpose, and it is
+    // reached by ordinary arrow keys. Reading the payload does not exercise
+    // that path -- only pressing the key does, which is why this goes through
+    // the keyboard rather than through `extractMaidrData`.
+    const plot = new GanttPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    // Lane 0 is the bottom row, so UP walks towards `Launch`, three lanes up.
+    for (let lane = 0; lane < 3; lane++) {
+      await plot.moveToDataPointAbove();
+    }
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Launch');
+    expect(announcement).toContain('Intervals is 0');
+    // Not the boundary cue: the lane is a real row of the schedule.
+    expect(announcement).not.toContain('No more data');
+  });
+
   test('should render one braille row per lane', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

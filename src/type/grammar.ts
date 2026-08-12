@@ -503,6 +503,22 @@ export interface GanttData {
    */
   points: GanttPoint[][];
   /**
+   * What each lane is called, in the order {@link GanttData.points} holds
+   * them.
+   *
+   * A populated lane names itself: every interval carries its lane in `x`. An
+   * **empty** lane holds no interval and so has nowhere to carry one, which
+   * makes it the only row a reader can navigate onto and be told nothing
+   * about -- and an empty lane is exactly the row this shape is nested to be
+   * able to express. This is where its name goes.
+   *
+   * Optional, and optional per entry: a chart with no empty lanes need not
+   * supply it, and the trace prefers a lane's own intervals over this when
+   * both are present, so a producer cannot make the two disagree about a
+   * populated lane.
+   */
+  lanes?: (string | number)[];
+  /**
    * What a unit of the axis is called: "days", "hours", "weeks".
    *
    * The length of an interval is the fact a gantt exists to carry, and a bare

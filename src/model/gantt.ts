@@ -63,6 +63,7 @@ export class GanttTrace extends AbstractTrace {
   private readonly lanes: GanttPoint[][];
   private readonly lengths: number[][];
   private readonly unit?: string;
+  private readonly laneNames: (string | number)[];
   private readonly orientation: Orientation;
 
   /** The axis extent, taken from the intervals rather than from the layer. */
@@ -87,6 +88,7 @@ export class GanttTrace extends AbstractTrace {
     const data = layer.data as GanttData;
     this.lanes = data.points;
     this.unit = data.unit?.trim() || undefined;
+    this.laneNames = data.lanes ?? [];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.lengths = this.lanes.map(lane => lane.map(lengthOf));
@@ -162,7 +164,12 @@ export class GanttTrace extends AbstractTrace {
         // make a two-day task in an empty lane sound like a six-month one.
         min: this.min,
         max: this.max,
-        raw: this.lengths[this.row][this.col],
+        // An empty lane has no length to pitch. `NaN` is how this codebase
+        // already says "the point exists to navigate to, it just has no
+        // value" -- `AudioService` sounds it the way an out-of-bounds move
+        // sounds, and the text layer announces it as missing. Reaching for a
+        // number here instead would put a length on a lane that holds none.
+        raw: this.lengths[this.row]?.[this.col] ?? Number.NaN,
       },
       // `AudioService` reads the pan as `interpolate(x, 0, cols - 1, -1, 1)`,
       // so `cols: 2` makes the mapping `2x - 1` and a fraction of the axis
@@ -188,6 +195,27 @@ export class GanttTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * What a lane is called.
+   *
+   * Prefers the lane's own intervals, which every populated lane carries in
+   * `x`, and falls back to the declared {@link GanttData.lanes} -- so a
+   * producer supplying both cannot make them disagree about a lane that names
+   * itself. A lane that is empty *and* undeclared is named positionally,
+   * because a row a reader can navigate onto has to be identifiable even when
+   * the chart said nothing about it.
+   *
+   * @param row - Which lane
+   * @returns Its name
+   */
+  private laneNameAt(row: number): string | number {
+    const own = this.lanes[row]?.[0]?.x;
+    if (own !== undefined) {
+      return own;
+    }
+    return this.laneNames[row] ?? `Lane ${row + 1}`;
+  }
+
   protected get braille(): BrailleState {
     // The lengths, one row per lane -- the same magnitude the pitch carries.
     //
@@ -209,13 +237,30 @@ export class GanttTrace extends AbstractTrace {
   }
 
   protected get text(): TextState {
-    const point = this.lanes[this.row][this.col];
-    const length = this.lengths[this.row][this.col];
+    const point = this.lanes[this.row]?.[this.col];
+    const length = this.lengths[this.row]?.[this.col];
     // A gantt drawn the ordinary way runs its bars left to right, which puts
     // the axis on x and the lanes on y -- the opposite of the default. The
     // grid stays lanes-by-intervals either way, so the swap belongs here
     // rather than in the navigation, exactly as it does for a dumbbell.
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const mainLabel = isHorizontal ? this.yAxis : this.xAxis;
+    const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
+
+    if (point === undefined || length === undefined) {
+      // A lane with nothing booked. It is reachable on purpose -- the data
+      // shape is nested precisely so such a lane exists -- so it has to
+      // announce what it is rather than crash on an index that is not there,
+      // and rather than borrow the out-of-bounds cue, which would tell a
+      // reader they had left the chart when they have not.
+      return {
+        main: { label: mainLabel, value: this.laneNameAt(this.row) },
+        cross: { label: crossLabel, value: Number.NaN },
+        z: { label: 'Intervals', value: 0 },
+        mainAxis: isHorizontal ? 'y' : 'x',
+        crossAxis: isHorizontal ? 'x' : 'y',
+      };
+    }
 
     return {
       // The lane, and the interval's own name when it has one. A lane commonly
@@ -223,15 +268,12 @@ export class GanttTrace extends AbstractTrace {
       // by position alone -- "the second thing in Design" is not what the
       // chart labels it.
       main: {
-        label: isHorizontal ? this.yAxis : this.xAxis,
+        label: mainLabel,
         value: point.label ? `${point.x}, ${point.label}` : point.x,
       },
       // Carried for the traces and modes that read a single cross value; the
       // span below replaces it wherever both are present.
-      cross: {
-        label: isHorizontal ? this.xAxis : this.yAxis,
-        value: Number(point.start),
-      },
+      cross: { label: crossLabel, value: Number(point.start) },
       crossRange: { min: Number(point.start), max: Number(point.end) },
       // The length, with the unit the chart named. A bare number cannot say
       // whether a task runs for 40 days or 40 weeks, and the axis format that
