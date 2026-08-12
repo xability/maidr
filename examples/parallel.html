@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Parallel Coordinates Example — Car Characteristics</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        The axes here measure different things on purpose. Weight runs in
+        thousands and economy in tens, so a chart sonified against one range
+        for the layer would put every economy figure at the bottom of the
+        register and every weight at the top - the reader would hear the
+        units rather than the data.
+
+        Pitched against its own axis, each note says where that car sits on
+        that variable. Arrow along the Honda and it is high, high, low; along
+        the Muscle Coupe and it is low, low, high. Those two crossing between
+        mpg and hp is negative correlation, which a sighted reader sees at a
+        glance and which is otherwise inaudible.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="parallel-cars" maidr='{&#10;  &quot;id&quot;: &quot;parallel-cars&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;parallel-cars-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;parallel-cars-layer&quot;,&#10;            &quot;type&quot;: &quot;parallel_coordinates&quot;,&#10;            &quot;title&quot;: &quot;Car Characteristics&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Variable&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Value&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;parallel-lines&#x27;] &gt; polyline&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;mpg&quot;,&#10;                  &quot;y&quot;: 33,&#10;                  &quot;z&quot;: &quot;Honda Civic&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;hp&quot;,&#10;                  &quot;y&quot;: 65,&#10;                  &quot;z&quot;: &quot;Honda Civic&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;weight&quot;,&#10;                  &quot;y&quot;: 1800,&#10;                  &quot;z&quot;: &quot;Honda Civic&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;mpg&quot;,&#10;                  &quot;y&quot;: 21,&#10;                  &quot;z&quot;: &quot;Ford Sedan&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;hp&quot;,&#10;                  &quot;y&quot;: 110,&#10;                  &quot;z&quot;: &quot;Ford Sedan&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;weight&quot;,&#10;                  &quot;y&quot;: 2600,&#10;                  &quot;z&quot;: &quot;Ford Sedan&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;mpg&quot;,&#10;                  &quot;y&quot;: 15,&#10;                  &quot;z&quot;: &quot;Muscle Coupe&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;hp&quot;,&#10;                  &quot;y&quot;: 230,&#10;                  &quot;z&quot;: &quot;Muscle Coupe&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;weight&quot;,&#10;                  &quot;y&quot;: 3200,&#10;                  &quot;z&quot;: &quot;Muscle Coupe&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;mpg&quot;,&#10;                  &quot;y&quot;: 27,&#10;                  &quot;z&quot;: &quot;Compact Wagon&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;hp&quot;,&#10;                  &quot;y&quot;: 88,&#10;                  &quot;z&quot;: &quot;Compact Wagon&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;weight&quot;,&#10;                  &quot;y&quot;: 2100,&#10;                  &quot;z&quot;: &quot;Compact Wagon&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="parallel-axes">
+          <line x1="180" y1="90" x2="180" y2="320" style="stroke: #8c8c8c; stroke-width: 2" />
+          <text x="180" y="350" style="font: 14px sans-serif; text-anchor: middle">mpg</text>
+          <text x="170" y="325" style="font: 11px sans-serif; text-anchor: end">15</text>
+          <text x="170" y="95" style="font: 11px sans-serif; text-anchor: end">33</text>
+          <line x1="420" y1="90" x2="420" y2="320" style="stroke: #8c8c8c; stroke-width: 2" />
+          <text x="420" y="350" style="font: 14px sans-serif; text-anchor: middle">hp</text>
+          <text x="410" y="325" style="font: 11px sans-serif; text-anchor: end">65</text>
+          <text x="410" y="95" style="font: 11px sans-serif; text-anchor: end">230</text>
+          <line x1="660" y1="90" x2="660" y2="320" style="stroke: #8c8c8c; stroke-width: 2" />
+          <text x="660" y="350" style="font: 14px sans-serif; text-anchor: middle">weight</text>
+          <text x="650" y="325" style="font: 11px sans-serif; text-anchor: end">1800</text>
+          <text x="650" y="95" style="font: 11px sans-serif; text-anchor: end">3200</text>
+            </g>
+            <g id="parallel-lines">
+          <polyline points="180,90.0 420,320.0 660,320.0" fill="none" style="stroke: #4c72b0; stroke-width: 3" />
+          <polyline points="180,243.3 420,257.3 660,188.6" fill="none" style="stroke: #dd8452; stroke-width: 3" />
+          <polyline points="180,320.0 420,90.0 660,90.0" fill="none" style="stroke: #55a868; stroke-width: 3" />
+          <polyline points="180,166.7 420,287.9 660,270.7" fill="none" style="stroke: #c44e52; stroke-width: 3" />
+            </g>
+            <g id="chart-title">
+              <text x="420" y="60" style="font: 16px sans-serif; text-anchor: middle">Car Characteristics</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

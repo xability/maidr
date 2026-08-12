@@ -923,6 +923,14 @@ export enum TraceType {
   NORMALIZED = 'stacked_normalized_bar',
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
   NORMALIZED_AREA = 'stacked_normalized_area',
+  /**
+   * One polyline per observation across several axes, one axis per variable.
+   * Navigated as a multi-line layer -- an observation per row, an axis per
+   * column -- with the one difference that decides the chart: every column is
+   * a different quantity, so a value is pitched against its OWN axis rather
+   * than against one range for the layer.
+   */
+  PARALLEL = 'parallel_coordinates',
   PIE = 'pie',
   /**
    * Categories arranged around a circle rather than along an axis, drawn as

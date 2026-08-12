@@ -1131,6 +1131,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
       [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],
+      // A parallel coordinates trace normalizes its own values before they
+      // reach here -- each cell its position on its own axis -- precisely so
+      // the line encoder's per-row scaling is correct for it. Scaling a row
+      // of raw values would compare a horsepower figure to a fuel-economy one.
+      [TraceType.PARALLEL, asGeneric(new LineBrailleEncoder())],
       // A pie's braille state is a single row of slice magnitudes scaled
       // against that row's own range — the bar encoder's input exactly.
       [TraceType.PIE, asGeneric(new BarBrailleEncoder())],

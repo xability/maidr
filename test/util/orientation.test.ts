@@ -45,6 +45,9 @@ describe('resolveOrientation', () => {
     TraceType.HEATMAP,
     TraceType.LINE,
     TraceType.NORMALIZED_AREA,
+    // Every column is its own axis, so there is no main and cross axis to
+    // swap -- a horizontal parallel coordinates plot walks the same grid.
+    TraceType.PARALLEL,
     TraceType.PIE,
     // Spokes sit around a circle rather than along an axis, so there is no
     // main and cross axis to swap -- the answer a pie already gives.

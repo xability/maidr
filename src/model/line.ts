@@ -119,7 +119,22 @@ export class LineTrace extends AbstractTrace {
    * reach a label resolved here.
    */
   private get groupLabel(): string {
-    return named(this.layer.axes?.z?.label, TYPE);
+    return named(this.layer.axes?.z?.label, this.groupFallbackLabel);
+  }
+
+  /**
+   * What this chart calls one of its series, when the layer names no z axis.
+   *
+   * Overridable for the reason {@link LineTrace.seriesLabels} is: a subclass
+   * navigates the same grid but draws something else, and this label is
+   * announced literally beside the series' own name. A parallel coordinates
+   * plot that named its own noun everywhere else and then said "Group is
+   * Honda Civic" would use two words for one referent in a single sentence.
+   *
+   * @returns The fallback label
+   */
+  protected get groupFallbackLabel(): string {
+    return TYPE;
   }
 
   /**

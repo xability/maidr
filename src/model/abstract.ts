@@ -69,6 +69,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.LINE]: 'Line Chart',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
   [TraceType.NORMALIZED_AREA]: 'Normalized Stacked Area Chart',
+  [TraceType.PARALLEL]: 'Parallel Coordinates Plot',
   [TraceType.PIE]: 'Pie Chart',
   [TraceType.POLAR_AREA]: 'Polar Area Chart',
   [TraceType.RADAR]: 'Radar Chart',

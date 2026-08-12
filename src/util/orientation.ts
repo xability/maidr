@@ -48,6 +48,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.LINE]: false,
   [TraceType.NORMALIZED]: true,
   [TraceType.NORMALIZED_AREA]: false,
+  // The axes are the columns and the observations the rows, whichever way the
+  // axes are drawn -- a horizontal parallel coordinates plot still walks the
+  // same grid. There is no main and cross axis to swap, because every column
+  // is its own axis.
+  [TraceType.PARALLEL]: false,
   // Slices are arranged around a circle, not along an axis: there is no
   // orientation to declare and none to fall back to.
   [TraceType.PIE]: false,
