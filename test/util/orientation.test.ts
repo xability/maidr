@@ -74,6 +74,8 @@ describe('resolveOrientation', () => {
     TraceType.HEATMAP,
     // A lattice of bins over two continuous axes, the same as a heatmap.
     TraceType.HEXBIN,
+    // North is north: there is no transpose of a map.
+    TraceType.CHOROPLETH,
     // One curve per level; two continuous axes, as a line has.
     TraceType.CONTOUR,
     TraceType.LINE,

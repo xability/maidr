@@ -65,6 +65,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.SANKEY]: 'Sankey Diagram',
   [TraceType.NETWORK]: 'Network Diagram',
   [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
+  [TraceType.CHOROPLETH]: 'Choropleth Map',
   [TraceType.CONTOUR]: 'Contour Plot',
   [TraceType.DIVERGING]: 'Diverging Bar Chart',
   [TraceType.DODGED]: 'Dodged Bar Chart',
