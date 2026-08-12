@@ -31,6 +31,16 @@ jobs:
       - name: Check generated instruction files
         run: npm run sync:copilot:check
 
+  # Gates nothing, and must not: `needs` does not just order jobs, it *skips*
+  # them when the dependency fails, so a commit subject that does not parse
+  # used to take the build, the type check, the whole unit suite and every e2e
+  # spec down with it -- reported in grey rather than red, which reads as
+  # "nothing wrong here" instead of "nothing was tested" (#763). It happened on
+  # #669, where three real breakages sat under the greyed-out checks, one of
+  # them a published bundle that threw on load and which only e2e could catch.
+  #
+  # A bad message still blocks the merge, because this is a required check in
+  # its own right. It just stops taking the evidence down with it.
   commitlint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
@@ -137,7 +147,7 @@ jobs:
   e2e-chromium:
     name: E2E (chromium)
     runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+    needs: [lint]
     timeout-minutes: 25
 
     permissions:
@@ -185,7 +195,7 @@ jobs:
   build:
     name: Build Project
     runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+    needs: [lint]
 
     permissions:
       contents: read
@@ -209,7 +219,7 @@ jobs:
   unit-test:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+    needs: [lint]
 
     permissions:
       contents: read
@@ -233,7 +243,7 @@ jobs:
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+    needs: [lint]
 
     permissions:
       contents: read
@@ -260,7 +270,7 @@ jobs:
   docs-build:
     name: Docs Build
     runs-on: ubuntu-latest
-    needs: [commitlint, lint]
+    needs: [lint]
 
     permissions:
       contents: read
