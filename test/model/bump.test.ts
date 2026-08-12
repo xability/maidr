@@ -106,6 +106,26 @@ describe('bump registration', () => {
   });
 });
 
+describe('one word per referent', () => {
+  test('names a competitor the way the rest of the chart names it', () => {
+    // The noun is announced beside the competitor's own name on every move,
+    // so inheriting the line's "Group" would say "Competitor 1 of 4, Group is
+    // Ash" -- two words for one thing in one sentence.
+    expect(nonEmptyState(bump()).text.z)
+      .toEqual({ label: 'Competitor', value: 'Ash' });
+  });
+
+  test('a layer that names its own z axis still wins', () => {
+    const trace = TraceFactory.create({
+      ...createLayer(),
+      axes: { x: { label: 'Round' }, y: { label: 'Rank' }, z: { label: 'Team' } },
+    }) as BumpTrace;
+    trace.moveToIndex(0, 0);
+
+    expect(nonEmptyState(trace).text.z?.label).toBe('Team');
+  });
+});
+
 describe('first place is the highest note', () => {
   test('the pitch runs opposite to the rank number', () => {
     // Rank 1 is the best position and the smallest number. Sonified as a

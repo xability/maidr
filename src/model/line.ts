@@ -127,9 +127,10 @@ export class LineTrace extends AbstractTrace {
    *
    * Overridable for the reason {@link LineTrace.seriesLabels} is: a subclass
    * navigates the same grid but draws something else, and this label is
-   * announced literally beside the series' own name. A parallel coordinates
-   * plot that named its own noun everywhere else and then said "Group is
-   * Honda Civic" would use two words for one referent in a single sentence.
+   * announced literally beside the series' own name. A chart that named its
+   * own noun everywhere else and then said "Group is Honda Civic" -- or
+   * "Group is Ash" -- would use two words for one referent in a single
+   * sentence.
    *
    * @returns The fallback label
    */

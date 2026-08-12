@@ -119,6 +119,13 @@ export class BumpTrace extends LineTrace {
     };
   }
 
+  protected override get groupFallbackLabel(): string {
+    // Announced beside the competitor's own name on every move, so inheriting
+    // the line's "Group" puts two words for one referent in one sentence --
+    // "Competitor 1 of 4, Group is Ash".
+    return 'Competitor';
+  }
+
   protected override get seriesLabels(): {
     count: string;
     perSeries: string;
