@@ -54,6 +54,16 @@ export class VolcanoTrace extends ScatterTrace {
   /** The effect-size cutoff, applied to the magnitude of x. */
   private readonly effect: number | null;
 
+  /**
+   * Whether the significant points sit above the cutoff or below it.
+   *
+   * A transformed axis puts them above; a raw p axis puts them below. Fixed
+   * to one of those, the other chart selects exactly the points that failed
+   * to reach significance and announces them as the finding -- not a degraded
+   * reading but the inverse of one.
+   */
+  private readonly significantAbove: boolean;
+
   /** Every point's identity and region, in the order the layer declared them. */
   private readonly declared: VolcanoPoint[];
 
@@ -73,6 +83,8 @@ export class VolcanoTrace extends ScatterTrace {
       layer.thresholdOptions?.significance,
     );
     this.effect = VolcanoTrace.declaredNumber(layer.thresholdOptions?.effect);
+    this.significantAbove
+      = layer.thresholdOptions?.significanceDirection !== 'below';
 
     // Precomputed in reading order, because the rotor service asks twice per
     // keystroke and the points are fixed at construction -- the candlestick's
@@ -109,8 +121,13 @@ export class VolcanoTrace extends ScatterTrace {
     if (point === undefined) {
       return false;
     }
-    if (this.significance !== null && !(point.y >= this.significance)) {
-      return false;
+    if (this.significance !== null) {
+      const clears = this.significantAbove
+        ? point.y >= this.significance
+        : point.y <= this.significance;
+      if (!clears) {
+        return false;
+      }
     }
     if (this.effect !== null && !(Math.abs(point.x) >= this.effect)) {
       return false;
@@ -192,17 +209,23 @@ export class VolcanoTrace extends ScatterTrace {
       this.handleInitialEntry();
     }
 
-    const from = this.isInPointMode ? this.pointModeIndex : -1;
-    const here = this.readingOrder.indexOf(from);
+    // `readingPos` is the scatter's precomputed inverse of `readingOrder`, so
+    // each lookup is O(1). Scanning `readingOrder` instead would be O(n) per
+    // candidate and O(n*k) per keystroke -- on exactly the charts this mode
+    // exists for, where n is hundreds of thousands of SNPs and k the
+    // thousands that clear genome-wide significance. Precomputing the
+    // candidate list and then linear-scanning to place each one would have
+    // undone the point of precomputing it.
+    const here = this.isInPointMode ? this.readingPos[this.pointModeIndex] : -1;
 
     let target: number | undefined;
     if (direction === 'right') {
       target = this.significantIndices.find(index =>
-        here < 0 || this.readingOrder.indexOf(index) > here);
+        here < 0 || this.readingPos[index] > here);
     } else {
       for (let i = this.significantIndices.length - 1; i >= 0; i--) {
         const candidate = this.significantIndices[i];
-        if (here >= 0 && this.readingOrder.indexOf(candidate) < here) {
+        if (here >= 0 && this.readingPos[candidate] < here) {
           target = candidate;
           break;
         }

@@ -132,7 +132,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   protected readonly flatPoints: FlatPoint[];
   protected readonly readingOrder: number[];
   private readonly columnOrder: number[];
-  private readonly readingPos: number[];
+  /**
+   * Protected alongside `readingOrder`: it is the precomputed inverse of it,
+   * and a subclass filtering the reading order needs O(1) position lookups
+   * rather than a linear scan per keystroke.
+   */
+  protected readonly readingPos: number[];
   private readonly columnPos: number[];
   protected isInPointMode: boolean;
   protected pointModeIndex: number;

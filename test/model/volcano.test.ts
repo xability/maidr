@@ -36,10 +36,11 @@ const GENES: VolcanoPoint[] = [
  */
 function createLayer(
   data: VolcanoPoint[] = GENES,
-  thresholds: { significance?: number; effect?: number } | null = {
-    significance: 5,
-    effect: 2,
-  },
+  thresholds: {
+    significance?: number;
+    effect?: number;
+    significanceDirection?: 'above' | 'below';
+  } | null = { significance: 5, effect: 2 },
 ): MaidrLayer {
   return {
     id: 'test-volcano-layer',
@@ -72,10 +73,11 @@ function nonEmptyState(trace: VolcanoTrace): NonEmptyTraceState {
  */
 function volcano(
   data: VolcanoPoint[] = GENES,
-  thresholds: { significance?: number; effect?: number } | null = {
-    significance: 5,
-    effect: 2,
-  },
+  thresholds: {
+    significance?: number;
+    effect?: number;
+    significanceDirection?: 'above' | 'below';
+  } | null = { significance: 5, effect: 2 },
 ): VolcanoTrace {
   return TraceFactory.create(createLayer(data, thresholds)) as VolcanoTrace;
 }
@@ -166,6 +168,47 @@ describe('the summary is what the chart is read for', () => {
 
   test('says nothing about regions on a plain volcano', () => {
     expect(stat(volcano(), 'Regions')).toBeUndefined();
+  });
+});
+
+describe('a raw p axis runs the other way', () => {
+  /**
+   * The same four genes on an untransformed p axis: small p is the finding.
+   *
+   * `HIT1` and `HIT2` reach p <= 0.05; `MISS1` and `MISS2` do not. Fixed to
+   * "above", a reading selects MISS1 and MISS2 and announces them as the
+   * result -- not a degraded reading but the exact inverse of one.
+   */
+  const RAW_P: VolcanoPoint[] = [
+    { x: 3.4, y: 0.001, label: 'HIT1' },
+    { x: -3.1, y: 0.04, label: 'HIT2' },
+    { x: 2.8, y: 0.4, label: 'MISS1' },
+    { x: -2.6, y: 0.9, label: 'MISS2' },
+  ];
+
+  test('selects the small p values when the layer says below', () => {
+    const trace = volcano(RAW_P, {
+      significance: 0.05,
+      effect: 2,
+      significanceDirection: 'below',
+    });
+    const read = (label: string): unknown =>
+      trace.description.stats.find(entry => entry.label === label)?.value;
+
+    expect(read('Above the threshold')).toBe('2 of 4');
+    expect(read('Above the threshold, named')).toBe('HIT2, HIT1');
+  });
+
+  test('selects the wrong half when the direction is left at the default', () => {
+    // Pinned deliberately: this is what the chart does when a producer on a
+    // raw p axis forgets to declare the direction, and it is why the field
+    // exists rather than being assumed.
+    const trace = volcano(RAW_P, { significance: 0.05, effect: 2 });
+
+    expect(trace.description.stats
+      .find(entry => entry.label === 'Above the threshold, named')
+      ?.value)
+      .toBe('MISS2, MISS1');
   });
 });
 

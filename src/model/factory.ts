@@ -110,6 +110,13 @@ export abstract class TraceFactory {
       case TraceType.PARALLEL:
         return new ParallelTrace(layer);
 
+      case TraceType.MANHATTAN:
+      case TraceType.VOLCANO:
+        // One class for both: they differ in what the x axis means -- effect
+        // size against genomic position -- and in nothing a reader navigates,
+        // the way POLAR_AREA and RADAR share RadarTrace.
+        return new VolcanoTrace(layer);
+
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);
 
@@ -134,13 +141,6 @@ export abstract class TraceFactory {
 
       case TraceType.STEP:
         return new StepTrace(layer);
-
-      case TraceType.MANHATTAN:
-      case TraceType.VOLCANO:
-        // One class for both: they differ in what the x axis means -- effect
-        // size against genomic position -- and in nothing a reader navigates,
-        // the way POLAR_AREA and RADAR share RadarTrace.
-        return new VolcanoTrace(layer);
 
       case TraceType.WATERFALL:
         return new WaterfallTrace(layer);
