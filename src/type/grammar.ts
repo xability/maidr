@@ -794,6 +794,32 @@ export type StepDirection = 'hv' | 'vh' | 'mid';
 export type StepPoint = LinePoint;
 
 /**
+ * One point of a Kaplan-Meier survival curve.
+ *
+ * The curve itself is a step function -- survival holds until an event drops
+ * it -- so this is a {@link StepPoint} with the two things a survival figure
+ * carries that a step chart does not.
+ */
+export interface SurvivalPoint extends StepPoint {
+  /**
+   * A subject left the study at this time without the event happening.
+   *
+   * Censoring marks are drawn as ticks on the curve rather than as steps,
+   * because censoring does not change the estimate -- it changes how much of
+   * the curve is still supported by data. A reader who cannot tell a censored
+   * time from an ordinary one cannot tell a flat tail backed by two hundred
+   * subjects from one backed by three.
+   */
+  censored?: boolean;
+
+  /** Lower bound of the confidence band at this time, when the chart draws one. */
+  yMin?: number;
+
+  /** Upper bound of the confidence band at this time, when the chart draws one. */
+  yMax?: number;
+}
+
+/**
  * Canonical axis configuration. Every axis (x, y, z) must be specified as an
  * object of this shape. The `label` is optional and falls back to built-in
  * defaults ('X', 'Y', 'Level') when omitted.
@@ -971,6 +997,7 @@ export interface MaidrLayer {
     | SegmentedPoint[][]
     | SmoothPoint[][]
     | StepPoint[][]
+    | SurvivalPoint[][]
     | ViolinKdePoint[][]
     | WaterfallPoint[]
     | WordCloudPoint[];
@@ -1161,6 +1188,14 @@ export enum TraceType {
    */
   STACKED_AREA = 'stacked_area',
   STEP = 'step',
+  /**
+   * A Kaplan-Meier survival curve: the probability of surviving past each
+   * time, dropping in steps as events occur. Read as a {@link TraceType.STEP}
+   * layer it loses the two facts the figure is drawn for -- the median
+   * survival, which is the number most readers came for, and which times are
+   * censored rather than events.
+   */
+  SURVIVAL = 'survival',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
   /**

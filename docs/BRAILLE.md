@@ -692,6 +692,41 @@ they can be told; it is announced alongside the estimate instead.
 Forest plots use one line per section on a multiline display, so all three
 rows of the comparison are under the hand at once.
 
+## Kaplan-Meier survival curve
+
+One row per arm, one cell per time, the line encoding — which is what a step
+chart's braille already is, and a survival curve is a step chart.
+
+The shape is the reading. A curve that falls early and steeply is a row of
+cells dropping away fast; a curve that holds is a run at the same height; and
+two arms separating is two rows that start together and end apart, felt in one
+sweep rather than reconstructed from two passes.
+
+```
+Arm         Cells
+Control     ⣿⣶⠶⠦⠤⠄⠂
+Treatment   ⣿⣿⣶⣶⣶⠶⠶
+```
+
+**Censoring marks have no representation, and need none.** A censored time is
+a subject who left the study without the event happening, and the curve does
+not step there — so the cell is the same cell it would have been, and marking
+it would put an annotation in the display where the reader expects the data.
+It is announced instead, because it changes not the estimate but how much of
+the estimate is still supported: a flat tail carried by two hundred subjects
+and one carried by three are the same run of dots and mean entirely different
+things.
+
+**The confidence band has none either**, for the reason it has none on any
+line: a cell has one height, already spent on the estimate. The band is
+announced alongside each time.
+
+### Multiline Displays
+
+Survival curves use one line per arm on a multiline display, so the moment two
+arms separate can be found by running two fingers along together until they
+part.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

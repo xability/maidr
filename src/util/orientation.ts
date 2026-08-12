@@ -101,6 +101,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.STACKED]: true,
   [TraceType.STACKED_AREA]: false,
   [TraceType.STEP]: false,
+  // Time runs one way and survival the other whichever way it is drawn, so
+  // there is no main and cross axis to swap -- the answer a step chart
+  // already gives, and this is one.
+  [TraceType.SURVIVAL]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,
   // The steps run along the category axis and the contributions along the
