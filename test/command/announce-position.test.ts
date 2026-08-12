@@ -3,9 +3,12 @@ import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
+import type { BoxPoint, CandlestickPoint } from '@type/grammar';
 import type { PlotState } from '@type/state';
 import { AnnouncePositionCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
+import { CANDLESTICK_SECTIONS } from '@model/candlestick';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 
 interface MultilineOptions {
@@ -419,5 +422,137 @@ describe('AnnouncePositionCommand on multi-series radar plots', () => {
     const announced = jest.mocked(textViewModel.update).mock.calls[0][0] as string;
     expect(announced).toContain('Series 1 of 3');
     expect(announced).not.toContain('Line');
+  });
+});
+
+/**
+ * A real box trace's state, so the section string under test is the one the
+ * trace actually reports rather than one the fixture invented.
+ *
+ * The point of these cases is that two announcements about the same position
+ * name the section the same way, and a hand-written `section` would let the
+ * fixture decide the thing being asserted.
+ *
+ * @param section Row index -- the section, in `BoxplotSection` order
+ * @param box Column index -- which distribution
+ * @returns The trace's state with the cursor there
+ */
+function boxTraceState(section: number, box: number): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-box',
+    type: TraceType.BOX,
+    title: 'Sepal width',
+    axes: { x: { label: 'Species' }, y: { label: 'Value' } },
+    data: [
+      {
+        z: 'Setosa',
+        lowerOutliers: [1.1],
+        min: 2,
+        q1: 3,
+        q2: 4,
+        q3: 5,
+        max: 6,
+        upperOutliers: [9.4],
+      },
+      {
+        z: 'Virginica',
+        lowerOutliers: [],
+        min: 4,
+        q1: 5,
+        q2: 6,
+        q3: 7,
+        max: 8,
+        upperOutliers: [],
+      },
+    ] as BoxPoint[],
+  });
+  trace.moveToIndex(section, box);
+
+  return trace.state as PlotState;
+}
+
+/**
+ * A real candlestick trace's state, for the sections authored in lower case.
+ *
+ * @param section Row index, in `CANDLESTICK_SECTIONS` order
+ * @param candle Column index
+ * @returns The trace's state with the cursor there
+ */
+function candlestickTraceState(section: number, candle: number): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-candle',
+    type: TraceType.CANDLESTICK,
+    axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+    data: [
+      { value: '2026-01-01', open: 10, high: 15, low: 9, close: 14, volume: 100, trend: 'Bull', volatility: 6 },
+      { value: '2026-01-02', open: 14, high: 18, low: 13, close: 17, volume: 120, trend: 'Bull', volatility: 5 },
+      { value: '2026-01-03', open: 17, high: 19, low: 12, close: 13, volume: 90, trend: 'Bear', volatility: 7 },
+    ] as CandlestickPoint[],
+  });
+  trace.moveToIndex(section, candle);
+
+  return trace.state as PlotState;
+}
+
+/**
+ * The section the trace reports at this position.
+ * @param state A non-empty trace state
+ * @returns The section string
+ */
+function sectionOf(state: PlotState): string {
+  return (state as unknown as { text: { section?: string } }).text.section ?? '';
+}
+
+describe('AnnouncePositionCommand names a section as the trace authored it', () => {
+  // The per-point announcement renders `section` verbatim (#830). This command
+  // lower-cased it, so pressing the position key on a box plot answered
+  // "in minimum" about the section that had just called itself "Minimum" --
+  // the same defect #830 describes, one code path further along.
+
+  test('keeps a box section verbatim in verbose', () => {
+    const state = boxTraceState(1, 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Position is 2 of 2 in Minimum');
+  });
+
+  test('keeps a box section verbatim in terse', () => {
+    const state = boxTraceState(1, 1);
+    const { command, textViewModel } = createCommand(state, 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('100%, Minimum');
+  });
+
+  test('announces whatever the trace reports, for every box section', () => {
+    // The contract rather than one string: this command does not get to
+    // decide the case of a label it did not author. Outliers are the section
+    // whose label is two words, so it is the one a re-cased reading garbles
+    // most visibly.
+    for (const row of [0, 1, 2, 6]) {
+      const state = boxTraceState(row, 0);
+      const { command, textViewModel } = createCommand(state);
+
+      command.execute();
+
+      const announced = jest.mocked(textViewModel.update).mock.calls[0][0] as string;
+      expect(sectionOf(state)).not.toBe('');
+      expect(announced).toContain(sectionOf(state));
+    }
+  });
+
+  test('leaves a candlestick section alone, which authors its own in lower case', () => {
+    // The same expression guarded both traces, and this one reads identically
+    // either way -- so it is the case that shows nothing else moved.
+    const state = candlestickTraceState(CANDLESTICK_SECTIONS.indexOf('close'), 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(sectionOf(state)).toBe('close');
+    expect(textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3, close');
   });
 });
