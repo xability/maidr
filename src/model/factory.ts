@@ -90,8 +90,6 @@ export abstract class TraceFactory {
         // One class for all three: they are the same weighted graph drawn
         // three ways, and the layout changes nothing a reader navigates.
         return new FlowTrace(layer);
-      case TraceType.NETWORK:
-        return new NetworkTrace(layer);
 
       case TraceType.CONTOUR:
         return new ContourTrace(layer);
@@ -132,6 +130,9 @@ export abstract class TraceFactory {
         // size against genomic position -- and in nothing a reader navigates,
         // the way POLAR_AREA and RADAR share RadarTrace.
         return new VolcanoTrace(layer);
+
+      case TraceType.NETWORK:
+        return new NetworkTrace(layer);
 
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);

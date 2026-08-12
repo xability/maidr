@@ -19,10 +19,20 @@ const NAMED_NODES = 5;
 
 /** One node of the network. */
 interface NetworkNode {
+  /** Its own position in the node list, so nothing has to search for it. */
+  id: number;
   /** What the node is called. */
   name: string;
   /** Indices of the nodes it is linked to, most connected first. */
   links: number[];
+  /**
+   * Where each of those links sat in the declared array, in the same order.
+   *
+   * Carried because a selector list is one entry per link in **declared**
+   * order while `links` is sorted by degree: pairing by rank would highlight
+   * whichever line happens to sit at that position.
+   */
+  linkAt: number[];
   /** Which connected component it belongs to. */
   component: number;
   /** Its position within that component. */
@@ -138,6 +148,9 @@ export class NetworkTrace extends AbstractTrace {
     const byName = new Map<string, number>();
     const nodes: NetworkNode[] = [];
     const neighbours: Set<number>[] = [];
+    // Which declared link first joined a pair, so a node can find the line
+    // that was drawn for each of its neighbours.
+    const drawnBy: Map<number, number>[] = [];
 
     /**
      * The node with a name, created on first sight.
@@ -151,12 +164,13 @@ export class NetworkTrace extends AbstractTrace {
         return existing;
       }
       byName.set(name, nodes.length);
-      nodes.push({ name, links: [], component: 0, index: 0 });
+      nodes.push({ id: nodes.length, name, links: [], linkAt: [], component: 0, index: 0 });
       neighbours.push(new Set<number>());
+      drawnBy.push(new Map<number, number>());
       return nodes.length - 1;
     }
 
-    for (const link of links) {
+    for (const [at, link] of links.entries()) {
       const from = ensure(String(link.source));
       const to = ensure(String(link.target));
       if (from === to) {
@@ -164,6 +178,14 @@ export class NetworkTrace extends AbstractTrace {
       }
       neighbours[from].add(to);
       neighbours[to].add(from);
+      // First declaration wins, so a pair emitted twice -- once each way, as
+      // several libraries do -- names the line that was drawn for it once.
+      if (!drawnBy[from].has(to)) {
+        drawnBy[from].set(to, at);
+      }
+      if (!drawnBy[to].has(from)) {
+        drawnBy[to].set(from, at);
+      }
     }
 
     for (const [index, node] of nodes.entries()) {
@@ -171,6 +193,7 @@ export class NetworkTrace extends AbstractTrace {
       // order the chart draws attention in.
       node.links = [...neighbours[index]]
         .sort((a, b) => neighbours[b].size - neighbours[a].size);
+      node.linkAt = node.links.map(one => drawnBy[index].get(one) ?? -1);
     }
     return nodes;
   }
@@ -399,7 +422,7 @@ export class NetworkTrace extends AbstractTrace {
 
     const to = this.nodes[target];
     const at = { row: to.component, col: to.index };
-    this.linkWalk = { from: this.nodes.indexOf(from), index, at };
+    this.linkWalk = { from: from.id, index, at };
     this.movable.moveToIndex(at.row, at.col);
     this.notifyStateUpdate();
     return true;
@@ -490,7 +513,17 @@ export class NetworkTrace extends AbstractTrace {
       return null;
     }
 
-    return this.grid.map(row => row.map(() => Svg.createEmptyElement()));
+    // The line drawn for the node's most connected neighbour, which is also
+    // the rotor's first step from here -- so the highlight agrees with where
+    // the next keystroke goes. An isolated node has no line to point at and
+    // gets a hidden placeholder, which is the honest answer rather than a
+    // line belonging to somebody else.
+    return this.grid.map(row =>
+      row.map((node) => {
+        const at = node?.linkAt[0];
+        const element = at === undefined || at < 0 ? undefined : flat[at];
+        return element ?? Svg.createEmptyElement();
+      }));
   }
 
   protected findNearestPoint(): NearestPoint | null {
