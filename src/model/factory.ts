@@ -49,7 +49,13 @@ export abstract class TraceFactory {
       case TraceType.STACKED_AREA:
         return new AreaTrace(layer);
 
+      // One class, three marks. A dot plot draws a point where a bar chart
+      // draws a bar and a lollipop adds a stem to the baseline; a reader
+      // navigates one category and one value either way, so the difference
+      // is in what the chart is called rather than in how it is read.
       case TraceType.BAR:
+      case TraceType.DOT:
+      case TraceType.LOLLIPOP:
         return new BarTrace(layer);
 
       case TraceType.BOX:

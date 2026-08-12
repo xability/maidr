@@ -1129,6 +1129,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // the inversion the pitch applies has no equivalent here, and
       // `docs/BRAILLE.md` says so, because a reader cannot tell from the dots.
       [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
+      // A dot plot and a lollipop carry a bar's braille state -- one row of
+      // magnitudes -- because they carry a bar's data. The mark differs and
+      // the encoding cannot.
+      [TraceType.DOT, asGeneric(new BarBrailleEncoder())],
+      [TraceType.LOLLIPOP, asGeneric(new BarBrailleEncoder())],
       [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
       // One row per section — a profile of lower bounds, of estimates, of
       // upper bounds — which is the per-row height profile the line encoder

@@ -13,6 +13,10 @@ describe('resolveOrientation', () => {
     // A pyramid is drawn with its categories down the page and a Likert chart
     // with them across it, and the sides grow along the other axis either way.
     TraceType.DIVERGING,
+    // A dot plot and a lollipop are a bar chart's reading with a different
+    // mark, and a bar is oriented.
+    TraceType.DOT,
+    TraceType.LOLLIPOP,
     TraceType.DODGED,
     // A dumbbell is commonly drawn with its categories running down the page,
     // and the pair runs along the value axis either way -- so which axis a dot

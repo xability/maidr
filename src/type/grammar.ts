@@ -991,6 +991,14 @@ export enum TraceType {
   DIVERGING = 'diverging_bar',
   DODGED = 'dodged_bar',
   /**
+   * A category and a value drawn as a point rather than a bar -- a Cleveland
+   * dot plot. Read exactly as a {@link TraceType.BAR} is; the two differ in
+   * the mark, not in what a reader navigates, which is why this carries no
+   * model of its own. It exists so the chart announces itself as the chart
+   * the author drew.
+   */
+  DOT = 'dot',
+  /**
    * Two values per category joined by a segment -- before and after, two
    * groups, two years. The gap is the message, so the trace announces the
    * change alongside each end rather than leaving the reader to subtract two
@@ -1040,6 +1048,12 @@ export enum TraceType {
   HEXBIN = 'hexbin',
   HISTOGRAM = 'hist',
   LINE = 'line',
+  /**
+   * A dot plot with a stem to the baseline. Read exactly as
+   * {@link TraceType.DOT} and {@link TraceType.BAR} are -- the stem is what
+   * the mark looks like, not a second magnitude.
+   */
+  LOLLIPOP = 'lollipop',
   NORMALIZED = 'stacked_normalized_bar',
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
   NORMALIZED_AREA = 'stacked_normalized_area',
