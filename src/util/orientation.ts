@@ -43,12 +43,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // which way it was drawn, exactly as it does for the stacked bar this
   // extends.
   [TraceType.DIVERGING]: true,
-  // Both are a bar chart's reading with a different mark, and a bar is
-  // oriented -- a Cleveland dot plot is conventionally drawn with its
-  // categories down the page, which is the case this exists to get right.
-  [TraceType.DOT]: true,
-  [TraceType.LOLLIPOP]: true,
   [TraceType.DODGED]: true,
+  // A bar chart's reading with a different mark, and a bar is oriented -- a
+  // Cleveland dot plot is conventionally drawn with its categories down the
+  // page, which is the case this exists to get right.
+  [TraceType.DOT]: true,
   // The interval runs along the value axis and the samples along the other,
   // so which way round they are drawn decides which axis a bound moves on --
   // the same reason a bar or a box is oriented.
@@ -73,6 +72,8 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.HEXBIN]: false,
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,
+  // A bar's reading with a different mark, so oriented for the reason DOT is.
+  [TraceType.LOLLIPOP]: true,
   [TraceType.NORMALIZED]: true,
   [TraceType.NORMALIZED_AREA]: false,
   // The axes are the columns and the observations the rows, whichever way the

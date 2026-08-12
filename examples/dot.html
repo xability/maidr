@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Dot Plot Example — Median Response Time</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A Cleveland dot plot is a bar chart's reading with a different mark:
+        one category, one value, navigated the same way. There is deliberately
+        no model behind it.
+
+        It is drawn with the categories down the page, which is the case the
+        orientation exists to get right -- a type that resolved no orientation
+        would announce the axes the wrong way round in the arrangement the
+        chart is almost always drawn in.
+
+        No stems, which is the whole point of the mark: a dot plot drops the
+        bar so the eye compares positions rather than lengths. Nothing about
+        that is audible, and nothing about it needs to be. What the reader
+        gains is being told which chart they are on.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="380pt" viewBox="0 0 720 380" version="1.1"
+        id="dot-response" maidr='{&#10;  &quot;id&quot;: &quot;dot-response&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;dot-response-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;dot-response-layer&quot;,&#10;            &quot;type&quot;: &quot;dot&quot;,&#10;            &quot;title&quot;: &quot;Median Response Time&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Milliseconds&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Endpoint&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;dot-marks&#x27;] &gt; circle&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: 412,&#10;                &quot;y&quot;: &quot;/search&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 318,&#10;                &quot;y&quot;: &quot;/checkout&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 214,&#10;                &quot;y&quot;: &quot;/profile&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 96,&#10;                &quot;y&quot;: &quot;/health&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 380  L 720 380  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="dot-marks">
+          <circle cx="447.2" cy="110" r="7" style="fill: #4c72b0" />
+          <circle cx="390.8" cy="162" r="7" style="fill: #4c72b0" />
+          <circle cx="328.4" cy="214" r="7" style="fill: #4c72b0" />
+          <circle cx="257.6" cy="266" r="7" style="fill: #4c72b0" />
+            </g>
+            <g id="axis_y">
+          <text x="185" y="115" style="font: 13px sans-serif; text-anchor: end">/search</text>
+          <text x="185" y="167" style="font: 13px sans-serif; text-anchor: end">/checkout</text>
+          <text x="185" y="219" style="font: 13px sans-serif; text-anchor: end">/profile</text>
+          <text x="185" y="271" style="font: 13px sans-serif; text-anchor: end">/health</text>
+            </g>
+            <g id="axis_x">
+          <text x="260" y="330" style="font: 12px sans-serif; text-anchor: middle">100</text>
+          <text x="320" y="330" style="font: 12px sans-serif; text-anchor: middle">200</text>
+          <text x="380" y="330" style="font: 12px sans-serif; text-anchor: middle">300</text>
+          <text x="440" y="330" style="font: 12px sans-serif; text-anchor: middle">400</text>
+              <text x="380" y="358" style="font: 13px sans-serif; text-anchor: middle">Milliseconds</text>
+            </g>
+            <g id="chart-title">
+              <text x="380" y="55" style="font: 16px sans-serif; text-anchor: middle">Median Response Time</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
