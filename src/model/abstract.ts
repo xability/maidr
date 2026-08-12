@@ -63,6 +63,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.DUMBBELL]: 'Dumbbell Chart',
   [TraceType.ERROR_BAR]: 'Error Bar Chart',
   [TraceType.GANTT]: 'Gantt Chart',
+  [TraceType.FUNNEL]: 'Funnel Chart',
   [TraceType.GAUGE]: 'Gauge',
   [TraceType.HEATMAP]: 'Heatmap',
   [TraceType.HISTOGRAM]: 'Histogram',

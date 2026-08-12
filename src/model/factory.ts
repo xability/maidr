@@ -7,6 +7,7 @@ import { BoxTrace } from './box';
 import { Candlestick } from './candlestick';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
+import { FunnelTrace } from './funnel';
 import { GanttTrace } from './gantt';
 import { GaugeTrace } from './gauge';
 import { Heatmap } from './heatmap';
@@ -58,6 +59,9 @@ export abstract class TraceFactory {
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
+
+      case TraceType.FUNNEL:
+        return new FunnelTrace(layer);
 
       case TraceType.GANTT:
         return new GanttTrace(layer);

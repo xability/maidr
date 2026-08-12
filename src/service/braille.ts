@@ -1123,6 +1123,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // so a fortnight and three weeks become the same dot. Exact about how
       // long beats approximate about when.
       [TraceType.GANTT, asGeneric(new LineBrailleEncoder())],
+      // A single row of stage counts scaled against that row's own range --
+      // the bar encoder's input exactly. The cells carry the COUNTS, not the
+      // retention the pitch carries, and `docs/BRAILLE.md` says why: the
+      // counts are the funnel's silhouette, which is what a display can show
+      // and a tone cannot.
+      [TraceType.FUNNEL, asGeneric(new BarBrailleEncoder())],
       // A single cell scaled against the dial's own ends -- the bar encoder's
       // input with one column, so the reader feels where on the dial the
       // measure sits rather than only that it exists.

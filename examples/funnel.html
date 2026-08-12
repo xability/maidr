@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Funnel Chart Example — Checkout Funnel</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        The number a reader wants from a funnel is not the one it plots. A
+        funnel is read for its drop-offs, and a drop-off is a ratio between
+        adjacent bars - which a listener cannot take by ear from two heights
+        heard one at a time.
+
+        This chart is built so the raw scale and the retention disagree.
+        Visited to Signed up loses three quarters of the axis and keeps 24%.
+        Viewed cart to Purchased loses only a fifth of the axis and keeps
+        4.3%. The second is the catastrophe; the first is the ordinary top of
+        a funnel. Pitched by count, they are heard the wrong way round.
+
+        So the pitch carries the retention and the announcement carries the
+        count, the retention and the share of everyone who entered. Ratios go
+        to the ear because ratios are what it cannot compute.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="800pt" height="432pt" viewBox="0 0 800 432" version="1.1"
+        id="funnel-checkout" maidr='{&#10;  &quot;id&quot;: &quot;funnel-checkout&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;funnel-checkout-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;funnel-checkout-layer&quot;,&#10;            &quot;type&quot;: &quot;funnel&quot;,&#10;            &quot;title&quot;: &quot;Checkout Funnel&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Stage&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;People&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;funnel-bars&#x27;] &gt; rect&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Visited&quot;,&#10;                &quot;y&quot;: 10000&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Signed up&quot;,&#10;                &quot;y&quot;: 2400&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Viewed cart&quot;,&#10;                &quot;y&quot;: 2300&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Purchased&quot;,&#10;                &quot;y&quot;: 100&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 800 432  L 800 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="funnel-bars">
+          <rect x="120.0" y="110" width="560.0" height="48" style="fill: #4c72b0" />
+          <rect x="332.8" y="172" width="134.4" height="48" style="fill: #4c72b0" />
+          <rect x="335.6" y="234" width="128.8" height="48" style="fill: #4c72b0" />
+          <rect x="397.0" y="296" width="6.0" height="48" style="fill: #4c72b0" />
+            </g>
+            <g id="stage-labels">
+          <text x="400" y="139.0" style="font: 13px sans-serif; text-anchor: middle; fill: #ffffff">Visited</text>
+          <text x="700.0" y="139.0" style="font: 12px sans-serif; text-anchor: start">10,000</text>
+          <text x="400" y="201.0" style="font: 13px sans-serif; text-anchor: middle; fill: #ffffff">Signed up</text>
+          <text x="700.0" y="201.0" style="font: 12px sans-serif; text-anchor: start">2,400</text>
+          <text x="400" y="263.0" style="font: 13px sans-serif; text-anchor: middle; fill: #ffffff">Viewed cart</text>
+          <text x="700.0" y="263.0" style="font: 12px sans-serif; text-anchor: start">2,300</text>
+          <text x="400" y="325.0" style="font: 13px sans-serif; text-anchor: middle; fill: #ffffff">Purchased</text>
+          <text x="700.0" y="325.0" style="font: 12px sans-serif; text-anchor: start">100</text>
+            </g>
+            <g id="chart-title">
+              <text x="400" y="60" style="font: 16px sans-serif; text-anchor: middle">Checkout Funnel</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

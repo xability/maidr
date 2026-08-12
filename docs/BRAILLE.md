@@ -401,6 +401,33 @@ Encoding a rotation into cell heights would answer neither.
 Radar charts use one line per series on a multiline display, so several models'
 profiles can be compared with one sweep rather than by toggling between rows.
 
+## Funnel
+
+A single row of stage counts, scaled against that row's own range -- the bar
+encoding unchanged.
+
+**The cells carry the counts, not the retention the pitch carries.** The two
+deliberately answer different questions, and it is worth knowing which is
+which.
+
+The pitch takes the **ratio** between adjacent stages, because a ratio is what
+a listener cannot compute: two heights heard one at a time do not give a
+percentage, and on a raw scale the worst stage in a funnel is routinely not
+the biggest fall. Braille takes the **counts**, because a display can show a
+shape all at once and that shape *is* the funnel -- a wide first cell tapering
+to a narrow last one, with the steep steps legible as the cells where the dots
+drop several levels at once.
+
+So the ear is told how bad each step is and the fingers are shown what the
+whole thing looks like. Encoding the retention in the cells instead would put
+a near-full cell wherever a stage lost nobody, and the display would no longer
+narrow -- a funnel that reads as a rectangle.
+
+### Multiline Displays
+
+Funnel charts use a single-line representation. On multiline braille displays
+the funnel appears on the first line and the remaining lines are unused.
+
 ## Gantt, timeline and swimlane
 
 A gantt's braille is the multi-line encoding: **one row per lane**, one cell

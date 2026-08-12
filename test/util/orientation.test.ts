@@ -19,6 +19,9 @@ describe('resolveOrientation', () => {
     // drawn decides which axis an interval's ends move on. A timeline drawn
     // down the page is the ordinary alternative, not an exotic one.
     TraceType.GANTT,
+    // A funnel is drawn top to bottom as often as left to right, and the
+    // stages run along one axis with the counts on the other either way.
+    TraceType.FUNNEL,
     TraceType.HISTOGRAM,
     TraceType.NORMALIZED,
     TraceType.STACKED,
