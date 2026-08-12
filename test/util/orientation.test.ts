@@ -67,6 +67,8 @@ describe('resolveOrientation', () => {
     TraceType.ALLUVIAL,
     TraceType.CHORD,
     TraceType.SANKEY,
+    // A force layout has no axes, and where a node lands carries no meaning.
+    TraceType.NETWORK,
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,
     TraceType.HEATMAP,

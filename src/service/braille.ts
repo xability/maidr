@@ -1107,6 +1107,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.CHORD, asGeneric(new BarBrailleEncoder())],
       [TraceType.SANKEY, asGeneric(new BarBrailleEncoder())],
+      [TraceType.NETWORK, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
       // A bump chart's rows are competitors and its columns periods, which is
       // the line encoder's input exactly. The cells rise with the rank NUMBER

@@ -21,6 +21,7 @@ import { HexbinTrace } from './hexbin';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
 import { MosaicTrace } from './mosaic';
+import { NetworkTrace } from './network';
 import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
@@ -129,6 +130,9 @@ export abstract class TraceFactory {
         // size against genomic position -- and in nothing a reader navigates,
         // the way POLAR_AREA and RADAR share RadarTrace.
         return new VolcanoTrace(layer);
+
+      case TraceType.NETWORK:
+        return new NetworkTrace(layer);
 
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);
