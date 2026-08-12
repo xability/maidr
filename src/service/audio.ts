@@ -342,6 +342,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // sample is a data property, not a path-geometry one — so they belong here
     // too. Compared against the enum rather than a bare string so a renamed
     // member breaks the build instead of silently disabling the chord.
+    //
+    // RADAR and POLAR_AREA also inherit that detection and their state does
+    // carry `intersections`, and the coincidence is real on a circle too — a
+    // shared spoke and value is one point either way. They are left out
+    // because a chord is several tones at once and a radar reads position by
+    // ear, out and back around the circle: sounding them together spends the
+    // one cue the layout has. Adding them here would sound correct, so this is
+    // a choice about what a radar is for, not a gap to close by accident.
     if (
       (state.traceType === TraceType.LINE || state.traceType === TraceType.STEP)
       && !state.empty

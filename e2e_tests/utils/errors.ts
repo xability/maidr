@@ -168,6 +168,51 @@ export class WaterfallPlotError extends Error {
 }
 
 /**
+ * Error thrown when Gauge related operations fail
+ */
+export class DumbbellPlotError extends Error {
+  /**
+   * Creates a new DumbbellPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'DumbbellPlotError';
+  }
+}
+
+export class GaugePlotError extends Error {
+  /**
+   * Creates a new GaugePlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'GaugePlotError';
+  }
+}
+
+/**
+ * Error thrown when Word cloud related operations fail
+ */
+export class WordCloudPlotError extends Error {
+  /**
+   * Creates a new WordCloudPlotError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'WordCloudPlotError';
+  }
+}
+
+/**
  * Error thrown when Area plot related operations fail
  */
 export class AreaPlotError extends Error {

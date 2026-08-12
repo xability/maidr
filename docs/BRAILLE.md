@@ -29,6 +29,12 @@ Given the four height levels of Braille, the encoding is as follows:
 This tactile encoding allows users to easily differentiate between the various value ranges in the bar plot,
 facilitating their understanding of the data distribution and its underlying trends.
 
+A **dot plot** and a **lollipop** carry a bar's braille state, because they
+carry a bar's data -- one row of magnitudes, encoded exactly as above. The mark
+differs and the encoding cannot: there is no tactile equivalent of "drawn as a
+point rather than a rectangle", and inventing one would encode the author's
+styling where the reader expects the data.
+
 ### Multiline Displays
 
 Bar plots use a single-line representation. On multiline braille displays, the bar plot appears on the first line and the remaining lines are unused.
@@ -104,6 +110,62 @@ As an example, consider a boxplot with the following distribution: [10, 0, 20, 4
 Multiline braille displays represent grouped boxplots, such as horizontal boxplots and vertical boxplots with multiple groups, by displaying each group on a separate line of the braille display. Each line corresponds to a different group, allowing users to compare the distributions of multiple groups simultaneously. The same encoding principles for boxplots apply to each line, with Braille characters representing the various sections of the boxplot for each group.
 
 Single-line braille displays represent grouped boxplots by allowing users to navigate vertically between groups using the up and down arrow keys. As the user navigates, the braille representation updates to show the boxplot for the current group, enabling users to explore each group's distribution one at a time.
+
+## Hexbin
+
+One row per lattice row, one cell per bin, using the heatmap encoding above —
+because read as a lattice of cells each carrying a count, that is what a
+hexbin is.
+
+**The stagger has no representation here, and needs none.** A hex lattice
+offsets alternate rows by half a cell, and a braille display is a line of
+cells with nowhere to put half of one. What survives intact is the thing the
+chart is drawn for: the density pattern, as a run of cells that rises towards
+the cloud and falls away from it, with the empty margins reading as spaces.
+
+Where the offset *does* matter is navigation rather than encoding — moving up
+or down lands between two bins, so the trace keeps the reader over the x they
+started from rather than stepping by index. A display shows the whole row at
+once and never has to make that choice.
+
+### Multiline Displays
+
+Hexbin plots use one line per lattice row on a multiline display, so the shape
+of the cloud can be felt at once rather than row by row.
+
+## Letter-value plot (boxen)
+
+One row per distribution, one cell per rung of its quantile ladder, every row
+scaled against the **chart's** range rather than its own.
+
+**Not the box plot encoding above.** That one renders five named sections at
+proportional widths, and a letter-value ladder has a variable number of rungs
+by design — a library adds them as the sample grows. A fixed-section glyph run
+would either truncate a deep ladder or pad a shallow one into looking deeper
+than it is, and depth is exactly the fact a boxen carries that a box plot
+cannot.
+
+So the row is the ladder itself, read in value order: deepest lower quantile,
+inward to the median, outward again to the deepest upper one. That makes the
+run of cells rise monotonically, and **its steepness is the reading**:
+
+```
+⣀⣀⠤⠒⠒⠉⠉    gentle throughout — a light-tailed sample
+⣀⠤⠤⠒⠒⠒⠉    steep at the ends — a heavy tail
+```
+
+Cells that climb gently through the middle and jump at the ends are a
+heavy-tailed distribution, which is the finding a boxen is drawn to make and
+the one a box plot's single whisker flattens into a number.
+
+Because every row shares the chart's scale, two distributions can be compared
+cell by cell — a row sitting entirely higher than another is a distribution
+shifted upward, not merely one with a different spread.
+
+### Multiline Displays
+
+Letter-value plots use one line per distribution on a multiline display, so
+several groups' tails can be compared with one sweep.
 
 ## Scatter plot
 
@@ -315,6 +377,605 @@ read as one shape with different numbers behind it.
 
 Waterfall charts use a single-line representation. On multiline braille
 displays the steps appear on the first line and the remaining lines are unused.
+
+## Word cloud
+
+A word cloud's braille is a single row of **weights**, one cell per term,
+scaled against the row's own range -- the bar encoding above, unchanged.
+
+The row is ordered by weight, heaviest first, which is also the order the
+cursor walks. A cloud's drawn arrangement is chosen to pack glyphs into a
+rectangle and encodes nothing, so a profile in layout order would be an
+arbitrary sequence of heights; in weight order it descends, and the shape of
+that descent is the distribution -- whether one term dominates or many are
+comparable, which is what a cloud is read for.
+
+The terms themselves are not in the braille. They are what the text mode
+announces, and a display of five cells cannot carry five words.
+
+### Multiline Displays
+
+Word clouds use a single-line representation. On multiline braille displays
+the terms appear on the first line and the remaining lines are unused.
+
+## Gauge and bullet chart
+
+A gauge's braille is a **single cell**, scaled against the dial's own ends
+rather than against the value -- so the cell's dot height is where along the
+dial the measure sits, not merely that a measure exists.
+
+That is the whole of what braille can carry here, and it is worth carrying: a
+reader running a finger along a dashboard row feels each tile's fill level
+without leaving braille mode. The target, the band and the range are not
+encoded, because one cell has four height levels and no room for four
+quantities; they are announced in text instead, which is where a reader asking
+"how far off target" is already looking.
+
+### Multiline Displays
+
+Gauges use a single-line representation. On multiline braille displays the
+measure appears on the first line and the remaining lines are unused.
+
+## Dumbbell
+
+A dumbbell's braille is **two rows** — the starting values and the finishing
+ones — one cell per category, with each row scaled against **its own** range.
+
+That per-row scaling is the same treatment a multi-line plot gets, and it is
+what makes the two rows comparable as *shapes*: the point of the chart is
+whether the second row's profile sits differently from the first, and a single
+shared range would flatten both toward the middle of the combined spread when
+the two ends occupy different parts of the value axis.
+
+The rows keep the chart's own order — start first, then end — rather than being
+sorted by magnitude. A dumbbell normally contains rises and falls at once, so
+sorting would put a declining row's finishing value on the line that holds
+every other row's start, and the reader would have no way to know which line
+they were feeling.
+
+The change itself is not encoded. It is what the text announcement carries at
+both ends of every row, and a third line of deltas would read as a third series
+rather than as the gap between the first two.
+
+### Multiline Displays
+
+Dumbbell charts use both lines on a multiline display: the starting values on
+the first and the finishing ones on the second, so the two profiles can be
+compared with one sweep rather than by toggling between rows.
+
+## Radar and polar area
+
+A radar's braille is the multi-line encoding unchanged: **one row per series**,
+one cell per spoke, each row scaled against its own range.
+
+What braille cannot carry here is the circle. A display is a line of cells and
+a spoke's angle has nowhere to go in it, so the row reads as the sequence of
+values it is — first spoke to last, in the order the chart declares them.
+
+That is not a loss the way a missing magnitude would be, because the angle is
+carried elsewhere and better: the **stereo position** follows the spoke around
+the dial, so a sweep goes out and comes back. Braille answers "how do the
+series compare across the spokes"; audio answers "where on the circle am I".
+Encoding a rotation into cell heights would answer neither.
+
+### Multiline Displays
+
+Radar charts use one line per series on a multiline display, so several models'
+profiles can be compared with one sweep rather than by toggling between rows.
+
+## Funnel
+
+A single row of stage counts, scaled against that row's own range -- the bar
+encoding unchanged.
+
+**The cells carry the counts, not the retention the pitch carries.** The two
+deliberately answer different questions, and it is worth knowing which is
+which.
+
+The pitch takes the **ratio** between adjacent stages, because a ratio is what
+a listener cannot compute: two heights heard one at a time do not give a
+percentage, and on a raw scale the worst stage in a funnel is routinely not
+the biggest fall. Braille takes the **counts**, because a display can show a
+shape all at once and that shape *is* the funnel -- a wide first cell tapering
+to a narrow last one, with the steep steps legible as the cells where the dots
+drop several levels at once.
+
+So the ear is told how bad each step is and the fingers are shown what the
+whole thing looks like. Encoding the retention in the cells instead would put
+a near-full cell wherever a stage lost nobody, and the display would no longer
+narrow -- a funnel that reads as a rectangle.
+
+### Multiline Displays
+
+Funnel charts use a single-line representation. On multiline braille displays
+the funnel appears on the first line and the remaining lines are unused.
+
+## Gantt, timeline and swimlane
+
+A gantt's braille is the multi-line encoding: **one row per lane**, one cell
+per interval, each row scaled against its own range. A cell's height is the
+interval's **length** — the same magnitude the pitch carries and the same one
+the announcement gives.
+
+A lane with nothing booked renders as an **empty row** rather than being
+skipped, so the reader's line count keeps matching the chart's lane count. An
+empty lane is a real statement about a schedule, and a display that silently
+closed the gap would put every lane below it on the wrong line.
+
+### Why not a span drawn along the axis
+
+The literal picture — each row a stretch of the axis, cells raised where an
+interval covers them — is the encoding a schedule seems to want, and it is the
+wrong one at the resolution a display has.
+
+A 40-cell display over a year gives each cell about nine days. A fortnight's
+task and a three-week one are then the same single raised cell, two tasks a
+week apart begin in the same cell, and a milestone shorter than nine days
+either vanishes or is rounded up to look like a week of work. Every question a
+schedule is read for — how long, how much longer than that one, do these two
+overlap — is answered wrongly rather than coarsely.
+
+The length profile is the opposite trade: **coarse about when, exact about how
+long**. Where an interval sits is carried by the stereo position, which is
+continuous along the axis and has the resolution to place it — so the two
+modalities divide the chart between them rather than both approximating the
+same half of it.
+
+### Multiline Displays
+
+Gantt charts use one line per lane on a multiline display, so several lanes'
+workloads can be compared with one sweep rather than by toggling between rows.
+## Parallel coordinates
+
+One row per observation, one cell per axis, each row scaled from 0 to 1.
+
+The scaling is the whole point, and it happens **before** the encoder sees the
+data. Every other multi-row trace hands the encoder raw values and lets it
+scale each row against that row's own extent, which is right when a row is one
+quantity sampled repeatedly. A parallel coordinates row is not: it holds one
+observation across every variable, so scaling it row-wise would compare a car's
+fuel economy against its own kerb weight, and the cell heights would encode
+which variable happens to use bigger numbers rather than anything about the
+car.
+
+So the trace normalizes first. Each cell is its value's position **on its own
+axis**, which is exactly what the pitch plays and what the chart draws. A row
+of the display is then that observation's profile across the variables, and two
+rows can be compared cell by cell:
+
+```
+⠉⠉⣀    high economy, high power, low weight
+⣀⣀⠉    low economy, low power, high weight
+```
+
+Two rows whose heights swap between adjacent cells are the crossing lines that
+mean negative correlation — the pattern the chart is drawn for, available by
+touch as well as by ear.
+
+An axis whose observations all share one value has no spread to place anything
+within, so every cell on it sits at the midpoint. Both extremes would claim a
+rank the data does not support.
+
+### Multiline Displays
+
+Parallel coordinates use one line per observation on a multiline display, so
+several observations' profiles can be compared with one sweep rather than by
+toggling between rows.
+## Bump chart
+
+One row per competitor, one cell per period, each row scaled against its own
+range — the line encoding unchanged.
+
+**The cells rise with the rank number, not with the position.** A row that
+climbs the display is a competitor sliding *down* the table, because rank 1 is
+the best place and the smallest number. That is the opposite of what the pitch
+does, which inverts so first place is the highest note.
+
+The two disagree on purpose, and it is worth knowing which is which. Audio is
+given a direction to invert — the trace hands the service its bounds the other
+way round, and nothing else about the tone changes. Braille is given values,
+and the encoder maps a value to a dot height; inverting those would mean
+emitting `n + 1 - rank` in place of the rank, so the display would carry
+numbers the chart does not contain and every other reading of the same state
+would disagree with it.
+
+So the display stays literal: a low row is a good run, and the announcement and
+the pitch both say so in words and in tone. What braille adds is the *shape* —
+a row that stays flat held its place all season, and two rows that cross swapped
+positions, which is legible by touch whichever way the dots run.
+
+### Multiline Displays
+
+Bump charts use one line per competitor on a multiline display, so a whole
+table's season can be felt at once rather than by toggling between rows.
+
+## Diverging bar and population pyramid
+
+One row per side plus the balance row, one cell per category -- the bar
+encoding unchanged.
+
+**The cells encode the signed value, so a left-hand row reads low across its
+whole length.** That is the opposite of what the pitch does, which takes the
+magnitude so a bar of the same size sounds the same on either side.
+
+The two disagree on purpose. Audio is given a direction to invert and nothing
+else about the tone changes. Braille is given values, and the encoder maps a
+value to a dot height; flipping the left side's sign before encoding would put
+numbers in the display that the chart does not contain, and every other reading
+of the same state would then contradict it.
+
+So the display stays literal, and what it adds is the *silhouette*: the two
+sides read as a low band and a high band, and the taper of a pyramid -- wide at
+the young bands, narrow at the old -- is legible as a run of dots rising on one
+row while falling on the other.
+
+### Multiline Displays
+
+Diverging charts use one line per side on a multiline display, plus the
+balance, so the two sides can be compared with one sweep.
+
+## Ridgeline (joy plot)
+
+One row per group, one cell per sample of its density curve — the line
+encoding, which is what a density curve is.
+
+**Every row is scaled against the chart's peak rather than its own.** This is
+the one place a ridgeline's braille differs from a violin's, and it is
+deliberate: the chart exists so a reader can ask which distribution is tallest
+and where. Scaled per row, a group holding a tenth of another's density would
+fill its cells just as high, and the display would show a dozen equally tall
+ridges — the exact reading the chart is drawn to prevent.
+
+The floor is zero rather than the smallest density measured anywhere. A density
+of zero is a real reading — nobody in that group had that value — so it belongs
+at the bottom of the range and not somewhere above it.
+
+**The baseline offset has no representation here, and needs none.** The stagger
+that separates the curves on screen is presentation; it is not in the data and
+it is not in the display. What the fingers get is each group's shape, aligned
+row against row, which is the comparison the offset exists to make possible
+visually.
+
+```
+Group   Cells
+2019    ⠄⠆⠖⠶⣶⣶⠶⠖⠆⠄
+2021    ⠄⠆⠖⠖⠶⠶⠖⠖⠆⠄
+2023    ⠂⠆⠖⠶⣿⣿⠶⠖⠆⠂
+```
+
+The 2021 cohort's row never reaches the top because that cohort's curve never
+reaches the chart's peak — it is more spread out, so its density is lower
+everywhere. A per-row scale would have hidden that by filling its middle cells
+as high as everyone else's.
+
+### Multiline Displays
+
+Ridgelines use one line per group on a multiline display, so a reader can sweep
+across the groups at a fixed position and feel the modes march along the axis,
+or fail to — which is the finding the chart is drawn for.
+
+## Forest plot
+
+Three rows — lower bound, estimate, upper bound — one cell per study, the
+error bar encoding unchanged, because a forest plot's magnitudes *are* an
+error bar's.
+
+**What the display adds is the scanning.** A forest plot is read by sweeping
+down the column of intervals to see which ones clear the null line and which
+sit across it, and that is a shape rather than a sequence of numbers. Three
+rows of cells put the lower bounds, the estimates and the upper bounds each on
+their own line, so a finger running along the lower-bound row feels exactly
+the comparison the figure is drawn for.
+
+```
+Section       Cells
+upper bound   ⠤⠶⣿⠶⠤
+estimate      ⠤⠴⠶⠴⠤
+lower bound   ⠂⠆⠶⠆⠂
+```
+
+**Two things the dots deliberately do not carry.**
+
+The **null line** has no representation. It is a position on the value axis,
+not a magnitude, and a cell height cannot say "this is where one is". Whether
+a study crosses it is announced instead, because it is a verdict rather than a
+shape — and it is the one fact a reader would otherwise have to reconstruct by
+comparing two cells against a number that appears nowhere on the display.
+
+The **weight** has none either. A forest plot encodes it as marker area, and
+braille has one dimension per cell, already spent on the magnitude. Encoding
+weight in place of the value would trade a number the reader needs for one
+they can be told; it is announced alongside the estimate instead.
+
+### Multiline Displays
+
+Forest plots use one line per section on a multiline display, so all three
+rows of the comparison are under the hand at once.
+
+## Kaplan-Meier survival curve
+
+One row per arm, one cell per time, the line encoding — which is what a step
+chart's braille already is, and a survival curve is a step chart.
+
+The shape is the reading. A curve that falls early and steeply is a row of
+cells dropping away fast; a curve that holds is a run at the same height; and
+two arms separating is two rows that start together and end apart, felt in one
+sweep rather than reconstructed from two passes.
+
+```
+Arm         Cells
+Control     ⣿⣶⠶⠦⠤⠄⠂
+Treatment   ⣿⣿⣶⣶⣶⠶⠶
+```
+
+**Censoring marks have no representation, and need none.** A censored time is
+a subject who left the study without the event happening, and the curve does
+not step there — so the cell is the same cell it would have been, and marking
+it would put an annotation in the display where the reader expects the data.
+It is announced instead, because it changes not the estimate but how much of
+the estimate is still supported: a flat tail carried by two hundred subjects
+and one carried by three are the same run of dots and mean entirely different
+things.
+
+**The confidence band has none either**, for the reason it has none on any
+line: a cell has one height, already spent on the estimate. The band is
+announced alongside each time.
+
+### Multiline Displays
+
+Survival curves use one line per arm on a multiline display, so the moment two
+arms separate can be found by running two fingers along together until they
+part.
+
+## Mosaic and marimekko
+
+One row per series plus the total row, one cell per category — the stacked bar
+encoding, which is what a mosaic's segments are.
+
+**The width has no representation, and that is a real loss rather than a
+non-issue.** A braille cell has one dimension, already spent on the segment's
+magnitude, so the only way to show a wider column would be to give it more
+cells — and the number of cells is the reader's index into the table. A
+display where `Third` occupied three cells and `First` one would put the two
+in different columns, and every comparison down a row would be against a
+different category.
+
+So the cells carry the conditional proportions and the **width is announced**:
+each cell says its column's share of all observations, and the description
+lists the whole marginal distribution.
+
+```
+Series      Cells
+Survived    ⣶⠶⠦
+Died        ⠦⠶⣶
+Total       ⣿⣿⣿
+```
+
+The total row is full across, as it must be: a mosaic's columns each sum to
+one whatever their width. That is precisely why the width cannot be inferred
+from the dots, and why it is worth saying out loud.
+
+### Multiline Displays
+
+Mosaics use one line per series on a multiline display, so the conditional
+proportions can be swept across the categories in one pass.
+
+## Choropleth
+
+One row per **latitude band**, one cell per region within it, ordered west to
+east. Every row is scaled against the whole map rather than against itself,
+because every region is shaded from the same colour ramp and is therefore
+comparable with every other -- which is the premise of the form, and the one
+place this differs from the treemap above.
+
+Row zero is the **southernmost** band. That is not a display choice: the
+cursor moves up by incrementing the row, so the southern band has to be first
+for the arrow keys to mean what they say, and the braille service already
+reverses row order on a physical multi-line display, which puts north at the
+top of the page where it belongs.
+
+**The bands hold equal counts, not equal spans of latitude.** A row is "the
+next few regions going north" rather than a fixed slice of it. So the cells of
+a row are in west-to-east order and the rows are in south-to-north order --
+both exact -- while the *thickness* of a band varies with how the regions are
+spread. Reading a row does not tell you how far it reaches.
+
+**Borders have no representation.** Two cells side by side are the next two
+regions going east, which is not the same as two regions that touch, and
+nothing in the dots says which pairs share an edge. Adjacency is announced
+instead -- every region says how it compares with the ones around it, the
+rotor walks them, and the description names the sharpest borders and the
+clusters. The display gives the spread; the announcement gives the map.
+
+```
+Band    Cells
+south   ⣿⡿⠶⠶
+middle  ⠒⣶⣴⠒
+north   ⠂⠒⠒
+```
+
+### Multiline Displays
+
+Choropleths use one line per band, so a hand laid across the display holds the
+whole map at once and the gradient from one band to the next is felt directly
+-- which is the closest this modality comes to the shading a sighted reader
+sees at a glance.
+
+## Contour and filled contour
+
+One row per level, one cell per point along its curve — the line encoding,
+because a contour *is* one line per level.
+
+Each row is scaled against its own curve, as a line's rows are, so the shape of
+each iso-value curve is legible on its own terms.
+
+**The level has no representation, and giving it one would destroy the row.**
+The level is constant along a curve — that is what makes it a contour — so
+encoding it would spend every cell of a row saying one number, and the shape
+the row exists to convey would be gone. It is announced instead, on the field's
+own axis.
+
+**Spacing has none either**, and that one is a real loss. How close the curves
+run is the gradient, and it is a fact about the *gap between two rows* rather
+than about any cell in either. A display shows both rows at once, so a
+multiline reader can feel two curves converge — but the number is announced,
+because on a single-line display there is nothing to compare against.
+
+```
+Level   Cells
+0.4     ⠤⠔⠒⠉⠉⠒⠔⠤
+0.3     ⠤⠔⠒⠉⠉⠒⠔⠤
+0.2     ⠔⠒⠉⠉⠉⠉⠒⠔
+0.1     ⠒⠉⠉⠉⠉⠉⠉⠒
+```
+
+### Multiline Displays
+
+Contours use one line per level on a multiline display, which is the case where
+braille gives back what the announcement carries: two fingers on adjacent rows
+feel exactly where the curves crowd together and where they open out.
+
+<<<<<<< HEAD
+## Sankey, alluvial and chord
+
+One row per **stage** -- one column of the drawing -- with one cell per node in
+it, each row scaled against its own stage. Flow is conserved along a sankey, so
+a single scale across the chart is dominated by the largest source and every
+node past the first split sits near its floor; per-stage scaling is what keeps
+the column a reader is actually walking legible.
+
+The rows are the stages even though the *cursor* is addressed the other way
+round. The arrows are given the chart's geometry -- left and right follow a
+ribbon between columns, up and down walk the nodes stacked within one -- so the
+cursor's own row is a position within a stage. A braille line has to be a
+stage, or a row would be "the third node of every column", which is not a
+thing, so the state is transposed on its way out.
+
+**The ribbons have no representation at all**, and that is the whole of what
+this chart draws. A cell is a node's throughput; nothing in the dots says where
+that quantity came from, where it goes, or how it splits. Two cells side by
+side are two nodes of one column, which is not a relation the chart encodes.
+
+So the topology is carried entirely by the announcement: every step names the
+ribbon it travelled with its magnitude and its share of the source, the rotor
+enumerates the flows the arrows skip, and the description names the largest
+flow and the widest route end to end. The display gives the sizes; the
+announcement gives the routing.
+
+```
+Stage   Cells
+0       ⣿⠶
+1       ⠂⣿⡶
+2       ⣿⡖
+=======
+## Network
+
+One row per **connected group**, one cell per node in it, ordered most
+connected first and scaled against the whole chart rather than per group. That
+scaling is the opposite choice to the treemap's and it is deliberate: degree is
+comparable everywhere, and a per-group scale would make a hub of three feel
+like a hub of thirty, which is the one comparison this chart exists for.
+
+**The links have no representation**, which is most of the chart. A cell is a
+node's degree; nothing in the dots says *who* it is linked to, and two cells
+side by side are two nodes of one group rather than two nodes that touch. The
+display gives the shape of the degree distribution -- where the hubs are, how
+long the tail is -- and the announcement gives the topology.
+
+**Where a node is drawn is not encoded either, and must not be.** A force
+layout's positions are a fact about the solver's seed rather than about the
+data, so there is nothing there to put in a cell.
+
+```
+Group   Cells
+1       ⣿⡶⡶⠆⠆
+2       ⡶⡶⡶
+>>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
+```
+
+### Multiline Displays
+
+<<<<<<< HEAD
+One line per stage, so a hand across the display holds the whole chart and the
+narrowing from source to sink is felt directly -- the one thing here braille
+conveys better than it conveys the ribbons.
+=======
+One line per group, so the split into groups -- the structure a reader
+following links can never discover, because links do not cross between them --
+is felt directly as separate rows of different lengths.
+>>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
+
+## Treemap
+
+One row per **level** of the tree, one cell per node at that level, each row
+scaled against its own level.
+
+That scaling is the whole reason the display says anything. A tree's
+magnitudes fall by an order of magnitude per level, so a single scale across
+the chart would put every leaf on the floor of a range topped by the root and
+render the level a reader is actually walking as a flat line of empty cells.
+
+**The tree has no representation, and this is the modality's real limit.** A
+row is a sequence of cells; a level is a set of siblings belonging to
+different parents. Nothing in the dots says where one parent's children end
+and the next parent's begin, so two cells that feel adjacent may be in
+different branches. A reader relying on the display alone would read a level
+as one run of magnitudes, which is exactly the flat reading the trace exists
+to replace.
+
+So the shape is the display's contribution and the structure is the
+announcement's: every move names the node, its share of its parent, and its
+child count, and the arrow keys refuse to cross a parent boundary. The display
+shows a level's distribution; it does not show whose children they are.
+
+```
+Level   Cells
+0       ⣿⠆⠂
+1       ⣶⣿⠒⠂⠂⠂⠒⠂⠂⠂
+```
+
+### Sunburst and icicle
+
+The same encoding, because they are the same tree. A sunburst's rings and an
+icicle's bands are both levels, so both give one row per level and both hit
+the same limit: the dots carry the spread of a level and never the boundaries
+inside it.
+
+What the sunburst adds is not in the braille at all. Its rings are angular, so
+its **sound** is panned around the dial the way a pie's is -- sweeping a ring
+goes out to one side and comes back. Braille has no dimension to put that in;
+the display shows the same row of magnitudes either way.
+
+### Multiline Displays
+
+Treemaps use one line per level. Two fingers on adjacent rows sit on a level
+and the level below it, which is where the parent-child relation is at least
+felt as a magnitude split into parts -- though still without the boundary that
+says which parts belong to which whole.
+
+## Volcano and Manhattan
+
+The scatter encoding, unchanged — these are scatters, and their points carry
+nothing a scatter's cells cannot.
+
+**The threshold has no representation, and cannot have one.** It is a *line on
+the value axis*, not a magnitude, and a braille cell says how large something
+is rather than where a boundary sits. There is no dot pattern for "this is the
+5.0 mark".
+
+That matters more here than it would elsewhere, because the threshold is what
+these charts are read for. So it is carried everywhere else instead: every
+point announces which side of it they are on, the description opens with the
+count that cleared it, and a rotor filter walks only those points. A braille
+reader gets the cloud's shape from the display and the finding from the other
+three modalities — which is the right division, since the finding is a fact
+about a handful of points and the display is about all twelve thousand.
+
+### Multiline Displays
+
+Volcano and Manhattan plots use the scatter's multiline behaviour. On a chart
+of this size the display is a density impression rather than a readable list,
+which is what the rotor filter exists to compensate for.
 
 ## Multiline Braille Display Support
 

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Letter-Value Plot Example — Response Time by Group</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A box plot's five-number summary is a letter-value ladder with exactly
+        one rung. The point of a boxen is that a large sample gets more rungs,
+        so its tails stay legible instead of collapsing into one whisker and a
+        scatter of dots.
+
+        The two groups here have different depths on purpose: control has
+        three rungs and treatment has four, because a library adds rungs as it
+        gains confidence in the tail. Depth is a fact about the sample.
+
+        Arrowing across a distribution walks it in value order - deepest lower
+        quantile, inward to the median, outward again - so the pitch rises
+        without exception and where it rises FAST is where the sample is thin.
+        On treatment that jump at the ends is the finding, and it is what a
+        box plot's single whisker flattens into one number.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="boxen-response" maidr='{&#10;  &quot;id&quot;: &quot;boxen-response&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;boxen-response-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;boxen-response-layer&quot;,&#10;            &quot;type&quot;: &quot;boxen&quot;,&#10;            &quot;title&quot;: &quot;Response Time by Group&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Group&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Milliseconds&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;boxen-boxes&#x27;] &gt; g&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;z&quot;: &quot;control&quot;,&#10;                &quot;median&quot;: 50,&#10;                &quot;levels&quot;: [&#10;                  {&#10;                    &quot;p&quot;: 0.25,&#10;                    &quot;lo&quot;: 46,&#10;                    &quot;hi&quot;: 54&#10;                  },&#10;                  {&#10;                    &quot;p&quot;: 0.125,&#10;                    &quot;lo&quot;: 42,&#10;                    &quot;hi&quot;: 58&#10;                  },&#10;                  {&#10;                    &quot;p&quot;: 0.0625,&#10;                    &quot;lo&quot;: 38,&#10;                    &quot;hi&quot;: 62&#10;                  }&#10;                ]&#10;              },&#10;              {&#10;                &quot;z&quot;: &quot;treatment&quot;,&#10;                &quot;median&quot;: 62,&#10;                &quot;levels&quot;: [&#10;                  {&#10;                    &quot;p&quot;: 0.25,&#10;                    &quot;lo&quot;: 57,&#10;                    &quot;hi&quot;: 68&#10;                  },&#10;                  {&#10;                    &quot;p&quot;: 0.125,&#10;                    &quot;lo&quot;: 51,&#10;                    &quot;hi&quot;: 74&#10;                  },&#10;                  {&#10;                    &quot;p&quot;: 0.0625,&#10;                    &quot;lo&quot;: 44,&#10;                    &quot;hi&quot;: 82&#10;                  },&#10;                  {&#10;                    &quot;p&quot;: 0.03125,&#10;                    &quot;lo&quot;: 30,&#10;                    &quot;hi&quot;: 105&#10;                  }&#10;                ],&#10;                &quot;upperOutliers&quot;: [&#10;                  130&#10;                ]&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="boxen-boxes">
+              <g id="boxen-control">
+                <rect x="185" y="262.5" width="130" height="50.0" style="fill: #2c4d75" />
+                <rect x="198" y="270.8" width="104" height="33.3" style="fill: #4c72b0" />
+                <rect x="211" y="279.2" width="78" height="16.7" style="fill: #7d9dcc" />
+                <line x1="185" y1="287.5" x2="315" y2="287.5" style="stroke: #ffffff; stroke-width: 3" />
+              </g>
+              <g id="boxen-treatment">
+                <rect x="485" y="172.9" width="130" height="156.3" style="fill: #2c4d75" />
+                <rect x="498" y="220.8" width="104" height="79.2" style="fill: #4c72b0" />
+                <rect x="511" y="237.5" width="78" height="47.9" style="fill: #7d9dcc" />
+                <rect x="524" y="250.0" width="52" height="22.9" style="fill: #aec3e3" />
+                <line x1="485" y1="262.5" x2="615" y2="262.5" style="stroke: #ffffff; stroke-width: 3" />
+              </g>
+            </g>
+            <g id="axis_x">
+          <text x="250" y="380" style="font: 14px sans-serif; text-anchor: middle">control</text>
+          <text x="550" y="380" style="font: 14px sans-serif; text-anchor: middle">treatment</text>
+            </g>
+            <g id="axis_y">
+              <text x="150" y="350" style="font: 12px sans-serif; text-anchor: end">20</text>
+              <text x="150" y="225" style="font: 12px sans-serif; text-anchor: end">80</text>
+              <text x="150" y="100" style="font: 12px sans-serif; text-anchor: end">140</text>
+              <text x="110" y="230" style="font: 13px sans-serif; text-anchor: middle">Milliseconds</text>
+            </g>
+            <g id="chart-title">
+              <text x="400" y="60" style="font: 16px sans-serif; text-anchor: middle">Response Time by Group</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

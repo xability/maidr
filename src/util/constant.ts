@@ -116,6 +116,8 @@ export abstract class Constant {
   static readonly POLYLINE = 'polyline';
   /** Space character */
   static readonly SPACE = ' ';
+  /** Terse-mode span joiner, the short form of {@link Constant.THROUGH} */
+  static readonly TO_DASH = '-';
   /** Text string for 'through' with spaces */
   static readonly THROUGH = ' through ';
   /** CSS transparent color value */

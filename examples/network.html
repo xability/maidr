@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Network Example — Collaborations</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A node-link diagram: the same graph a sankey carries with the
+        constraints relaxed -- undirected links, and no stages, because a
+        force layout has no columns.
+
+        LAYOUT POSITION CARRIES NO MEANING, so it is not in the schema at all.
+        Where a force-directed node lands is a fact about the solver's seed;
+        announcing "upper left" as though it were data would be inventing a
+        finding. The positions in this SVG are decorative. What replaces them
+        is the structure that is actually there: a node's DEGREE, which is the
+        hub-finding this chart is usually drawn for.
+
+        A READER MUST NEVER BE STUCK IN ONE GROUP. Following links only ever
+        reaches the group you are in, and this chart has two -- so the arrows
+        do not follow links:
+
+          left/right  walk this group, most connected first
+          up/down     move to another group entirely
+
+        Between them they reach every node. Following a link is the rotor,
+        which is also where it belongs on an undirected graph: a node's
+        neighbours have equal status, so there is no "the" link for an arrow
+        to take, unlike a sankey where the widest ribbon is the one an eye
+        follows.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="330pt" viewBox="0 0 720 330" version="1.1"
+        id="network-collab" maidr='{&#10;  &quot;id&quot;: &quot;network-collab&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;network-collab-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;network-collab-layer&quot;,&#10;            &quot;type&quot;: &quot;network&quot;,&#10;            &quot;title&quot;: &quot;Collaborations&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Person&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Links&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;line[id=&#x27;link-0&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-1&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-2&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-3&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-4&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-5&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-6&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-7&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-8&#x27;]&quot;,&#10;              &quot;line[id=&#x27;link-9&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;source&quot;: &quot;Edsger&quot;,&#10;                &quot;target&quot;: &quot;Ada&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Ada&quot;,&#10;                &quot;target&quot;: &quot;Grace&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Ada&quot;,&#10;                &quot;target&quot;: &quot;Alan&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Grace&quot;,&#10;                &quot;target&quot;: &quot;Alan&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Barbara&quot;,&#10;                &quot;target&quot;: &quot;Ada&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Ada&quot;,&#10;                &quot;target&quot;: &quot;Katherine&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Grace&quot;,&#10;                &quot;target&quot;: &quot;Katherine&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Tim&quot;,&#10;                &quot;target&quot;: &quot;Vint&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Vint&quot;,&#10;                &quot;target&quot;: &quot;Radia&quot;&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Tim&quot;,&#10;                &quot;target&quot;: &quot;Radia&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 330  L 720 330  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <line id="link-0" x1="330" y1="110" x2="250" y2="190" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-1" x1="250" y1="190" x2="150" y2="110" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-2" x1="250" y1="190" x2="150" y2="270" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-3" x1="150" y1="110" x2="150" y2="270" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-4" x1="330" y1="270" x2="250" y2="190" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-5" x1="250" y1="190" x2="250" y2="60" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-6" x1="150" y1="110" x2="250" y2="60" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-7" x1="560" y1="140" x2="640" y2="210" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-8" x1="640" y1="210" x2="500" y2="240" style="stroke: #b0b8c4; stroke-width: 2" />
+          <line id="link-9" x1="560" y1="140" x2="500" y2="240" style="stroke: #b0b8c4; stroke-width: 2" />
+          <circle cx="250" cy="190" r="20.5" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="150" cy="110" r="15.5" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="150" cy="270" r="13.0" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="330" cy="110" r="10.5" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="330" cy="270" r="10.5" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="250" cy="60" r="13.0" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="560" cy="140" r="13.0" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="640" cy="210" r="13.0" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <circle cx="500" cy="240" r="13.0" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="250" y="164.5" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Ada</text>
+          <text x="150" y="89.5" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Grace</text>
+          <text x="150" y="252.0" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Alan</text>
+          <text x="330" y="94.5" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Edsger</text>
+          <text x="330" y="254.5" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Barbara</text>
+          <text x="250" y="42.0" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Katherine</text>
+          <text x="560" y="122.0" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Tim</text>
+          <text x="640" y="192.0" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Vint</text>
+          <text x="500" y="222.0" style="font: 11px sans-serif; text-anchor: middle; fill: #1a1a1a">Radia</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

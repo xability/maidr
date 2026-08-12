@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Grouped Error Bar Example — Average Total Bill by Day and Sex</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A grouped error bar chart poses one question: do the two groups'
+        intervals overlap at this category? Answering it means reading both
+        groups, and the two are separate layers - PageUp and PageDown move
+        between them, landing on the same category each time.
+
+        Which is why each layer carries a `name`. Without one the switch
+        announces "Layer 1 of 2: error_bar plot" for both, and the reader hears
+        two sets of numbers with nothing to say which group either belongs to -
+        exactly what the legend tells a sighted reader at a glance.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="errorbar-grouped" maidr='{&#10;  &quot;id&quot;: &quot;errorbar-grouped&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;errorbar-grouped-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;errorbar-grouped-male&quot;,&#10;            &quot;type&quot;: &quot;error_bar&quot;,&#10;            &quot;title&quot;: &quot;Average Total Bill by Day&quot;,&#10;            &quot;name&quot;: &quot;Male&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Day&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Total bill (USD)&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;errorbar-grouped-male-whips&#x27;] &gt; line&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Thur&quot;,&#10;                &quot;y&quot;: 18.7,&#10;                &quot;yMin&quot;: 16.1,&#10;                &quot;yMax&quot;: 21.7&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Fri&quot;,&#10;                &quot;y&quot;: 19.9,&#10;                &quot;yMin&quot;: 14.6,&#10;                &quot;yMax&quot;: 26.0&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Sat&quot;,&#10;                &quot;y&quot;: 20.8,&#10;                &quot;yMin&quot;: 18.2,&#10;                &quot;yMax&quot;: 23.3&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Sun&quot;,&#10;                &quot;y&quot;: 21.9,&#10;                &quot;yMin&quot;: 19.4,&#10;                &quot;yMax&quot;: 24.2&#10;              }&#10;            ]&#10;          },&#10;          {&#10;            &quot;id&quot;: &quot;errorbar-grouped-female&quot;,&#10;            &quot;type&quot;: &quot;error_bar&quot;,&#10;            &quot;title&quot;: &quot;Average Total Bill by Day&quot;,&#10;            &quot;name&quot;: &quot;Female&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Day&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Total bill (USD)&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;errorbar-grouped-female-whips&#x27;] &gt; line&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Thur&quot;,&#10;                &quot;y&quot;: 16.7,&#10;                &quot;yMin&quot;: 14.2,&#10;                &quot;yMax&quot;: 19.5&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Fri&quot;,&#10;                &quot;y&quot;: 14.1,&#10;                &quot;yMin&quot;: 11.4,&#10;                &quot;yMax&quot;: 16.9&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Sat&quot;,&#10;                &quot;y&quot;: 19.7,&#10;                &quot;yMin&quot;: 16.6,&#10;                &quot;yMax&quot;: 22.8&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Sun&quot;,&#10;                &quot;y&quot;: 19.9,&#10;                &quot;yMin&quot;: 16.3,&#10;                &quot;yMax&quot;: 23.3&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="errorbar-grouped-male-whips">
+              <line x1="170" y1="255.3" x2="170" y2="177.5" style="stroke: #4c72b0; stroke-width: 3" />
+              <line x1="310" y1="276.1" x2="310" y2="117.8" style="stroke: #4c72b0; stroke-width: 3" />
+              <line x1="450" y1="226.1" x2="450" y2="155.3" style="stroke: #4c72b0; stroke-width: 3" />
+              <line x1="590" y1="209.4" x2="590" y2="142.8" style="stroke: #4c72b0; stroke-width: 3" />
+            </g>
+            <g id="errorbar-grouped-male-dots">
+            <circle cx="170" cy="219.2" r="6" style="fill: #4c72b0" />
+            <circle cx="310" cy="202.5" r="6" style="fill: #4c72b0" />
+            <circle cx="450" cy="190.0" r="6" style="fill: #4c72b0" />
+            <circle cx="590" cy="174.7" r="6" style="fill: #4c72b0" />
+            </g>
+            <g id="errorbar-grouped-female-whips">
+              <line x1="190" y1="281.7" x2="190" y2="208.1" style="stroke: #c44e52; stroke-width: 3" />
+              <line x1="330" y1="320.6" x2="330" y2="244.2" style="stroke: #c44e52; stroke-width: 3" />
+              <line x1="470" y1="248.3" x2="470" y2="162.2" style="stroke: #c44e52; stroke-width: 3" />
+              <line x1="610" y1="252.5" x2="610" y2="155.3" style="stroke: #c44e52; stroke-width: 3" />
+            </g>
+            <g id="errorbar-grouped-female-dots">
+            <circle cx="190" cy="246.9" r="6" style="fill: #c44e52" />
+            <circle cx="330" cy="283.1" r="6" style="fill: #c44e52" />
+            <circle cx="470" cy="205.3" r="6" style="fill: #c44e52" />
+            <circle cx="610" cy="202.5" r="6" style="fill: #c44e52" />
+            </g>
+            <g id="axis_x">
+              <text x="180" y="368" style="font: 12px sans-serif; text-anchor: middle">Thur</text>
+              <text x="320" y="368" style="font: 12px sans-serif; text-anchor: middle">Fri</text>
+              <text x="460" y="368" style="font: 12px sans-serif; text-anchor: middle">Sat</text>
+              <text x="600" y="368" style="font: 12px sans-serif; text-anchor: middle">Sun</text>
+              <text x="390" y="395" style="font: 13px sans-serif; text-anchor: middle">Day</text>
+            </g>
+            <g id="axis_y">
+              <text x="160" y="344.0" style="font: 12px sans-serif; text-anchor: end">10</text>
+              <text x="160" y="274.6" style="font: 12px sans-serif; text-anchor: end">15</text>
+              <text x="160" y="205.1" style="font: 12px sans-serif; text-anchor: end">20</text>
+              <text x="160" y="135.7" style="font: 12px sans-serif; text-anchor: end">25</text>
+            </g>
+            <g id="chart-title">
+              <text x="390" y="60" style="font: 16px sans-serif; text-anchor: middle">Average Total Bill by Day and Sex</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

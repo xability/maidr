@@ -514,3 +514,109 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
     expect(service.moveRight()).toBe('');
   });
 });
+
+describe('RotorNavigationService point mode', () => {
+  /**
+   * Context stub whose active trace can be swapped mid-test, which is what
+   * PageUp/PageDown and a live data update do underneath the rotor.
+   */
+  function createSwappableContext(active: unknown): Context & { setActive: (next: unknown) => void } {
+    const ctx = {
+      active,
+      setRotorEnabled: jest.fn(),
+      setActive(next: unknown) {
+        ctx.active = next;
+      },
+    };
+    return ctx as unknown as Context & { setActive: (next: unknown) => void };
+  }
+
+  /**
+   * True when the trace is emitting its default column chord (an array of the
+   * y values at the current x) rather than a single point's tone. Point and
+   * intersection mode both focus one point, so this discriminates the modes
+   * through observable output instead of reaching into private flags.
+   */
+  function emitsColumnChord(trace: ScatterTrace): boolean {
+    const state = trace.state;
+    if (state.empty || state.type !== 'trace') {
+      throw new Error('expected a populated trace state');
+    }
+    return Array.isArray(state.audio.freq.raw);
+  }
+
+  function createService(context: Context): RotorNavigationService {
+    return new RotorNavigationService(
+      context,
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+  }
+
+  test('POINT_MODE is offered for any scatter with data and dispatches arrow keys', () => {
+    const trace = createScatterTraceWithStack();
+    const service = createService(createMockContext(trace));
+
+    cycleTo(service, Constant.POINT_MODE);
+
+    expect(emitsColumnChord(trace)).toBe(false);
+    expect(service.moveRight()).toBeNull();
+    expect(service.moveLeft()).toBeNull();
+    expect(service.moveUp()).toBeNull();
+    expect(service.moveDown()).toBeNull();
+  });
+
+  test('cycling from intersection to point mode hands the cursor over cleanly', () => {
+    // The trace must end up in exactly one mode. The getters resolve
+    // intersection before point, so a trace left in both would read the point
+    // cursor through the intersection branch; setMode clears every mode before
+    // enabling the new one so that state is unreachable.
+    const trace = createScatterTraceWithStack();
+    const service = createService(createMockContext(trace));
+
+    cycleTo(service, Constant.INTERSECTION_MODE);
+    expect(service.moveRight()).toBeNull(); // walked the stack, so it moved
+
+    cycleTo(service, Constant.POINT_MODE);
+
+    // Point mode owns the cursor now: up/down walk the column order, which
+    // intersection mode never allows.
+    expect(trace.isMovable('DOWNWARD')).toBe(true);
+  });
+
+  test('resetToDataMode hands the trace back to default navigation', () => {
+    // The PageUp/PageDown commands and the live-data update call this while
+    // the outgoing trace is still active, so its mode flag is cleared with it.
+    const trace = createScatterTraceWithStack();
+    const service = createService(createMockContext(trace));
+
+    cycleTo(service, Constant.POINT_MODE);
+    expect(emitsColumnChord(trace)).toBe(false);
+
+    service.resetToDataMode();
+
+    expect(service.getMode()).toBe(Constant.ROW_COL_MODE);
+    expect(emitsColumnChord(trace)).toBe(true);
+  });
+
+  test('a trace swapped in under an active point mode is not left with dead arrow keys', () => {
+    // Regression: the mode is rotorIndex on the service but a boolean on the
+    // trace. Swapping the active trace without a reset left the rotor
+    // announcing POINT NAVIGATION while the new trace had never entered it —
+    // every arrow key returned null with no move, no tone and no message.
+    const first = createScatterTraceWithStack();
+    const context = createSwappableContext(first);
+    const service = createService(context);
+
+    cycleTo(service, Constant.POINT_MODE);
+
+    // What MoveToNextTraceCommand / Controller.updateData now do, in order.
+    service.resetToDataMode();
+    const second = createScatterTraceWithStack();
+    context.setActive(second);
+
+    expect(service.getMode()).toBe(Constant.ROW_COL_MODE);
+    expect(emitsColumnChord(second)).toBe(true);
+    expect(second.moveOnce('FORWARD')).toBe(true);
+  });
+});

@@ -378,3 +378,46 @@ describe('AnnouncePositionCommand on a pie', () => {
     );
   });
 });
+
+/**
+ * Builds a multi-series radar trace state as {@link RadarTrace} reports it:
+ * the shape `LineTrace` produces, typed `radar` and naming itself `radar`.
+ * @param options Cursor position and group, as for {@link multilineState}
+ * @returns A non-empty multi-series radar trace state
+ */
+function multiRadarState(options: MultilineOptions = {}): PlotState {
+  return {
+    ...(multilineState(options) as object),
+    traceType: TraceType.RADAR,
+    plotType: 'radar',
+  } as unknown as PlotState;
+}
+
+describe('AnnouncePositionCommand on multi-series radar plots', () => {
+  it('names the series rather than falling through to row and column', () => {
+    // A radar extends the line trace and reports its groups the same way, but
+    // its own trace type -- so without a branch it lands on the generic 2-D
+    // announcement, "column 3 of 10, row 1 of 3", and the series name a reader
+    // needs to know which outline they are tracing is dropped.
+    const { command, textViewModel } = createCommand(
+      multiRadarState({ group: { label: 'Model', value: 'Model B' } }),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Series 1 of 3, Model is Model B, Position is 3 of 10',
+    );
+  });
+
+  it('calls it a series rather than a line', () => {
+    // The instruction text and chartType for this same chart both say "radar".
+    const { command, textViewModel } = createCommand(multiRadarState());
+
+    command.execute();
+
+    const announced = jest.mocked(textViewModel.update).mock.calls[0][0] as string;
+    expect(announced).toContain('Series 1 of 3');
+    expect(announced).not.toContain('Line');
+  });
+});

@@ -1103,35 +1103,141 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.AREA, asGeneric(new LineBrailleEncoder())],
       [TraceType.NORMALIZED_AREA, asGeneric(new LineBrailleEncoder())],
       [TraceType.STACKED_AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.ALLUVIAL, asGeneric(new BarBrailleEncoder())],
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
+      [TraceType.CHORD, asGeneric(new BarBrailleEncoder())],
+      [TraceType.SANKEY, asGeneric(new BarBrailleEncoder())],
+      [TraceType.NETWORK, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
+      // A bump chart's rows are competitors and its columns periods, which is
+      // the line encoder's input exactly. The cells rise with the rank NUMBER
+      // rather than with the position, so a table-topping run reads as a low
+      // row -- the inversion the pitch applies has no equivalent here, since
+      // the encoder is handed values and not a direction. `docs/BRAILLE.md`
+      // says so, because a reader cannot tell from the dots alone.
+      [TraceType.BUMP, asGeneric(new LineBrailleEncoder())],
+      // NOT the box encoder. That one renders five named sections at
+      // proportional widths, and a letter-value ladder has a variable number
+      // of rungs -- so it would either truncate a deep ladder or pad a
+      // shallow one into looking deeper than it is. The line encoder renders
+      // the ladder as the rising profile it is, whose steepness at the ends
+      // is the heavy tail a boxen exists to show. `docs/BRAILLE.md` says so.
+      [TraceType.BOXEN, asGeneric(new LineBrailleEncoder())],
       [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],
       // The virtual delta layer reuses the candlestick encoding: height maps
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.
       [TraceType.CANDLESTICK_DELTA, asGeneric(new CandlestickBrailleEncoder())],
+      // A diverging chart's rows are the two sides and its columns the shared
+      // categories, which is the bar encoder's input. The cells encode the
+      // SIGNED value, so a left-hand row reads low across its whole length --
+      // the inversion the pitch applies has no equivalent here, and
+      // `docs/BRAILLE.md` says so, because a reader cannot tell from the dots.
+      // Each curve is a line, which is what its cells carry. The LEVEL has
+      // no representation: it is constant along a curve, so encoding it would
+      // spend every cell of a row saying one number, and the shape the row is
+      // there to convey would be gone. It is announced instead, alongside the
+      // spacing to the next level. `docs/BRAILLE.md` says so.
+      [TraceType.CHOROPLETH, asGeneric(new BarBrailleEncoder())],
+      [TraceType.CONTOUR, asGeneric(new LineBrailleEncoder())],
+      [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
+      // A dot plot and a lollipop carry a bar's braille state -- one row of
+      // magnitudes -- because they carry a bar's data. The mark differs and
+      // the encoding cannot.
+      [TraceType.DOT, asGeneric(new BarBrailleEncoder())],
+      [TraceType.LOLLIPOP, asGeneric(new BarBrailleEncoder())],
       [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
       // One row per section — a profile of lower bounds, of estimates, of
       // upper bounds — which is the per-row height profile the line encoder
       // renders. The reader feels the interval by moving between rows, the
       // same way they hear it.
+      [TraceType.DUMBBELL, asGeneric(new LineBrailleEncoder())],
+      // A forest plot's rows are the same three magnitudes an error bar
+      // carries, so the encoder is the same. What braille adds here is the
+      // silhouette of the intervals against one another -- which is the
+      // scanning a forest plot is drawn for. `docs/BRAILLE.md` says so.
+      [TraceType.FOREST, asGeneric(new LineBrailleEncoder())],
       [TraceType.ERROR_BAR, asGeneric(new LineBrailleEncoder())],
+      // One row per lane, holding each interval's length -- the per-row
+      // profile the line encoder renders, and the same magnitude the pitch
+      // carries. A span drawn along the axis would be the literal picture, but
+      // at a typical 40 cells a year-long schedule gives each cell nine days,
+      // so a fortnight and three weeks become the same dot. Exact about how
+      // long beats approximate about when.
+      [TraceType.GANTT, asGeneric(new LineBrailleEncoder())],
+      // A single row of stage counts scaled against that row's own range --
+      // the bar encoder's input exactly. The cells carry the COUNTS, not the
+      // retention the pitch carries, and `docs/BRAILLE.md` says why: the
+      // counts are the funnel's silhouette, which is what a display can show
+      // and a tone cannot.
+      [TraceType.FUNNEL, asGeneric(new BarBrailleEncoder())],
+      // A single cell scaled against the dial's own ends -- the bar encoder's
+      // input with one column, so the reader feels where on the dial the
+      // measure sits rather than only that it exists.
+      [TraceType.GAUGE, asGeneric(new BarBrailleEncoder())],
       [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
+      // A lattice of counts, which is the heatmap encoder's input. The
+      // stagger has no representation here and needs none: a display is a
+      // line of cells and half a cell of offset has nowhere to go in it.
+      [TraceType.HEXBIN, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
+      // A mosaic's segments are a stacked bar's, and that is what the cells
+      // carry. The WIDTH has no representation: a braille cell has one
+      // dimension, already spent on the segment's magnitude, and a display
+      // that narrowed a column would be encoding it in the number of cells
+      // -- which is the reader's index into the table. `docs/BRAILLE.md`
+      // says so, and the width is announced instead.
+      [TraceType.MOSAIC, asGeneric(new BarBrailleEncoder())],
       [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],
+      // A parallel coordinates trace normalizes its own values before they
+      // reach here -- each cell its position on its own axis -- precisely so
+      // the line encoder's per-row scaling is correct for it. Scaling a row
+      // of raw values would compare a horsepower figure to a fuel-economy one.
+      [TraceType.PARALLEL, asGeneric(new LineBrailleEncoder())],
       // A pie's braille state is a single row of slice magnitudes scaled
       // against that row's own range — the bar encoder's input exactly.
       [TraceType.PIE, asGeneric(new BarBrailleEncoder())],
+      // A radar's rows are series and its columns spokes, which is the line
+      // encoder's input exactly. The circle is what the *pan* carries; braille
+      // has no way to express an angle, and a row of magnitudes per series is
+      // the honest thing a display can show.
+      [TraceType.POLAR_AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.RADAR, asGeneric(new LineBrailleEncoder())],
+      // Both are scatters, and their braille is a scatter's. The threshold
+      // has no representation and needs none: it is a line on the value axis
+      // rather than a magnitude, and a cell height cannot say "this is where
+      // one is". Which points clear it is announced, and the rotor jumps
+      // between them. `docs/BRAILLE.md` says so.
+      [TraceType.MANHATTAN, asGeneric(new HeatmapBrailleEncoder())],
+      [TraceType.VOLCANO, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
       // A single row of signed contributions scaled against that row's own
       // range -- the bar encoder's input exactly, and the same magnitude the
       // audio plays and `cross` announces.
       [TraceType.WATERFALL, asGeneric(new BarBrailleEncoder())],
+      // A single row of weights scaled against that row's own range -- the bar
+      // encoder's input exactly, and the same magnitude the audio plays.
+      [TraceType.WORD_CLOUD, asGeneric(new BarBrailleEncoder())],
       [TraceType.SMOOTH, asGeneric(new LineBrailleEncoder())],
       [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],
       // A step chart's braille state is LineTrace's verbatim — a per-row
       // height profile — so the line encoder renders it correctly.
+      // A survival curve is a step chart, and its braille is a step chart's.
+      // The censoring marks have no representation and need none: a censored
+      // time does not change the estimate, so it does not change the cell,
+      // and a display that marked them would be encoding an annotation where
+      // the reader expects the data. They are announced instead.
+      [TraceType.SURVIVAL, asGeneric(new LineBrailleEncoder())],
       [TraceType.STEP, asGeneric(new LineBrailleEncoder())],
+      [TraceType.ICICLE, asGeneric(new BarBrailleEncoder())],
+      [TraceType.SUNBURST, asGeneric(new BarBrailleEncoder())],
+      [TraceType.TREEMAP, asGeneric(new BarBrailleEncoder())],
+      // A density curve is a line, which is what the violin already reuses
+      // this for. What differs is the scaling, and that is decided in the
+      // trace: every group is rendered against the chart's peak rather than
+      // its own, so a row of full cells means a dense group and not merely
+      // the densest part of a sparse one. `docs/BRAILLE.md` says so.
+      [TraceType.RIDGELINE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_KDE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_BOX, asGeneric(new BoxBrailleEncoder())],
     ]);

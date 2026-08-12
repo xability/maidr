@@ -56,25 +56,54 @@ export function named(label: string | undefined, fallback: string): string {
 const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.AREA]: 'Area Chart',
   [TraceType.BAR]: 'Bar Chart',
+  [TraceType.BUMP]: 'Bump Chart',
   [TraceType.BOX]: 'Box Plot',
+  [TraceType.BOXEN]: 'Letter-Value Plot',
+  [TraceType.ALLUVIAL]: 'Alluvial Diagram',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
+  [TraceType.CHORD]: 'Chord Diagram',
+  [TraceType.SANKEY]: 'Sankey Diagram',
+  [TraceType.NETWORK]: 'Network Diagram',
   [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
+  [TraceType.CHOROPLETH]: 'Choropleth Map',
+  [TraceType.CONTOUR]: 'Contour Plot',
+  [TraceType.DIVERGING]: 'Diverging Bar Chart',
   [TraceType.DODGED]: 'Dodged Bar Chart',
+  [TraceType.DOT]: 'Dot Plot',
+  [TraceType.DUMBBELL]: 'Dumbbell Chart',
   [TraceType.ERROR_BAR]: 'Error Bar Chart',
+  [TraceType.FOREST]: 'Forest Plot',
+  [TraceType.GANTT]: 'Gantt Chart',
+  [TraceType.FUNNEL]: 'Funnel Chart',
+  [TraceType.GAUGE]: 'Gauge',
   [TraceType.HEATMAP]: 'Heatmap',
+  [TraceType.HEXBIN]: 'Hexbin Plot',
   [TraceType.HISTOGRAM]: 'Histogram',
   [TraceType.LINE]: 'Line Chart',
+  [TraceType.LOLLIPOP]: 'Lollipop Chart',
+  [TraceType.MOSAIC]: 'Mosaic Plot',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
   [TraceType.NORMALIZED_AREA]: 'Normalized Stacked Area Chart',
+  [TraceType.PARALLEL]: 'Parallel Coordinates Plot',
   [TraceType.PIE]: 'Pie Chart',
+  [TraceType.POLAR_AREA]: 'Polar Area Chart',
+  [TraceType.RADAR]: 'Radar Chart',
+  [TraceType.RIDGELINE]: 'Ridgeline Plot',
   [TraceType.SCATTER]: 'Scatter Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',
   [TraceType.STACKED_AREA]: 'Stacked Area Chart',
   [TraceType.STEP]: 'Step Plot',
+  [TraceType.SURVIVAL]: 'Survival Curve',
+  [TraceType.ICICLE]: 'Icicle Chart',
+  [TraceType.SUNBURST]: 'Sunburst Chart',
+  [TraceType.TREEMAP]: 'Treemap',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',
+  [TraceType.MANHATTAN]: 'Manhattan Plot',
+  [TraceType.VOLCANO]: 'Volcano Plot',
   [TraceType.WATERFALL]: 'Waterfall Chart',
+  [TraceType.WORD_CLOUD]: 'Word Cloud',
 };
 
 export interface Dimension {
@@ -388,6 +417,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
+  /** What this layer is, when the producer named it. See `MaidrLayer.name`. */
+  protected readonly name: string | undefined;
 
   protected readonly xAxis: string;
   protected readonly yAxis: string;
@@ -404,6 +435,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
+    // Undefined rather than defaulted: the announcement falls back to naming
+    // the trace type, which is the better answer for a figure whose layers
+    // differ in kind, and a default here would replace it with a placeholder.
+    this.name = layer.name?.trim() || undefined;
 
     this.xAxis = named(layer.axes?.x?.label, DEFAULT_X_AXIS);
     this.yAxis = named(layer.axes?.y?.label, DEFAULT_Y_AXIS);
@@ -462,6 +497,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       traceType: this.type,
       plotType: this.type, // Default to traceType for other plot types
       title: this.title,
+      name: this.name,
       xAxis: this.xAxis,
       yAxis: this.yAxis,
       z: this.z,

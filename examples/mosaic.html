@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Mosaic Plot Example — Survival by Passenger Class</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A mosaic is a two-way contingency table drawn as tiles. The segments
+        within a column are that class's conditional proportions, and the
+        column's WIDTH is its share of everyone aboard.
+
+        Everywhere else in MAIDR a bar's width is layout and carries nothing.
+        Here it is the second magnitude the chart exists to show, and the
+        widths deliberately disagree with the heights: First has the best
+        survival rate and the SMALLEST share of the ship, Third the worst rate
+        and the largest. A reading that gave only the heights would report the
+        same table for a ship of six first-class passengers and one of six
+        hundred -- which is exactly the comparison a mosaic is drawn to make.
+
+        The tiles are emitted bottom segment first within each column, which
+        is the order a stacked bar's producers draw them and the order MAIDR
+        expects without a domMapping.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="380pt" viewBox="0 0 720 380" version="1.1"
+        id="mosaic-survival" maidr='{&#10;  &quot;id&quot;: &quot;mosaic-survival&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;mosaic-survival-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;mosaic-survival-layer&quot;,&#10;            &quot;type&quot;: &quot;mosaic&quot;,&#10;            &quot;title&quot;: &quot;Survival by Passenger Class&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Class&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Proportion&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Outcome&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;mosaic-tiles&#x27;] &gt; rect&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;First&quot;,&#10;                  &quot;y&quot;: 0.62,&#10;                  &quot;z&quot;: &quot;Survived&quot;,&#10;                  &quot;width&quot;: 0.15,&#10;                  &quot;count&quot;: 203&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Second&quot;,&#10;                  &quot;y&quot;: 0.41,&#10;                  &quot;z&quot;: &quot;Survived&quot;,&#10;                  &quot;width&quot;: 0.13,&#10;                  &quot;count&quot;: 118&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Third&quot;,&#10;                  &quot;y&quot;: 0.25,&#10;                  &quot;z&quot;: &quot;Survived&quot;,&#10;                  &quot;width&quot;: 0.32,&#10;                  &quot;count&quot;: 178&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;First&quot;,&#10;                  &quot;y&quot;: 0.38,&#10;                  &quot;z&quot;: &quot;Died&quot;,&#10;                  &quot;width&quot;: 0.15,&#10;                  &quot;count&quot;: 122&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Second&quot;,&#10;                  &quot;y&quot;: 0.59,&#10;                  &quot;z&quot;: &quot;Died&quot;,&#10;                  &quot;width&quot;: 0.13,&#10;                  &quot;count&quot;: 167&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Third&quot;,&#10;                  &quot;y&quot;: 0.75,&#10;                  &quot;z&quot;: &quot;Died&quot;,&#10;                  &quot;width&quot;: 0.32,&#10;                  &quot;count&quot;: 528&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 380  L 720 380  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="mosaic-tiles">
+          <rect x="110.0" y="228.8" width="137.0" height="91.2" style="fill: #c44e52" />
+          <rect x="110.0" y="80.0" width="137.0" height="148.8" style="fill: #55a868" />
+          <rect x="250.0" y="178.4" width="118.3" height="141.6" style="fill: #c44e52" />
+          <rect x="250.0" y="80.0" width="118.3" height="98.4" style="fill: #55a868" />
+          <rect x="371.3" y="140.0" width="295.7" height="180.0" style="fill: #c44e52" />
+          <rect x="371.3" y="80.0" width="295.7" height="60.0" style="fill: #55a868" />
+            </g>
+            <g id="axis_x">
+          <text x="180.0" y="340.0" style="font: 13px sans-serif; text-anchor: middle">First</text>
+          <text x="310.7" y="340.0" style="font: 13px sans-serif; text-anchor: middle">Second</text>
+          <text x="520.7" y="340.0" style="font: 13px sans-serif; text-anchor: middle">Third</text>
+              <text x="390" y="352" style="font: 13px sans-serif; text-anchor: middle">Class</text>
+            </g>
+            <g id="chart-title">
+              <text x="390" y="50" style="font: 16px sans-serif; text-anchor: middle">Survival by Passenger Class</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

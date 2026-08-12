@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { PlotState, TextState, TraceState } from '@type/state';
+import type { NonEmptyTraceState, PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
 import { focusedSubplotTitle } from '@model/plot';
@@ -214,7 +214,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Set currentLayerId for formatting
     this.currentLayerId = state.layerId;
 
-    let announcement = `Layer ${state.index} of ${state.size}: ${state.plotType || state.traceType} plot`;
+    let announcement = `Layer ${state.index} of ${state.size}: ${TextService.layerIdentity(state)}`;
     if (state.text) {
       const parts: string[] = [];
 
@@ -417,9 +417,31 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted subplot description text
    */
   private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
-    // Use plotType if available, otherwise fall back to traceType
-    const type = traceState && !traceState.empty ? traceState.plotType : traceType;
-    return `Layer ${index} of ${size}: ${type} plot`;
+    const identity = traceState && !traceState.empty
+      ? TextService.layerIdentity(traceState)
+      : `${traceType} plot`;
+    return `Layer ${index} of ${size}: ${identity}`;
+  }
+
+  /**
+   * Names a layer for an announcement: what it is, or failing that, its kind.
+   *
+   * A subplot whose layers are the same kind of thing -- one per hue level of
+   * a grouped chart -- reads identically at every layer without the name, so
+   * the reader hears two sets of numbers and never learns which series each
+   * belongs to. A figure whose layers differ in kind is better served by the
+   * type, which is why this falls back to it rather than to a placeholder.
+   *
+   * Shared by both announcement sites rather than written twice. They compose
+   * the same sentence from different states, and the reason to make that
+   * explicit is that duplicated formatting is exactly how the two would come
+   * to disagree about the same layer.
+   *
+   * @param state - The trace state of the layer being announced
+   * @returns The layer's name, or a phrase naming its type
+   */
+  private static layerIdentity(state: NonEmptyTraceState): string {
+    return state.name ?? `${state.plotType || state.traceType} plot`;
   }
 
   /**
@@ -518,7 +540,21 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis values.
-    if (!Array.isArray(state.cross.value)) {
+    //
+    // A span on the cross axis replaces the single value, the same way
+    // `state.range` replaces the main one for a histogram bin. A gantt
+    // interval is the case: what the chart draws is a start and an end, and
+    // announcing either alone names one edge of a bar as though it were the
+    // bar. Every trace that carries one value is unaffected -- `crossRange`
+    // is absent on all of them.
+    if (state.crossRange !== undefined) {
+      verbose.push(
+        Constant.IS,
+        this.formatSingleValue(state.crossRange.min, crossAxisType),
+        Constant.THROUGH,
+        this.formatSingleValue(state.crossRange.max, crossAxisType),
+      );
+    } else if (!Array.isArray(state.cross.value)) {
       verbose.push(Constant.IS, this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else if (state.cross.value.length > 1) {
       verbose.push(Constant.ARE, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
@@ -553,6 +589,15 @@ export class TextService implements Observer<PlotState>, Disposable {
     // area draws are never announced as one. Verbose only: the terse reading
     // stays one point per utterance, and the chart type — announced as
     // "stacked area" — already tells the reader which of the two `cross` is.
+    // Off-axis facts, last and each as its own clause. Deliberately not run
+    // through an axis formatter: they are not values on either axis, so the
+    // cross axis's format would be the wrong one to apply.
+    if (state.asides !== undefined) {
+      for (const aside of state.asides) {
+        verbose.push(Constant.COMMA_SPACE, aside.label, Constant.IS, aside.value);
+      }
+    }
+
     if (state.stack !== undefined) {
       verbose.push(
         Constant.COMMA_SPACE,
@@ -623,7 +668,18 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (state.section !== undefined) {
       terse.push(state.section, Constant.SPACE);
     }
-    if (!Array.isArray(state.cross.value)) {
+    if (state.crossRange !== undefined) {
+      // A span on the cross axis replaces the single value here for the same
+      // reason it does in verbose mode: naming one end of an interval names
+      // an edge of the bar as though it were the bar. Terse joins the two
+      // with a dash rather than with "through", matching how terse drops
+      // every other connective word.
+      terse.push(
+        this.formatSingleValue(state.crossRange.min, crossAxisType),
+        Constant.TO_DASH,
+        this.formatSingleValue(state.crossRange.max, crossAxisType),
+      );
+    } else if (!Array.isArray(state.cross.value)) {
       terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else {
       terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
@@ -644,6 +700,15 @@ export class TextService implements Observer<PlotState>, Disposable {
 
       // For candlestick plots this reads e.g. "open 100, bear"
       terse.push(Constant.COMMA_SPACE, zValue);
+    }
+
+    // Terse drops the labels, as it does everywhere else, but keeps each
+    // aside its own comma-separated clause: fusing one onto a neighbouring
+    // value is exactly what made `section` unusable for them.
+    if (state.asides !== undefined) {
+      for (const aside of state.asides) {
+        terse.push(Constant.COMMA_SPACE, aside.value);
+      }
     }
 
     return terse.join(Constant.EMPTY);

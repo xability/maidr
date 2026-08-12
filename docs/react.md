@@ -121,6 +121,9 @@ interface MaidrLayer {
   id: string;              // Unique layer identifier
   type: TraceType;         // Plot type (see TraceType enum)
   title?: string;          // Layer title
+  name?: string;           // What this layer is, e.g. 'Male' — announced on a
+                           // layer switch in place of the trace type, so two
+                           // layers of one kind can be told apart
   selectors?: string | string[]; // CSS selectors for SVG highlight elements
   orientation?: Orientation;     // 'vert' or 'horz' (for bar/box plots)
   axes?: {
