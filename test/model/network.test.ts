@@ -292,3 +292,27 @@ describe('the modalities read degree on one scale', () => {
     expect(braille.values).toEqual([[4, 2, 2, 1, 1], [1, 1], [0]]);
   });
 });
+
+describe('the link walk can be entered in either direction', () => {
+  test('pressing left first lands on the least connected link, not on nothing', () => {
+    // A fresh walk seeded at "before the first element" only reads correctly
+    // rightwards: stepping back from it lands at -2, which is not a position.
+    // Every other rotor test here presses right first, which is how the same
+    // bug reached review on the choropleth and the sankey.
+    const trace = network();
+
+    expect(trace.moveToRotorFilter('links', 'left')).toBe(true);
+    // Ada's links sorted by degree end at Barbara, one of the two singletons.
+    expect(nonEmptyState(trace).text.main.value).toBe('Barbara');
+  });
+
+  test('entering leftwards then walking right returns the way it came', () => {
+    const trace = network();
+    trace.moveToRotorFilter('links', 'left');
+    const last = String(nonEmptyState(trace).text.main.value);
+    trace.moveToRotorFilter('links', 'left');
+
+    expect(trace.moveToRotorFilter('links', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe(last);
+  });
+});

@@ -411,8 +411,14 @@ export class NetworkTrace extends AbstractTrace {
     const from = continuing && this.linkWalk !== null
       ? this.nodes[this.linkWalk.from]
       : node;
-    const index = (continuing && this.linkWalk !== null ? this.linkWalk.index : -1)
-      + (direction === 'right' ? 1 : -1);
+    // A fresh walk has no position to step from, so it is seeded at whichever
+    // end the reader is entering from. A single "before the first element"
+    // sentinel only reads correctly rightwards: stepping back from it lands
+    // at -2, which is not a position, and the mode reports no links on a node
+    // that plainly has several.
+    const index = continuing && this.linkWalk !== null
+      ? this.linkWalk.index + (direction === 'right' ? 1 : -1)
+      : (direction === 'right' ? 0 : from.links.length - 1);
 
     const target = from.links[index];
     if (target === undefined) {
