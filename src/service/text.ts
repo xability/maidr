@@ -518,11 +518,11 @@ export class TextService implements Observer<PlotState>, Disposable {
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
       if (outliers.length === 0) {
         // No outliers
-        return `${state.main.label} is ${formattedMainValue}, no ${state.section.toLowerCase()} for ${label}`;
+        return `${state.main.label} is ${formattedMainValue}, no ${state.section} for ${label}`;
       } else {
         // Outlier values present
         const verb = outliers.length === 1 ? 'is' : 'are';
-        return `${state.main.label} is ${formattedMainValue}, ${state.section.toLowerCase()} for ${label} ${verb} ${outlierStr}`;
+        return `${state.main.label} is ${formattedMainValue}, ${state.section} for ${label} ${verb} ${outlierStr}`;
       }
     }
 
@@ -530,7 +530,14 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (state.section !== undefined) {
       if (this.announcesSectionBeforeLabel(state)) {
         const label = state.cross.label;
-        verbose.push(Constant.COMMA_SPACE, state.section!.toLowerCase(), Constant.SPACE, label);
+        // Verbatim, as terse renders it. Lower-casing here meant the same
+        // point announced two different ways depending on the mode, and the
+        // difference was in a label that came from neither the user nor the
+        // data. It also destroyed case a producer chose: a dumbbell's end
+        // names and a ridgeline's group names are authored strings, so
+        // `Control` became `control` in one mode and stayed `Control` in the
+        // other.
+        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, label);
       } else {
         // For candlestick plots: "section cross.label" (e.g., "high Price")
         verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
@@ -656,9 +663,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       const outlierStr = `[${formattedOutliers.join(', ')}]`;
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
       if (outliers.length === 0) {
-        return `${formattedMainValue}, no ${state.section.toLowerCase()}`;
+        return `${formattedMainValue}, no ${state.section}`;
       } else {
-        return `${formattedMainValue}, ${outliers.length} ${state.section.toLowerCase()} ${outlierStr}`;
+        return `${formattedMainValue}, ${outliers.length} ${state.section} ${outlierStr}`;
       }
     }
 
