@@ -192,6 +192,34 @@ describe('the description reports what the figure is scanned for', () => {
     expect(read('Pooled estimate')).toBe('Pooled, 1.28, does not cross the null');
   });
 
+  test('counts the studies, not the rows', () => {
+    // The inherited stat counts every row. Left alone the description reads
+    // `Number of points is 5` beside `Studies crossing the null is 2 of 4`
+    // -- two counts of the same thing that disagree, in one paragraph.
+    const stats = forest().description.stats;
+
+    expect(stats.find(stat => stat.label === 'Number of points')).toBeUndefined();
+    expect(stats.find(stat => stat.label === 'Number of studies')?.value).toBe(4);
+  });
+
+  test('measures interval width over the studies, not the summary', () => {
+    // A pooled interval is typically the tightest on the figure -- that is
+    // what pooling is for -- so a reader asking which study was most precise
+    // would routinely be handed the summary instead.
+    const tightPooled: ForestPoint[] = [
+      { x: 'Broad', y: 1.4, yMin: 0.5, yMax: 2.3, weight: 0.5 },
+      { x: 'Also broad', y: 1.2, yMin: 0.6, yMax: 2.0, weight: 0.5 },
+      { x: 'Pooled', y: 1.3, yMin: 1.25, yMax: 1.35, pooled: true },
+    ];
+    const stats = forest(1, 0, 1, tightPooled).description.stats;
+    const read = (label: string): unknown =>
+      stats.find(stat => stat.label === label)?.value;
+
+    // 2.0 - 0.6, not the pooled row's 0.1.
+    expect(read('Narrowest interval')).toBe(1.4);
+    expect(read('Widest interval')).toBe(1.8);
+  });
+
   test('names where the weight sits', () => {
     // A meta-analysis whose weight is in one trial is a different object
     // from one where it is spread, and the per-row announcement never says

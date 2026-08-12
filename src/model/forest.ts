@@ -135,7 +135,44 @@ export class ForestTrace extends ErrorBarTrace {
 
   public override get description(): DescriptionState {
     const base = super.description;
-    const stats = [...base.stats];
+    const evidence = this.studies.filter(point => point.pooled !== true);
+
+    // The inherited stats count every row, and a forest plot has one that is
+    // not evidence. Left alone the description says `Number of points is 5`
+    // beside `Studies crossing the null is 2 of 4` -- two counts of the same
+    // thing that disagree, in one paragraph, with nothing to say which is
+    // right. So the study count is restated over the evidence and named for
+    // what it counts.
+    const stats = base.stats.map(stat =>
+      stat.label === 'Number of points'
+        ? { label: 'Number of studies', value: evidence.length }
+        : stat,
+    );
+
+    // Interval widths likewise. A pooled interval is typically the tightest
+    // on the figure -- that is what pooling is for -- so `Narrowest interval`
+    // would routinely report it, and a reader comparing the precision of the
+    // studies would be handed the summary instead.
+    const widths = evidence
+      .map(point => Number(point.yMax) - Number(point.yMin))
+      .filter(Number.isFinite)
+      .map(width => Number(width.toPrecision(12)));
+    if (widths.length > 0) {
+      for (const stat of stats) {
+        if (stat.label === 'Narrowest interval') {
+          stat.value = Math.min(...widths);
+        } else if (stat.label === 'Widest interval') {
+          stat.value = Math.max(...widths);
+        }
+      }
+    }
+
+    // `Min value` and `Max value` are left counting every row on purpose:
+    // they describe the extent of the axis the figure is drawn on, and the
+    // pooled estimate sits on that axis like anything else. The same reason
+    // the extrema navigation is not overridden -- jumping to the largest
+    // value should reach whatever is largest, and the pooled row announces
+    // itself as pooled on arrival.
 
     const pooled = this.studies.find(point => point.pooled === true);
     if (pooled !== undefined) {
@@ -152,7 +189,6 @@ export class ForestTrace extends ErrorBarTrace {
       // How many studies individually reached significance is the shape of
       // the evidence, and a reader cannot count it without walking every row
       // and comparing two bounds against a number at each one.
-      const evidence = this.studies.filter(point => point.pooled !== true);
       const crossing = evidence.filter(point => this.crossesNull(point) === true);
       stats.push({
         label: 'Studies crossing the null',

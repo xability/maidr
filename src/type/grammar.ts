@@ -935,12 +935,12 @@ export interface MaidrLayer {
     y?: AxisConfig;
     z?: AxisConfig;
   };
+  /** Display configuration for a forest plot layer. */
+  forestOptions?: ForestOptions;
   /**
    * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
    * Controls which summary statistics are shown in the violin box overlay.
    */
-  /** Display configuration for a forest plot layer. */
-  forestOptions?: ForestOptions;
   violinOptions?: ViolinOptions;
   /**
    * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
