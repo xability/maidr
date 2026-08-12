@@ -294,6 +294,24 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     };
   }
 
+  /**
+   * Whether a category's DOM elements run in the order the series are declared.
+   *
+   * A stacked bar's producers draw its segments bottom-up, so the first
+   * element of a category is the *last* series -- which is why the default is
+   * reverse, and has been since this was called `domOrder`.
+   *
+   * A subclass whose chart is not stacked has no such convention to inherit,
+   * and overriding this is how it says so. `domMapping.groupDirection`
+   * overrides either answer, so a producer that draws the other way round can
+   * still declare it.
+   *
+   * @returns True when a category's first element is its first series
+   */
+  protected get groupsRunForward(): boolean {
+    return this.layer.domMapping?.groupDirection === 'forward';
+  }
+
   protected override mapToSvgElements(selector?: string): SVGElement[][] | null {
     if (!selector) {
       return null;
@@ -312,7 +330,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const skipZeros = domElements.length < totalExpected;
 
     const isRowMajor = this.layer.domMapping?.order === 'row';
-    const isForward = this.layer.domMapping?.groupDirection === 'forward';
+    const isForward = this.groupsRunForward;
 
     const svgElements = new Array<Array<SVGElement>>();
     if (domElements[0] instanceof SVGPathElement) {
@@ -381,7 +399,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       }
 
       const isRowMajor = this.layer.domMapping?.order === 'row';
-      const isForward = this.layer.domMapping?.groupDirection === 'forward';
+      const isForward = this.groupsRunForward;
 
       if (isRowMajor) {
         // Row-major DOM order: DOM elements are [series0-all-cats, series1-all-cats, ...]

@@ -917,6 +917,16 @@ export enum TraceType {
    * to pick the reference line).
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
+  /**
+   * Two series drawn back to back across a shared category axis, one growing
+   * left and one growing right -- a population pyramid, or a Likert scale
+   * split around a neutral midpoint. Navigated as a
+   * {@link TraceType.STACKED} layer is, with the one difference that decides
+   * whether it reads correctly: the values arrive **signed**, and the sign is
+   * a direction rather than a magnitude, so the pitch takes the size and the
+   * announcement names the side.
+   */
+  DIVERGING = 'diverging_bar',
   DODGED = 'dodged_bar',
   /**
    * Two values per category joined by a segment -- before and after, two

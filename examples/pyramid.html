@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Population Pyramid Example — Population by Age Band</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        The left-hand values are negative, because that is what a chart with a
+        mirrored baseline draws. The sign is a direction, not a magnitude:
+        pitched as a signed value the biggest bar on the left becomes the
+        lowest note on the chart, so a cohort of 1,200,000 men would sound
+        smaller than a cohort of 310,000 women and the pyramid would be heard
+        as sagging on one side.
+
+        Here the pitch takes the size and the announcement names the side,
+        which is how a sighted reader takes it in: length from the bar, side
+        from which way it points.
+
+        The third row is the balance. Because the values arrive signed, a sum
+        down a category is already the comparison the chart is drawn to make -
+        so it is renamed rather than recomputed, and it announces which side
+        is ahead instead of a total that came out negative. In the youngest
+        bands men lead; from 45 on, women do.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="800pt" height="432pt" viewBox="0 0 800 432" version="1.1"
+        id="pyramid-population" maidr='{&#10;  &quot;id&quot;: &quot;pyramid-population&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;pyramid-population-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;pyramid-population-layer&quot;,&#10;            &quot;type&quot;: &quot;diverging_bar&quot;,&#10;            &quot;title&quot;: &quot;Population by Age Band&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;People, thousands&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Age band&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Sex&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;pyramid-bars&#x27;] &gt; rect&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: -1200,&#10;                  &quot;y&quot;: &quot;0-14&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: -1150,&#10;                  &quot;y&quot;: &quot;15-29&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: -1080,&#10;                  &quot;y&quot;: &quot;30-44&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: -990,&#10;                  &quot;y&quot;: &quot;45-59&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: -720,&#10;                  &quot;y&quot;: &quot;60-74&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: -310,&#10;                  &quot;y&quot;: &quot;75+&quot;,&#10;                  &quot;z&quot;: &quot;Men&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 1140,&#10;                  &quot;y&quot;: &quot;0-14&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1100,&#10;                  &quot;y&quot;: &quot;15-29&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1060,&#10;                  &quot;y&quot;: &quot;30-44&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1010,&#10;                  &quot;y&quot;: &quot;45-59&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 830,&#10;                  &quot;y&quot;: &quot;60-74&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 520,&#10;                  &quot;y&quot;: &quot;75+&quot;,&#10;                  &quot;z&quot;: &quot;Women&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 800 432  L 800 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="pyramid-bars">
+          <rect x="184.0" y="100" width="216.0" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="100" width="205.2" height="32" style="fill: #c44e52" />
+          <rect x="193.0" y="140" width="207.0" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="140" width="198.0" height="32" style="fill: #c44e52" />
+          <rect x="205.6" y="180" width="194.4" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="180" width="190.8" height="32" style="fill: #c44e52" />
+          <rect x="221.8" y="220" width="178.2" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="220" width="181.8" height="32" style="fill: #c44e52" />
+          <rect x="270.4" y="260" width="129.6" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="260" width="149.4" height="32" style="fill: #c44e52" />
+          <rect x="344.2" y="300" width="55.8" height="32" style="fill: #4c72b0" />
+          <rect x="400" y="300" width="93.6" height="32" style="fill: #c44e52" />
+            </g>
+            <g id="axis_y">
+          <text x="400" y="148" style="font: 11px sans-serif; text-anchor: middle">0-14</text>
+          <text x="400" y="188" style="font: 11px sans-serif; text-anchor: middle">15-29</text>
+          <text x="400" y="228" style="font: 11px sans-serif; text-anchor: middle">30-44</text>
+          <text x="400" y="268" style="font: 11px sans-serif; text-anchor: middle">45-59</text>
+          <text x="400" y="308" style="font: 11px sans-serif; text-anchor: middle">60-74</text>
+          <text x="400" y="348" style="font: 11px sans-serif; text-anchor: middle">75+</text>
+            </g>
+            <g id="legend">
+              <text x="200" y="80" style="font: 13px sans-serif; text-anchor: middle">Men</text>
+              <text x="600" y="80" style="font: 13px sans-serif; text-anchor: middle">Women</text>
+            </g>
+            <g id="chart-title">
+              <text x="400" y="50" style="font: 16px sans-serif; text-anchor: middle">Population by Age Band</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

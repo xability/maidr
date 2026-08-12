@@ -33,6 +33,12 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // is drawn, so there is no main and cross axis to swap -- the answer a line
   // already gives.
   [TraceType.BUMP]: false,
+  // A population pyramid is drawn with its categories running down the page
+  // and a Likert chart with them across it, and the sides grow along the
+  // other axis either way -- so which axis a bar's length lies on depends on
+  // which way it was drawn, exactly as it does for the stacked bar this
+  // extends.
+  [TraceType.DIVERGING]: true,
   [TraceType.DODGED]: true,
   // The interval runs along the value axis and the samples along the other,
   // so which way round they are drawn decides which axis a bound moves on --

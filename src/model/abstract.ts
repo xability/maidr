@@ -60,6 +60,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.BOX]: 'Box Plot',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
   [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
+  [TraceType.DIVERGING]: 'Diverging Bar Chart',
   [TraceType.DODGED]: 'Dodged Bar Chart',
   [TraceType.DUMBBELL]: 'Dumbbell Chart',
   [TraceType.ERROR_BAR]: 'Error Bar Chart',
