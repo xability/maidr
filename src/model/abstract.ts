@@ -65,6 +65,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.GANTT]: 'Gantt Chart',
   [TraceType.GAUGE]: 'Gauge',
   [TraceType.HEATMAP]: 'Heatmap',
+  [TraceType.HEXBIN]: 'Hexbin Plot',
   [TraceType.HISTOGRAM]: 'Histogram',
   [TraceType.LINE]: 'Line Chart',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',

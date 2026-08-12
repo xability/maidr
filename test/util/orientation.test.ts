@@ -43,6 +43,8 @@ describe('resolveOrientation', () => {
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,
     TraceType.HEATMAP,
+    // A lattice of bins over two continuous axes, the same as a heatmap.
+    TraceType.HEXBIN,
     TraceType.LINE,
     TraceType.NORMALIZED_AREA,
     // Every column is its own axis, so there is no main and cross axis to

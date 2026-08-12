@@ -569,6 +569,23 @@ export interface HeatmapData {
 }
 
 /**
+ * One hexagonal bin: where its centre is, and how many points fell in it.
+ *
+ * The centre is carried per bin rather than derived from a lattice origin and
+ * a cell size, because a hex lattice staggers alternate rows by half a cell --
+ * so a bin's index does not give its position, and a consumer reconstructing
+ * one would have to know which rows a particular library chose to offset.
+ */
+export interface HexbinPoint {
+  /** The bin's centre along the x axis. */
+  x: number | string;
+  /** The bin's centre along the y axis. */
+  y: number | string;
+  /** How many points fell in it. */
+  count: number;
+}
+
+/**
  * Data point for histograms extending bar points with bin ranges.
  */
 export interface HistogramPoint extends BarPoint {
@@ -844,6 +861,7 @@ export interface MaidrLayer {
     | GanttData
     | GaugePoint
     | HeatmapData
+    | HexbinPoint[][]
     | HistogramPoint[]
     | LinePoint[][]
     | PiePoint[]
@@ -918,6 +936,16 @@ export enum TraceType {
   GANTT = 'gantt',
   GAUGE = 'gauge',
   HEATMAP = 'heat',
+  /**
+   * Hexagonal binning: the standard answer to an overplotted scatter. Read as
+   * a lattice of cells each carrying a count, which is a {@link
+   * TraceType.HEATMAP} -- with the one difference that decides its
+   * navigation: a hex lattice staggers alternate rows, so a column index does
+   * not identify a position. A vertical move keeps the bin whose centre is
+   * nearest in x, and the announcement gives the centre rather than the
+   * indices.
+   */
+  HEXBIN = 'hexbin',
   HISTOGRAM = 'hist',
   LINE = 'line',
   NORMALIZED = 'stacked_normalized_bar',
