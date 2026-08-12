@@ -147,7 +147,12 @@ export abstract class TraceFactory {
       case TraceType.STEP:
         return new StepTrace(layer);
 
+      case TraceType.ICICLE:
+      case TraceType.SUNBURST:
       case TraceType.TREEMAP:
+        // One class for all three: they are the same tree drawn three ways,
+        // and the layout changes nothing a reader navigates. The sunburst's
+        // angular panning is the one difference, and it reads `this.type`.
         return new TreemapTrace(layer);
 
       case TraceType.WATERFALL:

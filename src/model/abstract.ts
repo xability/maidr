@@ -90,6 +90,8 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.STACKED_AREA]: 'Stacked Area Chart',
   [TraceType.STEP]: 'Step Plot',
   [TraceType.SURVIVAL]: 'Survival Curve',
+  [TraceType.ICICLE]: 'Icicle Chart',
+  [TraceType.SUNBURST]: 'Sunburst Chart',
   [TraceType.TREEMAP]: 'Treemap',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Sunburst Example — World Population</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A SUNBURST and an ICICLE carry the same hierarchy a treemap does, laid
+        out differently: rings around a centre, and depth-ordered bands. The
+        layout differs and the tree does not, so one trace reads all three and
+        the keys are the same everywhere -- up to the parent, down into the
+        first child, left and right across the siblings.
+
+        WHAT IS THE SUNBURST'S OWN is that its rings are angular. A node's
+        children divide its arc in proportion to their values, so the sound is
+        panned around the dial the way a pie's is: sweeping a ring goes out to
+        one side and comes back, which is what distinguishes a circle from a
+        row. The angle is derived from the tree rather than declared -- it is
+        the layout, computed the way the chart was drawn.
+
+        As on the treemap, only the ten leaves are declared. The three
+        continents exist because the leaves named them.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="400pt" height="400pt" viewBox="0 0 400 400" version="1.1"
+        id="sunburst-population" maidr='{&#10;  &quot;id&quot;: &quot;sunburst-population&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;sunburst-population-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;sunburst-population-layer&quot;,&#10;            &quot;type&quot;: &quot;sunburst&quot;,&#10;            &quot;title&quot;: &quot;World population by region&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Region&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Population, millions&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;path[id=&#x27;sunburst-population-node-0&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-1&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-2&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-3&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-4&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-5&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-6&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-7&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-8&#x27;]&quot;,&#10;              &quot;path[id=&#x27;sunburst-population-node-9&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;China&quot;,&#10;                &quot;y&quot;: 1425,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;India&quot;,&#10;                &quot;y&quot;: 1428,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Indonesia&quot;,&#10;                &quot;y&quot;: 278,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Japan&quot;,&#10;                &quot;y&quot;: 124,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Nigeria&quot;,&#10;                &quot;y&quot;: 224,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Ethiopia&quot;,&#10;                &quot;y&quot;: 127,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Egypt&quot;,&#10;                &quot;y&quot;: 113,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Russia&quot;,&#10;                &quot;y&quot;: 144,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Germany&quot;,&#10;                &quot;y&quot;: 83,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;France&quot;,&#10;                &quot;y&quot;: 68,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 400  L 400 400  L 400 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <path d="M 200.0 110.0 A 90 90 0 1 1 116.5 166.4 L 162.9 185.1 A 40 40 0 1 0 200.0 160.0 Z" style="fill: #2f6fa8; stroke: #ffffff; stroke-width: 2" />
+          <path d="M 116.5 166.4 A 90 90 0 0 1 159.9 119.4 L 182.2 164.2 A 40 40 0 0 0 162.9 185.1 Z" style="fill: #a8522f; stroke: #ffffff; stroke-width: 2" />
+          <path d="M 159.9 119.4 A 90 90 0 0 1 200.0 110.0 L 200.0 160.0 A 40 40 0 0 0 182.2 164.2 Z" style="fill: #3f7f4f; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-0" d="M 200.0 40.0 A 160 160 0 0 1 326.4 298.1 L 271.1 255.2 A 90 90 0 0 0 200.0 110.0 Z" style="fill: #2f6fa8; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-1" d="M 326.4 298.1 A 160 160 0 0 1 44.8 239.0 L 112.7 222.0 A 90 90 0 0 0 271.1 255.2 Z" style="fill: #2f6fa8cc; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-2" d="M 44.8 239.0 A 160 160 0 0 1 42.8 170.0 L 111.6 183.1 A 90 90 0 0 0 112.7 222.0 Z" style="fill: #2f6fa8aa; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-3" d="M 42.8 170.0 A 160 160 0 0 1 51.6 140.2 L 116.5 166.4 A 90 90 0 0 0 111.6 183.1 Z" style="fill: #2f6fa888; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-4" d="M 51.6 140.2 A 160 160 0 0 1 81.1 92.9 L 133.1 139.8 A 90 90 0 0 0 116.5 166.4 Z" style="fill: #a8522f; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-5" d="M 81.1 92.9 A 160 160 0 0 1 104.6 71.5 L 146.3 127.7 A 90 90 0 0 0 133.1 139.8 Z" style="fill: #a8522fcc; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-6" d="M 104.6 71.5 A 160 160 0 0 1 128.7 56.8 L 159.9 119.4 A 90 90 0 0 0 146.3 127.7 Z" style="fill: #a8522faa; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-7" d="M 128.7 56.8 A 160 160 0 0 1 162.5 44.4 L 178.9 112.5 A 90 90 0 0 0 159.9 119.4 Z" style="fill: #3f7f4f; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-8" d="M 162.5 44.4 A 160 160 0 0 1 183.0 40.9 L 190.4 110.5 A 90 90 0 0 0 178.9 112.5 Z" style="fill: #3f7f4fcc; stroke: #ffffff; stroke-width: 2" />
+          <path id="sunburst-population-node-9" d="M 183.0 40.9 A 160 160 0 0 1 200.0 40.0 L 200.0 110.0 A 90 90 0 0 0 190.4 110.5 Z" style="fill: #3f7f4faa; stroke: #ffffff; stroke-width: 2" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

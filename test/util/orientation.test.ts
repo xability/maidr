@@ -90,7 +90,10 @@ describe('resolveOrientation', () => {
     // A survival curve is a step chart; time runs one way either way.
     TraceType.SURVIVAL,
     // A node sits inside its parent rather than along an axis, so there is
-    // no main and cross axis to swap.
+    // no main and cross axis to swap. The same tree drawn as bands or as
+    // rings answers the same way.
+    TraceType.ICICLE,
+    TraceType.SUNBURST,
     TraceType.TREEMAP,
     // A waterfall is navigated one column per step whichever way the bars
     // are drawn, so there is no main and cross axis to swap.

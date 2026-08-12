@@ -1300,6 +1300,12 @@ export enum TraceType {
    */
   HEXBIN = 'hexbin',
   HISTOGRAM = 'hist',
+  /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as depth-ordered
+   * bands rather than nested rectangles. The layout differs; the tree does
+   * not, so it is read by the same trace.
+   */
+  ICICLE = 'icicle',
   LINE = 'line',
   /**
    * A dot plot with a stem to the baseline. Read exactly as
@@ -1385,6 +1391,14 @@ export enum TraceType {
    * survival, which is the number most readers came for, and which times are
    * censored rather than events.
    */
+  /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as rings around
+   * a centre rather than as nested rectangles. The layout differs and the
+   * tree does not, so it is read by the same trace -- with one thing of its
+   * own: the rings are angular, so the sound is panned around the dial the
+   * way a pie's is, and sweeping a ring goes out and comes back.
+   */
+  SUNBURST = 'sunburst',
   SURVIVAL = 'survival',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
