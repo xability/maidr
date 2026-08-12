@@ -1116,6 +1116,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // The virtual delta layer reuses the candlestick encoding: height maps
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.
       [TraceType.CANDLESTICK_DELTA, asGeneric(new CandlestickBrailleEncoder())],
+      // A diverging chart's rows are the two sides and its columns the shared
+      // categories, which is the bar encoder's input. The cells encode the
+      // SIGNED value, so a left-hand row reads low across its whole length --
+      // the inversion the pitch applies has no equivalent here, and
+      // `docs/BRAILLE.md` says so, because a reader cannot tell from the dots.
+      [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
       [TraceType.DODGED, asGeneric(new BarBrailleEncoder())],
       // One row per section — a profile of lower bounds, of estimates, of
       // upper bounds — which is the per-row height profile the line encoder

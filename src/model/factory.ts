@@ -6,6 +6,7 @@ import { BarTrace } from './bar';
 import { BoxTrace } from './box';
 import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
+import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
 import { FunnelTrace } from './funnel';
@@ -64,6 +65,9 @@ export abstract class TraceFactory {
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
+
+      case TraceType.DIVERGING:
+        return new DivergingTrace(layer);
 
       case TraceType.FUNNEL:
         return new FunnelTrace(layer);

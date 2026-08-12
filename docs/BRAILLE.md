@@ -549,6 +549,31 @@ positions, which is legible by touch whichever way the dots run.
 Bump charts use one line per competitor on a multiline display, so a whole
 table's season can be felt at once rather than by toggling between rows.
 
+## Diverging bar and population pyramid
+
+One row per side plus the balance row, one cell per category -- the bar
+encoding unchanged.
+
+**The cells encode the signed value, so a left-hand row reads low across its
+whole length.** That is the opposite of what the pitch does, which takes the
+magnitude so a bar of the same size sounds the same on either side.
+
+The two disagree on purpose. Audio is given a direction to invert and nothing
+else about the tone changes. Braille is given values, and the encoder maps a
+value to a dot height; flipping the left side's sign before encoding would put
+numbers in the display that the chart does not contain, and every other reading
+of the same state would then contradict it.
+
+So the display stays literal, and what it adds is the *silhouette*: the two
+sides read as a low band and a high band, and the taper of a pyramid -- wide at
+the young bands, narrow at the old -- is legible as a run of dots rising on one
+row while falling on the other.
+
+### Multiline Displays
+
+Diverging charts use one line per side on a multiline display, plus the
+balance, so the two sides can be compared with one sweep.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.
