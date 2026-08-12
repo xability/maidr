@@ -800,6 +800,11 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   /**
    * Announces position for boxplots with section information.
    * Uses braille state which normalizes box position regardless of orientation.
+   *
+   * The section is rendered as it was authored, the same as
+   * {@link TextService} renders it for the per-point announcement (#830).
+   * Lower-casing it here meant a reader who pressed the position key heard
+   * "in minimum" for the section that had just announced itself as "Minimum".
    */
   private announceBoxplotPosition(state: NonEmptyTraceState): void {
     const section = state.text.section || '';
@@ -813,15 +818,20 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalBoxes > 1 ? Math.round((boxIndex / (totalBoxes - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
+      this.textViewModel.update(`${percent}%, ${section}`);
     } else {
-      this.textViewModel.update(`Position is ${position} of ${totalBoxes} in ${section.toLowerCase()}`);
+      this.textViewModel.update(`Position is ${position} of ${totalBoxes} in ${section}`);
     }
   }
 
   /**
    * Announces position for candlestick charts with component information.
    * Uses braille state to get correct candle position.
+   *
+   * Verbatim for the same reason as {@link announceBoxplotPosition}. A
+   * candlestick's sections are authored in lower case already, so this reads
+   * the same either way today -- but the section belongs to the trace, and
+   * the one place that decides its case should not be here.
    */
   private announceCandlestickPosition(state: NonEmptyTraceState): void {
     const section = state.text.section || '';
@@ -835,9 +845,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalCandles > 1 ? Math.round((candleIndex / (totalCandles - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%, ${section.toLowerCase()}`);
+      this.textViewModel.update(`${percent}%, ${section}`);
     } else {
-      this.textViewModel.update(`Position is ${position} of ${totalCandles}, ${section.toLowerCase()}`);
+      this.textViewModel.update(`Position is ${position} of ${totalCandles}, ${section}`);
     }
   }
 
