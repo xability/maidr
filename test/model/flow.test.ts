@@ -414,3 +414,27 @@ describe('the modalities read the flow by stage', () => {
     expect(braille.values).toEqual([[56, 18], [8, 46, 20], [50, 16]]);
   });
 });
+
+describe('the flow walk can be entered in either direction', () => {
+  test('pressing left first lands on the smallest flow, not on nothing', () => {
+    // A fresh walk seeded at "before the first element" only reads correctly
+    // rightwards: stepping back from it lands at -2, which is not a position.
+    // Every other rotor test here presses right first, which is how the same
+    // bug reached review on the choropleth.
+    const trace = flow();
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(true);
+    // Coal's flows sorted largest first end at Losses, the 8.
+    expect(nonEmptyState(trace).text.main.value).toBe('Losses');
+  });
+
+  test('entering leftwards then walking right returns the way it came', () => {
+    const trace = flow();
+    trace.moveToRotorFilter('outgoing', 'left');
+    const last = String(nonEmptyState(trace).text.main.value);
+    trace.moveToRotorFilter('outgoing', 'left');
+
+    expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe(last);
+  });
+});

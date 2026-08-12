@@ -567,7 +567,14 @@ export class FlowTrace extends AbstractTrace {
     }
 
     const edges = anchor.node[along];
-    const index = anchor.index + (direction === 'right' ? 1 : -1);
+    // A fresh walk has no position to step from, so it is seeded at whichever
+    // end the reader is entering from. A single "before the first element"
+    // sentinel only reads correctly rightwards: stepping back from it lands
+    // at -2, which is not a position, and the mode reports no flows on a node
+    // that plainly has several.
+    const index = anchor.index >= 0
+      ? anchor.index + (direction === 'right' ? 1 : -1)
+      : (direction === 'right' ? 0 : edges.length - 1);
     const edge = edges[index];
     if (edge === undefined) {
       this.notifyRotorBounds();
