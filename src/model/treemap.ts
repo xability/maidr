@@ -77,7 +77,24 @@ function asPercent(fraction: number): string {
  * than an error to correct.
  */
 export class TreemapTrace extends AbstractTrace {
-  protected readonly supportsExtrema = true;
+  /**
+   * The go-to-extrema **dialog** -- the list of named targets a trace offers
+   * under `g` -- which a tree has none of. Every node is already one step
+   * from its parent and its siblings, and the largest leaf is named in the
+   * description.
+   *
+   * It has to be false rather than merely unimplemented. `getExtremaTargets`
+   * defaults to `[]` while the toggle command gates only on this flag, so a
+   * true here switches the reader into the `GO_TO_EXTREMA` scope, renders an
+   * empty dialog, and leaves the arrow keys answering to a keymap that is no
+   * longer the tree's -- a keyboard trap whose only exit is a binding the
+   * help menu does not list. `navigateToExtrema` throws in the same case.
+   *
+   * Unrelated to `moveToExtreme`, the Ctrl+arrow jump out to the branch root
+   * or in to the deepest descendant: that runs through the movable and is
+   * unaffected by this flag.
+   */
+  protected readonly supportsExtrema = false;
   protected readonly movable: MovableGraph;
 
   /** Every node, indexed the way the cursor addresses them. */
