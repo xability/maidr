@@ -149,6 +149,15 @@ export class HexbinTrace extends AbstractTrace {
       return moved;
     }
 
+    if (this.isInitialEntry) {
+      // The first arrow press enters the grid rather than stepping through
+      // it, and that convention lives in MovableGrid. Skipping it made the
+      // very first keypress either report out of bounds (DOWNWARD off row 0)
+      // or skip row 0 entirely (UPWARD), and seed the anchor from a bin the
+      // reader was never told about.
+      return super.moveOnce(direction);
+    }
+
     const targetRow = this.row + (direction === 'UPWARD' ? 1 : -1);
     const row = this.bins[targetRow];
     if (row === undefined || row.length === 0) {
@@ -166,6 +175,60 @@ export class HexbinTrace extends AbstractTrace {
     if (moved) {
       // Set after the move, since moveToIndex clears it: the anchor has to
       // survive the whole vertical walk, and only a sideways move ends it.
+      this.anchorX = anchor;
+    }
+    return moved;
+  }
+
+  /**
+   * Jumps to the far row, staying over the x the cursor is on.
+   *
+   * A vertical extreme is a vertical move, so it has the same problem: the
+   * base grid carries the *column index* into the far row, and on a stagger
+   * an index is not a position. On a sparse lattice -- and a hexbin is
+   * sparse, since an empty bin is not drawn -- the rows do not even hold the
+   * same number of bins, so the index lands wherever the clamp puts it.
+   *
+   * This is reachable from Ctrl+Up and Ctrl+Down, which are bound
+   * unconditionally rather than gated on `supportsExtrema`: that flag gates
+   * the statistical extrema menu, not the grid-edge jump.
+   *
+   * A horizontal extreme is the grid's own -- within a row, the index is the
+   * position -- and ends the vertical walk the same way a horizontal step
+   * does.
+   *
+   * @param direction - Which edge to jump to
+   * @returns True if the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      const moved = super.moveToExtreme(direction);
+      if (moved) {
+        this.anchorX = null;
+      }
+      return moved;
+    }
+
+    if (this.isInitialEntry) {
+      return super.moveToExtreme(direction);
+    }
+
+    const targetRow = direction === 'UPWARD' ? this.bins.length - 1 : 0;
+    const row = this.bins[targetRow];
+    const anchor = this.anchorX ?? this.currentX();
+    if (row === undefined || row.length === 0 || anchor === null) {
+      return super.moveToExtreme(direction);
+    }
+
+    const moved = this.moveToIndex(targetRow, HexbinTrace.nearestByX(row, anchor));
+    if (moved) {
+      // The anchor survives, as it does across an ordinary vertical step. A
+      // jump to the far row is still part of one vertical excursion, and the
+      // column the reader chose is still the one they chose -- where they
+      // land is forced by whatever the far row happens to hold, which on a
+      // sparse lattice can be most of the field away. Dropping the anchor
+      // here would make the next step resume from a bin the lattice picked
+      // rather than from the one they did.
       this.anchorX = anchor;
     }
     return moved;

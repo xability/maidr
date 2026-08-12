@@ -194,3 +194,98 @@ describe('the description says what the cloud looks like', () => {
     expect(read('Max count')).toBe(12);
   });
 });
+
+describe('the first keypress enters the lattice', () => {
+  /**
+   * A trace nobody has navigated yet.
+   * @returns The trace
+   */
+  function fresh(): HexbinTrace {
+    return TraceFactory.create(createLayer()) as HexbinTrace;
+  }
+
+  test('a first press downward lands rather than falling off', () => {
+    // The vertical branch computed row -1 from row 0 and reported out of
+    // bounds, so a reader whose first key was Down heard the edge tone on a
+    // chart they had not entered.
+    const trace = fresh();
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.z?.value).toBe(3);
+  });
+
+  test('a first press upward lands on the first bin, not the second row', () => {
+    // Stepping straight to row 1 skips row 0 entirely and seeds the anchor
+    // from a bin the reader was never told about.
+    const trace = fresh();
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.z?.value).toBe(3);
+  });
+});
+
+describe('a jump to the far row keeps the x too', () => {
+  /**
+   * A sparse lattice, which is what a hexbin is: an empty bin is not drawn,
+   * so the rows hold different numbers of bins at different offsets. A
+   * strongly diagonal cloud gives exactly this -- the bottom row occupies
+   * the right of the field and the top row the left.
+   *
+   * Row 0 is the bottom, since UPWARD increments the row.
+   */
+  const SPARSE: HexbinPoint[][] = [
+    [
+      { x: 8, y: 0, count: 41 },
+      { x: 10, y: 0, count: 42 },
+    ],
+    [
+      { x: 1, y: 1, count: 11 },
+      { x: 5, y: 1, count: 15 },
+    ],
+    [
+      { x: 0, y: 2, count: 1 },
+      { x: 2, y: 2, count: 2 },
+      { x: 4, y: 2, count: 3 },
+    ],
+  ];
+
+  test('lands under the bin it left, not at its index', () => {
+    // Ctrl+Down from x = 4. The base grid carries the column index into the
+    // far row, and index 2 clamps to the last bin there -- x = 10, the wrong
+    // end of a row that does not reach x = 4 at all.
+    const trace = hexbin(2, 2, SPARSE);
+
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe(8);
+  });
+
+  test('keeps the column the reader chose, not the one the lattice forced', () => {
+    // A jump is still part of one vertical excursion. Where it lands is
+    // decided by whatever the far row holds -- here x = 8, most of the field
+    // from the x = 0 the reader picked -- so resuming from the landing bin
+    // would strand them there.
+    const trace = hexbin(2, 0, SPARSE);
+    trace.moveOnce('DOWNWARD');
+    trace.moveToExtreme('DOWNWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe(8);
+
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe(1);
+  });
+
+  test('a horizontal extreme ends the vertical walk', () => {
+    // Choosing a new column is what ends it, whether by one step or by a
+    // jump to the end of the row.
+    const trace = hexbin(2, 0, SPARSE);
+    trace.moveOnce('DOWNWARD');
+    trace.moveToExtreme('FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe(5);
+
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe(4);
+  });
+});
