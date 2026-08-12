@@ -35,6 +35,8 @@ describe('resolveOrientation', () => {
     // stages run along one axis with the counts on the other either way.
     TraceType.FUNNEL,
     TraceType.HISTOGRAM,
+    // Categories run one way and segments the other, either way round.
+    TraceType.MOSAIC,
     TraceType.NORMALIZED,
     // Groups run one way and the value axis the other, and a ridgeline is
     // drawn with its groups down the page as often as across it.

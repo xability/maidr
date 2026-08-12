@@ -387,6 +387,26 @@ export interface TextState {
    */
   stack?: { label: string; value: number; share?: number };
   range?: { min: number; max: number };
+  /**
+   * Facts the point carries that sit on neither axis, announced as their own
+   * clauses after everything that does.
+   *
+   * A mosaic is the case this exists for. Its column width is a share of the
+   * whole chart and its cell count is a tally, and neither is a value on the
+   * main or cross axis -- so neither can travel in a field the text service
+   * formats with an axis formatter, or a `percent` format declared for the
+   * cross axis would announce a count of 203 as "20300.0%".
+   *
+   * `section` cannot carry them either. That field is a short qualifier which
+   * gets fused onto the cross-axis label whenever `z` is present -- and a
+   * segmented trace always sets `z` -- so a share put there read
+   * "15.0% of all Proportion is 0.62", saying the proportion *was* the share.
+   *
+   * The values arrive already formatted, because only the trace knows what
+   * they are: a share is a percentage and a tally is an integer, and there is
+   * no axis to ask.
+   */
+  asides?: { label: string; value: string }[];
   section?: string;
   /**
    * Original axis identity for main value.

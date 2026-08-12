@@ -589,6 +589,15 @@ export class TextService implements Observer<PlotState>, Disposable {
     // area draws are never announced as one. Verbose only: the terse reading
     // stays one point per utterance, and the chart type — announced as
     // "stacked area" — already tells the reader which of the two `cross` is.
+    // Off-axis facts, last and each as its own clause. Deliberately not run
+    // through an axis formatter: they are not values on either axis, so the
+    // cross axis's format would be the wrong one to apply.
+    if (state.asides !== undefined) {
+      for (const aside of state.asides) {
+        verbose.push(Constant.COMMA_SPACE, aside.label, Constant.IS, aside.value);
+      }
+    }
+
     if (state.stack !== undefined) {
       verbose.push(
         Constant.COMMA_SPACE,
@@ -691,6 +700,15 @@ export class TextService implements Observer<PlotState>, Disposable {
 
       // For candlestick plots this reads e.g. "open 100, bear"
       terse.push(Constant.COMMA_SPACE, zValue);
+    }
+
+    // Terse drops the labels, as it does everywhere else, but keeps each
+    // aside its own comma-separated clause: fusing one onto a neighbouring
+    // value is exactly what made `section` unusable for them.
+    if (state.asides !== undefined) {
+      for (const aside of state.asides) {
+        terse.push(Constant.COMMA_SPACE, aside.value);
+      }
     }
 
     return terse.join(Constant.EMPTY);

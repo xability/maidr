@@ -75,6 +75,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.HISTOGRAM]: 'Histogram',
   [TraceType.LINE]: 'Line Chart',
   [TraceType.LOLLIPOP]: 'Lollipop Chart',
+  [TraceType.MOSAIC]: 'Mosaic Plot',
   [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
   [TraceType.NORMALIZED_AREA]: 'Normalized Stacked Area Chart',
   [TraceType.PARALLEL]: 'Parallel Coordinates Plot',

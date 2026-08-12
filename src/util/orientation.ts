@@ -78,6 +78,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.LINE]: false,
   // A bar's reading with a different mark, so oriented for the reason DOT is.
   [TraceType.LOLLIPOP]: true,
+  // A mosaic is drawn with its categories across the page or down it, and
+  // the segments run along the other axis either way -- the same reason the
+  // stacked bar it extends is oriented.
+  [TraceType.MOSAIC]: true,
   [TraceType.NORMALIZED]: true,
   [TraceType.NORMALIZED_AREA]: false,
   // The axes are the columns and the observations the rows, whichever way the
