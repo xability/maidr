@@ -104,6 +104,31 @@ test.describe('Population pyramid', () => {
     expect(announcement).not.toContain('-1200');
   });
 
+  test('should light up the bar it just announced, not the one across the axis', async ({ page }) => {
+    // The assertion no model-level test can make, and the failure it guards
+    // is silent and visual-only: the element mapping is the one path audio,
+    // text and braille do not go through, so a swapped mapping announces
+    // every bar correctly while lighting the opposite one.
+    //
+    // The clone is recoloured, so the fill cannot tell the two sides apart --
+    // but it keeps the geometry, and on a mirrored baseline that is exactly
+    // what says which side of the axis a bar is on. Men grow left from the
+    // centre and so start at x = 184; women grow right and start at x = 400.
+    const plot = new PyramidPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Men');
+    await expect(page.locator('[id^="maidr-highlight"]').first())
+      .toHaveAttribute('x', '184.0');
+
+    await plot.moveToDataPointAbove();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Women');
+    await expect(page.locator('[id^="maidr-highlight"]').first())
+      .toHaveAttribute('x', '400');
+  });
+
   test('should render one braille row per side plus the balance', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

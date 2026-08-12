@@ -44,14 +44,40 @@ export class DivergingTrace extends SegmentedTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    // Computed over every row INCLUDING the balance row the parent appends,
-    // so a category whose balance exceeds either side's own bar still lands
-    // inside the register rather than off the top of it.
+    // Over every row, balance included. On a well-formed two-sided chart the
+    // balance can never raise this -- one side is negative and the other
+    // positive, so |left + right| never exceeds the larger of the two -- but
+    // taking the flat rather than slicing the balance off keeps the reading
+    // inside the register for a chart that is shaped otherwise, at no cost.
     const magnitudes = this.barValues
       .flat()
       .filter(isMeasured)
       .map(value => Math.abs(value));
     this.widest = magnitudes.length > 0 ? MathUtil.safeMax(magnitudes) : 0;
+  }
+
+  /**
+   * A diverging chart's sides are drawn in the order they are declared.
+   *
+   * `SegmentedTrace` defaults to reverse because a stacked bar's producers
+   * draw its segments bottom-up. A diverging chart is not stacked -- the two
+   * sides sit either side of a baseline rather than on top of one another --
+   * so there is no stacking order to inherit, and a producer emits the left
+   * bar then the right one, which is the order the data declares them in.
+   *
+   * The first example authored for this type got it wrong by following that
+   * natural order, which is the evidence: an author who has to know about the
+   * stacked bar's convention to draw a pyramid will not know about it. The
+   * failure is silent and visual-only -- audio, text and braille never go
+   * through the element mapping, so every announcement stays correct while
+   * the highlight sits on the opposite bar.
+   *
+   * `domMapping.groupDirection` still overrides this in either direction.
+   *
+   * @returns True unless the layer asks for the reverse
+   */
+  protected override get groupsRunForward(): boolean {
+    return this.layer.domMapping?.groupDirection !== 'reverse';
   }
 
   /**
@@ -62,6 +88,49 @@ export class DivergingTrace extends SegmentedTrace {
    */
   private isBalanceRow(row: number): boolean {
     return row === this.barValues.length - 1;
+  }
+
+  /**
+   * Which row grows in a given direction.
+   *
+   * Resolved by reading the values rather than by index. Nothing obliges a
+   * producer to declare the left-hand side first, and a fixed index names the
+   * **wrong winner** for a chart that declares the right-hand side first --
+   * a fluent, confident sentence with the two sides swapped, which on this
+   * trace is the worst available failure: the sign is the one clue the
+   * announcement deliberately removes, so a reader has nothing left to check
+   * it against.
+   *
+   * @param positive - True for the side that grows right
+   * @returns The row, or null when no side grows that way
+   */
+  private sideGrowing(positive: boolean): number | null {
+    for (let row = 0; row < this.barValues.length - 1; row++) {
+      const measured = this.barValues[row]?.find(
+        value => isMeasured(value) && value !== 0,
+      );
+      if (measured !== undefined && (measured > 0) === positive) {
+        return row;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Whether the chart is the two-sided one the balance reading assumes.
+   *
+   * "X ahead" is a comparison between exactly two sides. Nothing in the
+   * grammar holds a diverging layer to two, and a chart with three would get
+   * a winner named out of a sum that is not a two-way difference -- so a
+   * chart that is not two-sided keeps the segmented bar's plain summary,
+   * which stays true whatever the shape.
+   *
+   * @returns True when there are exactly two sides, one growing each way
+   */
+  private get isTwoSided(): boolean {
+    return this.barValues.length - 1 === 2
+      && this.sideGrowing(true) !== null
+      && this.sideGrowing(false) !== null;
   }
 
   protected override get audio(): AudioState {
@@ -101,16 +170,22 @@ export class DivergingTrace extends SegmentedTrace {
     });
 
     if (this.isBalanceRow(this.row)) {
+      if (!this.isTwoSided) {
+        // Not a two-way difference, so it is a sum and says so.
+        return base;
+      }
+
       // Which side is ahead, and by how much. Signed, the same number reads as
       // a total that came out negative -- and on the balance row a minus sign
       // is not a smaller number, it is the other side winning.
+      const ahead = this.sideGrowing(value > 0);
       return {
         ...sized(base),
         z: {
           label: BALANCE,
-          value: magnitude === 0
+          value: magnitude === 0 || ahead === null
             ? 'level'
-            : `${this.sideNameAt(value > 0 ? 1 : 0)} ahead`,
+            : `${this.sideNameAt(ahead)} ahead`,
         },
       };
     }

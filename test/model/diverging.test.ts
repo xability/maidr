@@ -1,9 +1,10 @@
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, test } from '@jest/globals';
 import { DivergingTrace } from '@model/diverging';
 import { TraceFactory } from '@model/factory';
 import { Orientation, TraceType } from '@type/grammar';
+import { JSDOM } from 'jsdom';
 
 /**
  * Three age bands, men left and women right, as the chart draws them.
@@ -218,6 +219,38 @@ describe('the balance row says which side is ahead', () => {
       .toEqual({ label: 'Balance', value: 'Men ahead' });
   });
 
+  test('names the leader by which way it grows, not by where it was declared', () => {
+    // The right-hand side declared FIRST. Reading the winner off a fixed row
+    // index announces "Women ahead" on a band where men lead by 500 -- the
+    // sentence a reader has no way to check, since the sign is exactly what
+    // this trace takes out of the announcement.
+    const rightFirst: SegmentedPoint[][] = [
+      [{ x: 'a', y: 400, z: 'Women' }],
+      [{ x: 'a', y: -900, z: 'Men' }],
+    ];
+
+    expect(nonEmptyState(diverging(2, 0, rightFirst)).text.z)
+      .toEqual({ label: 'Balance', value: 'Men ahead' });
+  });
+
+  test('keeps the plain summary when the chart is not two-sided', () => {
+    // "X ahead" is a comparison between two sides. A third makes the summary
+    // a sum again rather than a two-way difference, so it stays one: nothing
+    // in the grammar holds a diverging layer to two sides, and naming a
+    // winner out of a three-way total would be confidently wrong.
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }],
+    ];
+
+    const { text } = nonEmptyState(diverging(3, 0, threeSided));
+
+    expect(text.z).toEqual({ label: 'Sex', value: 'Sum' });
+    // Signed, too: on a sum a minus sign really is a smaller number.
+    expect(text.cross.value).toBe(-300);
+  });
+
   test('says level rather than naming a winner at zero', () => {
     // Band `0-24` is 1,200 either way.
     expect(nonEmptyState(diverging(BALANCE_ROW, 0)).text.z)
@@ -242,5 +275,102 @@ describe('the description totals each side', () => {
 
     expect(read('Men total')).toBe(2800);
     expect(read('Women total')).toBe(2950);
+  });
+});
+
+describe('the highlight lands on the bar the reader is on', () => {
+  /**
+   * Provision the globals `Svg.selectAllElements` and the rect branch touch.
+   *
+   * jsdom does not expose `SVGRectElement` as a distinct constructor, so it
+   * is aliased to `SVGElement` -- which is what makes `<rect>` nodes take the
+   * mapping branch under test.
+   *
+   * @param html - The document to install
+   */
+  function installDom(html: string): void {
+    const dom = new JSDOM(html);
+    const g = globalThis as unknown as Record<string, unknown>;
+    g.document = dom.window.document;
+    g.SVGElement = dom.window.SVGElement;
+    g.SVGRectElement = dom.window.SVGRectElement ?? dom.window.SVGElement;
+    g.SVGPathElement = dom.window.SVGPathElement ?? class SVGPathElementStub {};
+  }
+
+  afterEach(() => {
+    const g = globalThis as unknown as Record<string, unknown>;
+    delete g.document;
+    delete g.SVGElement;
+    delete g.SVGRectElement;
+    delete g.SVGPathElement;
+  });
+
+  /**
+   * Three bands drawn left bar then right bar, which is the order a producer
+   * emits them in: the sides in the order the data declares them.
+   *
+   * Each rect is tagged with the side it draws so a test can say which one
+   * the model picked, rather than asserting on an index that would be
+   * satisfied by either mapping.
+   *
+   * @returns The document source
+   */
+  function pyramidSvg(): string {
+    const bands = ['0-24', '25-44', '45-64'];
+    const rects = bands
+      .map(band => `<rect data-side="Men" data-band="${band}" />`
+        + `<rect data-side="Women" data-band="${band}" />`)
+      .join('');
+    return `<svg id="p"><g id="bars">${rects}</g></svg>`;
+  }
+
+  /**
+   * The elements the trace resolved, exposed for assertion.
+   *
+   * @param layer - The layer to build a trace from
+   * @returns One element per bar, shaped rows x categories
+   */
+  function highlightsOf(layer: MaidrLayer): SVGElement[][] | null {
+    const trace = new DivergingTrace(layer);
+    return (trace as unknown as { highlightValues: SVGElement[][] | null })
+      .highlightValues;
+  }
+
+  test('reads the sides in the order the data declares them', () => {
+    // The failure this guards is silent and visual-only: audio, text and
+    // braille never go through this path, so every announcement is correct
+    // while the highlight sits on the opposite bar.
+    installDom(pyramidSvg());
+
+    const highlights = highlightsOf({
+      ...createLayer(),
+      selectors: 'g[id=\'bars\'] > rect',
+    });
+
+    expect(highlights).not.toBeNull();
+    expect(highlights![0][0].getAttribute('data-side')).toBe('Men');
+    expect(highlights![1][0].getAttribute('data-side')).toBe('Women');
+    expect(highlights![0][2].getAttribute('data-band')).toBe('45-64');
+    expect(highlights![1][2].getAttribute('data-band')).toBe('45-64');
+  });
+
+  test('a producer that draws right-hand bars first can say so', () => {
+    // The reverse order is still reachable, just no longer the thing an
+    // author gets without asking for it.
+    const bands = ['0-24', '25-44', '45-64'];
+    installDom(`<svg id="p"><g id="bars">${bands
+      .map(band => `<rect data-side="Women" data-band="${band}" />`
+        + `<rect data-side="Men" data-band="${band}" />`)
+      .join('')}</g></svg>`);
+
+    const highlights = highlightsOf({
+      ...createLayer(),
+      selectors: 'g[id=\'bars\'] > rect',
+      domMapping: { order: 'column', groupDirection: 'reverse' },
+    });
+
+    expect(highlights).not.toBeNull();
+    expect(highlights![0][0].getAttribute('data-side')).toBe('Men');
+    expect(highlights![1][0].getAttribute('data-side')).toBe('Women');
   });
 });
