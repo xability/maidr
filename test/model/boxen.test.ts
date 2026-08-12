@@ -243,3 +243,63 @@ describe('which axis is which follows the orientation', () => {
     expect(text.cross.label).toBe('Group');
   });
 });
+
+describe('the ladder defends the shape it documents', () => {
+  /**
+   * Every rung label of one distribution, in walking order.
+   * @param data The distributions the layer carries
+   * @returns The labels
+   */
+  function labelsOf(data: BoxenPoint[]): (string | undefined)[] {
+    const trace = TraceFactory.create(createLayer(data)) as BoxenTrace;
+    const width = trace.state.empty ? 0 : 99;
+    const labels: (string | undefined)[] = [];
+    for (let col = 0; col < width; col++) {
+      if (!trace.moveToIndex(0, col)) {
+        break;
+      }
+      labels.push(nonEmptyState(trace).text.section);
+    }
+    return labels;
+  }
+
+  test('drops a rung that claims the median own place', () => {
+    // `p` is a tail probability, so it lies strictly between nothing and the
+    // median's 0.5. A producer sending 0.5 would put two rungs labelled
+    // `50th percentile` either side of the rung already called `median` --
+    // three names for one place, on a chart where the label is the whole of
+    // what tells a reader where on the distribution they are.
+    const labels = labelsOf([
+      {
+        z: 'only',
+        median: 50,
+        levels: [
+          { p: 0.5, lo: 40, hi: 60 },
+          { p: 0.25, lo: 30, hi: 70 },
+        ],
+      },
+    ]);
+
+    expect(labels).toEqual(['25th percentile', 'median', '75th percentile']);
+  });
+
+  test('drops a rung outside the range a tail can occupy', () => {
+    const labels = labelsOf([
+      {
+        z: 'only',
+        median: 50,
+        levels: [
+          { p: 0.25, lo: 30, hi: 70 },
+          { p: 0, lo: 1, hi: 99 },
+          { p: -0.1, lo: 0, hi: 100 },
+        ],
+      },
+    ]);
+
+    expect(labels).toEqual([
+      '25th percentile',
+      'median',
+      '75th percentile',
+    ]);
+  });
+});

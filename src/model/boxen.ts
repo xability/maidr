@@ -115,7 +115,12 @@ export class BoxenTrace extends AbstractTrace {
    */
   private static ladderOf(point: BoxenPoint): Rung[] {
     const levels = [...(point.levels ?? [])]
-      .filter(level => Number.isFinite(level.p))
+      // A rung is a tail, so its probability lies strictly between nothing
+      // and the median's own 0.5. A producer sending 0.5 would put two rungs
+      // labelled `50th percentile` either side of the rung already called
+      // `median` -- three names for one place, and the label is the whole of
+      // what tells a reader where on the distribution they are.
+      .filter(level => Number.isFinite(level.p) && level.p > 0 && level.p < 0.5)
       .sort((a: LetterValueLevel, b: LetterValueLevel) => a.p - b.p);
 
     const lower = levels.map(level => ({
@@ -150,14 +155,33 @@ export class BoxenTrace extends AbstractTrace {
   private mapToSvgElements(
     selectors?: MaidrLayer['selectors'],
   ): SVGElement[][] | null {
-    if (typeof selectors !== 'string' && !Array.isArray(selectors)) {
+    if (typeof selectors === 'string') {
+      return this.pairWith(Svg.selectAllElements(selectors));
+    }
+    // `MaidrLayer['selectors']` also admits `string[][]` and the box and
+    // candlestick shapes, and `Array.isArray` alone lets all of them through
+    // to a cast. Narrowing on the elements instead means the guard matches
+    // what the type allows, rather than leaning on `isUsableSelector` to
+    // reject each entry one at a time and leave an empty list behind.
+    if (!Array.isArray(selectors)
+      || !selectors.every(one => typeof one === 'string')) {
       return null;
     }
 
-    const flat = typeof selectors === 'string'
-      ? Svg.selectAllElements(selectors)
-      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+    return this.pairWith(selectors.flatMap(one => Svg.selectAllElements(one)));
+  }
 
+  /**
+   * Pairs resolved elements with the ladder, one element per distribution.
+   *
+   * Withdrawn unless the count matches exactly: a list that has slipped by
+   * one highlights a neighbouring distribution for the rest of the chart,
+   * which is worse than not highlighting at all.
+   *
+   * @param flat - The elements the selectors resolved to
+   * @returns Elements shaped rungs x distributions, or null on a mismatch
+   */
+  private pairWith(flat: SVGElement[]): SVGElement[][] | null {
     if (flat.length !== this.points.length) {
       return null;
     }
