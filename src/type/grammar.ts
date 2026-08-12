@@ -1308,7 +1308,7 @@ export enum TraceType {
   CHORD = 'chord',
   /**
    * Geographic regions shaded by a value. Read as a bar chart whose
-   * categories happen to be places it loses everything spatial: where the
+   * categories happen to be places, it loses everything spatial: where the
    * high values sit, which way the gradient runs, and which borders the
    * value jumps across.
    */

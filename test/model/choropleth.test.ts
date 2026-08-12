@@ -390,3 +390,29 @@ describe('a walk started on a duplicate name uses the region it started on', () 
     expect(nonEmptyState(trace).text.main.value).toBe('North');
   });
 });
+
+describe('the border walk can be entered in either direction', () => {
+  test('pressing left first lands on the last border rather than on nothing', () => {
+    // Every other rotor test in this file presses right first, and a fresh
+    // walk seeded at "before the first element" only reads correctly in that
+    // direction: stepping back from it lands at -2, which is not a position.
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Nevada');
+    expect(trace.moveToRotorFilter('neighbours', 'left')).toBe(true);
+    // Nevada's four borders in grid order end at Idaho, the northernmost.
+    expect(nonEmptyState(trace).text.main.value).toBe('Idaho');
+  });
+
+  test('entering leftwards then walking right returns the way it came', () => {
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+    trace.moveToRotorFilter('neighbours', 'left');
+    const last = String(nonEmptyState(trace).text.main.value);
+    trace.moveToRotorFilter('neighbours', 'left');
+
+    expect(trace.moveToRotorFilter('neighbours', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe(last);
+  });
+});

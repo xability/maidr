@@ -381,7 +381,14 @@ export class ChoroplethTrace extends AbstractTrace {
       .filter((at): at is { row: number; col: number } => at !== undefined)
       .sort((a, b) => (a.row - b.row) || (a.col - b.col));
 
-    const step = index + (direction === 'right' ? 1 : -1);
+    // A fresh walk has no position to step from, so it is seeded at whichever
+    // end the reader is entering from. A single "before the first element"
+    // sentinel only reads correctly rightwards: stepping back from it lands
+    // at -2, which is not a position, and the mode reports no borders on a
+    // region that plainly has several.
+    const step = continuing
+      ? index + (direction === 'right' ? 1 : -1)
+      : (direction === 'right' ? 0 : around.length - 1);
     const next = around[step];
     if (next === undefined) {
       // Stops at the ends rather than cycling, as every other rotor in the
