@@ -34,6 +34,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.ALLUVIAL]: false,
   [TraceType.CHORD]: false,
   [TraceType.SANKEY]: false,
+  // A force layout has no axes at all, and where a node lands carries no
+  // meaning to swap.
+  [TraceType.NETWORK]: false,
   [TraceType.CANDLESTICK]: true,
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.

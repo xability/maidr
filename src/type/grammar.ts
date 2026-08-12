@@ -797,6 +797,28 @@ export interface FlowPoint {
 }
 
 /**
+ * One link of a network or node-link diagram.
+ *
+ * Undirected: a link between two nodes is a fact about the pair, not a
+ * direction, and the nodes are derived from the links exactly as a
+ * {@link FlowPoint}'s are.
+ *
+ * **There is deliberately no position here.** Where a force-directed node
+ * lands is a fact about the solver's seed rather than about the data, so
+ * announcing it would be inventing a finding -- and a field that existed
+ * would eventually be announced.
+ *
+ * @example
+ * { source: 'Ada', target: 'Grace' }
+ */
+export interface NetworkPoint {
+  /** One end of the link. */
+  source: string | number;
+  /** The other end. */
+  target: string | number;
+}
+
+/**
  * Data point for one slice of a pie chart.
  *
  * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
@@ -1158,6 +1180,7 @@ export interface MaidrLayer {
   data:
     | BarPoint[]
     | FlowPoint[]
+    | NetworkPoint[]
     | BoxPoint[]
     | BoxenPoint[]
     | CandlestickPoint[]
@@ -1360,6 +1383,13 @@ export enum TraceType {
    * computed from.
    */
   MOSAIC = 'mosaic',
+  /**
+   * A node-link diagram: nodes joined by undirected links, laid out by a
+   * force solver or similar. The same graph a {@link TraceType.SANKEY}
+   * carries with the constraints relaxed -- no stages, no direction -- and
+   * with degree in place of magnitude as the thing a reader is after.
+   */
+  NETWORK = 'network',
   NORMALIZED = 'stacked_normalized_bar',
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
   NORMALIZED_AREA = 'stacked_normalized_area',

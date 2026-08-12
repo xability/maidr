@@ -794,6 +794,7 @@ Contours use one line per level on a multiline display, which is the case where
 braille gives back what the announcement carries: two fingers on adjacent rows
 feel exactly where the curves crowd together and where they open out.
 
+<<<<<<< HEAD
 ## Sankey, alluvial and chord
 
 One row per **stage** -- one column of the drawing -- with one cell per node in
@@ -825,13 +826,43 @@ Stage   Cells
 0       ⣿⠶
 1       ⠂⣿⡶
 2       ⣿⡖
+=======
+## Network
+
+One row per **connected group**, one cell per node in it, ordered most
+connected first and scaled against the whole chart rather than per group. That
+scaling is the opposite choice to the treemap's and it is deliberate: degree is
+comparable everywhere, and a per-group scale would make a hub of three feel
+like a hub of thirty, which is the one comparison this chart exists for.
+
+**The links have no representation**, which is most of the chart. A cell is a
+node's degree; nothing in the dots says *who* it is linked to, and two cells
+side by side are two nodes of one group rather than two nodes that touch. The
+display gives the shape of the degree distribution -- where the hubs are, how
+long the tail is -- and the announcement gives the topology.
+
+**Where a node is drawn is not encoded either, and must not be.** A force
+layout's positions are a fact about the solver's seed rather than about the
+data, so there is nothing there to put in a cell.
+
+```
+Group   Cells
+1       ⣿⡶⡶⠆⠆
+2       ⡶⡶⡶
+>>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
 ```
 
 ### Multiline Displays
 
+<<<<<<< HEAD
 One line per stage, so a hand across the display holds the whole chart and the
 narrowing from source to sink is felt directly -- the one thing here braille
 conveys better than it conveys the ribbons.
+=======
+One line per group, so the split into groups -- the structure a reader
+following links can never discover, because links do not cross between them --
+is felt directly as separate rows of different lengths.
+>>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
 
 ## Treemap
 

@@ -21,6 +21,7 @@ import { HexbinTrace } from './hexbin';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
 import { MosaicTrace } from './mosaic';
+import { NetworkTrace } from './network';
 import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
@@ -89,6 +90,8 @@ export abstract class TraceFactory {
         // One class for all three: they are the same weighted graph drawn
         // three ways, and the layout changes nothing a reader navigates.
         return new FlowTrace(layer);
+      case TraceType.NETWORK:
+        return new NetworkTrace(layer);
 
       case TraceType.CONTOUR:
         return new ContourTrace(layer);
