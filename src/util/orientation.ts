@@ -53,6 +53,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // Two continuous axes with the field over them, so there is no main and
   // cross axis to swap -- the answer a line already gives, and a contour is
   // one curve per level.
+  // North is north. There is no reading of a map in which the compass is
+  // swapped for its transpose.
+  [TraceType.CHOROPLETH]: false,
   [TraceType.CONTOUR]: false,
   [TraceType.DIVERGING]: true,
   [TraceType.DODGED]: true,

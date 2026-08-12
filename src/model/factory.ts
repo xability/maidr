@@ -7,6 +7,7 @@ import { BoxTrace } from './box';
 import { BoxenTrace } from './boxen';
 import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
+import { ChoroplethTrace } from './choropleth';
 import { ContourTrace } from './contour';
 import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
@@ -90,6 +91,9 @@ export abstract class TraceFactory {
         // One class for all three: they are the same weighted graph drawn
         // three ways, and the layout changes nothing a reader navigates.
         return new FlowTrace(layer);
+
+      case TraceType.CHOROPLETH:
+        return new ChoroplethTrace(layer);
 
       case TraceType.CONTOUR:
         return new ContourTrace(layer);

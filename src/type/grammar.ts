@@ -739,6 +739,40 @@ export interface ContourPoint extends LinePoint {
 }
 
 /**
+ * One region of a choropleth map.
+ *
+ * The centroid is a **longitude and a latitude in degrees**, never a projected
+ * coordinate. Every producer has the pair -- `d3.geoCentroid` returns exactly
+ * it -- and asking for degrees removes the one thing MAIDR could not otherwise
+ * resolve: whether a rising `y` means north or south. Without them the map is
+ * read as a region list in declared order, which is a poorer reading but the
+ * one the data supports.
+ *
+ * @example
+ * { x: 'Nevada', y: 42.1, lon: -116.6, lat: 39.3, neighbors: ['Utah', 'Idaho'] }
+ */
+export interface ChoroplethPoint {
+  /** The region's name. */
+  x: string | number;
+  /** The value the region is shaded by. */
+  y: number;
+  /** Centroid longitude, degrees east. */
+  lon?: number;
+  /** Centroid latitude, degrees north. */
+  lat?: number;
+  /**
+   * The regions this one shares a border with, by name.
+   *
+   * Declared because it cannot be recovered: adjacency is not derivable from
+   * rendered SVG paths, and not from centroids either -- two regions can have
+   * near centroids and no shared border, and a long region can border one
+   * whose centroid is far away. A layer that declares none keeps the spatial
+   * walk and is told nothing about borders, rather than something guessed.
+   */
+  neighbors?: (string | number)[];
+}
+
+/**
  * One node of a treemap, or of any other hierarchy drawn as area.
  *
  * The hierarchy is declared as a **path** rather than as a parent pointer. A
@@ -1201,6 +1235,7 @@ export interface MaidrLayer {
     | SmoothPoint[][]
     | ContourPoint[][]
     | StepPoint[][]
+    | ChoroplethPoint[]
     | SurvivalPoint[][]
     | TreemapPoint[]
     | ViolinKdePoint[][]
@@ -1271,6 +1306,13 @@ export enum TraceType {
    * construction, so it has no stages -- and every ribbon still follows.
    */
   CHORD = 'chord',
+  /**
+   * Geographic regions shaded by a value. Read as a bar chart whose
+   * categories happen to be places, it loses everything spatial: where the
+   * high values sit, which way the gradient runs, and which borders the
+   * value jumps across.
+   */
+  CHOROPLETH = 'choropleth',
   /**
    * A scalar field drawn as curves of constant value. Read as a
    * {@link TraceType.LINE} layer the level is just a series name, so the two

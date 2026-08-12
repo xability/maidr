@@ -760,6 +760,47 @@ from the dots, and why it is worth saying out loud.
 Mosaics use one line per series on a multiline display, so the conditional
 proportions can be swept across the categories in one pass.
 
+## Choropleth
+
+One row per **latitude band**, one cell per region within it, ordered west to
+east. Every row is scaled against the whole map rather than against itself,
+because every region is shaded from the same colour ramp and is therefore
+comparable with every other -- which is the premise of the form, and the one
+place this differs from the treemap above.
+
+Row zero is the **southernmost** band. That is not a display choice: the
+cursor moves up by incrementing the row, so the southern band has to be first
+for the arrow keys to mean what they say, and the braille service already
+reverses row order on a physical multi-line display, which puts north at the
+top of the page where it belongs.
+
+**The bands hold equal counts, not equal spans of latitude.** A row is "the
+next few regions going north" rather than a fixed slice of it. So the cells of
+a row are in west-to-east order and the rows are in south-to-north order --
+both exact -- while the *thickness* of a band varies with how the regions are
+spread. Reading a row does not tell you how far it reaches.
+
+**Borders have no representation.** Two cells side by side are the next two
+regions going east, which is not the same as two regions that touch, and
+nothing in the dots says which pairs share an edge. Adjacency is announced
+instead -- every region says how it compares with the ones around it, the
+rotor walks them, and the description names the sharpest borders and the
+clusters. The display gives the spread; the announcement gives the map.
+
+```
+Band    Cells
+south   ⣿⡿⠶⠶
+middle  ⠒⣶⣴⠒
+north   ⠂⠒⠒
+```
+
+### Multiline Displays
+
+Choropleths use one line per band, so a hand laid across the display holds the
+whole map at once and the gradient from one band to the next is felt directly
+-- which is the closest this modality comes to the shading a sighted reader
+sees at a glance.
+
 ## Contour and filled contour
 
 One row per level, one cell per point along its curve — the line encoding,

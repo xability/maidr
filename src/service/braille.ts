@@ -1137,6 +1137,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // spend every cell of a row saying one number, and the shape the row is
       // there to convey would be gone. It is announced instead, alongside the
       // spacing to the next level. `docs/BRAILLE.md` says so.
+      [TraceType.CHOROPLETH, asGeneric(new BarBrailleEncoder())],
       [TraceType.CONTOUR, asGeneric(new LineBrailleEncoder())],
       [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
       // A dot plot and a lollipop carry a bar's braille state -- one row of
