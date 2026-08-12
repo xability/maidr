@@ -1197,6 +1197,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.STACKED, asGeneric(new BarBrailleEncoder())],
       // A step chart's braille state is LineTrace's verbatim — a per-row
       // height profile — so the line encoder renders it correctly.
+      // A survival curve is a step chart, and its braille is a step chart's.
+      // The censoring marks have no representation and need none: a censored
+      // time does not change the estimate, so it does not change the cell,
+      // and a display that marked them would be encoding an annotation where
+      // the reader expects the data. They are announced instead.
+      [TraceType.SURVIVAL, asGeneric(new LineBrailleEncoder())],
       [TraceType.STEP, asGeneric(new LineBrailleEncoder())],
       // A density curve is a line, which is what the violin already reuses
       // this for. What differs is the scaling, and that is decided in the

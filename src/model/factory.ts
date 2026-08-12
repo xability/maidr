@@ -26,6 +26,7 @@ import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
 import { StepTrace } from './step';
+import { SurvivalTrace } from './survival';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
 import { WaterfallTrace } from './waterfall';
@@ -139,6 +140,9 @@ export abstract class TraceFactory {
       case TraceType.NORMALIZED:
       case TraceType.STACKED:
         return new SegmentedTrace(layer);
+
+      case TraceType.SURVIVAL:
+        return new SurvivalTrace(layer);
 
       case TraceType.VIOLIN_KDE:
         return new ViolinKdeTrace(layer);
