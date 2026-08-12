@@ -760,6 +760,30 @@ from the dots, and why it is worth saying out loud.
 Mosaics use one line per series on a multiline display, so the conditional
 proportions can be swept across the categories in one pass.
 
+## Volcano and Manhattan
+
+The scatter encoding, unchanged — these are scatters, and their points carry
+nothing a scatter's cells cannot.
+
+**The threshold has no representation, and cannot have one.** It is a *line on
+the value axis*, not a magnitude, and a braille cell says how large something
+is rather than where a boundary sits. There is no dot pattern for "this is the
+5.0 mark".
+
+That matters more here than it would elsewhere, because the threshold is what
+these charts are read for. So it is carried everywhere else instead: every
+point announces which side of it they are on, the description opens with the
+count that cleared it, and a rotor filter walks only those points. A braille
+reader gets the cloud's shape from the display and the finding from the other
+three modalities — which is the right division, since the finding is a fact
+about a handful of points and the display is about all twelve thousand.
+
+### Multiline Displays
+
+Volcano and Manhattan plots use the scatter's multiline behaviour. On a chart
+of this size the display is a density impression rather than a readable list,
+which is what the rotor filter exists to compensate for.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

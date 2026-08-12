@@ -124,13 +124,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   //   array — no wrap.
   // - readingPos / columnPos: inverse lookups (flat index -> sort position),
   //   so a single keystroke is O(1).
-  private readonly flatPoints: FlatPoint[];
-  private readonly readingOrder: number[];
+  /**
+   * Protected so a subclass can read the points themselves. A volcano plot
+   * needs each point's identity and whether it clears a threshold, neither of
+   * which is a coordinate.
+   */
+  protected readonly flatPoints: FlatPoint[];
+  protected readonly readingOrder: number[];
   private readonly columnOrder: number[];
   private readonly readingPos: number[];
   private readonly columnPos: number[];
-  private isInPointMode: boolean;
-  private pointModeIndex: number;
+  protected isInPointMode: boolean;
+  protected pointModeIndex: number;
 
   // Intersection navigation state (INTERSECTION_MODE)
   // - xPointsSvg / yPointsSvg: parallel to xPoints / yPoints. Indexed the

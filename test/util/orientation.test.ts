@@ -78,6 +78,9 @@ describe('resolveOrientation', () => {
     // main and cross axis to swap -- the answer a pie already gives.
     TraceType.POLAR_AREA,
     TraceType.RADAR,
+    // Two continuous axes, as a scatter has.
+    TraceType.MANHATTAN,
+    TraceType.VOLCANO,
     TraceType.SCATTER,
     TraceType.SMOOTH,
     TraceType.STACKED_AREA,

@@ -100,6 +100,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // drawn with its groups down the page as often as across it -- the same
   // reason the violin it shares a point shape with is oriented.
   [TraceType.RIDGELINE]: true,
+  // Two continuous axes, so there is no main and cross axis to swap -- the
+  // answer a scatter already gives, and both of these are scatters.
+  [TraceType.MANHATTAN]: false,
+  [TraceType.VOLCANO]: false,
   [TraceType.SCATTER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,

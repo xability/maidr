@@ -91,6 +91,8 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.SURVIVAL]: 'Survival Curve',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',
+  [TraceType.MANHATTAN]: 'Manhattan Plot',
+  [TraceType.VOLCANO]: 'Volcano Plot',
   [TraceType.WATERFALL]: 'Waterfall Chart',
   [TraceType.WORD_CLOUD]: 'Word Cloud',
 };

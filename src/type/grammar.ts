@@ -749,6 +749,58 @@ export interface ScatterPoint {
 }
 
 /**
+ * One point of a volcano or Manhattan plot.
+ *
+ * Both are scatters read almost entirely through a threshold: a volcano puts
+ * effect size against significance, a Manhattan puts genomic position against
+ * it. They routinely carry tens of thousands of points of which a few dozen
+ * matter, so the question is never "what is at this coordinate" -- it is
+ * "which points cross the line, and what are they called".
+ */
+export interface VolcanoPoint extends ScatterPoint {
+  /**
+   * What the point *is* -- a gene, a SNP, a probe.
+   *
+   * Identity is the payload on these charts, not the coordinates. A reader
+   * told "x is 2.3, y is 14.1" has been given the two numbers they can see
+   * the shape of already and withheld the one thing they came for.
+   */
+  label?: string;
+
+  /**
+   * The region the point belongs to -- a chromosome on a Manhattan plot.
+   *
+   * Announced alongside the point, because "which chromosome is it on" is
+   * the second question every one of these charts is read for.
+   */
+  group?: string;
+}
+
+/**
+ * Display configuration for a volcano or Manhattan plot layer.
+ */
+export interface ThresholdOptions {
+  /**
+   * The significance cutoff on the y axis -- points at or above it are the
+   * ones the chart was drawn to find.
+   *
+   * There is deliberately no default. These charts are drawn on transformed
+   * axes whose conventions differ by field and by software: -log10(p) at 1.3
+   * for p < 0.05, at 7.3 for genome-wide significance, and a raw p axis runs
+   * the other way entirely. A guessed line would sort every point on the
+   * figure into the wrong side, silently.
+   */
+  significance?: number;
+
+  /**
+   * The effect-size cutoff on the x axis, applied to its **magnitude** -- a
+   * volcano is symmetric, and a fold change of -2 is as large an effect as
+   * one of +2.
+   */
+  effect?: number;
+}
+
+/**
  * Data point for segmented/grouped bar charts with fill color identifier.
  */
 export interface SegmentedPoint extends BarPoint {
@@ -995,6 +1047,8 @@ export interface MaidrLayer {
   };
   /** Display configuration for a forest plot layer. */
   forestOptions?: ForestOptions;
+  /** Threshold configuration for a volcano or Manhattan plot layer. */
+  thresholdOptions?: ThresholdOptions;
   /**
    * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
    * Controls which summary statistics are shown in the violin box overlay.
@@ -1027,6 +1081,7 @@ export interface MaidrLayer {
     | PiePoint[]
     | ScatterPoint[]
     | MosaicPoint[][]
+    | VolcanoPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
     | StepPoint[][]
@@ -1245,6 +1300,19 @@ export enum TraceType {
    * floating bar from its running total before to its running total after, so
    * the point carries both the contribution and the total it produced.
    */
+  /**
+   * Genomic position against significance -- the standard figure of a GWAS.
+   * Read as a {@link TraceType.SCATTER} it offers point-by-point navigation
+   * over tens of thousands of points, which is not a viable path to the few
+   * dozen that matter.
+   */
+  MANHATTAN = 'manhattan',
+  /**
+   * Effect size against significance -- the standard figure of a differential
+   * expression analysis. Read as a {@link TraceType.SCATTER} it announces the
+   * two coordinates and withholds the point's identity, which is the payload.
+   */
+  VOLCANO = 'volcano',
   WATERFALL = 'waterfall',
   /**
    * Terms sized by weight. The layout carries no information -- it is chosen

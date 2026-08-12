@@ -1192,6 +1192,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // the honest thing a display can show.
       [TraceType.POLAR_AREA, asGeneric(new LineBrailleEncoder())],
       [TraceType.RADAR, asGeneric(new LineBrailleEncoder())],
+      // Both are scatters, and their braille is a scatter's. The threshold
+      // has no representation and needs none: it is a line on the value axis
+      // rather than a magnitude, and a cell height cannot say "this is where
+      // one is". Which points clear it is announced, and the rotor jumps
+      // between them. `docs/BRAILLE.md` says so.
+      [TraceType.MANHATTAN, asGeneric(new HeatmapBrailleEncoder())],
+      [TraceType.VOLCANO, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
       // A single row of signed contributions scaled against that row's own
       // range -- the bar encoder's input exactly, and the same magnitude the
