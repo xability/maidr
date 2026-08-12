@@ -727,6 +727,39 @@ Survival curves use one line per arm on a multiline display, so the moment two
 arms separate can be found by running two fingers along together until they
 part.
 
+## Mosaic and marimekko
+
+One row per series plus the total row, one cell per category — the stacked bar
+encoding, which is what a mosaic's segments are.
+
+**The width has no representation, and that is a real loss rather than a
+non-issue.** A braille cell has one dimension, already spent on the segment's
+magnitude, so the only way to show a wider column would be to give it more
+cells — and the number of cells is the reader's index into the table. A
+display where `Third` occupied three cells and `First` one would put the two
+in different columns, and every comparison down a row would be against a
+different category.
+
+So the cells carry the conditional proportions and the **width is announced**:
+each cell says its column's share of all observations, and the description
+lists the whole marginal distribution.
+
+```
+Series      Cells
+Survived    ⣶⠶⠦
+Died        ⠦⠶⣶
+Total       ⣿⣿⣿
+```
+
+The total row is full across, as it must be: a mosaic's columns each sum to
+one whatever their width. That is precisely why the width cannot be inferred
+from the dots, and why it is worth saying out loud.
+
+### Multiline Displays
+
+Mosaics use one line per series on a multiline display, so the conditional
+proportions can be swept across the categories in one pass.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

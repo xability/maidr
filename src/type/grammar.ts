@@ -756,6 +756,38 @@ export interface SegmentedPoint extends BarPoint {
 }
 
 /**
+ * One cell of a mosaic (marimekko) plot.
+ *
+ * A mosaic is a stacked bar chart in which the **bar widths also encode
+ * data** -- typically each category's share of all observations. A reader
+ * given only the segment heights has half the table: the conditional
+ * proportions without the group sizes they were computed from, so a category
+ * of six people and one of six hundred read identically.
+ */
+export interface MosaicPoint extends SegmentedPoint {
+  /**
+   * The category's share of all observations, as a fraction of one -- the
+   * width its column is drawn at.
+   *
+   * Carried on every cell of the column rather than once per column, the way
+   * `z` is carried on every cell of a series: the grammar's unit is the
+   * point, and a producer emitting a flat list has nowhere else to put it.
+   */
+  width?: number;
+
+  /**
+   * The cell's own count, when the producer has the contingency table.
+   *
+   * A mosaic is drawn *from* a two-way table, and the count is the number the
+   * table was built on. It is optional because a producer working from
+   * proportions alone genuinely does not have it, and inventing one by
+   * multiplying out a rounded share would put a number in the announcement
+   * that the data does not contain.
+   */
+  count?: number;
+}
+
+/**
  * Data point for smooth/regression plots with data and SVG coordinate pairs.
  */
 export interface SmoothPoint {
@@ -994,6 +1026,7 @@ export interface MaidrLayer {
     | LinePoint[][]
     | PiePoint[]
     | ScatterPoint[]
+    | MosaicPoint[][]
     | SegmentedPoint[][]
     | SmoothPoint[][]
     | StepPoint[][]
@@ -1139,6 +1172,14 @@ export enum TraceType {
    * the mark looks like, not a second magnitude.
    */
   LOLLIPOP = 'lollipop',
+  /**
+   * A stacked bar chart whose bar **widths** also encode data -- a two-way
+   * contingency table drawn as tiles. Read as a {@link TraceType.STACKED}
+   * layer it loses the width entirely, which is half the table: the
+   * conditional proportions arrive without the group sizes they were
+   * computed from.
+   */
+  MOSAIC = 'mosaic',
   NORMALIZED = 'stacked_normalized_bar',
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
   NORMALIZED_AREA = 'stacked_normalized_area',

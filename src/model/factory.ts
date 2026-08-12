@@ -18,6 +18,7 @@ import { Heatmap } from './heatmap';
 import { HexbinTrace } from './hexbin';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
+import { MosaicTrace } from './mosaic';
 import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
@@ -107,6 +108,9 @@ export abstract class TraceFactory {
 
       case TraceType.PARALLEL:
         return new ParallelTrace(layer);
+
+      case TraceType.MOSAIC:
+        return new MosaicTrace(layer);
 
       case TraceType.PIE:
         return new PieTrace(layer);

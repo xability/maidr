@@ -1170,6 +1170,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.HEXBIN, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
+      // A mosaic's segments are a stacked bar's, and that is what the cells
+      // carry. The WIDTH has no representation: a braille cell has one
+      // dimension, already spent on the segment's magnitude, and a display
+      // that narrowed a column would be encoding it in the number of cells
+      // -- which is the reader's index into the table. `docs/BRAILLE.md`
+      // says so, and the width is announced instead.
+      [TraceType.MOSAIC, asGeneric(new BarBrailleEncoder())],
       [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],
       // A parallel coordinates trace normalizes its own values before they
       // reach here -- each cell its position on its own axis -- precisely so
