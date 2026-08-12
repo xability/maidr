@@ -877,6 +877,16 @@ function extractLineLayers(
 // Scatter / Bubble chart extraction
 // ---------------------------------------------------------------------------
 
+/**
+ * What a bubble's radius is called when the page does not say.
+ *
+ * Chart.js has no scale for `r`, so unlike x and y there is no axis title to
+ * read it off. "Size" describes what the reader is being told rather than
+ * naming the variable, which only the page's author knows -- they can supply
+ * it through the plugin's `axes.z`.
+ */
+const DEFAULT_BUBBLE_SIZE_LABEL = 'Size';
+
 function extractScatterLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
@@ -893,17 +903,39 @@ function extractScatterLayers(
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+        // Only when a radius was actually carried. This function serves plain
+        // scatter too, and a `z` axis on a chart with no third variable would
+        // announce a label for something that is not there.
+        ...(scatterData.some(point => point.z !== undefined) && {
+          z: { label: pluginOptions?.axes?.z ?? DEFAULT_BUBBLE_SIZE_LABEL },
+        }),
       },
       data: scatterData,
     };
   });
 }
 
+/**
+ * Turn a dataset's points into scatter points, keeping a bubble's radius.
+ *
+ * A Chart.js bubble datum is `{x, y, r}`, and `r` is a whole encoded variable
+ * -- population, market cap, sample size -- which is usually the reason the
+ * chart is a bubble chart at all. It rides as `z`, which `ScatterTrace`
+ * already understands: it drives the point-mode announcement and the z range,
+ * so carrying it here is all that was missing (#813).
+ *
+ * A plain scatter has no `r` and gets no `z`, which is what keeps `hasZ`
+ * false and leaves its announcements unchanged.
+ */
 function datasetToScatterPoints(dataset: ChartJsDataset): ScatterPoint[] {
   const points: ScatterPoint[] = [];
   for (const point of dataset.data) {
     if (isPointValue(point)) {
-      points.push({ x: point.x, y: point.y });
+      points.push(
+        typeof point.r === 'number'
+          ? { x: point.x, y: point.y, z: point.r }
+          : { x: point.x, y: point.y },
+      );
     }
   }
   return points;

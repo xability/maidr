@@ -195,7 +195,7 @@ export interface MaidrPluginOptions {
   /** Override the auto-detected chart title. */
   title?: string;
   /** Override axis labels. */
-  axes?: { x?: string; y?: string };
+  axes?: { x?: string; y?: string; z?: string };
   /**
    * Outline color used for the DOM highlight overlay drawn on top of the
    * canvas during MAIDR navigation. Accepts any CSS color string.
