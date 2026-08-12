@@ -29,6 +29,12 @@ Given the four height levels of Braille, the encoding is as follows:
 This tactile encoding allows users to easily differentiate between the various value ranges in the bar plot,
 facilitating their understanding of the data distribution and its underlying trends.
 
+A **dot plot** and a **lollipop** carry a bar's braille state, because they
+carry a bar's data -- one row of magnitudes, encoded exactly as above. The mark
+differs and the encoding cannot: there is no tactile equivalent of "drawn as a
+point rather than a rectangle", and inventing one would encode the author's
+styling where the reader expects the data.
+
 ### Multiline Displays
 
 Bar plots use a single-line representation. On multiline braille displays, the bar plot appears on the first line and the remaining lines are unused.
