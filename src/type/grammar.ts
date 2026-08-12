@@ -129,6 +129,24 @@ export interface ViolinKdePoint {
 }
 
 /**
+ * Callback invoked when the active data point changes during navigation.
+ * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
+ *
+ * `null` means no data point is active — the cursor has left a subplot for the
+ * figure lobby of a multi-panel chart. A consumer drawing an overlay must clear
+ * it, since there is no other signal that the selection ended: without one, the
+ * last point's highlight stays on screen and follows the user to another panel,
+ * pointing at a chart it does not belong to.
+ *
+ * @param info - The current navigation position, or `null` when nothing is
+ *   selected
+ * @param info.layerId - The ID of the active layer/trace
+ * @param info.row - The current row index (e.g., dataset index)
+ * @param info.col - The current column index (e.g., data point index)
+ */
+export type NavigateCallback = (info: { layerId: string; row: number; col: number } | null) => void;
+
+/**
  * Root MAIDR data structure containing figure metadata and subplot grid.
  * This is the type for the `data` prop passed to the `<Maidr>` React component.
  *
@@ -148,24 +166,6 @@ export interface ViolinKdePoint {
  * };
  * ```
  */
-/**
- * Callback invoked when the active data point changes during navigation.
- * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
- *
- * `null` means no data point is active — the cursor has left a subplot for the
- * figure lobby of a multi-panel chart. A consumer drawing an overlay must clear
- * it, since there is no other signal that the selection ended: without one, the
- * last point's highlight stays on screen and follows the user to another panel,
- * pointing at a chart it does not belong to.
- *
- * @param info - The current navigation position, or `null` when nothing is
- *   selected
- * @param info.layerId - The ID of the active layer/trace
- * @param info.row - The current row index (e.g., dataset index)
- * @param info.col - The current column index (e.g., data point index)
- */
-export type NavigateCallback = (info: { layerId: string; row: number; col: number } | null) => void;
-
 export interface Maidr {
   /** Unique identifier for the chart. Used for DOM element IDs. */
   id: string;
@@ -543,20 +543,6 @@ export interface GaugePoint {
 }
 
 /**
- * One row of a dumbbell chart: a category and the pair of values compared at
- * it.
- *
- * The pair is what the chart is for -- before and after, two groups, two
- * years -- and the segment drawn between the dots is the comparison. Which of
- * the two is larger is not fixed: a dumbbell showing a decline draws `end`
- * below `start`, and a chart usually contains both directions at once.
- *
- * The change between them is deliberately absent, and derived instead. A
- * drawn segment cannot disagree with the dots it joins, so an authored delta
- * is a second source of truth for a quantity that already has one -- and the
- * one a reader would be told is the one the chart did not draw.
- */
-/**
  * One interval of a gantt chart, timeline or swimlane diagram.
  *
  * The two coordinates are both positions on the same axis rather than a
@@ -626,6 +612,20 @@ export interface GanttData {
   unit?: string;
 }
 
+/**
+ * One row of a dumbbell chart: a category and the pair of values compared at
+ * it.
+ *
+ * The pair is what the chart is for -- before and after, two groups, two
+ * years -- and the segment drawn between the dots is the comparison. Which of
+ * the two is larger is not fixed: a dumbbell showing a decline draws `end`
+ * below `start`, and a chart usually contains both directions at once.
+ *
+ * The change between them is deliberately absent, and derived instead. A
+ * drawn segment cannot disagree with the dots it joins, so an authored delta
+ * is a second source of truth for a quantity that already has one -- and the
+ * one a reader would be told is the one the chart did not draw.
+ */
 export interface DumbbellPoint {
   /** Position along the category axis. */
   x: number | string;
@@ -1217,6 +1217,13 @@ export enum TraceType {
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
   /**
+   * A scalar field drawn as curves of constant value. Read as a
+   * {@link TraceType.LINE} layer the level is just a series name, so the two
+   * questions the chart is drawn for -- what value this curve is, and how
+   * steeply the field changes here -- both go unanswered.
+   */
+  CONTOUR = 'contour',
+  /**
    * Two series drawn back to back across a shared category axis, one growing
    * left and one growing right -- a population pyramid, or a Likert scale
    * split around a neutral midpoint. Navigated as a
@@ -1225,13 +1232,6 @@ export enum TraceType {
    * a direction rather than a magnitude, so the pitch takes the size and the
    * announcement names the side.
    */
-  /**
-   * A scalar field drawn as curves of constant value. Read as a
-   * {@link TraceType.LINE} layer the level is just a series name, so the two
-   * questions the chart is drawn for -- what value this curve is, and how
-   * steeply the field changes here -- both go unanswered.
-   */
-  CONTOUR = 'contour',
   DIVERGING = 'diverging_bar',
   DODGED = 'dodged_bar',
   /**
@@ -1257,19 +1257,6 @@ export enum TraceType {
    */
   ERROR_BAR = 'error_bar',
   /**
-   * A single measure read against a range -- a gauge, or a bullet chart with
-   * its target and qualitative bands. One navigable point whose meaning is
-   * entirely relational: 73 says nothing without the 100 it is out of, the 80
-   * it was aiming at, and the band it lands in.
-   */
-  /**
-   * Intervals along a shared axis, one lane per row -- a gantt chart, a
-   * timeline, a swimlane diagram. Each point carries a start and an end
-   * rather than a magnitude, so what the reader is told is a span and its
-   * length, and where it sits is carried in the panning: a lane's intervals
-   * sweep left to right with the axis, so later is audibly later.
-   */
-  /**
    * One effect estimate with its interval per study, against a shared null
    * line, with a pooled summary at the foot -- the standard figure of a
    * meta-analysis. Read as an {@link TraceType.ERROR_BAR} layer it loses the
@@ -1278,6 +1265,13 @@ export enum TraceType {
    * evidence.
    */
   FOREST = 'forest',
+  /**
+   * Intervals along a shared axis, one lane per row -- a gantt chart, a
+   * timeline, a swimlane diagram. Each point carries a start and an end
+   * rather than a magnitude, so what the reader is told is a span and its
+   * length, and where it sits is carried in the panning: a lane's intervals
+   * sweep left to right with the axis, so later is audibly later.
+   */
   GANTT = 'gantt',
   /**
    * A population shrinking across ordered stages. Navigated as a
@@ -1287,6 +1281,12 @@ export enum TraceType {
    * pitch carries. The counts are announced alongside it.
    */
   FUNNEL = 'funnel',
+  /**
+   * A single measure read against a range -- a gauge, or a bullet chart with
+   * its target and qualitative bands. One navigable point whose meaning is
+   * entirely relational: 73 says nothing without the 100 it is out of, the 80
+   * it was aiming at, and the band it lands in.
+   */
   GAUGE = 'gauge',
   HEATMAP = 'heat',
   /**
@@ -1314,19 +1314,19 @@ export enum TraceType {
    */
   LOLLIPOP = 'lollipop',
   /**
-   * A stacked bar chart whose bar **widths** also encode data -- a two-way
-   * contingency table drawn as tiles. Read as a {@link TraceType.STACKED}
-   * layer it loses the width entirely, which is half the table: the
-   * conditional proportions arrive without the group sizes they were
-   * computed from.
-   */
-  /**
    * Genomic position against significance -- the standard figure of a GWAS.
    * Read as a {@link TraceType.SCATTER} it offers point-by-point navigation
    * over tens of thousands of points, which is not a viable path to the few
    * dozen that matter.
    */
   MANHATTAN = 'manhattan',
+  /**
+   * A stacked bar chart whose bar **widths** also encode data -- a two-way
+   * contingency table drawn as tiles. Read as a {@link TraceType.STACKED}
+   * layer it loses the width entirely, which is half the table: the
+   * conditional proportions arrive without the group sizes they were
+   * computed from.
+   */
   MOSAIC = 'mosaic',
   NORMALIZED = 'stacked_normalized_bar',
   /** {@link TraceType.STACKED_AREA} whose bands are shares of a common total. */
@@ -1385,13 +1385,6 @@ export enum TraceType {
    */
   TREEMAP = 'treemap',
   /**
-   * A Kaplan-Meier survival curve: the probability of surviving past each
-   * time, dropping in steps as events occur. Read as a {@link TraceType.STEP}
-   * layer it loses the two facts the figure is drawn for -- the median
-   * survival, which is the number most readers came for, and which times are
-   * censored rather than events.
-   */
-  /**
    * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as rings around
    * a centre rather than as nested rectangles. The layout differs and the
    * tree does not, so it is read by the same trace -- with one thing of its
@@ -1399,6 +1392,13 @@ export enum TraceType {
    * way a pie's is, and sweeping a ring goes out and comes back.
    */
   SUNBURST = 'sunburst',
+  /**
+   * A Kaplan-Meier survival curve: the probability of surviving past each
+   * time, dropping in steps as events occur. Read as a {@link TraceType.STEP}
+   * layer it loses the two facts the figure is drawn for -- the median
+   * survival, which is the number most readers came for, and which times are
+   * censored rather than events.
+   */
   SURVIVAL = 'survival',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
