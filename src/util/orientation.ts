@@ -53,6 +53,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // so there is nothing an orientation could swap.
   [TraceType.GAUGE]: false,
   [TraceType.HEATMAP]: false,
+  // A lattice of bins over two continuous axes, navigated by row and bin
+  // whichever way round the axes are -- the same answer a heatmap gives.
+  [TraceType.HEXBIN]: false,
   [TraceType.HISTOGRAM]: true,
   [TraceType.LINE]: false,
   [TraceType.NORMALIZED]: true,

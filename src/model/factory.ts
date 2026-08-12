@@ -12,6 +12,7 @@ import { FunnelTrace } from './funnel';
 import { GanttTrace } from './gantt';
 import { GaugeTrace } from './gauge';
 import { Heatmap } from './heatmap';
+import { HexbinTrace } from './hexbin';
 import { Histogram } from './histogram';
 import { LineTrace } from './line';
 import { ParallelTrace } from './parallel';
@@ -75,6 +76,9 @@ export abstract class TraceFactory {
 
       case TraceType.HEATMAP:
         return new Heatmap(layer);
+
+      case TraceType.HEXBIN:
+        return new HexbinTrace(layer);
 
       case TraceType.HISTOGRAM:
         return new Histogram(layer);

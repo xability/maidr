@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Hexbin Example — Point Density</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        Read as a lattice of cells each carrying a count, a hexbin is a
+        heatmap - and navigation, braille and pitch all transfer on those
+        terms. The one real difference is that the rows are offset by half a
+        cell, which is what lets the hexagons tessellate.
+
+        That means a column index is not a position: bin 3 of one row and bin
+        3 of the next sit at different x. And it means a bin has no neighbour
+        directly above it - it has two, exactly equidistant. Choosing between
+        them relative to the bin being left would choose the same way every
+        time, so a walk up a tall lattice would drift half a cell per row and
+        slide off the feature it was following, announcing a real bin with a
+        real count at every step.
+
+        So a vertical move measures against where the reader STARTED, the way
+        a text editor keeps a desired column while arrowing past short lines,
+        and the announcement gives the bin's centre rather than its indices.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="hexbin-density" maidr='{&#10;  &quot;id&quot;: &quot;hexbin-density&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;hexbin-density-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;hexbin-density-layer&quot;,&#10;            &quot;type&quot;: &quot;hexbin&quot;,&#10;            &quot;title&quot;: &quot;Point Density&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;X&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Y&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Count&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;hexbin-cells&#x27;] &gt; polygon&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: 0.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 0&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 0&#10;                },&#10;                {&#10;                  &quot;x&quot;: 2.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 2&#10;                },&#10;                {&#10;                  &quot;x&quot;: 3.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 4&#10;                },&#10;                {&#10;                  &quot;x&quot;: 4.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 3&#10;                },&#10;                {&#10;                  &quot;x&quot;: 5.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 1&#10;                },&#10;                {&#10;                  &quot;x&quot;: 6.0,&#10;                  &quot;y&quot;: 0,&#10;                  &quot;count&quot;: 0&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 0.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 1&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 4&#10;                },&#10;                {&#10;                  &quot;x&quot;: 2.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 13&#10;                },&#10;                {&#10;                  &quot;x&quot;: 3.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 16&#10;                },&#10;                {&#10;                  &quot;x&quot;: 4.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 7&#10;                },&#10;                {&#10;                  &quot;x&quot;: 5.5,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;count&quot;: 1&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 0.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 0&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 3&#10;                },&#10;                {&#10;                  &quot;x&quot;: 2.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 14&#10;                },&#10;                {&#10;                  &quot;x&quot;: 3.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 27&#10;                },&#10;                {&#10;                  &quot;x&quot;: 4.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 21&#10;                },&#10;                {&#10;                  &quot;x&quot;: 5.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 6&#10;                },&#10;                {&#10;                  &quot;x&quot;: 6.0,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;count&quot;: 1&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 0.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 1&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 5&#10;                },&#10;                {&#10;                  &quot;x&quot;: 2.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 16&#10;                },&#10;                {&#10;                  &quot;x&quot;: 3.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 19&#10;                },&#10;                {&#10;                  &quot;x&quot;: 4.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 9&#10;                },&#10;                {&#10;                  &quot;x&quot;: 5.5,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;count&quot;: 2&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 0.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 0&#10;                },&#10;                {&#10;                  &quot;x&quot;: 1.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 1&#10;                },&#10;                {&#10;                  &quot;x&quot;: 2.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 3&#10;                },&#10;                {&#10;                  &quot;x&quot;: 3.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 5&#10;                },&#10;                {&#10;                  &quot;x&quot;: 4.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 4&#10;                },&#10;                {&#10;                  &quot;x&quot;: 5.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 1&#10;                },&#10;                {&#10;                  &quot;x&quot;: 6.0,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;count&quot;: 0&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="hexbin-cells">
+          <polygon points="209.4,313.0 209.4,347.0 180.0,364.0 150.6,347.0 150.6,313.0 180.0,296.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+          <polygon points="268.3,313.0 268.3,347.0 238.9,364.0 209.4,347.0 209.4,313.0 238.9,296.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+          <polygon points="327.2,313.0 327.2,347.0 297.8,364.0 268.3,347.0 268.3,313.0 297.8,296.0" style="fill: rgb(225,235,245); stroke: #ffffff" />
+          <polygon points="386.1,313.0 386.1,347.0 356.7,364.0 327.2,347.0 327.2,313.0 356.7,296.0" style="fill: rgb(210,225,241); stroke: #ffffff" />
+          <polygon points="445.0,313.0 445.0,347.0 415.6,364.0 386.1,347.0 386.1,313.0 415.6,296.0" style="fill: rgb(217,230,243); stroke: #ffffff" />
+          <polygon points="503.9,313.0 503.9,347.0 474.4,364.0 445.0,347.0 445.0,313.0 474.4,296.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="562.8,313.0 562.8,347.0 533.3,364.0 503.9,347.0 503.9,313.0 533.3,296.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+          <polygon points="238.9,262.0 238.9,296.0 209.4,313.0 180.0,296.0 180.0,262.0 209.4,245.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="297.8,262.0 297.8,296.0 268.3,313.0 238.9,296.0 238.9,262.0 268.3,245.0" style="fill: rgb(210,225,241); stroke: #ffffff" />
+          <polygon points="356.7,262.0 356.7,296.0 327.2,313.0 297.8,296.0 297.8,262.0 327.2,245.0" style="fill: rgb(143,182,221); stroke: #ffffff" />
+          <polygon points="415.6,262.0 415.6,296.0 386.1,313.0 356.7,296.0 356.7,262.0 386.1,245.0" style="fill: rgb(121,167,214); stroke: #ffffff" />
+          <polygon points="474.4,262.0 474.4,296.0 445.0,313.0 415.6,296.0 415.6,262.0 445.0,245.0" style="fill: rgb(188,211,234); stroke: #ffffff" />
+          <polygon points="533.3,262.0 533.3,296.0 503.9,313.0 474.4,296.0 474.4,262.0 503.9,245.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="209.4,211.0 209.4,245.0 180.0,262.0 150.6,245.0 150.6,211.0 180.0,194.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+          <polygon points="268.3,211.0 268.3,245.0 238.9,262.0 209.4,245.0 209.4,211.0 238.9,194.0" style="fill: rgb(217,230,243); stroke: #ffffff" />
+          <polygon points="327.2,211.0 327.2,245.0 297.8,262.0 268.3,245.0 268.3,211.0 297.8,194.0" style="fill: rgb(136,177,218); stroke: #ffffff" />
+          <polygon points="386.1,211.0 386.1,245.0 356.7,262.0 327.2,245.0 327.2,211.0 356.7,194.0" style="fill: rgb(40,115,190); stroke: #ffffff" />
+          <polygon points="445.0,211.0 445.0,245.0 415.6,262.0 386.1,245.0 386.1,211.0 415.6,194.0" style="fill: rgb(84,143,203); stroke: #ffffff" />
+          <polygon points="503.9,211.0 503.9,245.0 474.4,262.0 445.0,245.0 445.0,211.0 474.4,194.0" style="fill: rgb(195,216,236); stroke: #ffffff" />
+          <polygon points="562.8,211.0 562.8,245.0 533.3,262.0 503.9,245.0 503.9,211.0 533.3,194.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="238.9,160.0 238.9,194.0 209.4,211.0 180.0,194.0 180.0,160.0 209.4,143.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="297.8,160.0 297.8,194.0 268.3,211.0 238.9,194.0 238.9,160.0 268.3,143.0" style="fill: rgb(202,220,238); stroke: #ffffff" />
+          <polygon points="356.7,160.0 356.7,194.0 327.2,211.0 297.8,194.0 297.8,160.0 327.2,143.0" style="fill: rgb(121,167,214); stroke: #ffffff" />
+          <polygon points="415.6,160.0 415.6,194.0 386.1,211.0 356.7,194.0 356.7,160.0 386.1,143.0" style="fill: rgb(99,153,207); stroke: #ffffff" />
+          <polygon points="474.4,160.0 474.4,194.0 445.0,211.0 415.6,194.0 415.6,160.0 445.0,143.0" style="fill: rgb(173,201,230); stroke: #ffffff" />
+          <polygon points="533.3,160.0 533.3,194.0 503.9,211.0 474.4,194.0 474.4,160.0 503.9,143.0" style="fill: rgb(225,235,245); stroke: #ffffff" />
+          <polygon points="209.4,109.0 209.4,143.0 180.0,160.0 150.6,143.0 150.6,109.0 180.0,92.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+          <polygon points="268.3,109.0 268.3,143.0 238.9,160.0 209.4,143.0 209.4,109.0 238.9,92.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="327.2,109.0 327.2,143.0 297.8,160.0 268.3,143.0 268.3,109.0 297.8,92.0" style="fill: rgb(217,230,243); stroke: #ffffff" />
+          <polygon points="386.1,109.0 386.1,143.0 356.7,160.0 327.2,143.0 327.2,109.0 356.7,92.0" style="fill: rgb(202,220,238); stroke: #ffffff" />
+          <polygon points="445.0,109.0 445.0,143.0 415.6,160.0 386.1,143.0 386.1,109.0 415.6,92.0" style="fill: rgb(210,225,241); stroke: #ffffff" />
+          <polygon points="503.9,109.0 503.9,143.0 474.4,160.0 445.0,143.0 445.0,109.0 474.4,92.0" style="fill: rgb(232,240,247); stroke: #ffffff" />
+          <polygon points="562.8,109.0 562.8,143.0 533.3,160.0 503.9,143.0 503.9,109.0 533.3,92.0" style="fill: rgb(240,245,250); stroke: #ffffff" />
+            </g>
+            <g id="chart-title">
+              <text x="400" y="50" style="font: 16px sans-serif; text-anchor: middle">Point Density</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

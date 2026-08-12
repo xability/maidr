@@ -1141,6 +1141,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // measure sits rather than only that it exists.
       [TraceType.GAUGE, asGeneric(new BarBrailleEncoder())],
       [TraceType.HEATMAP, asGeneric(new HeatmapBrailleEncoder())],
+      // A lattice of counts, which is the heatmap encoder's input. The
+      // stagger has no representation here and needs none: a display is a
+      // line of cells and half a cell of offset has nowhere to go in it.
+      [TraceType.HEXBIN, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.HISTOGRAM, asGeneric(new BarBrailleEncoder())],
       [TraceType.LINE, asGeneric(new LineBrailleEncoder())],
       [TraceType.NORMALIZED, asGeneric(new BarBrailleEncoder())],

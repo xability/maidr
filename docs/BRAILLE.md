@@ -105,6 +105,28 @@ Multiline braille displays represent grouped boxplots, such as horizontal boxplo
 
 Single-line braille displays represent grouped boxplots by allowing users to navigate vertically between groups using the up and down arrow keys. As the user navigates, the braille representation updates to show the boxplot for the current group, enabling users to explore each group's distribution one at a time.
 
+## Hexbin
+
+One row per lattice row, one cell per bin, using the heatmap encoding above —
+because read as a lattice of cells each carrying a count, that is what a
+hexbin is.
+
+**The stagger has no representation here, and needs none.** A hex lattice
+offsets alternate rows by half a cell, and a braille display is a line of
+cells with nowhere to put half of one. What survives intact is the thing the
+chart is drawn for: the density pattern, as a run of cells that rises towards
+the cloud and falls away from it, with the empty margins reading as spaces.
+
+Where the offset *does* matter is navigation rather than encoding — moving up
+or down lands between two bins, so the trace keeps the reader over the x they
+started from rather than stepping by index. A display shows the whole row at
+once and never has to make that choice.
+
+### Multiline Displays
+
+Hexbin plots use one line per lattice row on a multiline display, so the shape
+of the cloud can be felt at once rather than row by row.
+
 ## Scatter plot
 
 In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
