@@ -1128,6 +1128,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // SIGNED value, so a left-hand row reads low across its whole length --
       // the inversion the pitch applies has no equivalent here, and
       // `docs/BRAILLE.md` says so, because a reader cannot tell from the dots.
+      // Each curve is a line, which is what its cells carry. The LEVEL has
+      // no representation: it is constant along a curve, so encoding it would
+      // spend every cell of a row saying one number, and the shape the row is
+      // there to convey would be gone. It is announced instead, alongside the
+      // spacing to the next level. `docs/BRAILLE.md` says so.
+      [TraceType.CONTOUR, asGeneric(new LineBrailleEncoder())],
       [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
       // A dot plot and a lollipop carry a bar's braille state -- one row of
       // magnitudes -- because they carry a bar's data. The mark differs and

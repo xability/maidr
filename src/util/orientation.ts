@@ -42,6 +42,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // other axis either way -- so which axis a bar's length lies on depends on
   // which way it was drawn, exactly as it does for the stacked bar this
   // extends.
+  // Two continuous axes with the field over them, so there is no main and
+  // cross axis to swap -- the answer a line already gives, and a contour is
+  // one curve per level.
+  [TraceType.CONTOUR]: false,
   [TraceType.DIVERGING]: true,
   [TraceType.DODGED]: true,
   // A bar chart's reading with a different mark, and a bar is oriented -- a

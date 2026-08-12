@@ -68,6 +68,8 @@ describe('resolveOrientation', () => {
     TraceType.HEATMAP,
     // A lattice of bins over two continuous axes, the same as a heatmap.
     TraceType.HEXBIN,
+    // One curve per level; two continuous axes, as a line has.
+    TraceType.CONTOUR,
     TraceType.LINE,
     TraceType.NORMALIZED_AREA,
     // Every column is its own axis, so there is no main and cross axis to
