@@ -58,6 +58,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.BAR]: 'Bar Chart',
   [TraceType.BUMP]: 'Bump Chart',
   [TraceType.BOX]: 'Box Plot',
+  [TraceType.BOXEN]: 'Letter-Value Plot',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
   [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
   [TraceType.DODGED]: 'Dodged Bar Chart',

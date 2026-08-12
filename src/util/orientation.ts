@@ -25,6 +25,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.AREA]: false,
   [TraceType.BAR]: true,
   [TraceType.BOX]: true,
+  // The distributions run along one axis and their quantiles along the other,
+  // so which axis a rung's value lies on depends on which way the chart was
+  // drawn -- the same answer a box plot gives, for the same reason.
+  [TraceType.BOXEN]: true,
   [TraceType.CANDLESTICK]: true,
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.

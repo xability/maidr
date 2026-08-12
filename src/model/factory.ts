@@ -5,6 +5,7 @@ import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
 import { BumpTrace } from './bump';
+import { BoxenTrace } from './boxen';
 import { Candlestick } from './candlestick';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
@@ -55,6 +56,8 @@ export abstract class TraceFactory {
 
       case TraceType.BUMP:
         return new BumpTrace(layer);
+      case TraceType.BOXEN:
+        return new BoxenTrace(layer);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);

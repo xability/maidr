@@ -6,6 +6,9 @@ describe('resolveOrientation', () => {
   const orientedTypes = [
     TraceType.BAR,
     TraceType.BOX,
+    // The distributions run along one axis and their quantiles along the
+    // other, the same as a box plot.
+    TraceType.BOXEN,
     TraceType.CANDLESTICK,
     TraceType.DODGED,
     // A dumbbell is commonly drawn with its categories running down the page,
