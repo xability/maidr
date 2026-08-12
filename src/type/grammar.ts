@@ -1005,6 +1005,16 @@ export enum TraceType {
    * rather than its index, so a sweep goes out and comes back.
    */
   RADAR = 'radar',
+  /**
+   * One density curve per group along a shared value axis, the curves offset
+   * down the page so their shapes can be compared. The offset is presentation
+   * -- it exists so the curves do not overlap illegibly -- so a layer carries
+   * each group's curve on its own terms and never the baseline it was drawn
+   * from. Reading it as a {@link TraceType.VIOLIN_KDE} pitches every group
+   * against a reference curve, which answers a different question than the
+   * one a ridgeline is drawn to ask.
+   */
+  RIDGELINE = 'ridgeline',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
@@ -1016,16 +1026,6 @@ export enum TraceType {
    * this is a type of its own rather than a line with a fill.
    */
   STACKED_AREA = 'stacked_area',
-  /**
-   * One density curve per group along a shared value axis, the curves offset
-   * down the page so their shapes can be compared. The offset is presentation
-   * -- it exists so the curves do not overlap illegibly -- so a layer carries
-   * each group's curve on its own terms and never the baseline it was drawn
-   * from. Reading it as a {@link TraceType.VIOLIN_KDE} pitches every group
-   * against a reference curve, which answers a different question than the
-   * one a ridgeline is drawn to ask.
-   */
-  RIDGELINE = 'ridgeline',
   STEP = 'step',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',

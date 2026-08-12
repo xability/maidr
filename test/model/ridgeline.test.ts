@@ -206,6 +206,87 @@ describe('moving between groups holds the value', () => {
   });
 });
 
+describe('a jump to the far group keeps the value too', () => {
+  /** Three grids staggered so index and value give different answers. */
+  const STAGGERED: ViolinKdePoint[][] = [
+    [
+      { x: 'a', y: 0, density: 0.1 },
+      { x: 'a', y: 10, density: 0.4 },
+      { x: 'a', y: 20, density: 0.2 },
+    ],
+    [
+      { x: 'b', y: 16, density: 0.5 },
+      { x: 'b', y: 30, density: 0.3 },
+      { x: 'b', y: 44, density: 0.1 },
+    ],
+    [
+      { x: 'c', y: 5, density: 0.2 },
+      { x: 'c', y: 22, density: 0.6 },
+    ],
+  ];
+
+  test('lands under the value it left, not at its index', () => {
+    // Ctrl+Up is a vertical move and has the vertical move's problem. The
+    // base grid carries the column index into the far group: index 1 of `c`
+    // is 22, twelve units from the 10 the reader was comparing at -- the
+    // drift this trace exists to prevent, reached by a different key.
+    const trace = ridgeline(0, 1, STAGGERED);
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+
+    const { text } = nonEmptyState(trace);
+    expect(text.section).toBe('c');
+    expect(text.main.value).toBe(5);
+  });
+
+  test('keeps the value the reader chose, not the one the group forced', () => {
+    // Where a jump lands is decided by whatever the far group sampled, so
+    // resuming from there would strand the reader at a value they never
+    // picked. `b` straddles the two candidates: nearest to the chosen 10 is
+    // 12, while nearest to the 5 that `c` forced is 2.
+    const straddling: ViolinKdePoint[][] = [
+      [
+        { x: 'a', y: 0, density: 0.1 },
+        { x: 'a', y: 10, density: 0.4 },
+        { x: 'a', y: 20, density: 0.2 },
+      ],
+      [
+        { x: 'b', y: 2, density: 0.3 },
+        { x: 'b', y: 12, density: 0.5 },
+      ],
+      [
+        { x: 'c', y: 5, density: 0.2 },
+        { x: 'c', y: 22, density: 0.6 },
+      ],
+    ];
+
+    const trace = ridgeline(0, 1, straddling);
+    trace.moveToExtreme('UPWARD');
+
+    expect(nonEmptyState(trace).text.section).toBe('c');
+    expect(nonEmptyState(trace).text.main.value).toBe(5);
+
+    trace.moveOnce('DOWNWARD');
+
+    expect(nonEmptyState(trace).text.section).toBe('b');
+    expect(nonEmptyState(trace).text.main.value).toBe(12);
+  });
+
+  test('a horizontal extreme ends the comparison', () => {
+    const trace = ridgeline(0, 0, STAGGERED);
+    trace.moveOnce('UPWARD');
+    trace.moveToExtreme('FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe(44);
+
+    trace.moveOnce('DOWNWARD');
+
+    // Measured from the 44 the horizontal jump chose, not the 0 the vertical
+    // walk started from: `a`'s nearest to 44 is 20.
+    expect(nonEmptyState(trace).text.main.value).toBe(20);
+  });
+});
+
 describe('the announcement names the group, the value and the density', () => {
   test('carries all three', () => {
     const { text } = nonEmptyState(ridgeline(1, 1));

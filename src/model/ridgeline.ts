@@ -185,6 +185,52 @@ export class RidgelineTrace extends AbstractTrace {
     return moved;
   }
 
+  /**
+   * Jumps to the first or last group, holding the value.
+   *
+   * A vertical extreme is a vertical move and has the same problem: the base
+   * grid carries the *column index* into the far group, and an index is not a
+   * place on the value axis when the groups do not share a sample grid. This
+   * is reachable from Ctrl+Up and Ctrl+Down, which are bound unconditionally
+   * rather than gated on `supportsExtrema` -- that flag gates the statistical
+   * extrema menu, not the grid-edge jump.
+   *
+   * A horizontal extreme is the grid's own -- within a curve the index is the
+   * position -- and ends the comparison the same way a horizontal step does.
+   *
+   * @param direction - Which edge to jump to
+   * @returns True if the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      const moved = super.moveToExtreme(direction);
+      if (moved) {
+        this.anchor = null;
+      }
+      return moved;
+    }
+
+    if (this.isInitialEntry) {
+      return super.moveToExtreme(direction);
+    }
+
+    const targetGroup = direction === 'UPWARD' ? this.positions.length - 1 : 0;
+    const row = this.positions[targetGroup];
+    const held = this.anchor ?? this.currentValue();
+    if (row === undefined || row.length === 0 || held === null) {
+      return super.moveToExtreme(direction);
+    }
+
+    const moved = this.moveToIndex(targetGroup, RidgelineTrace.nearestTo(row, held));
+    if (moved) {
+      // The value survives, as it does across an ordinary step: a jump to the
+      // far group is still one comparison, and where it lands is decided by
+      // whatever that group happens to have sampled.
+      this.anchor = held;
+    }
+    return moved;
+  }
+
   public override moveToIndex(row: number, col: number): boolean {
     const moved = super.moveToIndex(row, col);
     if (moved) {
