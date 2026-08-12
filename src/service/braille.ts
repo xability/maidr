@@ -1181,6 +1181,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // A step chart's braille state is LineTrace's verbatim — a per-row
       // height profile — so the line encoder renders it correctly.
       [TraceType.STEP, asGeneric(new LineBrailleEncoder())],
+      // A density curve is a line, which is what the violin already reuses
+      // this for. What differs is the scaling, and that is decided in the
+      // trace: every group is rendered against the chart's peak rather than
+      // its own, so a row of full cells means a dense group and not merely
+      // the densest part of a sparse one. `docs/BRAILLE.md` says so.
+      [TraceType.RIDGELINE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_KDE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_BOX, asGeneric(new BoxBrailleEncoder())],
     ]);

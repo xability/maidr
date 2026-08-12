@@ -574,6 +574,46 @@ row while falling on the other.
 Diverging charts use one line per side on a multiline display, plus the
 balance, so the two sides can be compared with one sweep.
 
+## Ridgeline (joy plot)
+
+One row per group, one cell per sample of its density curve — the line
+encoding, which is what a density curve is.
+
+**Every row is scaled against the chart's peak rather than its own.** This is
+the one place a ridgeline's braille differs from a violin's, and it is
+deliberate: the chart exists so a reader can ask which distribution is tallest
+and where. Scaled per row, a group holding a tenth of another's density would
+fill its cells just as high, and the display would show a dozen equally tall
+ridges — the exact reading the chart is drawn to prevent.
+
+The floor is zero rather than the smallest density measured anywhere. A density
+of zero is a real reading — nobody in that group had that value — so it belongs
+at the bottom of the range and not somewhere above it.
+
+**The baseline offset has no representation here, and needs none.** The stagger
+that separates the curves on screen is presentation; it is not in the data and
+it is not in the display. What the fingers get is each group's shape, aligned
+row against row, which is the comparison the offset exists to make possible
+visually.
+
+```
+Group   Cells
+2019    ⠄⠆⠖⠶⣶⣶⠶⠖⠆⠄
+2021    ⠄⠆⠖⠖⠶⠶⠖⠖⠆⠄
+2023    ⠂⠆⠖⠶⣿⣿⠶⠖⠆⠂
+```
+
+The 2021 cohort's row never reaches the top because that cohort's curve never
+reaches the chart's peak — it is more spread out, so its density is lower
+everywhere. A per-row scale would have hidden that by filling its middle cells
+as high as everyone else's.
+
+### Multiline Displays
+
+Ridgelines use one line per group on a multiline display, so a reader can sweep
+across the groups at a fixed position and feel the modes march along the axis,
+or fail to — which is the finding the chart is drawn for.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

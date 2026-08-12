@@ -19,6 +19,7 @@ import { LineTrace } from './line';
 import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
+import { RidgelineTrace } from './ridgeline';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
 import { createSmoothTrace } from './smoothtraceFactory';
@@ -102,6 +103,9 @@ export abstract class TraceFactory {
       case TraceType.POLAR_AREA:
       case TraceType.RADAR:
         return new RadarTrace(layer);
+
+      case TraceType.RIDGELINE:
+        return new RidgelineTrace(layer);
 
       case TraceType.SCATTER:
         return new ScatterTrace(layer);

@@ -27,6 +27,9 @@ describe('resolveOrientation', () => {
     TraceType.FUNNEL,
     TraceType.HISTOGRAM,
     TraceType.NORMALIZED,
+    // Groups run one way and the value axis the other, and a ridgeline is
+    // drawn with its groups down the page as often as across it.
+    TraceType.RIDGELINE,
     TraceType.STACKED,
     TraceType.VIOLIN_BOX,
     TraceType.VIOLIN_KDE,
