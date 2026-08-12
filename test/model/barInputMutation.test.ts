@@ -97,12 +97,18 @@ describe('a bar trace does not write to the spec it was given', () => {
     expect(third).toEqual([[3, 5], [2, 4], [5, 9]]);
   });
 
-  test('the normalized variant is affected the same way, and fixed the same way', () => {
-    TraceFactory.create(stackedLayer(TraceType.NORMALIZED));
-    TraceFactory.create(stackedLayer(TraceType.NORMALIZED));
+  test.each([TraceType.NORMALIZED, TraceType.DODGED])(
+    'the %s variant is affected the same way, and fixed the same way',
+    (type) => {
+      // All three segmented types route to the same class, so naming them
+      // individually is what makes "every type that shares this code path"
+      // a checked claim rather than an inferred one.
+      TraceFactory.create(stackedLayer(type));
+      TraceFactory.create(stackedLayer(type));
 
-    expect(stackedData).toHaveLength(2);
-  });
+      expect(stackedData).toHaveLength(2);
+    },
+  );
 
   test('disposing a trace does not empty the caller data', () => {
     // `dispose()` truncates the array it holds, which is the other half of
