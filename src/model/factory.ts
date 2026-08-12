@@ -4,6 +4,7 @@ import { TraceType } from '@type/grammar';
 import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
+import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
@@ -49,6 +50,9 @@ export abstract class TraceFactory {
 
       case TraceType.BOX:
         return new BoxTrace(layer);
+
+      case TraceType.BUMP:
+        return new BumpTrace(layer);
 
       case TraceType.CANDLESTICK:
         return new Candlestick(layer);

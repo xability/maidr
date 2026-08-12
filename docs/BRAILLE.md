@@ -472,6 +472,33 @@ rank the data does not support.
 Parallel coordinates use one line per observation on a multiline display, so
 several observations' profiles can be compared with one sweep rather than by
 toggling between rows.
+## Bump chart
+
+One row per competitor, one cell per period, each row scaled against its own
+range — the line encoding unchanged.
+
+**The cells rise with the rank number, not with the position.** A row that
+climbs the display is a competitor sliding *down* the table, because rank 1 is
+the best place and the smallest number. That is the opposite of what the pitch
+does, which inverts so first place is the highest note.
+
+The two disagree on purpose, and it is worth knowing which is which. Audio is
+given a direction to invert — the trace hands the service its bounds the other
+way round, and nothing else about the tone changes. Braille is given values,
+and the encoder maps a value to a dot height; inverting those would mean
+emitting `n + 1 - rank` in place of the rank, so the display would carry
+numbers the chart does not contain and every other reading of the same state
+would disagree with it.
+
+So the display stays literal: a low row is a good run, and the announcement and
+the pitch both say so in words and in tone. What braille adds is the *shape* —
+a row that stays flat held its place all season, and two rows that cross swapped
+positions, which is legible by touch whichever way the dots run.
+
+### Multiline Displays
+
+Bump charts use one line per competitor on a multiline display, so a whole
+table's season can be felt at once rather than by toggling between rows.
 
 ## Multiline Braille Display Support
 

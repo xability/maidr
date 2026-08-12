@@ -127,9 +127,10 @@ export class LineTrace extends AbstractTrace {
    *
    * Overridable for the reason {@link LineTrace.seriesLabels} is: a subclass
    * navigates the same grid but draws something else, and this label is
-   * announced literally beside the series' own name. A parallel coordinates
-   * plot that named its own noun everywhere else and then said "Group is
-   * Honda Civic" would use two words for one referent in a single sentence.
+   * announced literally beside the series' own name. A chart that named its
+   * own noun everywhere else and then said "Group is Honda Civic" -- or
+   * "Group is Ash" -- would use two words for one referent in a single
+   * sentence.
    *
    * @returns The fallback label
    */
@@ -152,8 +153,14 @@ export class LineTrace extends AbstractTrace {
   /**
    * Human-readable name of a single line: the authored name when the spec
    * provides one, otherwise a positional fallback ("Line 2").
+   *
+   * Protected rather than private because a subclass naming a series in its
+   * own description -- which competitor led, which observation is an outlier
+   * -- has to name it the way every other announcement does, and reaching for
+   * `points[row][0].z` directly would skip the fallback and report
+   * `undefined` for an unnamed series.
    */
-  private groupNameAt(row: number): string {
+  protected groupNameAt(row: number): string {
     return this.authoredGroupNameAt(row) ?? `Line ${row + 1}`;
   }
 

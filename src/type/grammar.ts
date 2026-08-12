@@ -878,6 +878,18 @@ export enum TraceType {
    */
   AREA = 'area',
   BAR = 'bar',
+  /**
+   * Rank over time, one line per competitor -- a bump chart. Navigated as a
+   * multi-line layer, with the one difference that decides whether it reads
+   * correctly: the y axis is a *rank*, so rank 1 is the best position and the
+   * smallest number, and the pitch is inverted to match. Each point announces
+   * the places gained or lost alongside the rank, since the overtake is what
+   * the chart is drawn for.
+   *
+   * A slope graph of *values* is a {@link TraceType.LINE} layer with two
+   * samples, not this.
+   */
+  BUMP = 'bump',
   BOX = 'box',
   CANDLESTICK = 'candlestick',
   /**

@@ -56,6 +56,7 @@ export function named(label: string | undefined, fallback: string): string {
 const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.AREA]: 'Area Chart',
   [TraceType.BAR]: 'Bar Chart',
+  [TraceType.BUMP]: 'Bump Chart',
   [TraceType.BOX]: 'Box Plot',
   [TraceType.CANDLESTICK]: 'Candlestick Chart',
   [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',

@@ -699,7 +699,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         || traceType === TraceType.STEP
         || traceType === TraceType.RADAR
         || traceType === TraceType.POLAR_AREA
-        || traceType === TraceType.PARALLEL)
+        || traceType === TraceType.PARALLEL
+        || traceType === TraceType.BUMP)
       && state.groupCount
       && state.groupCount > 1
     ) {
@@ -719,7 +720,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         // reader needs to know which outline they are tracing.
         traceType === TraceType.LINE
           ? 'Line'
-          : traceType === TraceType.PARALLEL ? 'Observation' : 'Series',
+          : traceType === TraceType.PARALLEL
+            ? 'Observation'
+            : traceType === TraceType.BUMP ? 'Competitor' : 'Series',
       );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird

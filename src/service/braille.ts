@@ -1105,6 +1105,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.STACKED_AREA, asGeneric(new LineBrailleEncoder())],
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
+      // A bump chart's rows are competitors and its columns periods, which is
+      // the line encoder's input exactly. The cells rise with the rank NUMBER
+      // rather than with the position, so a table-topping run reads as a low
+      // row -- the inversion the pitch applies has no equivalent here, since
+      // the encoder is handed values and not a direction. `docs/BRAILLE.md`
+      // says so, because a reader cannot tell from the dots alone.
+      [TraceType.BUMP, asGeneric(new LineBrailleEncoder())],
       [TraceType.CANDLESTICK, asGeneric(new CandlestickBrailleEncoder())],
       // The virtual delta layer reuses the candlestick encoding: height maps
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.
