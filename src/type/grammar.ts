@@ -770,6 +770,7 @@ export interface ChoroplethPoint {
    * walk and is told nothing about borders, rather than something guessed.
    */
   neighbors?: (string | number)[];
+}
 
 /**
  * One node of a treemap, or of any other hierarchy drawn as area.

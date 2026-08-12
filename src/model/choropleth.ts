@@ -88,6 +88,24 @@ export class ChoroplethTrace extends AbstractTrace {
   /** Where a region sits, by name, for adjacency lookups. */
   private readonly placeOf: Map<string, { row: number; col: number }>;
 
+  /**
+   * The border walk in progress: whose borders, how far along, and where the
+   * last step put the cursor.
+   *
+   * The mode needs an anchor because a region is never its own neighbour.
+   * Deriving the candidate list from wherever the cursor currently sits --
+   * which is what the other rotors can do, because they search a fixed axis
+   * relative to the cursor's own index on it -- rebuilds a different list on
+   * every press and can never locate the cursor within it. That walked to one
+   * neighbour and then straight back, forever, reaching two of Nevada's four
+   * borders and never the others.
+   *
+   * `at` is how the walk notices it has been abandoned: if the cursor is no
+   * longer where the last step left it, the reader has moved with the arrows
+   * and the walk re-anchors on wherever they now are.
+   */
+  private borderWalk: { from: string; index: number; at: { row: number; col: number } } | null = null;
+
   private readonly regionValues: number[][];
   private readonly min: number;
   private readonly max: number;
@@ -104,10 +122,18 @@ export class ChoroplethTrace extends AbstractTrace {
 
     const points = layer.data as ChoroplethPoint[];
     this.regions = ChoroplethTrace.arrange(points);
+    // Keyed by name, because that is what a border list names. Two regions
+    // whose `x` coerces to the same string -- `5` and `'5'` -- cannot both be
+    // addressed, so the first one declared keeps the name: overwriting would
+    // silently redirect every border of the earlier region to the later one,
+    // where at least this way one of the two is still right and the other is
+    // simply unreachable by name.
     this.placeOf = new Map();
     for (const [row, band] of this.regions.entries()) {
       for (const [col, region] of band.entries()) {
-        this.placeOf.set(region.name, { row, col });
+        if (!this.placeOf.has(region.name)) {
+          this.placeOf.set(region.name, { row, col });
+        }
       }
     }
 
@@ -323,25 +349,41 @@ export class ChoroplethTrace extends AbstractTrace {
       return false;
     }
 
-    // Ordered as the grid is, so walking the neighbours of a region runs
-    // north to south and west to east rather than in whatever order the
-    // producer happened to list the borders in.
-    const around = this.neighboursOf(region)
-      .map(one => this.placeOf.get(one.name))
-      .filter((at): at is { row: number; col: number } => at !== undefined)
-      .sort((a, b) => (a.row - b.row) || (a.col - b.col));
+    // Continue the walk only if the cursor is still where the walk left it.
+    const continuing = this.borderWalk !== null
+      && this.borderWalk.at.row === this.row
+      && this.borderWalk.at.col === this.col;
+    const walk = continuing && this.borderWalk !== null
+      ? this.borderWalk
+      : { from: region.name, index: -1, at: { row: this.row, col: this.col } };
 
-    const here = around.findIndex(
-      at => at.row === this.row && at.col === this.col,
-    );
-    const next = direction === 'right'
-      ? around[here + 1] ?? around[0]
-      : around[here <= 0 ? around.length - 1 : here - 1];
-    if (next === undefined) {
+    const anchor = this.placeOf.get(walk.from);
+    const from = anchor === undefined
+      ? null
+      : this.regions[anchor.row]?.[anchor.col] ?? null;
+    if (from === null) {
       this.notifyRotorBounds();
       return false;
     }
 
+    // Ordered as the grid is, so walking the borders of a region runs south
+    // to north and west to east rather than in whatever order the producer
+    // happened to list them in.
+    const around = this.neighboursOf(from)
+      .map(one => this.placeOf.get(one.name))
+      .filter((at): at is { row: number; col: number } => at !== undefined)
+      .sort((a, b) => (a.row - b.row) || (a.col - b.col));
+
+    const index = walk.index + (direction === 'right' ? 1 : -1);
+    const next = around[index];
+    if (next === undefined) {
+      // Stops at the ends rather than cycling, as every other rotor in the
+      // model layer does.
+      this.notifyRotorBounds();
+      return false;
+    }
+
+    this.borderWalk = { from: walk.from, index, at: next };
     this.movable.moveToIndex(next.row, next.col);
     this.notifyStateUpdate();
     return true;

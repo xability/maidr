@@ -281,3 +281,89 @@ describe('the modalities read the whole map on one scale', () => {
     expect(braille.values).toEqual([[95, 90, 85], [20, 10, 30]]);
   });
 });
+
+describe('the neighbour rotor pages through every border', () => {
+  test('it visits all four of a hub region, rather than bouncing', () => {
+    // Nevada borders Oregon, Idaho, Utah and California. A reader pressing
+    // right repeatedly should page through the borders it has, which is the
+    // whole of what the mode is for.
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Nevada');
+
+    const visited: string[] = [];
+    while (trace.moveToRotorFilter('neighbours', 'right')) {
+      visited.push(String(nonEmptyState(trace).text.main.value));
+      if (visited.length > 8) {
+        break;
+      }
+    }
+
+    expect(visited.sort()).toEqual(['California', 'Idaho', 'Oregon', 'Utah']);
+  });
+
+  test('it walks back the way it came', () => {
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+    trace.moveToRotorFilter('neighbours', 'right');
+    const first = String(nonEmptyState(trace).text.main.value);
+    trace.moveToRotorFilter('neighbours', 'right');
+
+    expect(trace.moveToRotorFilter('neighbours', 'left')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe(first);
+  });
+
+  test('walking away with the arrows re-anchors on where you now are', () => {
+    // The mode walks the borders of the region the reader entered it from.
+    // Leaving with the arrows and coming back has to pick up the new
+    // region's borders, not carry the old region's list along.
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+    trace.moveToRotorFilter('neighbours', 'right');
+    walk(trace, 'UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Oregon');
+
+    trace.moveToRotorFilter('neighbours', 'right');
+
+    // Oregon's borders, not California's.
+    expect(['Washington', 'Idaho', 'Nevada', 'California'])
+      .toContain(String(nonEmptyState(trace).text.main.value));
+  });
+});
+
+describe('what a half-declared map is told', () => {
+  test('a centroid on only some regions falls back for all of them', () => {
+    // The same code path as declaring none, but a different authoring
+    // mistake: a partial layout would put the placed regions in real
+    // directions and the rest wherever they landed, which reads as a map and
+    // is not one.
+    const partial: ChoroplethPoint[] = [
+      { x: 'Placed', y: 1, lat: 10, lon: 1 },
+      { x: 'Unplaced', y: 2 },
+    ];
+    const trace = choropleth(partial);
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Placed');
+    // One band, declared order: north of `Placed` there is nothing, because
+    // the map was never laid out.
+    expect(walk(trace, 'UPWARD')).toEqual([null]);
+    expect(walk(trace, 'FORWARD')).toEqual(['Unplaced']);
+  });
+
+  test('a duplicate region name leaves the first one addressable', () => {
+    // A name that is not unique cannot be an adjacency key. Keeping the
+    // first means one of the two is still correct, rather than every border
+    // of the earlier region silently pointing at the later one.
+    const clashing: ChoroplethPoint[] = [
+      { x: 5, y: 10, lat: 1, lon: 1, neighbors: ['Other'] },
+      { x: '5', y: 20, lat: 2, lon: 1 },
+      { x: 'Other', y: 30, lat: 3, lon: 1, neighbors: [5] },
+    ];
+    const trace = choropleth(clashing);
+
+    expect(nonEmptyState(trace).text.asides)
+      .toEqual([{ label: 'Neighbours', value: '1, all higher' }]);
+  });
+});
