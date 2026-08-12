@@ -92,10 +92,26 @@ test.describe('Dot plot', () => {
     expect(instruction).not.toContain('bar');
   });
 
+  test('should tell the reader the chart is drawn horizontally', async ({ page }) => {
+    // `IS_ORIENTED` reaches exactly one string: the "horizontal"/"vertical"
+    // prefix `Context.getInstruction()` puts on the activation announcement.
+    // The per-point announcement does NOT test it -- `BarTrace` reads
+    // `layer.orientation` off the JSON directly, so main and cross swap
+    // whatever `IS_ORIENTED` says. An earlier version of this test asserted
+    // the per-point text and passed with `IS_ORIENTED[DOT]` set to `false`,
+    // which made it a test of nothing while reading like the opposite.
+    //
+    // So this reads the announcement before navigating anywhere.
+    const plot = new DotPlotPage(page);
+    await plot.activateMaidr();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('horizontal');
+  });
+
   test('should read the categories down the page, not across it', async ({ page }) => {
-    // The arrangement a Cleveland dot plot is almost always drawn in, and the
-    // case IS_ORIENTED exists to get right: a type that resolved no
-    // orientation would name the endpoint where the milliseconds belong.
+    // The arrangement a Cleveland dot plot is almost always drawn in: the
+    // endpoint is the category and the milliseconds are the value, and a
+    // layer that swapped them would name one where the other belongs.
     const plot = new DotPlotPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();

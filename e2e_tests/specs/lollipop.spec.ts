@@ -95,6 +95,17 @@ test.describe('Lollipop', () => {
     expect(instruction).not.toContain('bar');
   });
 
+  test('should tell the reader the chart is drawn horizontally', async ({ page }) => {
+    // `IS_ORIENTED` reaches exactly one string: the "horizontal"/"vertical"
+    // prefix on the activation announcement. The per-point text does not test
+    // it -- `BarTrace` reads `layer.orientation` off the JSON directly -- so
+    // this reads the announcement before navigating anywhere.
+    const plot = new LollipopPlotPage(page);
+    await plot.activateMaidr();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('horizontal');
+  });
+
   test('should announce the country and its value', async ({ page }) => {
     const plot = new LollipopPlotPage(page);
     await plot.activateMaidr();

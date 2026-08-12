@@ -989,6 +989,8 @@ export enum TraceType {
    * announcement names the side.
    */
   DIVERGING = 'diverging_bar',
+  DODGED = 'dodged_bar',
+  /**
    * A category and a value drawn as a point rather than a bar -- a Cleveland
    * dot plot. Read exactly as a {@link TraceType.BAR} is; the two differ in
    * the mark, not in what a reader navigates, which is why this carries no
@@ -996,7 +998,6 @@ export enum TraceType {
    * the author drew.
    */
   DOT = 'dot',
-  DODGED = 'dodged_bar',
   /**
    * Two values per category joined by a segment -- before and after, two
    * groups, two years. The gap is the message, so the trace announces the
