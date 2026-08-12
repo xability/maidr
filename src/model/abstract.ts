@@ -80,6 +80,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.PIE]: 'Pie Chart',
   [TraceType.POLAR_AREA]: 'Polar Area Chart',
   [TraceType.RADAR]: 'Radar Chart',
+  [TraceType.RIDGELINE]: 'Ridgeline Plot',
   [TraceType.SCATTER]: 'Scatter Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',

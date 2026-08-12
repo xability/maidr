@@ -88,6 +88,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // and cross axis to swap -- the same answer a pie gives.
   [TraceType.POLAR_AREA]: false,
   [TraceType.RADAR]: false,
+  // The groups run one way and the value axis the other, and a ridgeline is
+  // drawn with its groups down the page as often as across it -- the same
+  // reason the violin it shares a point shape with is oriented.
+  [TraceType.RIDGELINE]: true,
   [TraceType.SCATTER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,

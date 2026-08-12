@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Ridgeline Plot Example — Delivery Time by Cohort</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A ridgeline stacks one density curve per group along a shared value
+        axis, offset down the page so the shapes can be compared.
+
+        The offset is presentation. It exists so the curves do not sit on top
+        of one another, and it says nothing about any cohort -- so the layer
+        carries each curve on its own terms, the day it was measured at and
+        the density there, and never the baseline it was drawn from. The
+        drawn paths below apply the offset; the data does not contain it.
+
+        The three cohorts are sampled on DIFFERENT grids, which is what a
+        density estimated over each cohort's own range produces. That is why
+        moving between them holds the value rather than the index: stepping
+        by index would land at a different day, announcing a real density at
+        a real place with nothing to say it had moved.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="760pt" height="400pt" viewBox="0 0 760 400" version="1.1"
+        id="ridgeline-delivery" maidr='{&#10;  &quot;id&quot;: &quot;ridgeline-delivery&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;ridgeline-delivery-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;ridgeline-delivery-layer&quot;,&#10;            &quot;type&quot;: &quot;ridgeline&quot;,&#10;            &quot;title&quot;: &quot;Delivery Time by Cohort&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Days&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Cohort&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Cohort&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;ridgeline-curves&#x27;] &gt; path&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 18.6,&#10;                  &quot;density&quot;: 0.00507&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 21.2,&#10;                  &quot;density&quot;: 0.01062&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 23.7,&#10;                  &quot;density&quot;: 0.01944&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 26.3,&#10;                  &quot;density&quot;: 0.03112&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 28.9,&#10;                  &quot;density&quot;: 0.04355&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 31.4,&#10;                  &quot;density&quot;: 0.05329&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 34.0,&#10;                  &quot;density&quot;: 0.05699&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 36.6,&#10;                  &quot;density&quot;: 0.05329&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 39.1,&#10;                  &quot;density&quot;: 0.04355&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 41.7,&#10;                  &quot;density&quot;: 0.03112&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 44.3,&#10;                  &quot;density&quot;: 0.01944&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 46.8,&#10;                  &quot;density&quot;: 0.01062&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 49.4,&#10;                  &quot;density&quot;: 0.00507&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 20.1,&#10;                  &quot;density&quot;: 0.00373&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 23.6,&#10;                  &quot;density&quot;: 0.00782&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 27.1,&#10;                  &quot;density&quot;: 0.01432&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 30.6,&#10;                  &quot;density&quot;: 0.02293&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 34.0,&#10;                  &quot;density&quot;: 0.03209&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 37.5,&#10;                  &quot;density&quot;: 0.03926&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 41.0,&#10;                  &quot;density&quot;: 0.04199&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 44.5,&#10;                  &quot;density&quot;: 0.03926&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 48.0,&#10;                  &quot;density&quot;: 0.03209&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 51.5,&#10;                  &quot;density&quot;: 0.02293&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 54.9,&#10;                  &quot;density&quot;: 0.01432&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 58.4,&#10;                  &quot;density&quot;: 0.00782&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 61.9,&#10;                  &quot;density&quot;: 0.00373&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 38.8,&#10;                  &quot;density&quot;: 0.00591&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 41.0,&#10;                  &quot;density&quot;: 0.01239&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 43.2,&#10;                  &quot;density&quot;: 0.02268&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 45.4,&#10;                  &quot;density&quot;: 0.03631&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 47.6,&#10;                  &quot;density&quot;: 0.05081&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 49.8,&#10;                  &quot;density&quot;: 0.06217&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 52.0,&#10;                  &quot;density&quot;: 0.06649&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 54.2,&#10;                  &quot;density&quot;: 0.06217&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 56.4,&#10;                  &quot;density&quot;: 0.05081&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 58.6,&#10;                  &quot;density&quot;: 0.03631&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 60.8,&#10;                  &quot;density&quot;: 0.02268&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 63.0,&#10;                  &quot;density&quot;: 0.01239&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 65.2,&#10;                  &quot;density&quot;: 0.00591&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 400  L 760 400  L 760 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="ridgeline-curves">
+          <path d="M 158.8,330.0 L 158.8,322.8 L 179.6,314.8 L 199.6,302.2 L 220.4,285.5 L 241.2,267.8 L 261.2,253.9 L 282.0,248.6 L 302.8,253.9 L 322.8,267.8 L 343.6,285.5 L 364.4,302.2 L 384.4,314.8 L 405.2,322.8 L 405.2,330.0 Z" style="fill: #4c72b0; fill-opacity: 0.75; stroke: #333" />
+          <path d="M 170.8,250.0 L 170.8,244.7 L 198.8,238.8 L 226.8,229.5 L 254.8,217.2 L 282.0,204.2 L 310.0,193.9 L 338.0,190.0 L 366.0,193.9 L 394.0,204.2 L 422.0,217.2 L 449.2,229.5 L 477.2,238.8 L 505.2,244.7 L 505.2,250.0 Z" style="fill: #55a868; fill-opacity: 0.75; stroke: #333" />
+          <path d="M 320.4,170.0 L 320.4,161.6 L 338.0,152.3 L 355.6,137.6 L 373.2,118.1 L 390.8,97.4 L 408.4,81.2 L 426.0,75.0 L 443.6,81.2 L 461.2,97.4 L 478.8,118.1 L 496.4,137.6 L 514.0,152.3 L 531.6,161.6 L 531.6,170.0 Z" style="fill: #c44e52; fill-opacity: 0.75; stroke: #333" />
+            </g>
+            <g id="axis_y">
+          <text x="80" y="334" style="font: 13px sans-serif; text-anchor: end">2019</text>
+          <text x="80" y="254" style="font: 13px sans-serif; text-anchor: end">2021</text>
+          <text x="80" y="174" style="font: 13px sans-serif; text-anchor: end">2023</text>
+            </g>
+            <g id="axis_x">
+          <text x="170" y="368" style="font: 12px sans-serif; text-anchor: middle">20</text>
+          <text x="250" y="368" style="font: 12px sans-serif; text-anchor: middle">30</text>
+          <text x="330" y="368" style="font: 12px sans-serif; text-anchor: middle">40</text>
+          <text x="410" y="368" style="font: 12px sans-serif; text-anchor: middle">50</text>
+          <text x="490" y="368" style="font: 12px sans-serif; text-anchor: middle">60</text>
+              <text x="330" y="392" style="font: 13px sans-serif; text-anchor: middle">Days</text>
+            </g>
+            <g id="chart-title">
+              <text x="380" y="45" style="font: 16px sans-serif; text-anchor: middle">Delivery Time by Cohort</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
