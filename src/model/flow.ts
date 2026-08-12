@@ -32,6 +32,15 @@ interface Edge {
   to: number;
   /** How much flows. */
   value: number;
+  /**
+   * Where the flow sat in the declared array.
+   *
+   * Carried on the edge rather than recovered later, because the edge lists
+   * are sorted by value the moment they are built: a selector list is one
+   * entry per flow in **declared** order, so re-deriving a position from the
+   * sorted lists highlights a different ribbon than the one announced.
+   */
+  at: number;
 }
 
 /** One node of the graph, placed in the grid the cursor addresses. */
@@ -86,7 +95,7 @@ function asPercent(fraction: number): string {
  * only "Electricity, 34" would have withheld the entire content of the step --
  * which flow was taken, how big it was, and what share of this node's output
  * it represents. So the trace remembers the edge it arrived by and announces
- * it: *Coal to Electricity, 34, 61% of Coal's output*.
+ * it: *Coal to Electricity, 34, 60.7% of Coal*.
  *
  * **Stages are derived, and a cycle is answered honestly.** A node's column is
  * its longest distance from a source, which is how these layouts are built. A
@@ -208,14 +217,14 @@ export class FlowTrace extends AbstractTrace {
       return nodes.length - 1;
     }
 
-    for (const flow of flows) {
+    for (const [at, flow] of flows.entries()) {
       const value = Number(flow.value);
       if (!Number.isFinite(value)) {
         continue;
       }
       const from = ensure(String(flow.source));
       const to = ensure(String(flow.target));
-      const edge: Edge = { from, to, value };
+      const edge: Edge = { from, to, value, at };
       nodes[from].out.push(edge);
       nodes[to].in.push(edge);
       nodes[from].outTotal += value;
@@ -724,27 +733,18 @@ export class FlowTrace extends AbstractTrace {
       return null;
     }
 
-    // Edges in declared order, so a flow's position in the selector list is
-    // its position here.
-    const order = new Map<Edge, number>();
-    let next = 0;
-    for (const node of this.nodes) {
-      for (const edge of node.out) {
-        if (!order.has(edge)) {
-          order.set(edge, next++);
-        }
-      }
-    }
-
+    // Indexed by the edge's own declared position. Walking the sorted edge
+    // lists to re-derive one would pair a node with whichever ribbon happens
+    // to sit at that rank, so a chart whose flows are not authored in
+    // descending order highlights one ribbon while announcing another --
+    // and nothing about the announcement would look wrong.
     return this.grid.map(row =>
       row.map((node) => {
         if (node === null) {
           return Svg.createEmptyElement();
         }
         const touching = [...node.out, ...node.in]
-          .map(edge => order.get(edge))
-          .filter((index): index is number => index !== undefined)
-          .map(index => flat[index])
+          .map(edge => flat[edge.at])
           .filter((element): element is SVGElement => element !== undefined);
         return touching[0] ?? Svg.createEmptyElement();
       }));
