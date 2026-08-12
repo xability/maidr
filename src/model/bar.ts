@@ -65,7 +65,19 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected constructor(layer: MaidrLayer, points: T[][]) {
     super(layer);
 
-    this.points = points;
+    // A copy of the outer array, not the caller's own. Two things here write
+    // to it: `SegmentedTrace` appends a summary row, and `dispose()` truncates
+    // it to zero. Held by reference, both reach back into the `MaidrLayer.data`
+    // the caller passed in -- so building a figure twice from one spec (a React
+    // re-render with the same `data` prop, a `setData()` push, two subplots
+    // sharing a spec object) leaves the second figure reading a chart with a
+    // phantom series, and the sums compound with every rebuild. Disposing the
+    // first figure empties the spec outright.
+    //
+    // The rows themselves are never written to, so a shallow copy is the whole
+    // fix; copying every point as well would cost the largest charts real work
+    // for no benefit.
+    this.points = [...points];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.barValues = points.map(row =>
