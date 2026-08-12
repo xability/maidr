@@ -303,3 +303,35 @@ describe('the ladder defends the shape it documents', () => {
     ]);
   });
 });
+
+describe('the selector guard matches the union it narrows', () => {
+  /**
+   * The elements a layer's selectors resolved to.
+   *
+   * @param selectors - Whatever the layer declared
+   * @returns The resolved elements, or null
+   */
+  function highlightsFor(selectors: MaidrLayer['selectors']): SVGElement[][] | null {
+    const trace = TraceFactory.create({
+      ...createLayer(),
+      selectors,
+    }) as BoxenTrace;
+    return (trace as unknown as { highlightValues: SVGElement[][] | null })
+      .highlightValues;
+  }
+
+  test('withdraws for a selector shape a boxen cannot use', () => {
+    // `MaidrLayer['selectors']` also admits `string[][]` and the box and
+    // candlestick shapes. `Array.isArray` alone lets all of them reach a cast
+    // to `string[]`, and what saved it was `isUsableSelector` rejecting each
+    // entry three frames away -- a guard leaning on a check it does not name.
+    expect(highlightsFor([['a', 'b'], ['c']] as unknown as MaidrLayer['selectors']))
+      .toBeNull();
+    expect(highlightsFor([{ q1: 'a', q3: 'b' }] as unknown as MaidrLayer['selectors']))
+      .toBeNull();
+  });
+
+  test('withdraws when there is no selector at all', () => {
+    expect(highlightsFor(undefined)).toBeNull();
+  });
+});

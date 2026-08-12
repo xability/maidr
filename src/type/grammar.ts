@@ -286,7 +286,14 @@ export interface BoxPoint {
  * place and "p is 0.125" is one they have to convert.
  */
 export interface LetterValueLevel {
-  /** Tail probability, from 0.5 (the median's own rung) downwards. */
+  /**
+   * Tail probability, strictly between 0 and 0.5.
+   *
+   * The median is carried separately on `BoxenPoint` and is not a rung, so
+   * `0.5` is out of range rather than a way of naming it: a rung at `0.5`
+   * would put two positions labelled `50th percentile` either side of the one
+   * already called `median`. Values outside the range are dropped.
+   */
   p: number;
   /** The lower quantile of the pair: the `p` quantile. */
   lo: number;
