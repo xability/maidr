@@ -109,7 +109,12 @@ export class ErrorBarTrace extends AbstractTrace {
   protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
-  private readonly points: ErrorBarPoint[];
+  /**
+   * Protected so a subclass can read a point's own fields. The forest plot
+   * needs each study's weight and whether it is the pooled row, neither of
+   * which is a section magnitude.
+   */
+  protected readonly points: ErrorBarPoint[];
   private readonly sections: readonly Section[];
   private readonly sectionValues: number[][];
   private readonly orientation: Orientation;

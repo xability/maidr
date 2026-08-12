@@ -28,6 +28,8 @@ describe('resolveOrientation', () => {
     // Lanes run one way and the axis the other, so which way round they are
     // drawn decides which axis an interval's ends move on. A timeline drawn
     // down the page is the ordinary alternative, not an exotic one.
+    // Studies run down the page and the effect axis across it.
+    TraceType.FOREST,
     TraceType.GANTT,
     // A funnel is drawn top to bottom as often as left to right, and the
     // stages run along one axis with the counts on the other either way.

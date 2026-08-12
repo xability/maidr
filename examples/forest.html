@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Forest Plot Example — Effect of the Intervention</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A forest plot is an error bar chart laid out on a categorical row
+        axis, plus the three things it is actually read for.
+
+        The null line at 1 is declared rather than guessed. Whether an
+        interval crosses it is the result for that study, and guessing wrong
+        is not a degraded reading: assumed at 0, every odds ratio would be
+        reported as not crossing, since they are all positive.
+
+        Marker AREA is the study's weight -- Okafor 2022 carries more than
+        half the analysis, which two intervals that sound alike would never
+        reveal. The pooled row is drawn as a diamond because it is not a
+        study; it is what the studies came to.
+
+        Silva 2018 sits entirely BELOW the null. A reading that only asked
+        whether the upper bound cleared 1 would call that a crossing, and
+        report a real protective effect as no effect at all.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="760pt" height="360pt" viewBox="0 0 760 360" version="1.1"
+        id="forest-intervention" maidr='{&#10;  &quot;id&quot;: &quot;forest-intervention&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;forest-intervention-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;forest-intervention-layer&quot;,&#10;            &quot;type&quot;: &quot;forest&quot;,&#10;            &quot;title&quot;: &quot;Effect of the Intervention&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Odds ratio&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Study&quot;&#10;              }&#10;            },&#10;            &quot;forestOptions&quot;: {&#10;              &quot;nullValue&quot;: 1&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;forest-rows&#x27;] &gt; g&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Silva 2018&quot;,&#10;                &quot;y&quot;: 0.62,&#10;                &quot;yMin&quot;: 0.41,&#10;                &quot;yMax&quot;: 0.94,&#10;                &quot;weight&quot;: 0.12&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Nguyen 2020&quot;,&#10;                &quot;y&quot;: 1.34,&#10;                &quot;yMin&quot;: 0.98,&#10;                &quot;yMax&quot;: 1.83,&#10;                &quot;weight&quot;: 0.08&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Okafor 2022&quot;,&#10;                &quot;y&quot;: 1.71,&#10;                &quot;yMin&quot;: 1.22,&#10;                &quot;yMax&quot;: 2.4,&#10;                &quot;weight&quot;: 0.55&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Haddad 2023&quot;,&#10;                &quot;y&quot;: 1.05,&#10;                &quot;yMin&quot;: 0.6,&#10;                &quot;yMax&quot;: 1.84,&#10;                &quot;weight&quot;: 0.25&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Pooled&quot;,&#10;                &quot;y&quot;: 1.28,&#10;                &quot;yMin&quot;: 1.02,&#10;                &quot;yMax&quot;: 1.61,&#10;                &quot;pooled&quot;: true&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 360  L 760 360  L 760 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <line x1="399.9" y1="90" x2="399.9" y2="310"
+              style="stroke: #999; stroke-width: 1; stroke-dasharray: 4 3" />
+            <g id="forest-rows">
+          <g>
+            <line x1="213.1" y1="110" x2="386.9" y2="110" style="stroke: #333; stroke-width: 2" />
+            <rect x="297.0" y="107.2" width="5.5" height="5.5" style="fill: #4c72b0" />
+          </g>
+          <g>
+            <line x1="395.6" y1="150" x2="526.4" y2="150" style="stroke: #333; stroke-width: 2" />
+            <rect x="458.9" y="147.7" width="4.5" height="4.5" style="fill: #4c72b0" />
+          </g>
+          <g>
+            <line x1="441.5" y1="190" x2="583.2" y2="190" style="stroke: #333; stroke-width: 2" />
+            <rect x="506.3" y="184.1" width="11.9" height="11.9" style="fill: #4c72b0" />
+          </g>
+          <g>
+            <line x1="292.9" y1="230" x2="527.6" y2="230" style="stroke: #333; stroke-width: 2" />
+            <rect x="406.1" y="226.0" width="8.0" height="8.0" style="fill: #4c72b0" />
+          </g>
+          <g>
+            <line x1="404.0" y1="285" x2="499.6" y2="285" style="stroke: #333; stroke-width: 2" />
+            <polygon points="451.6,276 499.6,285 451.6,294 404.0,285" style="fill: #333" />
+          </g>
+            </g>
+            <g id="axis_y">
+          <text x="170" y="114" style="font: 13px sans-serif; text-anchor: end">Silva 2018</text>
+          <text x="170" y="154" style="font: 13px sans-serif; text-anchor: end">Nguyen 2020</text>
+          <text x="170" y="194" style="font: 13px sans-serif; text-anchor: end">Okafor 2022</text>
+          <text x="170" y="234" style="font: 13px sans-serif; text-anchor: end">Haddad 2023</text>
+          <text x="170" y="289" style="font: 13px sans-serif; text-anchor: end">Pooled</text>
+            </g>
+            <g id="axis_x">
+          <text x="254.7" y="330" style="font: 12px sans-serif; text-anchor: middle">0.5</text>
+          <text x="399.9" y="330" style="font: 12px sans-serif; text-anchor: middle">1</text>
+          <text x="545.1" y="330" style="font: 12px sans-serif; text-anchor: middle">2</text>
+              <text x="390" y="352" style="font: 13px sans-serif; text-anchor: middle">Odds ratio</text>
+            </g>
+            <g id="chart-title">
+              <text x="390" y="50" style="font: 16px sans-serif; text-anchor: middle">Effect of the Intervention</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

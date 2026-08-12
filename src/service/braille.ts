@@ -1140,6 +1140,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // renders. The reader feels the interval by moving between rows, the
       // same way they hear it.
       [TraceType.DUMBBELL, asGeneric(new LineBrailleEncoder())],
+      // A forest plot's rows are the same three magnitudes an error bar
+      // carries, so the encoder is the same. What braille adds here is the
+      // silhouette of the intervals against one another -- which is the
+      // scanning a forest plot is drawn for. `docs/BRAILLE.md` says so.
+      [TraceType.FOREST, asGeneric(new LineBrailleEncoder())],
       [TraceType.ERROR_BAR, asGeneric(new LineBrailleEncoder())],
       // One row per lane, holding each interval's length -- the per-row
       // profile the line encoder renders, and the same magnitude the pitch

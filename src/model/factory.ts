@@ -10,6 +10,7 @@ import { Candlestick } from './candlestick';
 import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
+import { ForestTrace } from './forest';
 import { FunnelTrace } from './funnel';
 import { GanttTrace } from './gantt';
 import { GaugeTrace } from './gauge';
@@ -81,6 +82,9 @@ export abstract class TraceFactory {
 
       case TraceType.FUNNEL:
         return new FunnelTrace(layer);
+
+      case TraceType.FOREST:
+        return new ForestTrace(layer);
 
       case TraceType.GANTT:
         return new GanttTrace(layer);
