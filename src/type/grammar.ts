@@ -718,6 +718,27 @@ export interface LinePoint {
 }
 
 /**
+ * One point on one iso-value curve of a contour plot.
+ *
+ * A contour draws a scalar field as curves of constant value, so a layer is
+ * one curve per level -- structurally the multi-line layer {@link LineTrace}
+ * already navigates. What makes it a type of its own is that the **level is a
+ * first-class object rather than a colour**: the questions a reader brings are
+ * how many levels there are, where the 0.05 contour runs, and how far apart
+ * the curves are here.
+ */
+export interface ContourPoint extends LinePoint {
+  /**
+   * The value of the field along this curve.
+   *
+   * Constant down a curve and carried on every point of it, the way `z` is:
+   * the grammar's unit is the point, and a producer emitting a flat list has
+   * nowhere else to put it.
+   */
+  level?: number;
+}
+
+/**
  * Data point for one slice of a pie chart.
  *
  * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
@@ -1096,6 +1117,7 @@ export interface MaidrLayer {
     | VolcanoPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
+    | ContourPoint[][]
     | StepPoint[][]
     | SurvivalPoint[][]
     | ViolinKdePoint[][]
@@ -1164,6 +1186,13 @@ export enum TraceType {
    * a direction rather than a magnitude, so the pitch takes the size and the
    * announcement names the side.
    */
+  /**
+   * A scalar field drawn as curves of constant value. Read as a
+   * {@link TraceType.LINE} layer the level is just a series name, so the two
+   * questions the chart is drawn for -- what value this curve is, and how
+   * steeply the field changes here -- both go unanswered.
+   */
+  CONTOUR = 'contour',
   DIVERGING = 'diverging_bar',
   DODGED = 'dodged_bar',
   /**

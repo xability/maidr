@@ -7,6 +7,7 @@ import { BoxTrace } from './box';
 import { BoxenTrace } from './boxen';
 import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
+import { ContourTrace } from './contour';
 import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
@@ -79,6 +80,9 @@ export abstract class TraceFactory {
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
+
+      case TraceType.CONTOUR:
+        return new ContourTrace(layer);
 
       case TraceType.DIVERGING:
         return new DivergingTrace(layer);

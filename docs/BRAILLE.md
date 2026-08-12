@@ -760,6 +760,40 @@ from the dots, and why it is worth saying out loud.
 Mosaics use one line per series on a multiline display, so the conditional
 proportions can be swept across the categories in one pass.
 
+## Contour and filled contour
+
+One row per level, one cell per point along its curve — the line encoding,
+because a contour *is* one line per level.
+
+Each row is scaled against its own curve, as a line's rows are, so the shape of
+each iso-value curve is legible on its own terms.
+
+**The level has no representation, and giving it one would destroy the row.**
+The level is constant along a curve — that is what makes it a contour — so
+encoding it would spend every cell of a row saying one number, and the shape
+the row exists to convey would be gone. It is announced instead, on the field's
+own axis.
+
+**Spacing has none either**, and that one is a real loss. How close the curves
+run is the gradient, and it is a fact about the *gap between two rows* rather
+than about any cell in either. A display shows both rows at once, so a
+multiline reader can feel two curves converge — but the number is announced,
+because on a single-line display there is nothing to compare against.
+
+```
+Level   Cells
+0.4     ⠤⠔⠒⠉⠉⠒⠔⠤
+0.3     ⠤⠔⠒⠉⠉⠒⠔⠤
+0.2     ⠔⠒⠉⠉⠉⠉⠒⠔
+0.1     ⠒⠉⠉⠉⠉⠉⠉⠒
+```
+
+### Multiline Displays
+
+Contours use one line per level on a multiline display, which is the case where
+braille gives back what the announcement carries: two fingers on adjacent rows
+feel exactly where the curves crowd together and where they open out.
+
 ## Volcano and Manhattan
 
 The scatter encoding, unchanged — these are scatters, and their points carry
