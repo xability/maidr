@@ -139,7 +139,7 @@ describe('spacing is the gradient', () => {
   test('announces the gap to the nearest adjacent level', () => {
     // At x = 0 the 0.1 and 0.2 curves are one unit apart -- a cliff.
     expect(nonEmptyState(contour(0, 0)).text.asides)
-      .toEqual([{ label: 'Spacing', value: '1' }]);
+      .toEqual([{ label: 'Spacing', value: '1 to level 0.2' }]);
   });
 
   test('the gap widens where the field flattens', () => {
@@ -153,14 +153,25 @@ describe('spacing is the gradient', () => {
     // this index. Pairing by index would measure between two places that are
     // not opposite each other.
     expect(nonEmptyState(contour(0, 2)).text.asides)
-      .toEqual([{ label: 'Spacing', value: '6.40312423743' }]);
+      .toEqual([{ label: 'Spacing', value: '6.40312423743 to level 0.2' }]);
   });
 
   test('takes the nearer neighbour when there are two', () => {
     // The middle curve at x = 0 sits one unit from the 0.1 curve and two from
     // the 0.3 curve. A reader looking at that point sees the tighter gap.
     expect(nonEmptyState(contour(1, 0)).text.asides)
-      .toEqual([{ label: 'Spacing', value: '1' }]);
+      .toEqual([{ label: 'Spacing', value: '1 to level 0.1' }]);
+  });
+
+  test('names which side the gap was measured to, because it changes', () => {
+    // The same curve, two points apart: at x = 0 the nearer neighbour is the
+    // 0.1 curve below, and by x = 10 it is the 0.3 curve above. A distance
+    // announced without the level it was measured to would have the reader
+    // comparing two numbers taken from opposite sides of the curve.
+    expect(nonEmptyState(contour(1, 0)).text.asides?.[0].value)
+      .toContain('to level 0.1');
+    expect(nonEmptyState(contour(1, 2)).text.asides?.[0].value)
+      .toContain('to level 0.3');
   });
 
   test('says nothing on a chart with one curve', () => {
@@ -199,5 +210,88 @@ describe('the description answers what a curve cannot', () => {
     // fastest -- and which a reader walking one curve cannot find, because
     // the finding is about the gap between curves.
     expect(stat('Closest approach between levels')).toBe('1 at X 0, Y 0');
+  });
+
+  test('states the level of a chart with a single curve', () => {
+    // The one case the series list cannot carry: a layer with one curve has
+    // no series to name, so an unstated level would leave the chart's only
+    // number out of its description entirely.
+    const alone: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 0.05 }, { x: 1, y: 1, level: 0.05 }],
+    ];
+
+    expect(stat('Level', alone)).toBe(0.05);
+  });
+
+  test('does not measure a step across a curve that declares no level', () => {
+    // 1 and 3 are two steps apart, not one. Reporting `2` here would be a
+    // step measured over a gap the layer left undeclared, announced as
+    // uniform -- which is the licence a reader needs to treat spacing as a
+    // gradient, granted on a chart that does not support it.
+    const gappy: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }],
+      [{ x: 0, y: 1 }],
+      [{ x: 0, y: 2, level: 3 }],
+    ];
+
+    expect(stat('Level step', gappy)).toBeUndefined();
+  });
+});
+
+describe('the description speaks of levels, not lines', () => {
+  /**
+   * Read the whole description of the default fixture.
+   * @param data The curves the layer carries
+   * @returns Its description state
+   */
+  function description(data: ContourPoint[][] = CURVES) {
+    return contour(0, 0, data).description;
+  }
+
+  test('no stat calls a curve a line', () => {
+    // Inherited from the line layer, the description opens "Number of lines,
+    // Points per line, Line names: Line 1, Line 2, Line 3" -- the reading
+    // this class exists to replace, printed in the description dialog.
+    const labels = description().stats.map(entry => entry.label);
+
+    expect(labels).toContain('Number of levels');
+    expect(labels).toContain('Points per level');
+    expect(labels).not.toContain('Number of lines');
+    expect(labels).not.toContain('Points per line');
+    expect(labels).not.toContain('Line names');
+  });
+
+  test('the data table identifies a curve by its level', () => {
+    // The part of the description a reader consults most, and the place the
+    // level being a value rather than a name actually shows: `Line 1` is an
+    // index into the order the producer emitted the curves in.
+    const { headers, rows } = description().dataTable;
+
+    expect(headers).toEqual(['X', 'Y', 'Level']);
+    expect(rows[0]).toEqual([0, 0, '0.1']);
+    expect(rows.map(row => row[2])).not.toContain('Line 1');
+  });
+
+  test('a curve with no level is not given one', () => {
+    // `Line 2` in a column headed `Level` reads as a level. So does anything
+    // else invented for it -- the honest answer names the curve and says
+    // nothing about its value.
+    const bare: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }],
+      [{ x: 0, y: 1 }],
+    ];
+
+    expect(description(bare).dataTable.rows.map(row => row[2]))
+      .toEqual(['1', 'Curve 2']);
+  });
+
+  test('an authored name survives where the layer gave no level', () => {
+    const named: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }],
+      [{ x: 0, y: 1, z: 'ridge' }],
+    ];
+
+    expect(description(named).dataTable.rows.map(row => row[2]))
+      .toEqual(['1', 'ridge']);
   });
 });

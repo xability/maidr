@@ -718,6 +718,27 @@ export interface LinePoint {
 }
 
 /**
+ * One point on one iso-value curve of a contour plot.
+ *
+ * A contour draws a scalar field as curves of constant value, so a layer is
+ * one curve per level -- structurally the multi-line layer {@link LineTrace}
+ * already navigates. What makes it a type of its own is that the **level is a
+ * first-class object rather than a colour**: the questions a reader brings are
+ * how many levels there are, where the 0.05 contour runs, and how far apart
+ * the curves are here.
+ */
+export interface ContourPoint extends LinePoint {
+  /**
+   * The value of the field along this curve.
+   *
+   * Constant down a curve and carried on every point of it, the way `z` is:
+   * the grammar's unit is the point, and a producer emitting a flat list has
+   * nowhere else to put it.
+   */
+  level?: number;
+}
+
+/**
  * Data point for one slice of a pie chart.
  *
  * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
@@ -887,27 +908,6 @@ export type StepDirection = 'hv' | 'vh' | 'mid';
  * @example
  * { x: 1.5, y: 3, label: 'REM' }
  */
-/**
- * One point on one iso-value curve of a contour plot.
- *
- * A contour draws a scalar field as curves of constant value, so a layer is
- * one curve per level -- structurally the multi-line layer {@link LineTrace}
- * already navigates. What makes it a type of its own is that the **level is a
- * first-class object rather than a colour**: the questions a reader brings are
- * how many levels there are, where the 0.05 contour runs, and how far apart
- * the curves are here.
- */
-export interface ContourPoint extends LinePoint {
-  /**
-   * The value of the field along this curve.
-   *
-   * Constant down a curve and carried on every point of it, the way `z` is:
-   * the grammar's unit is the point, and a producer emitting a flat list has
-   * nowhere else to put it.
-   */
-  level?: number;
-}
-
 export type StepPoint = LinePoint;
 
 /**

@@ -142,8 +142,13 @@ export class LineTrace extends AbstractTrace {
    * Name a line carries in the spec, or `undefined` when the data authors
    * none. Consumers that have nothing meaningful to say without a real name
    * (e.g. the position announcement) can then stay silent about groups.
+   *
+   * Protected for the same reason {@link LineTrace.groupNameAt} is: a subclass
+   * that names its series from its own data -- a contour from its level --
+   * still has to answer for a series the layer named and nothing else did, and
+   * calling `groupNameAt` for that would recurse.
    */
-  private authoredGroupNameAt(row: number): string | undefined {
+  protected authoredGroupNameAt(row: number): string | undefined {
     const authored = this.points[row]?.[0]?.z;
     return authored === undefined || authored === null || authored === ''
       ? undefined

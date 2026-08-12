@@ -41,6 +41,12 @@ export class ContourTrace extends LineTrace {
   private readonly curves: ContourPoint[][];
 
   /**
+   * Memoised {@link ContourTrace.steepestPoint}. `undefined` means not yet
+   * computed; `null` is a computed answer of "no gap is measurable".
+   */
+  private steepest?: { distance: number; x: number; y: number } | null;
+
+  /**
    * Creates a new contour trace.
    *
    * @param layer - The MAIDR layer carrying one curve per level
@@ -76,6 +82,50 @@ export class ContourTrace extends LineTrace {
     return 'Contour';
   }
 
+  /**
+   * The vocabulary the description dialog is rendered with.
+   *
+   * Inherited, a contour's description opens "Number of lines: 3, Points per
+   * line: 40, Line names: Line 1, Line 2, Line 3" and its data table has a
+   * `Line` column of `Line 1` -- the reading this class exists to replace,
+   * printed in the part of the description a reader consults most.
+   *
+   * @returns The four labels the description uses
+   */
+  protected override get seriesLabels(): {
+    count: string;
+    perSeries: string;
+    names: string;
+    column: string;
+  } {
+    return {
+      count: 'Number of levels',
+      perSeries: 'Points per level',
+      names: 'Levels',
+      column: 'Level',
+    };
+  }
+
+  /**
+   * What a curve is called wherever the description names one.
+   *
+   * The level, because that is what the curve *is*. `Line 2` is an index into
+   * the order the producer happened to emit the curves in, and a reader given
+   * it in a column headed `Level` would reasonably take it for one.
+   *
+   * @param row - Which curve
+   * @returns Its level, or the best name available for a curve declaring none
+   */
+  protected override groupNameAt(row: number): string {
+    const level = this.levels[row];
+    if (Number.isFinite(level)) {
+      return String(level);
+    }
+    // No level: an authored name if the layer carried one, and otherwise a
+    // noun that at least does not read as a level.
+    return this.authoredGroupNameAt(row) ?? `Curve ${row + 1}`;
+  }
+
   protected override get text(): TextState {
     const base = super.text;
     const level = this.levels[this.row];
@@ -93,7 +143,16 @@ export class ContourTrace extends LineTrace {
       // Off both axes -- it is a distance in the plane, not a position on
       // either -- so it travels as an aside rather than through a field the
       // text service would format with an axis formatter.
-      state.asides = [{ label: 'Spacing', value: String(spacing.distance) }];
+      //
+      // The neighbour is named in the same clause rather than in a second
+      // aside: terse mode drops aside labels, so two numeric asides would read
+      // ", 1, 0.1" and the level would arrive looking like a second distance.
+      // It is worth naming at all because the gap is taken to whichever side
+      // is closer, so which side that is changes as the reader walks the curve.
+      state.asides = [{
+        label: 'Spacing',
+        value: `${spacing.distance} to level ${spacing.to}`,
+      }];
     }
 
     return state;
@@ -157,26 +216,32 @@ export class ContourTrace extends LineTrace {
     const base = super.description;
     const stats = [...base.stats];
 
+    // How many levels there are and what they are -- the first two questions
+    // a contour plot is read with, and neither answerable by walking a curve,
+    // which knows only its own. Both come from the inherited stats now that
+    // `seriesLabels` and `groupNameAt` say level where they used to say line;
+    // a single-curve layer is the one case the parent stays silent about,
+    // since it has no series list to print.
     const declared = this.levels.filter(Number.isFinite);
-    if (declared.length > 0) {
-      // How many levels there are and what they are -- the first two
-      // questions a contour plot is read with, and neither is answerable by
-      // walking a curve, which knows only its own.
-      stats.push({ label: 'Number of levels', value: declared.length });
-      stats.push({ label: 'Levels', value: declared.join(', ') });
+    if (this.curves.length === 1 && declared.length === 1) {
+      stats.push({ label: 'Level', value: declared[0] });
+    }
 
+    // Every curve, or none: a step measured across a curve whose level the
+    // layer left out is the distance over two gaps announced as one, and the
+    // whole point of naming the step is that a reader may rely on it.
+    if (declared.length > 1 && declared.length === this.levels.length) {
       const steps = declared
         .slice(1)
         .map((level, i) => withoutFloatNoise(level - declared[i]));
-      const uniform = steps.length > 0
-        && steps.every(step => step === steps[0]);
+      const uniform = steps.every(step => step === steps[0]);
       if (uniform) {
         // A uniform step is what lets a reader treat spacing as gradient
         // directly: equal value between curves means the distance between
         // them IS the slope. A varying step does not, so it is named as
         // varying rather than averaged into a number that would mislead.
         stats.push({ label: 'Level step', value: steps[0] });
-      } else if (steps.length > 0) {
+      } else {
         stats.push({ label: 'Level step', value: 'varies' });
       }
     }
@@ -199,9 +264,20 @@ export class ContourTrace extends LineTrace {
   /**
    * The point at which two adjacent levels run closest together.
    *
+   * Every point measured against every point of both neighbouring curves, so
+   * this is quadratic in sampling density: a twenty-level contour sampled two
+   * thousand times per curve is tens of millions of distances. It is computed
+   * on demand -- only when the description dialog is opened -- and the result
+   * is cached, because the curves are fixed at construction, so a reader who
+   * opens the dialog repeatedly pays for it once.
+   *
    * @returns The point and the gap, or null when no gap is measurable
    */
   private steepestPoint(): { distance: number; x: number; y: number } | null {
+    if (this.steepest !== undefined) {
+      return this.steepest;
+    }
+
     let best: { distance: number; x: number; y: number } | null = null;
     for (const [row, curve] of this.curves.entries()) {
       for (const [col, point] of curve.entries()) {
@@ -218,6 +294,7 @@ export class ContourTrace extends LineTrace {
         }
       }
     }
+    this.steepest = best;
     return best;
   }
 }
