@@ -540,7 +540,21 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format cross-axis values.
-    if (!Array.isArray(state.cross.value)) {
+    //
+    // A span on the cross axis replaces the single value, the same way
+    // `state.range` replaces the main one for a histogram bin. A gantt
+    // interval is the case: what the chart draws is a start and an end, and
+    // announcing either alone names one edge of a bar as though it were the
+    // bar. Every trace that carries one value is unaffected -- `crossRange`
+    // is absent on all of them.
+    if (state.crossRange !== undefined) {
+      verbose.push(
+        Constant.IS,
+        this.formatSingleValue(state.crossRange.min, crossAxisType),
+        Constant.THROUGH,
+        this.formatSingleValue(state.crossRange.max, crossAxisType),
+      );
+    } else if (!Array.isArray(state.cross.value)) {
       verbose.push(Constant.IS, this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else if (state.cross.value.length > 1) {
       verbose.push(Constant.ARE, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
@@ -645,7 +659,18 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (state.section !== undefined) {
       terse.push(state.section, Constant.SPACE);
     }
-    if (!Array.isArray(state.cross.value)) {
+    if (state.crossRange !== undefined) {
+      // A span on the cross axis replaces the single value here for the same
+      // reason it does in verbose mode: naming one end of an interval names
+      // an edge of the bar as though it were the bar. Terse joins the two
+      // with a dash rather than with "through", matching how terse drops
+      // every other connective word.
+      terse.push(
+        this.formatSingleValue(state.crossRange.min, crossAxisType),
+        Constant.TO_DASH,
+        this.formatSingleValue(state.crossRange.max, crossAxisType),
+      );
+    } else if (!Array.isArray(state.cross.value)) {
       terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
     } else {
       terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);

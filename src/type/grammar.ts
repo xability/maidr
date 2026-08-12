@@ -458,6 +458,76 @@ export interface GaugePoint {
  * is a second source of truth for a quantity that already has one -- and the
  * one a reader would be told is the one the chart did not draw.
  */
+/**
+ * One interval of a gantt chart, timeline or swimlane diagram.
+ *
+ * The two coordinates are both positions on the same axis rather than a
+ * position and a magnitude, which is what makes this a shape of its own. A bar
+ * has one number and a baseline; an interval has two numbers and no baseline,
+ * and its length is a difference the reader has to be told rather than a
+ * height they can hear.
+ */
+export interface GanttPoint {
+  /** Which lane the interval belongs to -- a task, a resource, a phase. */
+  x: number | string;
+  /** Where the interval begins. */
+  start: number;
+  /** Where the interval ends. */
+  end: number;
+  /**
+   * What this interval is called, when the lane is not already its name.
+   *
+   * A lane commonly holds several intervals -- a resource booked twice, a
+   * phase that pauses and resumes -- and without this they are announced by
+   * position alone. Omit it when the lane names the work.
+   */
+  label?: string;
+}
+
+/**
+ * A gantt chart: its lanes, and how its axis reads.
+ *
+ * An object rather than a bare array, for the reason {@link DumbbellData} is
+ * one: a unit belongs to the chart and not to any row, and repeating it per
+ * point would let a producer emit rows that disagree about what their numbers
+ * measure.
+ */
+export interface GanttData {
+  /**
+   * The lanes, in the order the chart draws them, each holding the intervals
+   * of one lane.
+   *
+   * Nested rather than flat so a lane with no intervals still exists: an empty
+   * row is a real statement about a schedule -- nothing is booked -- and a
+   * flat list grouped by `x` cannot say it.
+   */
+  points: GanttPoint[][];
+  /**
+   * What each lane is called, in the order {@link GanttData.points} holds
+   * them.
+   *
+   * A populated lane names itself: every interval carries its lane in `x`. An
+   * **empty** lane holds no interval and so has nowhere to carry one, which
+   * makes it the only row a reader can navigate onto and be told nothing
+   * about -- and an empty lane is exactly the row this shape is nested to be
+   * able to express. This is where its name goes.
+   *
+   * Optional, and optional per entry: a chart with no empty lanes need not
+   * supply it, and the trace prefers a lane's own intervals over this when
+   * both are present, so a producer cannot make the two disagree about a
+   * populated lane.
+   */
+  lanes?: (string | number)[];
+  /**
+   * What a unit of the axis is called: "days", "hours", "weeks".
+   *
+   * The length of an interval is the fact a gantt exists to carry, and a bare
+   * number does not carry it. Omitted, the trace announces the length without
+   * a unit rather than guessing one.
+   */
+  unit?: string;
+}
+
 export interface DumbbellPoint {
   /** Position along the category axis. */
   x: number | string;
@@ -771,6 +841,7 @@ export interface MaidrLayer {
     | CandlestickPoint[]
     | DumbbellData
     | ErrorBarPoint[]
+    | GanttData
     | GaugePoint
     | HeatmapData
     | HistogramPoint[]
@@ -837,6 +908,14 @@ export enum TraceType {
    * entirely relational: 73 says nothing without the 100 it is out of, the 80
    * it was aiming at, and the band it lands in.
    */
+  /**
+   * Intervals along a shared axis, one lane per row -- a gantt chart, a
+   * timeline, a swimlane diagram. Each point carries a start and an end
+   * rather than a magnitude, so what the reader is told is a span and its
+   * length, and where it sits is carried in the panning: a lane's intervals
+   * sweep left to right with the axis, so later is audibly later.
+   */
+  GANTT = 'gantt',
   GAUGE = 'gauge',
   HEATMAP = 'heat',
   HISTOGRAM = 'hist',

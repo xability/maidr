@@ -401,6 +401,42 @@ Encoding a rotation into cell heights would answer neither.
 Radar charts use one line per series on a multiline display, so several models'
 profiles can be compared with one sweep rather than by toggling between rows.
 
+## Gantt, timeline and swimlane
+
+A gantt's braille is the multi-line encoding: **one row per lane**, one cell
+per interval, each row scaled against its own range. A cell's height is the
+interval's **length** — the same magnitude the pitch carries and the same one
+the announcement gives.
+
+A lane with nothing booked renders as an **empty row** rather than being
+skipped, so the reader's line count keeps matching the chart's lane count. An
+empty lane is a real statement about a schedule, and a display that silently
+closed the gap would put every lane below it on the wrong line.
+
+### Why not a span drawn along the axis
+
+The literal picture — each row a stretch of the axis, cells raised where an
+interval covers them — is the encoding a schedule seems to want, and it is the
+wrong one at the resolution a display has.
+
+A 40-cell display over a year gives each cell about nine days. A fortnight's
+task and a three-week one are then the same single raised cell, two tasks a
+week apart begin in the same cell, and a milestone shorter than nine days
+either vanishes or is rounded up to look like a week of work. Every question a
+schedule is read for — how long, how much longer than that one, do these two
+overlap — is answered wrongly rather than coarsely.
+
+The length profile is the opposite trade: **coarse about when, exact about how
+long**. Where an interval sits is carried by the stereo position, which is
+continuous along the axis and has the resolution to place it — so the two
+modalities divide the chart between them rather than both approximating the
+same half of it.
+
+### Multiline Displays
+
+Gantt charts use one line per lane on a multiline display, so several lanes'
+workloads can be compared with one sweep rather than by toggling between rows.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.
