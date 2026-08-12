@@ -654,6 +654,44 @@ Ridgelines use one line per group on a multiline display, so a reader can sweep
 across the groups at a fixed position and feel the modes march along the axis,
 or fail to — which is the finding the chart is drawn for.
 
+## Forest plot
+
+Three rows — lower bound, estimate, upper bound — one cell per study, the
+error bar encoding unchanged, because a forest plot's magnitudes *are* an
+error bar's.
+
+**What the display adds is the scanning.** A forest plot is read by sweeping
+down the column of intervals to see which ones clear the null line and which
+sit across it, and that is a shape rather than a sequence of numbers. Three
+rows of cells put the lower bounds, the estimates and the upper bounds each on
+their own line, so a finger running along the lower-bound row feels exactly
+the comparison the figure is drawn for.
+
+```
+Section       Cells
+upper bound   ⠤⠶⣿⠶⠤
+estimate      ⠤⠴⠶⠴⠤
+lower bound   ⠂⠆⠶⠆⠂
+```
+
+**Two things the dots deliberately do not carry.**
+
+The **null line** has no representation. It is a position on the value axis,
+not a magnitude, and a cell height cannot say "this is where one is". Whether
+a study crosses it is announced instead, because it is a verdict rather than a
+shape — and it is the one fact a reader would otherwise have to reconstruct by
+comparing two cells against a number that appears nowhere on the display.
+
+The **weight** has none either. A forest plot encodes it as marker area, and
+braille has one dimension per cell, already spent on the magnitude. Encoding
+weight in place of the value would trade a number the reader needs for one
+they can be told; it is announced alongside the estimate instead.
+
+### Multiline Displays
+
+Forest plots use one line per section on a multiline display, so all three
+rows of the comparison are under the hand at once.
+
 ## Multiline Braille Display Support
 
 By leveraging the two-dimensional nature of multiline braille displays, MAIDR can represent multiple lines of a plot simultaneously, allowing users to perceive the distribution of values across all lines at once. This is particularly beneficial for plots with multiple groups or categories, such as grouped boxplots or line plots with multiple lines, and it also applies to scatter plot grid navigation.

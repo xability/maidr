@@ -57,6 +57,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // drawn decides which axis an interval's ends move on -- the same reason a
   // bar or a box is oriented. A timeline drawn down the page is the ordinary
   // alternative, not an exotic one.
+  // A forest plot is conventionally drawn with its studies down the page and
+  // the effect axis across it, which is the arrangement this exists to get
+  // right -- the same reason the error bar it extends is oriented.
+  [TraceType.FOREST]: true,
   [TraceType.GANTT]: true,
   // A funnel is drawn top to bottom as often as left to right, and the stages
   // run along one axis with the counts on the other either way -- so which

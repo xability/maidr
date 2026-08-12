@@ -389,6 +389,52 @@ export interface ErrorBarPoint {
 }
 
 /**
+ * One row of a forest plot: a study's effect estimate with its interval.
+ *
+ * A meta-analysis draws one of these per study against a shared null line,
+ * with a pooled summary at the foot. It is an {@link ErrorBarPoint} laid out
+ * on a categorical row axis, plus the two things that make the figure a
+ * forest plot rather than a row of intervals.
+ */
+export interface ForestPoint extends ErrorBarPoint {
+  /**
+   * The study's weight in the pooled estimate, as a fraction of one.
+   *
+   * A forest plot encodes this as marker *area*, which is a magnitude a
+   * reader is otherwise never told: two studies whose intervals look alike
+   * can contribute wholly differently to the result.
+   */
+  weight?: number;
+
+  /**
+   * Marks the pooled summary rather than a study.
+   *
+   * It is a different kind of row -- it is not evidence, it is what the
+   * evidence came to -- and announcing it as one more study invites a reader
+   * to count it among them.
+   */
+  pooled?: boolean;
+}
+
+/**
+ * Display configuration for a forest plot layer.
+ */
+export interface ForestOptions {
+  /**
+   * The value that means "no effect" -- 1 for a ratio measure, 0 for a
+   * difference.
+   *
+   * Whether an interval crosses it *is the result for that study*, so the
+   * trace announces the crossing. There is deliberately **no default**: a
+   * ratio chart guessed at 0 would report every study as not crossing, since
+   * odds ratios are all positive, and that is a confident wrong answer given
+   * to every row. A layer that does not declare it gets the estimate, the
+   * interval and the weight, and no claim about significance.
+   */
+  nullValue?: number;
+}
+
+/**
  * What a waterfall step does to the running total.
  *
  * `total` marks a step that restates the running total rather than changing
@@ -893,6 +939,8 @@ export interface MaidrLayer {
    * Optional display configuration for violin plot layers (VIOLIN_KDE and VIOLIN_BOX).
    * Controls which summary statistics are shown in the violin box overlay.
    */
+  /** Display configuration for a forest plot layer. */
+  forestOptions?: ForestOptions;
   violinOptions?: ViolinOptions;
   /**
    * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
@@ -911,6 +959,7 @@ export interface MaidrLayer {
     | CandlestickPoint[]
     | DumbbellData
     | ErrorBarPoint[]
+    | ForestPoint[]
     | GanttData
     | GaugePoint
     | HeatmapData
@@ -1025,6 +1074,15 @@ export enum TraceType {
    * length, and where it sits is carried in the panning: a lane's intervals
    * sweep left to right with the axis, so later is audibly later.
    */
+  /**
+   * One effect estimate with its interval per study, against a shared null
+   * line, with a pooled summary at the foot -- the standard figure of a
+   * meta-analysis. Read as an {@link TraceType.ERROR_BAR} layer it loses the
+   * three things it is drawn for: whether an interval crosses the null, how
+   * much each study weighs, and which row is the pooled result rather than
+   * evidence.
+   */
+  FOREST = 'forest',
   GANTT = 'gantt',
   /**
    * A population shrinking across ordered stages. Navigated as a

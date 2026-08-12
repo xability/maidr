@@ -66,6 +66,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.DOT]: 'Dot Plot',
   [TraceType.DUMBBELL]: 'Dumbbell Chart',
   [TraceType.ERROR_BAR]: 'Error Bar Chart',
+  [TraceType.FOREST]: 'Forest Plot',
   [TraceType.GANTT]: 'Gantt Chart',
   [TraceType.FUNNEL]: 'Funnel Chart',
   [TraceType.GAUGE]: 'Gauge',
