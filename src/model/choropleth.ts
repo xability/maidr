@@ -353,14 +353,21 @@ export class ChoroplethTrace extends AbstractTrace {
     const continuing = this.borderWalk !== null
       && this.borderWalk.at.row === this.row
       && this.borderWalk.at.col === this.col;
-    const walk = continuing && this.borderWalk !== null
-      ? this.borderWalk
-      : { from: region.name, index: -1, at: { row: this.row, col: this.col } };
-
-    const anchor = this.placeOf.get(walk.from);
-    const from = anchor === undefined
-      ? null
-      : this.regions[anchor.row]?.[anchor.col] ?? null;
+    // A fresh walk anchors on the region under the cursor itself rather than
+    // on whatever its name resolves to. The two differ only where two regions
+    // share a name, and there the lookup would answer with the *first* of
+    // them -- so starting a walk on the second would enumerate the first
+    // one's borders. The name is still what a continuing walk is keyed by,
+    // since that is what survives the cursor moving.
+    let from: Region | null = region;
+    let index = -1;
+    if (continuing && this.borderWalk !== null) {
+      const anchor = this.placeOf.get(this.borderWalk.from);
+      from = anchor === undefined
+        ? null
+        : this.regions[anchor.row]?.[anchor.col] ?? null;
+      index = this.borderWalk.index;
+    }
     if (from === null) {
       this.notifyRotorBounds();
       return false;
@@ -374,8 +381,8 @@ export class ChoroplethTrace extends AbstractTrace {
       .filter((at): at is { row: number; col: number } => at !== undefined)
       .sort((a, b) => (a.row - b.row) || (a.col - b.col));
 
-    const index = walk.index + (direction === 'right' ? 1 : -1);
-    const next = around[index];
+    const step = index + (direction === 'right' ? 1 : -1);
+    const next = around[step];
     if (next === undefined) {
       // Stops at the ends rather than cycling, as every other rotor in the
       // model layer does.
@@ -383,7 +390,7 @@ export class ChoroplethTrace extends AbstractTrace {
       return false;
     }
 
-    this.borderWalk = { from: walk.from, index, at: next };
+    this.borderWalk = { from: from.name, index: step, at: next };
     this.movable.moveToIndex(next.row, next.col);
     this.notifyStateUpdate();
     return true;

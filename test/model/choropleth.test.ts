@@ -367,3 +367,26 @@ describe('what a half-declared map is told', () => {
       .toEqual([{ label: 'Neighbours', value: '1, all higher' }]);
   });
 });
+
+describe('a walk started on a duplicate name uses the region it started on', () => {
+  test('the second of two same-named regions walks its own borders', () => {
+    // Degenerate input, but the failure is not: resolving the anchor through
+    // the name would answer with the *first* region of that name, so a walk
+    // begun on the second would enumerate a neighbourhood that is not the
+    // one under the cursor.
+    const clashing: ChoroplethPoint[] = [
+      { x: 5, y: 10, lat: 1, lon: 1, neighbors: ['South'] },
+      { x: 'South', y: 20, lat: 2, lon: 1, neighbors: [5] },
+      { x: '5', y: 30, lat: 3, lon: 1, neighbors: ['North'] },
+      { x: 'North', y: 40, lat: 4, lon: 1, neighbors: ['5'] },
+    ];
+    const trace = choropleth(clashing);
+
+    // Walk to the second `5`, which is the third region going north.
+    walk(trace, 'UPWARD', 'UPWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('5');
+    expect(trace.moveToRotorFilter('neighbours', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('North');
+  });
+});
