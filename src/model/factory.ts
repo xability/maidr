@@ -30,6 +30,7 @@ import { StepTrace } from './step';
 import { SurvivalTrace } from './survival';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
+import { VolcanoTrace } from './volcano';
 import { WaterfallTrace } from './waterfall';
 import { WordCloudTrace } from './wordCloud';
 
@@ -108,6 +109,13 @@ export abstract class TraceFactory {
 
       case TraceType.PARALLEL:
         return new ParallelTrace(layer);
+
+      case TraceType.MANHATTAN:
+      case TraceType.VOLCANO:
+        // One class for both: they differ in what the x axis means -- effect
+        // size against genomic position -- and in nothing a reader navigates,
+        // the way POLAR_AREA and RADAR share RadarTrace.
+        return new VolcanoTrace(layer);
 
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);
