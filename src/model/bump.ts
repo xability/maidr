@@ -1,6 +1,7 @@
 import type { RotorFilterUnit } from '@model/abstract';
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import { MathUtil } from '@util/math';
 import { LineTrace } from './line';
 
 /**
@@ -61,6 +62,12 @@ export class BumpTrace extends LineTrace {
    */
   private readonly moves: (number | undefined)[][];
 
+  /** How many periods the longest competitor runs to. */
+  private readonly periods: number;
+
+  /** Cached rotor units; see the constructor for why they are precomputed. */
+  private readonly rotorUnits: readonly RotorFilterUnit[];
+
   /**
    * Creates a new bump trace.
    *
@@ -69,13 +76,33 @@ export class BumpTrace extends LineTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    const ranks = this.lineValues.flat();
-    this.bestRank = ranks.length > 0 ? Math.min(...ranks) : 1;
-    this.worstRank = ranks.length > 0 ? Math.max(...ranks) : 1;
+    // `MathUtil` rather than a spread into `Math.min`: the same helpers
+    // `LineTrace` uses per row, without the call-stack limit a spread carries
+    // on a large table and with one answer for an empty chart.
+    this.bestRank = MathUtil.minFrom2D(this.lineValues);
+    this.worstRank = MathUtil.maxFrom2D(this.lineValues);
+
+    // The longest competitor, not row 0's. A table where one competitor
+    // joined late is ragged, and reading row 0's length would take some other
+    // row's *middle* period for its last one -- reporting the wrong finisher
+    // and the wrong net move, quietly, since the comparison just fails rather
+    // than erroring.
+    this.periods = this.lineValues.reduce(
+      (longest, row) => Math.max(longest, row.length),
+      0,
+    );
 
     this.moves = this.lineValues.map(row =>
       row.map((rank, column) =>
         (column === 0 ? undefined : row[column - 1] - rank)));
+
+    // Precomputed, as `Candlestick` precomputes its trend units and for the
+    // same reason: the ranks are fixed at construction and the rotor service
+    // asks for this twice per keystroke.
+    this.rotorUnits = this.moves.some(row =>
+      row.some(move => move !== undefined && move !== 0))
+      ? RANK_ROTOR_UNITS
+      : [];
   }
 
   protected override get audio(): AudioState {
@@ -164,10 +191,9 @@ export class BumpTrace extends LineTrace {
       return best === null ? null : this.groupNameAt(best);
     };
 
-    const periods = this.lineValues[0]?.length ?? 0;
-    if (periods > 0) {
+    if (this.periods > 0) {
       const first = leaderAt(0);
-      const last = leaderAt(periods - 1);
+      const last = leaderAt(this.periods - 1);
       if (first !== null) {
         stats.push({ label: 'Led at the start', value: first });
       }
@@ -217,14 +243,16 @@ export class BumpTrace extends LineTrace {
   private extremeMover(
     direction: 'up' | 'down',
   ): { row: number; places: number } | null {
-    const periods = this.lineValues[0]?.length ?? 0;
-    if (this.lineValues.length === 0 || periods < 2) {
+    if (this.lineValues.length === 0 || this.periods < 2) {
       return null;
     }
 
     let best: { row: number; places: number } | null = null;
     for (const [row, ranks] of this.lineValues.entries()) {
-      const places = ranks[0] - ranks[periods - 1];
+      // A competitor's own last period, not the table's. One that joined late
+      // or dropped out has a shorter row, and reading past its end would
+      // compare its start against nothing.
+      const places = ranks[0] - ranks[ranks.length - 1];
       const moved = direction === 'up' ? places > 0 : places < 0;
       if (!moved) {
         continue;
@@ -255,9 +283,7 @@ export class BumpTrace extends LineTrace {
    * @returns The rank-change rotor units, or none
    */
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
-    const hasMove = this.moves.some(row =>
-      row.some(move => move !== undefined && move !== 0));
-    return hasMove ? RANK_ROTOR_UNITS : [];
+    return this.rotorUnits;
   }
 
   /**

@@ -238,6 +238,57 @@ describe('the rotor jumps between overtakes', () => {
   });
 });
 
+describe('a table where a competitor joined late or dropped out', () => {
+  /**
+   * Row 0 is the SHORT one, on purpose, and the answers genuinely differ.
+   *
+   * Reading the table's period count off row 0 takes R2 for the last round.
+   * At R2 Birch leads and has gained a place; at the real last round, R4,
+   * Cedar leads and Birch has gone backwards. So both the finisher and the
+   * biggest climber come out wrong -- quietly, since the comparison against a
+   * missing column just fails rather than erroring.
+   */
+  const RAGGED: LinePoint[][] = [
+    [
+      { x: 'R1', y: 1, z: 'Ash' },
+      { x: 'R2', y: 3, z: 'Ash' },
+    ],
+    [
+      { x: 'R1', y: 2, z: 'Birch' },
+      { x: 'R2', y: 1, z: 'Birch' },
+      { x: 'R3', y: 2, z: 'Birch' },
+      { x: 'R4', y: 3, z: 'Birch' },
+    ],
+    [
+      { x: 'R1', y: 3, z: 'Cedar' },
+      { x: 'R2', y: 2, z: 'Cedar' },
+      { x: 'R3', y: 1, z: 'Cedar' },
+      { x: 'R4', y: 1, z: 'Cedar' },
+    ],
+  ];
+
+  const read = (label: string): unknown =>
+    bump(0, 0, RAGGED).description.stats.find(stat => stat.label === label)?.value;
+
+  test('the last period is the table\'s longest, not row zero\'s', () => {
+    // Cedar leads at R4. Off row 0's length the leader is read at R2, where
+    // Birch led.
+    expect(read('Led at the end')).toBe('Cedar');
+  });
+
+  test('a net move is measured against a competitor\'s own last round', () => {
+    // Cedar goes 3rd to 1st over four rounds. Measured to R2 it has gained
+    // one place and Birch also one, so the tie would name Birch instead.
+    expect(read('Climbed furthest')).toBe('Cedar, 2');
+  });
+
+  test('a competitor who ran fewer rounds is measured over the rounds it ran', () => {
+    // Ash ran two and fell two places. Reading past the end of its row would
+    // compare its start against nothing.
+    expect(read('Fell furthest')).toBe('Ash, 2');
+  });
+});
+
 describe('the description says who moved', () => {
   const read = (label: string): unknown =>
     bump().description.stats.find(stat => stat.label === label)?.value;
