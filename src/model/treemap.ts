@@ -1,7 +1,8 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Dimension, NearestPoint } from './abstract';
+import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { TraceType } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -33,6 +34,13 @@ interface TreeNode {
   /** Index into the declared array, for highlight selectors. */
   source: number | null;
 }
+
+/** Rotor unit that walks a whole level of the tree, across parents. */
+const LEVEL_ROTOR_UNIT: RotorFilterUnit = {
+  key: 'level',
+  label: 'Level',
+  noun: 'nodes on this level',
+};
 
 /** Formats a fraction as a percentage, to one decimal place. */
 function asPercent(fraction: number): string {
@@ -110,6 +118,16 @@ export class TreemapTrace extends AbstractTrace {
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
 
+  /**
+   * Where each node sits around the dial, in radians, shaped as `nodes` is.
+   *
+   * A sunburst lays a node's children across its own arc in proportion to
+   * their values, so the angle is derived from the tree rather than declared:
+   * it is the layout, computed the way the chart was drawn. Only a sunburst
+   * reads it -- a treemap and an icicle are rectangular and have no dial.
+   */
+  private readonly midAngles: number[][];
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -130,6 +148,7 @@ export class TreemapTrace extends AbstractTrace {
       (total, node) => total + (node?.value ?? 0),
       0,
     );
+    this.midAngles = this.layOutAngles();
     this.highlightValues = this.mapToSvgElements(layer.selectors, points.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -316,13 +335,89 @@ export class TreemapTrace extends AbstractTrace {
         max: this.depthMax[this.row] ?? 0,
         raw: node?.value ?? 0,
       },
-      panning: {
-        x: this.col,
-        y: this.row,
-        rows: this.nodes.length,
-        cols: this.nodes[this.row]?.length ?? 1,
-      },
+      panning: this.panning,
     };
+  }
+
+  /**
+   * Where the sound sits in the stereo field.
+   *
+   * A sunburst is drawn around a dial, so the pan follows the node around it
+   * rather than tracking an index: sweeping a ring goes out to one side and
+   * comes back, which is what distinguishes a circle from a row and is the
+   * pie's reasoning applied to a tree. `AudioService` reads the pan as
+   * `interpolate(x, 0, cols - 1, -1, 1)`, so `cols: 2` makes the mapping
+   * `2x - 1`, and `x = (sin θ + 1) / 2` lands the pan on `sin θ` exactly.
+   *
+   * A treemap and an icicle are rectangular and pan by position, as they did.
+   *
+   * @returns The panning state
+   */
+  private get panning(): AudioState['panning'] {
+    if (this.type === TraceType.SUNBURST) {
+      const angle = this.midAngles[this.row]?.[this.col];
+      if (angle !== undefined && Number.isFinite(angle)) {
+        return { x: (Math.sin(angle) + 1) / 2, y: this.row, rows: this.nodes.length, cols: 2 };
+      }
+    }
+    return {
+      x: this.col,
+      y: this.row,
+      rows: this.nodes.length,
+      cols: this.nodes[this.row]?.length ?? 1,
+    };
+  }
+
+  /**
+   * Lays the tree out around the dial the way a sunburst is drawn.
+   *
+   * A node's children divide its own arc in proportion to their values, in
+   * declared order, so the angle is the layout rather than a guess at it. The
+   * top level divides the whole circle. A node whose children's values do not
+   * account for its own -- a parent carrying mass no child names -- leaves
+   * the remainder of its arc unclaimed, exactly as the drawn chart does.
+   *
+   * @returns Each node's mid-angle in radians, shaped as the nodes are
+   */
+  private layOutAngles(): number[][] {
+    const angles: number[][] = this.nodes.map(level => level.map(() => Number.NaN));
+
+    /**
+     * Places one node and everything under it.
+     *
+     * @param at - The node's address
+     * @param from - Where its arc begins, in radians
+     * @param span - How wide its arc is, in radians
+     */
+    const place = (at: Coordinate, from: number, span: number): void => {
+      const node = this.nodes[at.row]?.[at.col];
+      if (node === undefined || node === null) {
+        return;
+      }
+      angles[at.row][at.col] = from + span / 2;
+
+      // Divided by the node's own value, not by its children's total: that is
+      // what leaves an unaccounted remainder unclaimed rather than silently
+      // inflating the children to fill the arc.
+      let cursor = from;
+      for (const child of node.children) {
+        const value = this.nodes[child.row]?.[child.col]?.value ?? 0;
+        const width = node.value === 0 ? 0 : span * (value / node.value);
+        place(child, cursor, width);
+        cursor += width;
+      }
+    };
+
+    const roots = this.nodes[0] ?? [];
+    let cursor = 0;
+    for (const [col, node] of roots.entries()) {
+      const width = this.grandTotal === 0
+        ? 0
+        : 2 * Math.PI * ((node?.value ?? 0) / this.grandTotal);
+      place({ row: 0, col }, cursor, width);
+      cursor += width;
+    }
+    return angles;
   }
 
   protected get braille(): BrailleState {
@@ -420,6 +515,61 @@ export class TreemapTrace extends AbstractTrace {
       rows: this.nodes.length,
       cols: this.nodes[this.row]?.length ?? 0,
     };
+  }
+
+  /**
+   * Offers a walk along the whole level, across parents.
+   *
+   * The arrow keys stay the tree: left and right are siblings, and a step
+   * past the last child of a parent is refused rather than landing in a
+   * cousin's subtree unannounced. That is the right default and it is what
+   * makes this a hierarchy rather than a grid -- but it is not the only
+   * reading anyone wants. An icicle is *drawn* as depth-ordered bands, a
+   * whole row of blocks per level, and "everything at this depth, in layout
+   * order" is a question that reading asks directly.
+   *
+   * So the band goes on the rotor rather than on the arrows. One data model
+   * with two different arrow semantics, chosen by which layout the producer
+   * happened to pick, would be worse for a reader who meets both than one
+   * semantics plus an explicit mode.
+   *
+   * Withheld on a level of one, where it could only ever answer "none found".
+   *
+   * @returns The level unit alongside whatever else is offered
+   */
+  public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
+    const inherited = super.getRotorFilterUnits();
+    const hasBand = this.nodes.some(level => level.length > 1);
+    return hasBand ? [...inherited, LEVEL_ROTOR_UNIT] : inherited;
+  }
+
+  public override moveToRotorFilter(
+    key: string,
+    direction: 'left' | 'right',
+  ): boolean {
+    if (key !== LEVEL_ROTOR_UNIT.key) {
+      return super.moveToRotorFilter(key, direction);
+    }
+
+    if (this.isInitialEntry) {
+      this.movable.handleInitialEntry();
+    }
+
+    const level = this.nodes[this.row] ?? [];
+    const step = direction === 'right' ? 1 : -1;
+    let target = this.col + step;
+    while (target >= 0 && target < level.length && level[target] === null) {
+      target += step;
+    }
+
+    if (target < 0 || target >= level.length) {
+      this.notifyRotorBounds();
+      return false;
+    }
+
+    this.movable.moveToIndex(this.row, target);
+    this.notifyStateUpdate();
+    return true;
   }
 
   public get description(): DescriptionState {

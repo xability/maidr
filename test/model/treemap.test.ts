@@ -313,3 +313,105 @@ describe('the modalities read the tree by depth', () => {
     expect(braille.values).toEqual([[150, 1577], [67, 83, 125, 1400, 52]]);
   });
 });
+
+describe('the same tree, drawn three ways', () => {
+  /**
+   * Build a trace of one of the hierarchy layouts, entered.
+   * @param type Which layout the layer declares
+   * @param data The nodes the layer carries
+   * @returns The entered trace
+   */
+  function asType(type: TraceType, data: TreemapPoint[] = NATIONS): TreemapTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(data),
+      type,
+    }) as TreemapTrace;
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  test('all three layouts are read by the one trace', () => {
+    expect(asType(TraceType.ICICLE)).toBeInstanceOf(TreemapTrace);
+    expect(asType(TraceType.SUNBURST)).toBeInstanceOf(TreemapTrace);
+  });
+
+  test('each announces the chart the author actually drew', () => {
+    expect(asType(TraceType.ICICLE).description.chartType).toBe('Icicle Chart');
+    expect(asType(TraceType.SUNBURST).description.chartType).toBe('Sunburst Chart');
+  });
+
+  test('the tree walks identically whichever way it is drawn', () => {
+    // The layout is the difference; the traversal is not. A reader who meets
+    // two of these should not have to learn two sets of keys.
+    const walked = [TraceType.TREEMAP, TraceType.ICICLE, TraceType.SUNBURST]
+      .map(type => walk(asType(type), 'DOWNWARD', 'FORWARD', 'FORWARD'));
+
+    expect(walked[1]).toEqual(walked[0]);
+    expect(walked[2]).toEqual(walked[0]);
+  });
+
+  test('a sunburst pans around the dial rather than along a row', () => {
+    // Europe is 150 of 1727, so its arc runs from 0 and the reader hears it
+    // just right of centre; Asia takes the rest of the circle and comes back
+    // round to the left. A rectangular layout pans by index instead, and the
+    // first node of a row is hard left.
+    const sunburst = nonEmptyState(asType(TraceType.SUNBURST)).audio.panning;
+    const treemap = nonEmptyState(asType(TraceType.TREEMAP)).audio.panning;
+
+    expect(sunburst.cols).toBe(2);
+    expect(sunburst.x).toBeCloseTo((Math.sin(Math.PI * (150 / 1727)) + 1) / 2, 6);
+    expect(treemap.x).toBe(0);
+    expect(treemap.cols).toBe(2);
+  });
+
+  test('a child arc sits inside its parent arc', () => {
+    // The angle is the layout, computed the way the chart is drawn: a node's
+    // children divide its own arc rather than the whole circle.
+    const trace = asType(TraceType.SUNBURST);
+    const europe = nonEmptyState(trace).audio.panning.x;
+    walk(trace, 'DOWNWARD');
+    const france = nonEmptyState(trace).audio.panning.x;
+
+    // France is 67 of Europe's 150, so its arc opens Europe's and its
+    // mid-angle is below Europe's own.
+    expect(france).toBeLessThan(europe);
+    expect(france).toBeGreaterThan(0.5);
+  });
+});
+
+describe('the level rotor reads the band an icicle is drawn as', () => {
+  test('it walks across parents, which the arrow keys will not', () => {
+    // Germany is Europe's last child, so FORWARD is refused there. The band
+    // is the reading an icicle's layout asks for directly, and it goes on the
+    // rotor rather than on the arrows -- one data model with two arrow
+    // semantics, chosen by layout, would be worse than one plus a mode.
+    const trace = treemap();
+    walk(trace, 'DOWNWARD', 'FORWARD');
+
+    expect(trace.moveToRotorFilter('level', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Japan');
+  });
+
+  test('it stops at the end of the level rather than wrapping', () => {
+    const trace = treemap();
+    walk(trace, 'DOWNWARD');
+
+    expect(trace.moveToRotorFilter('level', 'left')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('France');
+  });
+
+  test('it is offered once a level holds more than one node', () => {
+    const keys = treemap().getRotorFilterUnits().map(unit => unit.key);
+
+    expect(keys).toContain('level');
+  });
+
+  test('it is withheld where every level holds one node', () => {
+    const chain: TreemapPoint[] = [
+      { x: 'Leaf', y: 1, path: ['Root'] },
+    ];
+    const keys = treemap(chain).getRotorFilterUnits().map(unit => unit.key);
+
+    expect(keys).not.toContain('level');
+  });
+});

@@ -119,6 +119,8 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.SURVIVAL]: false,
   // A tree has no axis to run along: a node sits inside its parent, and
   // there is no reading of the chart in which that is drawn sideways.
+  [TraceType.ICICLE]: false,
+  [TraceType.SUNBURST]: false,
   [TraceType.TREEMAP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,

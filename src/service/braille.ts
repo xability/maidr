@@ -1224,6 +1224,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // the reader expects the data. They are announced instead.
       [TraceType.SURVIVAL, asGeneric(new LineBrailleEncoder())],
       [TraceType.STEP, asGeneric(new LineBrailleEncoder())],
+      [TraceType.ICICLE, asGeneric(new BarBrailleEncoder())],
+      [TraceType.SUNBURST, asGeneric(new BarBrailleEncoder())],
       [TraceType.TREEMAP, asGeneric(new BarBrailleEncoder())],
       // A density curve is a line, which is what the violin already reuses
       // this for. What differs is the scaling, and that is decided in the

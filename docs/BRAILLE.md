@@ -823,6 +823,18 @@ Level   Cells
 1       ⣶⣿⠒⠂⠂⠂⠒⠂⠂⠂
 ```
 
+### Sunburst and icicle
+
+The same encoding, because they are the same tree. A sunburst's rings and an
+icicle's bands are both levels, so both give one row per level and both hit
+the same limit: the dots carry the spread of a level and never the boundaries
+inside it.
+
+What the sunburst adds is not in the braille at all. Its rings are angular, so
+its **sound** is panned around the dial the way a pie's is -- sweeping a ring
+goes out to one side and comes back. Braille has no dimension to put that in;
+the display shows the same row of magnitudes either way.
+
 ### Multiline Displays
 
 Treemaps use one line per level. Two fingers on adjacent rows sit on a level
