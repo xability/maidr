@@ -63,6 +63,10 @@ describe('resolveOrientation', () => {
     // chart is drawn -- the answer a line already gives.
     TraceType.BUMP,
     TraceType.CANDLESTICK_DELTA,
+    // Flow runs source to sink whichever way the ribbons are laid out.
+    TraceType.ALLUVIAL,
+    TraceType.CHORD,
+    TraceType.SANKEY,
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,
     TraceType.HEATMAP,

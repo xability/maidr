@@ -11,6 +11,7 @@ import { ContourTrace } from './contour';
 import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
+import { FlowTrace } from './flow';
 import { ForestTrace } from './forest';
 import { FunnelTrace } from './funnel';
 import { GanttTrace } from './gantt';
@@ -81,6 +82,13 @@ export abstract class TraceFactory {
 
       case TraceType.ERROR_BAR:
         return new ErrorBarTrace(layer);
+
+      case TraceType.ALLUVIAL:
+      case TraceType.CHORD:
+      case TraceType.SANKEY:
+        // One class for all three: they are the same weighted graph drawn
+        // three ways, and the layout changes nothing a reader navigates.
+        return new FlowTrace(layer);
 
       case TraceType.CONTOUR:
         return new ContourTrace(layer);

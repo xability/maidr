@@ -29,6 +29,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // so which axis a rung's value lies on depends on which way the chart was
   // drawn -- the same answer a box plot gives, for the same reason.
   [TraceType.BOXEN]: true,
+  // Flow runs from source to sink whichever way the ribbons are laid out, and
+  // a chord diagram has no axes at all.
+  [TraceType.ALLUVIAL]: false,
+  [TraceType.CHORD]: false,
+  [TraceType.SANKEY]: false,
   [TraceType.CANDLESTICK]: true,
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.

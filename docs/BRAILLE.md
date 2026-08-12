@@ -794,6 +794,45 @@ Contours use one line per level on a multiline display, which is the case where
 braille gives back what the announcement carries: two fingers on adjacent rows
 feel exactly where the curves crowd together and where they open out.
 
+## Sankey, alluvial and chord
+
+One row per **stage** -- one column of the drawing -- with one cell per node in
+it, each row scaled against its own stage. Flow is conserved along a sankey, so
+a single scale across the chart is dominated by the largest source and every
+node past the first split sits near its floor; per-stage scaling is what keeps
+the column a reader is actually walking legible.
+
+The rows are the stages even though the *cursor* is addressed the other way
+round. The arrows are given the chart's geometry -- left and right follow a
+ribbon between columns, up and down walk the nodes stacked within one -- so the
+cursor's own row is a position within a stage. A braille line has to be a
+stage, or a row would be "the third node of every column", which is not a
+thing, so the state is transposed on its way out.
+
+**The ribbons have no representation at all**, and that is the whole of what
+this chart draws. A cell is a node's throughput; nothing in the dots says where
+that quantity came from, where it goes, or how it splits. Two cells side by
+side are two nodes of one column, which is not a relation the chart encodes.
+
+So the topology is carried entirely by the announcement: every step names the
+ribbon it travelled with its magnitude and its share of the source, the rotor
+enumerates the flows the arrows skip, and the description names the largest
+flow and the widest route end to end. The display gives the sizes; the
+announcement gives the routing.
+
+```
+Stage   Cells
+0       ⣿⠶
+1       ⠂⣿⡶
+2       ⣿⡖
+```
+
+### Multiline Displays
+
+One line per stage, so a hand across the display holds the whole chart and the
+narrowing from source to sink is felt directly -- the one thing here braille
+conveys better than it conveys the ribbons.
+
 ## Treemap
 
 One row per **level** of the tree, one cell per node at that level, each row

@@ -777,6 +777,26 @@ export interface TreemapPoint {
 }
 
 /**
+ * One weighted flow of a sankey, alluvial or chord diagram.
+ *
+ * A flow names both of its ends, so the **nodes are derived from the edges**
+ * and a separate node list would be a second source of truth for something the
+ * data already says -- the treemap's reasoning about paths, applied to a graph.
+ * Their order is first appearance, which is the order the producer drew them.
+ *
+ * @example
+ * { source: 'Coal', target: 'Electricity', value: 34 }
+ */
+export interface FlowPoint {
+  /** The node the flow leaves. */
+  source: string | number;
+  /** The node it arrives at. */
+  target: string | number;
+  /** How much flows. */
+  value: number;
+}
+
+/**
  * Data point for one slice of a pie chart.
  *
  * A pie layer's `data` is a flat `PiePoint[]` — one entry per slice, in the
@@ -1137,6 +1157,7 @@ export interface MaidrLayer {
   stepDirection?: StepDirection;
   data:
     | BarPoint[]
+    | FlowPoint[]
     | BoxPoint[]
     | BoxenPoint[]
     | CandlestickPoint[]
@@ -1185,6 +1206,12 @@ export enum TraceType {
    * top of each other instead.
    */
   AREA = 'area',
+  /**
+   * Categories that stay put while a quantity is re-divided between them at
+   * each step -- an alluvial diagram. The same weighted flow a
+   * {@link TraceType.SANKEY} carries, drawn without a left-to-right budget.
+   */
+  ALLUVIAL = 'alluvial',
   BAR = 'bar',
   /**
    * Rank over time, one line per competitor -- a bump chart. Navigated as a
@@ -1216,6 +1243,11 @@ export enum TraceType {
    * to pick the reference line).
    */
   CANDLESTICK_DELTA = 'candlestick_delta',
+  /**
+   * Flow between members of one set, drawn around a circle. Cyclic by
+   * construction, so it has no stages -- and every ribbon still follows.
+   */
+  CHORD = 'chord',
   /**
    * A scalar field drawn as curves of constant value. Read as a
    * {@link TraceType.LINE} layer the level is just a series name, so the two
@@ -1365,6 +1397,13 @@ export enum TraceType {
    * one a ridgeline is drawn to ask.
    */
   RIDGELINE = 'ridgeline',
+  /**
+   * Weighted flow between nodes, drawn as ribbons whose width is the
+   * magnitude. The chart exists to show routing and proportion at once, which
+   * is a question about topology -- and there is no partial reading of it
+   * available on a grid, because the chart is a graph.
+   */
+  SANKEY = 'sankey',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   STACKED = 'stacked_bar',
