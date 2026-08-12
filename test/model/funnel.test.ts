@@ -3,7 +3,7 @@ import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { FunnelTrace } from '@model/funnel';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Four stages, arranged so the raw scale and the retention disagree.
@@ -26,15 +26,32 @@ const STAGES: BarPoint[] = [
  * @param data The stages the layer carries
  * @returns Funnel layer definition
  */
-function createLayer(data: BarPoint[] = STAGES): MaidrLayer {
+function createLayer(
+  data: BarPoint[] = STAGES,
+  orientation: Orientation = Orientation.VERTICAL,
+): MaidrLayer {
   return {
     id: 'test-funnel-layer',
     type: TraceType.FUNNEL,
     title: 'Checkout funnel',
+    orientation,
     axes: { x: { label: 'Stage' }, y: { label: 'People' } },
     data,
   };
 }
+
+/**
+ * The same four stages a funnel drawn top to bottom carries.
+ *
+ * A horizontal bar layer puts the magnitude on `x` and the category on `y`,
+ * which is the pair the parent reads. A funnel is drawn this way at least as
+ * often as the other, so it is the arrangement where reading a fixed field
+ * is wrong.
+ */
+const HORIZONTAL_STAGES: BarPoint[] = STAGES.map(point => ({
+  x: point.y,
+  y: point.x,
+}));
 
 /**
  * Read the trace's current state, asserting it is a populated one.
@@ -203,5 +220,35 @@ describe('the description locates the drop', () => {
     const stats = funnel(0, [{ x: 'only', y: 5 }]).description.stats;
 
     expect(stats.find(stat => stat.label === 'Steepest drop')).toBeUndefined();
+  });
+});
+
+describe('a funnel drawn top to bottom', () => {
+  /**
+   * Build a horizontally oriented funnel.
+   * @returns The trace
+   */
+  function horizontal(): FunnelTrace {
+    return TraceFactory.create(
+      createLayer(HORIZONTAL_STAGES, Orientation.HORIZONTAL),
+    ) as FunnelTrace;
+  }
+
+  test('names the entry stage rather than counting it', () => {
+    // Read off a fixed field, this reports 10000 -- the count where the name
+    // belongs, in the one summary a reader consults to find out where the
+    // funnel starts.
+    const stats = horizontal().description.stats;
+    const read = (label: string): unknown =>
+      stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Entry stage')).toBe('Visited');
+  });
+
+  test('names the stage that loses the most people', () => {
+    const stats = horizontal().description.stats;
+    const worst = stats.find(stat => stat.label === 'Steepest drop')?.value;
+
+    expect(worst).toBe('Purchased, 4.3% retained');
   });
 });

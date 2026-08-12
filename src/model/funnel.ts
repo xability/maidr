@@ -1,5 +1,6 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import { Orientation } from '@type/grammar';
 import { BarTrace, isMeasured } from './bar';
 
 /**
@@ -140,11 +141,34 @@ export class FunnelTrace extends BarTrace {
     };
   }
 
+  /**
+   * What a stage is called.
+   *
+   * Which field holds the name depends on how the funnel is drawn: a
+   * horizontal bar layer carries its magnitude on `x` and its category on
+   * `y`, and a funnel is drawn top to bottom at least as often as left to
+   * right. The parent's `text` getter already resolves this for the
+   * announcement; the description is the other place a stage is named, and it
+   * has to resolve it the same way or it reports the **count** where the
+   * name belongs -- in the one summary a reader consults precisely to find
+   * out where the funnel starts and where it breaks.
+   *
+   * @param stage - Which stage
+   * @returns Its name, or undefined when the stage does not exist
+   */
+  private stageNameAt(stage: number): number | string | undefined {
+    const point = this.points[0]?.[stage];
+    if (point === undefined) {
+      return undefined;
+    }
+    return this.orientation === Orientation.VERTICAL ? point.x : point.y;
+  }
+
   public override get description(): DescriptionState {
     const base = super.description;
     const stats = [...base.stats];
 
-    const entry = this.points[0]?.[0]?.x;
+    const entry = this.stageNameAt(0);
     if (entry !== undefined) {
       stats.push({ label: 'Entry stage', value: entry });
     }
@@ -162,7 +186,7 @@ export class FunnelTrace extends BarTrace {
         // sequence of counts without dividing each by the one before it.
         stats.push({
           label: 'Steepest drop',
-          value: `${this.points[0][worst].x}, ${asPercent(this.retention[worst])} retained`,
+          value: `${this.stageNameAt(worst)}, ${asPercent(this.retention[worst])} retained`,
         });
       }
     }
