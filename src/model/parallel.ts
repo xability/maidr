@@ -129,6 +129,13 @@ export class ParallelTrace extends LineTrace {
     };
   }
 
+  protected override get groupFallbackLabel(): string {
+    // Announced beside the series' own name on every move, so inheriting the
+    // line's "Group" puts two words for one referent in one sentence --
+    // "Observation 1 of 4, Group is Honda Civic".
+    return 'Observation';
+  }
+
   protected override get seriesLabels(): {
     count: string;
     perSeries: string;

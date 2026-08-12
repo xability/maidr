@@ -244,6 +244,76 @@ describe('the description says what the axes are', () => {
   });
 });
 
+describe('one word per referent', () => {
+  test('names a series the way the rest of the chart names it', () => {
+    // The noun is announced beside the series' own name on every move, so
+    // inheriting the line's "Group" would say "Observation 1 of 4, Group is
+    // car A" -- two words for one thing in one sentence.
+    expect(nonEmptyState(parallel()).text.z)
+      .toEqual({ label: 'Observation', value: 'car A' });
+  });
+
+  test('a layer that names its own z axis still wins', () => {
+    // The fallback is a fallback. A producer who said what the series are
+    // called has said it, and the trace does not overrule them.
+    const layer: MaidrLayer = { ...createLayer(), axes: {
+      x: { label: 'Variable' },
+      y: { label: 'Value' },
+      z: { label: 'Model' },
+    } };
+    const trace = TraceFactory.create(layer) as ParallelTrace;
+    trace.moveToIndex(0, 0);
+
+    expect(nonEmptyState(trace).text.z?.label).toBe('Model');
+  });
+});
+
+describe('observations that do not all reach every axis', () => {
+  /** The third car was never measured for weight. */
+  const RAGGED: LinePoint[][] = [
+    [
+      { x: 'mpg', y: 33, z: 'car A' },
+      { x: 'hp', y: 65, z: 'car A' },
+      { x: 'weight', y: 1800, z: 'car A' },
+    ],
+    [
+      { x: 'mpg', y: 21, z: 'car B' },
+      { x: 'hp', y: 110, z: 'car B' },
+      { x: 'weight', y: 3200, z: 'car B' },
+    ],
+    [
+      { x: 'mpg', y: 15, z: 'car C' },
+      { x: 'hp', y: 230, z: 'car C' },
+    ],
+  ];
+
+  test('an axis is scaled by the observations that reached it', () => {
+    // The short row contributes to mpg and hp and not to weight, so weight's
+    // range must come from the two rows that have one.
+    const weight = nonEmptyState(parallel(0, 2, RAGGED)).audio.freq;
+    const economy = nonEmptyState(parallel(0, 0, RAGGED)).audio.freq;
+
+    expect([weight.min, weight.max]).toEqual([1800, 3200]);
+    expect([economy.min, economy.max]).toEqual([15, 33]);
+  });
+
+  test('the axes are named from the longest observation, not the first', () => {
+    // Reading the first row would work here by luck; reading the shortest
+    // would lose an axis a cursor can still reach.
+    const shortestFirst: LinePoint[][] = [RAGGED[2], RAGGED[0], RAGGED[1]];
+    const stats = parallel(0, 0, shortestFirst).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
+      .toBe('mpg, hp, weight');
+  });
+
+  test('every axis a cursor can reach still has a range', () => {
+    const stats = parallel(0, 0, RAGGED).description.stats.map(s => s.label);
+
+    expect(stats).toContain('weight');
+  });
+});
+
 describe('navigation is the multi-line model', () => {
   test('walks axes across and observations up', () => {
     const trace = parallel();
