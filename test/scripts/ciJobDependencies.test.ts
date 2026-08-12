@@ -34,14 +34,31 @@ interface Job {
 /**
  * Read the jobs of a workflow and what each one waits for.
  *
+ * Scanning starts at `jobs:` rather than at the top of the file. `on:` puts
+ * its triggers at the same two-space indent, so an unscoped scan reports
+ * `workflow_dispatch` and `pull_request` as jobs — harmless for the
+ * assertions that name an id, but it makes the "there are jobs here" sanity
+ * check count things that are not jobs, which is the one case whose whole
+ * purpose is to be trustworthy.
+ *
  * @param body The workflow file
  * @returns One entry per job, in file order
  */
 function jobsOf(body: string): Job[] {
   const lines = body.split('\n');
+  const start = lines.findIndex(line => /^jobs:\s*$/.test(line));
   const jobs: Job[] = [];
 
-  for (const line of lines) {
+  if (start < 0) {
+    return jobs;
+  }
+
+  for (const line of lines.slice(start + 1)) {
+    // A key at the top level ends the `jobs:` block.
+    if (/^\S/.test(line)) {
+      break;
+    }
+
     const job = /^ {2}([\w-]+):\s*$/.exec(line);
     if (job) {
       jobs.push({ id: job[1], needs: [] });
@@ -68,6 +85,11 @@ describe('the CI workflow', () => {
     // A regex that stopped matching would make every assertion here pass.
     expect(jobs.length).toBeGreaterThan(5);
     expect(jobs.map(job => job.id)).toContain('commitlint');
+
+    // And they really are jobs: `on:` indents its triggers the same way, so
+    // a scan that started at the top of the file would count them.
+    expect(jobs.map(job => job.id)).not.toContain('pull_request');
+    expect(jobs.map(job => job.id)).not.toContain('workflow_dispatch');
   });
 
   test('never lets a commit message decide whether anything is tested', () => {
