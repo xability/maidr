@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Sankey Example — Energy Flow</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A sankey encodes weighted flow between nodes. The chart exists to show
+        ROUTING AND PROPORTION AT ONCE -- where a quantity comes from, where it
+        splits, how much is lost at each hop -- and that is a question about
+        topology, which is what a flat reading is worst at.
+
+        FOLLOWING A RIBBON IS THE PRIMARY MOVE, on the keys that already exist:
+
+          right  follows the largest flow OUT of this node, downstream
+          left   follows the largest flow IN, back upstream
+          up/down  walk the other nodes stacked in this column
+
+        which is both the drawing's own geometry and MAIDR's ordinary reading
+        of its arrows. The LARGEST flow is the default because it is the ribbon
+        an eye follows; every other one is a rotor away (Outgoing, Incoming).
+
+        THE EDGE IS ANNOUNCED, not just the node it lands on. A step that said
+        only "Electricity, 46" would withhold the whole content of the move, so
+        it reads "Coal to Electricity, 34, 60.7% of Coal".
+
+        Nodes are derived from the flows -- a flow names both of its ends --
+        and stages from the longest path to each node. A chord diagram is
+        cyclic and gets one stage, because a partial layering would put some
+        ribbons in a direction the data does not support.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="420pt" viewBox="0 0 720 420" version="1.1"
+        id="sankey-energy" maidr='{&#10;  &quot;id&quot;: &quot;sankey-energy&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;sankey-energy-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;sankey-energy-layer&quot;,&#10;            &quot;type&quot;: &quot;sankey&quot;,&#10;            &quot;title&quot;: &quot;Energy flow&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Node&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Petajoules&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;path[id=&#x27;ribbon-0&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-1&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-2&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-3&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-4&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-5&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-6&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-7&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;source&quot;: &quot;Coal&quot;,&#10;                &quot;target&quot;: &quot;Losses&quot;,&#10;                &quot;value&quot;: 8&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Coal&quot;,&#10;                &quot;target&quot;: &quot;Electricity&quot;,&#10;                &quot;value&quot;: 34&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Coal&quot;,&#10;                &quot;target&quot;: &quot;Heat&quot;,&#10;                &quot;value&quot;: 14&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Gas&quot;,&#10;                &quot;target&quot;: &quot;Electricity&quot;,&#10;                &quot;value&quot;: 12&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Gas&quot;,&#10;                &quot;target&quot;: &quot;Heat&quot;,&#10;                &quot;value&quot;: 6&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Electricity&quot;,&#10;                &quot;target&quot;: &quot;Homes&quot;,&#10;                &quot;value&quot;: 30&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Electricity&quot;,&#10;                &quot;target&quot;: &quot;Industry&quot;,&#10;                &quot;value&quot;: 16&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Heat&quot;,&#10;                &quot;target&quot;: &quot;Homes&quot;,&#10;                &quot;value&quot;: 20&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 420  L 720 420  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <path id="ribbon-0" d="M 112.0 40.0 C 221.0 40.0 221.0 40.0 330.0 40.0 L 330.0 72.0 C 221.0 72.0 221.0 72.0 112.0 72.0 Z" style="fill: #4a4a4a; fill-opacity: 0.45" />
+          <path id="ribbon-1" d="M 112.0 72.0 C 221.0 72.0 221.0 90.0 330.0 90.0 L 330.0 226.0 C 221.0 226.0 221.0 208.0 112.0 208.0 Z" style="fill: #4a4a4a; fill-opacity: 0.45" />
+          <path id="ribbon-2" d="M 112.0 208.0 C 221.0 208.0 221.0 292.0 330.0 292.0 L 330.0 348.0 C 221.0 348.0 221.0 264.0 112.0 264.0 Z" style="fill: #4a4a4a; fill-opacity: 0.45" />
+          <path id="ribbon-3" d="M 112.0 282.0 C 221.0 282.0 221.0 226.0 330.0 226.0 L 330.0 274.0 C 221.0 274.0 221.0 330.0 112.0 330.0 Z" style="fill: #7a9ac4; fill-opacity: 0.45" />
+          <path id="ribbon-4" d="M 112.0 330.0 C 221.0 330.0 221.0 348.0 330.0 348.0 L 330.0 372.0 C 221.0 372.0 221.0 354.0 112.0 354.0 Z" style="fill: #7a9ac4; fill-opacity: 0.45" />
+          <path id="ribbon-5" d="M 352.0 90.0 C 461.0 90.0 461.0 40.0 570.0 40.0 L 570.0 160.0 C 461.0 160.0 461.0 210.0 352.0 210.0 Z" style="fill: #c2954a; fill-opacity: 0.45" />
+          <path id="ribbon-6" d="M 352.0 210.0 C 461.0 210.0 461.0 258.0 570.0 258.0 L 570.0 322.0 C 461.0 322.0 461.0 274.0 352.0 274.0 Z" style="fill: #c2954a; fill-opacity: 0.45" />
+          <path id="ribbon-7" d="M 352.0 292.0 C 461.0 292.0 461.0 160.0 570.0 160.0 L 570.0 240.0 C 461.0 240.0 461.0 372.0 352.0 372.0 Z" style="fill: #b4653f; fill-opacity: 0.45" />
+          <rect x="90" y="40.0" width="22" height="224.0" style="fill: #4a4a4a" />
+          <rect x="90" y="282.0" width="22" height="72.0" style="fill: #7a9ac4" />
+          <rect x="330" y="40.0" width="22" height="32.0" style="fill: #9a9a9a" />
+          <rect x="330" y="90.0" width="22" height="184.0" style="fill: #c2954a" />
+          <rect x="330" y="292.0" width="22" height="80.0" style="fill: #b4653f" />
+          <rect x="570" y="40.0" width="22" height="200.0" style="fill: #4f8a5b" />
+          <rect x="570" y="258.0" width="22" height="64.0" style="fill: #6a5a8a" />
+          <text x="118" y="156.0" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">Coal</text>
+          <text x="118" y="322.0" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">Gas</text>
+          <text x="358" y="60.0" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">Losses</text>
+          <text x="358" y="186.0" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">Electricity</text>
+          <text x="358" y="336.0" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">Heat</text>
+          <text x="564" y="144.0" style="font: 11px sans-serif; text-anchor: end; fill: #1a1a1a">Homes</text>
+          <text x="564" y="294.0" style="font: 11px sans-serif; text-anchor: end; fill: #1a1a1a">Industry</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
