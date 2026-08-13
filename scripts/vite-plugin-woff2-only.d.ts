@@ -4,8 +4,11 @@ import type { Plugin } from 'vite';
  * Hand-written declarations for `vite-plugin-woff2-only.js`.
  *
  * The plugin is plain JS so `scripts/build.js` (run directly by node) can
- * import it; `tsconfig.json` sets `allowJs: false`, so `vite.config.ts` needs
- * these types to import it too. Keep both files in sync.
+ * import it, and `tsconfig.json` sets `allowJs: false`, so any TypeScript
+ * importing it needs these types. Nothing does today: the root
+ * `vite.config.ts` that did was deleted in #765, as a config no build read.
+ * These stay for the next TypeScript caller, and to describe the module to a
+ * reader. Keep both files in sync.
  */
 
 /**

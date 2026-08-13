@@ -80,18 +80,4 @@ describe('build sourcemap setting', () => {
     expect(settings.length).toBeGreaterThan(0);
     expect(new Set(settings)).toEqual(new Set(['hidden']));
   });
-
-  // Asserted on the file's text rather than by importing it, for the same
-  // reason playwrightRootConfig.test.ts does: vite.config.ts imports
-  // `@vitejs/plugin-react`, which is ESM-only, and ts-jest transpiles this
-  // project to CommonJS. Comments are stripped first — the ones around this
-  // setting discuss sourcemaps at length and would pass the assertion on their
-  // own.
-  it('should match the standalone vite config', () => {
-    const source = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
-    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-
-    expect(code).toMatch(/sourcemap:\s*'hidden'/);
-    expect(code).not.toMatch(/sourcemap:\s*(?:true|false)/);
-  });
 });
