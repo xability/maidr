@@ -128,6 +128,24 @@ import '@testing-library/jest-dom/jest-globals';
   lines — DefinitelyTyped has no release matching every jsdom major. Bumping
   one means checking `npm run type-check` still passes, or the break surfaces
   on an unrelated pull request.
+- **`jest` and `jest-environment-jsdom` are a major apart on purpose**: core on
+  29, the environment on 30, so `@jest/environment` resolves at two majors in
+  one tree. Nothing warns — `jest-environment-jsdom` does not peer-declare
+  `jest` at all, so npm has no constraint to check. It was the price of
+  clearing an advisory that reached the tree through `jest-environment-jsdom@29`'s
+  bundled `jsdom@20` (#760), and it bought a second win: 30.x bundles
+  `jsdom@26`, which dedupes with the `jsdom` devDependency instead of sitting
+  on two majors.
+
+  The failure mode is quiet, which is why it is written down. If a `jest` core
+  bump ever changes the environment interface, the dependency graph will not
+  object — it surfaces as confusing test failures rather than an install
+  error, and the natural response to *those* is the same bump that would fix
+  this, so the two are easy to conflate. Realigning means moving core to 30,
+  which needs `ts-jest` checked against the two-project setup below; do it when
+  `jest` is bumped for its own reasons, not for this. Tracked in #766, and
+  `test/scripts/jestMajorSkew.test.ts` fails if this note and the installed
+  versions stop agreeing in either direction.
 
 ## ESM tests
 
