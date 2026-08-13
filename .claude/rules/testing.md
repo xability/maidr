@@ -85,6 +85,25 @@ on one.
 - Clean up anything stateful in `afterEach`, and assert `dispose()` really
   releases what it allocated.
 
+### A `unit` suite that fails to load with `navigator is not defined`
+
+This is an environment mismatch, not a bug in the test. `Platform.IS_MAC`
+(`src/util/platform.ts`) reads `navigator.platform` *eagerly* when the class is
+evaluated, and `keybinding.ts` builds its keymaps from `Platform.ctrl` at module
+top level — so importing `@service/keybinding`, or any store or view model that
+transitively reaches it, runs that read the moment the module loads. `navigator`
+is a global only from Node 21 onward. CI runs the tests on `lts/*` (Node 22+),
+where they pass; on Node 20 — still a supported `engines` line — every such suite
+fails to *load* with `ReferenceError: navigator is not defined`. It is a suite
+error rather than an assertion failure, and it hits shared suites like
+`help.test.ts`, `goToExtremaViewModel.test.ts`, and the mark/recall suites alike.
+jsdom component tests are unaffected, because jsdom supplies `navigator`.
+
+To run an affected suite on Node 20, give the `unit` project a `setupFiles`
+entry that defines `globalThis.navigator = { platform: 'MacIntel' }`. The proper
+fix, if it becomes worth doing, is to guard the read in `platform.ts` with
+`typeof navigator !== 'undefined'` so the module loads in any environment.
+
 ## Component tests
 
 The default test environment is `node`. A component test opts into a DOM per
