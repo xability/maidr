@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -115,31 +114,5 @@ describe('the build script\'s define config', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('NOT_PRODUCTION:0');
-  });
-});
-
-describe('the root vite config\'s define', () => {
-  // Nothing builds through this file today: `createViteConfig` passes
-  // `configFile: false`, the example builds and dev servers each pass
-  // `--config examples/*/vite.config.ts`, and no script invokes vite bare. So
-  // this case guards a latent trap rather than a live path -- the day someone
-  // points a build at the root config, it should already be correct instead of
-  // reintroducing a bug that took an e2e run to find. Checked here rather than
-  // left to a comment because an unused config is exactly the kind that drifts.
-  //
-  // Asserted against the source text rather than the module: node cannot
-  // import a .ts file in a subprocess the way it imports scripts/build.js, and
-  // pulling vite.config.ts through ts-jest would execute its plugin imports
-  // for a one-line check.
-  it('should rewrite process.env.NODE_ENV by its full member expression', () => {
-    const source = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
-
-    expect(source).toContain('\'process.env.NODE_ENV\'');
-  });
-
-  it('should substitute production there too, matching the published builds', () => {
-    const source = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
-
-    expect(source).toMatch(/'process\.env\.NODE_ENV':\s*JSON\.stringify\('production'\)/);
   });
 });

@@ -370,8 +370,15 @@ export function createViteConfig(config) {
     },
     // `process.env.NODE_ENV` is spelled out alongside `process.env` because
     // rolldown only substitutes a `define` key that matches the whole member
-    // expression, and it is `production` because these are the bundles that get
-    // published; see the matching comment in vite.config.ts.
+    // expression -- left to the `process.env` prefix alone it survives into the
+    // output and throws "process is not defined" on load (#759). It is
+    // `production` because these are the bundles that get published, and that
+    // is the flag React reads to pick its build.
+    //
+    // This is the only place it is written now. A second copy lived in a root
+    // `vite.config.ts` that no build ever read, kept in step by a test that
+    // compared the two texts -- so a reviewer could check the inert file, find
+    // it correct, and conclude the build was (#765).
     define: { 'process.env': {}, 'process.env.NODE_ENV': JSON.stringify('production') },
     resolve: { alias: config.aliases },
   };
