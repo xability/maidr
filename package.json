@@ -1,7 +1,7 @@
 {
   "name": "maidr",
   "type": "module",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "Multimodal Access and Interactive Data Representation — non-visual access to data visualizations via sonification, text descriptions, and braille.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://maidr.ai",

@@ -1,3 +1,37 @@
+# [4.2.0](https://github.com/xability/maidr/compare/v4.1.0...v4.2.0) (2026-08-13)
+
+
+### Bug Fixes
+
+* **bar:** stop a trace writing to the spec it was handed ([#837](https://github.com/xability/maidr/issues/837)) ([340dac5](https://github.com/xability/maidr/commit/340dac58e80b2152a0f8325f124a5a0c2c5d6111))
+* **chartjs:** carry a bubble's radius instead of discarding it ([#826](https://github.com/xability/maidr/issues/826)) ([7fd4e12](https://github.com/xability/maidr/commit/7fd4e126b31576d2b60ba463bfc1e66d1212cc46))
+* **text:** render a section's case as authored wherever it is announced ([#855](https://github.com/xability/maidr/issues/855)) ([d7faae4](https://github.com/xability/maidr/commit/d7faae4e243d1461d32eb60dcf9bca8fdccfa23c))
+
+
+### Features
+
+* **boxen:** read a quantile ladder however deep it goes ([#841](https://github.com/xability/maidr/issues/841)) ([979923f](https://github.com/xability/maidr/commit/979923f4243c5aff48fce9070f943a13a60494b2))
+* **bump:** sound first place as first place ([#836](https://github.com/xability/maidr/issues/836)) ([88ea7eb](https://github.com/xability/maidr/commit/88ea7eb4ec624c15b21cee17b99f9c864c791021))
+* **choropleth:** read a map as a map, not as a list of places ([#850](https://github.com/xability/maidr/issues/850)) ([8de0354](https://github.com/xability/maidr/commit/8de03546a755ab249f79031d6512260bd7fbac33))
+* **contour:** read a level as a value and the spacing as a gradient ([#848](https://github.com/xability/maidr/issues/848)) ([f51c0d9](https://github.com/xability/maidr/commit/f51c0d9c4d8d1b87ed2f4afb673593d27f0bd4e1))
+* **diverging:** read a population pyramid by size and side ([#838](https://github.com/xability/maidr/issues/838)) ([48c7057](https://github.com/xability/maidr/commit/48c7057e77c03e7d5229c80b8f2a5eb0df64c1c8))
+* **dot:** let a dot plot and a lollipop say which chart they are ([#840](https://github.com/xability/maidr/issues/840)) ([d57b03d](https://github.com/xability/maidr/commit/d57b03d6a22f38cb299d11f82b42c42e4334a7df))
+* **forest:** say whether a study crosses the null, and what it weighs ([#844](https://github.com/xability/maidr/issues/844)) ([20c8ce8](https://github.com/xability/maidr/commit/20c8ce88d8562fb656207c8c944b50207745a719))
+* **funnel:** give the ear the ratio it cannot compute ([#839](https://github.com/xability/maidr/issues/839)) ([d61cbf6](https://github.com/xability/maidr/commit/d61cbf6486df1c5149522b714810701a0da6a007))
+* **gantt:** read a schedule as the intervals it is ([#834](https://github.com/xability/maidr/issues/834)) ([dd0c73a](https://github.com/xability/maidr/commit/dd0c73aadf3fa7ab850fda7549377c747eac9c32))
+* **grammar:** let a layer say which one it is ([#831](https://github.com/xability/maidr/issues/831)) ([9c44965](https://github.com/xability/maidr/commit/9c44965bfb8967ac5f237dd47b937f837ae4443d))
+* **hexbin:** keep a vertical walk over the x it started from ([#842](https://github.com/xability/maidr/issues/842)) ([59e9314](https://github.com/xability/maidr/commit/59e9314040e053d9d194beba8bc6883d5b841a6a))
+* **mosaic:** read a bar's width as the second magnitude it is ([#846](https://github.com/xability/maidr/issues/846)) ([56ad59f](https://github.com/xability/maidr/commit/56ad59f27bd1c6cd18485500e113c1a5f77ed536))
+* **network:** reach every node, which following links cannot ([#853](https://github.com/xability/maidr/issues/853)) ([94d434f](https://github.com/xability/maidr/commit/94d434fa746b0ab85ba5c9b6e9eb11a0e8e80dc4))
+* **parallel:** pitch every axis against itself ([#835](https://github.com/xability/maidr/issues/835)) ([16472b1](https://github.com/xability/maidr/commit/16472b1c18d826a0bb9cbd9018722f21b50820a0))
+* **radar:** read categories arranged around a circle ([#833](https://github.com/xability/maidr/issues/833)) ([b6d7a37](https://github.com/xability/maidr/commit/b6d7a371ccce3de1c58c7ab89d85d446e2201c34))
+* **ridgeline:** compare distributions at the value the reader chose ([#843](https://github.com/xability/maidr/issues/843)) ([a6e3d50](https://github.com/xability/maidr/commit/a6e3d507f0f1cab4cd45621368d3f1c431eb4a8a))
+* **sankey:** follow the ribbon, which is what the chart is drawn for ([#852](https://github.com/xability/maidr/issues/852)) ([636c0f0](https://github.com/xability/maidr/commit/636c0f04f3ffb1574dced9988c138bc3ea5abbed))
+* **sunburst:** read a sunburst and an icicle as the tree they are ([#851](https://github.com/xability/maidr/issues/851)) ([c48019a](https://github.com/xability/maidr/commit/c48019a34f7031cb13d06328ad305fe61aeaa525))
+* **survival:** give a Kaplan-Meier curve its median and its censoring ([#845](https://github.com/xability/maidr/issues/845)) ([49c49bf](https://github.com/xability/maidr/commit/49c49bf43384811a87a0624386b76e812144cdc3))
+* **treemap:** navigate the hierarchy as a hierarchy ([#849](https://github.com/xability/maidr/issues/849)) ([b5c4f97](https://github.com/xability/maidr/commit/b5c4f9792f5e179d636729d04c2ea66ec3ce796b))
+* **volcano:** find the points that cross the line, not the ones next to them ([#847](https://github.com/xability/maidr/issues/847)) ([842a565](https://github.com/xability/maidr/commit/842a5652b68b863ccf321fa3ac5c9fa3528c2522))
+
 # [4.1.0](https://github.com/xability/maidr/compare/v4.0.0...v4.1.0) (2026-08-11)
 
 
