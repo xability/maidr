@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    # Every Monday at 15:00 UTC = 9 AM CST (winter) / 10 AM CDT (summer).
+    # GitHub Actions cron runs in UTC and does not observe DST.
+    - cron: '0 15 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -58,13 +59,75 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
         run: |
           npx semantic-release
-          if git describe --tags --exact-match HEAD 2>/dev/null; then
-            echo "new_release=true" >> $GITHUB_OUTPUT
+          # The tag semantic-release just created, when it created one. Also
+          # captured as the version so the downstream notification below can
+          # name it, rather than making the receiver guess from `latest`.
+          if TAG=$(git describe --tags --exact-match HEAD 2>/dev/null); then
+            echo "new_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm with trusted publishing
         if: steps.semantic-release.outputs.new_release == 'true'
         run: npm publish --access public --provenance
+
+      # Both language bindings ship a copy of this package's built bundle and
+      # refresh it from npm. Left to themselves they discover a release on
+      # their own cadence, so a fix can sit unread for a day or longer.
+      # Telling them directly closes that gap to minutes.
+      #
+      # Deliberately after the publish step and gated on it: the receivers
+      # fetch the tarball straight from the registry, so announcing before
+      # the package is actually there would just make them fail.
+      #
+      # What each does with the news is its own call, not this step's.
+      # r-maidr commits the refreshed bundle to `main`, and `main` is what it
+      # ships, because CRAN submissions are manual. py-maidr also commits to
+      # `main`, but as a `chore:`, which by design does not cut a PyPI
+      # release: its release workflow re-resolves upstream when a release is
+      # actually cut, so the news reaches its users then rather than now.
+      #
+      # continue-on-error, because the release is the thing that matters
+      # here. A missed ping costs a binding some currency -- each keeps its
+      # own refresh path as the backstop for this step failing -- whereas a
+      # red release job costs a manual re-run of a publish that already
+      # happened.
+      - name: Tell the language bindings the new version is on npm
+        if: steps.semantic-release.outputs.new_release == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.semantic-release.outputs.version }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "DOWNSTREAM_DISPATCH_TOKEN is not configured."
+            echo "The bindings will pick v${VERSION} up on their own schedules."
+            exit 0
+          fi
+
+          # jq builds the body so the version reaches JSON as data rather
+          # than as text spliced into a quoted string.
+          BODY=$(jq -n --arg version "$VERSION" \
+            '{event_type: "maidr-released", client_payload: {version: $version}}')
+
+          # Each binding is notified independently. Looping with the whole run
+          # gated on the first call would let one repository being unreachable
+          # decide whether the other ever hears about the release, which is
+          # exactly the coupling this step exists to avoid.
+          missed=0
+          for repo in xability/r-maidr xability/py-maidr; do
+            if printf '%s' "$BODY" | gh api "repos/$repo/dispatches" --input -; then
+              echo "Notified $repo of v${VERSION}."
+            else
+              echo "Could not notify $repo of v${VERSION}."
+              missed=1
+            fi
+          done
+
+          # Reported as a step failure so a silently expired or under-scoped
+          # token is visible in the run, while continue-on-error keeps it from
+          # touching a release that has already happened.
+          exit "$missed"
 
       - name: Upload npm logs on failure
         if: failure()

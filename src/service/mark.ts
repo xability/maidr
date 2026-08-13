@@ -185,9 +185,9 @@ export class MarkService implements Disposable {
       parts.push(`${text.cross.label} is ${crossValue}`);
     }
 
-    // Fill
-    if (text.fill) {
-      parts.push(`${text.fill.label} is ${text.fill.value}`);
+    // Fill (third dimension)
+    if (text.z) {
+      parts.push(`${text.z.label} is ${text.z.value}`);
     }
 
     return parts.join(', ');
@@ -215,9 +215,9 @@ export class MarkService implements Disposable {
       parts.push(crossValue);
     }
 
-    // Fill value
-    if (text.fill) {
-      parts.push(String(text.fill.value));
+    // Fill value (third dimension)
+    if (text.z) {
+      parts.push(String(text.z.value));
     }
 
     return parts.join(', ');

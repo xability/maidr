@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Choropleth Example — Rate by Western State</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A choropleth shades geographic regions by a value. What a sighted
+        reader takes from one is SPATIAL: where the high values sit, which way
+        the gradient runs, and which borders the value jumps across. A region
+        list read in declared order gives none of that -- it is a bar chart
+        whose categories happen to be places.
+
+        THE ARROWS MOVE ACROSS THE MAP, out of centroids alone. Regions are
+        banded by latitude and ordered west to east inside each band, so up is
+        north, down is south, left is west, right is east. The centroid is a
+        longitude and a latitude in DEGREES, never a projected coordinate:
+        that is what settles whether a rising number means north or south.
+
+        BORDERS ARE DECLARED, because they cannot be recovered -- not from
+        rendered SVG paths, and not from centroids either, since two regions
+        can have near centroids and no shared border. With them the map can
+        say how a region compares with the ones around it, walk the
+        neighbours on the rotor, name the borders the value jumps hardest
+        across, and find the CLUSTER of high regions -- which is the map's
+        actual finding. Here that is California, Nevada and Utah: not that
+        they are high, but that they touch. Arizona is nearly as high and
+        borders two of them, and sits just under the cut -- which is the
+        kind of call a ranked list makes invisible.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="460pt" height="400pt" viewBox="0 0 460 400" version="1.1"
+        id="choropleth-west" maidr='{&#10;  &quot;id&quot;: &quot;choropleth-west&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;choropleth-west-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;choropleth-west-layer&quot;,&#10;            &quot;type&quot;: &quot;choropleth&quot;,&#10;            &quot;title&quot;: &quot;Something per thousand, by state&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;State&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Rate&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;rect[id=&#x27;region-0&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-1&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-2&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-3&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-4&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-5&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-6&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-7&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-8&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-9&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;region-10&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;Washington&quot;,&#10;                &quot;y&quot;: 12.1,&#10;                &quot;lat&quot;: 47.4,&#10;                &quot;lon&quot;: -120.5,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Oregon&quot;,&#10;                  &quot;Idaho&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Idaho&quot;,&#10;                &quot;y&quot;: 18.9,&#10;                &quot;lat&quot;: 44.4,&#10;                &quot;lon&quot;: -114.6,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Washington&quot;,&#10;                  &quot;Oregon&quot;,&#10;                  &quot;Nevada&quot;,&#10;                  &quot;Utah&quot;,&#10;                  &quot;Montana&quot;,&#10;                  &quot;Wyoming&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Montana&quot;,&#10;                &quot;y&quot;: 15.2,&#10;                &quot;lat&quot;: 47.0,&#10;                &quot;lon&quot;: -109.6,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Idaho&quot;,&#10;                  &quot;Wyoming&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Oregon&quot;,&#10;                &quot;y&quot;: 16.4,&#10;                &quot;lat&quot;: 43.9,&#10;                &quot;lon&quot;: -120.6,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Washington&quot;,&#10;                  &quot;Idaho&quot;,&#10;                  &quot;Nevada&quot;,&#10;                  &quot;California&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Wyoming&quot;,&#10;                &quot;y&quot;: 17.8,&#10;                &quot;lat&quot;: 43.0,&#10;                &quot;lon&quot;: -107.6,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Montana&quot;,&#10;                  &quot;Idaho&quot;,&#10;                  &quot;Utah&quot;,&#10;                  &quot;Colorado&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;California&quot;,&#10;                &quot;y&quot;: 41.7,&#10;                &quot;lat&quot;: 37.2,&#10;                &quot;lon&quot;: -119.4,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Oregon&quot;,&#10;                  &quot;Nevada&quot;,&#10;                  &quot;Arizona&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Nevada&quot;,&#10;                &quot;y&quot;: 38.9,&#10;                &quot;lat&quot;: 39.3,&#10;                &quot;lon&quot;: -116.6,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Oregon&quot;,&#10;                  &quot;Idaho&quot;,&#10;                  &quot;Utah&quot;,&#10;                  &quot;California&quot;,&#10;                  &quot;Arizona&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Utah&quot;,&#10;                &quot;y&quot;: 36.2,&#10;                &quot;lat&quot;: 39.5,&#10;                &quot;lon&quot;: -111.7,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Idaho&quot;,&#10;                  &quot;Wyoming&quot;,&#10;                  &quot;Nevada&quot;,&#10;                  &quot;Colorado&quot;,&#10;                  &quot;Arizona&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Colorado&quot;,&#10;                &quot;y&quot;: 19.4,&#10;                &quot;lat&quot;: 39.0,&#10;                &quot;lon&quot;: -105.5,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Wyoming&quot;,&#10;                  &quot;Utah&quot;,&#10;                  &quot;Arizona&quot;,&#10;                  &quot;New Mexico&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Arizona&quot;,&#10;                &quot;y&quot;: 34.8,&#10;                &quot;lat&quot;: 34.3,&#10;                &quot;lon&quot;: -111.7,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;California&quot;,&#10;                  &quot;Nevada&quot;,&#10;                  &quot;Utah&quot;,&#10;                  &quot;Colorado&quot;,&#10;                  &quot;New Mexico&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;New Mexico&quot;,&#10;                &quot;y&quot;: 20.1,&#10;                &quot;lat&quot;: 34.4,&#10;                &quot;lon&quot;: -106.1,&#10;                &quot;neighbors&quot;: [&#10;                  &quot;Arizona&quot;,&#10;                  &quot;Colorado&quot;&#10;                ]&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 400  L 460 400  L 460 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <rect id="region-0" x="60" y="40" width="110" height="70" style="fill: rgb(240,255,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-1" x="170" y="40" width="90" height="130" style="fill: rgb(200,225,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-2" x="260" y="40" width="140" height="70" style="fill: rgb(222,247,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-3" x="60" y="110" width="110" height="90" style="fill: rgb(215,240,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-4" x="260" y="110" width="140" height="90" style="fill: rgb(207,232,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-5" x="60" y="200" width="110" height="150" style="fill: rgb(70,70,200); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-6" x="170" y="170" width="90" height="120" style="fill: rgb(86,86,200); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-7" x="260" y="200" width="70" height="90" style="fill: rgb(101,101,200); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-8" x="330" y="200" width="70" height="90" style="fill: rgb(198,223,240); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-9" x="170" y="290" width="90" height="60" style="fill: rgb(109,109,200); stroke: #ffffff; stroke-width: 2" />
+          <rect id="region-10" x="260" y="290" width="140" height="60" style="fill: rgb(194,219,240); stroke: #ffffff; stroke-width: 2" />
+          <text x="115" y="75" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Washington</text>
+          <text x="215" y="105" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Idaho</text>
+          <text x="330" y="75" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Montana</text>
+          <text x="115" y="155" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Oregon</text>
+          <text x="330" y="155" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Wyoming</text>
+          <text x="115" y="275" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">California</text>
+          <text x="215" y="230" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Nevada</text>
+          <text x="295" y="245" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Utah</text>
+          <text x="365" y="245" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Colorado</text>
+          <text x="215" y="320" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">Arizona</text>
+          <text x="330" y="320" style="font: 10px sans-serif; text-anchor: middle; fill: #1a1a1a">New Mexico</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Pie Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Pie Chart</h1>
+    <p>
+      A Highcharts pie chart made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use left and right arrow keys to navigate slices;
+      each one announces its label, its value and its share of the whole.
+    </p>
+
+    <div id="pie-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('pie-chart', {
+        chart: { type: 'pie' },
+        title: { text: 'Units Sold by Fruit' },
+        series: [{
+          name: 'Fruit sales',
+          data: [
+            { name: 'Apples', y: 30 },
+            { name: 'Bananas', y: 50 },
+            { name: 'Cherries', y: 20 },
+            { name: 'Dates', y: 15 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'pie-chart' });
+      document.getElementById('pie-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

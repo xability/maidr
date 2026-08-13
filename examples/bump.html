@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Bump Chart Example — League Table by Round</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A rank is not a magnitude. Rank 1 is the best position and the
+        smallest number, so sonified as a magnitude the leader is the lowest
+        note on the chart - a team climbing the table would be heard falling,
+        on every move, with nothing to say the reading was upside down. The
+        pitch is inverted here, so first place is the highest note.
+
+        Ash starts top and finishes bottom while Cyan does the exact reverse,
+        so the inversion is audible on the first two arrow keys. Birch holds
+        second across the last two rounds, which is why "no change" is
+        announced rather than left silent: silence is what the first round
+        says, and the first round has nothing to compare against.
+
+        Alt+Shift+Up/Down reaches the rank-gained and rank-lost rotor units,
+        which jump between the rounds where something actually moved instead
+        of scanning every column.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="bump-league" maidr='{&#10;  &quot;id&quot;: &quot;bump-league&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;bump-league-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;bump-league-layer&quot;,&#10;            &quot;type&quot;: &quot;bump&quot;,&#10;            &quot;title&quot;: &quot;League Table by Round&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Round&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Rank&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;bump-lines&#x27;] &gt; polyline&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;R1&quot;,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Ash&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R2&quot;,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;z&quot;: &quot;Ash&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R3&quot;,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;z&quot;: &quot;Ash&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R4&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Ash&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;R1&quot;,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;z&quot;: &quot;Birch&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R2&quot;,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;z&quot;: &quot;Birch&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R3&quot;,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;z&quot;: &quot;Birch&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R4&quot;,&#10;                  &quot;y&quot;: 2,&#10;                  &quot;z&quot;: &quot;Birch&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;R1&quot;,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;z&quot;: &quot;Cedar&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R2&quot;,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Cedar&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R3&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Cedar&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R4&quot;,&#10;                  &quot;y&quot;: 3,&#10;                  &quot;z&quot;: &quot;Cedar&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;R1&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Cyan&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R2&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Cyan&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R3&quot;,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Cyan&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;R4&quot;,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Cyan&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="bump-lines">
+          <polyline points="180,110 340,180 500,250 660,320" fill="none" style="stroke: #4c72b0; stroke-width: 3" />
+          <polyline points="180,180 340,250 500,180 660,180" fill="none" style="stroke: #dd8452; stroke-width: 3" />
+          <polyline points="180,250 340,110 500,320 660,250" fill="none" style="stroke: #55a868; stroke-width: 3" />
+          <polyline points="180,320 340,320 500,110 660,110" fill="none" style="stroke: #c44e52; stroke-width: 3" />
+            </g>
+            <g id="team-labels">
+          <text x="165" y="115" style="font: 13px sans-serif; text-anchor: end">Ash</text>
+          <text x="165" y="185" style="font: 13px sans-serif; text-anchor: end">Birch</text>
+          <text x="165" y="255" style="font: 13px sans-serif; text-anchor: end">Cedar</text>
+          <text x="165" y="325" style="font: 13px sans-serif; text-anchor: end">Cyan</text>
+            </g>
+            <g id="axis_x">
+          <text x="180" y="380" style="font: 13px sans-serif; text-anchor: middle">R1</text>
+          <text x="340" y="380" style="font: 13px sans-serif; text-anchor: middle">R2</text>
+          <text x="500" y="380" style="font: 13px sans-serif; text-anchor: middle">R3</text>
+          <text x="660" y="380" style="font: 13px sans-serif; text-anchor: middle">R4</text>
+              <text x="420" y="410" style="font: 13px sans-serif; text-anchor: middle">Round</text>
+            </g>
+            <g id="axis_y">
+          <text x="700" y="115" style="font: 12px sans-serif; text-anchor: start">1</text>
+          <text x="700" y="185" style="font: 12px sans-serif; text-anchor: start">2</text>
+          <text x="700" y="255" style="font: 12px sans-serif; text-anchor: start">3</text>
+          <text x="700" y="325" style="font: 12px sans-serif; text-anchor: start">4</text>
+            </g>
+            <g id="chart-title">
+              <text x="420" y="60" style="font: 16px sans-serif; text-anchor: middle">League Table by Round</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "maidr/react": ["../../src/react-entry.ts"],
+      "@command/*": ["../../src/command/*"],
+      "@model/*": ["../../src/model/*"],
+      "@state/*": ["../../src/state/*"],
+      "@service/*": ["../../src/service/*"],
+      "@type/*": ["../../src/type/*"],
+      "@ui/*": ["../../src/ui/*"],
+      "@util/*": ["../../src/util/*"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"],
+  "exclude": ["node_modules"]
+}

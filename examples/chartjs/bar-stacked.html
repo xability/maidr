@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Stacked Bar Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Stacked Bar</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="stacked-bar-chart"></canvas>
+    </div>
+
+    <script>
+      // Register the MAIDR plugin globally — every Chart.js chart on the page
+      // becomes accessible automatically.
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // Multi-dataset bar charts where both axes are flagged `stacked: true`
+      // are detected by the MAIDR extractor as TraceType.STACKED.
+      new Chart(document.getElementById('stacked-bar-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+          datasets: [
+            { label: 'East', data: [120, 150, 180, 200], backgroundColor: '#2196F3' },
+            { label: 'West', data: [90, 110, 130, 145], backgroundColor: '#FF9800' },
+            { label: 'South', data: [60, 80, 95, 110], backgroundColor: '#4CAF50' },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Revenue by Region' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Quarter' }, stacked: true },
+            y: { title: { display: true, text: 'Revenue ($K)' }, beginAtZero: true, stacked: true },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

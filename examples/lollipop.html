@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Lollipop Chart Example — Life Expectancy</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A lollipop is a bar chart's reading with a different mark: one
+        category, one value, navigated the same way. There is deliberately no
+        model behind it.
+
+        What it adds is that the chart says which chart it is. A reader told
+        "bar chart" when the author drew a lollipop has been told something
+        false about the page, and the chart type is one of the few places a
+        MAIDR user learns what they are looking at.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="lollipop-life" maidr='{&#10;  &quot;id&quot;: &quot;lollipop-life&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;lollipop-life-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;lollipop-life-layer&quot;,&#10;            &quot;type&quot;: &quot;lollipop&quot;,&#10;            &quot;title&quot;: &quot;Life Expectancy&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Years&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Country&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;lollipop-dots&#x27;] &gt; circle&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: 84,&#10;                &quot;y&quot;: &quot;Norway&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 81,&#10;                &quot;y&quot;: &quot;Japan&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 74,&#10;                &quot;y&quot;: &quot;Chile&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 61,&#10;                &quot;y&quot;: &quot;India&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 53,&#10;                &quot;y&quot;: &quot;Nigeria&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="lollipop-stems">
+          <line x1="200" y1="110" x2="414.5" y2="110" style="stroke: #8c8c8c; stroke-width: 3" />
+          <line x1="200" y1="162" x2="398.0" y2="162" style="stroke: #8c8c8c; stroke-width: 3" />
+          <line x1="200" y1="214" x2="359.5" y2="214" style="stroke: #8c8c8c; stroke-width: 3" />
+          <line x1="200" y1="266" x2="288.0" y2="266" style="stroke: #8c8c8c; stroke-width: 3" />
+          <line x1="200" y1="318" x2="244.0" y2="318" style="stroke: #8c8c8c; stroke-width: 3" />
+            </g>
+            <g id="lollipop-dots">
+          <circle cx="414.5" cy="110" r="9" style="fill: #4c72b0" />
+          <circle cx="398.0" cy="162" r="9" style="fill: #4c72b0" />
+          <circle cx="359.5" cy="214" r="9" style="fill: #4c72b0" />
+          <circle cx="288.0" cy="266" r="9" style="fill: #4c72b0" />
+          <circle cx="244.0" cy="318" r="9" style="fill: #4c72b0" />
+            </g>
+            <g id="axis_y">
+          <text x="185" y="115" style="font: 13px sans-serif; text-anchor: end">Norway</text>
+          <text x="185" y="167" style="font: 13px sans-serif; text-anchor: end">Japan</text>
+          <text x="185" y="219" style="font: 13px sans-serif; text-anchor: end">Chile</text>
+          <text x="185" y="271" style="font: 13px sans-serif; text-anchor: end">India</text>
+          <text x="185" y="323" style="font: 13px sans-serif; text-anchor: end">Nigeria</text>
+            </g>
+            <g id="axis_x">
+          <text x="227.5" y="390" style="font: 12px sans-serif; text-anchor: middle">50</text>
+          <text x="282.5" y="390" style="font: 12px sans-serif; text-anchor: middle">60</text>
+          <text x="337.5" y="390" style="font: 12px sans-serif; text-anchor: middle">70</text>
+          <text x="392.5" y="390" style="font: 12px sans-serif; text-anchor: middle">80</text>
+          <text x="447.5" y="390" style="font: 12px sans-serif; text-anchor: middle">90</text>
+              <text x="420" y="415" style="font: 13px sans-serif; text-anchor: middle">Years</text>
+            </g>
+            <g id="chart-title">
+              <text x="420" y="60" style="font: 16px sans-serif; text-anchor: middle">Life Expectancy</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

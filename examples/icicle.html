@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Icicle Example — World Population</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A SUNBURST and an ICICLE carry the same hierarchy a treemap does, laid
+        out differently: rings around a centre, and depth-ordered bands. The
+        layout differs and the tree does not, so one trace reads all three and
+        the keys are the same everywhere -- up to the parent, down into the
+        first child, left and right across the siblings.
+
+        WHAT AN ICICLE ASKS FOR is the band: it is drawn as a full row of
+        blocks per depth, so "everything at this level, in layout order" is a
+        question its layout puts directly. That goes on the LEVEL ROTOR rather
+        than on the arrow keys. The arrows stay the tree -- a step past the
+        last child of a parent is refused rather than landing in a cousin's
+        subtree unannounced -- because one data model with two different arrow
+        semantics, chosen by which layout the producer happened to pick, would
+        be worse for a reader who meets both than one semantics plus a mode.
+
+        As on the treemap, only the ten leaves are declared.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="280pt" viewBox="0 0 720 280" version="1.1"
+        id="icicle-population" maidr='{&#10;  &quot;id&quot;: &quot;icicle-population&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;icicle-population-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;icicle-population-layer&quot;,&#10;            &quot;type&quot;: &quot;icicle&quot;,&#10;            &quot;title&quot;: &quot;World population by region&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Region&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Population, millions&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;path[id=&#x27;icicle-population-node-0&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-1&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-2&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-3&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-4&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-5&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-6&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-7&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-8&#x27;]&quot;,&#10;              &quot;path[id=&#x27;icicle-population-node-9&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: &quot;China&quot;,&#10;                &quot;y&quot;: 1425,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;India&quot;,&#10;                &quot;y&quot;: 1428,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Indonesia&quot;,&#10;                &quot;y&quot;: 278,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Japan&quot;,&#10;                &quot;y&quot;: 124,&#10;                &quot;path&quot;: [&#10;                  &quot;Asia&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Nigeria&quot;,&#10;                &quot;y&quot;: 224,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Ethiopia&quot;,&#10;                &quot;y&quot;: 127,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Egypt&quot;,&#10;                &quot;y&quot;: 113,&#10;                &quot;path&quot;: [&#10;                  &quot;Africa&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Russia&quot;,&#10;                &quot;y&quot;: 144,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;Germany&quot;,&#10;                &quot;y&quot;: 83,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              },&#10;              {&#10;                &quot;x&quot;: &quot;France&quot;,&#10;                &quot;y&quot;: 68,&#10;                &quot;path&quot;: [&#10;                  &quot;Europe&quot;&#10;                ]&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 280  L 720 280  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <path d="M 40.0 60 h 519.0 v 90 h -519.0 Z" style="fill: #2f6fa8; stroke: #ffffff; stroke-width: 2" />
+          <path d="M 559.0 60 h 74.0 v 90 h -74.0 Z" style="fill: #a8522f; stroke: #ffffff; stroke-width: 2" />
+          <path d="M 633.0 60 h 47.0 v 90 h -47.0 Z" style="fill: #3f7f4f; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-0" d="M 40.0 150 h 227.2 v 90 h -227.2 Z" style="fill: #2f6fa8; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-1" d="M 267.2 150 h 227.7 v 90 h -227.7 Z" style="fill: #2f6fa8cc; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-2" d="M 494.9 150 h 44.3 v 90 h -44.3 Z" style="fill: #2f6fa8aa; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-3" d="M 539.2 150 h 19.8 v 90 h -19.8 Z" style="fill: #2f6fa888; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-4" d="M 559.0 150 h 35.7 v 90 h -35.7 Z" style="fill: #a8522f; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-5" d="M 594.7 150 h 20.2 v 90 h -20.2 Z" style="fill: #a8522fcc; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-6" d="M 614.9 150 h 18.0 v 90 h -18.0 Z" style="fill: #a8522faa; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-7" d="M 633.0 150 h 23.0 v 90 h -23.0 Z" style="fill: #3f7f4f; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-8" d="M 655.9 150 h 13.2 v 90 h -13.2 Z" style="fill: #3f7f4fcc; stroke: #ffffff; stroke-width: 2" />
+          <path id="icicle-population-node-9" d="M 669.2 150 h 10.8 v 90 h -10.8 Z" style="fill: #3f7f4faa; stroke: #ffffff; stroke-width: 2" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

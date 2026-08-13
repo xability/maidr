@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Dumbbell Chart Example — Life Expectancy, 1990 against 2020</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A dumbbell is drawn to be read as a comparison. The segment between
+        each pair of dots is the finding - which countries gained, which lost,
+        and by how much - and it is the one thing a reader cannot recover from
+        hearing the two ends one at a time, because that means holding one
+        number while navigating to the other and subtracting by ear on every
+        row.
+
+        So the change travels with both ends: "Denmark, 1990 71.2, increase
+        7.2". Latvia is here to make sure a decline reads as a decline, and
+        Malta to make sure an unchanged pair is not announced as either.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="dumbbell-life-expectancy" maidr='{&#10;  &quot;id&quot;: &quot;dumbbell-life-expectancy&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;dumbbell-life-expectancy-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;dumbbell-life-expectancy-layer&quot;,&#10;            &quot;type&quot;: &quot;dumbbell&quot;,&#10;            &quot;title&quot;: &quot;Life Expectancy, 1990 against 2020&quot;,&#10;            &quot;orientation&quot;: &quot;horz&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Years&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Country&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;dumbbell-connectors&#x27;] &gt; line&quot;,&#10;            &quot;data&quot;: {&#10;              &quot;startLabel&quot;: &quot;1990&quot;,&#10;              &quot;endLabel&quot;: &quot;2020&quot;,&#10;              &quot;points&quot;: [&#10;                {&#10;                  &quot;x&quot;: &quot;Denmark&quot;,&#10;                  &quot;start&quot;: 71.2,&#10;                  &quot;end&quot;: 78.4&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Latvia&quot;,&#10;                  &quot;start&quot;: 74.6,&#10;                  &quot;end&quot;: 69.5&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Malta&quot;,&#10;                  &quot;start&quot;: 76.0,&#10;                  &quot;end&quot;: 76.0&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Poland&quot;,&#10;                  &quot;start&quot;: 70.9,&#10;                  &quot;end&quot;: 75.6&#10;                }&#10;              ]&#10;            }&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="dumbbell-connectors">
+          <line x1="308.0" y1="120" x2="596.0" y2="120" style="stroke: #8c8c8c; stroke-width: 6" />
+          <line x1="444.0" y1="190" x2="240.0" y2="190" style="stroke: #8c8c8c; stroke-width: 6" />
+          <line x1="500.0" y1="260" x2="500.0" y2="260" style="stroke: #8c8c8c; stroke-width: 6" />
+          <line x1="296.0" y1="330" x2="484.0" y2="330" style="stroke: #8c8c8c; stroke-width: 6" />
+            </g>
+            <g id="dumbbell-dots">
+          <circle cx="308.0" cy="120" r="9" style="fill: #4c72b0" />
+          <circle cx="596.0" cy="120" r="9" style="fill: #c44e52" />
+          <circle cx="444.0" cy="190" r="9" style="fill: #4c72b0" />
+          <circle cx="240.0" cy="190" r="9" style="fill: #c44e52" />
+          <circle cx="500.0" cy="260" r="9" style="fill: #4c72b0" />
+          <circle cx="500.0" cy="260" r="9" style="fill: #c44e52" />
+          <circle cx="296.0" cy="330" r="9" style="fill: #4c72b0" />
+          <circle cx="484.0" cy="330" r="9" style="fill: #c44e52" />
+            </g>
+            <g id="axis_y">
+          <text x="168" y="125" style="font: 14px sans-serif; text-anchor: end">Denmark</text>
+          <text x="168" y="195" style="font: 14px sans-serif; text-anchor: end">Latvia</text>
+          <text x="168" y="265" style="font: 14px sans-serif; text-anchor: end">Malta</text>
+          <text x="168" y="335" style="font: 14px sans-serif; text-anchor: end">Poland</text>
+            </g>
+            <g id="axis_x">
+          <text x="180.0" y="390" style="font: 12px sans-serif; text-anchor: middle">68</text>
+          <text x="300.0" y="390" style="font: 12px sans-serif; text-anchor: middle">71</text>
+          <text x="420.0" y="390" style="font: 12px sans-serif; text-anchor: middle">74</text>
+          <text x="540.0" y="390" style="font: 12px sans-serif; text-anchor: middle">77</text>
+          <text x="660.0" y="390" style="font: 12px sans-serif; text-anchor: middle">80</text>
+              <text x="420" y="415" style="font: 13px sans-serif; text-anchor: middle">Years</text>
+            </g>
+            <g id="chart-title">
+              <text x="420" y="60" style="font: 16px sans-serif; text-anchor: middle">Life Expectancy, 1990 against 2020</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

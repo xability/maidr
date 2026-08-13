@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Heatmap Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 400px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- Heatmap is an extension module on top of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-heatmap.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const tasks = ['Math', 'Code', 'Writing', 'Reasoning'];
+        const models = ['GPT-4', 'Claude', 'Gemini'];
+        const scores = [
+          [92, 88, 85, 90],
+          [89, 91, 93, 88],
+          [86, 84, 82, 85],
+        ];
+
+        const data = [];
+        for (let yi = 0; yi < models.length; yi++) {
+          for (let xi = 0; xi < tasks.length; xi++) {
+            data.push({ x: tasks[xi], y: models[yi], heat: scores[yi][xi] });
+          }
+        }
+
+        const chart = anychart.heatMap(data);
+        chart.title('Model Scores by Task');
+        chart.xAxis().title('Task');
+        chart.yAxis().title('Model');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-heatmap',
+          title: 'Model Scores by Task',
+          axes: { x: 'Task', y: 'Model' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Heatmap</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

@@ -8,7 +8,8 @@ import {
   Grid,
   Typography,
 } from '@mui/material';
-import { useViewModel } from '@state/hook/useViewModel';
+import { useModalContainer } from '@state/hook/useModalContainer';
+import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId } from 'react';
 
 interface HelpRowProps {
@@ -39,7 +40,8 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 const Help: React.FC = () => {
   const id = useId();
   const viewModel = useViewModel('help');
-  const { items } = viewModel.state;
+  const { items } = useViewModelState('help');
+  const { modalRef, container } = useModalContainer();
 
   const handleClose = (): void => {
     viewModel.toggle();
@@ -54,15 +56,15 @@ const Help: React.FC = () => {
       maxWidth="sm"
       fullWidth
       disablePortal
+      ref={modalRef}
+      container={container}
     >
-      {/* Header */}
-      <Grid container component={DialogTitle}>
-        <Grid size="grow">
-          <Typography variant="h6" fontWeight="bold">
-            Keyboard Shortcuts
-          </Typography>
-        </Grid>
-      </Grid>
+      {/* Header. `DialogTitle` is already a heading, so it carries the text
+          directly — a heading `Typography` nested inside it would put
+          "Keyboard Shortcuts" in the outline twice. */}
+      <DialogTitle sx={{ fontWeight: 'bold' }}>
+        Keyboard Shortcuts
+      </DialogTitle>
 
       <DialogContent>
         <Grid container spacing={1}>

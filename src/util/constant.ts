@@ -39,10 +39,6 @@ export abstract class Constant {
   /** ID for the rotor navigation area */
   static readonly ROTOR_AREA = 'maidr-rotor-area';
 
-  // CSS classes.
-  /** CSS class for screen reader only content */
-  static readonly SR_ONLY_CLASS = 'maidr-sr-only';
-
   // HTML attributes.
   /** ARIA label attribute name */
   static readonly ARIA_LABEL = 'aria-label';
@@ -120,6 +116,8 @@ export abstract class Constant {
   static readonly POLYLINE = 'polyline';
   /** Space character */
   static readonly SPACE = ' ';
+  /** Terse-mode span joiner, the short form of {@link Constant.THROUGH} */
+  static readonly TO_DASH = '-';
   /** Text string for 'through' with spaces */
   static readonly THROUGH = ' through ';
   /** CSS transparent color value */
@@ -148,6 +146,11 @@ export abstract class Constant {
   static readonly LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
   /** Rotor mode for navigating data points */
   static readonly DATA_MODE = 'DATA POINT NAVIGATION';
-  /** Total number of rotor navigation modes */
-  static readonly NO_OF_ROTOR_NAV_MODES = 3;
+  static readonly ROW_COL_MODE = 'ROW AND COLUMN NAVIGATION';
+  /** Rotor mode for navigating grid cells in scatter plots */
+  static readonly GRID_MODE = 'GRID NAVIGATION';
+  /** Rotor mode for navigating point intersections between lines in multiline plots */
+  static readonly INTERSECTION_MODE = 'INTERSECTING POINT NAVIGATION';
+  /** Rotor mode for navigating individual points one at a time (scatter only) */
+  static readonly POINT_MODE = 'POINT NAVIGATION';
 }

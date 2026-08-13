@@ -4,9 +4,11 @@
  * Adds the site navbar to TypeDoc generated pages
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
 const API_DIR = path.join(SITE_DIR, 'api');
 
@@ -55,6 +57,8 @@ const navbarHTML = `
       padding: 0;
     ">
       <li><a href="../index.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Home</a></li>
+      <li><a href="../react.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">React</a></li>
+      <li><a href="../plotly.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Plotly</a></li>
       <li><a href="../examples.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Examples</a></li>
       <li><a href="../api/index.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px; background: rgba(255, 255, 255, 0.2);">API Documentation</a></li>
       <li><a href="https://github.com/xability/maidr" target="_blank" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">GitHub</a></li>
@@ -110,6 +114,8 @@ function processHTMLFile(filePath) {
   // Adjust navbar links for this file's depth
   const adjustedNavbar = navbarHTML
     .replace(/\.\.\/index\.html/g, `${prefix}index.html`)
+    .replace(/\.\.\/react\.html/g, `${prefix}react.html`)
+    .replace(/\.\.\/plotly\.html/g, `${prefix}plotly.html`)
     .replace(/\.\.\/examples\.html/g, `${prefix}examples.html`)
     .replace(/\.\.\/api\/index\.html/g, `${prefix}api/index.html`)
     .replace(/\.\.\/media\//g, `${prefix}media/`);

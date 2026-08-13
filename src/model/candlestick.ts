@@ -1,4 +1,4 @@
-import type { Dimension } from '@model/abstract';
+import type { Dimension, NearestPoint, RotorFilterUnit } from '@model/abstract';
 import type { ExtremaTarget } from '@type/extrema';
 import type {
   CandlestickPoint,
@@ -8,7 +8,7 @@ import type {
 } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -24,11 +24,36 @@ type HighlightValue = SVGElement | SVGElement[];
 const TREND = 'trend';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
+/** Rotor unit that walks only bullish (close > open) candles. */
+export const BULLISH_POINT_MODE = 'BULLISH POINT NAVIGATION';
+/** Rotor unit that walks only bearish (close < open) candles. */
+export const BEARISH_POINT_MODE = 'BEARISH POINT NAVIGATION';
+/** Rotor unit that walks only neutral (close === open) candles. */
+export const NEUTRAL_POINT_MODE = 'NEUTRAL POINT NAVIGATION';
+
+/**
+ * Trend-filter rotor units for the candlestick trace, in cycle order. The
+ * `key` is the {@link CandlestickTrend} each unit navigates; the default
+ * "all data point" unit is the built-in data mode and is not listed here.
+ */
+const TREND_ROTOR_UNITS: readonly (RotorFilterUnit & { key: CandlestickTrend })[] = [
+  { key: 'Bull', label: BULLISH_POINT_MODE, noun: 'bullish point' },
+  { key: 'Bear', label: BEARISH_POINT_MODE, noun: 'bearish point' },
+  { key: 'Neutral', label: NEUTRAL_POINT_MODE, noun: 'neutral point' },
+];
+
 /**
  * Segment types for candlestick data (open, high, low, close)
  */
 type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
+
+/**
+ * Navigation sections of a candlestick trace, in row order (vertical layout).
+ * Exported so live-data tooling can target a specific section (e.g. 'close')
+ * when announcing newly streamed candles.
+ */
+export const CANDLESTICK_SECTIONS = SECTIONS;
 
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
 
@@ -56,13 +81,26 @@ export class Candlestick extends AbstractTrace {
   private readonly min: number;
   private readonly max: number;
 
+  // Pre-computed braille data. Candles are immutable after construction, so
+  // per-row min/max and trends are computed once here instead of on every
+  // state emission (every keypress / autoplay tick).
+  private readonly perRowMin: number[];
+  private readonly perRowMax: number[];
+  private readonly trends: CandlestickTrend[];
+
+  // Rotor trend-filter units present in the data, computed once. Candles are
+  // immutable after construction, so this avoids rebuilding the present-trend
+  // Set on every getRotorFilterUnits() call (twice per keystroke via the
+  // rotor service).
+  private readonly rotorFilterUnits: readonly RotorFilterUnit[];
+
   protected readonly highlightValues: HighlightValue[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
   // Service dependency for navigation logic
-  protected readonly navigationService: NavigationService;
+  protected override readonly navigationService: NavigationService;
 
   /**
    * Creates a new Candlestick instance from a MAIDR layer
@@ -102,6 +140,19 @@ export class Candlestick extends AbstractTrace {
 
     this.min = MathUtil.minFrom2D(this.candleValues);
     this.max = MathUtil.maxFrom2D(this.candleValues);
+
+    // Pre-compute per-row min/max and trends once; the braille getter returns
+    // these cached references (see get braille) rather than rebuilding them
+    // per keypress. safeMin/safeMax avoid the spread-argument RangeError that
+    // Math.min(...row) hits on very large rows.
+    this.perRowMin = this.candleValues.map(row => MathUtil.safeMin(row));
+    this.perRowMax = this.candleValues.map(row => MathUtil.safeMax(row));
+    this.trends = this.candles.map(candle => candle.trend);
+
+    const presentTrends = new Set<CandlestickTrend>(this.trends);
+    this.rotorFilterUnits = TREND_ROTOR_UNITS.filter(unit =>
+      presentTrends.has(unit.key),
+    );
 
     // Pre-compute sorted segments and position maps for performance
     this.sortedSegmentsByPoint = this.precomputeSortedSegments();
@@ -205,7 +256,7 @@ export class Candlestick extends AbstractTrace {
   /**
    * Updates visual position for point highlighting and segment position
    */
-  protected updateVisualPointPosition(): void {
+  protected override updateVisualPointPosition(): void {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.row = this.currentPointIndex;
     } else {
@@ -234,7 +285,7 @@ export class Candlestick extends AbstractTrace {
    * Moves navigation position one step in the specified direction
    * @param direction - Direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
    */
-  public moveOnce(direction: MovableDirection): boolean {
+  public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -338,7 +389,47 @@ export class Candlestick extends AbstractTrace {
     return true;
   }
 
-  public moveToIndex(row: number, col: number): boolean {
+  /**
+   * Computes the state at an arbitrary position without moving the cursor.
+   *
+   * Candlestick state getters read `currentPointIndex`/`currentSegmentType`
+   * rather than `row`/`col`, so those are mapped from the requested position
+   * and restored alongside the cursor.
+   *
+   * @param row - The row of the position to compute state for
+   * @param col - The column of the position to compute state for
+   * @returns The trace state at the requested position
+   */
+  public override getStateAt(row: number, col: number): TraceState {
+    const previous = {
+      pointIndex: this.currentPointIndex,
+      segmentType: this.currentSegmentType,
+    };
+    // Raise the no-notify guard before any pre-super mutation so the whole
+    // override is covered, not just the base-class window.
+    this.isComputingStateAt = true;
+    try {
+      const { pointIndex, segmentType }
+        = this.navigationService.computeIndexAndSegment(
+          row,
+          col,
+          this.orientation,
+          this.sections,
+        );
+      this.currentPointIndex = pointIndex;
+      this.currentSegmentType = segmentType;
+      return super.getStateAt(row, col);
+    } finally {
+      // The base-class finally (inside super.getStateAt) restores
+      // row/col/isInitialEntry and lowers the guard; this finally restores
+      // the candlestick fields and clears the guard on pre-super throws.
+      this.isComputingStateAt = false;
+      this.currentPointIndex = previous.pointIndex;
+      this.currentSegmentType = previous.segmentType;
+    }
+  }
+
+  public override moveToIndex(row: number, col: number): boolean {
     // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -370,7 +461,7 @@ export class Candlestick extends AbstractTrace {
    * @param target - Target position array or movement direction
    * @returns True if movement is possible, false otherwise
    */
-  public isMovable(target: [number, number] | MovableDirection): boolean {
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
     if (Array.isArray(target)) {
       // For direct position targeting, use parent logic
       return super.isMovable(target);
@@ -408,9 +499,44 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * Gets the description state for the candlestick trace.
+   * @returns The description state containing chart metadata and data table
+   */
+  public get description(): DescriptionState {
+    const bullCount = this.candles.filter(c => c.trend === 'Bull').length;
+    const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
+
+    const stats: DescriptionState['stats'] = [
+      { label: 'Number of periods', value: this.candles.length },
+      { label: 'Price range', value: `${this.min} to ${this.max}` },
+      { label: 'Bull count', value: bullCount },
+      { label: 'Bear count', value: bearCount },
+    ];
+
+    const headers = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Trend'];
+    const rows: (string | number)[][] = this.candles.map(c => [
+      c.value,
+      c.open,
+      c.high,
+      c.low,
+      c.close,
+      c.volume ?? '',
+      c.trend,
+    ]);
+
+    return {
+      chartType: this.getChartTypeLabel(),
+      title: this.title,
+      axes: this.getDescriptionAxes(),
+      stats,
+      dataTable: { headers, rows },
+    };
+  }
+
+  /**
    * Cleans up resources and disposes of the candlestick instance
    */
-  public dispose(): void {
+  public override dispose(): void {
     this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
@@ -427,6 +553,8 @@ export class Candlestick extends AbstractTrace {
   protected get audio(): AudioState {
     let value: number;
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const candleCount = this.candles.length;
+    const sectionCount = this.candleValues.length;
     if (this.currentSegmentType === 'volatility') {
       value = this.candles[this.currentPointIndex].volatility;
     } else if (this.currentSegmentType) {
@@ -442,41 +570,39 @@ export class Candlestick extends AbstractTrace {
         raw: value,
       },
       panning: {
+        // x is the candle index in both orientations (this.col vertical,
+        // this.row horizontal); rows/cols describe the grid shape
+        // (sections x candles) independent of orientation, so panning pans by
+        // candle position regardless of how many candles the chart holds.
         x: isHorizontal ? this.row : this.col,
         y: isHorizontal ? this.col : this.row,
-        rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
-        cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+        rows: sectionCount,
+        cols: candleCount,
       },
       trend: this.candles[this.currentPointIndex].trend,
     };
   }
 
   protected get braille(): BrailleState {
-    // Return the braille state with the current candle values and segment type
-
-    // get an array for bear or bull
-    const bearOrBull = this.candles.map(candle => candle.trend);
-
-    // Set row to the position in navigation order (volatility first, then value-sorted OHLC) for the current segment of the current candle
-    const valueSortedRow = this.getSegmentPositionInSortedOrder(
-      this.currentPointIndex,
-      this.currentSegmentType ?? this.sections[0],
-    );
-    this.row = valueSortedRow;
-
-    // Compute per-row min/max for all segments (including volatility)
-    const perRowMin = this.candleValues.map(row => Math.min(...row));
-    const perRowMax = this.candleValues.map(row => Math.max(...row));
-
+    // Braille cells index into candleValues, which is in static SECTIONS
+    // order ['volatility','open','high','low','close']. The braille row must
+    // therefore be the static section index of the current segment (not its
+    // value-sorted navigation position), and the col is the candle index.
+    //
+    // This getter must stay side-effect free: it runs on every state emission
+    // (AbstractTrace.state) and during getStateAt, so mutating this.row/col
+    // here would corrupt the highlight computed alongside it (and, for
+    // horizontal charts, clobber the candle index this.row holds). All heavy
+    // data (per-row min/max, trends) is precomputed in the constructor.
     return {
       empty: false,
       id: this.id,
       values: this.candleValues, // includes volatility and OHLC
-      min: perRowMin,
-      max: perRowMax,
-      row: this.row,
-      col: this.col,
-      custom: bearOrBull,
+      min: this.perRowMin,
+      max: this.perRowMax,
+      row: this.sections.indexOf(this.currentSegmentType ?? this.sections[0]),
+      col: this.currentPointIndex,
+      custom: this.trends,
     };
   }
 
@@ -681,7 +807,7 @@ export class Candlestick extends AbstractTrace {
         value: crossValue,
       },
       section: this.currentSegmentType ?? 'open',
-      fill: { label: TREND, value: point.trend },
+      z: { label: TREND, value: point.trend },
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };
@@ -696,10 +822,19 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * Gets the candle data points. Used by the candlestick delta feature to
+   * derive a virtual comparison layer against a reference line.
+   * @returns The candle points in x order
+   */
+  public getCandles(): readonly CandlestickPoint[] {
+    return this.candles;
+  }
+
+  /**
    * Gets the current X value from the candlestick trace
    * @returns The current X value or null if not available
    */
-  public getCurrentXValue(): XValue | null {
+  public override getCurrentXValue(): XValue | null {
     if (
       this.currentPointIndex >= 0
       && this.currentPointIndex < this.candles.length
@@ -714,7 +849,7 @@ export class Candlestick extends AbstractTrace {
    * @param xValue - The X value to move to
    * @returns True if the position was found and set, false otherwise
    */
-  public moveToXValue(xValue: XValue): boolean {
+  public override moveToXValue(xValue: XValue): boolean {
     const targetIndex = this.candles.findIndex(
       candle => candle.value === xValue,
     );
@@ -741,7 +876,7 @@ export class Candlestick extends AbstractTrace {
    * Gets extrema targets for the current candlestick trace with labels and descriptions
    * @returns Array of extrema targets for navigation
    */
-  public getExtremaTargets(): ExtremaTarget[] {
+  public override getExtremaTargets(): ExtremaTarget[] {
     const targets: ExtremaTarget[] = [];
     const currentSegment = this.currentSegmentType ?? 'open';
 
@@ -774,6 +909,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -787,6 +923,7 @@ export class Candlestick extends AbstractTrace {
           segment: 'volatility',
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     } else {
@@ -820,6 +957,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'max',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
 
@@ -835,6 +973,7 @@ export class Candlestick extends AbstractTrace {
           segment: currentSegment,
           type: 'min',
           navigationType: 'point',
+          xValue: candle.value,
         });
       });
     }
@@ -846,7 +985,7 @@ export class Candlestick extends AbstractTrace {
    * Navigates to a specific extrema target
    * @param target - The extrema target to navigate to
    */
-  public navigateToExtrema(target: ExtremaTarget): void {
+  public override navigateToExtrema(target: ExtremaTarget): void {
     // Update the current point index
     this.currentPointIndex = target.pointIndex;
 
@@ -854,7 +993,7 @@ export class Candlestick extends AbstractTrace {
     this.currentSegmentType = target.segment as CandlestickNavSegmentType;
 
     // Use common finalization method
-    this.finalizeExtremaNavigation();
+    this.finalizeNavigation();
   }
 
   /**
@@ -863,31 +1002,33 @@ export class Candlestick extends AbstractTrace {
    * @param type - Comparison type (lower or higher)
    * @returns True if a matching value was found and moved to
    */
-  public moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    const currentGroup = this.row;
-    if (currentGroup < 0 || currentGroup >= this.candles.length) {
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors moveOnce/moveToExtreme).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    // Drive off currentPointIndex, which is the candle index in BOTH
+    // orientations. Reading this.col directly is only correct in the vertical
+    // layout — in the horizontal layout this.col holds the segment position
+    // and this.row holds the candle index (see updateVisualPointPosition).
+    // updateVisualPointPosition() maps currentPointIndex back to row/col.
+    const currentIndex = this.currentPointIndex;
+    if (currentIndex < 0 || currentIndex >= this.candles.length) {
       return false;
     }
     const currentSegment = this.currentSegmentType ?? 'open';
 
-    const segmentValues = this.candles.map((c, index) => ({
-      value: c[currentSegment],
-      index,
-      xValue: c.value,
-    }));
-
-    const currentIndex = this.col;
     const step = direction === 'right' ? 1 : -1;
-    let i = currentIndex + step;
-    while (i >= 0 && i < segmentValues.length) {
-      if (this.compare(segmentValues[i].value, segmentValues[currentIndex].value, type)) {
-        this.col = i;
+    for (let i = currentIndex + step; i >= 0 && i < this.candles.length; i += step) {
+      if (this.compare(this.candles[i][currentSegment], this.candles[currentIndex][currentSegment], type)) {
         this.currentPointIndex = i;
         this.updateVisualPointPosition();
         this.notifyStateUpdate();
         return true;
       }
-      i += step;
     }
     this.notifyRotorBounds();
     return false;
@@ -897,7 +1038,7 @@ export class Candlestick extends AbstractTrace {
    * Moves upward between segments within a candle in rotor mode
    * @returns True if the move was successful
    */
-  public moveUpRotor(): boolean {
+  public override moveUpRotor(): boolean {
     this.moveOnce('UPWARD');
     return true;
   }
@@ -906,9 +1047,65 @@ export class Candlestick extends AbstractTrace {
    * Moves downward between segments within a candle in rotor mode
    * @returns True if the move was successful
    */
-  public moveDownRotor(): boolean {
+  public override moveDownRotor(): boolean {
     this.moveOnce('DOWNWARD');
     return true;
+  }
+
+  /**
+   * Exposes the bullish/bearish/neutral rotor filter units. These are
+   * appended after the built-in lower/higher value compare units, so cycling
+   * the rotor offers: all data point (default), lower value, higher value,
+   * and one unit per trend that actually occurs in the data. The default
+   * "all data point" unit is provided by the built-in data mode.
+   *
+   * A trend with no candles is omitted so the rotor cycle carries no
+   * dead-end modes (where every move would just report "no point found"),
+   * mirroring how GRID_MODE / INTERSECTION_MODE are gated on capability. The
+   * list is precomputed in the constructor (candles are immutable), so this
+   * returns the cached reference — callers must treat it as read-only.
+   * @returns The present trend-filter rotor units in cycle order
+   */
+  public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
+    return this.rotorFilterUnits;
+  }
+
+  /**
+   * Jumps to the previous/next candle whose trend matches the active filter
+   * unit, preserving the current segment. Trend filtering runs along the
+   * candle axis; the rotor service handles up/down (announcing them as
+   * unavailable) and only dispatches left/right here.
+   * @param key - The trend to navigate ('Bull', 'Bear', or 'Neutral')
+   * @param direction - The direction to search
+   * @returns True if a matching candle was found and moved to
+   */
+  public override moveToRotorFilter(
+    key: string,
+    direction: 'left' | 'right',
+  ): boolean {
+    // Establish the entry position on the first move so this jump highlights
+    // and the initial-entry branch of moveOnce doesn't later swallow a
+    // keypress (mirrors moveOnce/moveToExtreme/moveToIndex).
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+
+    const step = direction === 'right' ? 1 : -1;
+    for (
+      let i = this.currentPointIndex + step;
+      i >= 0 && i < this.candles.length;
+      i += step
+    ) {
+      if (this.candles[i].trend === key) {
+        this.currentPointIndex = i;
+        this.updateVisualPointPosition();
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+
+    this.notifyRotorBounds();
+    return false;
   }
 
   /**
@@ -960,7 +1157,7 @@ export class Candlestick extends AbstractTrace {
   public findNearestPoint(
     x: number,
     y: number,
-  ): { element: SVGElement; row: number; col: number } | null {
+  ): NearestPoint | null {
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;
@@ -986,14 +1183,60 @@ export class Candlestick extends AbstractTrace {
       element: this.highlightCenters[nearestIndex].element,
       row: this.highlightCenters[nearestIndex].row,
       col: this.highlightCenters[nearestIndex].col,
+      centerX: this.highlightCenters[nearestIndex].x,
+      centerY: this.highlightCenters[nearestIndex].y,
     };
   }
 
+  /**
+   * Moves the trace to the nearest highlight point for a pointer/hover event.
+   *
+   * The highlight grid is [sortedSegmentPosition][pointIndex] in BOTH
+   * orientations (see mapToSvgElements), so `nearest.col` is always the candle
+   * index and `nearest.row` is the value-sorted segment position. Those sorted
+   * coordinates are translated straight into the candle/segment model state
+   * here, rather than delegating to moveToIndex, which interprets rows in
+   * static CANDLESTICK_SECTIONS order — an interpretation the braille path
+   * relies on and must keep.
+   *
+   * @param _x - Screen-space x position of the pointer
+   * @param _y - Screen-space y position of the pointer
+   * @param nearest - The nearest highlight point in sorted grid coordinates
+   * @param onCurve - Whether the pointer is within the point's bounds
+   */
+  protected override moveToNearest(
+    _x: number,
+    _y: number,
+    nearest: NearestPoint,
+    onCurve: boolean,
+  ): void {
+    if (!onCurve) {
+      return;
+    }
+    if (this.row === nearest.row && this.col === nearest.col) {
+      return;
+    }
+    const pointIndex = nearest.col;
+    this.currentPointIndex = pointIndex;
+    this.currentSegmentType = this.getSegmentTypeAtSortedPosition(
+      pointIndex,
+      nearest.row,
+    );
+    this.isInitialEntry = false;
+    // Syncs both the candle position and the segment position for highlight.
+    this.updateVisualPointPosition();
+    this.notifyStateUpdate();
+  }
+
   protected get dimension(): Dimension {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // Orientation-independent: candlestick maps UPWARD/DOWNWARD to the 5
+    // sections and FORWARD/BACKWARD to the N candles in BOTH orientations
+    // (see moveOnce), and AutoplayState is keyed by direction, so rows must
+    // always be the section count and cols the candle count. Conditioning on
+    // orientation here mis-paces autoplay and mis-clamps isMovable bounds.
     return {
-      rows: isHorizontal ? this.candleValues.length : this.candleValues[this.row].length,
-      cols: isHorizontal ? this.candleValues[this.row].length : this.candleValues.length,
+      rows: this.candleValues.length,
+      cols: this.candles.length,
     };
   }
 }

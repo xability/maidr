@@ -10,7 +10,7 @@ Before anything else, make sure you have received ${input:pr} from user.
 
 #get_pull_request_comments #get_pull_request_reviews Address PR review for xability/maidr ${input:pr}.
 
-You need to think deeply to understand the review comments and come up with right solution. When you implement your solution, you need to make sure that you follow [the project architecture design](../copilot-instructions.md) and [the coding style guide](../instructions/style-guide.instructions.md).
+You need to think deeply to understand the review comments and come up with right solution. When you implement your solution, you need to make sure that you follow [the project architecture design](../copilot-instructions.md) and the path-scoped conventions in [.github/instructions/](../instructions) — `typescript.instructions.md` for style, plus the per-layer files that match whatever you touch.
 
 In case you need to make changes any libraries or dependencies, make sure to check the project's `package.json` file and verify whether the functions and methods you are using match the versions specified there. You can use #context7 for this.
 

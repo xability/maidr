@@ -64,6 +64,11 @@ implements Observer<HighlightStateUnion>, Disposable {
   private currentHighlightColor: string;
 
   /**
+   * Disposable for the settings change subscription, released on dispose().
+   */
+  private settingsDisposable: Disposable | null = null;
+
+  /**
    * Creates a new HighlightService instance.
    *
    * @param settings - The settings service used to retrieve highlight color preferences
@@ -75,6 +80,14 @@ implements Observer<HighlightStateUnion>, Disposable {
     this.highlightedSubplots = new Set();
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
+
+    // Subscribe to settings changes via the emitter (the same pattern used by
+    // audio/autoplay/braille/highContrast). This service is not registered on
+    // the SettingsService observer list, so the emitter is the live channel for
+    // picking up a new highlight color mid-session.
+    this.settingsDisposable = settings.onChange((event) => {
+      this.handleSettingsUpdate(event.newSettings);
+    });
   }
 
   /**
@@ -82,6 +95,8 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Should be called when the service is no longer needed to prevent memory leaks.
    */
   public dispose(): void {
+    this.settingsDisposable?.dispose();
+    this.settingsDisposable = null;
     this.unhighlightAll();
   }
 

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr Example</title>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script>
+      var maidr = {
+  "id": "pie",
+  "title": "Fruit Sales by Variety",
+  "subplots": [
+    [
+      {
+        "layers": [
+          {
+            "id": "0",
+            "type": "pie",
+            "title": "Fruit Sales by Variety",
+            "selectors": "svg#pie path.slice",
+            "axes": {
+              "x": { "label": "Fruit" },
+              "y": { "label": "Units sold" }
+            },
+            "data": [
+              {
+                "x": "Apples",
+                "y": 30
+              },
+              {
+                "x": "Bananas",
+                "y": 45
+              },
+              {
+                "x": "Cherries",
+                "y": 25
+              },
+              {
+                "x": "Dates",
+                "y": 20
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  ]
+}
+    </script>
+  </head>
+
+  <body>
+    <!--
+      Hand-drawn rather than exported from a plotting library: the slices are
+      the only geometry the pie trace addresses, and a four-wedge circle is
+      small enough to write out exactly. The 120-unit total is deliberately not
+      100, so the announced percentages can only come from the model deriving
+      them — an example that added up to 100 would pass even if the values were
+      being reported as percentages unchanged.
+
+      Wedges are drawn clockwise from twelve o'clock, one `path.slice` each, in
+      the same order as the `data` array above: the selector has to resolve to
+      exactly four elements in slice order for highlighting to land on the
+      slice being announced.
+    -->
+    <svg
+      id="pie"
+      width="600pt"
+      height="400pt"
+      viewBox="0 0 600 400"
+      xmlns="http://www.w3.org/2000/svg"
+      version="1.1"
+    >
+      <rect x="0" y="0" width="600" height="400" style="fill: #ffffff" />
+      <g id="slices">
+        <!-- Apples: 30 of 120, 90 degrees -->
+        <path
+          class="slice"
+          d="M 300 200
+          L 300 60
+          A 140 140 0 0 1 440 200
+          z
+          "
+          style="fill: #4e79a7"
+        />
+        <!-- Bananas: 45 of 120, 135 degrees -->
+        <path
+          class="slice"
+          d="M 300 200
+          L 440 200
+          A 140 140 0 0 1 201.005 298.995
+          z
+          "
+          style="fill: #f28e2b"
+        />
+        <!-- Cherries: 25 of 120, 75 degrees -->
+        <path
+          class="slice"
+          d="M 300 200
+          L 201.005 298.995
+          A 140 140 0 0 1 178.756 130
+          z
+          "
+          style="fill: #e15759"
+        />
+        <!-- Dates: 20 of 120, 60 degrees -->
+        <path
+          class="slice"
+          d="M 300 200
+          L 178.756 130
+          A 140 140 0 0 1 300 60
+          z
+          "
+          style="fill: #76b7b2"
+        />
+      </g>
+      <g id="slice_labels" style="font-family: sans-serif; font-size: 14px; fill: #ffffff">
+        <text x="359.4" y="140.6" text-anchor="middle">Apples</text>
+        <text x="332.1" y="277.6" text-anchor="middle">Bananas</text>
+        <text x="216.7" y="211" text-anchor="middle">Cherries</text>
+        <text x="258" y="127.2" text-anchor="middle">Dates</text>
+      </g>
+      <g id="title">
+        <text
+          x="300"
+          y="32"
+          text-anchor="middle"
+          style="font-family: sans-serif; font-size: 17px; fill: #000000"
+        >
+          Fruit Sales by Variety
+        </text>
+      </g>
+    </svg>
+  </body>
+</html>

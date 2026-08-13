@@ -3,19 +3,24 @@ import type { BrailleService } from '@service/braille';
 import type { AppStore } from '@state/store';
 import type { TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
+import { DEFAULT_BRAILLE_LINES, DEFAULT_BRAILLE_SIZE } from '@type/settings';
 import { AbstractViewModel } from './viewModel';
 
 /**
  * Represents the state of the braille display.
  */
-interface BrailleState {
+export interface BrailleState {
   value: string;
   index: number;
+  displaySize: number;
+  displayLines: number;
 }
 
 const initialState: BrailleState = {
   value: '',
   index: -1,
+  displaySize: DEFAULT_BRAILLE_SIZE,
+  displayLines: DEFAULT_BRAILLE_LINES,
 };
 
 const brailleSlice = createSlice({
@@ -52,7 +57,7 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   /**
    * Disposes the view model and resets braille state to initial values.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(reset());
   }

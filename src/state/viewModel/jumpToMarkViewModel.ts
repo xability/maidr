@@ -88,7 +88,7 @@ export class JumpToMarkViewModel extends AbstractViewModel<JumpToMarkState> {
   /**
    * Disposes the view model and hides the dialog.
    */
-  public dispose(): void {
+  public override dispose(): void {
     super.dispose();
     this.store.dispatch(hide());
   }

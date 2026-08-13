@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Step Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Step Chart</h1>
+    <p>
+      A plotly.js chart drawn with <code>line.shape</code> auto-detected by MAIDR
+      as a step plot rather than a line. Click on a chart and use arrow keys to
+      navigate; press <kbd>R</kbd> to reach the Transitions rotor, which moves
+      only between the points where the level actually changes.
+    </p>
+
+    <h2>hold, then jump at the next x (<code>hv</code>)</h2>
+    <div id="step-hv" style="width: 700px; height: 400px"></div>
+
+    <h2>jump at this x, then hold (<code>vh</code>)</h2>
+    <div id="step-vh" style="width: 700px; height: 400px"></div>
+
+    <h2>jump midway between x values (<code>hvh</code>)</h2>
+    <div id="step-hvh" style="width: 700px; height: 400px"></div>
+
+    <script>
+      // A staffing level: held for whole hours, then stepped. Nothing is
+      // interpolated between samples, which is exactly what a line chart
+      // would imply and a step chart does not.
+      var hours = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+      var staff = [2, 2, 5, 5, 5, 3, 3, 6, 6];
+
+      function stepChart(divId, shape) {
+        var trace = {
+          x: hours,
+          y: staff,
+          mode: 'lines',
+          type: 'scatter',
+          line: { shape: shape },
+          name: 'On shift'
+        };
+
+        var layout = {
+          title: { text: 'Staff on shift (' + shape + ')' },
+          xaxis: { title: { text: 'Hour' } },
+          yaxis: { title: { text: 'Staff' } }
+        };
+
+        Plotly.newPlot(divId, [trace], layout);
+      }
+
+      stepChart('step-hv', 'hv');
+      stepChart('step-vh', 'vh');
+      stepChart('step-hvh', 'hvh');
+    </script>
+  </body>
+</html>

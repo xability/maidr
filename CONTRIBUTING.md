@@ -187,29 +187,32 @@ Here's how to update the MAIDR documentation:
 
 2. Update Content Pages (if needed)
 
-Edit these Quarto/Markdown files for different sections:
+Edit these files for different sections:
 
-- index.qmd - Main landing page
-- examples.qmd - Examples documentation
-- api-reference.qmd - API reference intro page
-- README.md - Project readme (also rendered)
-- CONTRIBUTING.md - Contributing guidelines
-- CHANGELOG.md - Change log
-- E2E_TESTING.md - Testing documentation
+- README.md - Main landing page content (converted to index.html)
+- docs/template.html - HTML template for generated pages
+- examples/ - Example files (embedded in examples.html)
 
-3. Rebuild Documentation
+3. Build Documentation
 
-Generate TypeDoc API docs
+```shell
 npm run docs
+```
 
-Build complete site with Quarto
-quarto render
+This runs the build script which:
+
+- Converts README.md to index.html
+- Generates examples.html
+- Copies media and examples folders
+- Runs TypeDoc to generate API documentation in `_site/api/`
 
 4. Preview Locally
 
-Start local preview server
-quarto preview
-Or open \_site/index.html directly in your browser.
+```shell
+npm run docs:serve
+```
+
+This builds the docs and starts a local HTTP server. Alternatively, open `_site/index.html` directly in your browser.
 
 5. Deploy to GitHub Pages
 
@@ -217,6 +220,63 @@ The documentation will automatically deploy when you push to:
 
 - main branch
 - docs/jsdoc branch (for testing)
+
+## React Component Development
+
+MAIDR exposes a reusable `<Maidr>` React component via the `maidr/react` export. Here's what you need to know when working on it:
+
+### Build Commands
+
+```shell
+npm run build          # Builds both vanilla JS bundle and React library
+npm run build:script   # Builds only the vanilla JS bundle (dist/maidr.js)
+npm run build:react    # Builds only the React library (dist/react.mjs + dist/react.d.mts)
+```
+
+The React build uses a separate Vite config (`vite.react.config.ts`) and TypeScript config (`tsconfig.build.json`).
+
+### Key Files
+
+| File                                   | Purpose                                                |
+| -------------------------------------- | ------------------------------------------------------ |
+| `src/maidr-component.tsx`              | The `<Maidr>` React component                          |
+| `src/react-entry.ts`                   | Public API barrel export for `maidr/react`             |
+| `src/state/hook/useMaidrController.ts` | Controller lifecycle hook (focus/blur, create/dispose) |
+| `src/state/context.ts`                 | React Context for per-instance dependency injection    |
+| `src/state/store.ts`                   | Redux store factory (`createMaidrStore()`)             |
+| `vite.react.config.ts`                 | Vite build config for React library                    |
+| `tsconfig.build.json`                  | TypeScript config for declaration generation           |
+
+### Testing with the Test App
+
+A local test app exists at `test-react-app/` (git-ignored) for verifying the React component:
+
+```shell
+# 1. Build the maidr library first
+npm run build
+
+# 2. If the test app doesn't exist yet, create it:
+npm create vite@latest test-react-app -- --template react-ts
+cd test-react-app
+npm install
+npm install ..   # Install local maidr as a dependency
+
+# 3. If the test app already exists:
+cd test-react-app
+npm install      # Re-links the local maidr package
+
+# 4. Run the test app
+npm run dev
+```
+
+The test app imports `Maidr` from `maidr/react` and wraps a bar chart SVG, allowing you to verify focus/blur lifecycle, audio sonification, text descriptions, keyboard navigation, and visual highlighting.
+
+### Architecture Notes
+
+- Each `<Maidr>` instance creates its own isolated Redux store (no global singletons)
+- The Controller is created on focus-in and disposed on focus-out
+- React Context (`MaidrContext`) provides per-instance `viewModelRegistry` and `commandExecutor`
+- React and ReactDOM are **peer dependencies** (not bundled into the library)
 
 ## Code of Conduct
 

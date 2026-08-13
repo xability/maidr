@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Horizontal Concat Box Plot Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <!--
+      Smoke test for buildConcatMaidr — both panels should be independently
+      navigable with their own data. This validates that multi-panel boxplot
+      specs correctly resolve datasets and avoid data-extraction bleed-over.
+    -->
+    <h1>MAIDR + Vega-Lite Horizontal Concat Box Plots</h1>
+    <p>
+      This example shows two box plots side-by-side using hconcat.
+      Click on each chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="concat-box-chart"
+      aria-label="Multi-panel box plot loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Two box plots side-by-side with distinct datasets to detect
+      // data-extraction bleed-over.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        title: 'Side-by-Side Box Plots (hconcat)',
+        description: 'Two independent box plots for smoke testing buildConcatMaidr.',
+        hconcat: [
+          // Left panel: Test Scores by Group (A, B, C)
+          {
+            width: 300,
+            height: 400,
+            title: 'Test Scores',
+            data: {
+              values: [
+                // Group A: 60-80
+                ...Array.from({ length: 20 }, () => ({
+                  group: 'A',
+                  score: 60 + Math.round(Math.random() * 20),
+                })),
+                // Group B: 65-75
+                ...Array.from({ length: 20 }, () => ({
+                  group: 'B',
+                  score: 65 + Math.round(Math.random() * 10),
+                })),
+                // Group C: 50-70
+                ...Array.from({ length: 20 }, () => ({
+                  group: 'C',
+                  score: 50 + Math.round(Math.random() * 20),
+                })),
+              ],
+            },
+            mark: 'boxplot',
+            encoding: {
+              x: { field: 'group', type: 'nominal', title: 'Group' },
+              y: { field: 'score', type: 'quantitative', title: 'Score' },
+            },
+          },
+          // Right panel: Product Ratings by Category (X, Y, Z)
+          {
+            width: 300,
+            height: 400,
+            title: 'Product Ratings',
+            data: {
+              values: [
+                // Category X: 3.5-4.5 stars
+                ...Array.from({ length: 20 }, () => ({
+                  category: 'X',
+                  rating: 3.5 + Math.random(),
+                })),
+                // Category Y: 4.0-5.0 stars
+                ...Array.from({ length: 20 }, () => ({
+                  category: 'Y',
+                  rating: 4.0 + Math.random(),
+                })),
+                // Category Z: 2.5-3.5 stars
+                ...Array.from({ length: 20 }, () => ({
+                  category: 'Z',
+                  rating: 2.5 + Math.random(),
+                })),
+              ],
+            },
+            mark: 'boxplot',
+            encoding: {
+              x: { field: 'category', type: 'nominal', title: 'Category' },
+              y: { field: 'rating', type: 'quantitative', title: 'Rating (stars)' },
+            },
+          },
+        ],
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() should handle hconcat specs by calling
+      // buildConcatMaidr, which creates a multi-subplot MAIDR schema.
+      maidrVegaLite
+        .embed('#concat-box-chart', spec, { id: 'concat-box-smoke-test' })
+        .catch((err) => console.error('[vegalite-hconcat-box]', err));
+    </script>
+  </body>
+</html>

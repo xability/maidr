@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Error Bar Example — Mean Response by Dose</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        An error bar chart draws TWO magnitudes at every sample: the estimate,
+        and how far from it the data is consistent with. Whether two groups
+        differ is answered by whether their intervals overlap - so a reading
+        that names only the estimate drops the finding, not a detail.
+
+        The layer carries the bounds as ABSOLUTE positions on the value axis
+        rather than as offsets from y. Producers disagree about which they hand
+        out (matplotlib's `yerr` is an offset, Vega-Lite computes bounds), so
+        the schema fixes one and each adapter converts to it.
+
+        Navigation is a grid: up and down at one x walk the lower bound, the
+        estimate and the upper bound, while left and right walk the samples.
+        That is what lets a reader trace ONE interval rather than rebuilding it
+        from three passes over the chart.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="432pt" viewBox="0 0 720 432" version="1.1"
+        id="errorbar-response" maidr='{&#10;  "id": "errorbar-response",&#10;  "subplots": [&#10;    [&#10;      {&#10;        "id": "errorbar-response-subplot",&#10;        "layers": [&#10;          {&#10;            "id": "errorbar-response-layer",&#10;            "type": "error_bar",&#10;            "title": "Mean Response by Dose, with 95% Confidence Intervals",&#10;            "axes": {&#10;              "x": {&#10;                "label": "Group"&#10;              },&#10;              "y": {&#10;                "label": "Response"&#10;              }&#10;            },&#10;            "selectors": [&#10;              "g[id=&apos;errorbar-response-0&apos;]",&#10;              "g[id=&apos;errorbar-response-1&apos;]",&#10;              "g[id=&apos;errorbar-response-2&apos;]"&#10;            ],&#10;            "data": [&#10;              {&#10;                "x": "control",&#10;                "y": 4.2,&#10;                "yMin": 3.8,&#10;                "yMax": 4.6&#10;              },&#10;              {&#10;                "x": "low dose",&#10;                "y": 5.1,&#10;                "yMin": 4,&#10;                "yMax": 6.6&#10;              },&#10;              {&#10;                "x": "high dose",&#10;                "y": 7.3,&#10;                "yMin": 7.1,&#10;                "yMax": 7.4&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 432  L 720 432  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="axes-background">
+              <path d="M 110 380  L 650 380  L 650 60  L 110 60  z " style="fill: #ffffff" />
+            </g>
+            <g id="axis_x">
+          <text x="200" y="400" style="font: 12px sans-serif; text-anchor: middle">control</text>
+          <text x="380" y="400" style="font: 12px sans-serif; text-anchor: middle">low dose</text>
+          <text x="560" y="400" style="font: 12px sans-serif; text-anchor: middle">high dose</text>
+            </g>
+        <g id="errorbar-response-0">
+          <path d="M 200 328.8 L 200 277.6" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 193 328.8 L 207 328.8" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 193 277.6 L 207 277.6" style="stroke: #4c78a8; stroke-width: 2" />
+          <circle cx="200" cy="303.2" r="4" style="fill: #4c78a8" />
+        </g>
+        <g id="errorbar-response-1">
+          <path d="M 380 316 L 380 149.60000000000002" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 373 316 L 387 316" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 373 149.60000000000002 L 387 149.60000000000002" style="stroke: #4c78a8; stroke-width: 2" />
+          <circle cx="380" cy="245.60000000000002" r="4" style="fill: #4c78a8" />
+        </g>
+        <g id="errorbar-response-2">
+          <path d="M 560 117.60000000000002 L 560 98.39999999999998" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 553 117.60000000000002 L 567 117.60000000000002" style="stroke: #4c78a8; stroke-width: 2" />
+          <path d="M 553 98.39999999999998 L 567 98.39999999999998" style="stroke: #4c78a8; stroke-width: 2" />
+          <circle cx="560" cy="104.80000000000001" r="4" style="fill: #4c78a8" />
+        </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

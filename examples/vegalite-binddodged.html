@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Dodged Bar Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Dodged Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions.</p>
+    <div
+      id="dodged-bar-chart"
+      aria-label="Dodged bar chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Dodged (grouped) bar: a `bar` mark with x + y + color and
+      // `xOffset: { field: <color field> }` places groups side-by-side
+      // instead of stacking. The MAIDR binder maps this to DODGED.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 600,
+        height: 400,
+        title: 'Passengers by Class and Survival (Dodged)',
+        data: {
+          values: [
+            { class: 'First', survived: 'No', count: 80 },
+            { class: 'First', survived: 'Yes', count: 136 },
+            { class: 'Second', survived: 'No', count: 97 },
+            { class: 'Second', survived: 'Yes', count: 87 },
+            { class: 'Third', survived: 'No', count: 372 },
+            { class: 'Third', survived: 'Yes', count: 119 },
+          ],
+        },
+        mark: 'bar',
+        encoding: {
+          x: { field: 'class', type: 'nominal', title: 'Class' },
+          xOffset: { field: 'survived' },
+          y: { field: 'count', type: 'quantitative', title: 'Passengers' },
+          color: { field: 'survived', type: 'nominal', title: 'Survived' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#dodged-bar-chart', spec, { id: 'titanic-dodged' })
+        .catch((err) => console.error('[vegalite-binddodged]', err));
+    </script>
+  </body>
+</html>

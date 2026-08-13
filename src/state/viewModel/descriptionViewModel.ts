@@ -1,0 +1,75 @@
+import type { PayloadAction } from '@reduxjs/toolkit';
+import type { DescriptionService } from '@service/description';
+import type { DisplayDescriptionState } from '@type/state';
+import type { AppStore } from '../store';
+import { createSlice } from '@reduxjs/toolkit';
+import { AbstractViewModel } from './viewModel';
+
+/**
+ * State interface for the chart description modal.
+ */
+export interface DescriptionMenuState {
+  data: DisplayDescriptionState | null;
+}
+
+const initialState: DescriptionMenuState = {
+  data: null,
+};
+
+const descriptionSlice = createSlice({
+  name: 'description',
+  initialState,
+  reducers: {
+    setDescription(state, action: PayloadAction<DisplayDescriptionState | null>): void {
+      state.data = action.payload;
+    },
+    reset(): DescriptionMenuState {
+      return initialState;
+    },
+  },
+});
+const { setDescription, reset } = descriptionSlice.actions;
+
+/**
+ * ViewModel for managing the chart description modal state.
+ */
+export class DescriptionViewModel extends AbstractViewModel<DescriptionMenuState> {
+  private readonly descriptionService: DescriptionService;
+
+  public constructor(store: AppStore, descriptionService: DescriptionService) {
+    super(store);
+    this.descriptionService = descriptionService;
+  }
+
+  /**
+   * Toggles the description modal, fetching data on open.
+   */
+  public toggle(): void {
+    // only fetch description data when opening the modal, not on close
+    const isCurrentlyOpen = this.store.getState().description.data !== null;
+    if (!isCurrentlyOpen) {
+      const data = this.descriptionService.getDescription();
+      // Nothing to describe: don't enter the DESCRIPTION scope, which would
+      // otherwise trap the user in an invisible modal (Description renders
+      // nothing for null data) recoverable only via Escape.
+      if (data === null) {
+        return;
+      }
+      this.store.dispatch(setDescription(data));
+    } else {
+      this.store.dispatch(setDescription(null));
+    }
+    this.descriptionService.toggle();
+  }
+
+  public override dispose(): void {
+    super.dispose();
+    this.store.dispatch(reset());
+  }
+
+  public get state(): DescriptionMenuState {
+    return this.store.getState().description;
+  }
+}
+
+export default descriptionSlice.reducer;

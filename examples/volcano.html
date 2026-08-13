@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Volcano Plot Example — Differential Expression</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A volcano plot is a scatter read almost entirely through a threshold.
+        Real ones carry tens of thousands of points of which a few dozen
+        matter, so walking them point by point is not access to the chart --
+        it is a very long list.
+
+        What carries the weight is the summary on entry ("5 of 15 above the
+        threshold") and a rotor filter that reaches those five directly.
+
+        IDENTITY is the payload. A reader told "x is 3.4, y is 9.1" has the
+        two numbers the axes already describe and not the one thing they came
+        for, which is that this is UP1.
+
+        The thresholds are DECLARED, never guessed. These charts sit on
+        transformed axes whose conventions differ by field and by tool --
+        -log10(p) at 1.3 for p < 0.05, at 7.3 for genome-wide significance --
+        and a guessed line sorts every point onto the wrong side of it.
+
+        The fixture is built so both cutoffs have to be cleared: LOUD is
+        significant with a small effect, BIG has a large effect and no
+        significance, and DOWN1 and DOWN2 are large effects in the NEGATIVE
+        direction, which a reading that only looked rightwards would drop.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="760pt" height="380pt" viewBox="0 0 760 380" version="1.1"
+        id="volcano-expression" maidr='{&#10;  &quot;id&quot;: &quot;volcano-expression&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;volcano-expression-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;volcano-expression-layer&quot;,&#10;            &quot;type&quot;: &quot;volcano&quot;,&#10;            &quot;title&quot;: &quot;Differential Expression&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Log2 fold change&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Minus log10 p&quot;&#10;              }&#10;            },&#10;            &quot;thresholdOptions&quot;: {&#10;              &quot;significance&quot;: 5,&#10;              &quot;effect&quot;: 2&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;volcano-points&#x27;] &gt; circle&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: 0.2,&#10;                &quot;y&quot;: 0.5,&#10;                &quot;label&quot;: &quot;QUIET1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -0.4,&#10;                &quot;y&quot;: 0.9,&#10;                &quot;label&quot;: &quot;QUIET2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 0.9,&#10;                &quot;y&quot;: 1.4,&#10;                &quot;label&quot;: &quot;QUIET3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -1.1,&#10;                &quot;y&quot;: 0.7,&#10;                &quot;label&quot;: &quot;QUIET4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 1.5,&#10;                &quot;y&quot;: 1.9,&#10;                &quot;label&quot;: &quot;QUIET5&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -1.8,&#10;                &quot;y&quot;: 2.4,&#10;                &quot;label&quot;: &quot;QUIET6&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 2.2,&#10;                &quot;y&quot;: 3.1,&#10;                &quot;label&quot;: &quot;MILD1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -2.4,&#10;                &quot;y&quot;: 4.2,&#10;                &quot;label&quot;: &quot;MILD2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 0.4,&#10;                &quot;y&quot;: 8.8,&#10;                &quot;label&quot;: &quot;LOUD&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 4.9,&#10;                &quot;y&quot;: 0.9,&#10;                &quot;label&quot;: &quot;BIG&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 3.4,&#10;                &quot;y&quot;: 9.1,&#10;                &quot;label&quot;: &quot;UP1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 2.6,&#10;                &quot;y&quot;: 6.2,&#10;                &quot;label&quot;: &quot;UP2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 4.1,&#10;                &quot;y&quot;: 11.4,&#10;                &quot;label&quot;: &quot;UP3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -3.1,&#10;                &quot;y&quot;: 7.7,&#10;                &quot;label&quot;: &quot;DOWN1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: -4.4,&#10;                &quot;y&quot;: 10.2,&#10;                &quot;label&quot;: &quot;DOWN2&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 380  L 760 380  L 760 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <line x1="80" y1="205.0" x2="700" y2="205.0"
+              style="stroke: #bbb; stroke-dasharray: 4 3" />
+            <line x1="504.0" y1="60" x2="504.0" y2="315"
+              style="stroke: #bbb; stroke-dasharray: 4 3" />
+            <line x1="256.0" y1="60" x2="256.0" y2="315"
+              style="stroke: #bbb; stroke-dasharray: 4 3" />
+            <g id="volcano-points">
+          <circle cx="392.4" cy="299.5" r="5" style="fill: #999" />
+          <circle cx="355.2" cy="291.1" r="5" style="fill: #999" />
+          <circle cx="435.8" cy="280.6" r="5" style="fill: #999" />
+          <circle cx="311.8" cy="295.3" r="5" style="fill: #999" />
+          <circle cx="473.0" cy="270.1" r="5" style="fill: #999" />
+          <circle cx="268.4" cy="259.6" r="5" style="fill: #999" />
+          <circle cx="516.4" cy="244.9" r="5" style="fill: #999" />
+          <circle cx="231.2" cy="221.8" r="5" style="fill: #999" />
+          <circle cx="404.8" cy="125.2" r="5" style="fill: #999" />
+          <circle cx="683.8" cy="291.1" r="5" style="fill: #999" />
+          <circle cx="590.8" cy="118.9" r="5" style="fill: #c44e52" />
+          <circle cx="541.2" cy="179.8" r="5" style="fill: #c44e52" />
+          <circle cx="634.2" cy="70.6" r="5" style="fill: #c44e52" />
+          <circle cx="187.8" cy="148.3" r="5" style="fill: #c44e52" />
+          <circle cx="107.2" cy="95.8" r="5" style="fill: #c44e52" />
+            </g>
+            <g id="axis_x">
+          <text x="132.0" y="336" style="font: 12px sans-serif; text-anchor: middle">-4</text>
+          <text x="380.0" y="336" style="font: 12px sans-serif; text-anchor: middle">0</text>
+          <text x="628.0" y="336" style="font: 12px sans-serif; text-anchor: middle">4</text>
+              <text x="380" y="360" style="font: 13px sans-serif; text-anchor: middle">Log2 fold change</text>
+            </g>
+            <g id="chart-title">
+              <text x="380" y="42" style="font: 16px sans-serif; text-anchor: middle">Differential Expression</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
