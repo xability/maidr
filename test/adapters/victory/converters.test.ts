@@ -676,6 +676,27 @@ describe('waterfall', () => {
     expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
   });
 
+  it('reads a chain the caller accumulated in floating point', () => {
+    // A chart that knows its deltas and its running totals derives each bar's
+    // foot as `end - delta`, which misses the previous bar's end by a ULP or
+    // so. Requiring the two to be bit-identical would demote a real waterfall
+    // to a bar chart over a difference no reader could perceive.
+    const deltas = [0.1, 0.2, 0.3];
+    let total = 0;
+    const running = deltas.map((delta, i) => {
+      total += delta;
+      return { x: `Step ${i}`, y: total, y0: total - delta };
+    });
+    // The premise of the test: the chain does not survive an exact comparison.
+    expect(running[1].y0).not.toBe(running[0].y);
+
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryBar, { data: running })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.WATERFALL);
+  });
+
   it('keeps unchained floating bars a bar chart', () => {
     // A range bar and a gantt row float the same way a waterfall step does;
     // without the chain there is nothing to tell them apart, so the adapter

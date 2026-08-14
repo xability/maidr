@@ -646,6 +646,23 @@ function extractErrorBarData(
 const WATERFALL_BASELINE = 0;
 
 /**
+ * How far a step may miss the previous step's end and still count as chained.
+ *
+ * The chain test is what separates a waterfall from a range bar, so it has to
+ * stay tight — but a running total built by arithmetic (percentages, divided
+ * quantities) lands a fraction of a ULP off the value it was accumulated from,
+ * and an exact comparison would demote such a chart to a plain bar chart with
+ * nothing reported. This tolerance is far below any spacing a reader could
+ * perceive and far above float drift.
+ */
+const WATERFALL_CHAIN_EPSILON = 1e-9;
+
+/** Whether two waterfall bounds meet, allowing for float drift. */
+function meets(a: number, b: number): boolean {
+  return Math.abs(a - b) <= WATERFALL_CHAIN_EPSILON;
+}
+
+/**
  * Extracts data from a VictoryBar whose bars float on a per-datum `y0`.
  *
  * `y0` is an ordinary Victory accessor prop, so a floating bar is native
@@ -681,16 +698,16 @@ function extractWaterfallData(
   if (steps.some(s => !Number.isFinite(s.start) || !Number.isFinite(s.end)))
     return null;
 
-  const floats = steps.some(s => s.start !== WATERFALL_BASELINE);
+  const floats = steps.some(s => !meets(s.start, WATERFALL_BASELINE));
   const chains = steps.every((s, i) =>
-    i === 0 || s.start === WATERFALL_BASELINE || s.start === steps[i - 1].end);
+    i === 0 || meets(s.start, WATERFALL_BASELINE) || meets(s.start, steps[i - 1].end));
   if (!floats || !chains)
     return null;
 
   const points: WaterfallPoint[] = steps.map(({ x, start, end }) => {
     const delta = end - start;
     let kind: WaterfallKind = delta < 0 ? 'decrease' : 'increase';
-    if (start === WATERFALL_BASELINE)
+    if (meets(start, WATERFALL_BASELINE))
       kind = 'total';
     return { x, start, end, delta, kind };
   });
