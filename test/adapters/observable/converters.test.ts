@@ -397,3 +397,25 @@ describe('pairing data with the elements it describes', () => {
     expect(document.querySelectorAll(layer?.selectors as string)).toHaveLength(5);
   });
 });
+
+describe('histograms binned down the other axis', () => {
+  it('reads a horizontal histogram from the axis its bins run along', () => {
+    // `binX` and `binY` both draw a `rect` mark, and nothing in the DOM says
+    // which axis was binned. Assuming the vertical case turns a horizontal
+    // histogram into a set of identical bars whose value is the width of a bin
+    // — the same number for every one of them, none of it in the data.
+    const layer = onlyLayer('horizontalHistogram');
+    const data = layer.data as HistogramPoint[];
+
+    expect(layer.type).toBe(TraceType.HISTOGRAM);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([
+      [0, 2],
+      [2, 4],
+      [4, 6],
+      [6, 8],
+      [8, 10],
+    ]);
+    expect(data.map(bin => bin.y)).toEqual([8, 8, 8, 8, 8]);
+  });
+});

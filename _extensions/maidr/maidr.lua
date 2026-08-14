@@ -24,6 +24,14 @@
 
 local DEFAULT_BASE_URL = 'https://cdn.jsdelivr.net/npm/maidr'
 
+--- Whether the scripts have already been added to this document.
+-- Quarto merges the project's filter list with the document's, so a project
+-- that names this filter in `_quarto.yml` and again in a document runs it
+-- twice — and loading the runtime twice is not harmless: it redefines the
+-- globals the first copy installed and starts a second watcher over the same
+-- page.
+local injected = false
+
 --- Reads a metadata value as a plain string.
 -- @param value the metadata value, or nil when the option is absent
 -- @return the string, or nil when the option is absent or empty
@@ -70,9 +78,10 @@ end
 -- @param meta the document metadata
 -- @return nil, leaving the metadata unchanged
 function Meta(meta)
-  if not quarto.doc.is_format('html:js') then
+  if injected or not quarto.doc.is_format('html:js') then
     return nil
   end
+  injected = true
 
   local base = base_url(meta)
   quarto.doc.include_text('in-header', table.concat({

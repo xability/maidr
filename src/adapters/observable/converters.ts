@@ -432,8 +432,16 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
   if (!isContinuous(scales.x) || !isContinuous(scales.y))
     return null;
 
+  // Which axis the bins run along is not stated anywhere; `binX` and `binY`
+  // both draw a `rect`. It is visible in the geometry: the bars all start at
+  // the same baseline on the value axis and tile along the binned one. Read the
+  // wrong way round, a horizontal histogram becomes a set of identical bars
+  // whose value is the width of a bin.
+  const binned = binnedOrientation(facet.elements);
+  const binScale = binned === Orientation.VERTICAL ? scales.x : scales.y;
+
   const bins = facet.elements
-    .map(element => readRectDatum(element, scales, Orientation.VERTICAL, false))
+    .map(element => readRectDatum(element, scales, binned, false))
     .filter((datum): datum is MarkDatum => datum !== null);
   if (bins.length === 0)
     return null;
@@ -445,17 +453,17 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
   // that the fill was added to show.
   if (hasStackedBins(bins)) {
     const columns = distinctBins(bins);
-    const edges = uniformBinEdges(columns, scales.x);
+    const edges = uniformBinEdges(columns, binScale);
     return buildBarLayer(
       bins.map(bin => binAsCategory(bin, columns, edges)),
       context,
-      Orientation.VERTICAL,
+      binned,
       TraceType.BAR,
     );
   }
 
   const ordered = orderedByBin(bins);
-  const data = toHistogramPoints(ordered, scales.x);
+  const data = toHistogramPoints(ordered, binScale);
   // The bins are announced left to right, so the elements are moved to match:
   // a selector resolves in document order, and Plot draws pre-binned intervals
   // in whatever order the author's rows arrived in.
@@ -467,6 +475,7 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
     layer: {
       id: token,
       type: TraceType.HISTOGRAM,
+      orientation: binned,
       selectors: stampLayer(ordered.map(bin => bin.element), context.containerId, token),
       axes: axisConfig(context),
       data,
@@ -475,16 +484,46 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
 }
 
 /**
- * The interval of the x axis a rect covers, ordered low to high.
+ * Which axis a binned rect mark's bins run along.
  *
- * @param scales - The plot's scales.
- * @param x      - The rect's left edge in pixels.
- * @param width  - The rect's width in pixels.
+ * A histogram's bars all start at the same place on the value axis — the
+ * baseline the counts grow from — and are spread out along the binned one. So
+ * the axis whose starting coordinate every bar shares is the value axis, and
+ * the other one carries the bins.
+ *
+ * @param elements - The mark's rects.
+ * @returns The orientation, defaulting to vertical for a single bar, where
+ *          there is nothing to tell the two apart.
+ */
+function binnedOrientation(elements: readonly Element[]): Orientation {
+  const xs = new Set<number>();
+  const ys = new Set<number>();
+  for (const element of elements) {
+    const x = attributeNumber(element, 'x');
+    const y = attributeNumber(element, 'y');
+    if (x !== null)
+      xs.add(x);
+    if (y !== null)
+      ys.add(y);
+  }
+  return xs.size === 1 && ys.size > 1 ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+}
+
+/**
+ * The interval of one axis a rect covers, ordered low to high.
+ *
+ * @param scale  - The scale that axis is drawn on.
+ * @param start  - The rect's near edge in pixels.
+ * @param extent - Its size in pixels along that axis.
  * @returns The bin's bounds in data units.
  */
-function binEdges(scales: PlotScales, x: number, width: number): { xMin: number; xMax: number } {
-  const near = toNumber(valueAtPixel(scales.x, x)) ?? 0;
-  const far = toNumber(valueAtPixel(scales.x, x + width)) ?? 0;
+function binEdgesAlong(
+  scale: PlotScale | undefined,
+  start: number,
+  extent: number,
+): { xMin: number; xMax: number } {
+  const near = toNumber(valueAtPixel(scale, start)) ?? 0;
+  const far = toNumber(valueAtPixel(scale, start + extent)) ?? 0;
   return { xMin: Math.min(near, far), xMax: Math.max(near, far) };
 }
 
@@ -958,14 +997,16 @@ function readRectDatum(
       // Ordered rather than left-then-right: a reversed x axis draws the
       // interval's larger value at the smaller pixel, and a bin that reports a
       // minimum above its maximum reads as an empty range.
-      ...(categorical ? {} : binEdges(scales, x, width)),
+      ...(categorical ? {} : binEdgesAlong(scales.x, x, width)),
       ...seriesField,
     };
   }
 
   const right = toNumber(valueAtPixel(scales.x, x + width));
   const left = toNumber(valueAtPixel(scales.x, x));
-  const base = valueAtPixel(scales.y, y + height / 2);
+  const base = categorical
+    ? valueAtPixel(scales.y, y + height / 2)
+    : toNumber(valueAtPixel(scales.y, y + height / 2));
   if (right === null || left === null || base === null)
     return null;
 
@@ -975,6 +1016,8 @@ function readRectDatum(
     y: signedMagnitude(right, left),
     yMin: Math.min(left, right),
     yMax: Math.max(left, right),
+    // A horizontal histogram bins along y, so that is where its intervals are.
+    ...(categorical ? {} : binEdgesAlong(scales.y, y, height)),
     ...seriesField,
   };
 }

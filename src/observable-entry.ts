@@ -35,6 +35,7 @@ import {
   autoInitQuartoObservable,
   bindObservablePlot,
   initQuartoObservable,
+  stopQuartoObservable,
 } from './adapters/observable/quarto';
 
 export { observablePlotToMaidr } from './adapters/observable/converters';
@@ -43,6 +44,7 @@ export {
   autoInitQuartoObservable,
   bindObservablePlot,
   initQuartoObservable,
+  stopQuartoObservable,
 } from './adapters/observable/quarto';
 
 export type {
@@ -64,6 +66,7 @@ declare global {
     maidrObservable?: {
       bindObservablePlot: typeof bindObservablePlot;
       initQuartoObservable: typeof initQuartoObservable;
+      stopQuartoObservable: typeof stopQuartoObservable;
       observablePlotToMaidr: typeof observablePlotToMaidr;
       isObservablePlot: typeof isObservablePlot;
     };
@@ -73,11 +76,15 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  window.maidrObservable = {
+  // Merged, not assigned. The UMD build has already put every export on this
+  // global; replacing it would drop the ones not named here — the enums a
+  // script-tag consumer needs to read a layer's `type`, among them.
+  window.maidrObservable = Object.assign(window.maidrObservable ?? {}, {
     bindObservablePlot,
     initQuartoObservable,
+    stopQuartoObservable,
     observablePlotToMaidr,
     isObservablePlot,
-  };
+  });
   autoInitQuartoObservable();
 }

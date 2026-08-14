@@ -58,6 +58,7 @@ export {
   autoInitQuartoObservable,
   bindObservablePlot,
   initQuartoObservable,
+  stopQuartoObservable,
 } from './quarto';
 export type {
   MarkDatum,

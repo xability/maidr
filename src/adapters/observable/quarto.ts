@@ -39,6 +39,18 @@ const LOG_PREFIX = '[maidr/observable]';
 const bound = new WeakSet<Element>();
 
 /**
+ * SVGs that are not Plot charts, so a re-scan does not test them again.
+ *
+ * A page mutates for reasons that have nothing to do with charts, and every
+ * mutation schedules a scan; without this, each one re-tests every icon and
+ * illustration in the document.
+ */
+const notPlots = new WeakSet<Element>();
+
+/** The watcher the automatic start owns, so it can be stopped and not doubled. */
+let autoWatcher: (() => void) | null = null;
+
+/**
  * Converts a rendered Observable Plot chart and hands it to MAIDR.
  *
  * Writes the schema to the chart's `<svg>` as a `maidr-data` attribute and
@@ -179,16 +191,44 @@ export function autoInitQuartoObservable(): (() => void) | null {
     return null;
   if ((window as Window & { maidrObservableAutoInit?: boolean }).maidrObservableAutoInit === false)
     return null;
+  // A page that loads the bundle twice — a Quarto project with the filter in
+  // both `_quarto.yml` and a document, say — would otherwise get two watchers
+  // scanning the same document forever.
+  if (autoWatcher)
+    return autoWatcher;
 
-  if (document.readyState === 'loading') {
-    let stop: (() => void) | null = null;
-    document.addEventListener('DOMContentLoaded', () => {
-      stop = initQuartoObservable();
-    }, { once: true });
-    return () => stop?.();
+  if (document.readyState !== 'loading') {
+    autoWatcher = initQuartoObservable();
+    return autoWatcher;
   }
 
-  return initQuartoObservable();
+  // Stopping before the document is ready has to cancel the pending start, not
+  // just the watcher that does not exist yet.
+  let stop: (() => void) | null = null;
+  let cancelled = false;
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!cancelled)
+      stop = initQuartoObservable();
+  }, { once: true });
+
+  autoWatcher = () => {
+    cancelled = true;
+    stop?.();
+    stop = null;
+  };
+  return autoWatcher;
+}
+
+/**
+ * Stops the watcher {@link autoInitQuartoObservable} started, if it started one.
+ *
+ * Charts already bound stay bound; this only stops new ones being picked up.
+ * Exposed so a single-page app can hand the page back cleanly, and so a test
+ * can turn the adapter off.
+ */
+export function stopQuartoObservable(): void {
+  autoWatcher?.();
+  autoWatcher = null;
 }
 
 /**
@@ -251,11 +291,16 @@ function claimCell(cell: Element, svg: Element): void {
  */
 function findUnboundPlots(root: ParentNode): Element[] {
   const found: Element[] = [];
-  for (const svg of Array.from(root.querySelectorAll('svg'))) {
-    if (bound.has(svg) || svg.hasAttribute('maidr-data'))
+  // `:not([maidr-data])` narrows the query itself, and everything already
+  // rejected is remembered — otherwise every insertion anywhere on the page
+  // re-tests every SVG the document happens to contain, icons included.
+  for (const svg of Array.from(root.querySelectorAll('svg:not([maidr-data])'))) {
+    if (bound.has(svg) || notPlots.has(svg))
       continue;
     if (isObservablePlot(svg))
       found.push(svg);
+    else
+      notPlots.add(svg);
   }
   return found;
 }
