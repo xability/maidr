@@ -540,7 +540,7 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
-  describe('treemap and sunburst', () => {
+  describe('treemap, sunburst and icicle', () => {
     const hierarchyConfig: RechartsAdapterConfig = {
       id: 'regions',
       title: 'Population by Region',
@@ -600,6 +600,33 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.data).toEqual(
         convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
       );
+    });
+
+    it('reads an icicle as the same hierarchy, drawn as floating bands', () => {
+      const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'icicle' });
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.ICICLE);
+      // Recharts draws no icicle, so the bands are floating `<Bar>`
+      // rectangles — one per row, the same recipe a gantt uses.
+      expect(layer.selectors).toBe(
+        '#maidr-article-regions .recharts-bar-rectangle .recharts-rectangle',
+      );
+      expect(layer.data).toEqual(
+        convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
+      );
+    });
+
+    it('never orients an icicle, however its bands happen to run', () => {
+      const layer = convertRechartsToMaidr({
+        ...hierarchyConfig,
+        chartType: 'icicle',
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // The bars are the layout the tree was given, not an axis a reader
+      // walks: an icicle is navigated as the hierarchy it is.
+      expect(layer.orientation).toBeUndefined();
     });
   });
 
@@ -1048,6 +1075,58 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('polar area chart', () => {
+    const polarConfig: RechartsAdapterConfig = {
+      id: 'nightingale',
+      title: 'Deaths by Month',
+      data: [
+        { month: 'Jan', deaths: 120 },
+        { month: 'Feb', deaths: 84 },
+        { month: 'Mar', deaths: 61 },
+      ],
+      chartType: 'polar_area',
+      xKey: 'month',
+      yKeys: ['deaths'],
+      xLabel: 'Month',
+      yLabel: 'Deaths',
+    };
+
+    it('converts a coxcomb to a radar\'s payload — one value per spoke', () => {
+      const layer = convertRechartsToMaidr(polarConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.POLAR_AREA);
+
+      // Wedges rather than an outline is what the chart looks like; a reader
+      // navigates the same spokes either way, so the data is a line's.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([[
+        { x: 'Jan', y: 120 },
+        { x: 'Feb', y: 84 },
+        { x: 'Mar', y: 61 },
+      ]]);
+    });
+
+    it('targets the pie sectors that draw the wedges', () => {
+      const layer = convertRechartsToMaidr(polarConfig).subplots[0][0].layers[0];
+
+      // A `RadarTrace` is a `LineTrace`, so the selector is a list even for
+      // the single series a coxcomb draws.
+      expect(layer.selectors).toEqual([
+        '#maidr-article-nightingale .recharts-pie-sector .recharts-sector',
+      ]);
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...polarConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // Wedges sit around a circle, not along an axis — same as a radar.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
   describe('bump chart', () => {
     const bumpConfig: RechartsAdapterConfig = {
       id: 'bump',
@@ -1470,7 +1549,7 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
-  describe('alluvial diagram', () => {
+  describe('alluvial and sankey diagrams', () => {
     const nodes = [
       { name: 'Free' },
       { name: 'Trial' },
@@ -1542,6 +1621,31 @@ describe('convertRechartsToMaidr', () => {
     it('throws when the flow config is missing', () => {
       expect(() => convertRechartsToMaidr({
         ...alluvialConfig,
+        flowConfig: undefined,
+      })).toThrow('RechartsAdapter');
+    });
+
+    it('reads a sankey as the same weighted graph, drawn as one budget', () => {
+      const result = convertRechartsToMaidr({ ...alluvialConfig, chartType: 'sankey' });
+
+      const sankey = result.subplots[0][0].layers[0];
+
+      expect(sankey.type).toBe(TraceType.SANKEY);
+      // Whether the node set repeats at each stage is what tells the two
+      // apart, and that is a fact about the data rather than the payload.
+      expect(sankey.data).toEqual(
+        convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0].data,
+      );
+      expect(sankey.selectors).toBe(
+        '#maidr-article-flow .recharts-sankey-links .recharts-sankey-link',
+      );
+      expect(sankey.orientation).toBeUndefined();
+    });
+
+    it('throws for a sankey with no flow config either', () => {
+      expect(() => convertRechartsToMaidr({
+        ...alluvialConfig,
+        chartType: 'sankey',
         flowConfig: undefined,
       })).toThrow('RechartsAdapter');
     });

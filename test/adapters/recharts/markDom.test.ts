@@ -95,6 +95,24 @@ const flowLinks = [
   { source: 1, target: 3, value: 13 },
 ];
 
+// A coxcomb is a `<Pie>` whose angles are all equal — hence the constant
+// `slice` field its dataKey reads — and whose radius is the measure.
+const coxcombData = [
+  { month: 'Jan', deaths: 120, slice: 1 },
+  { month: 'Feb', deaths: 84, slice: 1 },
+  { month: 'Mar', deaths: 61, slice: 1 },
+];
+
+// An icicle's bands are floating bars over a depth lane, one row per node, so
+// the rows have to be the flattened tree in the order the adapter emits it.
+const icicleBands = [
+  { name: 'Europe', depth: '0', from: 0, to: 100 },
+  { name: 'France', depth: '1', from: 0, to: 59 },
+  { name: 'Spain', depth: '1', from: 59, to: 100 },
+  { name: 'Oceania', depth: '0', from: 100, to: 101 },
+  { name: 'Fiji', depth: '1', from: 100, to: 101 },
+];
+
 const configs = {
   funnel: {
     id: 'funnel-dom',
@@ -189,6 +207,28 @@ const configs = {
     xKey: 'name',
     yKeys: ['people'],
   },
+  icicle: {
+    id: 'icicle-dom',
+    data: hierarchyData,
+    chartType: 'icicle' as const,
+    xKey: 'name',
+    yKeys: ['people'],
+  },
+  sankey: {
+    id: 'sankey-dom',
+    data: flowLinks,
+    chartType: 'sankey' as const,
+    xKey: 'source',
+    yKeys: ['value'],
+    flowConfig: { targetKey: 'target', nodes: flowNodes },
+  },
+  polarArea: {
+    id: 'polar-dom',
+    data: coxcombData,
+    chartType: 'polar_area' as const,
+    xKey: 'month',
+    yKeys: ['deaths'],
+  },
 };
 
 interface MutableGlobals {
@@ -264,6 +304,8 @@ beforeAll(async () => {
     FunnelChart,
     Line,
     LineChart,
+    Pie,
+    PieChart,
     RadialBar,
     RadialBarChart,
     Sankey,
@@ -379,6 +421,31 @@ beforeAll(async () => {
         data: { name: 'World', children: hierarchyData },
         dataKey: 'people',
       })),
+      wrap(configs.icicle, createElement(
+        BarChart,
+        { width: 320, height: 220, layout: 'vertical', data: icicleBands },
+        createElement(XAxis, { type: 'number' }),
+        createElement(YAxis, { type: 'category', dataKey: 'depth' }),
+        createElement(Bar, { dataKey: floatingSpan('from', 'to'), isAnimationActive: false }),
+      )),
+      wrap(configs.sankey, createElement(Sankey, {
+        width: 480,
+        height: 300,
+        data: { nodes: flowNodes, links: flowLinks },
+      })),
+      wrap(configs.polarArea, createElement(
+        PieChart,
+        { width: 320, height: 320 },
+        createElement(Pie, {
+          data: coxcombData,
+          // Equal angles come from the constant field; the measure is the
+          // RADIUS, which is what makes the pie a coxcomb.
+          dataKey: 'slice',
+          nameKey: 'month',
+          outerRadius: (row: unknown) => Number((row as { deaths: number }).deaths),
+          isAnimationActive: false,
+        }),
+      )),
     ));
   });
 });
@@ -467,6 +534,25 @@ describe('recharts rendered mark contract', () => {
   it('matches one sunburst sector per node, in depth-first order', () => {
     expect(document.querySelectorAll(firstSelector(maidr.sunburst)))
       .toHaveLength(hierarchyNodes);
+  });
+
+  it('matches one floating band per icicle node', () => {
+    // Recharts draws no icicle, so it is a `<BarChart layout="vertical">` of
+    // floating bars over a depth lane. One rectangle per ROW, which is why
+    // the rows have to be the tree flattened depth-first pre-order — the
+    // order the adapter emits its nodes in.
+    expect(document.querySelectorAll(firstSelector(maidr.icicle)))
+      .toHaveLength(hierarchyNodes);
+  });
+
+  it('matches one ribbon per sankey flow, in the order the links were declared', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.sankey)))
+      .toHaveLength(flowLinks.length);
+  });
+
+  it('matches one pie sector per polar area spoke', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.polarArea)))
+      .toHaveLength(coxcombData.length);
   });
 
   it('scopes every selector to its own chart', () => {

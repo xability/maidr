@@ -18,6 +18,7 @@ import { AreaChartExample } from './examples/AreaChartExample';
 import { StackedAreaExample } from './examples/StackedAreaExample';
 import { NormalizedAreaExample } from './examples/NormalizedAreaExample';
 import { RadarChartExample } from './examples/RadarChartExample';
+import { PolarAreaExample } from './examples/PolarAreaExample';
 import { BumpChartExample } from './examples/BumpChartExample';
 import { SurvivalCurveExample } from './examples/SurvivalCurveExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
@@ -26,8 +27,10 @@ import { ManhattanPlotExample } from './examples/ManhattanPlotExample';
 import { ErrorBarExample } from './examples/ErrorBarExample';
 import { ForestPlotExample } from './examples/ForestPlotExample';
 import { AlluvialExample } from './examples/AlluvialExample';
+import { SankeyExample } from './examples/SankeyExample';
 import { TreemapExample } from './examples/TreemapExample';
 import { SunburstExample } from './examples/SunburstExample';
+import { IcicleExample } from './examples/IcicleExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
 import { FacetExample } from './examples/FacetExample';
 
@@ -50,6 +53,7 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Area', component: StackedAreaExample },
   { name: 'Normalized Area', component: NormalizedAreaExample },
   { name: 'Radar Chart', component: RadarChartExample },
+  { name: 'Polar Area', component: PolarAreaExample },
   { name: 'Bump Chart', component: BumpChartExample },
   { name: 'Survival Curve', component: SurvivalCurveExample },
   { name: 'Scatter Chart', component: ScatterChartExample },
@@ -58,8 +62,10 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Error Bars', component: ErrorBarExample },
   { name: 'Forest Plot', component: ForestPlotExample },
   { name: 'Alluvial', component: AlluvialExample },
+  { name: 'Sankey', component: SankeyExample },
   { name: 'Treemap', component: TreemapExample },
   { name: 'Sunburst', component: SunburstExample },
+  { name: 'Icicle', component: IcicleExample },
   { name: 'Composed Chart', component: ComposedChartExample },
   { name: 'Faceted (Multi-Panel)', component: FacetExample },
 ];

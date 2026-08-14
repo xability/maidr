@@ -75,12 +75,17 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('error_bar')).toBe('.recharts-errorBars .recharts-errorBar');
     });
 
-    it('returns scoped sankey link selector for alluvial type', () => {
+    it('returns scoped sankey link selector for alluvial and sankey types', () => {
+      // Both are drawn by the same `<Sankey>`, so both highlight its ribbons.
       expect(getRechartsSelector('alluvial')).toBe('.recharts-sankey-links .recharts-sankey-link');
+      expect(getRechartsSelector('sankey')).toBe('.recharts-sankey-links .recharts-sankey-link');
     });
 
-    it('returns scoped pie sector selector for pie type', () => {
+    it('returns scoped pie sector selector for pie and polar_area types', () => {
+      // A coxcomb is a `<Pie>` of equal-angle slices with a per-datum radius,
+      // so its wedges are the same sectors a pie's slices are.
       expect(getRechartsSelector('pie')).toBe('.recharts-pie-sector .recharts-sector');
+      expect(getRechartsSelector('polar_area')).toBe('.recharts-pie-sector .recharts-sector');
     });
 
     it('returns scoped bar rectangle selector for diverging_bar type', () => {
@@ -88,11 +93,13 @@ describe('getRechartsSelector', () => {
     });
 
     it('returns scoped bar rectangle selector for the floating-bar types', () => {
-      // A waterfall step, a gantt interval and a dumbbell connector are each
-      // one `<Bar>` rectangle that does not start at the baseline.
+      // A waterfall step, a gantt interval, a dumbbell connector and an icicle
+      // band are each one `<Bar>` rectangle that does not start at the
+      // baseline. Recharts draws no icicle of its own, so that is the recipe.
       expect(getRechartsSelector('waterfall')).toBe('.recharts-bar-rectangle .recharts-rectangle');
       expect(getRechartsSelector('gantt')).toBe('.recharts-bar-rectangle .recharts-rectangle');
       expect(getRechartsSelector('dumbbell')).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      expect(getRechartsSelector('icicle')).toBe('.recharts-bar-rectangle .recharts-rectangle');
     });
 
     it('returns scoped radial bar sector selector for gauge type', () => {

@@ -754,12 +754,14 @@ function convertData(
       return convertToBarPoints(data, xKey, yKey);
     // The area, radar and bump families are all read as a line is: one value
     // per sample. What the stacking, the circle and the rank change is how
-    // the model announces them, not what the adapter has to emit.
+    // the model announces them, not what the adapter has to emit. A polar area
+    // is a radar whose spokes are drawn as wedges, so it lands here too.
     case 'line':
     case 'area':
     case 'stacked_area':
     case 'normalized_area':
     case 'radar':
+    case 'polar_area':
     case 'bump':
       return convertToLinePoints(data, xKey, yKey);
     // A composed chart carries one curve per layer, so it reads the first
@@ -777,14 +779,19 @@ function convertData(
       return convertToErrorBarPoints(data, xKey, yKey, config.errorConfig);
     case 'forest':
       return convertToForestPoints(data, xKey, yKey, config.errorConfig, config.forestConfig);
+    // Both are the same weighted graph: a `<Sankey>` of links between nodes.
+    // Whether the node set repeats at each stage is what tells the two apart,
+    // and that is a fact about the data rather than about the payload.
     case 'alluvial':
+    case 'sankey':
       return convertToFlowPoints(data, xKey, yKey, config.flowConfig);
     case 'waterfall':
       return convertToWaterfallPoints(data, xKey, yKey, config.waterfallConfig);
-    // A treemap and a sunburst are the same hierarchy, and differ only in
-    // whether it is drawn as area or as rings.
+    // A treemap, a sunburst and an icicle are the same hierarchy, and differ
+    // only in whether it is drawn as nested area, as rings or as bands.
     case 'treemap':
     case 'sunburst':
+    case 'icicle':
       return convertToTreemapPoints(data, xKey, yKey);
     case 'pie':
       return convertToPiePoints(data, xKey, yKey);
@@ -1164,7 +1171,7 @@ function convertToFlowPoints(
   flowConfig?: RechartsAdapterConfig['flowConfig'],
 ): FlowPoint[] {
   if (!flowConfig) {
-    throw new Error('RechartsAdapter: flowConfig with a targetKey is required when chartType is "alluvial"');
+    throw new Error('RechartsAdapter: flowConfig with a targetKey is required when chartType is "alluvial" or "sankey"');
   }
 
   const { targetKey, nodes, nodeNameKey } = flowConfig;
@@ -1219,11 +1226,13 @@ function isBarType(chartType: RechartsChartType): boolean {
 /**
  * Returns the orientation to emit for a layer of the given chart type.
  *
- * Bar-like layers default to vertical. A pie and a radar are never oriented —
- * their marks sit around a circle rather than along an axis — so a config-level
- * `orientation` (meaningful for the other layers of a composed chart) must not
- * leak onto one. Neither is a flow diagram, whose marks run between nodes, a
- * hierarchy, a gauge, or a waterfall, whose steps march one way only.
+ * Bar-like layers default to vertical. A pie, a radar and a polar area are
+ * never oriented — their marks sit around a circle rather than along an axis —
+ * so a config-level `orientation` (meaningful for the other layers of a
+ * composed chart) must not leak onto one. Neither is a flow diagram, whose
+ * marks run between nodes, a hierarchy, a gauge, or a waterfall, whose steps
+ * march one way only. An icicle is a hierarchy however it happens to be drawn:
+ * the bars are the layout it was given, not an axis a reader walks.
  *
  * A funnel is left out for a different reason: `FunnelTrace` is a `BarTrace`,
  * and a horizontal bar carries its category in `y` rather than `x`. The
@@ -1241,12 +1250,15 @@ function layerOrientation(
   switch (chartType) {
     case 'pie':
     case 'radar':
+    case 'polar_area':
     case 'funnel':
     case 'alluvial':
+    case 'sankey':
     case 'gauge':
     case 'waterfall':
     case 'treemap':
     case 'sunburst':
+    case 'icicle':
       return undefined;
     case 'gantt':
       return orientation ?? Orientation.HORIZONTAL;
@@ -1281,15 +1293,17 @@ function isStackedAreaType(chartType: RechartsChartType): boolean {
 /**
  * Returns true if the chart type maps to a line-like MAIDR type.
  *
- * The whole area family, radar, bump and survival belong here: every one of
- * them is a `LineTrace` subclass in the model, so each expects `LinePoint[][]`
- * data and `selectors` as a `string[]` rather than a bare string.
+ * The whole area family, radar, polar area, bump and survival belong here:
+ * every one of them is a `LineTrace` subclass in the model, so each expects
+ * `LinePoint[][]` data and `selectors` as a `string[]` rather than a bare
+ * string.
  */
 function isLineType(chartType: RechartsChartType): boolean {
   return chartType === 'line'
     || chartType === 'area'
     || isStackedAreaType(chartType)
     || chartType === 'radar'
+    || chartType === 'polar_area'
     || chartType === 'bump'
     || chartType === 'survival';
 }
@@ -1382,6 +1396,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.TREEMAP;
     case 'sunburst':
       return TraceType.SUNBURST;
+    case 'icicle':
+      return TraceType.ICICLE;
     case 'dot':
       return TraceType.DOT;
     case 'lollipop':
@@ -1400,6 +1416,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.NORMALIZED_AREA;
     case 'radar':
       return TraceType.RADAR;
+    case 'polar_area':
+      return TraceType.POLAR_AREA;
     case 'bump':
       return TraceType.BUMP;
     case 'survival':
@@ -1418,6 +1436,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.PIE;
     case 'alluvial':
       return TraceType.ALLUVIAL;
+    case 'sankey':
+      return TraceType.SANKEY;
   }
 }
 

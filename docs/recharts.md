@@ -151,6 +151,7 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'stacked_area'` | `<Area stackId="...">` | Stacked area chart (multiple `yKeys`) |
 | `'normalized_area'` | `<AreaChart stackOffset="expand">` | 100% stacked area chart (multiple `yKeys`) |
 | `'radar'` | `<RadarChart>` + `<Radar>` | Radar/spider chart |
+| `'polar_area'` | `<Pie>` with equal angles and a per-datum `outerRadius` | Coxcomb/rose chart: a radar drawn as wedges |
 | `'bump'` | `<LineChart>` + `<YAxis reversed>` | Bump chart: rank over time |
 | `'survival'` | `<Line type="stepAfter">` | Kaplan-Meier curve (optional `survivalConfig`) |
 | `'scatter'` | `<Scatter>` | Scatter/point plot |
@@ -160,8 +161,10 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'forest'` | `<ScatterChart layout="vertical">` + `<ErrorBar direction="x">` | Forest plot (`errorConfig` + `forestConfig`) |
 | `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
 | `'alluvial'` | `<Sankey>` | Weighted flow between nodes (`flowConfig`) |
+| `'sankey'` | `<Sankey>` | The same flow drawn as a left-to-right budget (`flowConfig`) |
 | `'treemap'` | `<Treemap>` | A hierarchy laid out as nested area (nested `data`) |
 | `'sunburst'` | `<SunburstChart>` | The same hierarchy drawn as rings (nested `data`) |
+| `'icicle'` | `<BarChart layout="vertical">` + floating `<Bar>` | The same hierarchy drawn as depth-ordered bands (nested `data`) |
 
 ## Data Examples by Chart Type
 
@@ -492,6 +495,45 @@ const data = [
 
 MAIDR pans each spoke to its position around the circle — 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again — so a radar sounds like a circle rather than a row of bars.
 
+### Polar Area (Coxcomb) Chart
+
+A coxcomb, rose or Nightingale chart is a radar drawn as **wedges**: the same categories around the same circle, with the value as the radius rather than as a point on an outline. Recharts draws it as a `<Pie>` whose slices are all the same angle and whose `outerRadius` is a function of the datum:
+
+```tsx
+const data = [
+  { month: 'Jan', deaths: 120, slice: 1 },
+  { month: 'Feb', deaths: 84, slice: 1 },
+  { month: 'Mar', deaths: 61, slice: 1 },
+];
+
+<MaidrRecharts
+  id="coxcomb-example"
+  title="Deaths by Month"
+  data={data}
+  chartType="polar_area"
+  xKey="month"
+  yKeys={['deaths']}
+  xLabel="Month"
+  yLabel="Deaths"
+>
+  <PieChart width={400} height={400}>
+    <Pie
+      data={data}
+      dataKey="slice"
+      nameKey="month"
+      outerRadius={d => 40 + d.deaths}
+      fill="#8884d8"
+    />
+  </PieChart>
+</MaidrRecharts>
+```
+
+Note which field goes where. The `<Pie dataKey>` is the constant that makes every wedge the same **angle**; `yKeys` names the measure, which is the **radius**. Point `yKeys` at the pie's `dataKey` and every spoke announces the same number.
+
+MAIDR reads this exactly as it reads a radar — the two differ in the mark, not in what a reader navigates — so each wedge is panned to its position around the circle. Highlighting targets the pie's sectors, and carries the pie's one caveat: Recharts draws no sector at all for a zero-value slice, and a count mismatch turns highlighting off for the layer while audio, text and braille still describe every spoke.
+
+A `<RadialBarChart>` is **not** this chart. It puts the categories on concentric rings and encodes the value as the sweep angle, which is a different figure with a different reading.
+
 ### Bump Chart
 
 A bump chart is rank over time: a `<LineChart>` with `<YAxis reversed>` so rank 1 sits at the top. Each `yKey` holds the competitor's **rank** in that period, never the underlying value:
@@ -753,9 +795,9 @@ Left and Right move between slices; Up and Down are out of bounds, since a pie i
 
 > Recharts draws no sector at all for a slice whose value is `0` (its start and end angles are both zero). MAIDR then sees fewer elements than slices and turns highlighting off for the layer rather than index-aligning the wrong wedges; audio, text, and braille still cover every slice.
 
-### Alluvial Diagram
+### Alluvial and Sankey Diagrams
 
-An alluvial is a `<Sankey>` whose node set repeats at each stage. Pass the `links` half of the Sankey data as `data`, and the `nodes` half through `flowConfig`:
+An alluvial is a `<Sankey>` whose node set repeats at each stage; a Sankey proper is one left-to-right budget of ribbons that split and rejoin. Both are the same weighted graph and take the same config — pass the `links` half of the Sankey data as `data`, and the `nodes` half through `flowConfig`:
 
 ```tsx
 const nodes = [{ name: 'Free (Q1)' }, { name: 'Paid (Q1)' }, { name: 'Free (Q2)' }, { name: 'Paid (Q2)' }];
@@ -782,7 +824,9 @@ const links = [
 
 `xKey` names the source field and the single `yKeys` entry the magnitude, so only the target needs a key of its own. Recharts addresses nodes by their index in the `nodes` array; the adapter resolves those indices back to names, because "flow from 1 to 3" names neither end. Links that already carry node names work without `nodes`.
 
-MAIDR reads this as a graph rather than a grid: following a ribbon is the primary move, and arrow keys step between a node and the flows that leave or arrive at it. Highlighting pairs each flow with the `<path class="recharts-sankey-link">` at the same position, so the `links` array order is the order the ribbons are announced in.
+Set `chartType="sankey"` for the budget reading. Nothing else changes: the payload, the config and the selector are identical, and which of the two a figure is is a fact about the data — whether a node reappears at each stage — rather than anything the adapter emits.
+
+MAIDR reads both as a graph rather than a grid: following a ribbon is the primary move, and arrow keys step between a node and the flows that leave or arrive at it. Highlighting pairs each flow with the `<path class="recharts-sankey-link">` at the same position, so the `links` array order is the order the ribbons are announced in.
 
 ### Diverging Bar Chart (Population Pyramid)
 
@@ -976,9 +1020,9 @@ const data = [{ measure: 'NPS', score: 73 }];
 
 Bands are **ascending and bounded above only**: a band starts where the previous one ended, and the first starts at `min`. A value above every band belongs to none rather than to the last one. There is deliberately no default range — a guessed maximum misreports the one number the chart draws.
 
-### Treemap and Sunburst
+### Treemap, Sunburst and Icicle
 
-Both draw the same hierarchy, and both take the **nested** `{ name, children }` data Recharts itself is given rather than the adapter's usual flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys` entry its `dataKey`:
+All three draw the same hierarchy, and all three take the **nested** `{ name, children }` data Recharts itself is given rather than the adapter's usual flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys` entry its `dataKey`:
 
 ```tsx
 const nodes = [
@@ -1011,6 +1055,30 @@ MAIDR navigates the tree **as a tree**, on arrow keys that already exist: up ret
 A node with children gets no value of its own, because Recharts computes an interior node's value as the sum of its children and ignores any value declared on it. MAIDR derives interior totals the same way.
 
 Highlighting relies on both components drawing their nodes in depth-first pre-order, which they do. The treemap selector deliberately skips the **synthetic root** rectangle Recharts wraps the data array in — it is one element more than there are nodes, and a count mismatch turns highlighting off entirely. A `<Treemap type="nest">`, or one given a custom `content`, draws something else and needs `selectorOverride`.
+
+An icicle takes the same config again, with `chartType="icicle"`. Recharts has no icicle component, so the bands are drawn the way a gantt's intervals are: a `<BarChart layout="vertical">` whose lane is the node's **depth** and whose `<Bar>` returns the band's `[start, end]` span. One rectangle per row, and the rows must be the tree flattened **depth-first pre-order** — the order the adapter emits its nodes in, so that row *i* is node *i*:
+
+```tsx
+// The same `nodes` tree, flattened the way the adapter flattens it.
+const bands = [
+  { name: 'Europe', depth: '0', from: 0, to: 240 },
+  { name: 'France', depth: '1', from: 0, to: 67.4 },
+  { name: 'Spain', depth: '1', from: 67.4, to: 114.8 },
+  { name: 'Asia', depth: '0', from: 240, to: 395 },
+  { name: 'Japan', depth: '1', from: 240, to: 365.1 },
+  { name: 'Nepal', depth: '1', from: 365.1, to: 395.1 },
+];
+
+<MaidrRecharts id="icicle-example" data={nodes} chartType="icicle" xKey="name" yKeys={['people']}>
+  <BarChart width={600} height={300} layout="vertical" data={bands}>
+    <XAxis type="number" />
+    <YAxis type="category" dataKey="depth" />
+    <Bar dataKey={row => [row.from, row.to]} fill="#8884d8" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+Built the other obvious way — one stacked `<Bar>` per depth level — the rectangles come out series-major rather than depth-first, which is not the order the nodes are in. Such a chart needs `selectorOverride`.
 
 ### Composed Chart (Bar + Line)
 
@@ -1154,6 +1222,7 @@ type RechartsChartType =
   | 'stacked_area'
   | 'normalized_area'
   | 'radar'
+  | 'polar_area'
   | 'bump'
   | 'survival'
   | 'scatter'
@@ -1163,8 +1232,10 @@ type RechartsChartType =
   | 'forest'
   | 'pie'
   | 'alluvial'
+  | 'sankey'
   | 'treemap'
-  | 'sunburst';
+  | 'sunburst'
+  | 'icicle';
 ```
 
 ### `RechartsLayerConfig`

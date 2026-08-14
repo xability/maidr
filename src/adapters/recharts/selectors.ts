@@ -34,22 +34,29 @@
  *   per-sample element to highlight, so the dots are the only index-aligned
  *   marks either chart has.
  *
- * Floating BarChart (waterfall, gantt, dumbbell):
+ * Floating BarChart (waterfall, gantt, dumbbell, icicle):
  *   g.recharts-bar-rectangle > path.recharts-rectangle
  *   [target: .recharts-bar-rectangle .recharts-rectangle]
  *
- *   None of the three is a Recharts primitive, and all three draw the same
+ *   None of the four is a Recharts primitive, and all four draw the same
  *   thing: a bar that does not start at the baseline. Recharts renders one
  *   for a `<Bar>` whose `dataKey` returns a `[start, end]` pair, which gives
  *   exactly one rectangle per row — the waterfall's floating step, the gantt's
- *   interval, the dumbbell's connector — so the ordinary bar selector already
- *   fits.
+ *   interval, the dumbbell's connector, the icicle's band — so the ordinary
+ *   bar selector already fits.
  *
- *   The other recipe for all three is a transparent offset `<Bar>` stacked
- *   under a visible one, and it does NOT: two `<Bar>`s draw two rectangles per
- *   row, and this selector matches the invisible one as well. Such a chart
- *   puts a `className` on the visible `<Bar>` and passes the narrowed selector
- *   as `selectorOverride`.
+ *   An icicle carries the one extra condition, since its rows are a flattened
+ *   tree rather than the chart's own data: they must be flattened in the same
+ *   depth-first pre-order the adapter emits its nodes in, so that row i is
+ *   node i. A chart built the other obvious way — one stacked `<Bar>` per
+ *   depth level — draws its rectangles series-major instead, which is not that
+ *   order, and needs `selectorOverride`.
+ *
+ *   The other recipe for all of them is a transparent offset `<Bar>` stacked
+ *   under a visible one, and it does NOT work: two `<Bar>`s draw two
+ *   rectangles per row, and this selector matches the invisible one as well.
+ *   Such a chart puts a `className` on the visible `<Bar>` and passes the
+ *   narrowed selector as `selectorOverride`.
  *
  * RadialBarChart (gauge):
  *   g.recharts-radial-bar-sectors > g > path.recharts-radial-bar-sector
@@ -119,15 +126,16 @@
  *   so its marks are the scatter symbols — the square whose area carries the
  *   study's weight — and it targets those instead.
  *
- * Sankey:
+ * Sankey (alluvial, sankey):
  *   g.recharts-sankey-links > path.recharts-sankey-link
  *   [target: .recharts-sankey-links .recharts-sankey-link]
  *
  *   One path per link in declared order, which is the order a flow layer's
  *   selectors have to be in: the trace sorts its edge lists by value the
  *   moment it builds them, and carries each edge's declared position with it.
+ *   Both types are drawn by the same component, so both target the same links.
  *
- * PieChart:
+ * PieChart (pie, polar area):
  *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
  *   [target: .recharts-pie-sector .recharts-sector]
  *
@@ -136,6 +144,10 @@
  *   data. The `.recharts-pie-sector` parent scope matters here: the pie's
  *   label lines (`<path class="recharts-curve">`) and, in an active-shape
  *   chart, the enlarged active sector live under `.recharts-pie` too.
+ *
+ *   A coxcomb is a `<Pie>` whose slices are all the same angle and whose
+ *   `outerRadius` is a function of the datum, so its wedges are these same
+ *   sectors, one per spoke.
  *
  *   One exception is out of the adapter's hands: Recharts renders no sector at
  *   all for a zero-value slice (`Pie.js` drops sectors whose start and end
@@ -248,8 +260,8 @@ export function getRechartsSelector(
  */
 function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {
-    // A waterfall step, a gantt interval and a dumbbell connector are drawn by
-    // a `<Bar>` too — one floating rectangle per row.
+    // A waterfall step, a gantt interval, a dumbbell connector and an icicle
+    // band are drawn by a `<Bar>` too — one floating rectangle per row.
     case 'bar':
     case 'stacked_bar':
     case 'dodged_bar':
@@ -259,6 +271,7 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'waterfall':
     case 'gantt':
     case 'dumbbell':
+    case 'icicle':
       return '.recharts-bar-rectangle .recharts-rectangle';
     case 'gauge':
       return '.recharts-radial-bar-sectors .recharts-radial-bar-sector';
@@ -291,9 +304,13 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
       return '.recharts-funnel-trapezoid .recharts-trapezoid';
     case 'error_bar':
       return '.recharts-errorBars .recharts-errorBar';
+    // Both are a `<Sankey>`, so both highlight its ribbons.
     case 'alluvial':
+    case 'sankey':
       return '.recharts-sankey-links .recharts-sankey-link';
+    // A coxcomb is a `<Pie>` of equal-angle slices, so its wedges are sectors.
     case 'pie':
+    case 'polar_area':
       return '.recharts-pie-sector .recharts-sector';
   }
 }

@@ -47,6 +47,11 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  * - `'normalized_area'` → `TraceType.NORMALIZED_AREA` — 100% stacked area
  *   (`<AreaChart stackOffset="expand">`, multiple `yKeys`)
  * - `'radar'` → `TraceType.RADAR` — Radar/spider chart (`<RadarChart>` + `<Radar>`)
+ * - `'polar_area'` → `TraceType.POLAR_AREA` — Coxcomb or rose chart: the same
+ *   spokes a radar has, drawn as wedges whose radius is the value. A `<Pie>`
+ *   with equal-angle slices and a per-datum `outerRadius`, NOT a
+ *   `<RadialBarChart>` — that one puts the categories on rings and encodes the
+ *   value as angle, which is a different chart
  * - `'bump'` → `TraceType.BUMP` — Bump chart: rank over time, drawn as a
  *   `<LineChart>` with `<YAxis reversed>`
  * - `'survival'` → `TraceType.SURVIVAL` — Kaplan-Meier curve: a
@@ -66,12 +71,19 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  *   data, so both use this type
  * - `'alluvial'` → `TraceType.ALLUVIAL` — Weighted flow between nodes drawn
  *   as a `<Sankey>` whose node set repeats at each stage
+ * - `'sankey'` → `TraceType.SANKEY` — The same weighted flow drawn as a
+ *   left-to-right budget: one `<Sankey>`, one node set, ribbons that split and
+ *   rejoin. Same data and same {@link FlowLinkConfig} as `'alluvial'`
  * - `'treemap'` → `TraceType.TREEMAP` — A hierarchy laid out as nested area
  *   (`<Treemap>`). `data` is the nested `{ name, children }` array the
  *   component itself is given, not the adapter's usual flat rows
  * - `'sunburst'` → `TraceType.SUNBURST` — The same hierarchy drawn as rings
  *   (`<SunburstChart>`). `data` is the root's `children`, since the sunburst
  *   draws every node except the root
+ * - `'icicle'` → `TraceType.ICICLE` — The same hierarchy drawn as
+ *   depth-ordered bands. Recharts has no icicle component, so it is built as a
+ *   `<BarChart layout="vertical">` of floating bars — one row per node, the
+ *   lane its depth — exactly the recipe `'gantt'` uses
  */
 export type RechartsChartType
   = | 'bar'
@@ -92,6 +104,7 @@ export type RechartsChartType
     | 'stacked_area'
     | 'normalized_area'
     | 'radar'
+    | 'polar_area'
     | 'bump'
     | 'survival'
     | 'scatter'
@@ -101,8 +114,10 @@ export type RechartsChartType
     | 'forest'
     | 'pie'
     | 'alluvial'
+    | 'sankey'
     | 'treemap'
-    | 'sunburst';
+    | 'sunburst'
+    | 'icicle';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -133,8 +148,8 @@ export interface HistogramBinConfig {
 }
 
 /**
- * Configuration for a flow (alluvial) diagram.
- * Required when `chartType` is `'alluvial'`.
+ * Configuration for a flow diagram.
+ * Required when `chartType` is `'alluvial'` or `'sankey'`.
  *
  * The `data` array is the `links` half of what Recharts' `<Sankey>` is given:
  * one row per flow. `xKey` names the field holding the source node and the
@@ -516,6 +531,24 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
+ * @example Polar area (coxcomb) chart
+ * ```typescript
+ * // The payload is a radar's — one value per spoke — because that is what a
+ * // reader navigates either way. The `<Pie>` drawing it takes its ANGLE from
+ * // a constant field so every wedge is the same width, and its RADIUS from
+ * // the measure, which is the field named here.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'nightingale-chart',
+ *   title: 'Deaths by Month',
+ *   data: [{ month: 'Jan', deaths: 120, slice: 1 }, { month: 'Feb', deaths: 84, slice: 1 }],
+ *   chartType: 'polar_area',
+ *   xKey: 'month',
+ *   yKeys: ['deaths'],
+ *   xLabel: 'Month',
+ *   yLabel: 'Deaths',
+ * };
+ * ```
+ *
  * @example Survival curve
  * ```typescript
  * // One `yKeys` entry per arm, and the per-arm keys line up with it the way
@@ -590,10 +623,13 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
- * @example Alluvial (flow) diagram
+ * @example Alluvial or Sankey diagram
  * ```typescript
  * // `data` is the `links` half of what <Sankey> is given; `flowConfig.nodes`
  * // is the other half, and resolves the indices the links carry into names.
+ * // `'sankey'` takes exactly this config: the two differ in whether the node
+ * // set repeats at each stage, which is a fact about the data rather than
+ * // anything the adapter emits.
  * const config: RechartsAdapterConfig = {
  *   id: 'flow-chart',
  *   title: 'Cohort Movement',
@@ -706,13 +742,14 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
- * @example Treemap / sunburst
+ * @example Treemap / sunburst / icicle
  * ```typescript
  * // `data` is the nested array Recharts is given, not the adapter's usual
  * // flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys`
  * // entry its `dataKey`; children live under `children`, as Recharts
  * // requires. A `<SunburstChart data={{ name: 'World', children }}>` passes
- * // that same `children` array here, since it draws every node but the root.
+ * // that same `children` array here, since it draws every node but the root,
+ * // and an `'icicle'` takes the same nested array again.
  * const config: RechartsAdapterConfig = {
  *   id: 'regions-chart',
  *   title: 'Population by Region',
@@ -870,7 +907,7 @@ export interface RechartsAdapterConfig {
 
   /**
    * Flow link configuration.
-   * Required when `chartType` is `'alluvial'`.
+   * Required when `chartType` is `'alluvial'` or `'sankey'`.
    */
   flowConfig?: FlowLinkConfig;
 
