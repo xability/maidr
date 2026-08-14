@@ -32,7 +32,9 @@ function stub(displayName: string): VictoryStub {
 
 const VictoryChart = stub('VictoryChart');
 const VictoryAxis = stub('VictoryAxis');
+const VictoryArea = stub('VictoryArea');
 const VictoryBar = stub('VictoryBar');
+const VictoryErrorBar = stub('VictoryErrorBar');
 const VictoryLine = stub('VictoryLine');
 const VictoryScatter = stub('VictoryScatter');
 const VictoryStack = stub('VictoryStack');
@@ -423,5 +425,324 @@ describe('toMaidrLayer', () => {
 
     expect(layer.type).toBe(TraceType.STACKED);
     expect(layer.selectors).toBeUndefined();
+  });
+});
+
+describe('area', () => {
+  it('converts a VictoryArea to an area layer of line points', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryArea, { data: lineData })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(info.victoryType).toBe('VictoryArea');
+    expect(layer.type).toBe(TraceType.AREA);
+    expect(layer.data).toEqual([[{ x: 1, y: 10 }, { x: 2, y: 20 }]]);
+    // A line-shaped trace counts its selectors against its series, so a single
+    // series has to arrive as a one-entry array rather than as a bare string.
+    expect(layer.selectors).toEqual(['#mv [data-maidr-victory-0]']);
+  });
+
+  it('reads area accessors declared as prop keys', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryArea, {
+        data: [{ year: 2020, sales: '5' }],
+        x: 'year',
+        y: 'sales',
+      }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([[{ x: 2020, y: 5 }]]);
+  });
+
+  it('ignores interpolation, which names the curve rather than the chart', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryArea, { data: lineData, interpolation: 'stepAfter' })),
+    );
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.type).toBe(TraceType.AREA);
+    expect(layer.stepDirection).toBeUndefined();
+  });
+});
+
+describe('stacked area', () => {
+  const bands = [
+    { name: 'Solar', data: [{ x: 2020, y: 1 }, { x: 2021, y: 2 }] },
+    { name: 'Wind', data: [{ x: 2020, y: 3 }, { x: 2021, y: 4 }] },
+  ];
+
+  function areaStack(children: { name: string; data: unknown[] }[]): ReactNode {
+    return chart(
+      {},
+      createElement(
+        VictoryStack,
+        {},
+        ...children.map(({ name, data }) => createElement(VictoryArea, { key: name, name, data })),
+      ),
+    );
+  }
+
+  it('converts a stack of areas to bands carrying their own values', () => {
+    const [info] = extractVictoryLayers(areaStack(bands));
+
+    const layer = toMaidrLayer(info, ['#mv [band-0]', '#mv [band-1]']);
+
+    expect(info.victoryType).toBe('VictoryStack');
+    expect(info.legend).toEqual(['Solar', 'Wind']);
+    expect(layer.type).toBe(TraceType.STACKED_AREA);
+    // Each band keeps its own magnitude: the running total is the trace's to
+    // compute, and pre-accumulating here would double it.
+    expect(layer.data).toEqual([
+      [{ x: 2020, y: 1, z: 'Solar' }, { x: 2021, y: 2, z: 'Solar' }],
+      [{ x: 2020, y: 3, z: 'Wind' }, { x: 2021, y: 4, z: 'Wind' }],
+    ]);
+    expect(layer.selectors).toEqual(['#mv [band-0]', '#mv [band-1]']);
+  });
+
+  it('names unnamed bands by position', () => {
+    const [info] = extractVictoryLayers(
+      chart(
+        {},
+        createElement(
+          VictoryStack,
+          {},
+          createElement(VictoryArea, { key: 'a', data: bands[0].data }),
+          createElement(VictoryArea, { key: 'b', data: bands[1].data }),
+        ),
+      ),
+    );
+
+    expect(info.legend).toEqual(['Series 1', 'Series 2']);
+  });
+
+  it('keeps a stack of bars a stacked bar', () => {
+    const [info] = extractVictoryLayers(
+      chart(
+        {},
+        createElement(
+          VictoryStack,
+          {},
+          createElement(VictoryBar, { name: 'S1', data: barData }),
+          createElement(VictoryBar, { name: 'S2', data: barData }),
+        ),
+      ),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+
+  it('reads a stack whose every column sums to 100 as normalized', () => {
+    const [info] = extractVictoryLayers(areaStack([
+      { name: 'A', data: [{ x: 2020, y: 60 }, { x: 2021, y: 30 }] },
+      { name: 'B', data: [{ x: 2020, y: 40 }, { x: 2021, y: 70 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.NORMALIZED_AREA);
+  });
+
+  it('reads a stack whose every column sums to 1 as normalized', () => {
+    const [info] = extractVictoryLayers(areaStack([
+      { name: 'A', data: [{ x: 2020, y: 0.25 }, { x: 2021, y: 0.5 }] },
+      { name: 'B', data: [{ x: 2020, y: 0.75 }, { x: 2021, y: 0.5 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.NORMALIZED_AREA);
+  });
+
+  it('leaves a stack whose columns differ unnormalized', () => {
+    const [info] = extractVictoryLayers(areaStack([
+      { name: 'A', data: [{ x: 2020, y: 60 }, { x: 2021, y: 30 }] },
+      { name: 'B', data: [{ x: 2020, y: 40 }, { x: 2021, y: 50 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED_AREA);
+  });
+
+  it('does not call a single column normalized on one total alone', () => {
+    const [info] = extractVictoryLayers(areaStack([
+      { name: 'A', data: [{ x: 2020, y: 60 }] },
+      { name: 'B', data: [{ x: 2020, y: 40 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED_AREA);
+  });
+});
+
+describe('error bar', () => {
+  it('converts a symmetric errorY delta into absolute bounds', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryErrorBar, {
+        data: [{ x: 1, y: 10, errorY: 2 }, { x: 2, y: 20, errorY: 0.5 }],
+      })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(info.victoryType).toBe('VictoryErrorBar');
+    expect(layer.type).toBe(TraceType.ERROR_BAR);
+    expect(layer.data).toEqual([
+      { x: 1, y: 10, yMin: 8, yMax: 12 },
+      { x: 2, y: 20, yMin: 19.5, yMax: 20.5 },
+    ]);
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+  });
+
+  it('reads an asymmetric [plus, minus] error', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryErrorBar, { data: [{ x: 1, y: 10, errorY: [3, 1] }] }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([{ x: 1, y: 10, yMin: 9, yMax: 13 }]);
+  });
+
+  it('leaves a one-sided interval one-sided rather than mirroring it', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryErrorBar, { data: [{ x: 1, y: 10, errorY: [3, 0] }] }),
+    );
+
+    // Victory draws no whisker for a zero error, so neither does MAIDR: the
+    // trace drops the lower row instead of announcing a bound at the estimate.
+    expect(toMaidrLayer(info).data).toEqual([{ x: 1, y: 10, yMax: 13 }]);
+  });
+
+  it('keeps a sample whose own error is missing', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryErrorBar, {
+        data: [{ x: 1, y: 10, errorY: 2 }, { x: 2, y: 20 }],
+      }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([
+      { x: 1, y: 10, yMin: 8, yMax: 12 },
+      { x: 2, y: 20 },
+    ]);
+  });
+
+  it('reads an errorY accessor declared as a prop key', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryErrorBar, {
+        data: [{ x: 1, y: 10, sd: 2 }],
+        errorY: 'sd',
+      }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([{ x: 1, y: 10, yMin: 8, yMax: 12 }]);
+  });
+
+  it('drops a layer that draws no interval at all', () => {
+    const layers = extractVictoryLayers(
+      createElement(VictoryErrorBar, { data: [{ x: 1, y: 10 }, { x: 2, y: 20 }] }),
+    );
+
+    expect(layers).toHaveLength(0);
+  });
+});
+
+describe('waterfall', () => {
+  const steps = [
+    { x: 'Open', y: 100, y0: 0 },
+    { x: 'Sales', y: 160, y0: 100 },
+    { x: 'Costs', y: 130, y0: 160 },
+    { x: 'Close', y: 130, y0: 0 },
+  ];
+
+  it('converts chaining floating bars into waterfall steps', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryBar, { data: steps })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data).toEqual([
+      { x: 'Open', start: 0, end: 100, delta: 100, kind: 'total' },
+      { x: 'Sales', start: 100, end: 160, delta: 60, kind: 'increase' },
+      { x: 'Costs', start: 160, end: 130, delta: -30, kind: 'decrease' },
+      { x: 'Close', start: 0, end: 130, delta: 130, kind: 'total' },
+    ]);
+    // Bars are one <path> per datum either way, so the discrete tagging path
+    // is reused unchanged.
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+  });
+
+  it('keeps an ordinary bar chart a bar chart', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryBar, { data: barData })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
+  });
+
+  it('keeps unchained floating bars a bar chart', () => {
+    // A range bar and a gantt row float the same way a waterfall step does;
+    // without the chain there is nothing to tell them apart, so the adapter
+    // does not guess.
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryBar, {
+        data: [{ x: 'A', y: 5, y0: 1 }, { x: 'B', y: 9, y0: 6 }],
+      })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
+  });
+
+  it('reads a y0 accessor declared as a prop key', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryBar, {
+        data: [{ x: 'A', end: 10, begin: 0 }, { x: 'B', end: 4, begin: 10 }],
+        y: 'end',
+        y0: 'begin',
+      }),
+    );
+
+    expect(toMaidrLayer(info).data).toEqual([
+      { x: 'A', start: 0, end: 10, delta: 10, kind: 'total' },
+      { x: 'B', start: 10, end: 4, delta: -6, kind: 'decrease' },
+    ]);
+  });
+});
+
+describe('polar area', () => {
+  const wedges = [{ x: 'N', y: 3 }, { x: 'E', y: 5 }, { x: 'S', y: 2 }];
+
+  it('reads a polar VictoryBar inside a polar chart as a polar area', () => {
+    const [info] = extractVictoryLayers(
+      chart({ polar: true }, createElement(VictoryBar, { data: wedges })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(layer.type).toBe(TraceType.POLAR_AREA);
+    expect(layer.data).toEqual([[{ x: 'N', y: 3 }, { x: 'E', y: 5 }, { x: 'S', y: 2 }]]);
+    expect(layer.selectors).toEqual(['#mv [data-maidr-victory-0]']);
+  });
+
+  it('reads a polar prop on the bar itself', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryBar, { data: wedges, polar: true }),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.POLAR_AREA);
+  });
+
+  it('lets a child opt back out of an enclosing polar chart', () => {
+    const [info] = extractVictoryLayers(
+      chart({ polar: true }, createElement(VictoryBar, { data: wedges, polar: false })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
+  });
+
+  it('carries the chart polar flag into each panel of a multi-panel figure', () => {
+    const subplots = extractVictorySubplots([
+      chart({ key: 'a', polar: true }, createElement(VictoryBar, { data: wedges })),
+      chart({ key: 'b' }, createElement(VictoryBar, { data: barData })),
+    ]);
+
+    expect(toMaidrLayer(subplots[0].layers[0]).type).toBe(TraceType.POLAR_AREA);
+    expect(toMaidrLayer(subplots[1].layers[0]).type).toBe(TraceType.BAR);
   });
 });

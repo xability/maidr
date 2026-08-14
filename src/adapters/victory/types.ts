@@ -2,12 +2,14 @@ import type {
   BarPoint,
   BoxPoint,
   CandlestickPoint,
+  ErrorBarPoint,
   HistogramPoint,
   LinePoint,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  WaterfallPoint,
 } from '@type/grammar';
 import type { ReactNode } from 'react';
 
@@ -61,11 +63,13 @@ export type MaidrVictoryProps = VictoryAdapterConfig;
  * individual data components) that maps to a stacked bar chart.
  */
 export type VictoryComponentType
-  = | 'VictoryBar'
+  = | 'VictoryArea'
+    | 'VictoryBar'
     | 'VictoryLine'
     | 'VictoryScatter'
     | 'VictoryBoxPlot'
     | 'VictoryCandlestick'
+    | 'VictoryErrorBar'
     | 'VictoryHistogram'
     | 'VictoryPie'
     | 'VictoryStack';
@@ -84,7 +88,26 @@ export type VictoryLayerData
      * a staircase, making the layer a step rather than a line.
      */
     | { kind: 'line'; points: LinePoint[][]; stepDirection?: StepDirection }
+    /**
+     * A `VictoryArea` — a line whose region down to the baseline is filled.
+     * The fill is what the chart is called rather than a second magnitude, so
+     * the payload is a line's.
+     */
+    | { kind: 'area'; points: LinePoint[][] }
+    /**
+     * A `VictoryStack` of `VictoryArea` children, one row per band. Each
+     * band carries its own untransformed value; the running total is the
+     * trace's to compute. `normalized` marks a stack whose columns are shares
+     * of a common whole.
+     */
+    | { kind: 'stackedArea'; points: LinePoint[][]; normalized: boolean }
+    /** A `VictoryBar` drawn `polar` — values as wedges around a circle. */
+    | { kind: 'polarArea'; points: LinePoint[][] }
     | { kind: 'scatter'; points: ScatterPoint[] }
+    /** A `VictoryErrorBar`, with Victory's error deltas resolved to bounds. */
+    | { kind: 'errorBar'; points: ErrorBarPoint[] }
+    /** A `VictoryBar` whose bars float between a per-datum `y0` and `y`. */
+    | { kind: 'waterfall'; points: WaterfallPoint[] }
     | { kind: 'box'; points: BoxPoint[] }
     | { kind: 'candlestick'; points: CandlestickPoint[] }
     | { kind: 'histogram'; points: HistogramPoint[] }

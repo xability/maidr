@@ -171,9 +171,28 @@ export function tagLayerElements(
   claimed: Set<Element>,
   scope: string,
   panelIndex: number | null = null,
-): string | BoxSelector[] | CandlestickSelector | undefined {
+): string | string[] | BoxSelector[] | CandlestickSelector | undefined {
   const attrName = victoryAttr(panelIndex, String(layerIndex));
-  const { victoryType } = layer;
+  const { victoryType, data } = layer;
+
+  // What was extracted decides the DOM shape before the component name does:
+  // one Victory component can draw more than one chart type (a polar
+  // VictoryBar is a coxcomb of wedges, a VictoryStack of areas is bands
+  // rather than one mark per datum), and the marks differ accordingly.
+  if (data.kind === 'area') {
+    // Victory's Area primitive renders the same single <path
+    // role="presentation"> its Line primitive does, closed along the baseline.
+    return tagLineElements(svg, layer, attrName, claimed, scope);
+  }
+  if (data.kind === 'stackedArea') {
+    return tagStackedAreaElements(svg, data.points.length, attrName, claimed, scope);
+  }
+  if (data.kind === 'errorBar') {
+    return tagErrorBarElements(svg, layer.dataCount, attrName, claimed, scope);
+  }
+  if (data.kind === 'polarArea') {
+    return tagPolarWedgeElements(svg, layer.dataCount, attrName, claimed, scope);
+  }
 
   // Line charts: single <path> representing the full series.
   if (victoryType === 'VictoryLine') {
@@ -194,7 +213,8 @@ export function tagLayerElements(
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
-  // VictoryBar, VictoryHistogram, VictoryScatter, VictoryStack, and VictoryPie
+  // VictoryBar (plain or waterfall), VictoryHistogram, VictoryScatter,
+  // VictoryStack, and VictoryPie
   // all render their data points as <path> elements — Victory's Bar primitive
   // renders a <path> (with arc commands for corner radius), never a <rect>,
   // and its Slice primitive renders the d3-shape arc path for one wedge.
@@ -297,6 +317,168 @@ function tagLineElements(
   const fallback = candidates[0];
   fallback.setAttribute(attrName, '');
   claimed.add(fallback);
+  return `${scope}[${attrName}]`;
+}
+
+// ---------------------------------------------------------------------------
+// Area
+// ---------------------------------------------------------------------------
+
+/**
+ * Tags the band `<path>`s of a stacked-area layer — one selector per band.
+ *
+ * `VictoryStack` reverses the render order of its children so the topmost band
+ * paints last, which puts the bands in the DOM back to front. The emitted
+ * selectors are ordered to match the extracted bands instead, since an area
+ * trace reads its series in the order the payload lists them and would
+ * otherwise highlight one band while announcing another.
+ *
+ * @param svg       - The panel's root svg element
+ * @param bandCount - Number of bands the layer extracted
+ * @param attrName  - The layer's tracking attribute name
+ * @param claimed   - Elements already claimed by prior layers of this panel
+ * @param scope     - Per-chart (and per-panel) CSS scope prefix
+ * @returns One selector per band, or undefined when the bands were not found
+ */
+function tagStackedAreaElements(
+  svg: SVGElement,
+  bandCount: number,
+  attrName: string,
+  claimed: Set<Element>,
+  scope: string,
+): string[] | undefined {
+  const candidates = Array.from(
+    svg.querySelectorAll('path[role="presentation"]'),
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
+
+  if (candidates.length < bandCount) {
+    return undefined;
+  }
+
+  const paths = candidates.slice(0, bandCount);
+  const selectors: string[] = [];
+
+  for (let band = 0; band < bandCount; band++) {
+    const element = paths[bandCount - 1 - band];
+    const bandAttr = `${attrName}-band-${band}`;
+    element.setAttribute(attrName, '');
+    element.setAttribute(bandAttr, '');
+    claimed.add(element);
+    selectors.push(`${scope}[${bandAttr}]`);
+  }
+
+  return selectors;
+}
+
+// ---------------------------------------------------------------------------
+// Polar
+// ---------------------------------------------------------------------------
+
+/**
+ * Tags the wedge `<path>`s of a polar `VictoryBar` layer.
+ *
+ * A polar chart's axis is itself a `<path role="presentation">` — a circle
+ * drawn from two arcs — and it renders before or after the marks depending on
+ * where the axis component sits among the chart's children, so the plain
+ * "first N presentation paths" rule can hand back the axis as data. Victory
+ * translates every polar mark to the chart origin and leaves the axis
+ * untransformed, which tells the two apart whichever order they arrive in.
+ *
+ * @param svg       - The panel's root svg element
+ * @param dataCount - Number of wedges the layer extracted
+ * @param attrName  - The layer's tracking attribute name
+ * @param claimed   - Elements already claimed by prior layers of this panel
+ * @param scope     - Per-chart (and per-panel) CSS scope prefix
+ * @returns A CSS selector matching the wedges, or undefined when not found
+ */
+function tagPolarWedgeElements(
+  svg: SVGElement,
+  dataCount: number,
+  attrName: string,
+  claimed: Set<Element>,
+  scope: string,
+): string | undefined {
+  const candidates = Array.from(
+    svg.querySelectorAll('path[role="presentation"][transform]'),
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
+
+  const matched = candidates.slice(0, dataCount);
+  if (matched.length !== dataCount) {
+    return undefined;
+  }
+
+  for (const element of matched) {
+    element.setAttribute(attrName, '');
+    claimed.add(element);
+  }
+
+  return `${scope}[${attrName}]`;
+}
+
+// ---------------------------------------------------------------------------
+// Error bar
+// ---------------------------------------------------------------------------
+
+/**
+ * Tags one whisker `<line>` per sample of a VictoryErrorBar layer.
+ *
+ * Victory draws each sample as a `<g>` holding up to four `<line>`s: two caps
+ * (`data-type="border-*"`) and two whiskers running out from the estimate
+ * (`data-type="cross-*"`). Nothing else in a Victory svg carries `data-type`,
+ * so it is what separates these from an axis rule or a box plot's whiskers,
+ * and grouping by the parent `<g>` recovers one group per sample.
+ *
+ * One element per sample is exactly what MAIDR's error bar trace asks for: it
+ * highlights the same element for the estimate and for both bounds, because a
+ * chart draws one whip per sample rather than one mark per bound. The first
+ * whisker is the one tagged; the rest of the sample's lines are claimed so a
+ * sibling layer that classifies bare `<line>`s cannot pick them up.
+ *
+ * @param svg       - The panel's root svg element
+ * @param dataCount - Number of samples the layer extracted
+ * @param attrName  - The layer's tracking attribute name
+ * @param claimed   - Elements already claimed by prior layers of this panel
+ * @param scope     - Per-chart (and per-panel) CSS scope prefix
+ * @returns A CSS selector matching one whisker per sample, or undefined
+ */
+function tagErrorBarElements(
+  svg: SVGElement,
+  dataCount: number,
+  attrName: string,
+  claimed: Set<Element>,
+  scope: string,
+): string | undefined {
+  const whiskers = Array.from(
+    svg.querySelectorAll('line[data-type^="cross-"]'),
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
+
+  // Map preserves insertion order, so the samples come out in document order.
+  const bySample = new Map<Element, Element[]>();
+  for (const whisker of whiskers) {
+    const group = whisker.parentElement;
+    if (!group) {
+      continue;
+    }
+    const bucket = bySample.get(group);
+    if (bucket) {
+      bucket.push(whisker);
+    } else {
+      bySample.set(group, [whisker]);
+    }
+  }
+
+  const samples = Array.from(bySample.entries()).slice(0, dataCount);
+  if (samples.length !== dataCount) {
+    return undefined;
+  }
+
+  for (const [group, groupWhiskers] of samples) {
+    groupWhiskers[0].setAttribute(attrName, '');
+    for (const line of Array.from(group.querySelectorAll('line'))) {
+      claimed.add(line);
+    }
+  }
+
   return `${scope}[${attrName}]`;
 }
 

@@ -1,22 +1,32 @@
 import type { JSX } from 'react';
 import { useState } from 'react';
+import { AreaChartExample } from './examples/AreaChartExample';
 import { BarChartExample } from './examples/BarChartExample';
 import { BoxPlotExample } from './examples/BoxPlotExample';
 import { CandlestickExample } from './examples/CandlestickExample';
+import { ErrorBarExample } from './examples/ErrorBarExample';
 import { HistogramExample } from './examples/HistogramExample';
 import { LineChartExample } from './examples/LineChartExample';
 import { MultiPanelExample } from './examples/MultiPanelExample';
+import { PolarAreaExample } from './examples/PolarAreaExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
+import { StackedAreaExample } from './examples/StackedAreaExample';
 import { StackedBarExample } from './examples/StackedBarExample';
+import { WaterfallExample } from './examples/WaterfallExample';
 
 const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Bar Chart', component: BarChartExample },
   { name: 'Line Chart', component: LineChartExample },
   { name: 'Scatter Chart', component: ScatterChartExample },
+  { name: 'Area Chart', component: AreaChartExample },
   { name: 'Stacked Bar', component: StackedBarExample },
+  { name: 'Stacked Area', component: StackedAreaExample },
   { name: 'Histogram', component: HistogramExample },
   { name: 'Box Plot', component: BoxPlotExample },
   { name: 'Candlestick', component: CandlestickExample },
+  { name: 'Error Bar', component: ErrorBarExample },
+  { name: 'Waterfall', component: WaterfallExample },
+  { name: 'Polar Area', component: PolarAreaExample },
   { name: 'Multi-Panel', component: MultiPanelExample },
 ];
 
