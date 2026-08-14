@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Area & Interval Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // Wait for Google Charts to load
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawAreaChart();
+        drawStackedAreaChart();
+        drawNormalizedAreaChart();
+        drawErrorBarChart();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      function performanceData() {
+        return google.visualization.arrayToDataTable([
+          ['Year', 'Sales', 'Expenses'],
+          ['2020', 1000, 400],
+          ['2021', 1170, 460],
+          ['2022', 660, 1120],
+          ['2023', 1030, 540],
+        ]);
+      }
+
+      // ---------------------------------------------------------------
+      // Area Chart — bands read independently of one another
+      // ---------------------------------------------------------------
+      function drawAreaChart() {
+        var data = performanceData();
+        var container = document.getElementById('area-chart');
+        var chart = new google.visualization.AreaChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'AreaChart',
+          title: 'Company Performance',
+        });
+
+        chart.draw(data, {
+          title: 'Company Performance',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Stacked Area Chart
+      //
+      // The adapter never sees the draw options, so `isStacked: true` has to
+      // be named by the caller as `chartType: 'StackedAreaChart'` — the same
+      // convention `'StackedColumnChart'` follows. Without it the bands would
+      // be announced as if they were independent, and the running total a
+      // sighted reader sees along the top edge would go missing.
+      // ---------------------------------------------------------------
+      function drawStackedAreaChart() {
+        var data = performanceData();
+        var container = document.getElementById('stacked-area-chart');
+        var chart = new google.visualization.AreaChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'StackedAreaChart',
+          title: 'Company Performance (stacked)',
+        });
+
+        chart.draw(data, {
+          title: 'Company Performance (stacked)',
+          isStacked: true,
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // 100% Stacked Area Chart
+      // ---------------------------------------------------------------
+      function drawNormalizedAreaChart() {
+        var data = performanceData();
+        var container = document.getElementById('normalized-area-chart');
+        var chart = new google.visualization.AreaChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'NormalizedAreaChart',
+          title: 'Share of Company Performance',
+        });
+
+        chart.draw(data, {
+          title: 'Share of Company Performance',
+          isStacked: 'percent',
+          legend: { position: 'bottom' },
+          width: 600,
+          height: 400,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Error Bars — `role: 'interval'` columns
+      //
+      // Unlike stacking, intervals live in the DataTable rather than in the
+      // draw options, so the adapter detects them on its own: a single-series
+      // chart declaring interval columns is read as an error bar layer, and
+      // up/down arrows walk the lower bound, the estimate, and the upper
+      // bound at each sample.
+      //
+      // `pointSize` is set so the chart draws a marker per sample; those are
+      // the elements MAIDR highlights.
+      // ---------------------------------------------------------------
+      function drawErrorBarChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Month');
+        data.addColumn('number', 'Sales');
+        data.addColumn({ id: 'lo', type: 'number', role: 'interval' });
+        data.addColumn({ id: 'hi', type: 'number', role: 'interval' });
+        data.addRows([
+          ['Jan', 10, 8, 12],
+          ['Feb', 14, 11, 17],
+          ['Mar', 9, 7, 11],
+          ['Apr', 16, 12, 21],
+        ]);
+
+        var container = document.getElementById('error-bar-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'LineChart',
+          title: 'Monthly Sales with 95% Confidence Interval',
+        });
+
+        chart.draw(data, {
+          title: 'Monthly Sales with 95% Confidence Interval',
+          intervals: { style: 'bars' },
+          pointSize: 6,
+          legend: { position: 'none' },
+          width: 600,
+          height: 400,
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts: Area Charts and Error Bars</h1>
+    <p>
+      Each chart below is rendered by Google Charts and then made accessible
+      via MAIDR. Click on a chart and use keyboard navigation (arrow keys) to
+      explore the data through audio, text, and braille.
+    </p>
+
+    <h2>Area Chart</h2>
+    <div id="area-chart" class="chart-container"></div>
+
+    <h2>Stacked Area Chart</h2>
+    <div id="stacked-area-chart" class="chart-container"></div>
+
+    <h2>100% Stacked Area Chart</h2>
+    <div id="normalized-area-chart" class="chart-container"></div>
+
+    <h2>Line Chart with Confidence Intervals</h2>
+    <p>
+      Left and right move between samples; up and down walk the lower bound,
+      the estimate, and the upper bound of the interval at that sample.
+    </p>
+    <div id="error-bar-chart" class="chart-container"></div>
+  </body>
+</html>

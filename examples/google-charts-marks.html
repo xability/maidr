@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Dot, Lollipop, Funnel, Diverging & Waterfall Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // Every chart on this page is a corechart class drawn with options that
+      // change what it means. The adapter never sees those options, so each
+      // one names its reading with an explicit `chartType`.
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawDotPlot();
+        drawLollipop();
+        drawFunnel();
+        drawPyramid();
+        drawWaterfall();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Cleveland dot plot — a LineChart with the line switched off.
+      //
+      // `lineWidth: 0` with a `pointSize` is Google's own dot-plot recipe,
+      // and it lives entirely in the draw options: without 'DotChart' the
+      // adapter would read the same table as a line.
+      // ---------------------------------------------------------------
+      function drawDotPlot() {
+        var data = google.visualization.arrayToDataTable([
+          ['Model', 'Miles per gallon'],
+          ['Cadillac Fleetwood', 10.4],
+          ['Lincoln Continental', 10.4],
+          ['Camaro Z28', 13.3],
+          ['Duster 360', 14.3],
+          ['Chrysler Imperial', 14.7],
+          ['Maserati Bora', 15.0],
+        ]);
+
+        var container = document.getElementById('dot-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'DotChart',
+          title: 'Fuel Economy by Model',
+        });
+
+        chart.draw(data, {
+          title: 'Fuel Economy by Model',
+          lineWidth: 0,
+          pointSize: 10,
+          legend: { position: 'none' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Lollipop — a ComboChart drawing thin stems and large dots.
+      //
+      // The recipe repeats the value column so the two can be styled apart.
+      // Read generically that second column is another series, which is why
+      // 'LollipopChart' reads the first data column and stops there.
+      // ---------------------------------------------------------------
+      function drawLollipop() {
+        var data = google.visualization.arrayToDataTable([
+          ['Language', 'Stems', 'Dots'],
+          ['Python', 29.9, 29.9],
+          ['JavaScript', 19.1, 19.1],
+          ['Java', 15.7, 15.7],
+          ['C#', 6.8, 6.8],
+          ['PHP', 4.9, 4.9],
+        ]);
+
+        var container = document.getElementById('lollipop-chart');
+        var chart = new google.visualization.ComboChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'LollipopChart',
+          title: 'Share of Searches by Language',
+        });
+
+        chart.draw(data, {
+          title: 'Share of Searches by Language',
+          seriesType: 'bars',
+          bar: { groupWidth: '4%' },
+          series: { 1: { type: 'line', lineWidth: 0, pointSize: 14 } },
+          legend: { position: 'none' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Funnel — an ordered BarChart of stage counts.
+      //
+      // The retention between adjacent stages is what a funnel is read for,
+      // and it is derived by the model rather than sent: the counts are the
+      // one source of truth for it.
+      // ---------------------------------------------------------------
+      function drawFunnel() {
+        var data = google.visualization.arrayToDataTable([
+          ['Stage', 'Visitors'],
+          ['Visited site', 10000],
+          ['Viewed a product', 6200],
+          ['Added to basket', 2400],
+          ['Started checkout', 900],
+          ['Purchased', 100],
+        ]);
+
+        var container = document.getElementById('funnel-chart');
+        var chart = new google.visualization.BarChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'FunnelChart',
+          title: 'Checkout Funnel',
+        });
+
+        chart.draw(data, {
+          title: 'Checkout Funnel',
+          legend: { position: 'none' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Population pyramid — two series back to back, one negated.
+      //
+      // The sign in the DataTable is the side of the baseline the bar grows
+      // towards, and it is sent through unchanged: MAIDR pitches the size and
+      // announces the side.
+      // ---------------------------------------------------------------
+      function drawPyramid() {
+        var data = google.visualization.arrayToDataTable([
+          ['Age band', 'Men', 'Women'],
+          ['0-14', -2100000, 2000000],
+          ['15-29', -2400000, 2350000],
+          ['30-44', -2200000, 2250000],
+          ['45-64', -2600000, 2700000],
+          ['65+', -900000, 1300000],
+        ]);
+
+        var container = document.getElementById('pyramid-chart');
+        var chart = new google.visualization.BarChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'DivergingBarChart',
+          title: 'Population by Age Band and Sex',
+        });
+
+        chart.draw(data, {
+          title: 'Population by Age Band and Sex',
+          isStacked: true,
+          hAxis: { format: '#,###' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Waterfall — a CandlestickChart used as floating bars.
+      //
+      // Low is set to open and high to close, so the wick collapses onto the
+      // body and each bar floats between the running total before the step
+      // and the total after it. Which rows are totals cannot be read off the
+      // numbers, so they are named in `waterfallTotals`.
+      // ---------------------------------------------------------------
+      function drawWaterfall() {
+        // [Step, Low, Open, Close, High]
+        var data = google.visualization.arrayToDataTable([
+          ['Step', 'Low', 'Open', 'Close', 'High'],
+          ['Opening balance', 0, 0, 5000, 5000],
+          ['Product revenue', 5000, 5000, 6800, 6800],
+          ['Services revenue', 6800, 6800, 7500, 7500],
+          ['Refunds', 7100, 7500, 7100, 7500],
+          ['Operating costs', 5900, 7100, 5900, 7100],
+          ['Closing balance', 0, 0, 5900, 5900],
+        ], true);
+
+        var container = document.getElementById('waterfall-chart');
+        var chart = new google.visualization.CandlestickChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'WaterfallChart',
+          title: 'Quarterly Bridge',
+          // The opening and closing bars restate the running value rather
+          // than contributing to it.
+          waterfallTotals: [0, 5],
+        });
+
+        chart.draw(data, {
+          title: 'Quarterly Bridge',
+          legend: { position: 'none' },
+          bar: { groupWidth: '60%' },
+          candlestick: {
+            fallingColor: { strokeWidth: 0, fill: '#a52714' },
+            risingColor: { strokeWidth: 0, fill: '#0f9d58' },
+          },
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; height: 400px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts: Marks Google Has No Class For</h1>
+    <p>
+      Every chart below is drawn by an ordinary corechart class with draw
+      options that change what it means. The adapter never receives those
+      options, so each one names its reading with an explicit
+      <code>chartType</code>. Click on a chart and use the arrow keys to
+      explore it through audio, text, and braille.
+    </p>
+
+    <h2>Dot Plot</h2>
+    <div id="dot-chart" class="chart-container"></div>
+
+    <h2>Lollipop Chart</h2>
+    <div id="lollipop-chart" class="chart-container"></div>
+
+    <h2>Funnel</h2>
+    <p>Pitch carries the retention between stages, not the raw count.</p>
+    <div id="funnel-chart" class="chart-container"></div>
+
+    <h2>Population Pyramid</h2>
+    <p>Pitch carries the size of a cohort; the announcement names its side.</p>
+    <div id="pyramid-chart" class="chart-container"></div>
+
+    <h2>Waterfall</h2>
+    <p>Pitch carries each step's contribution; the running total travels with it.</p>
+    <div id="waterfall-chart" class="chart-container"></div>
+  </body>
+</html>

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Statistical & Relational Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // An OrgChart lives in its own package; everything else here is corechart.
+      google.charts.load('current', { packages: ['corechart', 'orgchart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawBump();
+        drawDumbbell();
+        drawSurvival();
+        drawVolcano();
+        drawManhattan();
+        drawOrgChart();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Bump — rank over time, one line per competitor
+      //
+      // The table is any multi-series line chart's, and the `direction: -1`
+      // that puts rank 1 at the top is a draw option the adapter never sees.
+      // Naming the reading 'BumpChart' is what inverts the pitch, so the
+      // leader is the highest note and a climb is heard as a climb.
+      // ---------------------------------------------------------------
+      function drawBump() {
+        var data = google.visualization.arrayToDataTable([
+          ['Week', 'Arsenal', 'Chelsea', 'Liverpool'],
+          ['Week 1', 1, 2, 3],
+          ['Week 2', 2, 1, 3],
+          ['Week 3', 3, 1, 2],
+          ['Week 4', 2, 3, 1],
+        ]);
+
+        var container = document.getElementById('bump-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'BumpChart',
+          title: 'League Position by Week',
+        });
+
+        chart.draw(data, {
+          title: 'League Position by Week',
+          vAxis: { direction: -1, ticks: [1, 2, 3], title: 'Position' },
+          pointSize: 6,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Dumbbell — two values compared at each category
+      //
+      // Google's intervals recipe: the series itself is invisible
+      // (`lineWidth: 0`) and the two ends are `role: 'interval'` columns
+      // drawn as sticks. The columns' own labels are what the reader is told
+      // they are standing on, so name them after the two things compared.
+      // ---------------------------------------------------------------
+      function drawDumbbell() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Country');
+        data.addColumn('number', 'Life expectancy');
+        data.addColumn({ id: 'i0', type: 'number', role: 'interval', label: '1990' });
+        data.addColumn({ id: 'i1', type: 'number', role: 'interval', label: '2020' });
+        data.addRows([
+          ['Japan', 81.5, 79, 84],
+          ['Kenya', 61.5, 57, 66],
+          ['Peru', 72.5, 68, 77],
+          ['Norway', 81.0, 77, 85],
+        ]);
+
+        var container = document.getElementById('dumbbell-chart');
+        var chart = new google.visualization.LineChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'DumbbellChart',
+          title: 'Life Expectancy, 1990 vs 2020',
+        });
+
+        chart.draw(data, {
+          title: 'Life Expectancy, 1990 vs 2020',
+          lineWidth: 0,
+          pointSize: 8,
+          legend: { position: 'none' },
+          intervals: { style: 'sticks', lineWidth: 4 },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Survival — a Kaplan-Meier curve
+      //
+      // A step line is a SteppedAreaChart with `areaOpacity: 0`. The band
+      // comes from the arm's interval columns; the censored times come from a
+      // boolean column, which is never read as an arm — no survival curve is
+      // drawn from true and false.
+      // ---------------------------------------------------------------
+      function drawSurvival() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('number', 'Months');
+        data.addColumn('number', 'Treatment');
+        data.addColumn({ id: 'lo', type: 'number', role: 'interval' });
+        data.addColumn({ id: 'hi', type: 'number', role: 'interval' });
+        data.addColumn({ id: 'cens', type: 'boolean', role: 'certainty' });
+        data.addColumn('number', 'Control');
+        data.addRows([
+          [0, 1.0, 0.94, 1.0, false, 1.0],
+          [3, 0.93, 0.85, 0.98, false, 0.86],
+          [6, 0.82, 0.71, 0.9, true, 0.74],
+          [9, 0.74, 0.62, 0.84, false, 0.58],
+          [12, 0.61, 0.48, 0.73, true, 0.45],
+        ]);
+
+        var container = document.getElementById('survival-chart');
+        var chart = new google.visualization.SteppedAreaChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'SurvivalChart',
+          title: 'Survival by Arm',
+          // The curve holds its value until the next event, which is what a
+          // Kaplan-Meier estimate does. MAIDR names no default.
+          stepDirection: 'hv',
+        });
+
+        chart.draw(data, {
+          title: 'Survival by Arm',
+          areaOpacity: 0,
+          vAxis: { title: 'Survival', minValue: 0, maxValue: 1 },
+          hAxis: { title: 'Months' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Volcano — effect size against significance
+      //
+      // The gene name rides in an annotation column: identity is the payload
+      // on these charts, not the coordinates. The threshold lives in the
+      // analysis rather than the DataTable, so it is passed in — MAIDR
+      // guesses none, and a guessed line would sort every point onto the
+      // wrong side of it.
+      // ---------------------------------------------------------------
+      function drawVolcano() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('number', 'log2 fold change');
+        data.addColumn('number', '-log10(p)');
+        data.addColumn({ type: 'string', role: 'annotation' });
+        data.addRows([
+          [-2.4, 7.1, 'BRCA1'],
+          [-1.8, 4.6, 'MYC'],
+          [-0.4, 0.7, 'GAPDH'],
+          [0.3, 0.4, 'ACTB'],
+          [1.1, 2.2, 'EGFR'],
+          [2.6, 6.4, 'KRAS'],
+          [3.1, 9.8, 'TP53'],
+        ]);
+
+        var container = document.getElementById('volcano-chart');
+        var chart = new google.visualization.ScatterChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'VolcanoChart',
+          title: 'Differential Expression',
+          thresholdOptions: { significance: 1.3, effect: 1 },
+        });
+
+        chart.draw(data, {
+          title: 'Differential Expression',
+          legend: { position: 'none' },
+          hAxis: { title: 'log2 fold change' },
+          vAxis: { title: '-log10(p)' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Manhattan — one series per chromosome
+      //
+      // The banding recipe puts each chromosome in its own column, null
+      // everywhere else. The adapter flattens every column and drops the
+      // nulls, tagging each point with its column's label as the region.
+      // ---------------------------------------------------------------
+      function drawManhattan() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('number', 'Position');
+        data.addColumn('number', 'chr1');
+        data.addColumn('number', 'chr2');
+        data.addColumn({ type: 'string', role: 'annotation' });
+        data.addRows([
+          [1, 4.2, null, 'rs100'],
+          [2, 8.6, null, 'rs101'],
+          [3, 1.4, null, 'rs102'],
+          [4, null, 2.1, 'rs200'],
+          [5, null, 7.7, 'rs201'],
+          [6, null, 3.3, 'rs202'],
+        ]);
+
+        var container = document.getElementById('manhattan-chart');
+        var chart = new google.visualization.ScatterChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'ManhattanChart',
+          title: 'Association Scan',
+          thresholdOptions: { significance: 7.3 },
+        });
+
+        chart.draw(data, {
+          title: 'Association Scan',
+          hAxis: { title: 'Position' },
+          vAxis: { title: '-log10(p)' },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Network — an OrgChart read as links
+      //
+      // Each row names its parent, and each parent pointer is one link. The
+      // nodes and their degrees are derived from the links, so no node list
+      // is handed over. An OrgChart renders an HTML table rather than SVG and
+      // draws no element per link, so this reading carries no highlighting —
+      // audio, text and braille cover the whole graph.
+      // ---------------------------------------------------------------
+      function drawOrgChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Name');
+        data.addColumn('string', 'Manager');
+        data.addColumn('string', 'Tooltip');
+        data.addRows([
+          ['Mike', '', 'The President'],
+          ['Jim', 'Mike', 'VP'],
+          ['Alice', 'Mike', 'VP'],
+          ['Bob', 'Jim', 'Engineer'],
+          ['Carol', 'Jim', 'Engineer'],
+          ['Dan', 'Alice', 'Designer'],
+        ]);
+
+        var container = document.getElementById('org-chart');
+        var chart = new google.visualization.OrgChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'OrgChart',
+          title: 'Reporting Lines',
+        });
+
+        chart.draw(data, { allowHtml: true });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; height: 400px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts: Statistical &amp; Relational Readings</h1>
+    <p>
+      Each chart below is drawn by an ordinary Google Charts class, and what it
+      <em>means</em> lives in the draw options or in the analysis — neither of
+      which the adapter is handed. So each one names its reading with an
+      explicit <code>chartType</code>, and the two threshold charts are handed
+      their cutoffs. Click on a chart and use the arrow keys to explore it
+      through audio, text, and braille.
+    </p>
+
+    <h2>Bump Chart</h2>
+    <p>Pitch is inverted, so rank 1 is the highest note; each move announces the places gained.</p>
+    <div id="bump-chart" class="chart-container"></div>
+
+    <h2>Dumbbell</h2>
+    <p>Up and down walk the two ends of a row; left and right walk the categories.</p>
+    <div id="dumbbell-chart" class="chart-container"></div>
+
+    <h2>Survival Curve</h2>
+    <p>Median survival is announced on entry; the rotor jumps between the censored times.</p>
+    <div id="survival-chart" class="chart-container"></div>
+
+    <h2>Volcano Plot</h2>
+    <p>The summary counts the points above the threshold; the rotor visits them by name.</p>
+    <div id="volcano-chart" class="chart-container"></div>
+
+    <h2>Manhattan Plot</h2>
+    <p>Each point announces its SNP and the chromosome it sits on.</p>
+    <div id="manhattan-chart" class="chart-container"></div>
+
+    <h2>Org Chart as a Network</h2>
+    <p>Left and right walk a group by degree; up and down move between groups.</p>
+    <div id="org-chart" class="chart-container"></div>
+  </body>
+</html>
