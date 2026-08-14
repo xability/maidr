@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Sankey, TreeMap & Schedule Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // Each of these lives in its own package; none of them is corechart.
+      google.charts.load('current', {
+        packages: ['sankey', 'treemap', 'gantt', 'timeline'],
+      });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawSankey();
+        drawTreeMap();
+        drawGantt();
+        drawTimeline();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Sankey — From / To / Weight
+      //
+      // The nodes are derived from the flows, so only the edges are handed
+      // to MAIDR. The cursor sits on a node and moves along its flows.
+      // ---------------------------------------------------------------
+      function drawSankey() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'From');
+        data.addColumn('string', 'To');
+        data.addColumn('number', 'Weight');
+        data.addRows([
+          ['Coal', 'Electricity', 34],
+          ['Gas', 'Electricity', 21],
+          ['Solar', 'Electricity', 9],
+          ['Electricity', 'Homes', 40],
+          ['Electricity', 'Industry', 24],
+        ]);
+
+        var container = document.getElementById('sankey-chart');
+        var chart = new google.visualization.Sankey(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Sankey',
+          title: 'Energy Flow',
+        });
+
+        chart.draw(data, { width: 600, height: 400 });
+      }
+
+      // ---------------------------------------------------------------
+      // TreeMap — id / parent / size
+      //
+      // A TreeMap renders one drill-down level at a time and redraws on
+      // click, so the tiles on screen are usually a subset of the rows. When
+      // they are, the adapter turns visual highlighting off rather than
+      // highlighting the wrong tile; audio, text, and braille cover the whole
+      // hierarchy either way.
+      // ---------------------------------------------------------------
+      function drawTreeMap() {
+        var data = google.visualization.arrayToDataTable([
+          ['Region', 'Parent', 'Market share'],
+          ['Global', null, 0],
+          ['America', 'Global', 0],
+          ['Europe', 'Global', 0],
+          ['Brazil', 'America', 11],
+          ['USA', 'America', 52],
+          ['Mexico', 'America', 24],
+          ['France', 'Europe', 42],
+          ['Germany', 'Europe', 31],
+        ]);
+
+        var container = document.getElementById('treemap-chart');
+        var chart = new google.visualization.TreeMap(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'TreeMap',
+          title: 'Market Share by Region',
+        });
+
+        chart.draw(data, { maxDepth: 2, width: 600, height: 400 });
+      }
+
+      // ---------------------------------------------------------------
+      // Gantt — one lane per task
+      //
+      // The dates are converted to days so the announced length of a task is
+      // a number a listener can hold; the axis carries a format that renders
+      // the same number back as a date.
+      // ---------------------------------------------------------------
+      function drawGantt() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Task ID');
+        data.addColumn('string', 'Task Name');
+        data.addColumn('date', 'Start Date');
+        data.addColumn('date', 'End Date');
+        data.addColumn('number', 'Duration');
+        data.addColumn('number', 'Percent Complete');
+        data.addColumn('string', 'Dependencies');
+        data.addRows([
+          ['research', 'Find sources', new Date(2024, 0, 1), new Date(2024, 0, 5), null, 100, null],
+          ['write', 'Write paper', new Date(2024, 0, 8), new Date(2024, 0, 26), null, 40, 'research'],
+          ['cite', 'Create bibliography', new Date(2024, 0, 27), new Date(2024, 0, 29), null, 20, 'write'],
+          ['complete', 'Hand in paper', new Date(2024, 0, 30), new Date(2024, 0, 31), null, 0, 'cite'],
+        ]);
+
+        var container = document.getElementById('gantt-chart');
+        var chart = new google.charts.Gantt(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Gantt',
+          title: 'Paper Schedule',
+        });
+
+        chart.draw(data, { height: 300 });
+      }
+
+      // ---------------------------------------------------------------
+      // Timeline — several intervals per lane
+      //
+      // Rows sharing a label become one lane, and each bar keeps its own
+      // name. Keep the rows of a lane together in the DataTable: interleaved
+      // lanes cannot be matched to the drawn bars, so highlighting is turned
+      // off for the chart.
+      // ---------------------------------------------------------------
+      function drawTimeline() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Room');
+        data.addColumn('string', 'Session');
+        data.addColumn('date', 'Start');
+        data.addColumn('date', 'End');
+        data.addRows([
+          ['Magnolia Room', 'Beginning JavaScript', new Date(2024, 2, 4, 12, 0), new Date(2024, 2, 4, 14, 0)],
+          ['Magnolia Room', 'Intermediate JavaScript', new Date(2024, 2, 4, 14, 0), new Date(2024, 2, 4, 15, 0)],
+          ['Willow Room', 'Beginning Google Charts', new Date(2024, 2, 4, 12, 30), new Date(2024, 2, 4, 14, 0)],
+          ['Willow Room', 'Advanced Google Charts', new Date(2024, 2, 4, 14, 0), new Date(2024, 2, 4, 16, 0)],
+        ]);
+
+        var container = document.getElementById('timeline-chart');
+        var chart = new google.visualization.Timeline(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Timeline',
+          title: 'Conference Schedule',
+        });
+
+        chart.draw(data, { height: 240 });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts: Flows, Hierarchies and Schedules</h1>
+    <p>
+      Each chart below is rendered by Google Charts and then made accessible
+      via MAIDR. Click on a chart and use keyboard navigation (arrow keys) to
+      explore the data through audio, text, and braille.
+    </p>
+
+    <h2>Sankey Diagram</h2>
+    <div id="sankey-chart" class="chart-container"></div>
+
+    <h2>TreeMap</h2>
+    <div id="treemap-chart" class="chart-container"></div>
+
+    <h2>Gantt Chart</h2>
+    <p>
+      Pitch carries how long a task runs; stereo position carries when it
+      starts, so two tasks that overlap sound like they overlap.
+    </p>
+    <div id="gantt-chart" class="chart-container"></div>
+
+    <h2>Timeline</h2>
+    <div id="timeline-chart" class="chart-container"></div>
+  </body>
+</html>

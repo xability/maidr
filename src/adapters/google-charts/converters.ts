@@ -8,18 +8,28 @@
  *
  * MAIDR uses typed data structures per chart type:
  *   BarPoint[]          = [{ x, y }, ...]
- *   LinePoint[][]       = [[{ x, y, fill? }, ...], ...]
+ *   LinePoint[][]       = [[{ x, y, fill? }, ...], ...]  (also the area family)
  *   PiePoint[]          = [{ x, y }, ...]  (flat: one entry per slice)
  *   ScatterPoint[]      = [{ x, y }, ...]
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
  *   CandlestickPoint[]  = [{ value, open, high, low, close, ... }, ...]
+ *   ErrorBarPoint[]     = [{ x, y, yMin?, yMax? }, ...]
+ *   FlowPoint[]         = [{ source, target, value }, ...]  (sankey)
+ *   TreemapPoint[]      = [{ x, y?, path? }, ...]
+ *   GanttData           = { points: [[{ x, start, end, label? }, ...], ...], ... }
+ *                         — an object, not an array
  */
 
 import type {
+  AxisFormat,
   BarPoint,
   CandlestickPoint,
   CandlestickSelector,
   CandlestickTrend,
+  ErrorBarPoint,
+  FlowPoint,
+  GanttData,
+  GanttPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
@@ -27,6 +37,7 @@ import type {
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  TreemapPoint,
 } from '@type/grammar';
 import type { GoogleBoundingBox, GoogleChart, GoogleChartType, GoogleDataTable, GoogleEvents } from './types';
 import { Orientation, TraceType } from '@type/grammar';
@@ -65,6 +76,37 @@ const CANDLESTICK_BODY_MIN_WIDTH = 10;
  */
 const SVG_ARC_COMMAND = /a/i;
 
+/**
+ * Matches the cubic-Bézier command in an SVG path's `d` attribute.
+ *
+ * The sankey package gives its ribbons no class or id either, so they are
+ * told apart from the rest of the SVG the way pie wedges are: by a command
+ * only they carry. A ribbon is drawn as a cubic curve between its two nodes;
+ * the nodes themselves are `<rect>`s and the labels `<text>`, so nothing else
+ * in a sankey's SVG is a curved path.
+ */
+const SVG_CUBIC_COMMAND = /c/i;
+
+/**
+ * Smallest side (in pixels) a `<rect>` must have to be a data cell rather
+ * than a gridline or a rule. Mirrors {@link CANDLESTICK_GRID_MAX_WIDTH}.
+ */
+const CELL_MIN_SIZE = 1;
+
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Longest span (in ms) a schedule may cover before its intervals are measured
+ * in days rather than hours.
+ *
+ * A gantt's length is the fact the chart exists to carry, and it has to be
+ * announced in a unit a reader can hold: "0.02 days" and "2880 hours" are the
+ * same number said uselessly. Two days is where the two readings cross —
+ * below it a schedule is an agenda measured in hours, above it a plan.
+ */
+const GANTT_HOURLY_MAX_SPAN = 2 * MS_PER_DAY;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -81,9 +123,11 @@ export interface GoogleChartAdapterOptions {
    * The Google Charts chart type string (e.g. `'BarChart'`, `'LineChart'`).
    * Must be provided because the chart instance does not expose its own type.
    *
-   * For stacked, normalized, or grouped (dodged) variants of bar / column
-   * charts, use the explicit adapter type strings such as
-   * `'StackedColumnChart'`, `'NormalizedBarChart'`, or `'DodgedColumnChart'`.
+   * For stacked, normalized, or grouped (dodged) variants, use the explicit
+   * adapter type strings — `'StackedColumnChart'`, `'DodgedColumnChart'`,
+   * `'StackedAreaChart'`, `'NormalizedAreaChart'`. Google draws those with
+   * the same class as their plain counterpart and the difference lives in the
+   * draw options, which the adapter never sees.
    */
   chartType: GoogleChartType;
 }
@@ -450,13 +494,32 @@ function buildLayer(
   container: HTMLElement,
   chartType: GoogleChartType,
 ): MaidrLayer {
+  // Intervals are the one reading model the DataTable itself decides: a
+  // `role: 'interval'` column is visible to the adapter in a way `isStacked`
+  // and `intervals.style` are not. A chart that declares them draws two
+  // magnitudes per sample, and reading it as a plain line or bar drops the
+  // one a statistical graphic is usually drawn to show.
+  const intervals = intervalColumnsFor(dt, chartType);
+  if (intervals) {
+    // A `BarChart` is the horizontal one; the other three interval-capable
+    // types all put their values on the vertical axis.
+    const orientation = chartType === 'BarChart' ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+    return buildErrorBarLayer(chart, dt, container, intervals, orientation);
+  }
+
   switch (chartType) {
     case 'ColumnChart':
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.VERTICAL);
     case 'BarChart':
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
-      return buildLineLayer(chart, dt, container);
+      return buildLineLayer(chart, dt, container, TraceType.LINE);
+    case 'AreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.AREA);
+    case 'StackedAreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.STACKED_AREA);
+    case 'NormalizedAreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.NORMALIZED_AREA);
     case 'PieChart':
       // No `chart`: unlike the axis-based charts, a PieChart has no
       // `getChartLayoutInterface()` to ask where each slice was drawn.
@@ -473,12 +536,23 @@ function buildLayer(
       return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.DODGED);
     case 'CandlestickChart':
       return buildCandlestickLayer(chart, dt, container);
+    // The packages below draw without a `getChartLayoutInterface()`, so their
+    // builders take no `chart` — there is no bounding box to ask for.
+    case 'Sankey':
+      return buildFlowLayer(dt, container);
+    case 'TreeMap':
+      return buildTreemapLayer(dt, container);
+    case 'Gantt':
+      return buildGanttLayer(dt, container, 'Gantt');
+    case 'Timeline':
+      return buildGanttLayer(dt, container, 'Timeline');
     default:
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
-        + 'Supported types: BarChart, CandlestickChart, ColumnChart, DodgedBarChart, '
-        + 'DodgedColumnChart, LineChart, PieChart, ScatterChart, StackedBarChart, '
-        + 'StackedColumnChart.',
+        + 'Supported types: AreaChart, BarChart, CandlestickChart, ColumnChart, '
+        + 'DodgedBarChart, DodgedColumnChart, Gantt, LineChart, NormalizedAreaChart, '
+        + 'PieChart, Sankey, ScatterChart, StackedAreaChart, StackedBarChart, '
+        + 'StackedColumnChart, Timeline, TreeMap.',
       );
   }
 }
@@ -602,10 +676,33 @@ function buildSegmentedLayer(
 // Line / Area
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a line layer, or one of the three area layers, from the same
+ * DataTable shape.
+ *
+ * An `AreaChart`'s DataTable is a `LineChart`'s — domain in column 0, one
+ * non-role column per series — and MAIDR reads both as `LinePoint[][]`, so
+ * the only difference between the four is the declared trace type. Which of
+ * the three area readings applies is decided by `isStacked`, which lives in
+ * the draw options the adapter never receives, so the caller names it with
+ * `'StackedAreaChart'` / `'NormalizedAreaChart'` — the same convention
+ * `'StackedColumnChart'` already follows.
+ *
+ * The per-series values go out raw in every variant. `AreaTrace` derives the
+ * running total and each band's share of it itself, so a stacked layer must
+ * NOT be handed the accumulated edge.
+ *
+ * @param chart      - The Google Chart instance
+ * @param dt         - The DataTable the chart was drawn from
+ * @param container  - The DOM container element
+ * @param traceType  - Which of the four readings the caller asked for
+ * @returns The MAIDR layer
+ */
 function buildLineLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
+  traceType: TraceType.LINE | TraceType.AREA | TraceType.STACKED_AREA | TraceType.NORMALIZED_AREA,
 ): MaidrLayer {
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
@@ -633,7 +730,7 @@ function buildLineLayer(
 
   return {
     id: nextId('layer'),
-    type: TraceType.LINE,
+    type: traceType,
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
@@ -842,6 +939,536 @@ function buildCandlestickLayer(
 }
 
 // ---------------------------------------------------------------------------
+// Error bars / intervals
+// ---------------------------------------------------------------------------
+
+/**
+ * A data column together with the `role: 'interval'` columns attached to it.
+ */
+interface IntervalGroup {
+  /** The column carrying the estimate. */
+  dataCol: number;
+  /** The interval columns that follow it, in DataTable order. */
+  intervalCols: number[];
+}
+
+/**
+ * Builds an error-bar layer from a chart whose DataTable declares intervals.
+ *
+ * Google's interval values are absolute positions on the value axis, which is
+ * what {@link ErrorBarPoint} fixes as well, so nothing is converted here. A
+ * chart may declare several interval pairs at once — a 95% band drawn inside
+ * a 99% one — and the reading takes the outermost, because that is the bound
+ * a reader asking "is this consistent with zero" wants; the inner pair has no
+ * shape in the schema to travel in.
+ *
+ * A single interval column is read as the one bound it is, chosen by which
+ * side of the estimate it falls on. The schema makes the two bounds
+ * independently optional for exactly this: a one-sided interval is a real
+ * chart, and inventing its other half would draw a symmetry the data does not
+ * claim.
+ *
+ * @param chart       - The Google Chart instance
+ * @param dt          - The DataTable the chart was drawn from
+ * @param container   - The DOM container element
+ * @param group       - The estimate column and its interval columns
+ * @param orientation - Which axis carries the values
+ * @returns The MAIDR layer
+ */
+function buildErrorBarLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  group: IntervalGroup,
+  orientation: Orientation,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const data: ErrorBarPoint[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    const y = numericValue(dt, r, group.dataCol);
+    const point: ErrorBarPoint = { x: formatCellValue(dt, r, 0), y };
+
+    // A missing bound is left off rather than travelling as NaN: the trace
+    // drops a section no point measures, and a row of silence reads as a
+    // broken chart rather than as an absent bound.
+    const bounds = group.intervalCols
+      .map(c => numericValue(dt, r, c))
+      .filter(bound => Number.isFinite(bound));
+
+    if (bounds.length === 1) {
+      if (bounds[0] <= y) {
+        point.yMin = bounds[0];
+      } else {
+        point.yMax = bounds[0];
+      }
+    } else if (bounds.length > 1) {
+      point.yMin = Math.min(...bounds);
+      point.yMax = Math.max(...bounds);
+    }
+
+    data.push(point);
+  }
+
+  const selector = markErrorBarElements(chart, container, rows);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.ERROR_BAR,
+    orientation,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(group.dataCol) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Returns the interval columns of a chart that unambiguously draws intervals,
+ * or `undefined` when it does not.
+ *
+ * Only the axis-based core charts draw intervals at all, and only a
+ * single-series one can be read as an {@link ErrorBarPoint} list — that shape
+ * is flat, so a second estimate column has nowhere to go. A multi-series
+ * chart therefore keeps its existing reading, with the intervals dropped as
+ * before, rather than silently losing one of its series.
+ *
+ * Note that `GoogleDataTable.getColumnRole` is optional: a DataView-like
+ * object without it reports no roles, so its interval columns are read as
+ * extra data series exactly as they were before this existed.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param chartType - The chart type string the caller supplied
+ * @returns The sole estimate column and its intervals, or undefined
+ */
+function intervalColumnsFor(
+  dt: GoogleDataTable,
+  chartType: GoogleChartType,
+): IntervalGroup | undefined {
+  if (chartType !== 'LineChart' && chartType !== 'ScatterChart'
+    && chartType !== 'ColumnChart' && chartType !== 'BarChart') {
+    return undefined;
+  }
+
+  const groups = intervalGroups(dt);
+  if (groups.length !== 1 || groups[0].intervalCols.length === 0) {
+    return undefined;
+  }
+  return groups[0];
+}
+
+/**
+ * Groups every non-role data column with the interval columns following it.
+ *
+ * Google attaches an interval to the data column it comes after, so the
+ * pairing is positional: each `role: 'interval'` column belongs to the most
+ * recent data column. Other role columns (tooltip, annotation, style) are
+ * skipped without breaking a group, since Google allows them to be
+ * interleaved.
+ *
+ * @param dt - The DataTable to inspect
+ * @returns One group per data column, in DataTable order
+ */
+function intervalGroups(dt: GoogleDataTable): IntervalGroup[] {
+  const groups: IntervalGroup[] = [];
+
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      groups.push({ dataCol: c, intervalCols: [] });
+      continue;
+    }
+    if (dt.getColumnRole?.(c) === 'interval') {
+      groups[groups.length - 1]?.intervalCols.push(c);
+    }
+  }
+
+  return groups;
+}
+
+// ---------------------------------------------------------------------------
+// Sankey
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a sankey layer from a Google Charts Sankey.
+ *
+ * The DataTable is fixed: column 0 names the node a flow leaves, column 1 the
+ * node it arrives at, and the first data column after them carries how much
+ * flows. No node list is built — a flow names both of its ends, so `FlowTrace`
+ * derives the nodes from the edges and a second list would be a second source
+ * of truth for them.
+ *
+ * A Sankey is not axis-based, so `axes.x` / `axes.y` name what the nodes are
+ * and what their weights measure rather than any drawn axis.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @returns The MAIDR layer
+ */
+function buildFlowLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const weightCol = nextDataColumn(dt, 2) ?? 2;
+
+  const data: FlowPoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    data.push({
+      source: formatCellValue(dt, r, 0),
+      target: formatCellValue(dt, r, 1),
+      value: numericValue(dt, r, weightCol),
+    });
+  }
+
+  const selector = markFlowRibbonElements(container, rows);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.SANKEY,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(weightCol) || undefined },
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Treemap
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a treemap layer from a Google Charts TreeMap.
+ *
+ * The DataTable is fixed: column 0 is the node's id (which is also its
+ * label), column 1 its parent's id — null on the single root row — and the
+ * first data column after them its size. MAIDR addresses a node by its
+ * **path** rather than by a parent pointer, so the parent column is turned
+ * into a `Map` and walked upward once per row.
+ *
+ * A row that is some other row's parent gets no `y`. Google's convention is
+ * that an interior node's size is the sum of its children's and its own cell
+ * carries a placeholder (`0`, or null), and emitting that placeholder would
+ * be read as a declared value the trace keeps in preference to the sum — so
+ * the whole chart would announce a total of zero.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @returns The MAIDR layer
+ */
+function buildTreemapLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const sizeCol = nextDataColumn(dt, 2) ?? 2;
+
+  // Identity comes from the raw values, not the formatted ones: a parent
+  // pointer has to match the id it names exactly, and a formatter applied to
+  // one column and not the other would break every path in the chart.
+  const parentOf = new Map<string, string>();
+  const hasChildren = new Set<string>();
+  for (let r = 0; r < rows; r++) {
+    const id = rawKey(dt, r, 0);
+    const parent = dt.getValue(r, 1);
+    if (parent !== null && parent !== undefined && parent !== '') {
+      parentOf.set(id, String(parent));
+      hasChildren.add(String(parent));
+    }
+  }
+
+  const data: TreemapPoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    const id = rawKey(dt, r, 0);
+    const path = ancestorsOf(id, parentOf);
+    data.push({
+      x: id,
+      ...(hasChildren.has(id) ? {} : { y: numericValue(dt, r, sizeCol) }),
+      ...(path.length > 0 ? { path } : {}),
+    });
+  }
+
+  const selector = markRectCellElements(container, rows, 'data-maidr-cell', 'TreeMap cell');
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.TREEMAP,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(sizeCol) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Walks a node's parent pointers upward into the path MAIDR addresses it by.
+ *
+ * @param id       - The node to walk from
+ * @param parentOf - Every declared child-to-parent pointer
+ * @returns The node's ancestors, root first, excluding the node itself
+ */
+function ancestorsOf(id: string, parentOf: Map<string, string>): string[] {
+  const path: string[] = [];
+  // A malformed table can name a cycle. Stopping at the first node already
+  // seen keeps the walk finite and leaves the partial path, which still
+  // places the node under the ancestors that are real.
+  const seen = new Set<string>([id]);
+
+  let at = parentOf.get(id);
+  while (at !== undefined && !seen.has(at)) {
+    path.unshift(at);
+    seen.add(at);
+    at = parentOf.get(at);
+  }
+  return path;
+}
+
+// ---------------------------------------------------------------------------
+// Gantt / timeline
+// ---------------------------------------------------------------------------
+
+/**
+ * The columns a schedule is read out of, whichever package drew it.
+ */
+interface GanttColumns {
+  /** The column naming the lane a row belongs to. */
+  laneCol: number;
+  /** The column naming the individual interval, when the lane does not. */
+  labelCol?: number;
+  /** Where the interval begins. */
+  startCol: number;
+  /** Where it ends. */
+  endCol: number;
+}
+
+/**
+ * Builds a gantt layer from a Google Charts Gantt or Timeline.
+ *
+ * The two packages draw the same thing from different tables — a Gantt's row
+ * is `[Task ID, Task Name, (Resource), Start, End, Duration, Percent, Deps]`
+ * and a Timeline's is `[Row label, (Bar label), (tooltip), Start, End]` — so
+ * they share this builder and differ only in which column names the lane.
+ * Each package's own grouping is preserved: a Gantt draws one row per task
+ * and a Timeline merges the rows sharing a label into one, which is why a
+ * Timeline's bar label becomes {@link GanttPoint.label} and a Gantt's task
+ * name becomes the lane itself.
+ *
+ * Dates are converted to hours or days rather than to milliseconds. The
+ * length of an interval is what a schedule is drawn to compare, and MAIDR
+ * announces it as a bare number with {@link GanttData.unit} appended: left in
+ * epoch milliseconds every task would be announced as an unreadable
+ * eight-digit figure. The ends stay readable because the axis carries a
+ * format that turns the same unit back into a date.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param chartType - Which of the two packages drew it
+ * @returns The MAIDR layer
+ */
+function buildGanttLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  chartType: 'Gantt' | 'Timeline',
+): MaidrLayer {
+  const columns = ganttColumns(dt, chartType);
+  const rows = dt.getNumberOfRows();
+  const scale = ganttScale(dt, columns, rows);
+
+  // First appearance decides lane order, which is the order both packages
+  // draw their rows in.
+  const laneIndex = new Map<string, number>();
+  const points: GanttPoint[][] = [];
+  const lanes: string[] = [];
+  // Which lane each row landed in, so the drawn bars can be told apart from
+  // the order MAIDR walks them in (see below).
+  const laneOfRow: number[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    const lane = formatCellValue(dt, r, columns.laneCol);
+    let index = laneIndex.get(lane);
+    if (index === undefined) {
+      index = points.length;
+      laneIndex.set(lane, index);
+      points.push([]);
+      lanes.push(lane);
+    }
+
+    const point: GanttPoint = {
+      x: lane,
+      start: scale.toAxis(dt.getValue(r, columns.startCol)),
+      end: scale.toAxis(dt.getValue(r, columns.endCol)),
+    };
+
+    // Only when it says something the lane does not: a Timeline whose bar
+    // label repeats its row label would otherwise announce the name twice.
+    if (columns.labelCol !== undefined) {
+      const label = formatCellValue(dt, r, columns.labelCol);
+      if (label && label !== lane) {
+        point.label = label;
+      }
+    }
+
+    points[index].push(point);
+    laneOfRow.push(index);
+  }
+
+  const data: GanttData = {
+    points,
+    lanes,
+    ...(scale.unit ? { unit: scale.unit } : {}),
+  };
+
+  // `GanttTrace` slices the marked bars lane by lane, so the drawn order has
+  // to be the lane order too. Google draws in DataTable row order, which is
+  // lane order exactly when the rows of a lane are already contiguous — every
+  // Gantt (one lane per task) and every Timeline whose rows are authored
+  // together. A table that interleaves its lanes would mark the bars in an
+  // order the trace reads as another lane's, so it gets no marks at all.
+  const grouped = isGroupedByLane(laneOfRow);
+  if (!grouped) {
+    console.warn(
+      `[MAIDR] ${chartType}: rows of the same lane are not contiguous in the DataTable, `
+      + 'so the drawn bars cannot be matched to the lanes. Visual highlighting is '
+      + 'disabled for this chart.',
+    );
+  }
+  const selector = grouped
+    ? markRectCellElements(container, rows, 'data-maidr-lane-bar', `${chartType} bar`)
+    : undefined;
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.GANTT,
+    // A schedule runs its bars left to right, which puts the axis on x and
+    // the lanes on y — the opposite of the trace's default.
+    orientation: Orientation.HORIZONTAL,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: {
+        label: dt.getColumnLabel(columns.startCol) || undefined,
+        ...(scale.format ? { format: scale.format } : {}),
+      },
+      y: { label: dt.getColumnLabel(columns.laneCol) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Locates the columns a schedule is read out of.
+ *
+ * The two date columns are found by type rather than by position, because a
+ * Gantt's optional Resource column and a Timeline's optional bar-label and
+ * tooltip columns both shift everything after them. The lane is the one fixed
+ * difference between the packages: a Gantt names its row in column 1 (Task
+ * Name, column 0 being an id the chart never shows), a Timeline in column 0.
+ *
+ * @param dt        - The DataTable to inspect
+ * @param chartType - Which of the two packages drew it
+ * @returns The columns to read
+ */
+function ganttColumns(dt: GoogleDataTable, chartType: 'Gantt' | 'Timeline'): GanttColumns {
+  const laneCol = chartType === 'Gantt' && dt.getNumberOfColumns() > 1 ? 1 : 0;
+
+  const dateCols: number[] = [];
+  const numberCols: number[] = [];
+  for (let c = laneCol + 1; c < dt.getNumberOfColumns(); c++) {
+    if (isRoleColumn(dt, c)) {
+      continue;
+    }
+    const type = dt.getColumnType(c);
+    if (type === 'date' || type === 'datetime') {
+      dateCols.push(c);
+    } else if (type === 'number') {
+      numberCols.push(c);
+    }
+  }
+
+  // Both packages require dates, but a DataView that has lost its column
+  // types still has to be read from somewhere: the two ends are then the
+  // first two numeric columns, which is where Google puts them.
+  const ends = dateCols.length >= 2 ? dateCols : numberCols;
+  const startCol = ends[0] ?? laneCol + 1;
+  const endCol = ends[1] ?? startCol + 1;
+
+  // A Timeline's bar label is the column between the row label and the dates,
+  // when it declared one; a Gantt has no such column — its task name is the
+  // lane.
+  const labelCol = chartType === 'Timeline' && startCol > 1
+    && !isRoleColumn(dt, 1) && dt.getColumnType(1) === 'string'
+    ? 1
+    : undefined;
+
+  return { laneCol, labelCol, startCol, endCol };
+}
+
+/**
+ * How a schedule's dates map onto the axis MAIDR announces.
+ */
+interface GanttScale {
+  /** Converts one cell value to its axis position. */
+  toAxis: (raw: unknown) => number;
+  /** What one axis unit is called, when the columns hold dates. */
+  unit?: string;
+  /** Turns an axis position back into a date for the announcement. */
+  format?: AxisFormat;
+}
+
+/**
+ * Chooses the unit a schedule's intervals are measured in.
+ *
+ * A table whose ends are plain numbers is left alone — the producer already
+ * chose a unit and the adapter has no name for it. Dates are divided down to
+ * hours or days depending on how much of the axis the chart covers, and the
+ * axis gets a format that renders the same number back as a date, so the ends
+ * read as dates while the length reads as a count of the unit.
+ *
+ * @param dt      - The DataTable the chart was drawn from
+ * @param columns - Where the dates are
+ * @param rows    - How many rows to inspect
+ * @returns The conversion, unit and axis format
+ */
+function ganttScale(dt: GoogleDataTable, columns: GanttColumns, rows: number): GanttScale {
+  const stamps: number[] = [];
+  let allDates = rows > 0;
+
+  for (let r = 0; r < rows; r++) {
+    for (const c of [columns.startCol, columns.endCol]) {
+      const raw = dt.getValue(r, c);
+      if (raw instanceof Date) {
+        stamps.push(raw.getTime());
+      } else {
+        allDates = false;
+      }
+    }
+  }
+
+  if (!allDates) {
+    return { toAxis: raw => Number(raw) };
+  }
+
+  const span = Math.max(...stamps) - Math.min(...stamps);
+  const hourly = span <= GANTT_HOURLY_MAX_SPAN;
+  const perUnit = hourly ? MS_PER_HOUR : MS_PER_DAY;
+
+  return {
+    toAxis: raw => (raw instanceof Date ? raw.getTime() / perUnit : Number.NaN),
+    unit: hourly ? 'hours' : 'days',
+    format: {
+      function: hourly
+        ? `return new Date(value * ${MS_PER_HOUR}).toLocaleString()`
+        : `return new Date(value * ${MS_PER_DAY}).toLocaleDateString()`,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers — cell value extraction
 // ---------------------------------------------------------------------------
 
@@ -860,6 +1487,18 @@ function formatCellValue(dt: GoogleDataTable, row: number, col: number): string 
   if (raw instanceof Date)
     return raw.toLocaleDateString();
   return String(raw ?? '');
+}
+
+/**
+ * Returns a cell's raw value as an identity key.
+ *
+ * Distinct from {@link formatCellValue}, which prefers the formatted string:
+ * a hierarchy's parent pointers have to match the ids they name exactly, and
+ * a formatter applied to the id column but not the parent column would break
+ * every path in the chart.
+ */
+function rawKey(dt: GoogleDataTable, row: number, col: number): string {
+  return String(dt.getValue(row, col) ?? '');
 }
 
 /**
@@ -898,12 +1537,35 @@ function isRoleColumn(dt: GoogleDataTable, c: number): boolean {
  * the value lookup to fail loudly rather than silently reading a tooltip.
  */
 function firstDataColumn(dt: GoogleDataTable): number {
-  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+  return nextDataColumn(dt, 1) ?? 1;
+}
+
+/**
+ * Returns the index of the first non-role data column at or after `from`, or
+ * `undefined` when every remaining column carries a role.
+ *
+ * The fixed-shape packages need this: a Sankey's weight and a TreeMap's size
+ * are "the column after the two identity columns", which a tooltip column
+ * sitting between them would otherwise displace.
+ */
+function nextDataColumn(dt: GoogleDataTable, from: number): number | undefined {
+  for (let c = from; c < dt.getNumberOfColumns(); c++) {
     if (!isRoleColumn(dt, c)) {
       return c;
     }
   }
-  return 1;
+  return undefined;
+}
+
+/**
+ * Whether the rows of each lane are contiguous, in the order the lanes were
+ * first seen.
+ *
+ * @param laneOfRow - The lane index each row landed in, in row order
+ * @returns True when the sequence never returns to a lane it has left
+ */
+function isGroupedByLane(laneOfRow: readonly number[]): boolean {
+  return laneOfRow.every((lane, row) => row === 0 || lane >= laneOfRow[row - 1]);
 }
 
 /**
@@ -1257,6 +1919,14 @@ function markLinePointElements(
 
   // Find line paths: paths with fill="none" inside clip-path group (actual data lines)
   // These exclude axis lines, gridlines, etc.
+  //
+  // An area chart draws two paths per series — the filled band and the line
+  // along its top edge — and `fill="none"` keeps only the second, which is
+  // what this wants: the outline's `d` runs through the data vertices, while
+  // the band's closes back along the baseline and would parse into twice as
+  // many points. An area drawn with `lineWidth: 0` has no outline and so gets
+  // no highlight, which is the honest answer when the chart drew nothing to
+  // highlight a point with.
   const linePaths = svg.querySelectorAll('g[clip-path] path[fill="none"]');
 
   if (linePaths.length === 0) {
@@ -1393,4 +2063,196 @@ function markCandlestickElements(
   }
 
   return selector;
+}
+
+/**
+ * Marks the data-point circles of an interval chart and returns a selector
+ * for them.
+ *
+ * `ErrorBarTrace` highlights one element per **sample** — the whip is a
+ * single mark whichever bound the cursor is on — so the estimate's own point
+ * marker is what gets marked, located through the layout API the way scatter
+ * points are.
+ *
+ * All or nothing: a chart drawn without visible point markers (`pointSize: 0`,
+ * which is a LineChart's default) has nothing to mark, and a partial match
+ * would leave `ErrorBarTrace` with a list that does not line up with the
+ * samples, which it discards anyway. Audio, text and braille are unaffected
+ * either way.
+ *
+ * @param chart     - The Google Chart instance
+ * @param container - The DOM container element
+ * @param rowCount  - Number of samples
+ * @returns CSS selector for the marked circles, or undefined when the chart
+ *          drew none the samples could be matched to
+ */
+function markErrorBarElements(
+  chart: GoogleChart,
+  container: HTMLElement,
+  rowCount: number,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  const layout = chart.getChartLayoutInterface();
+  if (!layout) {
+    return undefined;
+  }
+
+  const allCircles = svg.querySelectorAll('circle');
+  if (allCircles.length === 0) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  allCircles.forEach(circle => circle.removeAttribute('data-maidr-interval'));
+
+  let markedCount = 0;
+  for (let r = 0; r < rowCount; r++) {
+    const bbox = layout.getBoundingBox(`point#0#${r}`);
+    if (!bbox) {
+      continue;
+    }
+    const circle = findCircleByBoundingBox(allCircles, bbox);
+    if (circle && !circle.hasAttribute('data-maidr-interval')) {
+      circle.setAttribute('data-maidr-interval', `${r}`);
+      markedCount++;
+    }
+  }
+
+  if (markedCount !== rowCount) {
+    // A partial match is withdrawn rather than shipped: the marks left behind
+    // would resolve to a shorter list than the samples, and the next chart
+    // drawn into this container would inherit them.
+    allCircles.forEach(circle => circle.removeAttribute('data-maidr-interval'));
+    if (markedCount > 0) {
+      console.warn(
+        `[MAIDR] Interval point count mismatch: expected ${rowCount}, marked ${markedCount}. `
+        + 'Visual highlighting is disabled for this chart.',
+      );
+    }
+    return undefined;
+  }
+
+  return `#${container.id} svg circle[data-maidr-interval]`;
+}
+
+/**
+ * Marks the ribbons of a sankey diagram and returns a selector for them.
+ *
+ * `FlowTrace` wants one element per flow in declared order, which is the
+ * order Google emits the ribbons in. The sankey package exposes no
+ * `getChartLayoutInterface()`, so there is no bounding box to match against
+ * and the ribbons are picked out by the cubic command in their `d` attribute
+ * (see {@link SVG_CUBIC_COMMAND}) — the nodes are `<rect>`s and the labels
+ * `<text>`, so nothing else in the SVG is a curve.
+ *
+ * When the ribbon count does not match the row count the mapping is unknown,
+ * and the marks are left off entirely — the pie precedent, for the same
+ * reason: highlighting the wrong flow would tell a sighted collaborator one
+ * thing while the audio and text say another.
+ *
+ * @param container - The DOM container element
+ * @param flowCount - Number of data rows (one per flow)
+ * @returns CSS selector for the marked ribbons, or undefined when they could
+ *          not be identified with confidence
+ */
+function markFlowRibbonElements(
+  container: HTMLElement,
+  flowCount: number,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  svg.querySelectorAll('path[data-maidr-flow]')
+    .forEach(path => path.removeAttribute('data-maidr-flow'));
+
+  const ribbons = Array.from(svg.querySelectorAll('path'))
+    .filter(path => SVG_CUBIC_COMMAND.test(path.getAttribute('d') ?? ''));
+  if (ribbons.length === 0) {
+    return undefined;
+  }
+
+  if (ribbons.length !== flowCount) {
+    console.warn(
+      `[MAIDR] Sankey ribbon count mismatch: expected ${flowCount}, found ${ribbons.length}. `
+      + 'Visual highlighting is disabled for this chart.',
+    );
+    return undefined;
+  }
+
+  ribbons.forEach((ribbon, index) => ribbon.setAttribute('data-maidr-flow', `${index}`));
+
+  return `#${container.id} svg path[data-maidr-flow]`;
+}
+
+/**
+ * Marks the `<rect>` cells a layout-less package draws — a treemap's tiles, a
+ * schedule's bars — and returns a selector for them.
+ *
+ * Neither package exposes `getChartLayoutInterface()`, so there is no
+ * bounding box to match a row against: the only thing tying the cells to the
+ * data is the order Google emits them in, which is DataTable row order. That
+ * order only means anything when every drawn cell is a data cell, so the
+ * marks are withdrawn unless the count matches exactly.
+ *
+ * It frequently will not, and by design rather than by accident: a TreeMap is
+ * a drill-down chart that renders `maxDepth` levels at a time and redraws on
+ * click, and a Gantt adds an inner rect for percent complete. Both then ship
+ * with audio, text and braille and no highlight, which is the honest reading
+ * of a DOM that cannot be mapped.
+ *
+ * @param container - The DOM container element
+ * @param expected  - Number of data rows (one per drawn cell)
+ * @param attribute - The marking attribute to set
+ * @param what      - What the cells are, for the mismatch warning
+ * @returns CSS selector for the marked cells, or undefined when they could
+ *          not be identified with confidence
+ */
+function markRectCellElements(
+  container: HTMLElement,
+  expected: number,
+  attribute: string,
+  what: string,
+): string | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  svg.querySelectorAll(`rect[${attribute}]`)
+    .forEach(rect => rect.removeAttribute(attribute));
+
+  // Prefer the chart-area clip group, which excludes the background rect and
+  // the axis furniture; fall back to the whole SVG when the package draws
+  // without one.
+  const clipped = svg.querySelectorAll('g[clip-path] rect');
+  const candidates = clipped.length > 0 ? clipped : svg.querySelectorAll('rect');
+
+  const cells = Array.from(candidates).filter((rect) => {
+    const width = Number.parseFloat(rect.getAttribute('width') || '0');
+    const height = Number.parseFloat(rect.getAttribute('height') || '0');
+    return width > CELL_MIN_SIZE && height > CELL_MIN_SIZE;
+  });
+  if (cells.length === 0) {
+    return undefined;
+  }
+
+  if (cells.length !== expected) {
+    console.warn(
+      `[MAIDR] ${what} count mismatch: expected ${expected}, found ${cells.length}. `
+      + 'Visual highlighting is disabled for this chart.',
+    );
+    return undefined;
+  }
+
+  cells.forEach((cell, index) => cell.setAttribute(attribute, `${index}`));
+
+  return `#${container.id} svg rect[${attribute}]`;
 }

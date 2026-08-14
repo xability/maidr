@@ -126,14 +126,32 @@ export interface GoogleEvents {
  * Supported Google Charts chart type strings that the adapter can convert.
  */
 export type GoogleChartType
-  = | 'BarChart'
+  = | 'AreaChart'
+    | 'BarChart'
     | 'CandlestickChart'
     | 'ColumnChart'
     | 'DodgedBarChart'
     | 'DodgedColumnChart'
+    /** `google.charts.Gantt`, from the `gantt` package. */
+    | 'Gantt'
     | 'LineChart'
+    /**
+     * An `AreaChart` drawn with `isStacked: 'percent'`.
+     *
+     * Not a Google class: the adapter never sees the draw options, so a
+     * percent-stacked area has to be named by the caller.
+     */
+    | 'NormalizedAreaChart'
     /** Also covers doughnuts, which Google draws as a `PieChart` with a `pieHole`. */
     | 'PieChart'
+    /** `google.visualization.Sankey`, from the `sankey` package. */
+    | 'Sankey'
     | 'ScatterChart'
+    /** An `AreaChart` drawn with `isStacked: true`. See `NormalizedAreaChart`. */
+    | 'StackedAreaChart'
     | 'StackedBarChart'
-    | 'StackedColumnChart';
+    | 'StackedColumnChart'
+    /** `google.visualization.Timeline`, from the `timeline` package. */
+    | 'Timeline'
+    /** `google.visualization.TreeMap`, from the `treemap` package. */
+    | 'TreeMap';

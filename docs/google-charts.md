@@ -88,8 +88,24 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
 | Pie / Doughnut | `PieChart` (a doughnut is the same class with `pieHole`) | `'PieChart'` |
+| Area | `AreaChart` | `'AreaChart'` |
+| Stacked Area | `AreaChart` + `isStacked: true` | `'StackedAreaChart'` |
+| 100% Stacked Area | `AreaChart` + `isStacked: 'percent'` | `'NormalizedAreaChart'` |
+| Error bars / intervals | `LineChart`, `ScatterChart`, `ColumnChart` or `BarChart` with `role: 'interval'` columns | detected automatically — keep the chart's own `chartType` |
+| Sankey | `Sankey` (`sankey` package) | `'Sankey'` |
+| TreeMap | `TreeMap` (`treemap` package) | `'TreeMap'` |
+| Gantt | `google.charts.Gantt` (`gantt` package) | `'Gantt'` |
+| Timeline | `Timeline` (`timeline` package) | `'Timeline'` |
 
 **Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
+
+> **Stacking note:** the adapter is handed the chart, the DataTable and the container, but never the draw options — so `isStacked` is invisible to it. That is why a stacked or percent-stacked chart is named by its own `chartType` string rather than detected. Passing `'AreaChart'` for a chart drawn with `isStacked: true` is not a cosmetic mistake: the bands would be announced as independent series, and the running total a sighted reader sees along the top edge would go missing entirely.
+
+> **Interval note:** intervals are the one variant the adapter *can* detect, because `role: 'interval'` columns live in the DataTable rather than in the options. A single-series chart declaring them becomes an error bar layer: left and right walk the samples, up and down walk the lower bound, the estimate, and the upper bound. Two interval pairs (a 95% band drawn inside a 99% one) are read as the outermost, and a single interval column is read as the one bound it is, chosen by which side of the estimate it falls on. A **multi-series** chart with intervals keeps its previous reading — `ErrorBarPoint[]` is flat, so a second estimate column has nowhere to go, and losing a series is worse than losing its intervals. Highlighting uses the chart's own point markers, so draw with `pointSize` set; the audio, text and braille do not depend on it.
+
+> **Highlighting note for the non-corechart packages:** Sankey, TreeMap, Gantt and Timeline expose no `getChartLayoutInterface()`, so there is no bounding box to match a data row against and the drawn elements have to be matched by DOM order. The adapter only does so when the counts agree exactly, and otherwise turns visual highlighting off for that chart rather than highlighting the wrong element — the same rule the pie wedges follow. Expect this with a `TreeMap`, which renders `maxDepth` levels at a time and redraws on click, and with a Gantt drawing percent-complete bars. Audio, text, and braille are unaffected.
+
+> **Schedule note:** a Gantt's dates are converted to days (or to hours, for a schedule spanning less than two days) rather than left as epoch milliseconds, because MAIDR announces the *length* of an interval and "1209600000" is not a length anyone can hold. The time axis carries a format that renders the same numbers back as dates, so the ends still read as dates. A Gantt gets one lane per task; a Timeline merges the rows sharing a label into one lane and keeps each bar's own name. Keep the rows of a lane together in the DataTable — interleaved lanes cannot be matched to the drawn bars, and highlighting is dropped for the chart.
 
 > **Pie note:** column 0 supplies the slice labels and the first non-role column their values; `axes.x` / `axes.y` take those two column labels, since a `PieChart` has no drawn axis to name. Google Charts gives its wedges no class or id, so the adapter picks them out of the SVG by the arc command in their `d` attribute. When the wedge count does not match the row count the data-to-DOM mapping is unknown and highlighting is dropped for that chart — which is what happens with `is3D: true` (several paths per slice) and with `sliceVisibilityThreshold` (small slices folded into one "Other" wedge). Audio, text, and braille are unaffected.
 
