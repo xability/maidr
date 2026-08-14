@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Dumbbell Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Dumbbell</h1>
+    <p>Click on a chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. Up and Down move between the two ends of a row; Left and Right move between rows, and every position announces the change the row draws.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="dumbbell-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // A dumbbell is a horizontal floating bar: the connector between the two
+      // dots is the bar itself. That is the same datum a one-interval gantt
+      // uses, so `plugins.maidr.traceType` says which figure this is — and
+      // `startLabel` / `endLabel` name the two ends the legend cannot.
+      new Chart(document.getElementById('dumbbell-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Japan', 'Spain', 'Poland', 'Brazil', 'Chad'],
+          datasets: [
+            {
+              label: 'Life expectancy',
+              data: [
+                [78.9, 84.6],
+                [76.8, 83.4],
+                [70.9, 78.3],
+                [65.3, 75.9],
+                [50.6, 59.3],
+              ],
+              backgroundColor: '#4682b4',
+              barThickness: 6,
+            },
+          ],
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            title: { display: true, text: 'Life Expectancy, 1990 vs 2020' },
+            legend: { display: false },
+            maidr: {
+              traceType: 'dumbbell',
+              startLabel: '1990',
+              endLabel: '2020',
+              axes: { x: 'Years', y: 'Country' },
+            },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Years' } },
+            y: { title: { display: true, text: 'Country' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

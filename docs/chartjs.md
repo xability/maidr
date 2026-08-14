@@ -72,15 +72,50 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Bar | `'bar'` (one dataset) | — | [Bar chart](examples.html) |
 | Stacked Bar | `'bar'` with `scales.x.stacked` / `scales.y.stacked` | — | [Stacked bar](examples.html) |
 | Dodged Bar | `'bar'` with multiple datasets (no stacking) | — | [Dodged bar](examples.html) |
+| Diverging Bar | stacked `'bar'` with one series negated | — | [Diverging bar](examples.html) |
+| Gantt / Range Bar | `'bar'` with `[start, end]` data | — | [Gantt chart](examples.html) |
+| Waterfall | `'bar'` with chained `[start, end]` data | — | [Waterfall](examples.html) |
+| Dumbbell | horizontal `'bar'` with `[start, end]` data and `plugins.maidr.traceType` | — | [Dumbbell](examples.html) |
 | Line | `'line'` | — | [Line chart](examples.html) |
 | Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
+| Area | `'line'` with `fill` | — | [Line chart](examples.html) |
+| Stacked Area | `'line'` with `fill` and a stacked value scale | — | [Line chart](examples.html) |
+| Normalized Area | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
+| Bump | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
+| Dot Plot | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
+| Survival | `'line'` with `stepped` and `plugins.maidr.traceType` | — | [Survival curve](examples.html) |
 | Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
+| Radar | `'radar'` | — | [Radar chart](examples.html) |
+| Polar Area | `'polarArea'` | — | [Radar chart](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
+| Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
+
+> **Radar note:** a radar and a polar area are drawn against a single radial `r` scale, so `axes.y` reads `scales.r.title.text` and `axes.x` defaults to `Category` — set `plugins.maidr.axes` to name what the spokes and their magnitudes mean. Both are read as a multi-series layer, one row per dataset and one column per spoke, with each spoke's stereo position following its angle rather than its index.
+
+### Charts Chart.js Does Not Declare
+
+Chart.js has no configuration for a waterfall, a bump chart, a normalized area or a diverging bar — each is a recipe built out of a plain bar or line chart — so MAIDR reads them off the **values**. Each test is deliberately strict, because announcing a chart as something it is not is worse than announcing it plainly:
+
+- **Waterfall** — one series of `[start, end]` bars on the default vertical index axis where each step begins where the previous one ended. Bars that sit on the baseline (`start` of `0`) are read as the opening, closing or a subtotal. Unchained intervals are read as a gantt instead. A waterfall is one running total, so only the first dataset is read — a chart with several series of intervals is a gantt.
+- **Gantt** — any other `[start, end]` bar chart. `indexAxis: 'y'` is the ordinary schedule, one lane per label; several datasets put several intervals in the same lane, each named by its dataset label. A lane whose entry is `null` stays a navigable row with nothing booked. Bounds may be numbers or `Date`s; on a `type: 'time'` scale MAIDR announces both ends as dates and measures lengths in milliseconds, so set `plugins.maidr.unit` when the schedule reads in days or sprints.
+- **Normalized area** — two or more stacked, filled line datasets whose every category totals the same whole (100 or 1, within half a percent so rounded shares still count).
+- **Bump** — a line chart with `scales.y.reverse` whose values at every period are a permutation of `1..N` across the series. The reversed axis alone is not enough; the permutation is what makes the rank reading safe.
+- **Diverging bar** — a stacked bar chart whose datasets each sit wholly on one side of the baseline, with both sides occupied. The values stay signed: MAIDR pitches the magnitude and announces the side.
+- **Dot plot** — a line chart whose every dataset sets `showLine: false` on a category axis. This one Chart.js does say outright: switching the line off is its own way of drawing a Cleveland dot plot. Unjoined points along a *linear* axis are a scatter plot drawn by the line controller, and stay one.
+- **Gauge** — a `doughnut` swept through less than the full circle (`circumference` under 360) whose single dataset holds exactly two values: the measure, and the rest of the dial drawn empty. The remainder is spent on the dial's `max` rather than announced as a second reading.
+
+### Charts Only the Page Can Declare
+
+Three readings are shape-identical to another recipe, so no test on the config or the values can reach them. Set `plugins.maidr.traceType` to say which figure the chart is; the declaration wins over every heuristic above, in both directions — declaring `pie` on a two-slice half-doughnut keeps it a pie, and declaring `gantt` on a chained bar chart keeps it a schedule.
+
+- **Dumbbell** (`traceType: 'dumbbell'`) — a horizontal floating bar chart, which is the same `[start, end]` datum a one-interval-per-lane gantt uses. `plugins.maidr.startLabel` and `endLabel` name the two ends ("1990", "2020"); without them the reader is told which dot they are on but not which year it is. Rows with no pair are skipped rather than kept as empty rows, unlike a gantt lane. A dumbbell is one pair per row, so only the first dataset is read — several intervals in the same row are a gantt.
+- **Survival** (`traceType: 'survival'`) — a `stepped: 'after'` line, which is how every staircase is drawn. Chart.js ignores properties it does not know, so ride the two things a survival figure carries and a step chart does not on the points themselves: `{x, y, censored: true}` for a censoring mark and `{yMin, yMax}` for the confidence band. Each dataset is one arm, gathered into a single layer.
+- **Gauge** (`traceType: 'gauge'`) — for a dial the geometry above misses, and for the target and bands Chart.js records only as styling: `plugins.maidr.target` is the bullet marker and `plugins.maidr.bands` is a `[{ to, label }]` list in ascending order.
 
 ## Code Examples
 
@@ -489,7 +524,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from Chart.js |
 | Element addressing | Manual CSS selectors | Manual CSS selectors | Auto-generated from canvas elements |
 | Configuration | Required | Required | Zero configuration |
-| Chart types | All MAIDR types | All MAIDR types | 8 Chart.js types (incl. plugins) |
+| Chart types | All MAIDR types | All MAIDR types | [23 Chart.js types](#supported-chart-types) (incl. plugins) |
 | Dynamic charts | Manual init | React lifecycle | Auto-handled per chart |
 
 ## npm Installation (Optional)

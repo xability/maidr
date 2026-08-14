@@ -6,6 +6,43 @@
  * objects will satisfy these interfaces.
  */
 
+import type { GaugeBand, TraceType } from '../../type/grammar';
+
+/**
+ * One end of a floating bar.
+ *
+ * A number on a linear scale; a `Date` when the bar is drawn against a time
+ * scale, which is how Chart.js's own gantt and range-bar recipes write them.
+ * ISO date *strings* are also accepted by Chart.js there and are deliberately
+ * not read here — parsing one means guessing a calendar for a value that may
+ * equally be a category label.
+ */
+export type ChartJsRangeBound = number | Date;
+
+/**
+ * A point-shaped datum: a scatter or bubble point, a line vertex on a
+ * continuum, one time of a survival curve.
+ *
+ * The three optional members after `r` are not Chart.js's. Chart.js passes
+ * unknown properties on a datum through untouched, which is how a page carries
+ * a fact its config has no field for — and a Kaplan-Meier curve has two of
+ * those, the censoring mark and the confidence band, neither of which is a
+ * position the chart draws. They are named here rather than read off an index
+ * signature so this stays a statement about what the adapter looks for.
+ */
+export interface ChartJsPointValue {
+  x: number;
+  y: number;
+  /** A bubble's radius: a third encoded variable. */
+  r?: number;
+  /** A subject left the study here without the event happening. */
+  censored?: boolean;
+  /** Lower bound of the confidence band at this point. */
+  yMin?: number;
+  /** Upper bound of the confidence band at this point. */
+  yMax?: number;
+}
+
 /**
  * Union of data value shapes found in Chart.js datasets.
  * Covers native chart types and popular plugins (boxplot, financial, matrix).
@@ -13,7 +50,13 @@
 export type ChartJsDataValue
   = | number
     | null
-    | { x: number; y: number; r?: number }
+    /**
+     * A floating bar: `[start, end]` rather than a magnitude from the
+     * baseline. Chart.js draws gantt lanes, range bars and waterfall steps
+     * this way.
+     */
+    | [ChartJsRangeBound, ChartJsRangeBound]
+    | ChartJsPointValue
     | { x: number | string; o: number; h: number; l: number; c: number }
     | {
       min: number;
@@ -69,6 +112,11 @@ export interface ChartJsDataset {
   backgroundColor?: string | string[];
   borderColor?: string | string[];
   /**
+   * Whether a line dataset joins its points. `false` draws the markers alone,
+   * which is Chart.js's own way of writing a dot plot.
+   */
+  showLine?: boolean;
+  /**
    * Step interpolation for a line dataset. `'before'` (and the legacy `true`)
    * hold the current value until the next x and jump there, `'after'` jumps at
    * the current x and holds the new value across, `'middle'` jumps midway.
@@ -98,6 +146,15 @@ export interface ChartJsOptions {
   indexAxis?: 'x' | 'y';
   scales?: Record<string, ChartJsScale>;
   plugins?: Record<string, unknown>;
+  /** Chart-wide `showLine`; a dataset's own setting wins over it. */
+  showLine?: boolean;
+  /**
+   * How much of the circle an arc chart sweeps, in degrees. Less than the full
+   * 360 is what turns a doughnut into a dial.
+   */
+  circumference?: number;
+  /** Where the sweep starts, in degrees clockwise from the top. */
+  rotation?: number;
   /** Chart-wide element defaults; a dataset's own setting wins over these. */
   elements?: {
     line?: {
@@ -114,6 +171,14 @@ export interface ChartJsScale {
   title?: { text?: string; display?: boolean };
   type?: string;
   stacked?: boolean;
+  /**
+   * Whether the scale runs the other way (largest value at the origin end).
+   * A rank axis is the case that matters here: a bump chart reverses y so
+   * rank 1 sits at the top.
+   */
+  reverse?: boolean;
+  /** Time-scale options; `unit` names what one step of the axis measures. */
+  time?: { unit?: string };
   /** Which axis this scale belongs to; defaults from the scale id's first letter. */
   axis?: 'x' | 'y';
   /**
@@ -196,6 +261,51 @@ export interface MaidrPluginOptions {
   title?: string;
   /** Override axis labels. */
   axes?: { x?: string; y?: string; z?: string };
+  /**
+   * What the chart actually is, when Chart.js cannot say.
+   *
+   * Several figures are drawn in Chart.js as a recipe rather than as a type of
+   * their own, and a few of those are shape-identical to another recipe: a
+   * Kaplan-Meier curve is a stepped line, a dumbbell is a horizontal floating
+   * bar exactly as a one-interval gantt is, and a gauge is a part-circle
+   * doughnut exactly as a half-pie is. Where the values cannot settle it — see
+   * the value heuristics in the extractor for the cases where they can — this
+   * is the author saying so, and it wins over every heuristic.
+   */
+  traceType?: TraceType;
+  /**
+   * What one unit of a gantt chart's interval axis measures — "days",
+   * "sprints", "hours".
+   *
+   * The length of an interval is the fact a schedule is drawn to carry, and
+   * Chart.js states the unit nowhere: a linear axis is bare numbers, and a
+   * time axis is parsed to epoch milliseconds whatever `time.unit` displays.
+   * Absent, MAIDR announces a length without naming a unit rather than
+   * inventing one.
+   */
+  unit?: string;
+  /**
+   * What a dumbbell's two ends are called — "1990" and "2020", "before" and
+   * "after".
+   *
+   * A dumbbell drawn as a floating bar carries one datum per row and no name
+   * for either end, so without these a reader is told which dot they are on
+   * ("start", "end") but not which year it is — the one thing the legend gives
+   * a sighted reader for free.
+   */
+  startLabel?: string;
+  endLabel?: string;
+  /**
+   * The target a bullet chart's marker sits at, and the qualitative bands its
+   * arc is coloured in.
+   *
+   * A doughnut gauge draws neither: the target is a second arc or a needle and
+   * the bands are background colours, and Chart.js records both as styling
+   * rather than as data. They are part of the reading — "7 below target, in
+   * the 'ok' band" — so the author supplies them here or they go unannounced.
+   */
+  target?: number;
+  bands?: GaugeBand[];
   /**
    * Outline color used for the DOM highlight overlay drawn on top of the
    * canvas during MAIDR navigation. Accepts any CSS color string.

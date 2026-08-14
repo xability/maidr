@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Gauge Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Gauge</h1>
+    <p>Click on a chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. A gauge is one measure, so the announcement carries the dial it sits on, the target it was aiming at, and the band it lands in.</p>
+
+    <div style="width: 500px; height: 300px">
+      <canvas id="gauge-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // A gauge is a doughnut swept through half the circle: the first value
+      // is the measure and the second is the rest of the dial, drawn empty.
+      new Chart(document.getElementById('gauge-chart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['CPU utilisation', 'Headroom'],
+          datasets: [
+            {
+              data: [73, 27],
+              backgroundColor: ['#d2691e', '#e8e8e8'],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          circumference: 180,
+          rotation: 270,
+          cutout: '70%',
+          plugins: {
+            title: { display: true, text: 'CPU Utilisation' },
+            legend: { display: false },
+            // The target marker and the coloured bands are styling to
+            // Chart.js, so the page states them for the announcement.
+            maidr: {
+              target: 80,
+              bands: [
+                { to: 50, label: 'idle' },
+                { to: 85, label: 'ok' },
+                { to: 100, label: 'saturated' },
+              ],
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

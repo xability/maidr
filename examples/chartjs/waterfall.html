@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Waterfall Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Waterfall Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Each step announces its contribution and the running total it produced; the opening, closing and any subtotal are announced as totals rather than as a change.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="waterfall-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // Chart.js's own waterfall recipe: floating bars whose every step begins
+      // where the previous one ended, with the opening and closing bars drawn
+      // from the baseline. That chaining is what tells MAIDR this is a running
+      // total rather than a set of intervals.
+      new Chart(document.getElementById('waterfall-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Opening', 'Product', 'Services', 'Refunds', 'Costs', 'Closing'],
+          datasets: [
+            {
+              label: 'Cash flow',
+              data: [[0, 420], [420, 610], [610, 700], [700, 655], [655, 540], [0, 540]],
+              backgroundColor: [
+                '#4682b4',
+                '#2ca02c',
+                '#2ca02c',
+                '#d62728',
+                '#d62728',
+                '#4682b4',
+              ],
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Quarterly Cash Flow' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Step' } },
+            y: { title: { display: true, text: 'USD (thousands)' }, beginAtZero: true },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

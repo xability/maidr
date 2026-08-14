@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Survival Curve Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Survival Curve</h1>
+    <p>Click on a chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. Up and Down move between the two arms, and the rotor offers the censored times as a navigation unit of their own.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="survival-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // A Kaplan-Meier curve is a `stepped: 'after'` line, and nothing in the
+      // config tells it from any other staircase — hence the declaration.
+      // Chart.js ignores properties it does not know, so the censoring marks
+      // and the confidence band ride on the points themselves.
+      new Chart(document.getElementById('survival-chart'), {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'Treatment',
+              data: [
+                { x: 0, y: 1.0, yMin: 1.0, yMax: 1.0 },
+                { x: 3, y: 0.94, yMin: 0.88, yMax: 1.0 },
+                { x: 6, y: 0.88, yMin: 0.79, yMax: 0.97 },
+                { x: 9, y: 0.88, yMin: 0.79, yMax: 0.97, censored: true },
+                { x: 14, y: 0.79, yMin: 0.68, yMax: 0.9 },
+                { x: 21, y: 0.71, yMin: 0.58, yMax: 0.84 },
+              ],
+              stepped: 'after',
+              borderColor: '#2ca02c',
+            },
+            {
+              label: 'Control',
+              data: [
+                { x: 0, y: 1.0, yMin: 1.0, yMax: 1.0 },
+                { x: 2, y: 0.9, yMin: 0.82, yMax: 0.98 },
+                { x: 5, y: 0.78, yMin: 0.67, yMax: 0.89 },
+                { x: 8, y: 0.61, yMin: 0.48, yMax: 0.74 },
+                { x: 12, y: 0.61, yMin: 0.48, yMax: 0.74, censored: true },
+                { x: 19, y: 0.44, yMin: 0.31, yMax: 0.57 },
+              ],
+              stepped: 'after',
+              borderColor: '#d62728',
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Overall Survival' },
+            maidr: { traceType: 'survival' },
+          },
+          scales: {
+            x: { type: 'linear', title: { display: true, text: 'Months' } },
+            y: {
+              title: { display: true, text: 'Survival probability' },
+              min: 0,
+              max: 1,
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

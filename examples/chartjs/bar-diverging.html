@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Diverging Bar Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Diverging Bar Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. The values arrive signed, so MAIDR pitches how large a cohort is and announces which side it is on; the summary row is the balance between the two sides rather than their sum.</p>
+
+    <div style="width: 700px; height: 450px">
+      <canvas id="pyramid-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // The population-pyramid recipe: an ordinary stacked bar chart with one
+      // side's values negated so the bars grow in opposite directions.
+      new Chart(document.getElementById('pyramid-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['0-14', '15-29', '30-44', '45-59', '60-74', '75+'],
+          datasets: [
+            {
+              label: 'Men',
+              data: [-1820, -2140, -2260, -2050, -1480, -720],
+              backgroundColor: '#4682b4',
+            },
+            {
+              label: 'Women',
+              data: [1740, 2080, 2210, 2090, 1620, 1010],
+              backgroundColor: '#d2691e',
+            },
+          ],
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            title: { display: true, text: 'Population by Age Band' },
+          },
+          scales: {
+            x: { stacked: true, title: { display: true, text: 'Thousands of people' } },
+            y: { stacked: true, title: { display: true, text: 'Age band' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

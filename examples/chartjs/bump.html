@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Bump Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Bump Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. The y axis is a rank, so rank 1 is the highest note; each point announces the places gained or lost alongside the position.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="bump-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // The standard Chart.js bump recipe: a line chart with `reverse: true`
+      // so rank 1 sits at the top. MAIDR reads it as ranks because the values
+      // at every round are a permutation of 1..N across the teams.
+      new Chart(document.getElementById('bump-chart'), {
+        type: 'line',
+        data: {
+          labels: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5'],
+          datasets: [
+            { label: 'Arsenal', data: [1, 2, 2, 1, 1], borderColor: '#d62728' },
+            { label: 'Chelsea', data: [2, 1, 3, 3, 4], borderColor: '#1f77b4' },
+            { label: 'Spurs', data: [3, 4, 1, 2, 2], borderColor: '#2ca02c' },
+            { label: 'Fulham', data: [4, 3, 4, 4, 3], borderColor: '#8b4789' },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'League Table by Round' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Round' } },
+            y: {
+              title: { display: true, text: 'League position' },
+              reverse: true,
+              min: 1,
+              max: 4,
+              ticks: { stepSize: 1 },
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
