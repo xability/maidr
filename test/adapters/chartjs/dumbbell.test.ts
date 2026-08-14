@@ -103,6 +103,31 @@ describe('chart.js dumbbell extraction', () => {
     expect(data.points.map(point => point.x)).toEqual(['Japan', 'Chad']);
   });
 
+  it('reads the first dataset only, and highlights the bar it read', () => {
+    // A dumbbell is one pair per row, so a second series of intervals is a
+    // gantt rather than a second pair. What matters is that extraction and
+    // highlighting agree on which dataset that is: reading dataset 0 while
+    // highlighting dataset 1 would put the outline on a bar the reader was
+    // never told about.
+    const chart = barChart(
+      ['Japan', 'Spain'],
+      [{ data: [[79, 84], [77, 83]] }, { data: [[60, 65], [61, 66]] }],
+      horizontal,
+    );
+    const { maidr, layerDatasetIndices } = extractChartData(chart, declared);
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect((layers[0].data as DumbbellData).points).toEqual([
+      { x: 'Japan', start: 79, end: 84 },
+      { x: 'Spain', start: 77, end: 83 },
+    ]);
+
+    const maps = computeTargetMaps(chart, layers, layerDatasetIndices);
+    expect(resolveActiveTargets(layers, maps, layerDatasetIndices, '0', 0, 1))
+      .toEqual([{ datasetIndex: 0, index: 1 }]);
+  });
+
   it('highlights the connector whichever end the cursor is on', () => {
     const chart = barChart(
       ['Japan', 'Spain'],
