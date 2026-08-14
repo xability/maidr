@@ -419,3 +419,43 @@ describe('histograms binned down the other axis', () => {
     expect(data.map(bin => bin.y)).toEqual([8, 8, 8, 8, 8]);
   });
 });
+
+describe('a stack whose series do not all reach every category', () => {
+  it('orders the bins along the axis, not by which series was drawn first', () => {
+    // Plot draws a stacked histogram series-major, so the bin order in the DOM
+    // is whichever bins the *first* series occupied and then the ones the rest
+    // added. Taking the categories from that order announces the right-hand
+    // half of the chart first — and, because the pairing is positional,
+    // mis-highlights every cell after the seam. A series missing from a bin is
+    // the normal shape of a stacked histogram, not an edge case.
+    const { document, element } = mountFixture('gappyStackedHistogram');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const grid = layer?.data as SegmentedPoint[][];
+
+    expect(layer?.type).toBe(TraceType.STACKED);
+    expect(grid[0].map(point => point.x)).toEqual([1, 3, 5, 7, 9]);
+
+    // One element per cell that has one, in the order the grid reads.
+    const matched = document.querySelectorAll(layer?.selectors as string);
+    const filled = grid.flat().filter(point => point.y !== 0);
+    expect(matched).toHaveLength(filled.length);
+  });
+});
+
+describe('an axis whose span dwarfs its smallest values', () => {
+  it('keeps a millionth on a log axis that runs to a billion', () => {
+    // Rounding is sized from the domain span, which on a log axis is a terrible
+    // guide to what any one value needs: a span of 1e9 leaves one decimal
+    // place, and everything below a tenth becomes zero. A log axis is exactly
+    // where the small values carry the meaning.
+    const layer = onlyLayer('wideLogAxis');
+
+    expect((layer.data as ScatterPoint[]).map(point => point.y)).toEqual([
+      1e-6,
+      1e-3,
+      1,
+      1e3,
+      1e9,
+    ]);
+  });
+});
