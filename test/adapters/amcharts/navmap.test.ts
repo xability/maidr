@@ -7,21 +7,26 @@ import {
   fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
+  fakeDotSeries,
   fakeFloatingColumnSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
   fakeHierarchySeries,
   fakeLineSeries,
+  fakeLollipopSeries,
   fakePieChart,
   fakePieSeries,
   fakePolarSeries,
   fakeRadarSeries,
   fakeSlicedChart,
+  fakeWordCloudSeries,
 } from './helpers';
 
 function emptyGroups(): SeriesGroups {
   return {
     barSeriesList: [],
+    dotSeriesList: [],
+    lollipopSeriesList: [],
     lineSeriesList: [],
     stepSeriesList: [],
     areaSeriesList: [],
@@ -35,6 +40,7 @@ function emptyGroups(): SeriesGroups {
     dumbbellSeriesList: [],
     ganttSeriesList: [],
     hierarchySeriesList: [],
+    wordCloudSeriesList: [],
   };
 }
 
@@ -296,6 +302,85 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     // A node is a rectangle, which the overlay measures as it measures a column.
     expect(navMap.resolve('tree', 1, 1)[0].kind).toBe('column');
     expect(navMap.resolve('tree', 2, 0)).toEqual([]);
+  });
+
+  it('resolves a diverging layer as it resolves a dodged one, one row per side', () => {
+    const men = fakeBarSeries('Men', [
+      { categoryX: '0-14', valueY: -1200 },
+      { categoryX: '15-29', valueY: -1150 },
+    ]);
+    const women = fakeBarSeries('Women', [
+      { categoryX: '0-14', valueY: 1140 },
+      { categoryX: '15-29', valueY: 1100 },
+    ]);
+    const chart = fakeChart({ series: [men, women] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'pyramid', type: TraceType.DIVERGING, data: [] }],
+      groups: { ...emptyGroups(), barSeriesList: [men, women] },
+    }]);
+
+    const target = navMap.resolve('pyramid', 1, 1);
+    expect(target[0].series).toBe(women);
+    expect(target[0].dataItem.get('valueY')).toBe(1100);
+    expect(target[0].kind).toBe('column');
+  });
+
+  it('resolves a dot layer to its bullets and a lollipop layer to its stems', () => {
+    const dots = fakeDotSeries('Response time', [
+      { categoryX: '/search', valueY: 412 },
+      { categoryX: '/checkout', valueY: 318 },
+    ]);
+    const stems = fakeLollipopSeries('Life expectancy', [
+      { categoryX: 'Norway', valueY: 84 },
+      { categoryX: 'Japan', valueY: 81 },
+    ]);
+    const chart = fakeChart({ series: [dots, stems] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [
+        { id: 'dots', type: TraceType.DOT, data: [] },
+        { id: 'stems', type: TraceType.LOLLIPOP, data: [] },
+      ],
+      groups: { ...emptyGroups(), dotSeriesList: [dots], lollipopSeriesList: [stems] },
+    }]);
+
+    // A dot's mark is the bullet, so the overlay measures a point.
+    const dot = navMap.resolve('dots', 0, 1);
+    expect(dot[0].series).toBe(dots);
+    expect(dot[0].dataItem.get('valueY')).toBe(318);
+    expect(dot[0].kind).toBe('point');
+
+    // A stem is still a column, thin as it is.
+    const stem = navMap.resolve('stems', 0, 0);
+    expect(stem[0].series).toBe(stems);
+    expect(stem[0].kind).toBe('column');
+  });
+
+  it('resolves a word cloud layer in weight order, not in declared order', () => {
+    // The one layer whose navigation order is not the order it was declared
+    // in: MAIDR walks the terms heaviest first, and the position it reports is
+    // an index into THAT order.
+    const series = fakeWordCloudSeries('Terms', [
+      { category: 'neural', value: 128 },
+      { category: 'unmeasured', value: null },
+      { category: 'machine', value: 412 },
+      { category: 'gradient', value: 57 },
+    ]);
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'cloud', type: TraceType.WORD_CLOUD, data: [] }],
+      groups: { ...emptyGroups(), wordCloudSeriesList: [series] },
+    }]);
+
+    expect(navMap.resolve('cloud', 0, 0)[0].dataItem.get('category')).toBe('machine');
+    expect(navMap.resolve('cloud', 0, 1)[0].dataItem.get('category')).toBe('neural');
+    // The weightless term is skipped, exactly as the extraction skips it.
+    expect(navMap.resolve('cloud', 0, 2)[0].dataItem.get('category')).toBe('gradient');
+    expect(navMap.resolve('cloud', 0, 3)).toEqual([]);
+    // A term is a glyph, which the overlay measures as neither a box nor a wedge.
+    expect(navMap.resolve('cloud', 0, 0)[0].kind).toBe('label');
   });
 
   it('resolves line layers to point targets by [row, col]', () => {

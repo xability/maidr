@@ -147,6 +147,8 @@ function readRect(target: NavTarget): OverlayRect | null {
       return pointRect(target);
     case 'slice':
       return sliceRect(target);
+    case 'label':
+      return labelRect(target);
     case 'column':
       return columnRect(target);
   }
@@ -227,6 +229,36 @@ function sliceRect(target: NavTarget): OverlayRect | null {
   }
 
   const box = spriteBoxRect(slice);
+  return box && box.width > 0 && box.height > 0 ? box : null;
+}
+
+/**
+ * Rectangle for a mark that is a piece of text — a word cloud's term, which
+ * amCharts keeps on the data item's `label`.
+ *
+ * Measured from the reported box rather than from the sprite's own corners,
+ * which is the opposite of what a column needs: a cloud rotates roughly half
+ * its words, and a rotated sprite's local top-left and bottom-right map to two
+ * corners of a tilted box rather than to the box a highlight has to draw.
+ * `globalBounds()` maps all four, which is the axis-aligned box around the
+ * glyph however it is turned. The sprite's own corners stay as the fallback
+ * for a build that reports no bounds.
+ */
+function labelRect(target: NavTarget): OverlayRect | null {
+  const label = target.dataItem.get('label') as AmSprite | undefined;
+  if (!label) {
+    return null;
+  }
+
+  const bounds = label.globalBounds?.();
+  if (bounds) {
+    const box = boundsToRect(bounds);
+    if (box.width > 0 && box.height > 0) {
+      return box;
+    }
+  }
+
+  const box = spriteBoxRect(label);
   return box && box.width > 0 && box.height > 0 ? box : null;
 }
 

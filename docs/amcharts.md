@@ -85,6 +85,10 @@ Series are classified by their amCharts class name and field configuration:
 - `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
 - `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
 - `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**
+- two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
+- `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
+- `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
+- `am5wc.WordCloud` → **word cloud**
 
 ### Visual Highlighting
 
@@ -114,6 +118,10 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Gantt / Timeline | `ColumnSeries` | category Y axis + `openValueXField` (or `openDateXField`) |
 | Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
 | Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
+| Diverging Bar / Population Pyramid | two `ColumnSeries` | shared categories, one series entirely negative and the other entirely positive |
+| Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
+| Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
+| Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -123,7 +131,7 @@ A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` r
 
 `RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
 
-> Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
+> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder. Neither is **scatter**: amCharts draws one as a hidden-stroke `LineSeries` with bullets, which is also how it draws a dot plot, and the only thing separating them is the axis — so a hidden-stroke series on a **category** axis is read as a dot plot and the same series on two **value** axes stays a line chart rather than being announced as a scatter MAIDR would then read as a dot plot.
 
 ## Multi-Panel Charts
 
@@ -375,6 +383,69 @@ series.data.setAll([{
 ```
 
 The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
+
+### Diverging Bar / Population Pyramid
+
+A runnable page covering all three of the marks below is at [`examples/amcharts-marks.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-marks.html).
+
+amCharts has no diverging series: the chart is two ordinary `ColumnSeries` on one category axis with one side's values negated, which is otherwise the signature of a dodged bar chart. What separates them is the sign — one series entirely on each side of the baseline, over the same categories in the same order — and that is a statement about the data rather than about how it was drawn.
+
+```js
+var yAxis = chart.yAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "band", renderer: am5xy.AxisRendererY.new(root, {}),
+}));
+// One side negated, which is what draws it to the left of the baseline.
+var data = [{ band: "0-14", men: -1200, women: 1140 }, { band: "15-29", men: -1150, women: 1100 }];
+["men", "women"].forEach(function (field) {
+  var s = chart.series.push(am5xy.ColumnSeries.new(root, {
+    name: field, xAxis: xAxis, yAxis: yAxis, valueXField: field, categoryYField: "band",
+  }));
+  s.data.setAll(data);
+});
+```
+
+The values reach MAIDR **signed**, exactly as the chart drew them. The trace pitches the magnitude and announces the side, so the biggest bar on the left is the loudest note on the left rather than the lowest note on the chart, and the summary row is the balance between the two sides rather than a "sum" that came out negative. A group carrying a `stacked` flag is taken at its word and stays a stacked bar chart — a pyramid's sides sit either side of the baseline rather than on top of one another.
+
+### Dot Plot / Lollipop
+
+amCharts has no dot or lollipop series either. A Cleveland dot plot is a `LineSeries` with its stroke switched off and bullets pushed on; a lollipop is a `ColumnSeries` narrowed to a hairline with a bullet on the end. Both carry one category and one value per mark and are navigated exactly as a bar chart is — the type names the chart the author drew.
+
+```js
+// Dot plot: the line is switched off, so what is drawn is the points alone.
+var dots = chart.series.push(am5xy.LineSeries.new(root, {
+  name: "Response time", xAxis: xAxis, yAxis: yAxis, valueXField: "ms", categoryYField: "endpoint",
+}));
+dots.strokes.template.setAll({ strokeOpacity: 0 });
+dots.bullets.push(function () {
+  return am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius: 5, fill: dots.get("fill") }) });
+});
+
+// Lollipop: a hairline column with a bullet on the end.
+var stems = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Life expectancy", xAxis: xAxis, yAxis: yAxis, valueYField: "years", categoryXField: "country",
+}));
+stems.columns.template.setAll({ width: 2 });
+stems.bullets.push(function () {
+  return am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius: 6, fill: stems.get("fill") }) });
+});
+```
+
+Both probes require the bullets, because either half alone is something else: a strokeless line with no bullets draws nothing, a line with bullets **and** a stroke is a line chart with markers, and a narrow bar chart with no bullets is a narrow bar chart. A stem width declared as a `Percent` is read as an ordinary bar — a column half its cell wide is not a hairline however small the number reads.
+
+### Word Cloud
+
+An `am5wc.WordCloud` is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it, so the adapter recognises the series itself and treats it as one panel. It needs `wc.js` on top of `index.js`. A runnable page is at [`examples/amcharts-wordcloud.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-wordcloud.html).
+
+```js
+var series = root.container.children.push(am5wc.WordCloud.new(root, {
+  categoryField: "tag", valueField: "count",
+}));
+series.data.setAll([
+  { tag: "neural", count: 128 }, { tag: "machine", count: 412 }, { tag: "gradient", count: 57 },
+]);
+```
+
+A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
 
 ## Keyboard Controls
 

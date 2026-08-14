@@ -6,8 +6,10 @@ import type {
   LinePoint,
   MaidrLayer,
   PiePoint,
+  SegmentedPoint,
   TreemapPoint,
   WaterfallPoint,
+  WordCloudPoint,
 } from '@type/grammar';
 import { findCharts, findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { Orientation, TraceType } from '@type/grammar';
@@ -17,18 +19,23 @@ import {
   fakeChart,
   fakeContainer,
   fakeContainerEl,
+  fakeDotSeries,
   fakeFloatingColumnSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
   fakeHierarchySeries,
+  fakeHorizontalBarSeries,
   fakeLineSeries,
+  fakeLollipopSeries,
   fakePieChart,
   fakePieSeries,
   fakePolarSeries,
   fakeRadarSeries,
   fakeRoot,
+  fakeSeries,
   fakeSlicedChart,
   fakeStepSeries,
+  fakeWordCloudSeries,
 } from './helpers';
 
 const BAR_DATA = [
@@ -738,6 +745,253 @@ describe('fromAmCharts (hierarchy)', () => {
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
       .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (diverging bars)', () => {
+  const MEN = [
+    { categoryY: '0-14', valueX: -1200 },
+    { categoryY: '15-29', valueX: -1150 },
+  ];
+  const WOMEN = [
+    { categoryY: '0-14', valueX: 1140 },
+    { categoryY: '15-29', valueX: 1100 },
+  ];
+
+  function layerOf(...series: AmXYSeries[]): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeChart({ series })])).subplots[0][0].layers[0];
+  }
+
+  it('reads two column series on opposite sides of the baseline as a pyramid', () => {
+    const layer = layerOf(
+      fakeHorizontalBarSeries('Men', MEN),
+      fakeHorizontalBarSeries('Women', WOMEN),
+    );
+
+    expect(layer.type).toBe(TraceType.DIVERGING);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // The sign is a direction, not a magnitude, so it survives the extraction
+    // exactly as the chart drew it -- the trace pitches the size and announces
+    // the side.
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [
+        { x: -1200, y: '0-14', z: 'Men' },
+        { x: -1150, y: '15-29', z: 'Men' },
+      ],
+      [
+        { x: 1140, y: '0-14', z: 'Women' },
+        { x: 1100, y: '15-29', z: 'Women' },
+      ],
+    ]);
+  });
+
+  it('reads a vertical pair the same way: the sides are the sign, not the axis', () => {
+    const layer = layerOf(
+      fakeBarSeries('Losses', [{ categoryX: 'Q1', valueY: -30 }]),
+      fakeBarSeries('Gains', [{ categoryX: 'Q1', valueY: 45 }]),
+    );
+
+    expect(layer.type).toBe(TraceType.DIVERGING);
+    expect(layer.orientation).toBeUndefined();
+  });
+
+  it('leaves an ordinary grouped pair a dodged bar chart', () => {
+    const layer = layerOf(
+      fakeBarSeries('2023', [{ categoryX: 'Q1', valueY: 30 }]),
+      fakeBarSeries('2024', [{ categoryX: 'Q1', valueY: 45 }]),
+    );
+
+    expect(layer.type).toBe(TraceType.DODGED);
+  });
+
+  it('leaves a pair over different categories a dodged bar chart', () => {
+    // Back-to-back only means anything across a SHARED axis; two series that
+    // do not line up are two charts drawn in one frame.
+    const layer = layerOf(
+      fakeHorizontalBarSeries('Men', MEN),
+      fakeHorizontalBarSeries('Women', [
+        { categoryY: '30-44', valueX: 1140 },
+        { categoryY: '45-59', valueX: 1100 },
+      ]),
+    );
+
+    expect(layer.type).toBe(TraceType.DODGED);
+  });
+
+  it('leaves a declared stack alone: a pyramid is not stacked', () => {
+    const layer = layerOf(
+      fakeSeries({
+        name: 'Men',
+        settings: { categoryYField: 'category', stacked: true },
+        data: MEN,
+      }),
+      fakeSeries({
+        name: 'Women',
+        settings: { categoryYField: 'category', stacked: true },
+        data: WOMEN,
+      }),
+    );
+
+    expect(layer.type).toBe(TraceType.STACKED);
+  });
+
+  it('leaves three series a dodged bar chart, whatever their signs', () => {
+    const layer = layerOf(
+      fakeBarSeries('A', [{ categoryX: 'Q1', valueY: -30 }]),
+      fakeBarSeries('B', [{ categoryX: 'Q1', valueY: 45 }]),
+      fakeBarSeries('C', [{ categoryX: 'Q1', valueY: 12 }]),
+    );
+
+    expect(layer.type).toBe(TraceType.DODGED);
+  });
+});
+
+describe('fromAmCharts (dot plot and lollipop)', () => {
+  const POINTS = [
+    { categoryX: '/search', valueY: 412 },
+    { categoryX: '/checkout', valueY: 318 },
+  ];
+
+  function layerOf(...series: AmXYSeries[]): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeChart({ series })])).subplots[0][0].layers[0];
+  }
+
+  it('reads a strokeless line series with bullets as a dot plot', () => {
+    const layer = layerOf(fakeDotSeries('Response time', POINTS));
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.title).toBe('Response time');
+    // A category and a value, exactly as a bar chart carries them -- the mark
+    // is what differs, not what a reader navigates.
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: '/search', y: 412 },
+      { x: '/checkout', y: 318 },
+    ]);
+  });
+
+  it('accepts a stroke hidden by width rather than by opacity', () => {
+    const series = fakeDotSeries('Response time', POINTS);
+    (series as unknown as Record<string, unknown>).strokes = {
+      values: [],
+      template: { get: (key: string) => (key === 'strokeWidth' ? 0 : undefined) },
+    };
+
+    expect(layerOf(series).type).toBe(TraceType.DOT);
+  });
+
+  it('leaves a line with visible strokes and bullets a line chart', () => {
+    // Markers on a line are a line chart with markers, not a dot plot.
+    expect(layerOf(fakeDotSeries('Trend', POINTS, { strokeOpacity: 1 })).type)
+      .toBe(TraceType.LINE);
+  });
+
+  it('leaves a strokeless line with no bullets a line chart', () => {
+    expect(layerOf(fakeDotSeries('Trend', POINTS, { bullets: false })).type)
+      .toBe(TraceType.LINE);
+  });
+
+  it('leaves a filled band an area, however its outline is drawn', () => {
+    const band = fakeAreaSeries('Sales', POINTS);
+    const raw = band as unknown as Record<string, unknown>;
+    raw.strokes = { values: [], template: { get: () => 0 } };
+    raw.bullets = { values: [{ get: () => undefined }] };
+
+    expect(layerOf(band).type).toBe(TraceType.AREA);
+  });
+
+  it('reads hairline columns with bullets as a lollipop', () => {
+    const layer = layerOf(fakeLollipopSeries('Life expectancy', POINTS));
+
+    expect(layer.type).toBe(TraceType.LOLLIPOP);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: '/search', y: 412 },
+      { x: '/checkout', y: 318 },
+    ]);
+  });
+
+  it('leaves columns of an ordinary width a bar chart', () => {
+    expect(layerOf(fakeLollipopSeries('Sales', POINTS, { thickness: 40 })).type)
+      .toBe(TraceType.BAR);
+  });
+
+  it('leaves hairline columns with no bullets a bar chart', () => {
+    expect(layerOf(fakeLollipopSeries('Sales', POINTS, { bullets: false })).type)
+      .toBe(TraceType.BAR);
+  });
+
+  it('reads a stem width declared as a percentage as an ordinary bar', () => {
+    // amCharts accepts a `Percent` for any dimension, and a column half its
+    // cell wide is not a hairline however small the number reads.
+    const series = fakeLollipopSeries('Sales', POINTS);
+    (series as unknown as Record<string, unknown>).columns = {
+      values: [],
+      template: { get: () => ({ value: 0.5 }) },
+    };
+
+    expect(layerOf(series).type).toBe(TraceType.BAR);
+  });
+
+  it('keeps a dot plot and a lollipop in layers of their own', () => {
+    const chart = fakeChart({
+      series: [fakeDotSeries('Dots', POINTS), fakeLollipopSeries('Stems', POINTS)],
+    });
+
+    const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.DOT, TraceType.LOLLIPOP]);
+  });
+});
+
+describe('fromAmCharts (word cloud)', () => {
+  const TERMS = [
+    { category: 'neural', value: 128 },
+    { category: 'machine', value: 412 },
+    { category: 'gradient', value: 57 },
+  ];
+
+  it('finds a standalone word cloud series, which like a treemap is no chart', () => {
+    const series = fakeWordCloudSeries('Terms', TERMS);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('converts a word cloud into terms and weights, in data order', () => {
+    const layer = fromAmCharts(fakeRoot([fakeWordCloudSeries('Terms', TERMS)]))
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.type).toBe(TraceType.WORD_CLOUD);
+    expect(layer.title).toBe('Terms');
+    // Bound to no axis: the dimensions name what they hold, since a cloud's
+    // layout is chosen to pack glyphs and encodes nothing.
+    expect(layer.axes).toEqual({ x: { label: 'Term' }, y: { label: 'Weight' } });
+    // Declared order, not weight order -- MAIDR derives the reading order from
+    // the weights themselves.
+    expect(layer.data as WordCloudPoint[]).toEqual([
+      { x: 'neural', y: 128 },
+      { x: 'machine', y: 412 },
+      { x: 'gradient', y: 57 },
+    ]);
+  });
+
+  it('skips terms with no weight so term k stays the term it names', () => {
+    const layer = fromAmCharts(fakeRoot([fakeWordCloudSeries('Terms', [
+      { category: 'neural', value: 128 },
+      { category: 'unmeasured', value: null },
+      { category: 'machine', value: 412 },
+    ])])).subplots[0][0].layers[0];
+
+    expect((layer.data as WordCloudPoint[]).map(term => term.x))
+      .toEqual(['neural', 'machine']);
+  });
+
+  it('emits no selectors: amCharts renders the glyphs to canvas, not to SVG', () => {
+    expect(fromAmCharts(fakeRoot([fakeWordCloudSeries('Terms', TERMS)]))
+      .subplots[0][0].layers[0].selectors).toBeUndefined();
   });
 });
 

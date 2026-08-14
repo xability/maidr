@@ -21,13 +21,13 @@ import {
 /**
  * The am5 entities to highlight for a navigation position.
  * `kind` tells the overlay which geometry to read: a column's box, a line
- * point, or the wedge-shaped sprite of a pie slice, funnel stage or polar
- * column.
+ * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
+ * or the glyph of a word cloud's term.
  */
 export interface NavTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice';
+  kind: 'column' | 'point' | 'slice' | 'label';
 }
 
 /**
@@ -63,6 +63,10 @@ export interface NavMapEntry {
 export interface SeriesGroups {
   /** Single → BAR layer; multiple → one segmented layer. */
   barSeriesList: AmXYSeries[];
+  /** One DOT layer each, in series order. */
+  dotSeriesList: AmXYSeries[];
+  /** One LOLLIPOP layer each, in series order. */
+  lollipopSeriesList: AmXYSeries[];
   /** Merged into a single multi-line LINE layer (one entry per line). */
   lineSeriesList: AmXYSeries[];
   /** Merged into a single STEP layer, the staircase counterpart of the above. */
@@ -89,6 +93,8 @@ export interface SeriesGroups {
   ganttSeriesList: AmXYSeries[];
   /** One TREEMAP or ICICLE layer each, in series order. */
   hierarchySeriesList: AmXYSeries[];
+  /** One WORD_CLOUD layer each, in series order. */
+  wordCloudSeriesList: AmXYSeries[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -168,6 +174,23 @@ function filterPieItems(series: AmXYSeries): AmDataItem[] {
     kept.push(item);
   }
   return kept;
+}
+
+/**
+ * Mirror `WordCloudTrace`: the terms a cloud declares, heaviest first.
+ *
+ * A word cloud is the one layer whose navigation order is not the order it was
+ * declared in. Its arrangement on the page is chosen to pack glyphs and
+ * carries nothing, so MAIDR walks the terms by weight — and the position it
+ * reports is an index into THAT order. Filtering alone would leave every
+ * highlight on whichever term happens to sit at the same rank.
+ *
+ * Sorted with the same comparison the trace uses, on a stable sort, so terms
+ * of equal weight keep their declared order in both.
+ */
+function filterWordCloudItems(series: AmXYSeries): AmDataItem[] {
+  return filterPieItems(series)
+    .sort((a, b) => Number(b.get('value')) - Number(a.get('value')));
 }
 
 /** Mirror `extractHistogramPoints`: keep items with finite valueX and valueY. */
@@ -301,6 +324,8 @@ function addEntryResolvers(
     items: filterColumnItems(series),
   }));
   const segmentedBars = barItems.filter(entry => entry.items.length > 0);
+  const dotSeries = filterSeries(groups.dotSeriesList, filterColumnItems);
+  const lollipopSeries = filterSeries(groups.lollipopSeriesList, filterColumnItems);
   const lineSeries = filterSeries(groups.lineSeriesList, filterLineItems);
   const stepSeries = filterSeries(groups.stepSeriesList, filterLineItems);
   const areaSeries = filterSeries(groups.areaSeriesList, filterLineItems);
@@ -311,6 +336,7 @@ function addEntryResolvers(
   const funnelSeries = filterSeries(groups.funnelSeriesList, filterPieItems);
   const waterfallSeries = filterSeries(groups.waterfallSeriesList, extractSpanItems);
   const dumbbellSeries = filterSeries(groups.dumbbellSeriesList, extractSpanItems);
+  const wordCloudSeries = filterSeries(groups.wordCloudSeriesList, filterWordCloudItems);
 
   // Every merged layer indexes its OWN series list — sharing one would
   // misplace every highlight on a chart carrying two of these at once.
@@ -324,6 +350,8 @@ function addEntryResolvers(
     [TraceType.POLAR_AREA]: polarSeries,
   };
 
+  let dotIdx = 0;
+  let lollipopIdx = 0;
   let histIdx = 0;
   let heatIdx = 0;
   let pieIdx = 0;
@@ -332,6 +360,7 @@ function addEntryResolvers(
   let dumbbellIdx = 0;
   let ganttIdx = 0;
   let hierarchyIdx = 0;
+  let wordCloudIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -345,10 +374,32 @@ function addEntryResolvers(
         register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
+      // A diverging pair is two column series read as one layer, exactly as a
+      // dodged one is; only the sign of the values differs.
       case TraceType.STACKED:
       case TraceType.DODGED:
+      case TraceType.DIVERGING:
       case TraceType.NORMALIZED: {
         register(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
+        break;
+      }
+      case TraceType.DOT: {
+        // The mark is the bullet, not a column, so the overlay measures the
+        // point the bullet sits on.
+        const entry = dotSeries[dotIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'point' }]
+            : [];
+        });
+        break;
+      }
+      case TraceType.LOLLIPOP: {
+        // A stem is still a column, thin as it is, and the box around it is
+        // what puts the highlight on the whole mark rather than on the dot.
+        const entry = lollipopSeries[lollipopIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
       case TraceType.LINE:
@@ -425,6 +476,19 @@ function addEntryResolvers(
           layer.id,
           buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++]),
         );
+        break;
+      }
+      case TraceType.WORD_CLOUD: {
+        // A cloud is a single row of terms, so only the column moves — and it
+        // indexes them by weight, which `filterWordCloudItems` has already put
+        // the data items in.
+        const entry = wordCloudSeries[wordCloudIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'label' }]
+            : [];
+        });
         break;
       }
       case TraceType.HEATMAP: {

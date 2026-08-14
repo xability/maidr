@@ -29,9 +29,9 @@ function stageSprite(left: number, top: number, width: number, height: number): 
   };
 }
 
-function target(properties: Record<string, unknown>): NavTarget {
+function target(properties: Record<string, unknown>, kind: NavTarget['kind'] = 'slice'): NavTarget {
   const dataItem = { get: (key: string) => properties[key] } as unknown as AmDataItem;
-  return { series: {} as AmXYSeries, dataItem, kind: 'slice' };
+  return { series: {} as AmXYSeries, dataItem, kind };
 }
 
 describe('dataItemToOverlayRect (wedge-shaped marks)', () => {
@@ -65,6 +65,33 @@ describe('dataItemToOverlayRect (wedge-shaped marks)', () => {
 
     expect(dataItemToOverlayRect(target({ slice }), null)).toBeNull();
     expect(dataItemToOverlayRect(target({}), null)).toBeNull();
+  });
+
+  it('measures a word cloud term from the box it reports, rotation included', () => {
+    // A cloud turns roughly half its words. The sprite's own corners map to
+    // two corners of a tilted box; `globalBounds()` maps all four, which is
+    // the box a highlight has to draw.
+    const label: AmSprite = {
+      globalBounds: () => ({ left: 30, top: 10, right: 46, bottom: 70 }),
+      width: () => 60,
+      height: () => 16,
+      toGlobal: point => ({ x: 30 + point.y, y: 70 - point.x }),
+    };
+
+    expect(dataItemToOverlayRect(target({ label }, 'label'), null))
+      .toEqual({ left: 30, top: 10, width: 16, height: 60 });
+  });
+
+  it('falls back to a term\'s own corners when it reports no box', () => {
+    const label: AmSprite = {
+      width: () => 60,
+      height: () => 16,
+      toGlobal: point => ({ x: 30 + point.x, y: 10 + point.y }),
+    };
+
+    expect(dataItemToOverlayRect(target({ label }, 'label'), null))
+      .toEqual({ left: 30, top: 10, width: 60, height: 16 });
+    expect(dataItemToOverlayRect(target({}, 'label'), null)).toBeNull();
   });
 
   it('clips a wedge to the panel it belongs to', () => {

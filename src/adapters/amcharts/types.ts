@@ -112,9 +112,18 @@ export type AmXYChart = AmChart;
  */
 export interface AmXYSeries extends AmEntity {
   dataItems: AmDataItem[];
-  columns?: AmListLike<AmSprite>;
+  /**
+   * The per-kind graphics lists, each an am5 `ListTemplate`: the drawn sprites
+   * under `values`, and the template they were all made from under `template`.
+   *
+   * The template is where a chart's styling is declared, and styling is the
+   * only signal amCharts leaves for the marks it has no series class for — a
+   * hairline `columns.template` is a lollipop's stem, and a `strokes.template`
+   * at zero opacity is what makes a line series a dot plot.
+   */
+  columns?: AmListLike<AmSprite> & { template?: AmSprite };
   bullets?: AmListLike<AmBullet>;
-  strokes?: AmListLike<AmSprite>;
+  strokes?: AmListLike<AmSprite> & { template?: AmSprite };
   /**
    * The fill graphics of a line series, as an am5 `ListTemplate`.
    *

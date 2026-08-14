@@ -57,8 +57,9 @@ import {
   extractPiePoints,
   extractSegmentedPoints,
   extractWaterfallPoints,
-  HIERARCHY_CLASSES,
+  isDivergingPair,
   readAxisLabel,
+  STANDALONE_SERIES_CLASSES,
 } from './extractor';
 import { computeChartGrid } from './geometry';
 import {
@@ -269,6 +270,19 @@ function buildChartLayers(
         barSeriesList.push(series);
         break;
       }
+      case 'dot':
+      case 'lollipop': {
+        // A dot plot and a lollipop hold a bar chart's categories and values;
+        // only the mark differs, so only the trace type does. They never join
+        // the bar list: a chart drawing both would otherwise have them read as
+        // two groups of one segmented chart.
+        const data = extractBarPoints(series);
+        if (data.length === 0)
+          break;
+        const type = kind === 'dot' ? TraceType.DOT : TraceType.LOLLIPOP;
+        layers.push(buildBarLayer(series, type, data, xLabel, yLabel, containerEl));
+        break;
+      }
       case 'histogram': {
         const data = extractHistogramPoints(series);
         if (data.length === 0)
@@ -341,6 +355,15 @@ function buildChartLayers(
         layers.push(buildHierarchyLayer(series, kind, data, options));
         break;
       }
+      case 'wordcloud': {
+        // A term carries the same category/value pair a pie slice does, so the
+        // same extraction serves both.
+        const data = extractPiePoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildWordCloudLayer(series, data, options));
+        break;
+      }
       default:
         // Skip unsupported series types.
         break;
@@ -352,7 +375,7 @@ function buildChartLayers(
     const series = barSeriesList[0];
     const data = extractBarPoints(series);
     if (data.length > 0) {
-      layers.push(buildBarLayer(series, data, xLabel, yLabel, containerEl));
+      layers.push(buildBarLayer(series, TraceType.BAR, data, xLabel, yLabel, containerEl));
     }
   } else if (barSeriesList.length > 1) {
     const layer = buildSegmentedLayer(barSeriesList, xLabel, yLabel, containerEl);
@@ -411,8 +434,23 @@ function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
 // Layer builders
 // ---------------------------------------------------------------------------
 
+/**
+ * The trace types a bar chart's reading serves: the bar itself, and the two
+ * marks that hold one category and one value while drawing them differently.
+ */
+type MarkTraceType = TraceType.BAR | TraceType.DOT | TraceType.LOLLIPOP;
+
+/**
+ * Builds the layer for one bar-shaped series — a bar chart, a Cleveland dot
+ * plot, or a lollipop.
+ *
+ * All three carry one category and one value per mark and are navigated
+ * identically; the type names the chart the author drew, which is the whole of
+ * what a reader gains from the distinction.
+ */
 function buildBarLayer(
   series: AmXYSeries,
+  type: MarkTraceType,
   data: BarPoint[],
   xLabel: string,
   yLabel: string,
@@ -423,7 +461,7 @@ function buildBarLayer(
 
   return {
     id: layerId(series),
-    type: TraceType.BAR,
+    type,
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
@@ -449,7 +487,11 @@ function buildSegmentedLayer(
       traceType = TraceType.NORMALIZED;
       break;
     default:
-      traceType = TraceType.DODGED;
+      // Two series drawn back to back rather than side by side. Asked only of
+      // an unstacked group, because the two sides of a pyramid sit either side
+      // of the baseline rather than on top of one another — a stack that says
+      // it is stacked is taken at its word.
+      traceType = isDivergingPair(barSeriesList) ? TraceType.DIVERGING : TraceType.DODGED;
   }
 
   // Each series becomes one group (row) in the SegmentedPoint[][] grid.
@@ -696,6 +738,41 @@ function buildFunnelLayer(
   };
 }
 
+/**
+ * What a word cloud's two dimensions are called. A cloud is bound to no axis —
+ * its layout is chosen to pack glyphs and encodes nothing — so the chart-level
+ * fallback would name them after coordinates that carry no meaning at all.
+ */
+const WORD_CLOUD_TERM_AXIS = 'Term';
+const WORD_CLOUD_WEIGHT_AXIS = 'Weight';
+
+/**
+ * Builds the layer for one am5wc word cloud series.
+ *
+ * The terms stay in data order. MAIDR walks them heaviest first — the order a
+ * cloud is read for, since its arrangement carries nothing — and derives that
+ * from the weights themselves, so the layer declares what the chart declared.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the glyphs
+ * into a canvas. The binder's overlay highlights the active term's label.
+ */
+function buildWordCloudLayer(
+  series: AmXYSeries,
+  data: PiePoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.WORD_CLOUD,
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? WORD_CLOUD_TERM_AXIS },
+      y: { label: options?.axisLabels?.y ?? WORD_CLOUD_WEIGHT_AXIS },
+    },
+    data,
+  };
+}
+
 function buildHeatmapLayer(
   data: HeatmapData,
   xLabel: string,
@@ -909,12 +986,12 @@ function isPercentChartLike(candidate: unknown): candidate is AmChart {
 /**
  * Wrap a standalone am5 series as the one-series panel it is.
  *
- * An am5hierarchy layout is not a chart: it is an `am5.Series` pushed straight
- * into a container, with no `series` list, no axes and no plot area, so
- * discovery would recurse past it into its own nodes. Recognising it by class
- * name and wrapping it gives the rest of the adapter the shape it works in —
- * one panel, one series — without widening the chart type for a chart that
- * does not exist.
+ * An am5hierarchy layout and an am5wc word cloud are not charts: each is an
+ * `am5.Series` pushed straight into a container, with no `series` list, no
+ * axes and no plot area, so discovery would recurse past it into its own
+ * nodes. Recognising it by class name and wrapping it gives the rest of the
+ * adapter the shape it works in — one panel, one series — without widening the
+ * chart type for a chart that does not exist.
  *
  * The series stands in as its own plot container, which is exactly what it is:
  * an am5 series IS a `Container`, so the panel it occupies is the box the
@@ -928,7 +1005,7 @@ function asStandalonePanel(candidate: unknown): AmChart | null {
     return null;
 
   const series = candidate as AmXYSeries;
-  if (typeof series.className !== 'string' || !HIERARCHY_CLASSES.has(series.className))
+  if (typeof series.className !== 'string' || !STANDALONE_SERIES_CLASSES.has(series.className))
     return null;
   if (!Array.isArray(series.dataItems))
     return null;

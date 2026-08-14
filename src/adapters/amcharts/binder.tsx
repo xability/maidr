@@ -187,6 +187,8 @@ function createHighlightCallback(
 function groupSeries(chart: AmChart): SeriesGroups {
   const groups: SeriesGroups = {
     barSeriesList: [],
+    dotSeriesList: [],
+    lollipopSeriesList: [],
     lineSeriesList: [],
     stepSeriesList: [],
     areaSeriesList: [],
@@ -200,12 +202,22 @@ function groupSeries(chart: AmChart): SeriesGroups {
     dumbbellSeriesList: [],
     ganttSeriesList: [],
     hierarchySeriesList: [],
+    wordCloudSeriesList: [],
   };
 
   for (const series of chart.series.values) {
     switch (classifySeriesKind(series)) {
       case 'bar':
         groups.barSeriesList.push(series);
+        break;
+      // A dot and a lollipop read as a bar chart but are drawn with different
+      // marks, so the highlight measures different sprites and they keep
+      // buckets of their own.
+      case 'dot':
+        groups.dotSeriesList.push(series);
+        break;
+      case 'lollipop':
+        groups.lollipopSeriesList.push(series);
         break;
       case 'line':
         groups.lineSeriesList.push(series);
@@ -248,6 +260,9 @@ function groupSeries(chart: AmChart): SeriesGroups {
       case 'treemap':
       case 'icicle':
         groups.hierarchySeriesList.push(series);
+        break;
+      case 'wordcloud':
+        groups.wordCloudSeriesList.push(series);
         break;
       default:
         break;

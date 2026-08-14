@@ -56,6 +56,100 @@ export function fakeBarSeries(
   });
 }
 
+/**
+ * A horizontal column series: categories on the Y axis and values on the X
+ * one, which is how amCharts draws a bar chart lying on its side — and the
+ * only way it draws a population pyramid.
+ */
+export function fakeHorizontalBarSeries(
+  name: string,
+  points: Array<{ categoryY: string; valueX: number | null }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'ColumnSeries',
+    name,
+    settings: { categoryYField: 'category' },
+    data: points,
+  });
+}
+
+/**
+ * What amCharts leaves behind when it draws a mark it has no series class for:
+ * the styling on the graphics template, and whether bullets were pushed on.
+ */
+export interface FakeMarkConfig {
+  /** `strokes.template.get('strokeOpacity')`, for a dot plot's hidden line. */
+  strokeOpacity?: number;
+  /** `columns.template.get(width|height)`, for a lollipop's hairline stem. */
+  thickness?: number;
+  /** Whether any bullet was configured. Defaults to true. */
+  bullets?: boolean;
+}
+
+/**
+ * A `LineSeries` drawn as a Cleveland dot plot: the stroke switched off and
+ * bullets pushed on, so what is drawn is the points alone.
+ */
+export function fakeDotSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number }>,
+  config: FakeMarkConfig = {},
+): AmXYSeries {
+  const strokeSettings: Record<string, unknown> = {
+    strokeOpacity: config.strokeOpacity ?? 0,
+  };
+  const series = fakeSeries({
+    className: 'LineSeries',
+    name,
+    settings: { categoryXField: 'category' },
+    data: points,
+  });
+  const raw = series as unknown as Record<string, unknown>;
+  raw.strokes = { values: [], template: { get: (key: string) => strokeSettings[key] } };
+  raw.bullets = { values: config.bullets === false ? [] : [{ get: () => undefined }] };
+  return series;
+}
+
+/**
+ * A `ColumnSeries` drawn as a lollipop: columns narrowed to a stem, with a
+ * bullet on the end. `graphics` stands in for the column sprite the overlay
+ * measures.
+ */
+export function fakeLollipopSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number; graphics?: unknown }>,
+  config: FakeMarkConfig = {},
+): AmXYSeries {
+  const columnSettings: Record<string, unknown> = { width: config.thickness ?? 2 };
+  const series = fakeSeries({
+    className: 'ColumnSeries',
+    name,
+    settings: { categoryXField: 'category' },
+    data: points,
+  });
+  const raw = series as unknown as Record<string, unknown>;
+  raw.columns = { values: [], template: { get: (key: string) => columnSettings[key] } };
+  raw.bullets = { values: config.bullets === false ? [] : [{ get: () => undefined }] };
+  return series;
+}
+
+/**
+ * An am5wc `WordCloud`: like a hierarchy layout it is a bare series in a plain
+ * container, and like a pie its terms carry a `category`/`value` pair. `label`
+ * stands in for the glyph the overlay measures.
+ */
+export function fakeWordCloudSeries(
+  name: string,
+  terms: Array<{ category: string; value: number | null; label?: unknown }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'WordCloud',
+    name,
+    settings: { categoryField: 'category', valueField: 'value' },
+    data: terms,
+  });
+}
+
 /** A line series with `categoryX`/`valueY` data items. */
 export function fakeLineSeries(
   name: string,

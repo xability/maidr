@@ -16,7 +16,7 @@ import type {
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
-import type { AmAxis, AmDataItem, AmXYSeries } from './types';
+import type { AmAxis, AmDataItem, AmSprite, AmXYSeries } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -164,16 +164,28 @@ function withoutFloatNoise(value: number): number {
 // Column / Bar extraction
 // ---------------------------------------------------------------------------
 
-/**
- * Extract {@link BarPoint} data from a column or bar series.
- */
-export function extractBarPoints(series: AmXYSeries): BarPoint[] {
-  const points: BarPoint[] = [];
+/** One mark of a category-bound series: what it names, and what it measures. */
+interface CategoryValue {
+  category: string | number;
+  value: number;
+}
 
+/**
+ * Read every mark of a category-bound series as a category and a value.
+ *
+ * The pair of fields depends on which way the bars run — amCharts puts the
+ * categories on `categoryY` and the values on `valueX` for a horizontal chart
+ * — and nothing else about the reading does, which is why the bar, the
+ * segmented bar and the diverging-pair test all take it from here. Marks
+ * missing either half are skipped, so an index into the result keeps naming
+ * the mark it addresses.
+ */
+function readCategoryValues(series: AmXYSeries): CategoryValue[] {
   const isHorizontal = hasCategoryY(series);
   const categoryField = isHorizontal ? 'categoryY' : 'categoryX';
   const valueField = isHorizontal ? 'valueX' : 'valueY';
 
+  const marks: CategoryValue[] = [];
   for (const item of series.dataItems) {
     const category = item.get(categoryField);
     const value = item.get(valueField);
@@ -185,13 +197,25 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
     if (numValue == null)
       continue;
 
-    points.push({
-      x: isHorizontal ? numValue : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : numValue,
-    });
+    marks.push({ category: toStringOrNumber(category), value: numValue });
   }
+  return marks;
+}
 
-  return points;
+/**
+ * Extract {@link BarPoint} data from a column or bar series.
+ *
+ * Also serves the two marks MAIDR reads as a bar chart with a different
+ * glyph — a dot plot's point and a lollipop's stem — which carry the same
+ * category and value and differ only in what the chart is called.
+ */
+export function extractBarPoints(series: AmXYSeries): BarPoint[] {
+  const isHorizontal = hasCategoryY(series);
+
+  return readCategoryValues(series).map(mark => ({
+    x: isHorizontal ? mark.value : mark.category,
+    y: isHorizontal ? mark.category : mark.value,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -206,32 +230,54 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
  * ggplot2 convention where `fill` maps a variable to grouped visual encoding.
  */
 export function extractSegmentedPoints(series: AmXYSeries): SegmentedPoint[] {
-  const points: SegmentedPoint[] = [];
   const fill = (series.get('name') as string | undefined) ?? '';
-
   const isHorizontal = hasCategoryY(series);
-  const categoryField = isHorizontal ? 'categoryY' : 'categoryX';
-  const valueField = isHorizontal ? 'valueX' : 'valueY';
 
-  for (const item of series.dataItems) {
-    const category = item.get(categoryField);
-    const value = item.get(valueField);
+  return readCategoryValues(series).map(mark => ({
+    x: isHorizontal ? mark.value : mark.category,
+    y: isHorizontal ? mark.category : mark.value,
+    z: fill,
+  }));
+}
 
-    if (category == null || value == null)
-      continue;
+/**
+ * Whether two column series are drawn back to back across a shared axis — a
+ * population pyramid, or a Likert scale split around a neutral midpoint.
+ *
+ * amCharts has no diverging series: the chart is two ordinary column series
+ * on one category axis with one side's values negated, which is otherwise the
+ * signature of a dodged bar chart. What separates them is the sign — one
+ * series entirely on each side of the baseline, over the same categories in
+ * the same order — and that is a statement about the data rather than about
+ * how it was drawn, so it is decisive where a styling probe would not be.
+ *
+ * Both sides must actually reach their side of the baseline: a pair of series
+ * that are merely non-negative is every dodged bar chart ever drawn.
+ */
+export function isDivergingPair(seriesList: AmXYSeries[]): boolean {
+  if (seriesList.length !== 2)
+    return false;
 
-    const numValue = toNumber(value);
-    if (numValue == null)
-      continue;
+  const [left, right] = seriesList.map(readCategoryValues);
+  if (left.length === 0 || left.length !== right.length)
+    return false;
+  if (left.some((mark, index) => String(mark.category) !== String(right[index].category)))
+    return false;
 
-    points.push({
-      x: isHorizontal ? numValue : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : numValue,
-      z: fill,
-    });
-  }
+  const leftValues = left.map(mark => mark.value);
+  const rightValues = right.map(mark => mark.value);
+  return (growsNegative(leftValues) && growsPositive(rightValues))
+    || (growsPositive(leftValues) && growsNegative(rightValues));
+}
 
-  return points;
+/** Whether every value sits at or below the baseline, and one below it. */
+function growsNegative(values: number[]): boolean {
+  return values.every(value => value <= 0) && values.some(value => value < 0);
+}
+
+/** Whether every value sits at or above the baseline, and one above it. */
+function growsPositive(values: number[]): boolean {
+  return values.every(value => value >= 0) && values.some(value => value > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -624,9 +670,10 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
 /**
  * Extract {@link PiePoint} data from an am5percent pie series.
  *
- * Also serves an am5percent funnel series, whose stages carry the same
- * `category`/`value` pair in the same data order — a funnel's `BarPoint[]` and
- * a pie's `PiePoint[]` are the same `{ x, y }` shape.
+ * Also serves an am5percent funnel series and an am5wc word cloud, whose
+ * stages and terms carry the same `category`/`value` pair in the same data
+ * order — a funnel's `BarPoint[]`, a word cloud's `WordCloudPoint[]` and a
+ * pie's `PiePoint[]` are the same `{ x, y }` shape.
  *
  * A pie series is bound to no axis: each data item carries the slice's
  * `category` and its `value`, and the wedges are drawn in data-item order.
@@ -833,21 +880,102 @@ const RADAR_COLUMN_CLASSES = new Set([
 ]);
 
 /**
- * Series of the am5hierarchy module, and the tree layout each one draws.
+ * Series that are not inside a chart at all, and what each one draws.
  *
- * These are not chart series: an am5hierarchy series is pushed straight into a
- * plain container, with no chart object around it, which is why the adapter's
- * discovery has to recognise the series itself. `Sunburst` is deliberately
- * absent — it extends `Partition` but carries its own class name, so leaving
- * it out keeps it out rather than reading it as an icicle.
+ * An am5hierarchy layout and an am5wc word cloud are `am5.Series` pushed
+ * straight into a plain container, with no chart object around them, which is
+ * why the adapter's discovery has to recognise the series itself. `Sunburst`
+ * is deliberately absent — it extends `Partition` but carries its own class
+ * name, so leaving it out keeps it out rather than reading it as an icicle.
+ *
+ * One record rather than one set per module: discovery asks a single question
+ * ("is this series a panel of its own?"), and a per-module set would have to
+ * be unioned back together at every call site to answer it.
  */
-const HIERARCHY_KINDS: Record<string, SeriesKind> = {
+const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Treemap: 'treemap',
   Partition: 'icicle',
+  WordCloud: 'wordcloud',
 };
 
-/** The class names {@link HIERARCHY_KINDS} covers, for discovery to probe. */
-export const HIERARCHY_CLASSES = new Set(Object.keys(HIERARCHY_KINDS));
+/** The class names {@link STANDALONE_KINDS} covers, for discovery to probe. */
+export const STANDALONE_SERIES_CLASSES = new Set(Object.keys(STANDALONE_KINDS));
+
+/**
+ * How thin a column has to be before it is read as a lollipop's stem.
+ *
+ * A lollipop is an ordinary column series with its columns narrowed to a
+ * hairline and a bullet put on the end — amCharts has no lollipop series — so
+ * the width is the only signal there is. A few pixels is far below any width a
+ * bar chart is drawn at, and the bullet requirement is what keeps a merely
+ * narrow bar chart out.
+ */
+const LOLLIPOP_MAX_STEM_PX = 6;
+
+/** Whether a series has any bullets configured. */
+function hasBullets(series: AmXYSeries): boolean {
+  return (series.bullets?.values.length ?? 0) > 0;
+}
+
+/**
+ * Read a graphics template's setting as a plain number.
+ *
+ * A `Percent` answers `null` rather than its own value: amCharts accepts one
+ * for every dimension, and a percentage is not a pixel count — a column 50% of
+ * its cell is not a hairline however small the number reads.
+ */
+function numberSetting(template: AmSprite | undefined, key: string): number | null {
+  const value = template?.get?.(key);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Whether a line series is drawn as points alone — a Cleveland dot plot.
+ *
+ * amCharts has no dot or scatter series: the recipe is a `LineSeries` with its
+ * stroke switched off and bullets pushed onto it, so the plot is entirely the
+ * bullets. Both halves are required, because either alone is something else: a
+ * strokeless series with no bullets draws nothing, and a series with bullets
+ * and a stroke is a line chart with markers on it.
+ *
+ * A category axis is required as well. The same drawing on two value axes is a
+ * scatter plot, which MAIDR reads with a trace of its own and this adapter
+ * does not emit — so that case is left reading as a line rather than
+ * announced as a dot plot it is not.
+ */
+function isDotPlot(series: AmXYSeries): boolean {
+  if (!hasCategoryX(series) && !hasCategoryY(series))
+    return false;
+  if (!hasBullets(series))
+    return false;
+
+  const template = series.strokes?.template;
+  const opacity = numberSetting(template, 'strokeOpacity');
+  if (opacity !== null)
+    return opacity <= 0;
+  const width = numberSetting(template, 'strokeWidth');
+  return width !== null && width <= 0;
+}
+
+/**
+ * Whether a column series is drawn as a stem with a dot on the end.
+ *
+ * Measured across the bars rather than along them: a vertical lollipop's stem
+ * is thin in `width` and a horizontal one's in `height`, and reading the wrong
+ * one of the two would answer with the bar's length.
+ */
+function isLollipop(series: AmXYSeries): boolean {
+  if (!hasCategoryX(series) && !hasCategoryY(series))
+    return false;
+  if (!hasBullets(series))
+    return false;
+
+  const thickness = numberSetting(
+    series.columns?.template,
+    hasCategoryY(series) ? 'height' : 'width',
+  );
+  return thickness !== null && thickness <= LOLLIPOP_MAX_STEM_PX;
+}
 
 /** Whether a series binds any of the named open-value settings to a field. */
 function hasOpenField(series: AmXYSeries, ...settings: string[]): boolean {
@@ -896,6 +1024,8 @@ function nearlyEqual(a: number, b: number): boolean {
 
 export type SeriesKind
   = | 'bar'
+    | 'dot'
+    | 'lollipop'
     | 'line'
     | 'area'
     | 'step'
@@ -910,6 +1040,7 @@ export type SeriesKind
     | 'gantt'
     | 'treemap'
     | 'icicle'
+    | 'wordcloud'
     | 'unknown';
 
 /**
@@ -928,9 +1059,9 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
     return 'polar';
   }
 
-  const hierarchy = HIERARCHY_KINDS[className];
-  if (hierarchy) {
-    return hierarchy;
+  const standalone = STANDALONE_KINDS[className];
+  if (standalone) {
+    return standalone;
   }
 
   if (COLUMN_CLASSES.has(className)) {
@@ -954,14 +1085,26 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
       return 'histogram';
     }
 
+    // A bar narrowed to a hairline and finished with a bullet. Read after the
+    // field-based kinds above, which describe what the columns MEAN; this one
+    // only describes what they look like.
+    if (isLollipop(series))
+      return 'lollipop';
+
     return 'bar';
   }
 
   if (LINE_CLASSES.has(className)) {
     // amCharts draws an area with the line series, so the fill is the only
-    // thing that separates the two.
+    // thing that separates the two. Asked before the stroke, since an area
+    // whose outline is switched off is still an area.
     if (hasVisibleFill(series))
       return 'area';
+
+    // The same series with no stroke and bullets on it is a dot plot: what is
+    // drawn is the points alone.
+    if (isDotPlot(series))
+      return 'dot';
 
     // A "line" series with value-only axes (no category) is still a line in MAIDR.
     return 'line';

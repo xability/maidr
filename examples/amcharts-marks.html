@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Pyramid, Dot Plot and Lollipop</title>
+
+    <!-- 1. Load amCharts 5 (core + XY). All three charts here are ordinary XY
+         charts: amCharts has no series class for any of them. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 640px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Pyramid, Dot Plot and Lollipop</h1>
+    <p>
+      amCharts has no series class for any of these three, so each is an
+      ordinary XY series styled into the mark the author wanted. What the
+      adapter reads is therefore what the data says — a pyramid is two column
+      series on opposite sides of the baseline — or, where the data says
+      nothing, what the styling says: a hairline column with a bullet on the
+      end is a lollipop.
+    </p>
+
+    <h2>Population pyramid: two column series, one side negated</h2>
+    <div id="pyramid-chart" class="chart"></div>
+
+    <h2>Cleveland dot plot: a line series with its stroke switched off</h2>
+    <div id="dot-chart" class="chart"></div>
+
+    <h2>Lollipop: columns narrowed to a stem</h2>
+    <div id="lollipop-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      /** A chart with a category Y axis (bars lying on their side). */
+      function horizontalChart(elId, categories) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+          })
+        );
+        yAxis.data.setAll(categories);
+        var xAxis = chart.xAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        return { root: root, chart: chart, xAxis: xAxis, yAxis: yAxis };
+      }
+
+      // --- Population pyramid -------------------------------------------
+      // One side's values are negated, which is what draws it to the left of
+      // the baseline. MAIDR reads them signed: the pitch takes the size and
+      // the announcement names the side, and the summary row is the balance
+      // between the two rather than a "sum" that came out negative.
+      var PYRAMID = [
+        { category: "0-14", men: -1200, women: 1140 },
+        { category: "15-29", men: -1150, women: 1100 },
+        { category: "30-44", men: -1080, women: 1060 },
+        { category: "45-59", men: -990, women: 1010 },
+        { category: "60-74", men: -720, women: 830 },
+        { category: "75+", men: -310, women: 520 },
+      ];
+
+      (function () {
+        var built = horizontalChart("pyramid-chart", PYRAMID);
+        ["men", "women"].forEach(function (field) {
+          var series = built.chart.series.push(
+            am5xy.ColumnSeries.new(built.root, {
+              name: field === "men" ? "Men" : "Women",
+              xAxis: built.xAxis,
+              yAxis: built.yAxis,
+              valueXField: field,
+              categoryYField: "category",
+            })
+          );
+          series.data.setAll(PYRAMID);
+        });
+
+        register(built.root, {
+          title: "Population by Age Band",
+          axisLabels: { x: "People, thousands", y: "Age band" },
+        });
+      })();
+
+      // --- Cleveland dot plot -------------------------------------------
+      // A LineSeries with no stroke and bullets on it: what is drawn is the
+      // points alone. Both halves matter — with a stroke it would be a line
+      // chart with markers, and without the bullets it would draw nothing.
+      var RESPONSE = [
+        { category: "/search", ms: 412 },
+        { category: "/checkout", ms: 318 },
+        { category: "/profile", ms: 214 },
+        { category: "/health", ms: 96 },
+      ];
+
+      (function () {
+        var built = horizontalChart("dot-chart", RESPONSE);
+        var series = built.chart.series.push(
+          am5xy.LineSeries.new(built.root, {
+            name: "Median response time",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueXField: "ms",
+            categoryYField: "category",
+          })
+        );
+        series.strokes.template.setAll({ strokeOpacity: 0 });
+        series.bullets.push(function () {
+          return am5.Bullet.new(built.root, {
+            sprite: am5.Circle.new(built.root, {
+              radius: 6,
+              fill: series.get("fill"),
+            }),
+          });
+        });
+        series.data.setAll(RESPONSE);
+
+        register(built.root, {
+          title: "Median Response Time by Endpoint",
+          axisLabels: { x: "Milliseconds", y: "Endpoint" },
+        });
+      })();
+
+      // --- Lollipop ------------------------------------------------------
+      // A column narrowed to a hairline with a bullet on the end. The width is
+      // the only signal there is, so the bullets are what keep a merely narrow
+      // bar chart from being read as one.
+      var LIFE = [
+        { category: "Norway", years: 84 },
+        { category: "Japan", years: 81 },
+        { category: "Chile", years: 74 },
+        { category: "India", years: 61 },
+        { category: "Nigeria", years: 53 },
+      ];
+
+      (function () {
+        var root = am5.Root.new("lollipop-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.data.setAll(LIFE);
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Life expectancy",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: "years",
+            categoryXField: "category",
+          })
+        );
+        series.columns.template.setAll({ width: 2 });
+        series.bullets.push(function () {
+          return am5.Bullet.new(root, {
+            sprite: am5.Circle.new(root, { radius: 7, fill: series.get("fill") }),
+          });
+        });
+        series.data.setAll(LIFE);
+
+        register(root, {
+          title: "Life Expectancy at Birth",
+          axisLabels: { x: "Country", y: "Years" },
+        });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>
