@@ -719,6 +719,11 @@ function drawnKind(dataset: ChartJsDataset, chartType: string): string {
  * drawn as a single dataset. Where the two disagree the block wins and both
  * are named, because a chart carrying two answers is an edit half-finished.
  *
+ * Only one whole-chart reading can win, so where several datasets declare
+ * differing types the first in chart order wins and every type found is
+ * named. Several datasets declaring the same type is the ordinary case —
+ * a survival curve's arms each say what they are — and passes silently.
+ *
  * @param declarations - Every dataset's validated block, in chart order
  * @param pluginOptions - Optional per-chart plugin options
  * @returns The declared trace type, or `undefined` when the page does not say
@@ -727,10 +732,26 @@ function declaredType(
   declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
 ): TraceType | undefined {
-  const declared = declarations.find(one => one !== null)?.type;
+  const declaredTypes = [...new Set(
+    declarations
+      .filter((one): one is MaidrTraceDeclaration => one !== null)
+      .map(one => one.type),
+  )];
+  const declared = declaredTypes[0];
   const chartWide = pluginOptions?.traceType;
   if (declared === undefined)
     return chartWide;
+  // Several datasets may carry a block — a survival curve's arms each declare
+  // themselves — but only one whole-chart reading can win, so blocks that
+  // disagree are an edit half-finished in the same way a block disagreeing
+  // with the chart-wide option is, and are named the same way.
+  if (declaredTypes.length > 1) {
+    warn(
+      `maidr declarations on this chart read it as `
+      + `${declaredTypes.map(one => `"${one}"`).join(' and ')}; a chart has one `
+      + `whole-chart reading, so the first ("${declared}") wins.`,
+    );
+  }
   if (chartWide !== undefined && chartWide !== declared) {
     warn(
       `a maidr declaration reads this chart as "${declared}" and `

@@ -458,5 +458,49 @@ describe('chart.js volcano and manhattan extraction', () => {
         expect.stringContaining('the declaration wins'),
       );
     });
+
+    it('names every type where two datasets declare the chart differently', () => {
+      // A mixed chart: the survival arm is drawn as a line, the second dataset
+      // as a scatter, so both blocks survive their construct check and reach
+      // the one whole-chart reading a line chart gets.
+      const chart = chartOf([
+        {
+          label: 'Treatment',
+          data: [{ x: 0, y: 1 }],
+          stepped: 'after',
+          maidr: { type: TraceType.SURVIVAL },
+        },
+        {
+          label: 'Genes',
+          type: 'scatter',
+          data: [{ x: -2.4, y: 8.1, gene: 'TP53' }],
+          maidr: { type: TraceType.VOLCANO },
+        },
+      ], 'line', { scales: { x: { type: 'linear' } } });
+
+      expect(layersOf(chart)[0].type).toBe(TraceType.SURVIVAL);
+      expect(warnings).toContainEqual(
+        expect.stringContaining('"survival" and "volcano"'),
+      );
+    });
+
+    it('stays silent where several datasets declare the same type', () => {
+      const arm = (label: string): ChartJsDataset => ({
+        label,
+        data: [{ x: 0, y: 1 }],
+        stepped: 'after',
+        maidr: { type: TraceType.SURVIVAL },
+      });
+      const chart = chartOf(
+        [arm('Treatment'), arm('Control')],
+        'line',
+        { scales: { x: { type: 'linear' } } },
+      );
+
+      expect(layersOf(chart)[0].type).toBe(TraceType.SURVIVAL);
+      expect(warnings).not.toContainEqual(
+        expect.stringContaining('whole-chart reading'),
+      );
+    });
   });
 });

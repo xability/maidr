@@ -156,6 +156,8 @@ Two rules are worth knowing before you write one:
 
 A block whose type this adapter has no construct for (a `hexbin` on a scatter, a `volcano` on a bar chart) is reported and ignored. `type: 'survival'` on a `'line'` dataset reaches exactly the same reading `plugins.maidr.traceType: 'survival'` does.
 
+The readings that take the whole chart at once — a survival curve, a dumbbell, a waterfall, a gantt, a gauge — are one figure, so they take one answer. Several datasets may carry a block (a survival curve's arms each say what they are), but where two name *different* types the first in chart order wins and MAIDR names every type it found, the same way it does when a block and `plugins.maidr.traceType` disagree. Volcano, Manhattan and scatter are read per dataset instead, so each block there is honoured on its own dataset.
+
 `plugins.maidr.traceType: 'volcano'` or `'manhattan'` still reads a chart whose datasets carry no block of their own: it names the trace type and the default chains still find an identity on each point. What it cannot carry is a cutoff, so a figure with one — which is most of them — wants the block.
 
 ## Code Examples
@@ -647,7 +649,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from Chart.js |
 | Element addressing | Manual CSS selectors | Manual CSS selectors | Auto-generated from canvas elements |
 | Configuration | Required | Required | Zero configuration |
-| Chart types | All MAIDR types | All MAIDR types | [23 Chart.js types](#supported-chart-types) (incl. plugins) |
+| Chart types | All MAIDR types | All MAIDR types | [25 Chart.js types](#supported-chart-types) (incl. plugins) |
 | Dynamic charts | Manual init | React lifecycle | Auto-handled per chart |
 
 ## npm Installation (Optional)
