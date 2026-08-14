@@ -104,6 +104,12 @@ export type VictoryLayerData
     /** A `VictoryBar` drawn `polar` — values as wedges around a circle. */
     | { kind: 'polarArea'; points: LinePoint[][] }
     | { kind: 'scatter'; points: ScatterPoint[] }
+    /**
+     * A `VictoryScatter` whose x values name categories — a Cleveland dot
+     * plot. One magnitude per category is what a reader navigates, so the
+     * payload is a bar's rather than a scatter's.
+     */
+    | { kind: 'dot'; points: BarPoint[] }
     /** A `VictoryErrorBar`, with Victory's error deltas resolved to bounds. */
     | { kind: 'errorBar'; points: ErrorBarPoint[] }
     /** A `VictoryBar` whose bars float between a per-datum `y0` and `y`. */
@@ -113,7 +119,13 @@ export type VictoryLayerData
     | { kind: 'histogram'; points: HistogramPoint[] }
     /** A `VictoryPie` (or a doughnut — the same component with an `innerRadius`). */
     | { kind: 'pie'; points: PiePoint[] }
-    | { kind: 'segmented'; points: SegmentedPoint[][] };
+    | { kind: 'segmented'; points: SegmentedPoint[][] }
+    /**
+     * A `VictoryStack` of two `VictoryBar` children signed against each other
+     * — a population pyramid. The values stay signed as the chart draws them,
+     * and the two sides are listed in the order Victory paints them.
+     */
+    | { kind: 'diverging'; points: SegmentedPoint[][] };
 
 /**
  * Intermediate representation of a Victory data layer before conversion

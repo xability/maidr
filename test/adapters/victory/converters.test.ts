@@ -746,3 +746,171 @@ describe('polar area', () => {
     expect(toMaidrLayer(subplots[1].layers[0]).type).toBe(TraceType.BAR);
   });
 });
+
+describe('dot plot', () => {
+  const dotData = [
+    { x: 'Denmark', y: 7.6 },
+    { x: 'Finland', y: 7.8 },
+    { x: 'Iceland', y: 7.5 },
+  ];
+
+  it('reads a scatter over categories as a dot plot of bar points', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryScatter, { data: dotData })),
+    );
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(info.victoryType).toBe('VictoryScatter');
+    expect(layer.type).toBe(TraceType.DOT);
+    // Read as a bivariate scatter every one of these x values coerces to NaN,
+    // which is what the category branch exists to prevent.
+    expect(layer.data).toEqual(dotData);
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+  });
+
+  it('keeps a numeric scatter a scatter', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryScatter, { data: scatterData })),
+    );
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.type).toBe(TraceType.SCATTER);
+    expect(layer.data).toEqual([{ x: 1, y: 2 }, { x: 3, y: 4 }]);
+  });
+
+  it('keeps a scatter whose x values are only partly categorical a scatter', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryScatter, { data: [{ x: 'A', y: 1 }, { x: 2, y: 3 }] })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.SCATTER);
+  });
+
+  it('treats a numeric-looking string as the category Victory draws it as', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryScatter, { data: [{ x: '2023', y: 4 }, { x: '2024', y: 6 }] }),
+    );
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.data).toEqual([{ x: '2023', y: 4 }, { x: '2024', y: 6 }]);
+  });
+
+  it('reads dot accessors declared as prop keys', () => {
+    const [info] = extractVictoryLayers(
+      createElement(VictoryScatter, {
+        data: [{ country: 'Denmark', score: 7.6 }],
+        x: 'country',
+        y: 'score',
+      }),
+    );
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.data).toEqual([{ x: 'Denmark', y: 7.6 }]);
+  });
+});
+
+describe('diverging bar', () => {
+  const men = [{ x: '0-14', y: -1200 }, { x: '15-29', y: -1150 }];
+  const women = [{ x: '0-14', y: 1140 }, { x: '15-29', y: 1100 }];
+
+  function barStack(children: { name: string; data: unknown[] }[]): ReactNode {
+    return chart(
+      {},
+      createElement(
+        VictoryStack,
+        {},
+        ...children.map(({ name, data }) => createElement(VictoryBar, { key: name, name, data })),
+      ),
+    );
+  }
+
+  it('reads two oppositely signed bar series as a diverging chart', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: women },
+    ]));
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+
+    expect(info.victoryType).toBe('VictoryStack');
+    expect(layer.type).toBe(TraceType.DIVERGING);
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+  });
+
+  it('keeps the values signed as the chart draws them', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: women },
+    ]));
+
+    // The sign is the side a bar points to, and the trace reads it as one.
+    expect(toMaidrLayer(info).data).toEqual([
+      [{ x: '0-14', y: 1140, z: 'Women' }, { x: '15-29', y: 1100, z: 'Women' }],
+      [{ x: '0-14', y: -1200, z: 'Men' }, { x: '15-29', y: -1150, z: 'Men' }],
+    ]);
+  });
+
+  it('lists the sides in the order VictoryStack paints them', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: women },
+    ]));
+
+    // `VictoryStack` reverses its children, and the highlight resolves one
+    // flat selector in document order, so the last-declared side is the first
+    // one the payload lists.
+    expect(info.legend).toEqual(['Women', 'Men']);
+  });
+
+  it('reads the sign of a value Victory was handed as a string', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: [{ x: '0-14', y: '-1200' }] },
+      { name: 'Women', data: [{ x: '0-14', y: '1140' }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.DIVERGING);
+  });
+
+  it('keeps a stack whose series both grow upwards a stacked bar', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'S1', data: barData },
+      { name: 'S2', data: barData },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+
+  it('keeps a three-series stack a stacked bar', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: women },
+      { name: 'Unstated', data: [{ x: '0-14', y: 10 }, { x: '15-29', y: 12 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+
+  it('does not call a side that never leaves the baseline a side', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: [{ x: '0-14', y: 0 }, { x: '15-29', y: 0 }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+
+  it('keeps a stack whose values are not numbers a stacked bar', () => {
+    const [info] = extractVictoryLayers(barStack([
+      { name: 'Men', data: men },
+      { name: 'Women', data: [{ x: '0-14', y: 'high' }, { x: '15-29', y: 'low' }] },
+    ]));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+});

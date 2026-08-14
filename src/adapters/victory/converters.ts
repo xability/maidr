@@ -283,7 +283,31 @@ function extractPolarAreaData(
 }
 
 /**
+ * Whether every datum's x names a category rather than measuring a position.
+ *
+ * This is Victory's own test: `Data.createStringMap` puts a datum on the
+ * category scale when `typeof value === 'string'`, whatever the string spells,
+ * so `'2024'` is a category to Victory exactly as `'Denmark'` is.
+ *
+ * @param rawData - The component's `data`, already validated
+ * @param getX    - The component's resolved x accessor
+ * @returns True when the chart is drawn against categories
+ */
+function hasCategoricalX(
+  rawData: Record<string, unknown>[],
+  getX: (d: Record<string, unknown>) => unknown,
+): boolean {
+  return rawData.every(d => typeof getX(d) === 'string');
+}
+
+/**
  * Extracts data from a VictoryScatter element.
+ *
+ * A scatter drawn over categories is a Cleveland dot plot: one magnitude per
+ * named category, which is what a bar chart is, drawn as a point. Reading it
+ * as a bivariate scatter would coerce every category name to a number and
+ * announce a chart of `NaN` positions, so the two are separated here — by the
+ * data, since the component is the same either way.
  */
 function extractScatterData(
   props: Record<string, unknown>,
@@ -294,6 +318,16 @@ function extractScatterData(
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
+
+  if (hasCategoricalX(rawData, getX)) {
+    const points: BarPoint[] = rawData.map(d => ({
+      x: getX(d) as string,
+      y: getY(d) as number | string,
+    }));
+
+    return { data: { kind: 'dot', points }, count: rawData.length };
+  }
+
   const points: ScatterPoint[] = rawData.map(d => ({
     x: Number(getX(d)),
     y: Number(getY(d)),
@@ -859,13 +893,58 @@ function extractStackedAreaLayer(
 }
 
 /**
+ * Which way one side of a candidate diverging chart grows.
+ *
+ * `SegmentedPoint.y` is typed `number | string` and the extractor below passes
+ * the accessor result through as Victory handed it over, so the value is
+ * coerced here before its sign is read. A side that reaches neither way (every
+ * bar zero) or both ways is not a side of a diverging chart.
+ *
+ * @param points - One series of the stack
+ * @returns The direction it grows, or null when it does not grow one way
+ */
+function growthDirection(points: SegmentedPoint[]): 'up' | 'down' | null {
+  const values = points.map(point => Number(point.y));
+  if (values.some(value => !Number.isFinite(value)))
+    return null;
+  if (values.every(value => value <= 0) && values.some(value => value < 0))
+    return 'down';
+  if (values.every(value => value >= 0) && values.some(value => value > 0))
+    return 'up';
+  return null;
+}
+
+/**
+ * Whether a stack's series are the two sides of a diverging chart.
+ *
+ * A population pyramid is drawn in Victory as a stack of two bar series with
+ * one of them signed negative — the same construct as an ordinary stacked bar,
+ * so the values are the only thing that tells them apart. The signal is the
+ * sign: exactly two series, one drawn entirely at or below the baseline and
+ * the other entirely at or above it, each reaching past it at least once. A
+ * stack whose bands all grow the same way is a stack.
+ *
+ * @param series - The extracted series, in children order
+ * @returns True when the two sides diverge across a shared baseline
+ */
+function isDivergingPair(series: SegmentedPoint[][]): boolean {
+  if (series.length !== 2)
+    return false;
+
+  const [first, second] = series.map(growthDirection);
+  return first !== null && second !== null && first !== second;
+}
+
+/**
  * Extracts a layer from a VictoryStack container.
  *
  * The stack's children decide what it is: `VictoryBar` children make a
  * segmented (stacked) bar, where each child becomes one series (row) of
  * `SegmentedPoint[][]`, and `VictoryArea` children make a stacked area, whose
  * bands are read as a line grid instead. A stack mixing the two is read as a
- * bar stack, which is what its bars draw.
+ * bar stack, which is what its bars draw. Two bar series signed against each
+ * other are not stacked on one another at all — they are the two sides of a
+ * diverging chart, and are emitted as one.
  */
 function extractSegmentedLayer(
   containerElement: ReactElement,
@@ -910,11 +989,32 @@ function extractSegmentedLayer(
     return null;
 
   const traceType: VictoryComponentType = containerType;
+  const diverging = isDivergingPair(series);
+
+  // The sides are emitted in the order Victory paints them, which is the
+  // reverse of the order they are declared in (`VictoryStack` reverses its
+  // children so the topmost band paints last). A stacked bar's highlight is
+  // resolved from one flat selector, which the DOM answers in document order,
+  // so declaration order would put every highlight on the opposite side —
+  // silent and visual-only, since the announcement never goes through the
+  // element mapping.
+  //
+  // Only safe here because a diverging chart's sides sit either side of a
+  // baseline rather than on top of one another: there is no stacking order to
+  // preserve, and `DivergingTrace` resolves which side is which by reading the
+  // values rather than by index. A true stack's row order **is** meaningful,
+  // which is why it is left alone.
+  if (diverging) {
+    series.reverse();
+    legend.reverse();
+  }
 
   return {
     id: layerId,
     victoryType: traceType,
-    data: { kind: 'segmented', points: series },
+    data: diverging
+      ? { kind: 'diverging', points: series }
+      : { kind: 'segmented', points: series },
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     dataCount: totalElements,
@@ -1205,6 +1305,15 @@ export function toMaidrLayer(
         data: data.points,
       };
 
+    case 'dot':
+      return {
+        id: layer.id,
+        type: TraceType.DOT,
+        axes,
+        selectors: selector,
+        data: data.points,
+      };
+
     case 'errorBar':
       return {
         id: layer.id,
@@ -1271,6 +1380,19 @@ export function toMaidrLayer(
         id: layer.id,
         type: TraceType.STACKED,
         axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'diverging':
+      return {
+        id: layer.id,
+        type: TraceType.DIVERGING,
+        axes,
+        // The values stay signed as the chart draws them. `DivergingTrace`
+        // reads the sign as the side a bar points to and pitches the
+        // magnitude, so stripping it here would leave the left-hand series
+        // indistinguishable from the right.
         selectors: selector,
         data: data.points,
       };

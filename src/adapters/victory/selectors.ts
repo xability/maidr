@@ -213,8 +213,8 @@ export function tagLayerElements(
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
-  // VictoryBar (plain or waterfall), VictoryHistogram, VictoryScatter,
-  // VictoryStack, and VictoryPie
+  // VictoryBar (plain or waterfall), VictoryHistogram, VictoryScatter (plain
+  // or dot plot), VictoryStack (stacked or diverging), and VictoryPie
   // all render their data points as <path> elements — Victory's Bar primitive
   // renders a <path> (with arc commands for corner radius), never a <rect>,
   // and its Slice primitive renders the d3-shape arc path for one wedge.
@@ -253,7 +253,11 @@ function tagDiscreteElements(
     // they expose no x/y or cx/cy. Stamp cx/cy from the path centre so MAIDR's
     // ScatterTrace.groupSvgElements (which groups points by cx/cy) can locate
     // them. Ignored by SVG path rendering; inherited by the highlight clones.
-    if (layer.victoryType === 'VictoryScatter') {
+    //
+    // Keyed on what was extracted rather than on the component: a `VictoryScatter`
+    // over categories is a dot plot, read by the bar trace, which locates its
+    // marks by position in the selector's result and needs no coordinates.
+    if (layer.data.kind === 'scatter') {
       stampPathCenter(el);
     }
   }

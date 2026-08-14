@@ -694,3 +694,80 @@ describe('tagLayerElements: polar area', () => {
       .toBeUndefined();
   });
 });
+
+describe('tagLayerElements: dot plot', () => {
+  function dotLayer(count: number): VictoryLayerInfo {
+    const points: BarPoint[] = Array.from({ length: count }, (_, i) => ({ x: `c${i}`, y: i }));
+    return {
+      id: '0',
+      victoryType: 'VictoryScatter',
+      data: { kind: 'dot', points },
+      dataCount: count,
+    };
+  }
+
+  it('tags one mark per category', () => {
+    const { doc, svg } = buildSvg();
+    const marks = [0, 1, 2].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 100 a 3,3 0 1,0 -6,0` }));
+
+    const selector = tagLayerElements(svg, dotLayer(3), 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(marks.every(mark => mark.hasAttribute('data-maidr-victory-0'))).toBe(true);
+  });
+
+  it('leaves the scatter cx/cy stamp off a dot plot', () => {
+    const { doc, svg } = buildSvg();
+    const marks = [0, 1].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 100 a 3,3 0 1,0 -6,0` }));
+
+    tagLayerElements(svg, dotLayer(2), 0, new Set(), '#mv-test ');
+
+    // The stamp exists for ScatterTrace, which groups its points by cx/cy. A
+    // dot plot is read by the bar trace, which locates its marks by position
+    // in the selector's result.
+    expect(marks.some(mark => mark.hasAttribute('cx'))).toBe(false);
+  });
+
+  it('still stamps cx/cy on a bivariate scatter', () => {
+    const { doc, svg } = buildSvg();
+    const mark = appendPath(doc, svg, { d: 'M 74, 226 a 3,3 0 1,0 -6,0' });
+    const layer: VictoryLayerInfo = {
+      id: '0',
+      victoryType: 'VictoryScatter',
+      data: { kind: 'scatter', points: [{ x: 1, y: 2 }] },
+      dataCount: 1,
+    };
+
+    tagLayerElements(svg, layer, 0, new Set(), '#mv-test ');
+
+    expect(mark.getAttribute('cx')).toBe('74');
+    expect(mark.getAttribute('cy')).toBe('226');
+  });
+});
+
+describe('tagLayerElements: diverging bar', () => {
+  it('tags every bar of both sides under one selector', () => {
+    const { doc, svg } = buildSvg();
+    const bars = [0, 1, 2, 3].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 150 L ${i * 40}, 60 z` }));
+    const layer: VictoryLayerInfo = {
+      id: '0',
+      victoryType: 'VictoryStack',
+      data: {
+        kind: 'diverging',
+        points: [
+          [{ x: '0-14', y: 1140, z: 'Women' }, { x: '15-29', y: 1100, z: 'Women' }],
+          [{ x: '0-14', y: -1200, z: 'Men' }, { x: '15-29', y: -1150, z: 'Men' }],
+        ],
+      },
+      dataCount: 4,
+      legend: ['Women', 'Men'],
+    };
+
+    const selector = tagLayerElements(svg, layer, 0, new Set(), '#mv-test ');
+
+    // `SegmentedTrace` resolves one flat selector and splits the result across
+    // the sides itself, so every bar of both sides carries the same tag.
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(bars.every(bar => bar.hasAttribute('data-maidr-victory-0'))).toBe(true);
+  });
+});

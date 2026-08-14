@@ -30,6 +30,7 @@ import {
   VictoryChart,
   VictoryErrorBar,
   VictoryPolarAxis,
+  VictoryScatter,
   VictoryStack,
 } from 'victory';
 
@@ -160,4 +161,72 @@ describe('victory polar area', () => {
     // a mark from it.
     expect(wedges.every(wedge => wedge.hasAttribute('transform'))).toBe(true);
   });
+});
+
+describe('victory dot plot', () => {
+  it('tags one mark per category', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      { domainPadding: 20 },
+      createElement(VictoryScatter, {
+        data: [{ x: 'Denmark', y: 7.6 }, { x: 'Finland', y: 7.8 }, { x: 'Iceland', y: 7.5 }],
+      }),
+    ));
+
+    expect(layers[0].type).toBe(TraceType.DOT);
+    expect(doc.querySelectorAll(layers[0].selectors as string)).toHaveLength(3);
+    // The category names survive: read as a bivariate scatter every x would
+    // have coerced to NaN.
+    expect(layers[0].data).toEqual([
+      { x: 'Denmark', y: 7.6 },
+      { x: 'Finland', y: 7.8 },
+      { x: 'Iceland', y: 7.5 },
+    ]);
+  });
+});
+
+describe('victory diverging bar', () => {
+  it('lists the sides in the order the bars are painted', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryStack,
+        null,
+        createElement(VictoryBar, {
+          key: 'men',
+          name: 'Men',
+          data: [{ x: '0-14', y: -1200 }, { x: '15-29', y: -1150 }],
+        }),
+        createElement(VictoryBar, {
+          key: 'women',
+          name: 'Women',
+          data: [{ x: '0-14', y: 1140 }, { x: '15-29', y: 1100 }],
+        }),
+      ),
+    ));
+
+    expect(layers[0].type).toBe(TraceType.DIVERGING);
+
+    const bars = Array.from(doc.querySelectorAll(layers[0].selectors as string));
+    expect(bars).toHaveLength(4);
+
+    // `SegmentedTrace` splits one flat selector's result across the sides in
+    // payload order, and the DOM answers it in document order — so the side
+    // the payload lists first has to be the side Victory painted first.
+    // `VictoryStack` paints its children back to front, which makes that the
+    // last-declared one: Women, drawn above the baseline.
+    const [first, second] = layers[0].data as { y: number }[][];
+    expect(first[0].y).toBeGreaterThan(0);
+    expect(second[0].y).toBeLessThan(0);
+    expect(barCenterY(bars[0])).toBeLessThan(barCenterY(bars[2]));
+  });
+
+  /** The vertical midpoint of a Victory bar `<path>`; smaller is higher up. */
+  function barCenterY(bar: Element): number {
+    const ys = Array.from((bar.getAttribute('d') ?? '').matchAll(/[\s,](-?[\d.]+)\s*(?:[a-z]|$)/gi))
+      .map(match => Number.parseFloat(match[1]))
+      .filter(y => Number.isFinite(y));
+    return (Math.min(...ys) + Math.max(...ys)) / 2;
+  }
 });
