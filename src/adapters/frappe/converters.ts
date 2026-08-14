@@ -450,7 +450,7 @@ function buildLineLayer(
   data: FrappeData,
   containerId: string,
   options: FrappeChartAdapterOptions,
-  type: TraceType.AREA | TraceType.BUMP | TraceType.LINE = TraceType.LINE,
+  type: TraceType.AREA | TraceType.BUMP | TraceType.LINE,
 ): MaidrLayer {
   const multiLine = data.datasets.length > 1;
 
