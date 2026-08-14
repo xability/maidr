@@ -153,6 +153,21 @@ export interface AnyChartInstance {
   getType?: () => string;
 
   /**
+   * How a waterfall chart reads its series values (`'diff'` by default, or
+   * `'absolute'`). In diff mode a row's `value` IS the step's contribution; in
+   * absolute mode it is the running total the step arrives at. Present only on
+   * a waterfall chart.
+   */
+  dataMode?: () => string;
+
+  /**
+   * Whether a waterfall draws a step marked `isTotal` at its own value rather
+   * than at the running total it arrived at. Off by default, and present only
+   * on a waterfall chart.
+   */
+  drawTotalsAsAbsolute?: () => boolean;
+
+  /**
    * Chart-level data accessor. Present on single-dataset chart types such
    * as Heatmap, which do not expose a series-based API and instead store
    * their cells in a top-level data view. Absent on multi-series Cartesian

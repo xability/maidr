@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Sankey Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 760px; height: 480px; margin-bottom: 1rem; }
+      p { max-width: 760px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). The sankey ships as an extension module on
+         top of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-sankey.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // A sankey names both ends of every flow, so the nodes never appear in
+        // the data — MAIDR derives them from the edges exactly as the chart
+        // does, and assigns each one its column from the same information.
+        const chart = anychart.sankey([
+          { from: 'Coal', to: 'Electricity', weight: 34 },
+          { from: 'Coal', to: 'Heat', weight: 14 },
+          { from: 'Coal', to: 'Losses', weight: 8 },
+          { from: 'Gas', to: 'Electricity', weight: 12 },
+          { from: 'Gas', to: 'Heat', weight: 6 },
+          { from: 'Electricity', to: 'Homes', weight: 30 },
+          { from: 'Electricity', to: 'Industry', weight: 16 },
+          { from: 'Heat', to: 'Homes', weight: 20 },
+        ]);
+
+        chart.title('Energy flow');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-sankey',
+          // A sankey is bound to no axis, so there is no axis title to
+          // extract. Drop these and the adapter falls back to "Node" and
+          // "Flow".
+          axes: { x: 'Source', y: 'Energy (PJ)' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Sankey Diagram</h1>
+    <p>
+      Click on the chart and use the right arrow key to follow the largest flow
+      out of the current node, and the left arrow key to follow the largest flow
+      back in. The up and down arrow keys walk the other nodes stacked in the
+      same column. Each move announces the flow it was taken along — where it
+      came from, how much ran along it, and what share of the node's output that
+      was — rather than just the node it landed on. Press <kbd>B</kbd> for
+      braille, <kbd>T</kbd> for text descriptions, and <kbd>S</kbd> to toggle
+      sonification.
+    </p>
+    <p>
+      A row whose <code>to</code> is left out is an AnyChart "dropoff": the
+      chart draws a ribbon leaving the node and going nowhere. It names no
+      target, so it is not a flow and is left out of the reading — and because
+      the chart still draws it, highlighting is switched off for the whole chart
+      rather than pairing every later ribbon with the wrong flow.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

@@ -7,9 +7,12 @@ import type {
 import type {
   BarPoint,
   BoxSelector,
+  FlowPoint,
   LinePoint,
   MaidrLayer,
+  MosaicPoint,
   PiePoint,
+  WaterfallPoint,
   WordCloudPoint,
 } from '@type/grammar';
 import {
@@ -241,6 +244,237 @@ function appendCloudWords(container: HTMLElement, terms: string[]): SVGElement[]
     layer.appendChild(text);
     return text as unknown as SVGElement;
   });
+}
+
+/**
+ * A drawn AnyChart sankey. Single-dataset like the pie — no series API at all —
+ * mapping `from` / `to` / `weight`. A `null` target is AnyChart's "dropoff":
+ * the chart draws a ribbon leaving the node and going nowhere, and it names no
+ * flow.
+ */
+function createSankeyChart(
+  title: string,
+  flows: Array<[string, string | null, number | null]>,
+  extra: { container?: HTMLElement } = {},
+): AnyChartInstance {
+  const rows = flows.map(([from, to, weight]) => ({ from, to, weight }));
+  return {
+    title: () => title,
+    container: () => extra.container ?? '',
+    getType: () => 'sankey',
+    data: () => ({ getIterator: () => createIterator(rows) }),
+  } as unknown as AnyChartInstance;
+}
+
+/**
+ * Append a rendered sankey to a container's `<svg>`: one layer holding `count`
+ * curved ribbons at AnyChart's own `fill-opacity` of 0.3, plus the node
+ * rectangles that share the layer — straight-sided paths that would be
+ * indistinguishable from the ribbons without the curve test.
+ */
+function appendSankeyRibbons(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+
+  const ribbons: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const ribbon = document.createElementNS(SVG_NS, 'path');
+    ribbon.id = `ac_path_${i}`;
+    ribbon.setAttribute('d', 'M 40 10 C 80 10 100 60 140 60 L 140 80 C 100 80 80 30 40 30 Z');
+    ribbon.setAttribute('fill', 'grey');
+    ribbon.setAttribute('fill-opacity', '0.3');
+    layer.appendChild(ribbon);
+    ribbons.push(ribbon);
+  }
+
+  // The node rectangles the ribbons run between, drawn into the same layer.
+  for (let i = 0; i < 2; i++) {
+    const node = document.createElementNS(SVG_NS, 'path');
+    node.id = `ac_path_node_${i}`;
+    node.setAttribute('d', 'M 10 10 L 34 10 L 34 90 L 10 90 Z');
+    node.setAttribute('fill', '#64b5f6');
+    layer.appendChild(node);
+  }
+
+  return ribbons;
+}
+
+/**
+ * A drawn AnyChart waterfall. Unlike the single-dataset charts it is Cartesian
+ * and does expose the series API, with one `waterfall` series per stack level.
+ */
+function createWaterfallChart(
+  title: string,
+  steps: Array<[string, number | null, boolean?]>,
+  extra: {
+    container?: HTMLElement;
+    dataMode?: string;
+    totalsAsAbsolute?: boolean;
+  } = {},
+): AnyChartInstance {
+  const rows = steps.map(([x, value, isTotal]) => ({
+    x,
+    value,
+    ...(isTotal === undefined ? {} : { isTotal }),
+  }));
+  return {
+    ...createChart({
+      title,
+      container: extra.container,
+      type: 'waterfall',
+      series: [createSeries('waterfall', rows)],
+    }),
+    ...(extra.dataMode ? { dataMode: () => extra.dataMode } : {}),
+    ...(extra.totalsAsAbsolute
+      ? { drawTotalsAsAbsolute: () => true }
+      : {}),
+  } as AnyChartInstance;
+}
+
+/**
+ * Append a rendered waterfall to a container's `<svg>`: one layer of `count`
+ * filled bars plus the stroke-only connector AnyChart draws between each pair
+ * of steps, which shares the layer and is not a bar.
+ */
+function appendWaterfallBars(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  layer.setAttribute('clip-path', 'url(#ac_clip_1)');
+  svg.appendChild(layer);
+
+  const bars: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const bar = document.createElementNS(SVG_NS, 'path');
+    bar.id = `ac_path_${i}`;
+    bar.setAttribute('d', 'M 10 20 L 40 20 L 40 90 L 10 90 Z');
+    bar.setAttribute('fill', '#64b5f6');
+    layer.appendChild(bar);
+    bars.push(bar);
+
+    if (i < count - 1) {
+      const connector = document.createElementNS(SVG_NS, 'path');
+      connector.id = `ac_path_connector_${i}`;
+      connector.setAttribute('d', 'M 40 20 L 70 20');
+      connector.setAttribute('fill', 'none');
+      layer.appendChild(connector);
+    }
+  }
+
+  return bars;
+}
+
+/**
+ * A drawn AnyChart marimekko: one `mekko` series per level of the stack, each
+ * carrying one row per category.
+ */
+function createMosaicChart(
+  title: string,
+  levels: Array<[string, Array<[string, number]>]>,
+  extra: { container?: HTMLElement; type?: string } = {},
+): AnyChartInstance {
+  return createChart({
+    title,
+    container: extra.container,
+    type: extra.type ?? 'mosaic',
+    series: levels.map(([name, rows]) => ({
+      ...createSeries('mekko', rows.map(([x, value]) => ({ x, value }))),
+      name: () => name,
+    })),
+  });
+}
+
+/**
+ * Append a rendered marimekko to a container's `<svg>`: one layer per series,
+ * each holding that series' tiles in category order — series-major document
+ * order, which is what the segmented trace pairs its table against.
+ */
+function appendMosaicTiles(container: HTMLElement, levels: number[]): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const tiles: SVGElement[] = [];
+
+  levels.forEach((count, s) => {
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = `ac_layer_series_${s}`;
+    layer.setAttribute('clip-path', 'url(#ac_clip_1)');
+    svg.appendChild(layer);
+    for (let c = 0; c < count; c++) {
+      const tile = document.createElementNS(SVG_NS, 'path');
+      tile.id = `ac_path_${s}_${c}`;
+      tile.setAttribute('d', 'M 10 20 L 60 20 L 60 90 L 10 90 Z');
+      tile.setAttribute('fill', '#64b5f6');
+      layer.appendChild(tile);
+      tiles.push(tile);
+    }
+  });
+
+  return tiles;
+}
+
+/**
+ * A drawn AnyChart radar or polar chart. Both expose the series API, and their
+ * series report themselves as plain `line` / `area` / `marker` / `column` —
+ * which is exactly why only `getType()` can say the categories are arranged
+ * around a circle.
+ */
+function createRadialChart(
+  title: string,
+  seriesType: string,
+  points: Array<[string, number]>,
+  extra: { container?: HTMLElement; type?: 'radar' | 'polar'; series?: number } = {},
+): AnyChartInstance {
+  const rows = points.map(([x, value]) => ({ x, value }));
+  const series = Array.from({ length: extra.series ?? 1 }, () => ({
+    ...createSeries(seriesType, rows),
+    // A radar's line series carries markers, and the adapter enables them so
+    // there is one element per spoke to highlight.
+    markers: () => ({ enabled: () => true }),
+  }) as AnyChartSeries);
+  return createChart({
+    title,
+    container: extra.container,
+    type: extra.type ?? 'radar',
+    series,
+  });
+}
+
+/**
+ * Append a rendered radar to a container's `<svg>`: one layer of `count`
+ * arc-drawn markers, plus the straight-sided web AnyChart draws behind them and
+ * a one-icon legend layer — neither of which may be mistaken for a spoke.
+ */
+function appendRadarMarks(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+
+  // The grid web: a polygon per ring, stroked and unfilled.
+  const grid = document.createElementNS(SVG_NS, 'g');
+  grid.id = 'ac_layer_grid';
+  svg.appendChild(grid);
+  for (let i = 0; i < 4; i++) {
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.id = `ac_path_grid_${i}`;
+    ring.setAttribute('d', 'M 100 20 L 170 100 L 100 180 L 30 100 Z');
+    ring.setAttribute('fill', 'none');
+    grid.appendChild(ring);
+  }
+
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+  const marks: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const mark = document.createElementNS(SVG_NS, 'path');
+    mark.id = `ac_path_${i}`;
+    // acgraph draws a circular marker as two arcs.
+    mark.setAttribute('d', 'M 96 100 A 4 4 0 1 1 104 100 A 4 4 0 1 1 96 100 Z');
+    mark.setAttribute('fill', '#64b5f6');
+    layer.appendChild(mark);
+    marks.push(mark);
+  }
+
+  return marks;
 }
 
 /**
@@ -996,6 +1230,511 @@ describe('bindAnyChart (tag cloud stamping)', () => {
     expect(container.querySelectorAll('[data-maidr-anychart-word]')).toHaveLength(0);
     expect(warnSpy.mock.calls.flat().join(' '))
       .toContain('Expected exactly one rendered word');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sankey diagrams (single-dataset, no series API)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (sankey chart)', () => {
+  it('emits the flows, leaving the nodes for the trace to derive', () => {
+    const chart = createSankeyChart('Energy', [
+      ['Coal', 'Electricity', 34],
+      ['Coal', 'Heat', 14],
+      ['Gas', 'Electricity', 12],
+    ]);
+
+    const result = anyChartToMaidr(chart);
+
+    expect(result?.title).toBe('Energy');
+    const layer = result!.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.SANKEY);
+    expect(layer.data as FlowPoint[]).toEqual([
+      { source: 'Coal', target: 'Electricity', value: 34 },
+      { source: 'Coal', target: 'Heat', value: 14 },
+      { source: 'Gas', target: 'Electricity', value: 12 },
+    ]);
+    // One exact-match selector per flow, in declared order: FlowTrace indexes
+    // the resolved ribbons by each flow's own position, so a prefix selector
+    // resolving in document order would pair a node with the wrong ribbon.
+    expect(layer.selectors).toEqual([
+      '[data-maidr-anychart-flow="0-0"]',
+      '[data-maidr-anychart-flow="0-1"]',
+      '[data-maidr-anychart-flow="0-2"]',
+    ]);
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Flow' } });
+  });
+
+  it('drops the rows AnyChart draws no ribbon for', () => {
+    const chart = createSankeyChart('Energy', [
+      ['Coal', 'Electricity', 34],
+      // A dropoff: drawn, but it names no target and so is not a flow.
+      ['Coal', null, 6],
+      // No weight at all, which the chart skips outright.
+      ['Gas', 'Heat', null],
+      ['Gas', 'Electricity', 12],
+    ]);
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as FlowPoint[])
+      .toEqual([
+        { source: 'Coal', target: 'Electricity', value: 34 },
+        { source: 'Gas', target: 'Electricity', value: 12 },
+      ]);
+  });
+
+  it('scopes sankey selectors to the panel token in multi-panel mode', () => {
+    const sankey = createSankeyChart('Energy', [['Coal', 'Heat', 14]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[sankey, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).selectors).toEqual([
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-flow="fig-0-0:0-0"]',
+    ]);
+  });
+});
+
+describe('bindAnyChart (sankey stamping)', () => {
+  it('stamps one attribute per ribbon, in flow order, and skips the nodes', () => {
+    const container = createContainerWithSvg('sankey-bind');
+    const ribbons = appendSankeyRibbons(container, 3);
+    const chart = createSankeyChart(
+      'Energy',
+      [['Coal', 'Electricity', 34], ['Coal', 'Heat', 14], ['Gas', 'Heat', 12]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(ribbons.map(r => r.getAttribute('data-maidr-anychart-flow')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    // A node is a filled straight-sided path in the ribbons' own layer; only
+    // the curve test tells the two apart.
+    expect(container.querySelector('#ac_path_node_0')
+      ?.getAttribute('data-maidr-anychart-flow')).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing when the ribbon count disagrees with the flow count', () => {
+    // The extra ribbon is a dropoff, which is drawn but is not a flow. Pairing
+    // by position past it would name the wrong flow for every later ribbon, and
+    // FlowTrace drops the highlight for a partial resolution anyway.
+    const container = createContainerWithSvg('sankey-dropoff');
+    appendSankeyRibbons(container, 3);
+    const chart = createSankeyChart(
+      'Energy',
+      [['Coal', 'Electricity', 34], ['Coal', 'Heat', 14]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-flow]')).toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('Expected 2 sankey ribbons but found 3');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Waterfall charts (series-backed, read as one bridge)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (waterfall chart)', () => {
+  it('accumulates the running total from a diff-mode series', () => {
+    const chart = createWaterfallChart('Budget', [
+      ['Opening', 1200],
+      ['Marketing', -250],
+      ['Sales', 480],
+      ['Closing', 0, true],
+    ]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data as WaterfallPoint[]).toEqual([
+      // The first step is a total whether or not the row says so: nothing is
+      // carried into it, so it states the value the bridge opens at.
+      { x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' },
+      { x: 'Marketing', start: 1200, end: 950, delta: -250, kind: 'decrease' },
+      { x: 'Sales', start: 950, end: 1430, delta: 480, kind: 'increase' },
+      // A declared total sits on the baseline and restates the running total.
+      { x: 'Closing', start: 0, end: 1430, delta: 1430, kind: 'total' },
+    ]);
+    expect(layer.selectors).toBe('[data-maidr-anychart-waterfall-step^="0-"]');
+  });
+
+  it('reads absolute-mode values as the totals they are', () => {
+    // In absolute mode a row's value IS the running total, so the contribution
+    // is the difference — the reverse of diff mode, and the same numbers.
+    const chart = createWaterfallChart(
+      'Budget',
+      [['Opening', 1200], ['Marketing', 950], ['Sales', 1430]],
+      { dataMode: 'absolute' },
+    );
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as WaterfallPoint[])
+      .toEqual([
+        { x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' },
+        { x: 'Marketing', start: 1200, end: 950, delta: -250, kind: 'decrease' },
+        { x: 'Sales', start: 950, end: 1430, delta: 480, kind: 'increase' },
+      ]);
+  });
+
+  it('leaves the running total alone when totals are drawn at their own value', () => {
+    // With `drawTotalsAsAbsolute` the marked total states its own value and the
+    // bridge carries on from where it left off. Accumulating it would announce
+    // a total the chart never reached — and every later step from it.
+    const chart = createWaterfallChart(
+      'Budget',
+      [['Opening', 100], ['Subtotal', 90, true], ['Q1', 20]],
+      { totalsAsAbsolute: true },
+    );
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as WaterfallPoint[])
+      .toEqual([
+        { x: 'Opening', start: 0, end: 100, delta: 100, kind: 'total' },
+        { x: 'Subtotal', start: 0, end: 90, delta: 90, kind: 'total' },
+        { x: 'Q1', start: 100, end: 120, delta: 20, kind: 'increase' },
+      ]);
+  });
+
+  it('reads a stacked waterfall as the one bridge it draws', () => {
+    // Several series stack within each category, and the step's contribution is
+    // everything they add there together. Emitting a layer per series would
+    // give each its own running total and none of them the chart's.
+    const chart = createChart({
+      title: 'Budget',
+      type: 'waterfall',
+      series: [
+        createSeries('waterfall', [
+          { x: 'Opening', value: 1000 },
+          { x: 'Q1', value: 200 },
+        ]),
+        createSeries('waterfall', [
+          { x: 'Opening', value: 200 },
+          { x: 'Q1', value: -50 },
+        ]),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].data as WaterfallPoint[]).toEqual([
+      { x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' },
+      { x: 'Q1', start: 1200, end: 1350, delta: 150, kind: 'increase' },
+    ]);
+  });
+
+  it('drops steps with no numeric value, which AnyChart draws no bar for', () => {
+    const chart = createWaterfallChart('Budget', [
+      ['Opening', 100],
+      ['Unknown', null],
+      ['Q1', 50],
+    ]);
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as WaterfallPoint[])
+      .toEqual([
+        { x: 'Opening', start: 0, end: 100, delta: 100, kind: 'total' },
+        { x: 'Q1', start: 100, end: 150, delta: 50, kind: 'increase' },
+      ]);
+  });
+});
+
+describe('bindAnyChart (waterfall stamping)', () => {
+  it('stamps one attribute per step, in category order, and skips the connectors', () => {
+    const container = createContainerWithSvg('waterfall-bind');
+    const bars = appendWaterfallBars(container, 3);
+    const chart = createWaterfallChart(
+      'Budget',
+      [['Opening', 1200], ['Marketing', -250], ['Sales', 480]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(bars.map(b => b.getAttribute('data-maidr-anychart-waterfall-step')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    // The connector between two steps is stroke-only; a highlight landing on
+    // one would look like nothing happened.
+    expect(container.querySelector('#ac_path_connector_0')
+      ?.getAttribute('data-maidr-anychart-waterfall-step')).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing when the bar count disagrees with the step count', () => {
+    // What a stacked waterfall looks like from the DOM: one bar per series per
+    // category, and no single bar to point a step at.
+    const container = createContainerWithSvg('waterfall-stacked');
+    appendWaterfallBars(container, 4);
+    const chart = createWaterfallChart(
+      'Budget',
+      [['Opening', 1200], ['Marketing', -250]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-waterfall-step]'))
+      .toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('Expected 2 waterfall bars but found 4');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Marimekko charts (series-backed, read as one table)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (marimekko chart)', () => {
+  it('emits one table and carries each column\'s share on all of its cells', () => {
+    // Column totals 30 and 70, so the widths are the shares of 100 the chart
+    // draws each column at — the second magnitude a mosaic exists to show, and
+    // the one number the rows do not hold.
+    const chart = createMosaicChart('Survival', [
+      ['Survived', [['First', 20], ['Third', 25]]],
+      ['Died', [['First', 10], ['Third', 45]]],
+    ]);
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.MOSAIC);
+    expect(layers[0].data as MosaicPoint[][]).toEqual([
+      [
+        { x: 'First', y: 20, z: 'Survived', width: 0.3 },
+        { x: 'Third', y: 25, z: 'Survived', width: 0.7 },
+      ],
+      [
+        { x: 'First', y: 10, z: 'Died', width: 0.3 },
+        { x: 'Third', y: 45, z: 'Died', width: 0.7 },
+      ],
+    ]);
+    expect(layers[0].selectors).toBe('[data-maidr-anychart-tile]');
+    // Series-major, which is both what the stamper writes and what the
+    // segmented trace reads.
+    expect(layers[0].domMapping).toEqual({ order: 'row' });
+  });
+
+  it('squares off a category a series does not carry', () => {
+    // The trace navigates a grid, so every series needs a value at every
+    // column. AnyChart draws no tile for the missing one and adds nothing to
+    // the column's total, which is what a zero says.
+    const chart = createMosaicChart('Survival', [
+      ['Survived', [['First', 20], ['Third', 30]]],
+      ['Died', [['Third', 50]]],
+    ]);
+
+    const data = anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as MosaicPoint[][];
+
+    expect(data[1][0]).toEqual({ x: 'First', y: 0, z: 'Died', width: 0.2 });
+  });
+
+  it('routes barmekko and mekko through the same path', () => {
+    const chart = createMosaicChart('Revenue', [['Sales', [['Q1', 4], ['Q2', 6]]]], {
+      type: 'barmekko',
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.MOSAIC);
+  });
+});
+
+describe('bindAnyChart (marimekko stamping)', () => {
+  it('stamps one attribute per tile, series-major', () => {
+    const container = createContainerWithSvg('mosaic-bind');
+    const tiles = appendMosaicTiles(container, [2, 2]);
+    const chart = createMosaicChart(
+      'Survival',
+      [
+        ['Survived', [['First', 20], ['Third', 25]]],
+        ['Died', [['First', 10], ['Third', 45]]],
+      ],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(tiles.map(t => t.getAttribute('data-maidr-anychart-tile')))
+      .toEqual(['0-0', '0-1', '1-0', '1-1']);
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps only the cells the chart draws a tile for', () => {
+    // A mekko draws nothing for a cell with no positive value, which is the
+    // same accommodation the segmented trace makes when it finds fewer
+    // elements than cells.
+    const container = createContainerWithSvg('mosaic-gap');
+    const tiles = appendMosaicTiles(container, [2, 1]);
+    const chart = createMosaicChart(
+      'Survival',
+      [
+        ['Survived', [['First', 20], ['Third', 25]]],
+        ['Died', [['Third', 45]]],
+      ],
+      { container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(tiles.map(t => t.getAttribute('data-maidr-anychart-tile')))
+      .toEqual(['0-0', '0-1', '1-1']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing when the tile count disagrees with the table', () => {
+    const container = createContainerWithSvg('mosaic-mismatch');
+    appendMosaicTiles(container, [2, 3]);
+    const chart = createMosaicChart(
+      'Survival',
+      [
+        ['Survived', [['First', 20], ['Third', 25]]],
+        ['Died', [['First', 10], ['Third', 45]]],
+      ],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-tile]')).toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('Expected 4 marimekko tiles but found 5');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Radar / polar charts (series-backed, discriminated only by chart type)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (radial charts)', () => {
+  it('reads a radar chart as spokes, not as the line series it reports', () => {
+    const chart = createRadialChart('Skills', 'line', [
+      ['Speed', 7],
+      ['Power', 4],
+      ['Range', 9],
+    ]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.RADAR);
+    expect(layer.data as LinePoint[][]).toEqual([[
+      { x: 'Speed', y: 7 },
+      { x: 'Power', y: 4 },
+      { x: 'Range', y: 9 },
+    ]]);
+    // The line attribute is one the radar stamper never writes: its stamper
+    // pairs marks with spokes by shape, because on a circle the line
+    // stamper's left-to-right order is not data order.
+    expect(layer.selectors).toBe('[data-maidr-anychart-spoke^="0-"]');
+  });
+
+  it('reads a polar column series as the wedges it draws', () => {
+    const chart = createRadialChart('Wind', 'column', [['N', 12], ['E', 5]], {
+      type: 'polar',
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.POLAR_AREA);
+  });
+
+  it('reads a polar line series as a radar, since it draws the same outline', () => {
+    const chart = createRadialChart('Wind', 'line', [['N', 12], ['E', 5]], {
+      type: 'polar',
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.RADAR);
+  });
+
+  it('skips a radial series whose rows carry no value', () => {
+    // A polar rangeColumn carries `low` / `high`; read as a radar every spoke
+    // would be announced as zero.
+    const chart = createRadialChart('Wind', 'rangeColumn', [['N', 12]], {
+      type: 'polar',
+    });
+
+    expect(anyChartToMaidr(chart)).toBeNull();
+  });
+
+  it('scopes radial selectors to the panel token in multi-panel mode', () => {
+    const radar = createRadialChart('Skills', 'line', [['Speed', 7]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[radar, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).selectors).toBe(
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-spoke^="fig-0-0:0-"]',
+    );
+  });
+});
+
+describe('bindAnyChart (radar stamping)', () => {
+  it('stamps one attribute per mark, in spoke order, and skips the web', () => {
+    const container = createContainerWithSvg('radar-bind');
+    const marks = appendRadarMarks(container, 3);
+    const chart = createRadialChart(
+      'Skills',
+      'line',
+      [['Speed', 7], ['Power', 4], ['Range', 9]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(marks.map(m => m.getAttribute('data-maidr-anychart-spoke')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    expect(container.querySelector('#ac_path_grid_0')
+      ?.getAttribute('data-maidr-anychart-spoke')).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing for a multi-series radar and says why', () => {
+    // AnyChart draws the second series' markers as diamonds, in a layer of
+    // their own: there is no shape test that finds both series and no ordering
+    // that spans them, so a stamp here would highlight one series while the
+    // reader navigated the other.
+    const container = createContainerWithSvg('radar-multi');
+    appendRadarMarks(container, 3);
+    const chart = createRadialChart(
+      'Skills',
+      'line',
+      [['Speed', 7], ['Power', 4], ['Range', 9]],
+      { container, series: 2 },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-spoke]')).toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('it draws 2 series');
 
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
