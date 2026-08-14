@@ -174,7 +174,7 @@ export function hexbinSelectors(
  * point including the ones with no value, which the layer leaves out, so
  * document order is one entry longer than the payload on any map with a gap
  * in it. The adapter therefore stamps `data-maidr-region-index="N"` onto each
- * announced region's shape (see `stampChoroplethIndices` in adapter.ts) and
+ * announced region's shape (see `stampPointIndices` in adapter.ts) and
  * these selectors address the stamp.
  *
  * A region Highcharts did not draw has no element to stamp, so its selector
