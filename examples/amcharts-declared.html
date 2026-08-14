@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Declared Traces</title>
+
+    <!-- 1. Load amCharts 5 (core + XY). Every chart here is an ordinary XY
+         chart: amCharts has no series class for any of these five. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 700px;
+        height: 420px;
+      }
+      code { background: #f4f4f4; padding: 1px 4px; }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Declared Traces</h1>
+    <p>
+      Five readings amCharts leaves no signature for. A survival curve and a
+      step line are the same series class; an error bar is a floating column
+      behind another series; a volcano, a Manhattan and a plain scatter are all
+      a <code>LineSeries</code> with the stroke switched off. Every one of those
+      configurations is worn by an ordinary chart too, so the adapter does not
+      guess — the author says which it is, in the
+      <code>userData</code> slot amCharts documents as "a storage for any custom
+      user data":
+    </p>
+    <pre><code>am5xy.StepLineSeries.new(root, {
+  /* … the settings you already wrote … */
+  userData: { maidr: { type: "survival", censored: "censored" } },
+});</code></pre>
+    <p>
+      Every field is spelled exactly like the grammar field it fills, and every
+      field naming a column of your data defaults to that same name — so a row
+      that already carries a <code>censored</code> or a <code>weight</code>
+      column needs nothing said about it. Nothing is ever guessed: the values
+      that would invert a reading if guessed wrong (a significance cutoff, a
+      forest plot's null line) have no defaults at all, and a chart that does
+      not declare one simply makes no claim.
+    </p>
+
+    <h2>Survival: a Kaplan-Meier curve, censoring and all</h2>
+    <div id="survival-chart" class="chart"></div>
+
+    <h2>Error bar: an estimate and the column drawing its interval</h2>
+    <div id="errorbar-chart" class="chart"></div>
+
+    <h2>Forest: a meta-analysis, with weights and a pooled summary</h2>
+    <div id="forest-chart" class="chart"></div>
+
+    <h2>Volcano: effect size against significance</h2>
+    <div id="volcano-chart" class="chart"></div>
+
+    <h2>Manhattan: three chromosomes read as one cloud</h2>
+    <div id="manhattan-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      /** An XY chart on two value axes. */
+      function valueChart(elId) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        return { root: root, chart: chart, xAxis: xAxis, yAxis: yAxis };
+      }
+
+      /** An XY chart with the categories on the X axis. */
+      function categoryChart(elId, categories) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.data.setAll(categories);
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        return { root: root, chart: chart, xAxis: xAxis, yAxis: yAxis };
+      }
+
+      /** Circle bullets, which is how amCharts draws a point. */
+      function addBullets(root, series, radius) {
+        series.bullets.push(function () {
+          return am5.Bullet.new(root, {
+            sprite: am5.Circle.new(root, {
+              radius: radius,
+              fill: series.get("fill"),
+            }),
+          });
+        });
+      }
+
+      // --- Survival ------------------------------------------------------
+      // Two step lines, and one declaration. `censored` names the column on
+      // the author's own rows: the chart was never bound to it, so nothing but
+      // the declaration can reach it. The second arm needs no block of its
+      // own — `merge` is on by default for a survival figure, because treated
+      // and control are read against each other.
+      var TREATED = [
+        { time: 0, surv: 1.0, censored: false },
+        { time: 4, surv: 0.94, censored: false },
+        { time: 9, surv: 0.94, censored: true },
+        { time: 14, surv: 0.81, censored: false },
+        { time: 22, surv: 0.74, censored: true },
+        { time: 30, surv: 0.68, censored: false },
+      ];
+      var CONTROL = [
+        { time: 0, surv: 1.0, censored: false },
+        { time: 3, surv: 0.88, censored: false },
+        { time: 8, surv: 0.72, censored: false },
+        { time: 15, surv: 0.55, censored: true },
+        { time: 24, surv: 0.41, censored: false },
+        { time: 30, surv: 0.33, censored: false },
+      ];
+
+      (function () {
+        var built = valueChart("survival-chart");
+        var treated = built.chart.series.push(
+          am5xy.StepLineSeries.new(built.root, {
+            name: "Treated",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueXField: "time",
+            valueYField: "surv",
+            // A Kaplan-Meier curve holds until an event drops it, which is
+            // what `stepDirection: "hv"` says. MAIDR substitutes no default,
+            // so declaring it is what keeps the description from staying
+            // silent about the convention.
+            userData: {
+              maidr: { type: "survival", censored: "censored", stepDirection: "hv" },
+            },
+          })
+        );
+        treated.data.setAll(TREATED);
+
+        var control = built.chart.series.push(
+          am5xy.StepLineSeries.new(built.root, {
+            name: "Control",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueXField: "time",
+            valueYField: "surv",
+          })
+        );
+        control.data.setAll(CONTROL);
+
+        register(built.root, {
+          title: "Overall Survival by Arm",
+          axisLabels: { x: "Months since randomisation", y: "Surviving fraction" },
+        });
+      })();
+
+      // --- Error bar -----------------------------------------------------
+      // The interval is a second series: a column floating between
+      // `openValueY` and `valueY`. `intervalSeries` names it by its am5 `id`,
+      // which is the one edit this chart needs — set an `id` on the series
+      // drawing the interval. It is then absorbed into the estimate's layer
+      // rather than announced as a chart of its own.
+      var TREATMENTS = [
+        { category: "Placebo", mean: 4.1, lo: 3.4, hi: 4.8 },
+        { category: "Low dose", mean: 5.6, lo: 5.0, hi: 6.2 },
+        { category: "High dose", mean: 7.2, lo: 6.1, hi: 8.3 },
+      ];
+
+      (function () {
+        var built = categoryChart("errorbar-chart", TREATMENTS);
+        var interval = built.chart.series.push(
+          am5xy.ColumnSeries.new(built.root, {
+            id: "ci",
+            name: "95% CI",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueYField: "hi",
+            openValueYField: "lo",
+            categoryXField: "category",
+          })
+        );
+        interval.columns.template.setAll({ width: 2 });
+        interval.data.setAll(TREATMENTS);
+
+        var estimate = built.chart.series.push(
+          am5xy.LineSeries.new(built.root, {
+            name: "Mean response",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueYField: "mean",
+            categoryXField: "category",
+            userData: { maidr: { type: "error_bar", intervalSeries: "ci" } },
+          })
+        );
+        estimate.strokes.template.setAll({ strokeOpacity: 0 });
+        addBullets(built.root, estimate, 7);
+        estimate.data.setAll(TREATMENTS);
+
+        register(built.root, {
+          title: "Mean Response by Treatment",
+          axisLabels: { x: "Treatment", y: "Response" },
+        });
+      })();
+
+      // --- Forest --------------------------------------------------------
+      // Everything the error bar needs, plus the three things a meta-analysis
+      // carries that a row of intervals does not: the weight each study
+      // contributes, which row is the pooled result rather than evidence, and
+      // where the null line sits. `nullValue` has no default on purpose — 0
+      // guessed for an odds ratio would report every study as not crossing.
+      var STUDIES = [
+        { category: "Ross 1998", or: 0.82, lo: 0.61, hi: 1.1, weight: 0.18, pooled: false },
+        { category: "Patel 2004", or: 1.14, lo: 0.92, hi: 1.41, weight: 0.31, pooled: false },
+        { category: "Okafor 2011", or: 0.67, lo: 0.44, hi: 1.02, weight: 0.14, pooled: false },
+        { category: "Lindqvist 2019", or: 0.79, lo: 0.65, hi: 0.96, weight: 0.24, pooled: false },
+        { category: "Pooled", or: 0.86, lo: 0.76, hi: 0.97, weight: 0.13, pooled: true },
+      ];
+
+      (function () {
+        var root = am5.Root.new("forest-chart");
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+          })
+        );
+        yAxis.data.setAll(STUDIES);
+        var xAxis = chart.xAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererX.new(root, {}) })
+        );
+
+        var interval = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            id: "ci",
+            name: "95% CI",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueXField: "hi",
+            openValueXField: "lo",
+            categoryYField: "category",
+          })
+        );
+        interval.columns.template.setAll({ height: 2 });
+        interval.data.setAll(STUDIES);
+
+        var effect = chart.series.push(
+          am5xy.LineSeries.new(root, {
+            name: "Odds ratio",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueXField: "or",
+            categoryYField: "category",
+            // `weight` and `pooled` are spelled exactly like the grammar
+            // fields they fill, and the rows already carry both — so neither
+            // has to be named here. They are, to show where they would go.
+            userData: {
+              maidr: {
+                type: "forest",
+                intervalSeries: "ci",
+                weight: "weight",
+                pooled: "pooled",
+                nullValue: 1,
+              },
+            },
+          })
+        );
+        effect.strokes.template.setAll({ strokeOpacity: 0 });
+        addBullets(root, effect, 7);
+        effect.data.setAll(STUDIES);
+
+        register(root, {
+          title: "Odds of Relapse: Meta-analysis",
+          axisLabels: { x: "Odds ratio", y: "Study" },
+        });
+      })();
+
+      // --- Volcano -------------------------------------------------------
+      // A scatter recipe: a LineSeries with its stroke switched off and
+      // bullets pushed on. Undeclared it reads as a line chart, which is the
+      // misannouncement this block exists to correct. The gene name is the
+      // payload — a reader told "x is -2.4, y is 9.1" has been handed the two
+      // numbers whose shape they can already hear.
+      var GENES = [
+        { gene: "BRCA1", lfc: -2.4, sig: 9.1 },
+        { gene: "TP53", lfc: 2.9, sig: 11.4 },
+        { gene: "EGFR", lfc: 1.7, sig: 4.2 },
+        { gene: "MYC", lfc: 0.4, sig: 0.9 },
+        { gene: "ACTB", lfc: 0.1, sig: 0.2 },
+        { gene: "PTEN", lfc: -1.8, sig: 6.6 },
+        { gene: "KRAS", lfc: 0.9, sig: 1.1 },
+        { gene: "VEGFA", lfc: -0.6, sig: 0.7 },
+      ];
+
+      (function () {
+        var built = valueChart("volcano-chart");
+        var series = built.chart.series.push(
+          am5xy.LineSeries.new(built.root, {
+            name: "Differential expression",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueXField: "lfc",
+            valueYField: "sig",
+            userData: {
+              maidr: {
+                type: "volcano",
+                label: "gene",
+                // On a -log10(p) axis, 1.3 is p < 0.05. There is no default:
+                // a guessed line would sort every gene onto the wrong side.
+                significance: 1.3,
+                effect: 1,
+              },
+            },
+          })
+        );
+        series.strokes.template.setAll({ strokeOpacity: 0 });
+        addBullets(built.root, series, 5);
+        series.data.setAll(GENES);
+
+        register(built.root, {
+          title: "Differential Expression",
+          axisLabels: { x: "log2 fold change", y: "-log10(p)" },
+        });
+      })();
+
+      // --- Manhattan -----------------------------------------------------
+      // One series per chromosome is how these are drawn, and all of them are
+      // one cloud: `merge` is on by default for a Manhattan, so the following
+      // series need no block of their own and a reader gets one navigable
+      // trace rather than three layers to switch between.
+      var CHROMOSOMES = [
+        {
+          name: "chr1",
+          points: [
+            { snp: "rs1041", pos: 12, logp: 2.1, chr: "1" },
+            { snp: "rs2276", pos: 31, logp: 8.4, chr: "1" },
+            { snp: "rs3891", pos: 58, logp: 1.4, chr: "1" },
+          ],
+        },
+        {
+          name: "chr2",
+          points: [
+            { snp: "rs4102", pos: 84, logp: 3.3, chr: "2" },
+            { snp: "rs5521", pos: 96, logp: 9.7, chr: "2" },
+            { snp: "rs6018", pos: 118, logp: 2.8, chr: "2" },
+          ],
+        },
+        {
+          name: "chr3",
+          points: [
+            { snp: "rs7734", pos: 140, logp: 1.2, chr: "3" },
+            { snp: "rs8290", pos: 163, logp: 5.1, chr: "3" },
+            { snp: "rs9455", pos: 181, logp: 7.6, chr: "3" },
+          ],
+        },
+      ];
+
+      (function () {
+        var built = valueChart("manhattan-chart");
+        CHROMOSOMES.forEach(function (chromosome, index) {
+          var series = built.chart.series.push(
+            am5xy.LineSeries.new(built.root, {
+              name: chromosome.name,
+              xAxis: built.xAxis,
+              yAxis: built.yAxis,
+              valueXField: "pos",
+              valueYField: "logp",
+              // Only the first series declares. `label` and `group` are left
+              // to their defaults: the rows carry `snp` and `chr`, both of
+              // which the default chains already answer to.
+              userData:
+                index === 0
+                  ? { maidr: { type: "manhattan", significance: 7.3 } }
+                  : undefined,
+            })
+          );
+          series.strokes.template.setAll({ strokeOpacity: 0 });
+          addBullets(built.root, series, 4);
+          series.data.setAll(chromosome.points);
+        });
+
+        register(built.root, {
+          title: "Genome-wide Association",
+          axisLabels: { x: "Genomic position (Mb)", y: "-log10(p)" },
+        });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

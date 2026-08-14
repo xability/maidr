@@ -159,6 +159,18 @@ export interface AmDataItem {
   get: (key: string) => unknown;
   uid?: number;
   bullets?: AmBullet[];
+  /**
+   * The author's own record behind the mark — the object they put in
+   * `series.data`, which amCharts keeps untouched on every data item it makes.
+   *
+   * `get()` answers with the *chart's* reading of a row (`valueY`, `categoryX`,
+   * the fields a series was told to bind), so a column the chart was never
+   * bound to — a censoring flag, a gene name, a study's weight — is reachable
+   * nowhere else. It is the row a co-located declaration's field names are
+   * resolved against, which is why it is typed `unknown` and narrowed once, in
+   * `resolveFieldRef`.
+   */
+  dataContext?: unknown;
 }
 
 /**

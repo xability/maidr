@@ -124,6 +124,12 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
+| Survival (Kaplan-Meier) | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
+| Error bar | any XY series, with a floating column behind it | **declared** — `{ type: "error_bar" }` |
+| Forest (meta-analysis) | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
+| Volcano | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
+| Manhattan | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
+| Scatter | the same | **declared** — `{ type: "point" }` |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -133,7 +139,78 @@ A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` r
 
 `RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
 
-> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder. Neither is **scatter**: amCharts draws one as a hidden-stroke `LineSeries` with bullets, which is also how it draws a dot plot, and the only thing separating them is the axis — so a hidden-stroke series on a **category** axis is read as a dot plot and the same series on two **value** axes stays a line chart rather than being announced as a scatter MAIDR would then read as a dot plot.
+The last seven rows are **declared** rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.
+
+> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder, and neither are sankey, alluvial or chord diagrams (`am5flow`).
+
+## Declaring What a Chart Means
+
+Some readings amCharts leaves no signature for. A Kaplan-Meier curve and a step line are one series class. An error bar is a second series of floating columns, which is also how a waterfall and a dumbbell are drawn. A volcano, a Manhattan and a plain scatter are all a `LineSeries` with its stroke switched off and bullets pushed on, and so is a dot plot. Every one of those configurations is worn by an ordinary chart, so the adapter's heuristics cannot separate them and do not try: a step line read as a survival curve announces censoring the chart never carried, which is worse than reading it as the step line it is.
+
+What separates them is the author saying so, in the `userData` slot amCharts documents as *"a storage for any custom user data"*:
+
+```js
+var series = chart.series.push(am5xy.StepLineSeries.new(root, {
+  name: "Treated",
+  xAxis: xAxis, yAxis: yAxis, valueXField: "time", valueYField: "surv",
+  userData: { maidr: { type: "survival", censored: "censored" } },
+}));
+```
+
+`series.set("userData", { maidr: { … } })` works just as well, and the block survives JSON — so it can be written into a serialised chart config. A runnable page covering all five figures is at [`examples/amcharts-declared.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-declared.html).
+
+Two rules decide how every field is written:
+
+1. **A fact that differs per point names a column of your own data; a fact that is the same for the whole layer carries the value itself.** So `weight` is a field name and `nullValue` is a number.
+2. **Every field is spelled exactly like the grammar field it fills, and every field naming a column defaults to that same name.** A row that already carries a `censored` or a `weight` column needs nothing said about it.
+
+A field you leave out falls back to its canonical name and then to a short list of common spellings of it (`ciLower` for `yMin`, `isCensored` for `censored`, `chr` for `group`). A field you *do* name is used verbatim, because a name that misses is a mistake worth reporting rather than papering over — the adapter warns and leaves the field out. The column is looked up on the row you handed amCharts (`dataItem.dataContext`), not on the chart's own reading of it, so a column the series was never bound to is still reachable.
+
+**Nothing is guessed.** The four values that would invert a reading if guessed wrong — `significance`, `significanceDirection`, `effect` and `nullValue` — have no defaults at all. A chart that does not declare one gets the points, the intervals and the weights, and makes no claim about significance. A declaration the adapter cannot honour degrades the same way: it warns once, prefixed `[MAIDR amCharts]`, and reads the chart as whatever it was without the block.
+
+### What each type accepts
+
+| type | fields |
+|---|---|
+| `"survival"` | `censored`, `yMin`, `yMax`, `stepDirection`, `censoredSeries`, `bandSeries`, `merge` (default `true`) |
+| `"error_bar"` | `yMin`, `yMax`, `error`, `intervalSeries`, `orientation` |
+| `"forest"` | everything `error_bar` takes, plus `weight`, `pooled`, `pooledIndex`, `pooledSeries`, `nullValue` |
+| `"manhattan"` | `label`, `group`, `significance`, `significanceDirection`, `effect`, `merge` (default `true`) |
+| `"volcano"` | the same, with `merge` defaulting to `false` |
+| `"point"` | `label`, `merge` (default `false`) — note the value is `"point"`, not `"scatter"` |
+
+Every variant also accepts `title` (what the chart is called) and `name` (what this layer is called among its siblings). Any other key is reported and ignored, which is what catches a `significanse: 7.3` in plain JavaScript, where nothing else would.
+
+### Companion series
+
+A figure routinely spreads one layer over several series. The declaration names the extra one by its am5 `id` — `IEntitySettings.id`, which every am5 entity accepts. Setting an `id` on the companion is the one edit a working chart needs:
+
+```js
+// The interval: a column floating between `openValueY` and `valueY`.
+var interval = chart.series.push(am5xy.ColumnSeries.new(root, {
+  id: "ci",                      // ← the only edit this chart needs
+  xAxis: xAxis, yAxis: yAxis,
+  valueYField: "hi", openValueYField: "lo", categoryXField: "category",
+}));
+
+// The estimate, which declares the layer and absorbs the interval.
+var estimate = chart.series.push(am5xy.LineSeries.new(root, {
+  xAxis: xAxis, yAxis: yAxis, valueYField: "mean", categoryXField: "category",
+  userData: { maidr: { type: "error_bar", intervalSeries: "ci" } },
+}));
+```
+
+An absorbed companion is merged into the parent layer **by position**, not by index — a companion carrying fewer rows than the series it decorates still lines up — and it does not become a layer of its own. `openValueY` maps to `yMin` and `valueY` to `yMax` (`openValueX`/`valueX` on a horizontal chart); the bounds are **absolute positions** on the value axis, never offsets. An interval your data holds as an offset instead is declared with `error`, which takes a number for a symmetric interval or a `[lower, upper]` pair for an asymmetric one, both as positive magnitudes.
+
+The four roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSeries` (survival), and `pooledSeries` (forest). A role naming no series is reported and the layer is emitted without that half.
+
+### Merging siblings
+
+A Manhattan is usually drawn as one series per chromosome, and a survival figure as one per arm. Both are **one** layer: `merge` folds every *following* sibling of the same drawn kind that carries no declaration of its own into the declared layer, so a reader gets one navigable trace rather than twenty-two layers to switch between. It is on by default for `survival` and `manhattan`, and off for `volcano` and `point`, whose sibling series are usually the comparison a reader wants kept apart. Set `merge: false` (or `true`) to say otherwise.
+
+### Highlighting a declared layer
+
+A survival curve, an error bar and a forest plot highlight like every other amCharts layer: the overlay outlines the mark the reader is on. A **volcano, Manhattan or scatter layer does not**. MAIDR's canvas overlay is driven by the position the navigation callback carries, and a scatter publishes a *binned grid* rather than its individual points — so a position there names a cell of that grid, and outlining the point that happens to sit at the same ordinal would put the box on the wrong gene. The overlay is cleared instead. Sonification, the text description, the findings a threshold produces and the point-level navigation are all unaffected; this is the visual highlight alone, and only on the three cloud types.
 
 ## Multi-Panel Charts
 
@@ -433,6 +510,8 @@ stems.bullets.push(function () {
 ```
 
 Both probes require the bullets, because either half alone is something else: a strokeless line with no bullets draws nothing, a line with bullets **and** a stroke is a line chart with markers, and a narrow bar chart with no bullets is a narrow bar chart. A stem width declared as a `Percent` is read as an ordinary bar — a column half its cell wide is not a hairline however small the number reads.
+
+The dot-plot probe also requires a **category** axis, and that is what keeps it apart from a scatter: the same drawing on two value axes is a scatter, a volcano or a Manhattan, and nothing about the configuration says which. So it stays a line chart unless the author declares one — see [Declaring What a Chart Means](#declaring-what-a-chart-means).
 
 ### Word Cloud
 
