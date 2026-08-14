@@ -54,6 +54,7 @@ import type {
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   barPointSelector,
+  boxLayerNthChild,
   choroplethRegionSelectors,
   errorBarAxis,
   generatePlotlySelectors,
@@ -2257,9 +2258,13 @@ function extractMultiBoxLayer(
   const prefix = subplotCssPrefix(firstTrace?.xaxis, firstTrace?.yaxis);
 
   for (let boxIdx = 0; boxIdx < boxTraces.length; boxIdx++) {
-    const { trace, calcIdx } = boxTraces[boxIdx];
+    const { trace, calcIdx, globalIdx } = boxTraces[boxIdx];
     const cd = group.calcdata[calcIdx] ?? [];
-    const nthChild = boxIdx + 1;
+    // Counted across the panel's boxlayer groups rather than across these
+    // boxes. A candlestick is drawn through the same renderer and takes a
+    // group of its own, so one declared first shifts every box after it — and
+    // a box plotly did not draw takes no group at all.
+    const nthChild = boxLayerNthChild(gd, globalIdx);
 
     // Extract data for this box.
     const boxPoint = extractSingleBoxData(trace, cd.length > 0 ? cd[0] : undefined);

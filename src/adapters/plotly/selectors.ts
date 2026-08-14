@@ -430,24 +430,57 @@ function candlestickSelector(
   traceIndex: number,
   prefix: string,
 ): string {
-  const self = gd._fullData?.[traceIndex];
-  const isOhlc = self?.type === 'ohlc';
-  const onThisPanel = (trace: PlotlyTrace): boolean =>
-    trace.xaxis === self?.xaxis && trace.yaxis === self?.yaxis;
+  const isOhlc = gd._fullData?.[traceIndex]?.type === 'ohlc';
+  const nth = isOhlc
+    ? layerNthChild(gd, traceIndex, ['ohlc'])
+    : boxLayerNthChild(gd, traceIndex);
 
-  // `drawnBefore` counts one plotly type at a time, so the box-family layer
-  // takes one call per type it holds. Summing them is the whole count,
-  // because a trace has exactly one type.
-  const types = isOhlc ? ['ohlc'] : [...BOXLAYER_TRACE_TYPES];
-  const position = types.reduce(
-    (total, type) => total + drawnBefore(gd, traceIndex, type, onThisPanel),
-    0,
-  );
-
-  const nth = position + 1;
   return isOhlc
     ? `${prefix}.ohlclayer > .trace.ohlc:nth-of-type(${nth}) > path`
     : `${prefix}.boxlayer > .trace.boxes:nth-of-type(${nth}) path.box`;
+}
+
+/**
+ * A trace's 1-based position among the groups plotly drew into its panel's
+ * `g.boxlayer`.
+ *
+ * Box and candlestick share that layer, so the count has to span both: a
+ * candlestick declared first takes the first group, and a walk over boxes
+ * alone would hand the box that follows the candlestick's group.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The trace's index in `_fullData`
+ * @returns Its 1-based position among the panel's boxlayer groups
+ */
+export function boxLayerNthChild(gd: PlotlyGraphDiv, traceIndex: number): number {
+  return layerNthChild(gd, traceIndex, [...BOXLAYER_TRACE_TYPES]);
+}
+
+/**
+ * A trace's 1-based position among the same-panel traces of the given types.
+ *
+ * `drawnBefore` counts one plotly type at a time, so a layer holding more than
+ * one takes a call per type. Summing them is the whole count, because a trace
+ * has exactly one type.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The trace's index in `_fullData`
+ * @param types      - The plotly trace types sharing the layer
+ * @returns Its 1-based position among them
+ */
+function layerNthChild(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  types: string[],
+): number {
+  const self = gd._fullData?.[traceIndex];
+  const onThisPanel = (trace: PlotlyTrace): boolean =>
+    trace.xaxis === self?.xaxis && trace.yaxis === self?.yaxis;
+
+  return types.reduce(
+    (total, type) => total + drawnBefore(gd, traceIndex, type, onThisPanel),
+    0,
+  ) + 1;
 }
 
 function isDrawnPie(trace: PlotlyTrace | undefined): boolean {
