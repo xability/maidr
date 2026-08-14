@@ -37,6 +37,14 @@
  * @packageDocumentation
  */
 
+export type {
+  FieldRef,
+  MaidrTraceDeclaration,
+  ManhattanDeclaration,
+  ScatterDeclaration,
+  SurvivalDeclaration,
+  VolcanoDeclaration,
+} from '../../type/declaration';
 export { extractChartData, extractMaidrData } from './extractor';
 export type { ChartJsExtraction } from './extractor';
 export { maidrPlugin } from './plugin';

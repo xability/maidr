@@ -25,14 +25,33 @@ export type LayerDatasetIndices = ReadonlyMap<string, number[]>;
  * maps re-derive the raw indices from the chart to keep highlights aligned.
  */
 export interface TargetMaps {
-  /** Scatter: `scatterBuckets[layerId][col]` lists the Chart.js dataset indices sharing that X. */
-  scatterBuckets: Map<string, number[][]>;
+  /**
+   * Point clouds: `pointBuckets[layerId][col]` is every element sharing that X.
+   *
+   * Each entry names its own dataset rather than the layer naming one for all
+   * of them, because a merged volcano or Manhattan is a single layer drawn
+   * from several datasets — one per chromosome, typically.
+   */
+  pointBuckets: Map<string, ChartJsActiveElement[][]>;
   /** Bar/line: `barLineIndices[layerId][row][col]` is the original Chart.js element index (gaps skipped). */
   barLineIndices: Map<string, number[][]>;
   /** Heatmap: `heatmapIndices[layerId]` maps `"x\0y"` to the flat Chart.js element index. */
   heatmapIndices: Map<string, Map<string, number>>;
   /** Gantt: `ganttTargets[layerId][lane][interval]` is the element drawing it. */
   ganttTargets: Map<string, ChartJsActiveElement[][]>;
+}
+
+/**
+ * Whether a layer is navigated as a cloud of points.
+ *
+ * `VolcanoTrace` extends `ScatterTrace`, so a volcano and a Manhattan are
+ * positioned exactly as a scatter is — the threshold changes what is
+ * announced, not where a point lives.
+ */
+function isPointCloudType(type: string): boolean {
+  return type === TraceType.SCATTER
+    || type === TraceType.VOLCANO
+    || type === TraceType.MANHATTAN;
 }
 
 function isSegmentedType(type: string): boolean {
@@ -104,29 +123,44 @@ function buildGanttTargets(
 }
 
 /**
- * Mirror `ScatterTrace`'s X-bucket construction (`src/model/scatter.ts:86-100`)
- * to map MAIDR's `col` (an X-bucket index) back to one or more original
- * Chart.js dataset indices. Points are sorted by X, then Y; consecutive points
- * sharing an X form a bucket. Reads the raw dataset (not the filtered layer
- * data) so bucket entries are original, highlight-aligned indices.
+ * Mirror `ScatterTrace`'s X-bucket construction (`src/model/scatter.ts:172-186`)
+ * to map MAIDR's `col` (an X-bucket index) back to the original Chart.js
+ * elements. Points are sorted by X, then Y; consecutive points sharing an X
+ * form a bucket. Reads the raw datasets (not the filtered layer data) so bucket
+ * entries are original, highlight-aligned indices.
+ *
+ * The datasets are walked in the order the layer was built from them, which is
+ * the order their points were concatenated into it — so a merged layer's
+ * buckets hold the same elements the trace groups, whichever dataset drew
+ * them.
+ *
+ * @param datasets - The chart's datasets
+ * @param dsIndices - The dataset indices backing the layer, in MAIDR row order
+ * @returns One bucket per distinct X, in ascending X order
  */
-function buildScatterBuckets(data: ChartJsDataValue[]): number[][] {
-  // Track original dataset indices through the (x, y) sort so bucket entries are
-  // Chart.js element indices, not positions in the gap-filtered point list.
-  const indexed: { x: number; y: number; i: number }[] = [];
-  data.forEach((value, i) => {
-    if (isPointValue(value))
-      indexed.push({ x: value.x, y: value.y, i });
-  });
+function buildPointBuckets(
+  datasets: ChartJsDataset[],
+  dsIndices: number[],
+): ChartJsActiveElement[][] {
+  // Track the original dataset and element indices through the (x, y) sort so
+  // bucket entries are Chart.js elements, not positions in the point list.
+  const indexed: { x: number; y: number; target: ChartJsActiveElement }[] = [];
+  for (const datasetIndex of dsIndices) {
+    (datasets[datasetIndex]?.data ?? []).forEach((value, index) => {
+      if (isPointValue(value))
+        indexed.push({ x: value.x, y: value.y, target: { datasetIndex, index } });
+    });
+  }
   indexed.sort((a, b) => a.x - b.x || a.y - b.y);
-  const buckets: number[][] = [];
+
+  const buckets: ChartJsActiveElement[][] = [];
   let currentX: number | null = null;
-  for (const { x, i } of indexed) {
+  for (const { x, target } of indexed) {
     if (currentX === null || currentX !== x) {
       currentX = x;
       buckets.push([]);
     }
-    buckets[buckets.length - 1].push(i);
+    buckets[buckets.length - 1].push(target);
   }
   return buckets;
 }
@@ -173,7 +207,7 @@ export function computeTargetMaps(
   layers: MaidrLayer[],
   layerDatasetIndices: LayerDatasetIndices,
 ): TargetMaps {
-  const scatterBuckets = new Map<string, number[][]>();
+  const pointBuckets = new Map<string, ChartJsActiveElement[][]>();
   const barLineIndices = new Map<string, number[][]>();
   const heatmapIndices = new Map<string, Map<string, number>>();
   const ganttTargets = new Map<string, ChartJsActiveElement[][]>();
@@ -181,9 +215,15 @@ export function computeTargetMaps(
 
   for (const layer of layers) {
     switch (layer.type) {
-      case TraceType.SCATTER: {
-        const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
-        scatterBuckets.set(layer.id, buildScatterBuckets(datasets[dsIdx]?.data ?? []));
+      // A volcano and a Manhattan are scatters read through a threshold, so
+      // they are navigated by the same X buckets — over however many datasets
+      // the declared layer merged.
+      case TraceType.SCATTER:
+      case TraceType.VOLCANO:
+      case TraceType.MANHATTAN: {
+        const dsIndices = layerDatasetIndices.get(layer.id)
+          ?? [firstDatasetIndex(layerDatasetIndices, layer.id)];
+        pointBuckets.set(layer.id, buildPointBuckets(datasets, dsIndices));
         break;
       }
       case TraceType.BAR:
@@ -249,7 +289,7 @@ export function computeTargetMaps(
     }
   }
 
-  return { scatterBuckets, barLineIndices, heatmapIndices, ganttTargets };
+  return { pointBuckets, barLineIndices, heatmapIndices, ganttTargets };
 }
 
 /**
@@ -275,13 +315,14 @@ export function resolveActiveTargets(
   if (isSegmentedType(layer.type))
     return [{ datasetIndex: rowDatasetIndex(layerDatasetIndices, layerId, row), index: col }];
 
-  // Scatter: col is an X-bucket; expand to all points sharing that X.
-  if (layer.type === TraceType.SCATTER) {
-    const buckets = maps.scatterBuckets.get(layer.id);
+  // A point cloud: col is an X-bucket; expand to every point sharing that X.
+  // Each entry carries its own dataset, so a merged volcano or Manhattan
+  // highlights across the datasets it was folded from.
+  if (isPointCloudType(layer.type)) {
+    const buckets = maps.pointBuckets.get(layer.id);
     if (!buckets || col < 0 || col >= buckets.length)
       return [];
-    const datasetIndex = firstDatasetIndex(layerDatasetIndices, layer.id);
-    return buckets[col].map(index => ({ datasetIndex, index }));
+    return [...buckets[col]];
   }
 
   // Gantt: MAIDR row = lane (the Chart.js element index), col = which dataset

@@ -83,8 +83,10 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Normalized Area | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
 | Bump | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
 | Dot Plot | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
-| Survival | `'line'` with `stepped` and `plugins.maidr.traceType` | — | [Survival curve](examples.html) |
+| Survival | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
 | Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
+| Volcano | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
+| Manhattan | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
 | Radar | `'radar'` | — | [Radar chart](examples.html) |
 | Polar Area | `'polarArea'` | — | [Radar chart](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
@@ -116,6 +118,45 @@ Three readings are shape-identical to another recipe, so no test on the config o
 - **Dumbbell** (`traceType: 'dumbbell'`) — a horizontal floating bar chart, which is the same `[start, end]` datum a one-interval-per-lane gantt uses. `plugins.maidr.startLabel` and `endLabel` name the two ends ("1990", "2020"); without them the reader is told which dot they are on but not which year it is. Rows with no pair are skipped rather than kept as empty rows, unlike a gantt lane. A dumbbell is one pair per row, so only the first dataset is read — several intervals in the same row are a gantt.
 - **Survival** (`traceType: 'survival'`) — a `stepped: 'after'` line, which is how every staircase is drawn. Chart.js ignores properties it does not know, so ride the two things a survival figure carries and a step chart does not on the points themselves: `{x, y, censored: true}` for a censoring mark and `{yMin, yMax}` for the confidence band. Each dataset is one arm, gathered into a single layer.
 - **Gauge** (`traceType: 'gauge'`) — for a dial the geometry above misses, and for the target and bands Chart.js records only as styling: `plugins.maidr.target` is the bullet marker and `plugins.maidr.bands` is a `[{ to, label }]` list in ascending order.
+
+### The `maidr` Block on a Dataset
+
+`plugins.maidr.traceType` says what the *chart* is, which is all a figure drawn as one dataset needs. A figure drawn as several — a Manhattan plot with a dataset per chromosome, a volcano beside its unchanged genes — needs to say it per dataset, and needs to name the columns its points carry. That is the co-located `maidr` block:
+
+```js
+datasets: [{
+  label: 'chr1',
+  data: [{ x: 1_000_000, y: 8.2, snp: 'rs1234', chr: 1 }],
+  maidr: { type: 'manhattan', label: 'snp', group: 'chr', significance: 7.3 },
+}]
+```
+
+Chart.js has no reserved slot for third-party metadata, but it passes dataset properties it does not know through untouched — the same mechanism a survival curve's `censored` datum rides on — so the block sits directly on the dataset. It wins over `plugins.maidr.traceType`, which is retained as the chart-wide shorthand; where the two disagree the block wins and MAIDR names both.
+
+Every block is checked when it is read. A `type` that names no trace, a key the declared type does not accept (`significanse`), or a value that is not what its key takes (`significanceDirection: 'Below'`) is reported to the console and dropped, and the chart is read exactly as it would have been with no block at all. Nothing is ever guessed in its place.
+
+**Volcano** (`type: 'volcano'`) and **Manhattan** (`type: 'manhattan'`) are the two readings this unlocks on a Chart.js scatter. Both are drawn as a plain scatter — a volcano puts effect size against significance, a Manhattan puts genomic position against it — and both are read through a threshold rather than point by point: MAIDR opens with how many points clear the line, and the rotor offers those points as a navigation unit so the few dozen that matter are a few dozen keystrokes away rather than twelve thousand.
+
+| key | what it takes | what it does |
+|---|---|---|
+| `label` | a property name on your datum | What each point *is* — a gene, a SNP, a probe. Identity is the payload on these charts; the coordinates are the two numbers the axes already describe. Defaults to `label`, then `snp`, `id`, `name`, `gene`, `probe`. |
+| `group` | a property name on your datum | The region a point belongs to — its chromosome. Defaults to `group`, then `chromosome`, `chrom`, `chr`, `region`. |
+| `significance` | a number | The cutoff on the y axis, in the units the chart is drawn in — 1.3 for p &lt; 0.05 on a `-log10(p)` axis, 7.3 for genome-wide significance. |
+| `significanceDirection` | `'above'` or `'below'` | Which side is the significant one. `'above'` suits the transformed axes these charts usually carry; a raw p axis needs `'below'`. |
+| `effect` | a number | The effect-size cutoff on the x axis, applied to its magnitude. Meaningful on a volcano; a Manhattan's x is a position, so leave it out. |
+| `merge` | a boolean | Whether the following datasets drawn the same way join this layer. `true` by default for a Manhattan, `false` for a volcano. |
+| `title`, `name` | strings | The layer's announced title, and its name among sibling layers. |
+
+Two rules are worth knowing before you write one:
+
+- **A field name you write is used verbatim.** `label: 'symbol'` reads `symbol` and nothing else; if no row carries it, MAIDR says so and leaves the identity out rather than quietly resolving `gene` instead. Leave the key out to get the default chain.
+- **No cutoff is ever inferred.** Chart.js states no line anywhere in its config, and a guessed one would sort every point in the figure onto the wrong side of it, silently. A layer that declares no `significance` is still emitted — it just reports no findings, and warns naming the field.
+
+`merge` is what makes a 22-dataset Manhattan one navigable trace. The declaration goes on the first dataset; every *following* dataset drawn the same way that carries no block of its own is folded into that layer, up to the next dataset that declares something. Highlighting follows the merge — a column reaches the points sharing that x in whichever dataset drew them.
+
+A block whose type this adapter has no construct for (a `hexbin` on a scatter, a `volcano` on a bar chart) is reported and ignored. `type: 'survival'` on a `'line'` dataset reaches exactly the same reading `plugins.maidr.traceType: 'survival'` does.
+
+`plugins.maidr.traceType: 'volcano'` or `'manhattan'` still reads a chart whose datasets carry no block of their own: it names the trace type and the default chains still find an identity on each point. What it cannot carry is a cutoff, so a figure with one — which is most of them — wants the block.
 
 ## Code Examples
 
@@ -205,6 +246,88 @@ Three readings are shape-identical to another recipe, so no test on the config o
       scales: {
         x: { title: { display: true, text: 'Sepal Length (cm)' } },
         y: { title: { display: true, text: 'Sepal Width (cm)' } },
+      },
+    },
+  });
+</script>
+```
+
+### Volcano Plot
+
+```html
+<div style="width: 700px; height: 400px">
+  <canvas id="volcano-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('volcano-chart'), {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Differential expression',
+        data: [
+          { x: -3.1, y: 6.8, gene: 'TP53' }, { x: -2.4, y: 4.1, gene: 'BRCA1' },
+          { x: -0.9, y: 1.1, gene: 'ACTB' }, { x: 0.4, y: 0.8, gene: 'RPL13A' },
+          { x: 1.9, y: 3.4, gene: 'VEGFA' }, { x: 3.4, y: 7.2, gene: 'CDKN1A' },
+        ],
+        // A volcano is a plain scatter until the dataset says otherwise.
+        maidr: { type: 'volcano', label: 'gene', significance: 1.3, effect: 1 },
+      }],
+    },
+    options: {
+      plugins: { title: { display: true, text: 'Treated vs. control' } },
+      scales: {
+        x: { title: { display: true, text: 'log2 fold change' } },
+        y: { title: { display: true, text: '-log10(p)' } },
+      },
+    },
+  });
+</script>
+```
+
+### Manhattan Plot
+
+One dataset per chromosome is how the alternating colours are drawn. `merge` — on by default for a Manhattan — folds them into a single navigable cloud, so only the first dataset carries a block.
+
+```html
+<div style="width: 700px; height: 400px">
+  <canvas id="manhattan-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('manhattan-chart'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'chr1',
+          data: [
+            { x: 5, y: 1.2, snp: 'rs1001', chr: 1 },
+            { x: 44, y: 8.6, snp: 'rs1004', chr: 1 },
+          ],
+          pointBackgroundColor: '#1f77b4',
+          maidr: { type: 'manhattan', label: 'snp', group: 'chr', significance: 7.3 },
+        },
+        {
+          label: 'chr2',
+          data: [
+            { x: 106, y: 2.2, snp: 'rs2001', chr: 2 },
+            { x: 133, y: 4.9, snp: 'rs2003', chr: 2 },
+          ],
+          pointBackgroundColor: '#ff7f0e',
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Genome-wide association study' },
+        legend: { display: false },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Genomic position (kb)' } },
+        y: { title: { display: true, text: '-log10(p)' } },
       },
     },
   });
