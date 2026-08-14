@@ -64,18 +64,22 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 
 ## Supported Chart Types
 
-| MAIDR Type | AnyChart Series | Example |
+| MAIDR Type | AnyChart Series / Chart | Example |
 |-----------|----------------|---------|
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
-| Line | `line`, `spline`, `area`, `spline-area` | [Line chart](examples.html) |
+| Line | `line`, `spline` | [Line chart](examples.html) |
+| Area | `area`, `spline-area` | [Area chart](examples.html) |
+| Stacked / Normalized Area | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
 | Step | `step-line`, `step-area` | [Step plot](examples.html) |
 | Scatter | `scatter`, `marker`, `bubble` | [Scatter plot](examples.html) |
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
 | Pie | `pie` (a doughnut is a pie with `innerRadius()`) | [Pie chart](examples.html) |
+| Funnel | `anychart.funnel()`, `anychart.pyramid()` | [Funnel chart](examples.html) |
+| Word Cloud | `anychart.tagCloud()` | [Tag cloud](examples.html) |
 
-Area series are represented as line traces — the filled-area visual is lost in the accessible representation. A console warning is emitted when this downgrade occurs. `step-area` downgrades to a step trace rather than a line one, so it still warns about the lost fill.
+`step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
 **Notes on chart-type detection:**
 
@@ -83,7 +87,12 @@ Area series are represented as line traces — the filled-area visual is lost in
 
 - **Heatmap** charts use AnyChart's separate `anychart-heatmap.min.js` module and expose a chart-level data API (no `getSeriesCount()`). The adapter detects them via `chart.getType()` returning `'heatmap'` or `'heat'`, with a defensive fallback when `getType()` is unavailable.
 - **Candlestick** support also covers OHLC series. Both come from AnyChart's financial / stock module (`anychart-stock.min.js`). Each row is `[x, open, high, low, close]`; outlier and volume fields are not extracted by AnyChart's iterator API.
+- **Area** series are read as the filled bands they are drawn as, rather than downgraded to lines. Whether the bands are stacked is a property of the chart's y **scale**, not of any series — AnyChart reports every one of them as `area` either way — so the adapter reads `chart.yScale().stackMode()` once per chart: `'value'` promotes them to a stacked area, `'percent'` to a normalized one. A stacked chart's bands are merged into **one** layer, because the running total a stacked area draws is only computable across the whole set; each band still carries its own value, never the accumulated edge.
+
 - **Pie** charts are the other single-dataset type: like the heatmap they hold their data on `chart.data()` rather than on a series, and `getType()` reports `'pie'` for a doughnut too (AnyChart draws one by giving an ordinary pie an inner radius), so both read identically. A pie is bound to no axis, so its axis labels fall back to `Label` and `Value` unless `options.axes` names them. Slices with no numeric value are dropped — AnyChart draws no wedge for one, and keeping it would slide every later slice's highlight onto its neighbour.
+
+- **Funnel** and **pyramid** charts come from AnyChart's `anychart-pyramid-funnel.min.js` module and are the same single-dataset shape as a pie. `getType()` reports `'funnel'` or `'pyramid'`, and both are read as a funnel — only which end tapers differs. Their default data mapping is `name` / `value` rather than the pie's `x` / `value`. Axis labels fall back to `Stage` and `Count`. MAIDR sonifies the **retention** from the previous stage rather than the raw count, because that ratio is what a funnel is read for and what a listener cannot compute by ear.
+- **Tag clouds** come from `anychart-tag-cloud.min.js` and report `getType()` as `'tag-cloud'`. Axis labels fall back to `Term` and `Weight`. Highlighting pairs each term with its own `<text>` element by matching the rendered text rather than by counting DOM order: a cloud writes its words in packing order, which has no relation to the order they were declared in, so counting them off would announce one term while highlighting another. A term that does not match exactly one rendered word disables highlighting for the whole chart rather than placing a guess.
 
 ## Code Examples
 
@@ -394,6 +403,9 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 | Box plot | `data-maidr-anychart-box` | `"<seriesIndex>-<pointIndex>"` |
 | Heatmap | `data-maidr-anychart-heatmap-cell` | `"<rowIndex>-<colIndex>"` |
 | Candlestick / OHLC | `data-maidr-anychart-candlestick-cell` | `"<seriesIndex>-<pointIndex>"` |
+| Pie | `data-maidr-anychart-pie-slice` | `"<seriesIndex>-<sliceIndex>"` |
+| Funnel / pyramid | `data-maidr-anychart-funnel-stage` | `"<seriesIndex>-<stageIndex>"` |
+| Tag cloud | `data-maidr-anychart-word` | `"<seriesIndex>-<termIndex>"` |
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
@@ -433,7 +445,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from AnyChart series |
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Optional `selectors` option |
 | Configuration | Required | Required | Minimal — id, title, axes only |
-| Chart types | All MAIDR types | All MAIDR types | 6 AnyChart families |
+| Chart types | All MAIDR types | All MAIDR types | 9 AnyChart families |
 | Dynamic charts | Manual init | React lifecycle | Re-call `bindAnyChart()` after redraw |
 
 ## npm Installation (Optional)

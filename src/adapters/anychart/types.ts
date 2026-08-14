@@ -88,6 +88,23 @@ export interface AnyChartAxis {
   labels: () => AnyChartAxisLabels;
 }
 
+/**
+ * A scale bound to one of a Cartesian chart's axes.
+ *
+ * Only the stacking mode is read. Stacking is a property of the SCALE rather
+ * than of a series — AnyChart reports every area series as `'area'` whether or
+ * not the chart sums them — so the series API cannot answer whether the bands
+ * sit on one another.
+ */
+export interface AnyChartScale {
+  /**
+   * `'none'` on an ordinary scale, `'value'` when series are summed, and
+   * `'percent'` when they are drawn as shares of a common total. Absent on
+   * scale types that cannot stack (an ordinal x scale, a colour scale).
+   */
+  stackMode?: () => string;
+}
+
 /** Rendering stage / container element. */
 export interface AnyChartStage {
   container: () => HTMLElement | null;
@@ -124,6 +141,13 @@ export interface AnyChartInstance {
 
   /** Y-axis accessor (Cartesian charts). Returns null for non-Cartesian. */
   yAxis?: (index?: number) => AnyChartAxis | null;
+
+  /**
+   * Y-scale accessor (Cartesian charts). Carries the chart's stacking mode,
+   * which is what tells an area series apart from a stacked one — see
+   * {@link AnyChartScale}. Absent on chart types with no Cartesian scales.
+   */
+  yScale?: () => AnyChartScale | null;
 
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;

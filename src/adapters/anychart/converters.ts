@@ -32,6 +32,7 @@ import type {
   MaidrSubplot,
   PiePoint,
   ScatterPoint,
+  WordCloudPoint,
 } from '@type/grammar';
 import type {
   AnyChartBinderOptions,
@@ -51,21 +52,27 @@ import { TraceType } from '@type/grammar';
 
 /**
  * AnyChart series types that are visually different from their MAIDR
- * representation (e.g. filled area rendered as a line trace). A runtime
- * warning is emitted for these so developers are aware of the semantic
- * difference their screen-reader users will experience.
+ * representation. A runtime warning is emitted for these so developers are
+ * aware of the semantic difference their screen-reader users will experience.
+ *
+ * `step-area` is the only one left: MAIDR has an {@link TraceType.AREA} trace
+ * but no stepped variant of it, so a staircase with a fill has to give up one
+ * of the two. It keeps the staircase, because that is what its values do.
  */
-const AREA_TYPES = new Set(['area', 'step-area', 'spline-area']);
+const FILL_LOSING_TYPES = new Set(['step-area']);
 
 /**
  * The subset of {@link TraceType}s the AnyChart adapter can produce from a
- * chart series. AnyChart exposes no stacked/histogram/smooth series types,
- * so {@link mapSeriesType} only ever yields these. Narrowing here lets
- * {@link buildLayer}'s switch be provably exhaustive at compile time.
+ * chart SERIES. AnyChart exposes no histogram/smooth series types, and the
+ * stacked area variants are a property of the chart's y scale rather than of
+ * a series (see {@link resolveAreaVariant}), so {@link mapSeriesType} only
+ * ever yields these. Narrowing here lets {@link buildLayer}'s switch be
+ * provably exhaustive at compile time.
  */
 type AnyChartTraceType
   = | TraceType.BAR
     | TraceType.LINE
+    | TraceType.AREA
     | TraceType.SCATTER
     | TraceType.STEP
     | TraceType.BOX
@@ -84,10 +91,14 @@ type AnyChartTraceType
  * - `"bar"` (horizontal) and `"column"` (vertical) both map to
  *   {@link TraceType.BAR}. MAIDR does not currently distinguish
  *   bar orientation at the trace-type level.
- * - Area-family types (`area`, `step-area`, `spline-area`) map to their
- *   unfilled equivalent — {@link TraceType.LINE}, or {@link TraceType.STEP}
- *   for `step-area`. The fill is lost in the conversion; a runtime warning is
- *   emitted so developers are aware.
+ * - `area` and `spline-area` map to {@link TraceType.AREA}, which is read as
+ *   the filled band it is drawn as. Whether that band is stacked is a
+ *   chart-level question the series cannot answer — {@link resolveAreaVariant}
+ *   asks the y scale and promotes the layer.
+ * - `step-area` is the one area type that still loses its fill: MAIDR has no
+ *   stepped area trace, and a staircase is better described as a staircase
+ *   than as a smoothly interpolated band. A runtime warning is emitted so
+ *   developers are aware.
  * - The step-drawn types (`step-line`, `step-area`) map to
  *   {@link TraceType.STEP} so they are announced and navigated as the
  *   piecewise-constant series they are, rather than as interpolated lines.
@@ -108,11 +119,11 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'spline': TraceType.LINE,
     // Step-drawn series are piecewise constant, not interpolated.
     'step-line': TraceType.STEP,
-    // Area types lose their fill and are represented by the corresponding
-    // unfilled trace.
-    'area': TraceType.LINE,
+    'area': TraceType.AREA,
+    'spline-area': TraceType.AREA,
+    // The one area type with no MAIDR equivalent: it keeps its staircase and
+    // loses its fill.
     'step-area': TraceType.STEP,
-    'spline-area': TraceType.LINE,
     'scatter': TraceType.SCATTER,
     'marker': TraceType.SCATTER,
     'bubble': TraceType.SCATTER,
@@ -126,9 +137,9 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
 
   const traceType = mapping[normalized] ?? null;
 
-  // Warn when an area series loses its fill. Checked on the source type, not
-  // the mapped one, so `step-area` (now a STEP trace) still warns.
-  if (traceType !== null && AREA_TYPES.has(normalized)) {
+  // Warn when a series loses its fill. Checked on the source type, not the
+  // mapped one, so `step-area` (a STEP trace) is what this reports on.
+  if (traceType !== null && FILL_LOSING_TYPES.has(normalized)) {
     console.warn(
       `[maidr/anychart] AnyChart "${anyChartType}" series mapped to ${traceType} trace. `
       + 'The filled-area visual will be represented as an unfilled series for accessibility.',
@@ -246,6 +257,57 @@ export function extractRawRows(
 }
 
 /**
+ * The name a series is labelled by, when it has one.
+ *
+ * Only the stacked-area path needs it: its bands live in one layer and a
+ * reader moving between them has nothing else to tell them apart. An unnamed
+ * series returns `undefined` rather than an invented label, which leaves
+ * `LineTrace`'s own `l1` / `l2` fallback in charge — the one place that
+ * decision is already made.
+ *
+ * @param series - The series to name
+ * @returns Its name, or `undefined` when it has none
+ */
+function readSeriesName(series: AnyChartSeries): string | undefined {
+  try {
+    const name = series.name();
+    return name ? String(name) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Which area variant this chart's area series belong to.
+ *
+ * Stacking lives on the y SCALE, not on a series: AnyChart reports an area
+ * series as `'area'` whether the chart sums the bands or draws them over one
+ * another, so {@link mapSeriesType} cannot tell the difference and every area
+ * series on one chart shares whatever answer this gives.
+ *
+ * @param chart - The chart to inspect
+ * @returns The trace type its area series should be read as
+ */
+function resolveAreaVariant(
+  chart: AnyChartInstance,
+): TraceType.AREA | TraceType.STACKED_AREA | TraceType.NORMALIZED_AREA {
+  let stackMode: string | undefined;
+  try {
+    const mode = chart.yScale?.()?.stackMode?.();
+    stackMode = mode === undefined || mode === null ? undefined : String(mode);
+  } catch {
+    // A chart type with no stackable y scale is simply not stacked.
+    stackMode = undefined;
+  }
+
+  if (stackMode === 'percent')
+    return TraceType.NORMALIZED_AREA;
+  if (stackMode === 'value')
+    return TraceType.STACKED_AREA;
+  return TraceType.AREA;
+}
+
+/**
  * Walk an AnyChart iterator and collect every field the adapter reads.
  *
  * Shared by {@link extractRawRows} (series-backed charts) and the chart-level
@@ -306,10 +368,10 @@ const LINE_ATTR = 'data-maidr-anychart-line-point';
 /**
  * AnyChart series types that render as a connected line and therefore need
  * markers enabled for per-point highlighting. Area variants are included
- * because {@link mapSeriesType} maps them to their unfilled equivalent, and
- * the step variants because a staircase is still a stroked polyline whose
- * points need markers — {@link resolveSelector} gives STEP the same
- * attribute selector as LINE for exactly that reason.
+ * because an area is a stroked polyline with a fill beneath it — the fill is
+ * not navigable, so its points still need markers — and the step variants
+ * because a staircase is one too. {@link resolveSelector} gives AREA and STEP
+ * the same attribute selector as LINE for exactly that reason.
  */
 const LINE_LIKE_SERIES_TYPES = new Set([
   'line',
@@ -371,6 +433,22 @@ const CANDLESTICK_ATTR = 'data-maidr-anychart-candlestick-cell';
  * shape of every other trace family (the chart-level path stamps series `0`).
  */
 const PIE_ATTR = 'data-maidr-anychart-pie-slice';
+
+/**
+ * Attribute name stamped onto each funnel (or pyramid) segment's SVG element
+ * by {@link stampFunnelAttributes}. Like a pie, a funnel holds a single
+ * dataset, so the value encodes `<seriesIndex>-<stageIndex>` with the series
+ * always `0` — keeping the selector shape uniform across trace families.
+ */
+const FUNNEL_ATTR = 'data-maidr-anychart-funnel-stage';
+
+/**
+ * Attribute name stamped onto each tag-cloud term's `<text>` element by
+ * {@link stampWordCloudAttributes}. The value encodes `<seriesIndex>-<termIndex>`
+ * with the series always `0`, and the term index is the term's position in the
+ * chart's DATA — not in the SVG, which a cloud packs in an unrelated order.
+ */
+const WORD_CLOUD_ATTR = 'data-maidr-anychart-word';
 
 /**
  * Attribute name stamped onto each panel's own `<svg>` root by
@@ -478,8 +556,11 @@ function resolveSelector(
   switch (traceType) {
     case TraceType.BAR:
       return `${scope}[${BAR_ATTR}^="${stamp}${seriesIndex}-"]`;
+    // AREA shares the line's markers, and so its selector: an area series is
+    // a stroked polyline with a fill under it, and the fill is not navigable.
     case TraceType.LINE:
     case TraceType.STEP:
+    case TraceType.AREA:
       return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
     case TraceType.SCATTER:
       return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
@@ -668,8 +749,10 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
     return false;
   // A pie is the other single-dataset chart type, and its wedges are already
   // one element per slice — there is nothing to enable and no series API to
-  // ask.
+  // ask. A funnel / pyramid and a tag cloud are in the same position.
   if (chartType?.includes('pie'))
+    return false;
+  if (isFunnelChart(chart) || isWordCloudChart(chart))
     return false;
 
   const seriesCount = chart.getSeriesCount();
@@ -1937,12 +2020,48 @@ function isPieChart(chart: AnyChartInstance): boolean {
 }
 
 /**
- * Read a pie chart's slices from its chart-level data view.
+ * Whether a chart is a funnel or a pyramid.
  *
- * A pie is a single-dataset chart: like the heatmap it exposes no
- * `getSeriesCount()` / `getSeriesAt()`, and its rows live on `chart.data()`.
+ * AnyChart draws both from one class — `anychart.funnel()` and
+ * `anychart.pyramid()` differ only in which way the stages taper — and
+ * `getType()` reports the constructor's own name back. Both are read as a
+ * funnel: the stages are ordered and each one is a share of the one before it,
+ * whichever end the wide one is at.
  */
-function readPieRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
+function isFunnelChart(chart: AnyChartInstance): boolean {
+  try {
+    const type = chart.getType?.() ?? '';
+    return type.includes('funnel') || type.includes('pyramid');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a chart is a tag cloud.
+ *
+ * `anychart.tagCloud()` reports `'tag-cloud'`, and no other AnyChart chart
+ * type name contains the substring, so the same tolerant match the heatmap and
+ * pie paths use is safe here too.
+ */
+function isWordCloudChart(chart: AnyChartInstance): boolean {
+  try {
+    return chart.getType?.().includes('tag-cloud') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read a single-dataset chart's rows from its chart-level data view.
+ *
+ * A pie, a funnel and a tag cloud are all single-dataset charts: like the
+ * heatmap they expose no `getSeriesCount()` / `getSeriesAt()`, and their rows
+ * live on `chart.data()`. Which field carries the label differs — a pie and a
+ * tag cloud map `x`, a funnel maps `name` — and {@link readRows} collects
+ * both, so one reader serves all three.
+ */
+function readChartRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
   const dataView = chart.data?.();
   if (!dataView)
     return [];
@@ -1954,16 +2073,17 @@ function readPieRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
 }
 
 /**
- * Whether a data row is a slice AnyChart actually draws a wedge for.
+ * Whether a data row is one AnyChart actually draws a mark for.
  *
- * A row with no numeric value has no angle, so no wedge is rendered for it.
- * {@link buildPieLayer} drops such a row and {@link stampPieAttributes} counts
- * rows through the same predicate — counting the raw rows there instead would
- * make the expected wedge count disagree with the emitted slice count the
- * moment a chart carries a null, turning a correct chart into a warning and an
- * unexpectedly drawn empty wedge into a silent off-by-one.
+ * A row with no numeric value has no angle, no height and no font size, so no
+ * wedge, segment or word is rendered for it. Every single-dataset builder
+ * drops such a row and its stamper counts rows through the same predicate —
+ * counting the raw rows there instead would make the expected mark count
+ * disagree with the emitted point count the moment a chart carries a null,
+ * turning a correct chart into a warning and an unexpectedly drawn empty mark
+ * into a silent off-by-one.
  */
-function isDrawnSlice(row: Record<string, unknown>): boolean {
+function isDrawnDatum(row: Record<string, unknown>): boolean {
   return Number.isFinite(Number(row.value ?? row.y));
 }
 
@@ -2055,23 +2175,42 @@ function findPieWedgeLayer(svg: SVGElement): Element | null {
  * @param svg - The rendered SVG to stamp
  * @param stampPrefix - Panel token prefix, empty for a single chart
  */
+/**
+ * The stampers that belong to one chart, named for the warning they may emit.
+ *
+ * Every single-dataset chart type gets exactly one — it draws one family of
+ * marks and has no series API for the XY stampers to ask about. Everything
+ * else is a Cartesian chart, which may carry several series families at once
+ * and therefore runs the whole XY set.
+ *
+ * @param chart - The AnyChart instance being bound
+ * @returns The stampers to run, each with the name used when it fails
+ */
+function resolveStampers(
+  chart: AnyChartInstance,
+): [string, typeof stampPieAttributes][] {
+  if (isPieChart(chart))
+    return [['pie', stampPieAttributes]];
+  if (isFunnelChart(chart))
+    return [['funnel', stampFunnelAttributes]];
+  if (isWordCloudChart(chart))
+    return [['word cloud', stampWordCloudAttributes]];
+  return [
+    ['bar', stampBarAttributes],
+    ['line', stampLineAttributes],
+    ['scatter', stampScatterAttributes],
+    ['box', stampBoxAttributes],
+    ['heatmap', stampHeatmapAttributes],
+    ['candlestick', stampCandlestickAttributes],
+  ];
+}
+
 function stampChartAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
   stampPrefix = '',
 ): void {
-  const stampers: [string, typeof stampPieAttributes][] = isPieChart(chart)
-    ? [['pie', stampPieAttributes]]
-    : [
-        ['bar', stampBarAttributes],
-        ['line', stampLineAttributes],
-        ['scatter', stampScatterAttributes],
-        ['box', stampBoxAttributes],
-        ['heatmap', stampHeatmapAttributes],
-        ['candlestick', stampCandlestickAttributes],
-      ];
-
-  for (const [kind, stamp] of stampers) {
+  for (const [kind, stamp] of resolveStampers(chart)) {
     try {
       stamp(chart, svg, stampPrefix);
     } catch (err) {
@@ -2088,7 +2227,7 @@ function stampPieAttributes(
   if (!isPieChart(chart))
     return;
 
-  const sliceCount = readPieRows(chart).filter(isDrawnSlice).length;
+  const sliceCount = readChartRows(chart).filter(isDrawnDatum).length;
   if (sliceCount === 0)
     return;
 
@@ -2151,6 +2290,205 @@ function stampPieAttributes(
 }
 
 // ---------------------------------------------------------------------------
+// Funnel attribute stamping
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a path is a filled data mark rather than one of the shapes AnyChart
+ * draws over or around one.
+ *
+ * Two decoys share a data mark's layer and its `ac_path_` id: the stroke-only
+ * twin AnyChart draws for every mark (`fill="none"`), and the hover / selection
+ * indicator it lays on top of the mark under the pointer, which is the same
+ * shape at a reduced `fill-opacity`. A data mark sets neither.
+ */
+function isFilledDataPath(path: SVGElement): boolean {
+  if (path.closest('defs, clipPath'))
+    return false;
+  const fill = path.getAttribute('fill');
+  if (fill === null || fill === 'none' || fill === 'transparent')
+    return false;
+  const fillOpacity = path.getAttribute('fill-opacity');
+  return fillOpacity === null || Number.parseFloat(fillOpacity) >= 1;
+}
+
+/**
+ * Locate the SVG `<g>` layer holding a funnel's (or pyramid's) segments.
+ *
+ * Same shape as {@link findPieWedgeLayer}: pick the `ac_layer_*` group holding
+ * the most data-looking paths, with no `clip-path` requirement because a
+ * funnel has no plot area to clip to. What it cannot borrow is the arc test —
+ * a funnel segment is a straight-sided trapezoid, indistinguishable at the
+ * `d`-attribute level from the square icon in a legend item, and a funnel's
+ * legend is on by default.
+ *
+ * Density is what separates them instead. AnyChart gives each legend ITEM its
+ * own layer holding that item's one icon, so a legend contributes as many
+ * one-path layers as there are stages and never a layer of N — the same
+ * property the pie lookup notes when it says legend markers "live in their
+ * own, smaller layer".
+ *
+ * Returns the parent SVG itself when the SVG has no AnyChart layer structure
+ * at all, so the caller falls back to whole-SVG querying. When layers *are*
+ * present but none of them holds a filled path, this returns `null` instead:
+ * the segments are then not where this function knows how to look, and
+ * widening the search would stamp whatever filled path it met first — a legend
+ * icon, a background panel — onto stage index 0.
+ */
+function findFunnelSegmentLayer(svg: SVGElement): Element | null {
+  const layers = svg.querySelectorAll<SVGGElement>('g[id^="ac_layer_"]');
+  let bestLayer: Element | null = null;
+  let bestCount = 0;
+  for (const layer of Array.from(layers)) {
+    const segments = Array.from(
+      layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+    ).filter(isFilledDataPath);
+    if (segments.length > bestCount) {
+      bestCount = segments.length;
+      bestLayer = layer;
+    }
+  }
+  if (bestLayer)
+    return bestLayer;
+  return layers.length > 0 ? null : svg;
+}
+
+/**
+ * Stamp `data-maidr-anychart-funnel-stage="0-<stageIndex>"` on every segment of
+ * an AnyChart funnel or pyramid chart.
+ *
+ * A funnel is a single-dataset chart — it has no series API — so the series
+ * part of the stamp is always `0`, keeping the selector shape uniform across
+ * trace families. DOM order within the segment layer is the order AnyChart
+ * consumed the data in, which is the order {@link buildFunnelLayer} emits its
+ * stages in, so segment k is stage k.
+ *
+ * That mapping only holds while the segment candidates and the emitted stages
+ * are the same set, so any disagreement between the two counts is reported: it
+ * means one of the DOM assumptions above no longer describes what AnyChart
+ * drew, and every stamp from that point on may name the wrong stage.
+ *
+ * On any other chart type this is a no-op.
+ */
+function stampFunnelAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isFunnelChart(chart))
+    return;
+
+  const stageCount = readChartRows(chart).filter(isDrawnDatum).length;
+  if (stageCount === 0)
+    return;
+
+  const segmentLayer = findFunnelSegmentLayer(svg);
+  if (!segmentLayer) {
+    console.warn(
+      '[maidr/anychart] Found no funnel segments to highlight: this chart\'s '
+      + 'SVG has AnyChart layers but none of them holds a filled path. '
+      + 'Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
+
+  const candidates = Array.from(
+    segmentLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+  ).filter(path =>
+    // Idempotency — skip segments stamped on a prior bind.
+    !path.hasAttribute(FUNNEL_ATTR) && isFilledDataPath(path));
+
+  if (candidates.length !== stageCount) {
+    console.warn(
+      `[maidr/anychart] Expected ${stageCount} funnel segments but found `
+      + `${candidates.length} after filtering. Highlighting may be incomplete `
+      + 'or land on the wrong stage; pass an explicit `selectors` entry to '
+      + 'override.',
+    );
+  }
+
+  const stampCount = Math.min(stageCount, candidates.length);
+  for (let i = 0; i < stampCount; i++) {
+    candidates[i].setAttribute(FUNNEL_ATTR, `${stampPrefix}0-${i}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Word cloud attribute stamping
+// ---------------------------------------------------------------------------
+
+/**
+ * Stamp `data-maidr-anychart-word="0-<termIndex>"` on every term of an
+ * AnyChart tag cloud, where the index is the term's position in the chart's
+ * DATA.
+ *
+ * Every other stamper in this file pairs a datum with a shape by counting DOM
+ * order, because AnyChart draws its marks in the order it consumed the rows. A
+ * cloud is the one family where that is false by construction: the layout
+ * spirals words outwards from the heaviest, so the packing order the SVG is
+ * written in has no relation to the data order — and a cloud whose terms were
+ * paired by position would announce one word while highlighting another.
+ *
+ * A word carries its own identity instead. Each term is rendered as a single
+ * `<text>` element holding exactly that term, so the pairing is a text match
+ * and needs no ordering assumption at all. A term that does not match exactly
+ * one element is a term this function cannot place, and since
+ * `WordCloudTrace` drops the highlight for a partial resolution anyway,
+ * nothing is stamped in that case — a half-stamped cloud would cost the same
+ * highlight while looking, in the DOM, like it had worked.
+ *
+ * On any other chart type this is a no-op.
+ */
+function stampWordCloudAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isWordCloudChart(chart))
+    return;
+
+  const terms = readChartRows(chart)
+    .filter(isDrawnDatum)
+    .map(row => asString(row.x ?? row.name ?? row._index));
+  if (terms.length === 0)
+    return;
+
+  // Index the rendered glyphs by their text so each term is looked up rather
+  // than counted off. `<text>` elements outside the cloud — a colour range's
+  // tick labels, the chart title — simply never match a term.
+  const byText = new Map<string, SVGElement[]>();
+  for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
+    if (text.hasAttribute(WORD_CLOUD_ATTR))
+      continue;
+    const label = (text.textContent ?? '').trim();
+    const drawn = byText.get(label);
+    if (drawn)
+      drawn.push(text);
+    else
+      byText.set(label, [text]);
+  }
+
+  const glyphs: SVGElement[] = [];
+  for (const term of terms) {
+    const matches = byText.get(term) ?? [];
+    if (matches.length !== 1) {
+      console.warn(
+        `[maidr/anychart] Expected exactly one rendered word for the term `
+        + `"${term}" but found ${matches.length}. Highlighting is disabled for `
+        + 'this chart; pass an explicit `selectors` entry to override.',
+      );
+      return;
+    }
+    glyphs.push(matches[0]);
+  }
+
+  glyphs.forEach((glyph, i) => {
+    glyph.setAttribute(WORD_CLOUD_ATTR, `${stampPrefix}0-${i}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Layer builders – one per MAIDR trace type
 // ---------------------------------------------------------------------------
 
@@ -2209,6 +2547,81 @@ function buildStepLayer(
   selectors: string | string[] | undefined,
 ): MaidrLayer {
   return { ...buildLineLayer(series, seriesIndex, selectors), type: TraceType.STEP };
+}
+
+/**
+ * Build an AREA layer from an AnyChart `area` / `spline-area` series.
+ *
+ * `AreaTrace` extends `LineTrace` and reads the same `LinePoint[][]`, so the
+ * points are the line's unchanged — what the type buys is an announcement that
+ * says "area chart" rather than "line chart". The stacked variants are not
+ * built here: they are a property of the chart's y scale rather than of any
+ * one series, and stacking is only meaningful across the whole set of them.
+ * See {@link buildStackedAreaLayer}.
+ *
+ * @param series - The AnyChart series to convert
+ * @param seriesIndex - Index of the series within its chart, used as the layer id
+ * @param selectors - CSS selectors for highlighting, when resolvable
+ * @returns The MAIDR area layer
+ */
+function buildAreaLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  return { ...buildLineLayer(series, seriesIndex, selectors), type: TraceType.AREA };
+}
+
+/**
+ * Build ONE stacked-area layer from every area series on a stacked chart.
+ *
+ * The other builders emit a layer per series, which is right while the series
+ * are read independently. A stacked area is not: the band a reader is on is
+ * its own series' value, but the edge they see is the running total of every
+ * series at that x, and `AreaTrace` computes that total from the series it was
+ * handed. Emitting one layer per series would hand it a single band and let it
+ * report a total equal to that band and a share of 100% — a number the chart
+ * never drew, announced with the same confidence as a correct one.
+ *
+ * Each series' OWN value is emitted, never the running edge. `AreaTrace` sums
+ * the layer itself precisely because charting libraries disagree about which
+ * of the two their `y` is, and the accumulation belongs in one place.
+ *
+ * @param entries - The chart's area series, with their chart-wide indices
+ * @param variant - {@link TraceType.STACKED_AREA} or {@link TraceType.NORMALIZED_AREA}
+ * @param options - Binder options, consulted for selector overrides
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The single MAIDR layer holding every band
+ */
+function buildStackedAreaLayer(
+  entries: Array<{ series: AnyChartSeries; index: number }>,
+  variant: TraceType.STACKED_AREA | TraceType.NORMALIZED_AREA,
+  options?: AnyChartBinderOptions,
+  panel?: PanelContext,
+): MaidrLayer {
+  const data: LinePoint[][] = entries.map(({ series }) => {
+    const name = readSeriesName(series);
+    return extractRawRows(series).map(r => ({
+      x: r.x !== undefined ? (typeof r.x === 'number' ? r.x : String(r.x)) : asNumber(r._index),
+      y: asNumber(r.value ?? r.y),
+      ...(name ? { z: name } : {}),
+    }));
+  });
+
+  // One selector per band, in band order: `LineTrace.mapToSvgElements` matches
+  // the array against its line count, so a shortfall would drop the highlight
+  // for the whole layer rather than for the one band that could not be
+  // resolved. Emit the array only when every band resolved to a plain string.
+  const resolved = entries.map(({ index }) =>
+    resolveSelector(index, TraceType.AREA, options, panel));
+  const selectors = resolved.filter((one): one is string => typeof one === 'string');
+
+  return {
+    id: String(entries[0].index),
+    type: variant,
+    ...(selectors.length === entries.length ? { selectors } : {}),
+    data,
+  };
 }
 
 function buildScatterLayer(
@@ -2503,7 +2916,7 @@ function buildPieLayer(
   panel?: PanelContext,
 ): MaidrLayer {
   const data: PiePoint[] = rows
-    .filter(isDrawnSlice)
+    .filter(isDrawnDatum)
     .map(r => ({
       x: asString(r.x ?? r.name ?? r._index),
       y: asNumber(r.value ?? r.y),
@@ -2517,6 +2930,91 @@ function buildPieLayer(
     id: String(seriesIndex),
     type: TraceType.PIE,
     selectors: selectors ?? defaultSelector,
+    data,
+  };
+}
+
+/**
+ * Build a FUNNEL layer from an AnyChart funnel's (or pyramid's) stage rows.
+ *
+ * Only the count is emitted. `FunnelTrace` derives each stage's share of the
+ * population and its retention from the previous stage itself, and those are
+ * the numbers a funnel is read for — computing them here would put the same
+ * arithmetic in every adapter and give a reader two sources for one figure.
+ *
+ * A pyramid is emitted unchanged, in draw order. Its widest stage is at the
+ * bottom rather than the top, but the rows still arrive in the order AnyChart
+ * consumed them, which is the order the stages follow one another in.
+ *
+ * @param rows - The chart's raw data rows, in stage order
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The MAIDR funnel layer
+ */
+function buildFunnelLayer(
+  rows: Array<Record<string, unknown>>,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const data: BarPoint[] = rows
+    .filter(isDrawnDatum)
+    .map(r => ({
+      // A funnel's default data mapping is `name` / `value`, unlike the pie's
+      // `x` / `value`, so `name` is preferred here and `x` is the fallback.
+      x: asString(r.name ?? r.x ?? r._index),
+      y: asNumber(r.value ?? r.y),
+    }));
+
+  // Default selector targets the attribute stamped by
+  // {@link stampFunnelAttributes}, which writes one per segment in stage order.
+  const defaultSelector
+    = `${panelScope(panel)}[${FUNNEL_ATTR}^="${panelStampPrefix(panel)}0-"]`;
+  return {
+    id: '0',
+    type: TraceType.FUNNEL,
+    selectors: selectors ?? defaultSelector,
+    data,
+  };
+}
+
+/**
+ * Build a WORD_CLOUD layer from an AnyChart tag cloud's term rows.
+ *
+ * The selectors are emitted as an ARRAY, one per term in data order, where
+ * every other single-dataset builder here emits one prefix selector for the
+ * whole set. That is not a stylistic choice: a prefix selector resolves in
+ * document order, and a cloud's document order is its packing spiral, which
+ * has nothing to do with the order the terms were declared in.
+ * `WordCloudTrace` sorts the terms by weight and then indexes the resolved
+ * elements by each term's position in the DECLARED data, so the array has to
+ * arrive in that order or every highlight lands on someone else's word.
+ *
+ * @param rows - The chart's raw data rows, in declaration order
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The MAIDR word cloud layer
+ */
+function buildWordCloudLayer(
+  rows: Array<Record<string, unknown>>,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const data: WordCloudPoint[] = rows
+    .filter(isDrawnDatum)
+    .map(r => ({
+      x: asString(r.x ?? r.name ?? r._index),
+      y: asNumber(r.value ?? r.y),
+    }));
+
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const defaultSelectors = data.map(
+    (_, i) => `${scope}[${WORD_CLOUD_ATTR}="${stamp}0-${i}"]`,
+  );
+  return {
+    id: '0',
+    type: TraceType.WORD_CLOUD,
+    selectors: selectors ?? defaultSelectors,
     data,
   };
 }
@@ -2543,6 +3041,8 @@ function buildLayer(
       return buildBarLayer(series, seriesIndex, selectors);
     case TraceType.LINE:
       return buildLineLayer(series, seriesIndex, selectors);
+    case TraceType.AREA:
+      return buildAreaLayer(series, seriesIndex, selectors);
     case TraceType.STEP:
       return buildStepLayer(series, seriesIndex, selectors);
     case TraceType.SCATTER:
@@ -2568,6 +3068,19 @@ function buildLayer(
  * each dimension actually holds rather than leaving the slices unlabelled.
  */
 const PIE_AXIS_FALLBACKS = { x: 'Label', y: 'Value' };
+
+/**
+ * What a funnel's two dimensions are called when the chart names neither. Like
+ * a pie, a funnel is bound to no axis, so there is no axis title to extract.
+ */
+const FUNNEL_AXIS_FALLBACKS = { x: 'Stage', y: 'Count' };
+
+/**
+ * What a tag cloud's two dimensions are called when the chart names neither.
+ * A cloud draws its magnitude as a font size rather than against a scale, so
+ * it has no axis to borrow a title from either.
+ */
+const WORD_CLOUD_AXIS_FALLBACKS = { x: 'Term', y: 'Weight' };
 
 /**
  * Build one {@link MaidrSubplot} from a single AnyChart chart instance.
@@ -2666,7 +3179,7 @@ function buildSubplot(
   // slices to the heatmap builder, which would emit a one-row heatmap. Route
   // it here, before the series API is touched.
   if (isPieChart(chart)) {
-    const rows = readPieRows(chart);
+    const rows = readChartRows(chart);
     if (rows.length === 0)
       return null;
     const userPieSelector = (options?.selectors?.[0] ?? undefined) as
@@ -2675,6 +3188,34 @@ function buildSubplot(
       | undefined;
     const layer = buildPieLayer(rows, 0, userPieSelector, panel);
     attachAxes(layer, PIE_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
+  // A funnel / pyramid and a tag cloud are single-dataset charts too, and
+  // reaching the `getSeriesCount()` fallback below would hand their rows to
+  // the heatmap builder — whose rows have an `x` and a `value` but no `y`, so
+  // it would collapse them into a one-row heatmap and bind it without a word.
+  // Route them here, before the series API is touched.
+  const chartLevelSelector = (options?.selectors?.[0] ?? undefined) as
+    | string
+    | string[]
+    | undefined;
+
+  if (isFunnelChart(chart)) {
+    const rows = readChartRows(chart);
+    if (rows.length === 0)
+      return null;
+    const layer = buildFunnelLayer(rows, chartLevelSelector, panel);
+    attachAxes(layer, FUNNEL_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
+  if (isWordCloudChart(chart)) {
+    const rows = readChartRows(chart);
+    if (rows.length === 0)
+      return null;
+    const layer = buildWordCloudLayer(rows, chartLevelSelector, panel);
+    attachAxes(layer, WORD_CLOUD_AXIS_FALLBACKS);
     return finalize([layer]);
   }
 
@@ -2702,6 +3243,14 @@ function buildSubplot(
 
   const layers: MaidrLayer[] = [];
 
+  // Stacking is a property of the chart's y scale, so it is read once here
+  // rather than per series. On a stacked chart the area series are collected
+  // instead of emitted, because their bands only mean anything together —
+  // see {@link buildStackedAreaLayer}.
+  const areaVariant = resolveAreaVariant(chart);
+  const stackedVariant = areaVariant === TraceType.AREA ? null : areaVariant;
+  const stackedAreas: Array<{ series: AnyChartSeries; index: number }> = [];
+
   for (let i = 0; i < seriesCount; i++) {
     const series = chart.getSeriesAt(i);
     if (!series)
@@ -2716,12 +3265,23 @@ function buildSubplot(
       continue;
     }
 
+    if (traceType === TraceType.AREA && stackedVariant !== null) {
+      stackedAreas.push({ series, index: i });
+      continue;
+    }
+
     const selectors = resolveSelector(i, traceType, options, panel);
     const layer = buildLayer(series, i, traceType, selectors, panel);
 
     // Attach axis labels.
     attachAxes(layer, traceType === TraceType.PIE ? PIE_AXIS_FALLBACKS : undefined);
 
+    layers.push(layer);
+  }
+
+  if (stackedVariant !== null && stackedAreas.length > 0) {
+    const layer = buildStackedAreaLayer(stackedAreas, stackedVariant, options, panel);
+    attachAxes(layer);
     layers.push(layer);
   }
 

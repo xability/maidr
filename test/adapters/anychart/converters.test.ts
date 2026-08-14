@@ -4,7 +4,14 @@ import type {
   AnyChartIterator,
   AnyChartSeries,
 } from '@adapters/anychart/types';
-import type { BarPoint, BoxSelector, MaidrLayer, PiePoint } from '@type/grammar';
+import type {
+  BarPoint,
+  BoxSelector,
+  LinePoint,
+  MaidrLayer,
+  PiePoint,
+  WordCloudPoint,
+} from '@type/grammar';
 import {
   anyChartsToMaidr,
   anyChartToMaidr,
@@ -136,6 +143,107 @@ function appendPieWedges(
 }
 
 /**
+ * A drawn AnyChart funnel or pyramid. Like a pie it exposes NO series API and
+ * its stages live on `chart.data()` — and its default data mapping is
+ * `name` / `value` rather than the pie's `x` / `value`, which the mock keeps.
+ */
+function createFunnelChart(
+  title: string,
+  stages: Array<[string, number | null]>,
+  extra: { container?: HTMLElement; type?: 'funnel' | 'pyramid' } = {},
+): AnyChartInstance {
+  const rows = stages.map(([name, value]) => ({ name, value }));
+  return {
+    title: () => title,
+    container: () => extra.container ?? '',
+    getType: () => extra.type ?? 'funnel',
+    data: () => ({ getIterator: () => createIterator(rows) }),
+  } as unknown as AnyChartInstance;
+}
+
+/**
+ * Append a rendered funnel to a container's `<svg>`: one AnyChart layer of
+ * `count` filled trapezoid segments, each with the stroke-only twin AnyChart
+ * draws over it, plus a one-icon legend layer per stage — the decoy the segment
+ * lookup separates by density rather than by shape, since a legend icon and a
+ * funnel segment are both straight-sided filled paths.
+ */
+function appendFunnelSegments(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const segments: SVGElement[] = [];
+
+  // One legend item per stage, each in its own layer, drawn first.
+  for (let i = 0; i < count; i++) {
+    const legendLayer = document.createElementNS(SVG_NS, 'g');
+    legendLayer.id = `ac_layer_legend_${i}`;
+    const icon = document.createElementNS(SVG_NS, 'path');
+    icon.id = `ac_path_legend_${i}`;
+    icon.setAttribute('d', 'M 0 0 L 8 0 L 8 8 L 0 8 Z');
+    icon.setAttribute('fill', '#1f77b4');
+    legendLayer.appendChild(icon);
+    svg.appendChild(legendLayer);
+  }
+
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+  for (let i = 0; i < count; i++) {
+    const trapezoid = 'M 20 0 L 180 0 L 160 40 L 40 40 Z';
+    const segment = document.createElementNS(SVG_NS, 'path');
+    segment.id = `ac_path_${i}`;
+    segment.setAttribute('d', trapezoid);
+    segment.setAttribute('fill', '#1f77b4');
+    const outline = document.createElementNS(SVG_NS, 'path');
+    outline.id = `ac_path_${i}_outline`;
+    outline.setAttribute('d', trapezoid);
+    outline.setAttribute('fill', 'none');
+    layer.appendChild(segment);
+    layer.appendChild(outline);
+    segments.push(segment);
+  }
+
+  return segments;
+}
+
+/**
+ * A drawn AnyChart tag cloud. Single-dataset like the pie, mapping
+ * `x` / `value`.
+ */
+function createWordCloudChart(
+  title: string,
+  terms: Array<[string, number | null]>,
+  extra: { container?: HTMLElement } = {},
+): AnyChartInstance {
+  const rows = terms.map(([x, value]) => ({ x, value }));
+  return {
+    title: () => title,
+    container: () => extra.container ?? '',
+    getType: () => 'tag-cloud',
+    data: () => ({ getIterator: () => createIterator(rows) }),
+  } as unknown as AnyChartInstance;
+}
+
+/**
+ * Append a rendered tag cloud to a container's `<svg>`: one `<text>` per term,
+ * in the order given — which for a real cloud is its packing spiral and not
+ * the order the terms were declared in.
+ */
+function appendCloudWords(container: HTMLElement, terms: string[]): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  svg.appendChild(layer);
+
+  return terms.map((term, i) => {
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.id = `ac_text_${i}`;
+    text.textContent = term;
+    layer.appendChild(text);
+    return text as unknown as SVGElement;
+  });
+}
+
+/**
  * Append a rendered candlestick series to a container's `<svg>`: `count` candle
  * paths inside an AnyChart layer.
  *
@@ -201,6 +309,11 @@ interface MockChartConfig {
   yTitle?: string;
   /** Chart-level data rows (single-dataset charts: heatmap, pie). */
   dataRows?: Array<Record<string, unknown>>;
+  /**
+   * The y scale's stacking mode. Omit for a chart with no stackable y scale
+   * at all, which is how every non-Cartesian chart answers.
+   */
+  stackMode?: string;
 }
 
 function createChart(config: MockChartConfig): AnyChartInstance {
@@ -209,12 +322,14 @@ function createChart(config: MockChartConfig): AnyChartInstance {
   const dataRows = config.dataRows;
   const xTitle = config.xTitle;
   const yTitle = config.yTitle;
+  const stackMode = config.stackMode;
   return {
     title: () => config.title ?? '',
     container: () => config.container ?? '',
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     ...(chartType ? { getType: () => chartType } : {}),
+    ...(stackMode ? { yScale: () => ({ stackMode: () => stackMode }) } : {}),
     ...(dataRows
       ? { data: () => ({ getIterator: () => createIterator(dataRows) }) }
       : {}),
@@ -522,6 +637,365 @@ describe('bindAnyChart (pie stamping)', () => {
     expect(decoration.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
     expect(straight.getAttribute('data-maidr-anychart-pie-slice')).toBeNull();
     expect(warnSpy.mock.calls.flat().join(' ')).toContain('no pie wedges to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Area series (plain, stacked and normalized)
+// ---------------------------------------------------------------------------
+
+/** An area series carrying one value per month. */
+function createAreaSeries(
+  type: 'area' | 'spline-area',
+  values: Array<[string, number]>,
+): AnyChartSeries {
+  return createSeries(type, values.map(([x, value]) => ({ x, value })));
+}
+
+describe('anyChartToMaidr (area series)', () => {
+  it('reads an unstacked area series as an area trace, not a line one', () => {
+    const chart = createChart({
+      title: 'Rainfall',
+      series: [createAreaSeries('area', [['Jan', 3], ['Feb', 5]])],
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.AREA);
+    // An area is a stroked polyline with a fill under it, so its points are
+    // the line's markers and it shares the line's stamped selector.
+    expect(layer.selectors).toBe('[data-maidr-anychart-line-point^="0-"]');
+    expect(layer.data as LinePoint[][]).toEqual([
+      [{ x: 'Jan', y: 3 }, { x: 'Feb', y: 5 }],
+    ]);
+  });
+
+  it('keeps unstacked area series in one layer each', () => {
+    const chart = createChart({
+      title: 'Rainfall',
+      series: [
+        createAreaSeries('area', [['Jan', 3]]),
+        createAreaSeries('spline-area', [['Jan', 1]]),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    // Unstacked bands are read independently of one another, so nothing is
+    // gained by merging them and the per-series layer ids stay meaningful.
+    expect(layers.map(l => [l.id, l.type])).toEqual([
+      ['0', TraceType.AREA],
+      ['1', TraceType.AREA],
+    ]);
+  });
+
+  it('merges the bands of a stacked chart into one layer', () => {
+    // Stacking lives on the y scale, not on a series: AnyChart calls both of
+    // these plain area series either way.
+    const chart = createChart({
+      title: 'Rainfall',
+      stackMode: 'value',
+      series: [
+        createAreaSeries('area', [['Jan', 3], ['Feb', 5]]),
+        createAreaSeries('spline-area', [['Jan', 1], ['Feb', 2]]),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.STACKED_AREA);
+    // Each band carries its OWN value, never the running edge: AreaTrace sums
+    // the layer itself, and pre-accumulating here would double-count.
+    expect(layers[0].data as LinePoint[][]).toEqual([
+      [{ x: 'Jan', y: 3, z: 'area' }, { x: 'Feb', y: 5, z: 'area' }],
+      [{ x: 'Jan', y: 1, z: 'spline-area' }, { x: 'Feb', y: 2, z: 'spline-area' }],
+    ]);
+    // One selector per band, in band order — a shortfall would drop the
+    // highlight for the whole layer, not for the one band that went missing.
+    expect(layers[0].selectors).toEqual([
+      '[data-maidr-anychart-line-point^="0-"]',
+      '[data-maidr-anychart-line-point^="1-"]',
+    ]);
+  });
+
+  it('reads a percent-stacked chart as a normalized area', () => {
+    const chart = createChart({
+      title: 'Share',
+      stackMode: 'percent',
+      series: [
+        createAreaSeries('area', [['Jan', 3]]),
+        createAreaSeries('area', [['Jan', 1]]),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.NORMALIZED_AREA);
+  });
+
+  it('leaves a non-area series on a stacked chart in its own layer', () => {
+    // Only the area family is promoted here; a stacked column is a separate
+    // trace type this adapter does not claim to produce yet, and folding one
+    // into the area layer would describe it as a band.
+    const chart = createChart({
+      title: 'Mixed',
+      stackMode: 'value',
+      series: [
+        createAreaSeries('area', [['Jan', 3]]),
+        createBarSeries([['Jan', 7]]),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.STACKED_AREA]);
+    expect(layers.map(l => l.id)).toEqual(['1', '0']);
+  });
+
+  it('treats a chart with no y scale as unstacked', () => {
+    // `yScale()` is absent on every non-Cartesian chart, and asking must not
+    // turn a plain area into a stack.
+    const chart = createChart({
+      title: 'Rainfall',
+      series: [createAreaSeries('area', [['Jan', 3]])],
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.AREA);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Funnel / pyramid charts (single-dataset, no series API)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (funnel chart)', () => {
+  it('emits a flat funnel layer from the chart-level data view', () => {
+    const chart = createFunnelChart('Signups', [
+      ['Visited', 10000],
+      ['Signed up', 2400],
+      ['Paid', 100],
+    ]);
+
+    const result = anyChartToMaidr(chart);
+
+    expect(result?.title).toBe('Signups');
+    const layer = result!.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.FUNNEL);
+    expect(layer.selectors).toBe('[data-maidr-anychart-funnel-stage^="0-"]');
+    // A funnel's default mapping is `name` / `value`, not the pie's `x`.
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Visited', y: 10000 },
+      { x: 'Signed up', y: 2400 },
+      { x: 'Paid', y: 100 },
+    ]);
+  });
+
+  it('routes a pyramid through the same path', () => {
+    // AnyChart draws both from one class; only which end tapers differs, and
+    // the stages are still ordered shares of one another.
+    const chart = createFunnelChart('Pyramid', [['Top', 5], ['Base', 20]], {
+      type: 'pyramid',
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.FUNNEL);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Top', y: 5 },
+      { x: 'Base', y: 20 },
+    ]);
+  });
+
+  it('names the two dimensions a funnel has no axis to name', () => {
+    const chart = createFunnelChart('Signups', [['Visited', 10]]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Count' } });
+  });
+
+  it('drops stages with no numeric value, which AnyChart draws no segment for', () => {
+    const chart = createFunnelChart('Signups', [
+      ['Visited', 10000],
+      ['Unknown', null],
+      ['Paid', 100],
+    ]);
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as BarPoint[])
+      .toEqual([{ x: 'Visited', y: 10000 }, { x: 'Paid', y: 100 }]);
+  });
+
+  it('scopes funnel selectors to the panel token in multi-panel mode', () => {
+    const funnel = createFunnelChart('Funnel', [['Visited', 10]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[funnel, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).selectors).toBe(
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-funnel-stage^="fig-0-0:0-"]',
+    );
+  });
+});
+
+describe('bindAnyChart (funnel stamping)', () => {
+  it('stamps one attribute per segment, in stage order, and skips the legend', () => {
+    const container = createContainerWithSvg('funnel-bind');
+    const segments = appendFunnelSegments(container, 3);
+    const chart = createFunnelChart(
+      'Signups',
+      [['Visited', 10000], ['Signed up', 2400], ['Paid', 100]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(segments.map(s => s.getAttribute('data-maidr-anychart-funnel-stage')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    // A legend icon is a filled straight-sided path too — only the density of
+    // the segment layer tells the two apart, and it must win.
+    expect(container.querySelector('#ac_path_legend_0')
+      ?.getAttribute('data-maidr-anychart-funnel-stage')).toBeNull();
+    // The stroke-only twin is invisible; a highlight landing on one would look
+    // like nothing happened while the announcement carried on.
+    expect(container.querySelector('#ac_path_0_outline')
+      ?.getAttribute('data-maidr-anychart-funnel-stage')).toBeNull();
+    expect(container.querySelectorAll('[data-maidr-anychart-funnel-stage^="0-"]'))
+      .toHaveLength(3);
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('warns and stamps nothing when no AnyChart layer holds a filled path', () => {
+    // The segment-DOM assumption has failed. Widening the search to the whole
+    // SVG would stamp whatever filled path it met first — a background panel,
+    // a legend icon — as stage 0, so the highlight is dropped instead.
+    const container = createContainerWithSvg('funnel-no-fills');
+    const svg = container.querySelector('svg') as unknown as SVGElement;
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = 'ac_layer_1';
+    svg.appendChild(layer);
+    const outline = document.createElementNS(SVG_NS, 'path');
+    outline.id = 'ac_path_0';
+    outline.setAttribute('d', 'M 0 0 L 10 0 L 10 10 Z');
+    outline.setAttribute('fill', 'none');
+    layer.appendChild(outline);
+    // A filled path outside every layer — what the whole-SVG fallback would
+    // have mistaken for stage 0.
+    const panel = document.createElementNS(SVG_NS, 'path');
+    panel.id = 'ac_path_panel';
+    panel.setAttribute('d', 'M 0 0 L 99 0 L 99 99 Z');
+    panel.setAttribute('fill', '#eeeeee');
+    svg.appendChild(panel);
+    const chart = createFunnelChart('Signups', [['Visited', 10]], { container });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(panel.getAttribute('data-maidr-anychart-funnel-stage')).toBeNull();
+    expect(container.querySelectorAll('[data-maidr-anychart-funnel-stage]'))
+      .toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('no funnel segments to highlight');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tag cloud charts (single-dataset, no series API)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (tag cloud)', () => {
+  it('emits a word cloud layer with one selector per term, in data order', () => {
+    const chart = createWordCloudChart('Topics', [
+      ['maidr', 12],
+      ['sonification', 5],
+      ['braille', 9],
+    ]);
+
+    const result = anyChartToMaidr(chart);
+
+    const layer = result!.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.WORD_CLOUD);
+    expect(layer.data as WordCloudPoint[]).toEqual([
+      { x: 'maidr', y: 12 },
+      { x: 'sonification', y: 5 },
+      { x: 'braille', y: 9 },
+    ]);
+    // A prefix selector would resolve in document order, which for a cloud is
+    // its packing spiral; WordCloudTrace indexes by each term's position in
+    // the declared data, so the array has to arrive in that order.
+    expect(layer.selectors).toEqual([
+      '[data-maidr-anychart-word="0-0"]',
+      '[data-maidr-anychart-word="0-1"]',
+      '[data-maidr-anychart-word="0-2"]',
+    ]);
+    expect(layer.axes).toEqual({ x: { label: 'Term' }, y: { label: 'Weight' } });
+  });
+
+  it('scopes word cloud selectors to the panel token in multi-panel mode', () => {
+    const cloud = createWordCloudChart('Topics', [['maidr', 12]]);
+    const bar = createBarChart('Bar');
+
+    const result = anyChartsToMaidr([[cloud, bar]], { id: 'fig' });
+
+    expect(firstLayer(result!, 0, 0).selectors).toEqual([
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-word="fig-0-0:0-0"]',
+    ]);
+  });
+});
+
+describe('bindAnyChart (tag cloud stamping)', () => {
+  it('pairs each term with its own glyph by text, not by document order', () => {
+    // A cloud packs its words outwards from the heaviest, so the SVG order has
+    // no relation to the data order. Counting glyphs off would announce one
+    // term while highlighting another.
+    const container = createContainerWithSvg('cloud-bind');
+    const [gamma, alpha, beta] = appendCloudWords(container, ['gamma', 'alpha', 'beta']);
+    const chart = createWordCloudChart(
+      'Topics',
+      [['alpha', 12], ['beta', 5], ['gamma', 9]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(alpha.getAttribute('data-maidr-anychart-word')).toBe('0-0');
+    expect(beta.getAttribute('data-maidr-anychart-word')).toBe('0-1');
+    expect(gamma.getAttribute('data-maidr-anychart-word')).toBe('0-2');
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing when a term cannot be placed on exactly one glyph', () => {
+    // `WordCloudTrace` drops the highlight for a partial resolution anyway, so
+    // a half-stamped cloud costs the same highlight while looking, in the DOM,
+    // like it had worked.
+    const container = createContainerWithSvg('cloud-ambiguous');
+    appendCloudWords(container, ['alpha', 'alpha']);
+    const chart = createWordCloudChart(
+      'Topics',
+      [['alpha', 12], ['beta', 5]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-word]')).toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('Expected exactly one rendered word');
 
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
@@ -1018,11 +1492,16 @@ describe('mapSeriesType', () => {
     expect(mapSeriesType('step-area')).toBe(TraceType.STEP);
   });
 
-  it('leaves the interpolated series as line traces', () => {
+  it('leaves the unfilled interpolated series as line traces', () => {
     expect(mapSeriesType('line')).toBe(TraceType.LINE);
     expect(mapSeriesType('spline')).toBe(TraceType.LINE);
-    expect(mapSeriesType('area')).toBe(TraceType.LINE);
-    expect(mapSeriesType('spline-area')).toBe(TraceType.LINE);
+  });
+
+  it('reads the filled interpolated series as the areas they are drawn as', () => {
+    // These used to be downgraded to LINE, which announced an area chart as a
+    // line chart — the fill is the whole visual difference between the two.
+    expect(mapSeriesType('area')).toBe(TraceType.AREA);
+    expect(mapSeriesType('spline-area')).toBe(TraceType.AREA);
   });
 
   it('normalises the series name before looking it up', () => {
@@ -1030,19 +1509,19 @@ describe('mapSeriesType', () => {
     expect(mapSeriesType('STEP LINE')).toBe(TraceType.STEP);
   });
 
-  it('warns that an area series loses its fill, whichever trace it becomes', () => {
-    // The warning keys on the source type rather than the mapped one, so
-    // step-area still warns now that it no longer maps to LINE.
+  it('warns for the one area series that still loses its fill', () => {
+    // MAIDR has no stepped area trace, so `step-area` keeps its staircase and
+    // gives up its fill — and says so.
     mapSeriesType('step-area');
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('step-area'));
 
-    warnSpy.mockClear();
-    mapSeriesType('area');
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-
-    warnSpy.mockClear();
-    mapSeriesType('step-line');
-    expect(warnSpy).not.toHaveBeenCalled();
+    // `area` and `spline-area` keep theirs now, so warning about them would be
+    // reporting a loss that no longer happens.
+    for (const type of ['area', 'spline-area', 'step-line']) {
+      warnSpy.mockClear();
+      mapSeriesType(type);
+      expect(warnSpy).not.toHaveBeenCalled();
+    }
   });
 
   it('returns null for a series type the adapter cannot represent', () => {
