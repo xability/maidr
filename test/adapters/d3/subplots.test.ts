@@ -498,6 +498,61 @@ describe('bindD3Subplots', () => {
     expect(subplots[1][0].layers[0].title).toBe('Panel 2');
   });
 
+  test('composes a stacked-area panel beside a funnel panel', () => {
+    // The bar and line cores serve several marks each; a panel must announce
+    // the mark its entry asked for, and stay scoped to its own subtree.
+    const dom = new JSDOM(`<!doctype html><body><svg xmlns="${SVG_NS}" id="mixed"></svg></body>`);
+    const doc = dom.window.document as Document;
+    const svg = doc.querySelector('svg') as unknown as SVGElement;
+
+    const areaPanel = doc.createElementNS(SVG_NS, 'g');
+    areaPanel.setAttribute('class', 'revenue');
+    for (const [key, offset] of [['Subscriptions', 0], ['Services', 10]] as [string, number][]) {
+      const path = doc.createElementNS(SVG_NS, 'path');
+      path.setAttribute('class', 'area');
+      const series = [0, 1].map((i) => {
+        const tuple: number[] & { data?: unknown } = [offset, offset + 10 + i];
+        tuple.data = { year: `201${9 + i}` };
+        return tuple;
+      });
+      setDatum(path, Object.assign(series, { key }));
+      areaPanel.appendChild(path);
+    }
+    svg.appendChild(areaPanel);
+
+    const funnelPanel = doc.createElementNS(SVG_NS, 'g');
+    funnelPanel.setAttribute('class', 'checkout');
+    for (const datum of [{ stage: 'Visited', count: 900 }, { stage: 'Purchased', count: 40 }]) {
+      const path = doc.createElementNS(SVG_NS, 'path');
+      path.setAttribute('class', 'stage');
+      setDatum(path, datum);
+      funnelPanel.appendChild(path);
+    }
+    svg.appendChild(funnelPanel);
+
+    const result = bindD3Subplots(svg, {
+      subplots: [[
+        { chartType: 'area', root: 'g.revenue', config: { selector: 'path.area', type: TraceType.STACKED_AREA, x: 'year' } },
+        { chartType: 'funnel', root: 'g.checkout', config: { selector: 'path.stage' } },
+      ]],
+    });
+
+    const subplots = subplotGrid(result.maidr.subplots);
+    expect(subplots[0][0].layers[0].type).toBe(TraceType.STACKED_AREA);
+    expect(subplots[0][1].layers[0].type).toBe(TraceType.FUNNEL);
+    // Per-band selectors stay inside their own panel.
+    expect(subplots[0][0].layers[0].selectors).toEqual([
+      '#mixed [data-maidr-panel="0"] path.area[data-maidr-line-index="0"]',
+      '#mixed [data-maidr-panel="0"] path.area[data-maidr-line-index="1"]',
+    ]);
+    expect(subplots[0][0].legend).toEqual(['Subscriptions', 'Services']);
+    expect(subplots[0][1].layers[0].selectors).toBe('#mixed [data-maidr-panel="1"] path.stage');
+    expect(subplots[0][1].layers[0].data).toEqual([
+      { x: 'Visited', y: 900 },
+      { x: 'Purchased', y: 40 },
+    ]);
+  });
+
   test('rejects empty rows and unresolvable roots', () => {
     const { svg } = buildHeterogeneousSvg();
 

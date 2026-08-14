@@ -86,7 +86,26 @@ export interface D3BinderConfig {
 export type DataAccessor<T> = string | ((datum: unknown, index: number) => T);
 
 /**
+ * Trace types that share the bar extraction: one category and one value per
+ * mark, read the same way whichever mark is drawn.
+ *
+ * A dot plot draws a point where a bar chart draws a bar, a lollipop adds a
+ * stem to the baseline, and a funnel draws its stages as trapezoids — none of
+ * which changes what a reader navigates, so all four are built by
+ * {@link buildBarLayer} and differ only in the type the layer announces.
+ */
+export type BarMarkTraceType
+  = | typeof TraceType.BAR
+    | typeof TraceType.DOT
+    | typeof TraceType.FUNNEL
+    | typeof TraceType.LOLLIPOP;
+
+/**
  * Configuration for binding a D3 bar chart.
+ *
+ * Also the config for the other three bar-family marks — {@link bindD3Dot},
+ * {@link bindD3Lollipop} and {@link bindD3Funnel} — which read the same
+ * `{ category, value }` datum off a different element.
  */
 export interface D3BarConfig extends D3BinderConfig {
   /** CSS selector for the bar elements (e.g., `'rect.bar'`, `'rect'`, `'path'`). */
@@ -119,6 +138,71 @@ export interface D3LineConfig extends D3BinderConfig {
   y?: DataAccessor<number>;
   /** Accessor for the series/fill label. @default 'fill' */
   fill?: DataAccessor<string>;
+}
+
+/**
+ * Trace types that share the line extraction: one series per path, one value
+ * per sample.
+ *
+ * An area fills the band under the line and a bump chart plots ranks instead
+ * of magnitudes; both are navigated as a multi-line grid, so all of them are
+ * built by {@link buildLineLayer} and differ only in the type the layer
+ * announces — which is what makes the trace read the values correctly (an
+ * area reports its stack total, a bump inverts its pitch).
+ */
+export type LineMarkTraceType
+  = | typeof TraceType.AREA
+    | typeof TraceType.BUMP
+    | typeof TraceType.LINE
+    | typeof TraceType.NORMALIZED_AREA
+    | typeof TraceType.STACKED_AREA;
+
+/**
+ * Area chart type: independent bands, stacked bands, or stacked bands scaled
+ * to a common whole.
+ */
+export type AreaTraceType
+  = | typeof TraceType.AREA
+    | typeof TraceType.NORMALIZED_AREA
+    | typeof TraceType.STACKED_AREA;
+
+/**
+ * Configuration for binding a D3 area chart (plain, stacked, or 100% stacked).
+ *
+ * Extends {@link D3LineConfig} because an area is a line with the band under
+ * it filled: `selector` matches one `<path>` per series, and the same
+ * accessors read each sample.
+ *
+ * Supports both common D3 patterns:
+ *
+ * 1. **Plain point arrays** — `d3.area()` over an array of `{ x, y }` rows,
+ *    one array bound per `<path>` (or per-point elements via `pointSelector`).
+ * 2. **`d3.stack()` output** — the datum bound to each `<path>` is the series
+ *    array itself, carrying `.key`, whose items are `[y0, y1]` tuples with a
+ *    `.data` back-reference to the row. The binder recognises that shape and
+ *    unwraps it: `x` is read from the row, `y` is the band's own height
+ *    (`y1 - y0`), and the series' `.key` becomes its name.
+ *
+ * In that second shape the two accessors address different objects, because
+ * that is where the two values live: `x` is resolved against the **row** —
+ * function accessors included, so write `d => d.year`, not `d => d.data.year`
+ * — while an explicit `y` is resolved against the **tuple**, keeping
+ * `d => d[1] - d[0]` and any custom offset expressible.
+ *
+ * @example
+ * ```ts
+ * // d3.stack() + d3.area().y0(d => y(d[0])).y1(d => y(d[1]))
+ * bindD3Area(svg, {
+ *   selector: 'path.area',
+ *   type: TraceType.STACKED_AREA,
+ *   axes: { x: 'Year', y: 'Revenue', fill: 'Product' },
+ *   x: 'year',   // a key on the stacked row, not on the [y0, y1] tuple
+ * });
+ * ```
+ */
+export interface D3AreaConfig extends D3LineConfig {
+  /** The type of area chart. @default TraceType.AREA */
+  type?: AreaTraceType;
 }
 
 /**
@@ -385,12 +469,17 @@ export interface D3BuiltLayer {
  * base of the React adapter's {@link D3AdapterSpec}.
  */
 export type D3PanelChartSpec
-  = | { chartType: 'bar'; config: D3BarConfig }
+  = | { chartType: 'area'; config: D3AreaConfig }
+    | { chartType: 'bar'; config: D3BarConfig }
     | { chartType: 'box'; config: D3BoxConfig }
+    | { chartType: 'bump'; config: D3LineConfig }
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
+    | { chartType: 'dot'; config: D3BarConfig }
+    | { chartType: 'funnel'; config: D3BarConfig }
     | { chartType: 'heatmap'; config: D3HeatmapConfig }
     | { chartType: 'histogram'; config: D3HistogramConfig }
     | { chartType: 'line'; config: D3LineConfig }
+    | { chartType: 'lollipop'; config: D3BarConfig }
     | { chartType: 'pie'; config: D3PieConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }

@@ -146,18 +146,28 @@ export function MaidrD3(props: MaidrD3Props): JSX.Element {
  */
 function buildSpec(props: MaidrD3Props): D3AdapterSpec {
   switch (props.chartType) {
+    case 'area':
+      return { chartType: 'area', config: props.config };
     case 'bar':
       return { chartType: 'bar', config: props.config };
     case 'box':
       return { chartType: 'box', config: props.config };
+    case 'bump':
+      return { chartType: 'bump', config: props.config };
     case 'candlestick':
       return { chartType: 'candlestick', config: props.config };
+    case 'dot':
+      return { chartType: 'dot', config: props.config };
+    case 'funnel':
+      return { chartType: 'funnel', config: props.config };
     case 'heatmap':
       return { chartType: 'heatmap', config: props.config };
     case 'histogram':
       return { chartType: 'histogram', config: props.config };
     case 'line':
       return { chartType: 'line', config: props.config };
+    case 'lollipop':
+      return { chartType: 'lollipop', config: props.config };
     case 'pie':
       return { chartType: 'pie', config: props.config };
     case 'scatter':

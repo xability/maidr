@@ -12,7 +12,12 @@
  * ## Supported Chart Types
  *
  * - **Bar charts** via {@link bindD3Bar}
+ * - **Dot plots** via {@link bindD3Dot}
+ * - **Lollipop charts** via {@link bindD3Lollipop}
+ * - **Funnel charts** via {@link bindD3Funnel}
  * - **Line charts** (single and multi-line) via {@link bindD3Line}
+ * - **Area charts** (plain, stacked, 100% stacked) via {@link bindD3Area}
+ * - **Bump / rank charts** via {@link bindD3Bump}
  * - **Pie and doughnut charts** via {@link bindD3Pie}
  * - **Scatter plots** via {@link bindD3Scatter}
  * - **Heatmaps** via {@link bindD3Heatmap}
@@ -93,12 +98,13 @@ export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from '../../type/gr
 export { Orientation, TraceType } from '../../type/grammar';
 
 // Binder functions
-export { bindD3Bar } from './binders/bar';
+export { bindD3Area } from './binders/area';
+export { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/bar';
 export { bindD3Box } from './binders/box';
 export { bindD3Candlestick } from './binders/candlestick';
 export { bindD3Heatmap } from './binders/heatmap';
 export { bindD3Histogram } from './binders/histogram';
-export { bindD3Line } from './binders/line';
+export { bindD3Bump, bindD3Line } from './binders/line';
 export { bindD3Pie } from './binders/pie';
 export { bindD3Scatter } from './binders/scatter';
 export { bindD3Segmented } from './binders/segmented';
@@ -107,6 +113,9 @@ export { bindD3Facets, bindD3Subplots } from './binders/subplots';
 
 // Types
 export type {
+  AreaTraceType,
+  BarMarkTraceType,
+  D3AreaConfig,
   D3BarConfig,
   D3BinderConfig,
   D3BinderResult,
@@ -126,5 +135,6 @@ export type {
   D3SubplotEntry,
   D3SubplotsConfig,
   DataAccessor,
+  LineMarkTraceType,
   SegmentedTraceType,
 } from './types';

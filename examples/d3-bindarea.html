@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Stacked Area Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Stacked Area Chart</h1>
+    <p>
+      Click on the chart and use arrow keys to navigate. Left and Right move
+      along the years; Up and Down move between the bands. Each point announces
+      the band's own value, the stack total at that year, and its share of it.
+    </p>
+    <div id="chart"></div>
+
+    <script>
+      const rows = [
+        { year: '2019', Subscriptions: 120, Services: 40, Hardware: 25 },
+        { year: '2020', Subscriptions: 165, Services: 55, Hardware: 20 },
+        { year: '2021', Subscriptions: 210, Services: 72, Hardware: 18 },
+        { year: '2022', Subscriptions: 260, Services: 96, Hardware: 15 },
+        { year: '2023', Subscriptions: 335, Services: 120, Hardware: 12 },
+      ];
+
+      const products = ['Subscriptions', 'Services', 'Hardware'];
+      const colors = { Subscriptions: '#2196F3', Services: '#FF9800', Hardware: '#4CAF50' };
+
+      const margin = { top: 40, right: 120, bottom: 50, left: 60 };
+      const width = 640 - margin.left - margin.right;
+      const height = 400 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-area-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // d3.stack() binds one SERIES to each <path>: an array of [y0, y1]
+      // tuples carrying `.key` (the product) and `.data` (the original row).
+      // The binder reads that shape directly — no pre-flattening needed.
+      const series = d3.stack().keys(products)(rows);
+
+      const x = d3.scalePoint().domain(rows.map(d => d.year)).range([0, width]);
+      const y = d3.scaleLinear().domain([0, 500]).range([height, 0]);
+
+      const area = d3.area()
+        .x(d => x(d.data.year))
+        .y0(d => y(d[0]))
+        .y1(d => y(d[1]));
+
+      svg.selectAll('path.area')
+        .data(series)
+        .join('path')
+        .attr('class', 'area')
+        .attr('fill', d => colors[d.key])
+        .attr('d', area);
+
+      svg.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
+      svg.append('g').call(d3.axisLeft(y));
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .text('Revenue by Product');
+
+      // X-axis title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text('Year');
+
+      // Y-axis title
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text('Revenue ($K)');
+
+      // Legend (product swatches)
+      const legend = svg.append('g').attr('transform', `translate(${width + 10}, 0)`);
+      products.forEach((product, i) => {
+        const row = legend.append('g').attr('transform', `translate(0, ${i * 20})`);
+        row.append('rect').attr('width', 14).attr('height', 14).attr('fill', colors[product]);
+        row.append('text').attr('x', 20).attr('y', 11).style('font-size', '12px').text(product);
+      });
+      legend.append('text')
+        .attr('x', 0)
+        .attr('y', -6)
+        .style('font-size', '12px')
+        .style('font-weight', 'bold')
+        .text('Product');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-area-chart');
+      const result = maidrD3.bindD3Area(svgElement, {
+        selector: 'path.area',
+        type: 'stacked_area',
+        title: 'Revenue by Product',
+        axes: { x: 'Year', y: 'Revenue ($K)', fill: 'Product' },
+        // `year` is a key on the stacked ROW, not on the [y0, y1] tuple; the
+        // binder resolves it against `d.data` for you. The value needs no
+        // accessor: each band's height is `y1 - y0`, which is what the trace
+        // sums to recover the stack total.
+        x: 'year',
+      });
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
+    </script>
+  </body>
+</html>

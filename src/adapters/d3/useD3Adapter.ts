@@ -63,12 +63,13 @@ import type {
   D3SubplotsConfig,
 } from './types';
 import { useEffect, useRef, useState } from 'react';
-import { bindD3Bar } from './binders/bar';
+import { bindD3Area } from './binders/area';
+import { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/bar';
 import { bindD3Box } from './binders/box';
 import { bindD3Candlestick } from './binders/candlestick';
 import { bindD3Heatmap } from './binders/heatmap';
 import { bindD3Histogram } from './binders/histogram';
-import { bindD3Line } from './binders/line';
+import { bindD3Bump, bindD3Line } from './binders/line';
 import { bindD3Pie } from './binders/pie';
 import { bindD3Scatter } from './binders/scatter';
 import { bindD3Segmented } from './binders/segmented';
@@ -81,7 +82,7 @@ import { bindD3Facets, bindD3Subplots } from './binders/subplots';
  * The `chartType` field narrows the associated `config` to the correct
  * binder-specific type. This is what `useD3Adapter` and `<MaidrD3>` consume.
  *
- * Besides the ten single-chart types, `'facets'` (homogeneous small
+ * Besides the single-chart types, `'facets'` (homogeneous small
  * multiples) and `'subplots'` (heterogeneous panel grids) select the
  * multi-panel binders.
  */
@@ -114,18 +115,28 @@ export interface UseD3AdapterResult {
  */
 function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiPanelResult {
   switch (spec.chartType) {
+    case 'area':
+      return bindD3Area(svg, { ...spec.config, autoApply: false });
     case 'bar':
       return bindD3Bar(svg, { ...spec.config, autoApply: false });
     case 'box':
       return bindD3Box(svg, { ...spec.config, autoApply: false });
+    case 'bump':
+      return bindD3Bump(svg, { ...spec.config, autoApply: false });
     case 'candlestick':
       return bindD3Candlestick(svg, { ...spec.config, autoApply: false });
+    case 'dot':
+      return bindD3Dot(svg, { ...spec.config, autoApply: false });
+    case 'funnel':
+      return bindD3Funnel(svg, { ...spec.config, autoApply: false });
     case 'heatmap':
       return bindD3Heatmap(svg, { ...spec.config, autoApply: false });
     case 'histogram':
       return bindD3Histogram(svg, { ...spec.config, autoApply: false });
     case 'line':
       return bindD3Line(svg, { ...spec.config, autoApply: false });
+    case 'lollipop':
+      return bindD3Lollipop(svg, { ...spec.config, autoApply: false });
     case 'pie':
       return bindD3Pie(svg, { ...spec.config, autoApply: false });
     case 'scatter':
@@ -148,17 +159,27 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
  */
 function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
   switch (cfg.chartType) {
+    case 'area':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'bar':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'box':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'bump':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'candlestick':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'dot':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'funnel':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'heatmap':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'histogram':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'line':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'lollipop':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'pie':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

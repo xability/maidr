@@ -1,13 +1,16 @@
 /**
- * D3 binder for line charts.
+ * D3 binder for line and bump charts.
  *
  * Extracts data from D3.js-rendered line chart SVG elements and generates
- * the MAIDR JSON schema for accessible line chart interaction.
+ * the MAIDR JSON schema for accessible line chart interaction. A bump chart
+ * plots ranks instead of magnitudes but is drawn and navigated as a multi-line
+ * layer, so it shares this extraction core; the area family builds on it too
+ * (see `binders/area.ts`).
  */
 
 import type { LinePoint, MaidrLayer } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
-import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor } from '../types';
+import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor, LineMarkTraceType } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector, selectorPrefix } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
@@ -61,12 +64,52 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 }
 
 /**
+ * Binds a D3.js bump chart (rank over time) to MAIDR.
+ *
+ * A bump chart is a multi-line layer whose y values are **ranks**: 1 is the
+ * best position and the smallest number. The extraction is that of
+ * {@link bindD3Line} — one `<path>` per competitor, `fill` naming it — and the
+ * ranks you already bind are what `y` should read. The trace inverts the pitch
+ * so first place is the highest note, and announces the places gained or lost
+ * at each period, so nothing extra has to be computed here.
+ *
+ * A slope graph of *values* is a line chart with two samples, not this.
+ *
+ * @param svg - The SVG element containing the D3 bump chart.
+ * @param config - Configuration specifying selectors and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Bump(svgElement, {
+ *   selector: 'path.rank-line',
+ *   title: 'League Table by Round',
+ *   axes: { x: 'Round', y: 'Rank', fill: 'Team' },
+ *   x: 'round',
+ *   y: 'rank',
+ *   fill: 'team',
+ * });
+ * ```
+ */
+export function bindD3Bump(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, TraceType.BUMP));
+}
+
+/**
  * Pure extraction core for line charts. See {@link buildBarLayer} for the
  * single-chart vs multi-panel contract.
  *
+ * The trailing `type` selects which chart the layer announces itself as; the
+ * extraction is the same for all of them (see {@link LineMarkTraceType}).
+ *
  * @internal
  */
-export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3PanelScope): D3BuiltLayer {
+export function buildLineLayer(
+  root: Element,
+  config: D3LineConfig,
+  panel?: D3PanelScope,
+  type: LineMarkTraceType = TraceType.LINE,
+): D3BuiltLayer {
   const {
     title,
     axes,
@@ -234,60 +277,17 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
     }
   }
 
-  // Ensure the SVG has a stable id so we can emit absolutely-scoped selectors
-  // (the model resolves selectors via global `document.querySelector`, so they
-  // MUST be unique page-wide). `selectorPrefix` auto-assigns an id when the
-  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
-  // the `data-maidr-panel` segment on multi-panel binds.
-  const prefix = selectorPrefix(root, panel);
-
-  // LineTrace's `mapToSvgElements` requires one selector per line (it uses
-  // `Svg.selectElement(selectors[r])` to grab a single <path> per series for
-  // path-parsing, or `selectAllElements(selectors[r])` for per-point markers).
-  // A bare `selector` like `"path.line"` matches ALL line paths at once, so
-  // `selectors.length (1) !== lineValues.length (N)` → the model bails out
-  // and no highlight renders.
-  //
-  // Structural selectors (e.g. `:nth-child(N)`) are fragile to DOM reordering
-  // (legend/axis insertions, React re-renders, non-path siblings shifting
-  // nth-child indices). Instead, stamp a MAIDR-owned `data-maidr-line-index`
-  // attribute on each line path at bind time and emit selectors that pin
-  // that attribute, absolutely scoped by the SVG's id. This matches the
-  // Google Charts adapter's `data-maidr-line-series` / `data-maidr-point`
-  // convention and survives any DOM reordering that leaves the path itself
-  // intact.
-  // Emit selectors from the same rows that produced `data`. `rowPaths` is
-  // parallel to `data`, so stamping each path with its row index guarantees
-  // `selectors.length === data.length` — even when some paths were dropped
-  // (empty series) or the path↔series mapping was ambiguous. When any surviving
-  // row lacks an identified path, we cannot emit a safe per-series selector, so
-  // degrade to no-highlight (`undefined`) instead of mis-highlighting.
-  //
-  // Stamp a MAIDR-owned `data-maidr-line-index` attribute (absolutely scoped by
-  // the SVG's id) rather than a structural `:nth-child` selector, which is
-  // fragile to DOM reordering. This matches the Google Charts adapter's
-  // `data-maidr-line-series` convention and survives any reordering that leaves
-  // the path itself intact.
-  let selectorValue: string | string[] | undefined;
-  if (lineElements.length > 1) {
-    if (rowPaths.length === data.length && rowPaths.every(el => el !== null)) {
-      selectorValue = rowPaths.map((element, rowIndex) => {
-        // Clear any prior stamp so rebinding after a D3 data update produces
-        // a clean, deterministic state.
-        element!.removeAttribute('data-maidr-line-index');
-        element!.setAttribute('data-maidr-line-index', String(rowIndex));
-        return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
-      });
-    } else {
-      selectorValue = undefined;
-    }
-  } else {
+  // Emit selectors from the same rows that produced `data`: `rowPaths` is
+  // parallel to it. See {@link stampSeriesSelectors} for why a bare selector
+  // will not do.
+  const selectorValue: string | string[] | undefined = lineElements.length > 1
+    ? stampSeriesSelectors(root, selector, rowPaths, data.length, panel)
     // Exactly one path matched → a single scoped selector highlights it.
-    selectorValue = scopeSelector(root, selector, panel);
-  }
+    : scopeSelector(root, selector, panel);
+
   const layer: MaidrLayer = {
     id: generateId(),
-    type: TraceType.LINE,
+    type,
     title,
     selectors: selectorValue,
     axes: buildAxes(axes, format),
@@ -295,6 +295,68 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
   };
 
   return { layer, legend };
+}
+
+/**
+ * Emits one highlight selector per series, by stamping each series' `<path>`
+ * with a MAIDR-owned `data-maidr-line-index` attribute and pinning it.
+ *
+ * `LineTrace.mapToSvgElements` requires one selector per line (it uses
+ * `Svg.selectElement(selectors[r])` to grab a single `<path>` per series for
+ * path-parsing, or `selectAllElements(selectors[r])` for per-point markers).
+ * A bare `selector` like `"path.line"` matches ALL line paths at once, so
+ * `selectors.length (1) !== lineValues.length (N)` → the model bails out and
+ * no highlight renders.
+ *
+ * Structural selectors (e.g. `:nth-child(N)`) are fragile to DOM reordering
+ * (legend/axis insertions, React re-renders, non-path siblings shifting
+ * nth-child indices), so the stamp is an attribute the binder owns, absolutely
+ * scoped by the SVG's id. This matches the Google Charts adapter's
+ * `data-maidr-line-series` / `data-maidr-point` convention and survives any
+ * DOM reordering that leaves the path itself intact.
+ *
+ * @param root      - The extraction root (the SVG, or a panel element).
+ * @param selector  - The user-provided selector matching the series paths.
+ * @param rowPaths  - The `<path>` that produced each data row, parallel to the
+ *                    emitted rows. A `null` entry marks a row whose rendering
+ *                    path could not be reliably identified.
+ * @param rowCount  - How many rows the layer emits.
+ * @param panel     - Optional panel scope for multi-panel binds.
+ * @returns One selector per row, or `undefined` when a safe per-series
+ *          selector cannot be emitted — the model then withdraws highlighting
+ *          instead of highlighting the wrong series.
+ *
+ * @internal
+ */
+export function stampSeriesSelectors(
+  root: Element,
+  selector: string,
+  rowPaths: (Element | null)[],
+  rowCount: number,
+  panel?: D3PanelScope,
+): string[] | undefined {
+  if (rowPaths.length !== rowCount) {
+    return undefined;
+  }
+  const paths: Element[] = [];
+  for (const element of rowPaths) {
+    if (element === null) {
+      return undefined;
+    }
+    paths.push(element);
+  }
+
+  // `selectorPrefix` auto-assigns an id when the container lacks one,
+  // mirroring `scopeSelector`'s behaviour, and appends the `data-maidr-panel`
+  // segment on multi-panel binds.
+  const prefix = selectorPrefix(root, panel);
+  return paths.map((element, rowIndex) => {
+    // Clear any prior stamp so rebinding after a D3 data update produces a
+    // clean, deterministic state.
+    element.removeAttribute('data-maidr-line-index');
+    element.setAttribute('data-maidr-line-index', String(rowIndex));
+    return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
+  });
 }
 
 /**

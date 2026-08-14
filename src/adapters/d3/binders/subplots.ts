@@ -34,8 +34,10 @@ import type {
   D3SubplotsConfig,
   DataAccessor,
 } from '../types';
+import { TraceType } from '../../../type/grammar';
 import { ensureContainerId, PANEL_ATTRIBUTE } from '../selectors';
 import { applyMaidrData, generateId, getD3Datum, isMaidrOwned, resolveAccessorOptional } from '../util';
+import { buildAreaLayer } from './area';
 import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
 import { buildCandlestickLayer } from './candlestick';
@@ -229,18 +231,28 @@ function buildPanelGrid(
 /** Dispatches a panel cell to the matching per-type extraction core. */
 function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelScope): D3BuiltLayer {
   switch (spec.chartType) {
+    case 'area':
+      return buildAreaLayer(root, spec.config, panel);
     case 'bar':
       return buildBarLayer(root, spec.config, panel);
     case 'box':
       return buildBoxLayer(root, spec.config, panel);
+    case 'bump':
+      return buildLineLayer(root, spec.config, panel, TraceType.BUMP);
     case 'candlestick':
       return buildCandlestickLayer(root, spec.config, panel);
+    case 'dot':
+      return buildBarLayer(root, spec.config, panel, TraceType.DOT);
+    case 'funnel':
+      return buildBarLayer(root, spec.config, panel, TraceType.FUNNEL);
     case 'heatmap':
       return buildHeatmapLayer(root, spec.config, panel);
     case 'histogram':
       return buildHistogramLayer(root, spec.config, panel);
     case 'line':
       return buildLineLayer(root, spec.config, panel);
+    case 'lollipop':
+      return buildBarLayer(root, spec.config, panel, TraceType.LOLLIPOP);
     case 'pie':
       return buildPieLayer(root, spec.config, panel);
     case 'scatter':
