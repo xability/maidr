@@ -218,10 +218,13 @@ describe('highchartsGridToMaidr', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const noSeries = fakeChart({ type: 'column', renderToId: 'grid-none-1', series: [] });
+      // A type this adapter has no converter for. Deliberately not a real
+      // Highcharts series name: every one of those is a candidate for support,
+      // and this case is about what happens when nothing converts.
       const unsupported = fakeChart({
-        type: 'treemap',
+        type: 'nonesuch',
         renderToId: 'grid-none-2',
-        series: [fakeSeries({ index: 0, type: 'treemap', name: 'Share', data: categoryPoints([1], ['a']) })],
+        series: [fakeSeries({ index: 0, type: 'nonesuch', name: 'Share', data: categoryPoints([1], ['a']) })],
       });
 
       expect(() => highchartsGridToMaidr([noSeries, unsupported]))

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Lollipop Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/dumbbell.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/lollipop.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Lollipop Chart</h1>
+    <p>
+      A Highcharts lollipop chart made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to move
+      between months; each marker announces its month and its temperature. The
+      stem is decoration — it repeats the value the marker already sits at — so
+      only the marker is highlighted.
+    </p>
+
+    <div id="lollipop-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('lollipop-chart', {
+        chart: { type: 'lollipop' },
+        title: { text: 'Average Monthly Temperature in Oslo' },
+        legend: { enabled: false },
+        xAxis: {
+          type: 'category',
+          categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          title: { text: 'Month' },
+        },
+        yAxis: { title: { text: 'Temperature (°C)' } },
+        series: [{ name: 'Temperature', data: [-4.3, -3.9, -0.4, 4.6, 10.8, 15.1] }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'lollipop-chart' });
+      document.getElementById('lollipop-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

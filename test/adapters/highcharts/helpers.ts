@@ -37,6 +37,8 @@ export interface FakeSeriesInput {
   yAxis?: HighchartsAxis;
   visible?: boolean;
   options?: HighchartsSeries['options'];
+  /** The series Highcharts resolved this one's `linkedTo` to. */
+  linkedParent?: HighchartsSeries;
 }
 
 export function fakeSeries(input: FakeSeriesInput): HighchartsSeries {
@@ -48,6 +50,7 @@ export function fakeSeries(input: FakeSeriesInput): HighchartsSeries {
     xAxis: input.xAxis ?? fakeAxis(),
     yAxis: input.yAxis ?? fakeAxis(),
     options: input.options ?? {},
+    linkedParent: input.linkedParent,
     data: [] as HighchartsPoint[],
   } as HighchartsSeries;
 
@@ -69,6 +72,11 @@ export interface FakeChartInput {
   renderToId?: string;
   xAxis?: HighchartsAxis[];
   yAxis?: HighchartsAxis[];
+  plotOptions?: HighchartsChart['options']['plotOptions'];
+  /** Wraps the cartesian plane around a circle — radar, spider, wind rose. */
+  polar?: boolean;
+  /** One axis per variable, one series per observation. */
+  parallelCoordinates?: boolean;
 }
 
 export function fakeChart(input: FakeChartInput): HighchartsChart {
@@ -83,8 +91,27 @@ export function fakeChart(input: FakeChartInput): HighchartsChart {
     title: { textStr: input.title },
     container: renderTo,
     renderTo,
-    options: { chart: { type: input.type } },
+    options: {
+      chart: {
+        type: input.type,
+        polar: input.polar,
+        parallelCoordinates: input.parallelCoordinates,
+      },
+      plotOptions: input.plotOptions,
+    },
   } as HighchartsChart;
+}
+
+/**
+ * A stand-in for the `point.graphic` reference Highcharts sets during render.
+ *
+ * The adapter stamps index attributes onto that element for the trace types
+ * whose DOM order does not match declaration order (heatmap cells, treemap and
+ * sunburst nodes), so a test that covers stamping needs a real element to
+ * inspect afterwards.
+ */
+export function fakeGraphic(): { element: SVGElement } {
+  return { element: doc.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGElement };
 }
 
 /** Points for a simple category bar/column series. */

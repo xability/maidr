@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Dependency Wheel - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- dependency-wheel.js extends the sankey series, so both are needed. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/sankey.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/dependency-wheel.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Dependency Wheel</h1>
+    <p>
+      A Highcharts dependency wheel made accessible by the MAIDR Highcharts
+      adapter. It is the same weighted graph a sankey carries, bent into a
+      circle, so MAIDR reads it as a chord diagram: click on the chart and use
+      the arrow keys to move between nodes and to follow a ribbon to the node
+      at its other end.
+    </p>
+
+    <div id="chord-chart" style="width: 700px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('chord-chart', {
+        chart: { type: 'dependencywheel' },
+        title: { text: 'Migration Between Regions' },
+        series: [{
+          name: 'People',
+          keys: ['from', 'to', 'weight'],
+          data: [
+            ['Africa', 'Europe', 41],
+            ['Africa', 'Asia', 22],
+            ['Asia', 'Europe', 58],
+            ['Asia', 'North America', 47],
+            ['Europe', 'North America', 33],
+            ['Europe', 'Asia', 19],
+            ['North America', 'Europe', 15],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'chord-chart' });
+      document.getElementById('chord-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

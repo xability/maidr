@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Sankey Diagram - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/sankey.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Sankey Diagram</h1>
+    <p>
+      A Highcharts sankey diagram made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use the arrow keys to walk the graph:
+      Left and Right move between nodes at the same stage, Up and Down follow a
+      flow to the node at its other end. The nodes are derived from the links,
+      so nothing has to be declared twice.
+    </p>
+
+    <div id="sankey-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('sankey-chart', {
+        chart: { type: 'sankey' },
+        title: { text: 'Where the Energy Goes' },
+        series: [{
+          name: 'Energy',
+          keys: ['from', 'to', 'weight'],
+          data: [
+            ['Coal', 'Electricity', 34],
+            ['Gas', 'Electricity', 21],
+            ['Nuclear', 'Electricity', 18],
+            ['Wind', 'Electricity', 12],
+            ['Electricity', 'Homes', 40],
+            ['Electricity', 'Industry', 27],
+            ['Electricity', 'Losses', 18],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'sankey-chart' });
+      document.getElementById('sankey-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

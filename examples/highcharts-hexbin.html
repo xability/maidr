@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Hexagonal Tilemap - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/heatmap.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/tilemap.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Hexagonal Tilemap</h1>
+    <p>
+      A Highcharts hexagonal tilemap made accessible by the MAIDR Highcharts
+      adapter. A tilemap whose tiles tessellate is a hex lattice, and MAIDR
+      reads it as one: the rows are walked left and right, and a vertical move
+      lands on the bin whose centre is nearest in x, since a staggered lattice
+      has no bin directly above another. Highcharts bins nothing itself — the
+      tiles are supplied already binned — so a bin's count is the value its
+      tile declares. Click on the chart and use the arrow keys.
+    </p>
+
+    <div id="hexbin-chart" style="width: 800px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('hexbin-chart', {
+        chart: { type: 'tilemap' },
+        title: { text: 'Observations per Hexagonal Bin' },
+        xAxis: { title: { text: 'Column' } },
+        yAxis: { title: { text: 'Row' } },
+        colorAxis: { min: 0, stops: [[0, '#f4f7fb'], [1, '#1f4e79']] },
+        plotOptions: { series: { tileShape: 'hexagon' } },
+        series: [
+          {
+            name: 'Density',
+            data: [
+              { x: 0, y: 0, value: 4 },
+              { x: 1, y: 0, value: 11 },
+              { x: 2, y: 0, value: 7 },
+              { x: 3, y: 0, value: 2 },
+              { x: 0, y: 1, value: 9 },
+              { x: 1, y: 1, value: 23 },
+              { x: 2, y: 1, value: 18 },
+              { x: 3, y: 1, value: 5 },
+              { x: 0, y: 2, value: 3 },
+              { x: 1, y: 2, value: 14 },
+              { x: 2, y: 2, value: 31 },
+              { x: 3, y: 2, value: 12 },
+              { x: 0, y: 3, value: 1 },
+              { x: 1, y: 3, value: 6 },
+              { x: 2, y: 3, value: 10 },
+              { x: 3, y: 3, value: 4 },
+            ],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'hexbin-chart' });
+      document.getElementById('hexbin-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

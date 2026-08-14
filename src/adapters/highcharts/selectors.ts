@@ -114,6 +114,308 @@ export function scatterSelector(containerId: string, seriesIndex: number): strin
 }
 
 /**
+ * Generates a CSS selector for the markers of several `scatter` series read as
+ * one volcano or Manhattan plot.
+ *
+ * MAIDR's `VolcanoTrace` inherits `ScatterTrace`'s single-string selector and
+ * pairs the elements it finds with the points by index, so a Manhattan drawn
+ * as one series per chromosome needs one selector spanning all of them. A
+ * comma-joined selector returns them in **document order**, which is series
+ * order: Highcharts appends each series' group and marker group to the shared
+ * `.highcharts-series-group` as it renders them, in series order, and gives
+ * both the same z-index. That is the order the layer concatenates its points
+ * in.
+ *
+ * The hidden hit-detection duplicates documented on {@link scatterSelector}
+ * apply here too and are filtered out the same way.
+ */
+export function volcanoSelector(containerId: string, seriesIndices: number[]): string {
+  return seriesIndices
+    .map(i => scatterSelector(containerId, i))
+    .join(', ');
+}
+
+/**
+ * Generates per-bin CSS selectors for a `tilemap` series read as a hexbin.
+ *
+ * MAIDR's `HexbinTrace` slices its selector list row by row, so the list has
+ * to run in lattice order — rows along the y axis, bins along x within each —
+ * while Highcharts draws the tiles in `series.data` order, which a tilemap is
+ * routinely authored in some other order entirely (a honeycomb map is
+ * declared country by country). The adapter therefore stamps
+ * `data-maidr-bin-index="N"` onto each rendered tile in lattice order (see
+ * `stampHexbinIndices` in adapter.ts) and these selectors address the stamp.
+ *
+ * A tile Highcharts did not draw has no element to stamp, so its selector
+ * matches nothing and `HexbinTrace` withdraws the layer's highlighting rather
+ * than pairing bins with their neighbours' tiles — which on a staggered
+ * lattice is not even a neighbour in the direction a reader would guess.
+ */
+export function hexbinSelectors(
+  containerId: string,
+  seriesIndex: number,
+  binCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < binCount; i++) {
+    selectors.push(`${base} [data-maidr-bin-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
+ * Generates a CSS selector for the markers of a lollipop series.
+ *
+ * Highcharts draws each lollipop as two elements: the marker, rendered by
+ * `Series#drawPoints` with the `highcharts-point` class, and the stem down to
+ * the baseline — a `<path class="highcharts-lollipop-stem">` that carries no
+ * point class and is therefore already excluded. The stem only repeats the
+ * value its marker already sits at, so MAIDR highlights the marker alone.
+ *
+ * The markers come from the same `Series#drawPoints` path as scatter markers,
+ * so the hidden hit-detection duplicates documented on {@link scatterSelector}
+ * apply here too and are filtered out the same way.
+ */
+export function lollipopSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not([visibility="hidden"])`;
+}
+
+/**
+ * Generates a CSS selector for the connectors of a `dumbbell` series.
+ *
+ * A dumbbell draws three elements per row: the two dots, which
+ * `AreaRangeSeries#drawPoints` renders as ordinary markers carrying the point
+ * class (plus `highcharts-lollipop-low` / `-high`), and the segment between
+ * them, a `<path class="highcharts-lollipop-stem">` that `drawConnector` adds
+ * for every row. A `.highcharts-point` selector would therefore return two
+ * elements per row, which is one too many: MAIDR's `DumbbellTrace` wants one
+ * element per row and highlights the same one from both ends, since the chart
+ * draws one connector per row and not one element per dot.
+ *
+ * The connector is also the more dependable of the two. Highcharts drops the
+ * markers when the points get dense enough to overlap
+ * (`marker.enabledThreshold`), while `drawConnector` runs unconditionally.
+ */
+export function dumbbellSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} path.highcharts-lollipop-stem`;
+}
+
+/**
+ * Generates a CSS selector for the whips of an `errorbar` series.
+ *
+ * An error bar is a box plot without the quartiles — `ErrorBarSeries` extends
+ * `BoxPlotSeries` with `doQuartiles: false` — so each sample is drawn as a
+ * `<g class="highcharts-point">` holding the stem, the two caps and the
+ * median mark. The group is the whole whip and is what MAIDR highlights: the
+ * lower bound, the estimate and the upper bound are three magnitudes read off
+ * one drawn element, so all three highlight it.
+ *
+ * Matching `g.highcharts-point` rather than the bare class is what keeps the
+ * count right on the linked series a chart usually pairs an error bar with —
+ * the group is the only element inside the series carrying the point class.
+ */
+export function errorBarSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} g.highcharts-point`;
+}
+
+/**
+ * Generates per-series CSS selectors for the wedges of a polar `column` series
+ * — a wind rose or coxcomb.
+ *
+ * MAIDR reads a polar area with `RadarTrace`, which inherits `LineTrace`'s
+ * selector handling: one entry per series, each resolving to that series' own
+ * marks. A polar column draws one arc per spoke carrying the point class, so
+ * the count matches the row's values and `LineTrace` highlights the arcs
+ * directly rather than falling back to parsing a path.
+ *
+ * A radar drawn with `line` or `area` series uses {@link lineSelectors}
+ * instead: those series draw an outline rather than one mark per spoke.
+ */
+export function polarAreaSelectors(containerId: string, seriesIndices: number[]): string[] {
+  return seriesIndices.map(
+    i => `#${containerId} .highcharts-series-group .highcharts-series-${i} .highcharts-point`,
+  );
+}
+
+/**
+ * Generates per-interval CSS selectors for a `gantt` or `xrange` series.
+ *
+ * MAIDR's `GanttTrace` reads its selector list **grouped by lane** — the flat
+ * list is sliced lane by lane — while Highcharts draws the intervals in
+ * `series.data` order, which interleaves lanes freely. Document order
+ * therefore says nothing about lane membership, so the adapter stamps
+ * `data-maidr-task-index="N"` onto each rendered interval in the lane-major
+ * order MAIDR expects (see `stampGanttIndices` in adapter.ts) and these
+ * selectors address the stamp.
+ *
+ * Stamping also side-steps how `XRangeSeries#drawPoint` nests its marks: an
+ * ordinary task is a `<g class="highcharts-point">` wrapping a
+ * `<rect class="highcharts-point highcharts-partfill-original">`, so the point
+ * class appears twice per interval, while a gantt milestone is a single
+ * `<path class="highcharts-point">` with no wrapper. The stamp lands on the
+ * one element Highcharts records as the point's `graphic` in both cases.
+ */
+export function ganttSelectors(
+  containerId: string,
+  seriesIndex: number,
+  taskCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < taskCount; i++) {
+    selectors.push(`${base} [data-maidr-task-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
+ * Generates a CSS selector for the stages of a funnel (or pyramid) series.
+ *
+ * A funnel series extends the pie series, so each stage is drawn as a
+ * `<path class="highcharts-point">` inside the series group in `series.data`
+ * order — stage *k* is segment *k*, with no reordering to undo.
+ */
+export function funnelSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for the terms of a wordcloud series.
+ *
+ * Each term is a `<text class="highcharts-point">` inside the series group.
+ * Highcharts appends them heaviest first rather than in `series.data` order,
+ * so document order here is weight order; the adapter emits its terms in that
+ * same order (see `convertWordCloudSeries`) and this selector only has to find
+ * them. The sizing probe Highcharts adds while laying the cloud out is
+ * destroyed before the render finishes and never carries the point class.
+ */
+export function wordCloudSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for the ribbons of a sankey, dependency wheel or
+ * arc diagram series.
+ *
+ * These series draw twice: `SankeySeries#drawPoints` runs the column
+ * point-drawing pass over `series.points` (the links) and then again over
+ * `series.nodes`, so the series group holds both, and a `.highcharts-point`
+ * selector would return links plus nodes. `SankeyPoint#getClassName` marks
+ * which is which — every link carries `highcharts-link` and every node
+ * `highcharts-node` — so matching the link class alone returns exactly one
+ * element per flow, in `series.data` order.
+ *
+ * MAIDR's `FlowTrace` wants precisely that: its selector list is one entry per
+ * flow, and the nodes highlight through the ribbons they touch rather than
+ * through marks of their own.
+ */
+export function flowSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-link`;
+}
+
+/**
+ * Generates a CSS selector for the links of a networkgraph series.
+ *
+ * A network graph draws its nodes as ordinary markers and its links as bare
+ * `<path>` elements (`NetworkgraphPoint#renderLink`), and unlike the sankey
+ * family it gives the links no class of their own — both end up carrying only
+ * `highcharts-point`. The nodes are the ones Highcharts marks, via the
+ * `highcharts-node` class it puts on every node it creates, so the links are
+ * what is left once those are excluded.
+ *
+ * Excluding by class rather than relying on document order is deliberate:
+ * nodes render into `series.markerGroup` and links into `series.group`, two
+ * sibling elements that both carry `highcharts-series-N`, so which of them a
+ * query reaches first is a fact about group creation rather than about the
+ * data.
+ */
+export function networkSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not(.highcharts-node)`;
+}
+
+/**
+ * Generates per-node CSS selectors for a treemap or sunburst series.
+ *
+ * MAIDR's `TreemapTrace` indexes its selector list by the order the nodes were
+ * declared, but neither series draws in that order: `TreemapSeries#drawPoints`
+ * files each rectangle into a `level-group-N` container whose `zIndex` is the
+ * negated depth, so the DOM is grouped by depth and the deepest level comes
+ * first. Document order therefore says nothing about declaration order, which
+ * is why the adapter stamps `data-maidr-node-index="N"` onto each rendered
+ * node (see `stampTreeIndices` in adapter.ts) and these selectors address the
+ * stamp.
+ *
+ * A node Highcharts did not draw — one hidden below the current root, or a
+ * point it found no room for — has no element to stamp, so its selector
+ * matches nothing and `TreemapTrace` withdraws the layer's highlighting
+ * rather than pairing the remaining nodes with the wrong rectangles.
+ */
+export function treemapSelectors(
+  containerId: string,
+  seriesIndex: number,
+  nodeCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < nodeCount; i++) {
+    selectors.push(`${base} [data-maidr-node-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
+ * Generates a CSS selector for the needle of a `gauge` series.
+ *
+ * A dial is the one mark in this adapter that carries no point class at all:
+ * `GaugeSeries#drawPoints` builds it with `addClass('highcharts-dial')` and
+ * never runs the shared point-drawing pass, so `.highcharts-point` matches
+ * nothing on a gauge. The pivot the needle turns on is a separate
+ * `.highcharts-pivot` circle that repeats no value, so the needle alone is
+ * what MAIDR highlights.
+ */
+export function gaugeSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-dial`;
+}
+
+/**
+ * Generates a CSS selector for the arc of a `solidgauge` series.
+ *
+ * A solid gauge draws the reading as a filled arc rather than a needle, and
+ * that arc is an ordinary point: `SolidGaugeSeries#drawPoints` adds
+ * `point.getClassName()` to it, so the point class is there.
+ */
+export function solidGaugeSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for the measure bar of a `bullet` series.
+ *
+ * A bullet series extends column, so the bar is a plain point — but each bar
+ * also gets a target marker drawn with `point.getClassName() +
+ * ' highcharts-bullet-target'`, which means the point class appears twice per
+ * datum. The target is announced as the gauge point's `target` rather than
+ * highlighted, so it is excluded here and the bar is what the cursor lands on.
+ */
+export function bulletSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not(.highcharts-bullet-target)`;
+}
+
+/**
+ * Generates a CSS selector for the floating bars of a `waterfall` series.
+ *
+ * A waterfall extends column, so each step is one `.highcharts-point` in
+ * `series.data` order. The dashed connectors Highcharts strings between the
+ * bars are a single `path.highcharts-graph` carrying no point class, so they
+ * are already excluded — which is what MAIDR wants, since a connector only
+ * repeats the running total the two bars it joins already announce.
+ */
+export function waterfallSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
  * Generates a CSS selector for the wedges of a pie (or doughnut) series.
  *
  * Highcharts draws each slice as a `<path class="highcharts-point">` inside

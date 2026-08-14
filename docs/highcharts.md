@@ -103,20 +103,75 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 | MAIDR Type | Highcharts series type(s) | Example |
 |------------|---------------------------|---------|
-| Bar | `bar`, `column` | [highcharts-bar.html](highcharts-bar.html) |
-| Line | `line`, `spline`, `area`, `areaspline` | [highcharts-line.html](highcharts-line.html) |
-| Step | `line`, `spline`, `area`, `areaspline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](highcharts-line.html) |
-| Scatter | `scatter` | [highcharts-scatter.html](highcharts-scatter.html) |
-| Box Plot | `boxplot` | [highcharts-box.html](highcharts-box.html) |
-| Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](highcharts-heatmap.html) |
-| Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](highcharts-histogram.html) |
-| Candlestick | `candlestick`, `ohlc` (Highstock) | [highcharts-candlestick.html](highcharts-candlestick.html) |
-| Stacked Bar | `column`/`bar` + `plotOptions.column.stacking: 'normal'` | [highcharts-stacked.html](highcharts-stacked.html) |
-| Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](highcharts-dodged.html) |
-| Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](highcharts-normalized.html) |
-| Pie | `pie` (a doughnut is a `pie` with an `innerSize`) | [highcharts-pie.html](highcharts-pie.html) |
+| Bar | `bar`, `column` | [highcharts-bar.html](examples/highcharts-bar.html) |
+| Line | `line`, `spline` | [highcharts-line.html](examples/highcharts-line.html) |
+| Step | `line`, `spline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](examples/highcharts-line.html) |
+| Area | `area`, `areaspline` | [highcharts-area.html](examples/highcharts-area.html) |
+| Stacked Area | `area`/`areaspline` + `stacking: 'normal'` | [highcharts-area.html](examples/highcharts-area.html) |
+| Normalized Area | `area`/`areaspline` + `stacking: 'percent'` | [highcharts-area.html](examples/highcharts-area.html) |
+| Scatter | `scatter` on numeric axes | [highcharts-scatter.html](examples/highcharts-scatter.html) |
+| Dot Plot | `scatter` on a category x axis | [highcharts-dot.html](examples/highcharts-dot.html) |
+| Lollipop | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](examples/highcharts-lollipop.html) |
+| Funnel | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](examples/highcharts-funnel.html) |
+| Word Cloud | `wordcloud` (requires `modules/wordcloud.js`) | [highcharts-wordcloud.html](examples/highcharts-wordcloud.html) |
+| Sankey | `sankey` (requires `modules/sankey.js`), `arcdiagram` (requires `modules/sankey.js` and `modules/arc-diagram.js`) | [highcharts-sankey.html](examples/highcharts-sankey.html) |
+| Chord | `dependencywheel` (requires `modules/sankey.js` and `modules/dependency-wheel.js`) | [highcharts-chord.html](examples/highcharts-chord.html) |
+| Network | `networkgraph` (requires `modules/networkgraph.js`) | [highcharts-network.html](examples/highcharts-network.html) |
+| Treemap | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](examples/highcharts-treemap.html) |
+| Sunburst | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](examples/highcharts-sunburst.html) |
+| Gauge | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](examples/highcharts-gauge.html) |
+| Waterfall | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](examples/highcharts-waterfall.html) |
+| Error Bar | `errorbar` (requires `highcharts-more.js`), reading its estimates from the series it is `linkedTo` | [highcharts-errorbar.html](examples/highcharts-errorbar.html) |
+| Dumbbell | `dumbbell` (requires `highcharts-more.js` and `modules/dumbbell.js`) | [highcharts-dumbbell.html](examples/highcharts-dumbbell.html) |
+| Gantt | `gantt` (requires `modules/gantt.js`), `xrange` (requires `modules/xrange.js`) | [highcharts-gantt.html](examples/highcharts-gantt.html) |
+| Radar | `chart.polar: true` with `line`/`spline`/`area`/`areaspline` series (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
+| Polar Area | `chart.polar: true` with `column`/`bar` series — a wind rose or coxcomb (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
+| Parallel Coordinates | `chart.parallelCoordinates: true` (requires `modules/parallel-coordinates.js`) | [highcharts-parallel.html](examples/highcharts-parallel.html) |
+| Diverging Bar | two `column`/`bar` series with `stacking: 'normal'`, one growing each way | [highcharts-diverging.html](examples/highcharts-diverging.html) |
+| Bump | `line`/`spline` series carrying ranks on a `reversed` y axis | [highcharts-bump.html](examples/highcharts-bump.html) |
+| Hexbin | `tilemap` with a tessellating `tileShape` — `hexagon` (the default), `diamond` or `circle` (requires `modules/heatmap.js` and `modules/tilemap.js`) | [highcharts-hexbin.html](examples/highcharts-hexbin.html) |
+| Volcano | `scatter` declared with `significancePlot: { type: 'volcano' }` | [highcharts-volcano.html](examples/highcharts-volcano.html) |
+| Manhattan | `scatter` series, one per chromosome, declared with `significancePlot: { type: 'manhattan' }` | [highcharts-manhattan.html](examples/highcharts-manhattan.html) |
+| Box Plot | `boxplot` | [highcharts-box.html](examples/highcharts-box.html) |
+| Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](examples/highcharts-heatmap.html) |
+| Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](examples/highcharts-histogram.html) |
+| Candlestick | `candlestick`, `ohlc` (Highstock) | [highcharts-candlestick.html](examples/highcharts-candlestick.html) |
+| Stacked Bar | `column`/`bar` + `plotOptions.column.stacking: 'normal'` | [highcharts-stacked.html](examples/highcharts-stacked.html) |
+| Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](examples/highcharts-dodged.html) |
+| Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](examples/highcharts-normalized.html) |
+| Pie | `pie` (a doughnut is a `pie` with an `innerSize`) | [highcharts-pie.html](examples/highcharts-pie.html) |
 
-> **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration.
+> **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration. The same holds for funnel and word cloud layers, whose dimensions are named `Stage`/`Count` and `Term`/`Weight`.
+
+> **Area note:** every `area`/`areaspline` series in one panel becomes a single area layer, because a stacked band's running total only exists when all the bands share a layer. A stacked area is read as such — each point announces its own height alongside the total it sits in — and a percent stack carries the shares Highcharts computed, which is what the chart draws. `step` is not carried through on an area series: a layer holds one trace type, and announcing a stacked area as a step layer would drop the totals.
+
+> **Dot plot note:** a scatter drawn against a category axis is a Cleveland dot plot, and is emitted as one. MAIDR's scatter payload takes a strictly numeric `x`, so reading such a series as a scatter would announce the bare tick index instead of the category the chart prints.
+
+> **Word cloud note:** Highcharts lays a cloud out heaviest word first, so the adapter emits its terms in that order to keep each announcement matched with the glyph it highlights. A word Highcharts could not fit into the playing field is not drawn at all; MAIDR then reports the terms and their weights but disables highlighting for that layer, rather than pairing announcements with the wrong glyphs.
+
+> **Flow note:** a sankey, dependency wheel and arc diagram are the same weighted graph — the latter two extend the sankey series — declared as one point per link with `from`, `to` and `weight`. MAIDR derives the nodes from those links, so `series.nodes` is deliberately not read: a second node list would be a second source of truth for something the links already say. Only the announced chart type differs between the three, so the chart names itself as the form the author drew. A link whose weight is zero is dropped, because Highcharts renders no ribbon for it. A network graph is the same shape without the weight, and carries no node positions: where a force solver drops a node is a fact about its seed rather than about the data.
+
+> **Hierarchy note:** Highcharts declares a treemap or sunburst with `id`/`parent` pointers, and MAIDR declares one as a path — a node's ancestors, root first, itself excluded — so the adapter walks each node's parent chain to build it. A parent id that was never declared ends the path there, matching how Highcharts attaches such a node to the root, and a cyclic chain is broken with a warning rather than followed. Interior nodes keep whatever value they declared and are otherwise left valueless, since MAIDR derives an interior total from the children the paths give it. Both series file their marks into one DOM group per depth ordered by z-index, so document order says nothing about declaration order; the adapter stamps `data-maidr-node-index` onto each rendered node and the selectors address the stamp. A node Highcharts did not draw leaves MAIDR with fewer elements than nodes, and highlighting is withdrawn for that layer rather than paired with the wrong rectangles.
+
+> **Gauge note:** a gauge layer's data is a single object rather than an array, because the chart draws exactly one measure; a series declaring several dials is read as its first. The dial's ends come from the value axis' extremes, a bullet chart's target from the point, and the qualitative bands from the axis' `plotBands`, sorted ascending because MAIDR carries only each band's upper edge. Highcharts bands are usually drawn in colour and named nowhere, so a band with neither a `label.text` nor a styled-mode `className` is numbered by its position in the partition. The three series draw the reading differently — a needle carrying no point class, an arc that is an ordinary point, a bar beside a target marker that also carries the point class — so each has its own highlight selector.
+
+> **Waterfall note:** Highcharts declares only what each step contributes, while MAIDR's step also carries the absolute positions its bar floats between, so the adapter accumulates the running total as it walks the series. The two kinds of restating bar are placed the way Highcharts draws them: an `isSum` step spans the baseline to the running total, an `isIntermediateSum` step spans the previous subtotal's edge to the current running total. Both are announced as `total` steps and are left out of "largest contribution", since they restate a number rather than contribute one.
+
+> **Error bar note:** Highcharts splits the reading across two series. The error bar carries the interval — `low` and `high`, already absolute positions on the value axis, which is the form MAIDR wants — while the ESTIMATE lives in the series it is `linkedTo`, normally the column or scatter it is drawn over. The adapter resolves that parent and zips the two together by x into one layer carrying all three magnitudes, and then leaves the parent out of the bar layer it would otherwise have become, so the same estimates are not announced twice in a layer that has lost the interval. A parent with samples the error bar skips keeps its own layer, so no sample goes unannounced. An unlinked error bar still reads: the estimate is taken as the midpoint of the interval, which is where such a chart draws it. A point without a `high` is dropped, because `pointValKey` is `high` and Highcharts places no whip without it.
+
+> **Dumbbell note:** MAIDR announces which end of the pair the cursor is on, and Highcharts names neither — a dumbbell point declares a `low` and a `high` and nothing that says what either one is. Pass `dumbbellLabels: { start, end }` to `highchartsToMaidr` to supply them; without it MAIDR says "start" and "end", which tells a reader which dot they are on but not which year it is. `low` is the start. Highlighting targets the connector between the two dots rather than the dots themselves: MAIDR wants one element per row, and the connector is also the one Highcharts always draws — it drops the markers once the points get dense enough to overlap.
+
+> **Gantt note:** MAIDR nests a gantt's intervals by lane, because a lane with nothing booked is a real statement about a schedule and only a nested list can make it. Highcharts draws the intervals in `series.data` order, which interleaves lanes freely, so the adapter regroups them and stamps `data-maidr-task-index` onto each rendered interval in the regrouped order — MAIDR slices its selector list lane by lane, so document order cannot be indexed into. The lanes come from the y axis' categories, which a Gantt chart's tree grid axis builds from the tasks and an xrange declares outright. A milestone becomes a zero-length interval at its own instant, which is what the diamond shows. A Highcharts datetime axis counts milliseconds, so `ms` is the announced unit: `start` and `end` stay in the axis' own numbers, since that is what places them where the chart draws them.
+
+> **Polar note:** `chart.polar` and `chart.parallelCoordinates` are chart-wide drawing modes rather than series types — a radar's spokes are still `line` series and a wind rose's wedges still `column` ones — so the adapter reads the flags before it groups the series, or the spokes would be merged into an ordinary line or bar layer announcing the wrong chart. Under a polar chart an `area` series is one more outline around the spokes rather than a band with a baseline to stack on, so it joins the radar layer instead of an area one. A radar's outline is a single closed path whose last vertex repeats its first; MAIDR trims the repeat, so highlighting is spoke-aligned without any extra configuration. A parallel coordinates chart that is also polar — a star plot — is read as parallel coordinates: every column is still a different quantity, which is what decides how it has to be pitched. Highcharts draws the per-variable names as the x axis' categories rather than as axis titles, so that is where the adapter reads them, falling back to `yAxis[i].title.text` for a chart that titled them instead.
+
+> **Diverging note:** Highcharts has no diverging series type, so the chart is recognised from its data: exactly two stacked series, one entirely at or below zero and the other entirely at or above it. That is a narrow shape — a genuine stack puts its segments on the same side of the baseline so they accumulate — and the reading it selects is the safer one where the two overlap, since a segmented layer pitches a signed value directly and would make a two-million cohort drawn to the left sound smaller than a ten-thousand cohort drawn to the right. The values keep their sign; the trace pitches the magnitude and names the side.
+
+> **Bump note:** Highcharts has no bump series either — the chart is its own line-chart demo pattern, one line per competitor over a `yAxis.reversed` axis so that rank 1 is drawn at the top — so this too is recognised from the data, and narrowly. Both halves have to hold: the value axis is reversed, **and** at every period the values across the series are exactly 1..k with no duplicates. That second half is what keeps a depth profile or a golf scorecard out, because reading one as ranks is not a degraded reading: MAIDR inverts the pitch for a bump chart, so an ordinary line chart read as one sonifies every value upside down. Pass `bump: true` to force the reading on a rank table the heuristic declines (ties, or ranks that skip), or `bump: false` to suppress it on a permutation that is not a standings table. A ragged table reads correctly — ranks are keyed by the period's label, so a competitor that joined late is compared against the others in the periods it actually ran. `step` is not carried through: a rank table is one layer whatever its lines are drawn like.
+
+> **Hexbin note:** a tilemap is a heatmap whose tiles tessellate, and the shape decides which it reads as — `square` tiles are the aligned grid a heatmap already is, while every other shape staggers alternate columns so the tiles interlock, which is the lattice `HexbinTrace` navigates by. Two things this reading is honest about. **Highcharts never binned anything:** the tiles are supplied pre-binned, so a bin's count is whatever magnitude the author gave the tile, and a tile with no value counts as zero, which is what an empty bin is. **The centres are the authored ones:** the half-row shift is applied in pixel space during `translate` and never reaches the point, so announcing a shifted coordinate would put the bin somewhere nothing else on the page — the tooltip included — agrees with. The bins are regrouped into lattice rows and ordered along x within each, since a tilemap is routinely authored in some other order entirely (a honeycomb map is declared country by country); the adapter stamps `data-maidr-bin-index` onto each rendered tile in that order and the selectors address the stamp. A tile Highcharts did not draw leaves MAIDR with fewer elements than bins, and highlighting is withdrawn for that layer rather than paired with the wrong tiles — which on a staggered lattice is not even a neighbour in the direction a reader would guess.
+
+> **Volcano and Manhattan note:** Highcharts ships neither series. Both are drawn as an ordinary `scatter` with the cutoff as a `plotLine`, and nothing in the chart object distinguishes one from a scatter of two variables — so the reading is **declared**, never guessed, with `significancePlot: { type: 'volcano' | 'manhattan' }`. Every scatter series in the panel is read as one cloud by default, which is what a Manhattan needs: it is one genome drawn as one series per chromosome, and its threshold spans all of them. Name `seriesIndices` to read only some of them. The point's `name` travels as the label and the series name as the group, because identity is the payload on these charts — a reader told "x is 2.3, y is 14.1" has been given the two numbers the axes already describe and withheld the gene. The cutoffs default to the lines the chart already draws: the first numeric `yAxis.plotLines` value is the significance cutoff, and the magnitude of the first non-zero `xAxis.plotLines` value is a volcano's effect cutoff. That last default is a **volcano's alone**. A volcano's x is fold change, so a line across it is a cutoff; a Manhattan's x is genomic position, where the lines a chart draws are chromosome dividers. Reading one as an effect would test every point's position against a divider's coordinate, reject nearly all of them, and leave both the significance summary and the significant-points rotor filter empty — so a Manhattan gets an effect cutoff only by stating `effect` outright. `significanceDirection` is passed through only when stated — MAIDR reads `above`, which suits a -log10(p) axis, and a **raw p axis runs the other way** and must say so, or the reading selects exactly the points that failed to reach significance and announces them as the finding. A layer that ends up declaring no cutoff at all carries no `thresholdOptions`, and MAIDR reads the cloud without making any claim about significance.
 
 ## Multi-Panel Charts
 
@@ -149,7 +204,7 @@ Notes:
 - Highstock's internal navigator series is excluded automatically.
 - Ambiguous layouts (overlapping axis bands, dual-axis overlays sharing the same plot area) safely fall back to today's single-panel output.
 
-See [highcharts-panes.html](highcharts-panes.html) for a full example.
+See [highcharts-panes.html](examples/highcharts-panes.html) for a full example.
 
 ### Multiple chart instances (small multiples)
 
@@ -171,7 +226,7 @@ const maidrData = maidrHighcharts.highchartsGridToMaidr(charts, {
 document.getElementById('wrapper').setAttribute('maidr-data', JSON.stringify(maidrData));
 ```
 
-Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](highcharts-grid.html) for a full example.
+Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](examples/highcharts-grid.html) for a full example.
 
 ## API Reference
 
@@ -185,6 +240,9 @@ Converts a rendered Highcharts chart into a `Maidr` data object.
 | `options.id` | `string?` | Override the generated chart ID. Defaults to `highcharts-{n}`. |
 | `options.title` | `string?` | Override the chart title. Defaults to `chart.title.textStr`. |
 | `options.seriesIndices` | `number[]?` | Convert only specific series by index. Default: all visible series. |
+| `options.dumbbellLabels` | `{ start?: string; end?: string }?` | What a dumbbell chart's two ends are called — `low` is the start. Default: MAIDR announces them as "start" and "end" (see the dumbbell note above). |
+| `options.bump` | `boolean?` | Force (`true`) or suppress (`false`) the bump reading of the chart's line series. Default: decided from the data (see the bump note above). |
+| `options.significancePlot` | `object?` | Read the chart's `scatter` series as one volcano or Manhattan plot: `{ type: 'volcano' \| 'manhattan', seriesIndices?, significance?, significanceDirection?, effect? }`. Default: absent, and the scatters are read as scatters. |
 
 Returns a `Maidr` object ready to assign to a `maidr-data` attribute, pass to the `<Maidr>` React component, or serialize for downstream tooling. Multi-pane charts produce a subplot grid (see [Multi-Panel Charts](#multi-panel-charts)).
 

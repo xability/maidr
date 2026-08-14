@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Dumbbell Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- The dumbbell series builds on highcharts-more.js. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/dumbbell.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Dumbbell Chart</h1>
+    <p>
+      A Highcharts dumbbell chart made accessible by the MAIDR Highcharts
+      adapter. Each row compares two values, and the gap between them is the
+      message, so the announcement carries the change alongside each end. Click
+      on the chart and use left and right arrow keys to walk the countries, and
+      up and down to move between the two years. Highcharts names neither end,
+      so the names are supplied to the adapter through
+      <code>dumbbellLabels</code>.
+    </p>
+
+    <div id="dumbbell-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('dumbbell-chart', {
+        chart: { type: 'dumbbell', inverted: true },
+        title: { text: 'Life Expectancy, 1990 vs 2020' },
+        legend: { enabled: false },
+        xAxis: { categories: ['Norway', 'Japan', 'Brazil', 'India', 'Chad'] },
+        yAxis: { title: { text: 'Years' } },
+        series: [{
+          name: 'Life expectancy',
+          data: [
+            { name: 'Norway', low: 76.5, high: 83.2 },
+            { name: 'Japan', low: 78.9, high: 84.6 },
+            { name: 'Brazil', low: 65.3, high: 75.9 },
+            { name: 'India', low: 57.9, high: 70.2 },
+            { name: 'Chad', low: 46.2, high: 54.2 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, {
+        id: 'dumbbell-chart',
+        dumbbellLabels: { start: '1990', end: '2020' },
+      });
+      document.getElementById('dumbbell-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

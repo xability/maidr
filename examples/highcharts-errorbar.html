@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Error Bars - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships the errorbar series. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Error Bars</h1>
+    <p>
+      A Highcharts column series with an error bar linked over it, made
+      accessible by the MAIDR Highcharts adapter. Highcharts splits the reading
+      across two series — the column places the estimate, the error bar draws
+      the interval around it — and the adapter zips them back into one layer.
+      Click on the chart and use left and right arrow keys to walk the months,
+      and up and down at one month to walk the lower bound, the estimate and
+      the upper bound.
+    </p>
+
+    <div id="errorbar-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('errorbar-chart', {
+        chart: { zooming: { type: 'xy' } },
+        title: { text: 'Average Monthly Rainfall' },
+        xAxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] },
+        yAxis: { title: { text: 'Rainfall (mm)' } },
+        series: [{
+          name: 'Rainfall',
+          type: 'column',
+          data: [49.9, 71.5, 106.4, 129.2, 144.0, 176.0],
+        }, {
+          name: 'Rainfall error',
+          type: 'errorbar',
+          linkedTo: ':previous',
+          data: [
+            [48.9, 51.5], [68.8, 73.3], [92.1, 110.4],
+            [125.2, 133.1], [140.5, 148.9], [171.0, 179.5],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'errorbar-chart' });
+      document.getElementById('errorbar-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Parallel Coordinates - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/parallel-coordinates.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Parallel Coordinates</h1>
+    <p>
+      A Highcharts parallel coordinates plot made accessible by the MAIDR
+      Highcharts adapter. Every column is a different quantity, so each value
+      is pitched against its OWN axis rather than against one range for the
+      chart: arrowing along one car hears it high here and low there, and two
+      cars whose pitches swap between adjacent axes are the crossing lines that
+      mean negative correlation. Click on the chart and use the arrow keys.
+    </p>
+
+    <div id="parallel-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('parallel-chart', {
+        chart: { parallelCoordinates: true, type: 'line' },
+        title: { text: 'Cars' },
+        legend: { enabled: false },
+        xAxis: {
+          categories: ['Miles per gallon', 'Cylinders', 'Horsepower', 'Weight (lb)', 'Model year'],
+        },
+        yAxis: [
+          { title: { text: 'Miles per gallon' } },
+          { title: { text: 'Cylinders' } },
+          { title: { text: 'Horsepower' } },
+          { title: { text: 'Weight (lb)' } },
+          { title: { text: 'Model year' } },
+        ],
+        series: [
+          { name: 'Datsun 710', data: [33, 4, 62, 1835, 82] },
+          { name: 'Chevy Malibu', data: [15, 8, 165, 3693, 70] },
+          { name: 'VW Rabbit', data: [29, 4, 78, 2188, 80] },
+          { name: 'Ford Pinto', data: [25, 4, 88, 2545, 76] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'parallel-chart' });
+      document.getElementById('parallel-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

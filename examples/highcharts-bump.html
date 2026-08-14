@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Bump Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Bump Chart</h1>
+    <p>
+      A Highcharts bump chart made accessible by the MAIDR Highcharts adapter.
+      Highcharts has no bump series — the chart is ordinary line series over a
+      reversed axis, so first place is drawn at the top — and the adapter
+      recognises it from the data: the numbers are a rank permutation at every
+      matchday. A rank is not a magnitude, so the pitch is inverted (first
+      place is the highest note) and each point announces the places gained or
+      lost since the previous matchday. Click on the chart and use the arrow
+      keys.
+    </p>
+
+    <div id="bump-chart" style="width: 800px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('bump-chart', {
+        chart: { type: 'line' },
+        title: { text: 'League Position by Matchday' },
+        xAxis: { categories: ['MD1', 'MD2', 'MD3', 'MD4', 'MD5', 'MD6'] },
+        yAxis: {
+          title: { text: 'Position' },
+          reversed: true,
+          tickInterval: 1,
+          min: 1,
+          max: 5,
+        },
+        series: [
+          { name: 'Ajax', data: [1, 2, 2, 1, 1, 1] },
+          { name: 'PSV', data: [2, 1, 1, 2, 3, 2] },
+          { name: 'Feyenoord', data: [3, 3, 4, 4, 2, 3] },
+          { name: 'AZ', data: [4, 5, 3, 3, 4, 5] },
+          { name: 'Twente', data: [5, 4, 5, 5, 5, 4] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'bump-chart' });
+      document.getElementById('bump-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
