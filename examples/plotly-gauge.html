@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Gauge Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Gauge Chart</h1>
+    <p>
+      A plotly.js <code>indicator</code> trace with a <code>gauge</code>,
+      auto-detected by MAIDR. A gauge's number means nothing on its own: "73"
+      is not the reading, "73 out of 100, 7 below target, in the 'ok' band" is,
+      and a sighted reader gets all of it from the dial's geometry. So the
+      announcement carries the range, the target and the band alongside the
+      value. Plotly's steps carry no name of their own, so the bands are read
+      out only when the chart names them — as this one does.
+    </p>
+
+    <div id="gauge" style="width: 600px; height: 450px"></div>
+
+    <script>
+      Plotly.newPlot(
+        'gauge',
+        [
+          {
+            type: 'indicator',
+            mode: 'gauge+number+delta',
+            value: 73,
+            title: { text: 'Conversion' },
+            delta: { reference: 80 },
+            gauge: {
+              shape: 'angular',
+              axis: { range: [0, 100] },
+              threshold: { value: 80, line: { color: 'red', width: 3 } },
+              steps: [
+                { range: [0, 50], color: '#e6e6e6', name: 'poor' },
+                { range: [50, 75], color: '#cccccc', name: 'ok' },
+                { range: [75, 100], color: '#b3b3b3', name: 'good' }
+              ]
+            }
+          }
+        ],
+        { title: { text: 'Conversion rate against target' } }
+      );
+    </script>
+  </body>
+</html>

@@ -77,11 +77,55 @@ export interface PlotlyTrace {
   close?: number[];
   // Histogram-specific
   xbins?: { start?: number; end?: number; size?: number };
-  // Pie-specific
+  // Pie-specific, and shared with the hierarchy traces below, which name and
+  // size their sectors through the same two arrays.
   /** Slice labels, in the order the trace was authored. */
   labels?: (number | string)[];
   /** Slice magnitudes, parallel to {@link labels}. */
   values?: (number | string)[];
+  // Hierarchy traces (sunburst, icicle, treemap)
+  /**
+   * Each sector's parent, parallel to {@link labels}. An empty string means
+   * the sector sits at the root. Plotly matches these against `ids` when a
+   * trace has them and against `labels` otherwise.
+   */
+  parents?: (number | string)[];
+  /** Sector ids, for a hierarchy whose labels repeat. Parallel to {@link labels}. */
+  ids?: (number | string)[];
+  // Sankey-specific
+  /** The nodes the flows run between. */
+  node?: { label?: (number | string)[]; groups?: number[][] };
+  /**
+   * The flows themselves, held as three parallel arrays. `source` and
+   * `target` are INDICES into {@link node}'s labels rather than the names a
+   * MAIDR flow carries.
+   */
+  link?: { source?: number[]; target?: number[]; value?: number[] };
+  // Indicator-specific (gauge and bullet charts)
+  /** The measure a gauge draws. */
+  value?: number;
+  /** What the measure is called. Only the indicator traces carry one. */
+  title?: { text?: string } | string;
+  /** The dial. Present only when `mode` includes `gauge`. */
+  gauge?: PlotlyGauge;
+  /** The comparison an indicator draws its delta against. */
+  delta?: { reference?: number };
+  // Polar-specific (scatterpolar, barpolar)
+  /**
+   * Which polar subplot the trace is drawn on (`polar`, `polar2`, …). Polar
+   * traces carry this instead of an `xaxis`/`yaxis` pair.
+   */
+  subplot?: string;
+  /** Radial coordinates — the magnitude on each spoke. */
+  r?: (number | string)[];
+  /** Angular coordinates — which spoke each value sits on. */
+  theta?: (number | string)[];
+  // Parallel-coordinates-specific
+  /**
+   * One entry per axis, each carrying the whole column of observations.
+   * Plotly stores the transpose of the row-per-observation grid MAIDR reads.
+   */
+  dimensions?: PlotlyDimension[];
   /**
    * Whether plotly reorders the slices largest-first before drawing them.
    * Defaults to true, so the authored order is NOT the drawn order unless a
@@ -96,6 +140,95 @@ export interface PlotlyTrace {
   domain?: { x?: [number, number]; y?: [number, number] };
   // Heatmap colorbar
   colorbar?: { title?: { text?: string } | string };
+}
+
+/**
+ * The dial an indicator trace draws, as plotly resolves it.
+ *
+ * Only present when the trace's `mode` includes `gauge`; a `number`-only
+ * indicator is a text tile with no dial and no container here.
+ */
+export interface PlotlyGauge {
+  /** `angular` (the default dial) or `bullet` (a horizontal bar). */
+  shape?: 'angular' | 'bullet';
+  /** The dial's ends, on `axis.range`. */
+  axis?: { range?: [number, number] };
+  /**
+   * The coloured arcs behind the bar. Plotly resolves `range` and `color` for
+   * every step; `name` only when the author wrote one.
+   */
+  steps?: { range?: [number, number]; name?: string }[];
+  /**
+   * The target line. Plotly resolves `value` to the boolean `false` when the
+   * author set none, which is why it is not simply coerced to a number.
+   */
+  threshold?: { value?: number | false };
+}
+
+/**
+ * One series of a polar layer, together with where its trace sits among the
+ * subplot's traces of that kind — which is what a selector counts by.
+ */
+export interface PolarSeries {
+  trace: PlotlyTrace;
+  position: number;
+}
+
+/** One axis of a parallel-coordinates trace, with its whole column of values. */
+export interface PlotlyDimension {
+  label?: string;
+  values?: (number | string)[];
+  /** False for an axis the author hid, which plotly then does not draw. */
+  visible?: boolean;
+}
+
+/**
+ * One node of a drawn sankey, as its calcdata holds it.
+ *
+ * `pointNumber` is the node's index in the trace's own `node.label` array;
+ * `label` is the name plotly resolved for it.
+ */
+export interface PlotlySankeyNode {
+  pointNumber?: number;
+  label?: number | string;
+}
+
+/**
+ * One flow of a drawn sankey.
+ *
+ * The ends start out as indices, exactly as the trace authored them, and the
+ * layout pass REPLACES them with the node objects themselves — so a link read
+ * off a rendered chart carries objects and one read before layout carries
+ * numbers. Both are admitted here because both are reachable.
+ */
+export interface PlotlySankeyLink {
+  source?: number | PlotlySankeyNode;
+  target?: number | PlotlySankeyNode;
+  value?: number;
+}
+
+/**
+ * One node of the tree a hierarchy trace was drawn from, as plotly's calc
+ * leaves it on the first calcdata entry.
+ *
+ * `data.data` is the calc entry for the sector — the double hop is d3's: the
+ * hierarchy wraps the stratified node, which wraps what plotly computed.
+ */
+export interface PlotlyHierarchyNode {
+  children?: PlotlyHierarchyNode[];
+  parent?: PlotlyHierarchyNode | null;
+  /** The magnitude d3 resolved, which is the one the sector was drawn at. */
+  value?: number;
+  data?: { data?: PlotlySector };
+}
+
+/** What plotly computed for one sector of a hierarchy trace. */
+export interface PlotlySector {
+  /** Index into the trace's own arrays; absent on a root plotly synthesised. */
+  i?: number;
+  label?: string;
+  /** Set on the stand-in root plotly adds when several sectors claim the top. */
+  hasMultipleRoots?: boolean;
 }
 
 /**
@@ -270,10 +403,32 @@ export interface PlotlyCalcData {
   v?: number;
   /** Slice label. */
   label?: number | string;
+  // Hierarchy traces: plotly stashes the whole tree on the first entry
+  /** The stratified, sorted tree the sectors were drawn from. */
+  hierarchy?: PlotlyHierarchyNode;
+  // Sankey: plotly stashes the whole graph on the first entry
+  /** The flows plotly kept, in the order it drew the ribbons. */
+  _links?: PlotlySankeyLink[];
+  // Polar
+  /** Radial coordinate (scatterpolar). */
+  r?: number;
+  /** Angular coordinate (scatterpolar). */
+  theta?: number | string;
   // Heatmap
   z?: number[][];
   trace?: PlotlyTrace;
   [key: string]: unknown;
+}
+
+/**
+ * One polar subplot's layout. Polar traces name theirs on `trace.subplot`,
+ * and it is what says where the subplot sits on the paper — polar has no
+ * axis pair with a domain to read one from.
+ */
+export interface PlotlyPolarLayout {
+  domain?: { x?: [number, number]; y?: [number, number] };
+  radialaxis?: PlotlyAxis;
+  angularaxis?: PlotlyAxis;
 }
 
 export interface PlotlyDensitySample {

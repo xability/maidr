@@ -15,8 +15,21 @@
  * py-maidr's proven approach.
  */
 
-import type { PlotlyGraphDiv, PlotlyTrace } from './types';
+import type { PlotlyGraphDiv, PlotlyTrace, PolarSeries } from './types';
 import { TraceType } from '../../type/grammar';
+
+/**
+ * Sankey selector: every ribbon plotly drew, in the order the flows were
+ * authored.
+ *
+ * Unscoped by trace, because plotly appends each sankey's `g.sankey` straight
+ * onto the paper beside groups of every other kind — there is no layer to
+ * count within, the way `.pielayer` lets a pie be counted. A page with two
+ * sankeys therefore matches both traces' ribbons, and `FlowTrace` withdraws
+ * the highlight on the count mismatch that produces. That is the intended
+ * outcome: the alternative is lighting up another chart's ribbon.
+ */
+const SANKEY_LINK_SELECTOR = '.sankey .sankey-links > path.sankey-link';
 
 /**
  * Generates CSS selectors for a given trace type and index.
@@ -83,6 +96,20 @@ export function generatePlotlySelectors(
 
     case TraceType.PIE:
       return pieSelector(plotlyGd, traceIndex);
+
+    // The three hierarchy layouts. Plotly draws each into a layer of its own
+    // and gives every sector the same `g.slice > path.surface`, so they differ
+    // only in which layer is scoped to.
+    case TraceType.SUNBURST:
+    case TraceType.ICICLE:
+    case TraceType.TREEMAP:
+      return hierarchySelector(plotlyGd, traceIndex);
+
+    case TraceType.SANKEY:
+      return SANKEY_LINK_SELECTOR;
+
+    case TraceType.GAUGE:
+      return gaugeSelector(plotlyGd, traceIndex);
 
     default:
       return undefined;
@@ -198,4 +225,113 @@ function isDrawnPie(trace: PlotlyTrace | undefined): boolean {
   return trace?.type === 'pie'
     && trace.visible !== false
     && trace.visible !== 'legendonly';
+}
+
+/**
+ * How many traces of one plotly type were drawn before the given one.
+ *
+ * The pie's counting problem, generalised: every trace positioned by its own
+ * domain shares one layer with its siblings and carries no class of its own,
+ * so its position among the drawn ones is the only thing that picks it out.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The global index of the trace being selected
+ * @param type       - The plotly trace type sharing the layer
+ * @returns How many traces of that type plotly drew before this one
+ */
+function drawnBefore(gd: PlotlyGraphDiv, traceIndex: number, type: string): number {
+  const traces = gd._fullData ?? [];
+  let count = 0;
+  for (let i = 0; i < traceIndex; i++) {
+    const trace = traces[i];
+    if (trace?.type === type && trace.visible !== false && trace.visible !== 'legendonly') {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Hierarchy selector: every sector of one sunburst, icicle or treemap, in the
+ * order plotly drew them.
+ *
+ * All three draw into `.{type}layer`, one `g.trace.{type}` per trace, and give
+ * each sector a `g.slice` holding the `path.surface` that is the drawn shape.
+ * A treemap's breadcrumb bar is deliberately not matched: its ancestors are
+ * `g.pathbar` groups rather than slices, and they repeat nodes the reader has
+ * already been given.
+ *
+ * The layer is counted through the same trick {@link pieSelector} uses, and
+ * for the same reason — plotly hangs no uid class on these groups either.
+ */
+function hierarchySelector(gd: PlotlyGraphDiv, traceIndex: number): string | undefined {
+  const type = gd._fullData?.[traceIndex]?.type;
+  if (!type) {
+    return undefined;
+  }
+  const position = drawnBefore(gd, traceIndex, type) + 1;
+  return `.${type}layer > g.trace.${type}:nth-of-type(${position}) g.slice > path.surface`;
+}
+
+/**
+ * Gauge selector: the bar plotly fills to the measure.
+ *
+ * The two shapes draw it differently — an angular dial fills an arc, a bullet
+ * fills a rectangle — and each is the one element on the tile whose extent is
+ * the reading, which is what a highlight should land on. The surrounding
+ * background arc, the step bands and the threshold line are all context the
+ * value is read against rather than the value itself.
+ */
+function gaugeSelector(gd: PlotlyGraphDiv, traceIndex: number): string {
+  const trace = gd._fullData?.[traceIndex];
+  const position = drawnBefore(gd, traceIndex, 'indicator') + 1;
+  const bar = trace?.gauge?.shape === 'bullet'
+    ? 'g.value-bullet > rect'
+    : 'g.value-arc > path';
+  return `.indicatorlayer > g.trace:nth-of-type(${position}) ${bar}`;
+}
+
+/**
+ * Polar selectors: one per series, which is what a line-shaped layer needs.
+ *
+ * `LineTrace` pairs its series with its selectors by position, so a single
+ * selector covering the whole layer would resolve to nothing on a chart with
+ * more than one series. Plotly gives every scatter group a `trace{uid}`
+ * compound class, so each series can be named directly; barpolar's groups
+ * carry no uid and are counted within the subplot's `g.barlayer` instead.
+ *
+ * A uid that is not a usable class name — plotly generates safe ones, but an
+ * author may set `uid` to anything — withdraws the whole list rather than
+ * emitting a selector that would silently match nothing.
+ *
+ * @param series    - The layer's series, each with its position among the subplot's traces
+ * @param subplotId - The polar subplot they are drawn on (`polar`, `polar2`, …)
+ * @param isBar     - Whether these are barpolar traces rather than scatterpolar
+ * @returns One selector per series, or undefined when none can be built
+ */
+export function polarSeriesSelectors(
+  series: PolarSeries[],
+  subplotId: string,
+  isBar: boolean,
+): string[] | undefined {
+  const prefix = `.polarlayer > g.${subplotId} > g.frontplot`;
+
+  if (isBar) {
+    // Counted by the trace's position among the subplot's barpolar traces
+    // rather than among the layer's series: plotly draws a group for a trace
+    // whose values were all unusable too, so a dropped series still shifts
+    // every group after it.
+    return series.map(one =>
+      `${prefix} > g.barlayer > g.trace:nth-of-type(${one.position + 1}) g.point > path`);
+  }
+
+  const selectors: string[] = [];
+  for (const { trace } of series) {
+    const uid = trace.uid;
+    if (!uid || !/^[\w-]+$/.test(uid)) {
+      return undefined;
+    }
+    selectors.push(`${prefix} > g.scatterlayer > g.trace.trace${uid} .point`);
+  }
+  return selectors;
 }

@@ -78,6 +78,14 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Funnel | `type: 'funnel'` | [Funnel chart](examples.html) |
 | Waterfall | `type: 'waterfall'` | [Waterfall chart](examples.html) |
 | Error Bars | `error_y` or `error_x` on a scatter or bar trace | [Error bars](examples.html) |
+| Sunburst | `type: 'sunburst'` | [Sunburst](examples.html) |
+| Icicle | `type: 'icicle'` | [Icicle](examples.html) |
+| Treemap | `type: 'treemap'` | [Treemap](examples.html) |
+| Sankey | `type: 'sankey'` | [Sankey](examples.html) |
+| Gauge / Bullet | `type: 'indicator'` with `gauge` in `mode` | [Gauge](examples.html) |
+| Radar | `type: 'scatterpolar'` | [Radar](examples.html) |
+| Polar Area / Rose | `type: 'barpolar'` | [Polar area](examples.html) |
+| Parallel Coordinates | `type: 'parcoords'` | [Parallel coordinates](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 **Notes on chart-type detection:**
@@ -125,6 +133,49 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   bar's height, which is what the pitch follows) and the running total it
   produced (the bar's position). Steps whose `measure` is `total` or `absolute`
   are announced as totals, so a subtotal is not mistaken for a contribution.
+
+- A sunburst, an icicle and a treemap are one tree drawn three ways, so MAIDR
+  reads all three the same: the hierarchy navigates *as a hierarchy* on the
+  arrow keys that already exist — up to the parent, down to the first child,
+  left and right between siblings — and each node announces its share of its
+  parent. Plotly stratifies `labels`/`parents` into a tree and, unless the
+  trace sets `sort: false`, reorders every node's children largest first, so
+  the adapter walks the tree Plotly computed rather than the arrays as written.
+  A hierarchy Plotly has not computed yet is still read out, in the authored
+  order, but without selectors — sector *k* is then not slice *k*.
+
+- A sankey names both ends of every flow. Plotly stores them as indices into
+  `node.label`, so the adapter resolves them back to the labels: "34 from Coal
+  to Electricity" is the reading and "34 from 0 to 1" is not. The nodes are
+  derived from the flows, so nothing is emitted for them separately. Flows
+  Plotly drops before drawing — a non-positive value, an endpoint that is not a
+  node — are dropped here too, since a ribbon nothing draws would still put a
+  node in the graph.
+
+- An `indicator` trace is a gauge only when it draws one. Without `gauge` in
+  its `mode` it is a number set in text, which a screen reader already reaches,
+  so it is skipped rather than announced twice. A gauge's `gauge.threshold.value`
+  becomes the target; `delta.reference` stands in when there is no threshold,
+  except when it equals the measure, which is the value Plotly defaults it to
+  and not a target anyone set. Plotly's steps carry a range and a colour but no
+  name, so the qualitative bands are announced only when the author named every
+  step — an invented "band 2" would say nothing the numbers do not.
+
+- A polar trace has no axis pair either: `scatterpolar` and `barpolar` name a
+  `subplot` (`polar`, `polar2`, …) and are positioned by `layout.polar.domain`,
+  so each polar subplot becomes its own MAIDR panel. Both read as spokes and
+  values, the way a multi-line chart reads as samples and values, and the
+  circle is carried in the panning rather than in the payload. Plotly's schema
+  has no title for the angular axis, so the spokes are named `Spoke`; the
+  radial axis title is read when there is one.
+
+- A `parcoords` layer is transposed on the way in: Plotly stores a column of
+  values per axis, and MAIDR reads a row per observation. The pitch is scaled
+  per axis rather than for the layer, since the columns are different
+  quantities and one range for all of them would sonify the units instead of
+  the data. Plotly draws these lines to a canvas rather than to SVG, so the
+  layer carries no selectors — audio, text, braille, and navigation all work,
+  visual highlighting alone does not.
 
 - Plotly sorts pie slices by descending value unless the trace sets
   `sort: false`, so the authored order is not necessarily the drawn order. The
@@ -454,7 +505,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from Plotly |
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Auto-generated |
 | Configuration | Required | Required | Zero configuration |
-| Chart types | All MAIDR types | All MAIDR types | 15 Plotly types |
+| Chart types | All MAIDR types | All MAIDR types | 23 Plotly types |
 | Dynamic charts | Manual init | React lifecycle | Auto-detected |
 
 ## Python and R Binders

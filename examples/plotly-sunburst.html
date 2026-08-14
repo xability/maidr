@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Sunburst Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Sunburst Chart</h1>
+    <p>
+      A plotly.js <code>sunburst</code> trace auto-detected by MAIDR. The tree
+      navigates as a tree, on the arrow keys that already exist: up returns to
+      the parent, down enters the first child, and left and right walk the
+      siblings inside one parent. Each node announces its exact share of its
+      parent — the comparison the rings are drawn to support and the one the
+      eye estimates worst. A <code>treemap</code> or an <code>icicle</code>
+      trace with the same attributes reads identically; only the name changes.
+    </p>
+
+    <div id="sunburst" style="width: 700px; height: 550px"></div>
+
+    <script>
+      // World population, in millions. Interior nodes are declared so their
+      // own totals are announced rather than derived.
+      Plotly.newPlot(
+        'sunburst',
+        [
+          {
+            type: 'sunburst',
+            labels: [
+              'World',
+              'Asia',
+              'Africa',
+              'Europe',
+              'China',
+              'India',
+              'Indonesia',
+              'Nigeria',
+              'Ethiopia',
+              'Germany',
+              'France'
+            ],
+            parents: [
+              '',
+              'World',
+              'World',
+              'World',
+              'Asia',
+              'Asia',
+              'Asia',
+              'Africa',
+              'Africa',
+              'Europe',
+              'Europe'
+            ],
+            values: [4000, 3131, 546, 152, 1425, 1428, 278, 224, 322, 84, 68],
+            branchvalues: 'total'
+          }
+        ],
+        { title: { text: 'World population by region, millions' } }
+      );
+    </script>
+  </body>
+</html>

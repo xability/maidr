@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Radar Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Radar Chart</h1>
+    <p>
+      A plotly.js <code>scatterpolar</code> trace auto-detected by MAIDR. The
+      data navigates exactly as a multi-line chart does — a spoke is a column
+      and a series is a row — and what the circle adds is carried in the
+      panning: the sweep goes out and back, 12 o'clock at centre, 3 o'clock
+      hard right, 9 o'clock hard left, so a radar does not sound like a row of
+      bars. A <code>barpolar</code> trace (a rose or coxcomb chart) reads the
+      same way and is announced as a polar area.
+    </p>
+
+    <div id="radar" style="width: 650px; height: 550px"></div>
+
+    <script>
+      const spokes = ['Speed', 'Range', 'Comfort', 'Price', 'Economy', 'Safety'];
+
+      Plotly.newPlot(
+        'radar',
+        [
+          {
+            type: 'scatterpolar',
+            mode: 'lines+markers',
+            r: [8, 4, 6, 9, 5, 7],
+            theta: spokes,
+            fill: 'toself',
+            name: 'Model A'
+          },
+          {
+            type: 'scatterpolar',
+            mode: 'lines+markers',
+            r: [5, 7, 3, 2, 8, 6],
+            theta: spokes,
+            fill: 'toself',
+            name: 'Model B'
+          }
+        ],
+        {
+          title: { text: 'Model comparison' },
+          polar: {
+            radialaxis: { visible: true, range: [0, 10], title: { text: 'Score' } }
+          }
+        }
+      );
+    </script>
+  </body>
+</html>
