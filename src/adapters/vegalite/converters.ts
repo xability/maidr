@@ -19,6 +19,8 @@
 import type {
   BarPoint,
   BoxPoint,
+  DumbbellData,
+  DumbbellPoint,
   ErrorBarPoint,
   GanttData,
   GanttPoint,
@@ -133,9 +135,21 @@ export function vegaLiteToMaidr(
     // Keep each converted layer paired with the spec it came from: the
     // series names a merge needs live in the spec (color datum, filter,
     // title), not in the converted layer.
-    const rawLayers = spec.layer!.map((layerSpec, i) => {
+    //
+    // Two layers at a time first: a lollipop and a dumbbell are each drawn
+    // as a segment layer plus a dot layer, and neither half is the chart.
+    // Converting them separately dropped the segment (a `rule` resolves to
+    // no trace type at all) and announced the dots as a scatter.
+    const rawLayers: ConvertedLayer[] = [];
+    for (let i = 0; i < spec.layer!.length;) {
+      const paired = convertPairedLayers(spec.layer!, i, view, spec.encoding);
+      if (paired) {
+        rawLayers.push({ layer: paired, spec: spec.layer![i] });
+        i += 2;
+        continue;
+      }
       const layer = convertLayerSpec(
-        layerSpec,
+        spec.layer![i],
         i,
         view,
         spec.encoding,
@@ -145,8 +159,10 @@ export function vegaLiteToMaidr(
         undefined,
         spec.transform,
       );
-      return layer ? { layer, spec: layerSpec } : null;
-    }).filter(Boolean) as ConvertedLayer[];
+      if (layer)
+        rawLayers.push({ layer, spec: spec.layer![i] });
+      i += 1;
+    }
 
     // Coalesce sibling LINE layers with matching axes into a single
     // multi-series LINE layer. This handles the common Altair case where
@@ -626,21 +642,21 @@ function getMarkExtent(spec: VegaLiteSpec): string | undefined {
  * the bare one after.
  *
  * @param view - The compiled view, when one was supplied
- * @param axis - The positional axis whose scale is wanted
+ * @param name - The scale's name — a positional axis, or `color`
  * @param markGroupPrefix - The composite child's class prefix, if any
  * @returns The domain, or `undefined` when no such scale is in scope
  */
 function readScaleDomain(
   view: VegaView | undefined,
-  axis: 'x' | 'y',
+  name: string,
   markGroupPrefix: string,
 ): unknown[] | undefined {
   if (!view || typeof view.scale !== 'function')
     return undefined;
-  const names = markGroupPrefix ? [`${markGroupPrefix}${axis}`, axis] : [axis];
-  for (const name of names) {
+  const candidates = markGroupPrefix ? [`${markGroupPrefix}${name}`, name] : [name];
+  for (const candidate of candidates) {
     try {
-      const domain = view.scale(name)?.domain();
+      const domain = view.scale(candidate)?.domain();
       if (Array.isArray(domain) && domain.length > 0)
         return domain;
     } catch {
@@ -1934,6 +1950,231 @@ function extractWaterfallData(
 
     return { x: String(row[rowField] ?? ''), start, end, delta, kind };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Paired layers — one chart drawn as a segment layer plus a dot layer
+// ---------------------------------------------------------------------------
+
+/** Marks Vega-Lite draws a connecting segment with. */
+function isConnectorMark(mark: string | null): boolean {
+  return mark === 'rule' || mark === 'line';
+}
+
+/** Marks Vega-Lite draws a dot with. */
+function isDotMark(mark: string | null): boolean {
+  return mark === 'point' || mark === 'circle' || mark === 'square';
+}
+
+/**
+ * The category channel of an encoding and the value channel opposite it.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The two fields and which way round they are drawn, or `null`
+ * when the encoding is not one category against one magnitude
+ */
+function resolveCategoryChannels(encoding: VegaLiteEncoding): {
+  catField: string;
+  valChannel: VegaLiteChannelDef | undefined;
+  valField: string;
+  isHorizontal: boolean;
+} | null {
+  if (!hasField(encoding.x) || !hasField(encoding.y))
+    return null;
+  const categoricalX = isCategorical(encoding.x);
+  const categoricalY = isCategorical(encoding.y);
+  if (categoricalX === categoricalY)
+    return null;
+  return categoricalY
+    ? {
+        catField: encoding.y?.field ?? 'y',
+        valChannel: encoding.x,
+        valField: encoding.x?.field ?? 'x',
+        isHorizontal: true,
+      }
+    : {
+        catField: encoding.x?.field ?? 'x',
+        valChannel: encoding.y,
+        valField: encoding.y?.field ?? 'y',
+        isHorizontal: false,
+      };
+}
+
+/**
+ * Pair up the two values a dumbbell compares at each category.
+ *
+ * The two ends are two rows of the same dataset told apart by a grouping
+ * field — the year, the treatment arm — which is also where their names
+ * come from, and there is no other source for those: announced as "start"
+ * and "end", a chart of life expectancy in 1990 against 2020 tells the
+ * reader which dot they are on but not which year it is.
+ *
+ * Returns `null` unless the data really is paired: exactly two values of
+ * the grouping field, and exactly one row per category for each of them.
+ * A category with three rows, or with the same end twice, is some other
+ * chart, and a dumbbell reading of it would silently drop rows.
+ *
+ * @param rows - The dot layer's resolved rows
+ * @param encoding - The dot layer's encoding, merged with any parent's
+ * @param endOrder - The colour scale's domain, when the view exposes one
+ * @returns The paired rows with their end names, or `null`
+ */
+function extractDumbbellData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  endOrder?: unknown[],
+): DumbbellData | null {
+  const channels = resolveCategoryChannels(encoding);
+  const groupField = encoding.color?.field ?? encoding.fill?.field;
+  if (!channels || !groupField || rows.length === 0)
+    return null;
+
+  // The scale's domain is the order the chart draws the ends in; failing
+  // that, the order they first appear in the data.
+  const ends = (endOrder ?? rows.map(row => row[groupField]))
+    .map(value => String(value ?? ''))
+    .filter((value, index, all) => all.indexOf(value) === index);
+  if (ends.length !== 2)
+    return null;
+
+  const pairs = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    const category = String(row[channels.catField] ?? '');
+    const end = String(row[groupField] ?? '');
+    if (!ends.includes(end))
+      return null;
+    if (!pairs.has(category))
+      pairs.set(category, new Map());
+    const pair = pairs.get(category)!;
+    if (pair.has(end))
+      return null;
+    pair.set(end, Number(readEncodedValue(row, channels.valChannel, channels.valField) ?? 0));
+  }
+
+  const points: DumbbellPoint[] = [];
+  for (const [category, pair] of pairs) {
+    const start = pair.get(ends[0]);
+    const end = pair.get(ends[1]);
+    if (start === undefined || end === undefined)
+      return null;
+    points.push({ x: category, start, end });
+  }
+
+  return { points, startLabel: ends[0], endLabel: ends[1] };
+}
+
+/**
+ * Convert a segment layer and the dot layer that follows it into the one
+ * chart they draw together.
+ *
+ * Vega-Lite has no lollipop mark and no dumbbell mark: both are authored as
+ * a `layer:` of a segment and its dots. Read layer by layer, the segment is
+ * dropped — a bare `rule` resolves to no trace type — and the dots are
+ * announced as a scatter, so the chart loses the thing it is drawn to show:
+ * the stem's magnitude, or the gap between the pair.
+ *
+ * The two are told apart by the data. Two values at every category, told
+ * apart by a grouping field, is a dumbbell; one value at each is a
+ * lollipop, whose stem runs from the baseline and carries no second
+ * magnitude of its own.
+ *
+ * The highlight goes on the **segment** layer in both cases: it is one
+ * element per row (Vega draws one `<path>` per `detail` group, one `<line>`
+ * per rule) and it spans what the reader is being told, where a dot layer
+ * holds two elements per dumbbell row.
+ *
+ * @param specs - The layered spec's children
+ * @param index - Position of the candidate segment layer
+ * @param view - The compiled view, when one was supplied
+ * @param parentEncoding - Encoding hoisted onto the layered parent
+ * @returns The collapsed layer, or `null` when this is not such a pair
+ */
+function convertPairedLayers(
+  specs: VegaLiteSpec[],
+  index: number,
+  view: VegaView | undefined,
+  parentEncoding: VegaLiteEncoding | undefined,
+): MaidrLayer | null {
+  const connectorSpec = specs[index];
+  const dotSpec = specs[index + 1];
+  if (!dotSpec)
+    return null;
+
+  const connectorMark = getMarkType(connectorSpec);
+  const dotMark = getMarkType(dotSpec);
+  if (!connectorMark || !isConnectorMark(connectorMark) || !isDotMark(dotMark))
+    return null;
+
+  const connectorEncoding: VegaLiteEncoding = { ...parentEncoding, ...connectorSpec.encoding };
+  const dotEncoding: VegaLiteEncoding = { ...parentEncoding, ...dotSpec.encoding };
+
+  // Both layers must draw the same two channels of the same data, or they
+  // are two charts that happen to be stacked — a mean rule over a
+  // histogram, an annotation over a scatter.
+  const channels = resolveCategoryChannels(dotEncoding);
+  if (!channels
+    || connectorEncoding.x?.field !== dotEncoding.x?.field
+    || connectorEncoding.y?.field !== dotEncoding.y?.field) {
+    return null;
+  }
+
+  const selectors = buildSelector(connectorMark, index, true);
+  const axes: MaidrLayer['axes'] = {
+    x: getAxisConfig(dotEncoding.x),
+    y: getAxisConfig(dotEncoding.y),
+  };
+
+  const dotRows = resolveData(dotSpec, index + 1, view, `layer_${index + 1}_marks`);
+  const dumbbell = extractDumbbellData(
+    dotRows,
+    dotEncoding,
+    readScaleDomain(view, 'color', ''),
+  );
+  if (dumbbell) {
+    const layer: MaidrLayer = {
+      id: String(index),
+      type: TraceType.DUMBBELL,
+      selectors,
+      axes,
+      data: dumbbell,
+    };
+    if (channels.isHorizontal)
+      layer.orientation = Orientation.HORIZONTAL;
+    return layer;
+  }
+
+  // A lollipop's stem runs from the baseline to the value, so it carries no
+  // second bound of its own; one that does is a segment between two
+  // measured values, which is a chart this pass has no reading for.
+  if (connectorMark !== 'rule'
+    || hasField(connectorEncoding.x2) || hasField(connectorEncoding.y2)) {
+    return null;
+  }
+
+  // The stem's own rows, so the points line up with the elements the
+  // selector resolves to.
+  const rows = resolveData(connectorSpec, index, view, `layer_${index}_marks`);
+  if (rows.length === 0)
+    return null;
+
+  // One stem per category. Several rows at one category is a strip plot or
+  // a grouped chart, whose repeated categories a lollipop reading would
+  // announce as if they were distinct — the dots read better as the dot
+  // plot they are, which is what the ordinary per-layer path produces.
+  const categories = new Set(rows.map(row => String(row[channels.catField] ?? '')));
+  if (categories.size !== rows.length)
+    return null;
+
+  const layer: MaidrLayer = {
+    id: String(index),
+    type: TraceType.LOLLIPOP,
+    selectors,
+    axes,
+    data: extractBarData(rows, connectorEncoding, channels.isHorizontal),
+  };
+  if (channels.isHorizontal)
+    layer.orientation = Orientation.HORIZONTAL;
+  return layer;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Gantt Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Gantt Chart</h1>
+    <p>
+      Click on the chart and use up and down arrow keys to move between lanes,
+      left and right to move along one lane's intervals. Each interval
+      announces its span and its length, and its stereo position follows where
+      it sits on the axis — so two lanes whose work overlaps sound like they
+      overlap. Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="gantt-chart"
+      aria-label="Gantt chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Gantt: a `bar` spanning `x` to `x2`, with the lanes on an ordinal y.
+      // The two positional bounds are both positions on the same axis rather
+      // than a magnitude and a baseline, which is what makes this an
+      // interval chart rather than a bar chart.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 500,
+        height: 260,
+        title: 'Project Schedule (weeks)',
+        data: {
+          values: [
+            { task: 'Research', start: 0, end: 3 },
+            { task: 'Design', start: 2, end: 6 },
+            { task: 'Design', start: 9, end: 11 },
+            { task: 'Build', start: 5, end: 12 },
+            { task: 'Test', start: 11, end: 14 },
+          ],
+        },
+        mark: 'bar',
+        encoding: {
+          y: { field: 'task', type: 'ordinal', title: 'Task', sort: null },
+          x: { field: 'start', type: 'quantitative', title: 'Week' },
+          x2: { field: 'end' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#gantt-chart', spec, { id: 'project-gantt' })
+        .catch((err) => console.error('[vegalite-gantt]', err));
+    </script>
+  </body>
+</html>

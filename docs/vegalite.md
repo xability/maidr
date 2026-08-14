@@ -96,12 +96,23 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `bar` | `color`/`fill`, `stack: 'normalize'` | Normalized stacked bar | [vegalite-bindnormalized.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) |
 | `line`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `line`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
+| `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
+| `bar` | the same, plus a `window` sum building a running total | Waterfall | — |
 | `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
+| `point`, `circle`, `square`, `tick` | one positional channel nominal/ordinal | Dot plot (vertical & horizontal) | — |
 | `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
 | `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
+| `errorbar`, `errorband` | — | Error bar | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
 | `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
+| `arc` | `radius` bound to a field | Polar area (coxcomb, rose) | — |
+| `rule` + `point` layers | shared category and value channels | Lollipop | — |
+| `line`/`rule` + `point` layers | two values per category, told apart by `color` | Dumbbell | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
 
-An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the channel carrying the slice magnitudes, and an `arc` without one has no values to sonify, announce, or take percentages of. Such a spec is left unbound rather than announced as a pie whose numbers MAIDR would have to invent.
+An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the channel carrying the slice magnitudes, and an `arc` without one has no values to sonify, announce, or take percentages of. Such a spec is left unbound rather than announced as a pie whose numbers MAIDR would have to invent. An `arc` whose `radius` reads a data field is a polar area instead, where the wedge's length is the magnitude and its angle only says which category it is.
+
+Two of these charts have no mark of their own in Vega-Lite and are authored as a pair of layers: a lollipop is a `rule` from the baseline plus its dots, and a dumbbell is a connector plus two dots per category (Vega-Lite's own "Ranged Dot Plot"). MAIDR collapses each pair into one trace, so the stem's magnitude and the gap between a pair are announced rather than dropped. The two ends of a dumbbell are named from the colour field — "1995" and "2000" rather than "start" and "end" — since those names are the whole content of the comparison.
+
+Highlighting is withheld, rather than pointed at the wrong element, in two cases: an `errorband` draws every sample into a single `<path>`, and a gantt whose lanes are interleaved in the data cannot be sliced back apart in DOM order. Both still sonify and announce normally.
 
 ## Code Examples
 

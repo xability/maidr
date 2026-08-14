@@ -174,6 +174,17 @@ export interface VegaLiteEncoding {
   radius?: VegaLiteChannelDef;
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
+  /**
+   * Grouping without a visual channel: it splits one mark into several
+   * without colouring or otherwise marking them apart. Vega-Lite's ranged
+   * dot plot uses it to draw one connector per category.
+   *
+   * Modelled so such a spec type-checks, not dispatched on: the same chart
+   * puts its grouping on `detail` in one layer and on `color` in the next,
+   * so the adapter decides whether the rows really are paired by looking at
+   * the rows.
+   */
+  detail?: VegaLiteChannelDef;
   row?: VegaLiteChannelDef;
   column?: VegaLiteChannelDef;
 }

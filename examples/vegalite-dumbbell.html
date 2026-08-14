@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Dumbbell Chart Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Dumbbell Chart</h1>
+    <p>
+      Click on the chart and use left and right arrow keys to move between
+      countries, up and down to move between the two years compared at one
+      country. Each end announces the year it belongs to and the change
+      between the pair. Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="dumbbell-chart"
+      aria-label="Dumbbell chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Dumbbell: Vega-Lite has no such mark, so the chart is authored as a
+      // connector layer plus a dot layer — this is Vega-Lite's own "Ranged
+      // Dot Plot". MAIDR collapses the two into one trace: two values at
+      // every category, told apart (and named) by the colour field.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 400,
+        height: 260,
+        title: 'Life Expectancy, 1995 vs 2000',
+        data: {
+          values: [
+            { country: 'Chile', year: 1995, life: 75.1 },
+            { country: 'Chile', year: 2000, life: 77.3 },
+            { country: 'Mexico', year: 1995, life: 73.5 },
+            { country: 'Mexico', year: 2000, life: 74.8 },
+            { country: 'Canada', year: 1995, life: 78.0 },
+            { country: 'Canada', year: 2000, life: 79.2 },
+          ],
+        },
+        encoding: {
+          x: {
+            field: 'life',
+            type: 'quantitative',
+            title: 'Life Expectancy (years)',
+            scale: { zero: false },
+          },
+          y: { field: 'country', type: 'nominal', title: 'Country' },
+        },
+        layer: [
+          {
+            mark: 'line',
+            encoding: {
+              detail: { field: 'country', type: 'nominal' },
+              color: { value: '#db646f' },
+            },
+          },
+          {
+            mark: { type: 'point', filled: true, size: 100 },
+            encoding: {
+              color: { field: 'year', type: 'ordinal', title: 'Year' },
+            },
+          },
+        ],
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#dumbbell-chart', spec, { id: 'life-dumbbell' })
+        .catch((err) => console.error('[vegalite-dumbbell]', err));
+    </script>
+  </body>
+</html>
