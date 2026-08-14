@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Dot Plot - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Dot Plot</h1>
+    <p>
+      A Cleveland dot plot: a <code>scatter</code> trace in markers mode with
+      one marker per category. MAIDR announces it as the chart the author drew
+      rather than as a scatter — a dot plot is a bar chart with a dot where the
+      bar would be, so a reader navigates one category and one value, and the
+      category is a name rather than a coordinate. Two markers on one category
+      would make it a scatter again, and it is left as one.
+    </p>
+
+    <div id="dot" style="width: 720px; height: 420px"></div>
+
+    <script>
+      Plotly.newPlot(
+        'dot',
+        [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            y: ['Chicago', 'Boston', 'Denver', 'Austin', 'Seattle', 'Phoenix'],
+            x: [2100, 2850, 1780, 1650, 2400, 1490],
+            marker: { size: 14, color: '#4C78A8' },
+            name: 'Median rent'
+          }
+        ],
+        {
+          title: { text: 'Median rent by city' },
+          xaxis: { title: { text: 'US dollars per month' } },
+          yaxis: { title: { text: 'City' } },
+          showlegend: false
+        }
+      );
+    </script>
+  </body>
+</html>

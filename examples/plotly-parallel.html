@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Parallel Coordinates - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Parallel Coordinates</h1>
+    <p>
+      A plotly.js <code>parcoords</code> trace auto-detected by MAIDR. The
+      columns here are not one scale — miles per gallon beside horsepower
+      beside weight — so the pitch is scaled per axis rather than for the layer.
+      Arrowing along one car hears it high here and low there; arrowing down a
+      column hears the cars ranked on that variable; and two cars whose pitches
+      swap between adjacent axes are the crossing lines that mean negative
+      correlation. Plotly draws these lines to a canvas rather than to SVG, so
+      the layer sonifies and reads out but has no visual highlight.
+    </p>
+
+    <div id="parallel" style="width: 800px; height: 480px"></div>
+
+    <script>
+      Plotly.newPlot(
+        'parallel',
+        [
+          {
+            type: 'parcoords',
+            dimensions: [
+              { label: 'Miles per gallon', values: [33, 21, 15, 27, 18] },
+              { label: 'Horsepower', values: [65, 110, 230, 95, 150] },
+              { label: 'Weight (lb)', values: [1800, 2600, 3200, 2200, 2900] },
+              { label: 'Cylinders', values: [4, 6, 8, 4, 6] }
+            ]
+          }
+        ],
+        { title: { text: 'Car characteristics' } }
+      );
+    </script>
+  </body>
+</html>

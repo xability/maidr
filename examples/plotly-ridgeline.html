@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Ridgeline Plot - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Ridgeline Plot</h1>
+    <p>
+      Plotly's own ridgeline recipe: horizontal <code>violin</code> traces with
+      <code>side: 'positive'</code>, widened so the halved curves overlap. MAIDR
+      emits one ridgeline layer rather than the violin pair, because the recipe
+      draws no inner box for a quartile summary to describe. Every group is
+      pitched against the tallest density anywhere on the chart, so the ridges
+      can be compared — and moving between groups holds the value the reader is
+      on rather than the column index, since the curves need not share a grid.
+    </p>
+
+    <div id="ridgeline" style="width: 760px; height: 520px"></div>
+
+    <script>
+      const groups = ['2019', '2020', '2021', '2022', '2023'];
+      // A different centre and spread per year, so the ridges have shapes to
+      // compare rather than the same curve five times.
+      const sample = (centre, spread) =>
+        Array.from({ length: 400 }, () => {
+          const u = Math.random();
+          const v = Math.random();
+          const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+          return centre + spread * z;
+        });
+
+      Plotly.newPlot(
+        'ridgeline',
+        groups.map((year, i) => ({
+          type: 'violin',
+          name: year,
+          x: sample(20 + i * 3, 4 + i),
+          orientation: 'h',
+          side: 'positive',
+          width: 3,
+          points: false,
+          meanline: { visible: false }
+        })),
+        {
+          title: { text: 'Delivery time by year' },
+          xaxis: { title: { text: 'Days' }, zeroline: false },
+          yaxis: { title: { text: 'Year' } },
+          showlegend: false
+        }
+      );
+    </script>
+  </body>
+</html>

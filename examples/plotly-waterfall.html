@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Waterfall Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Waterfall Chart</h1>
+    <p>
+      A plotly.js <code>waterfall</code> trace auto-detected by MAIDR. Click on
+      the chart and use arrow keys to walk the steps. Each step announces both
+      numbers the bar draws — the contribution it made, which is what the pitch
+      follows, and the running total it produced — and says whether it added,
+      subtracted, or restated the total.
+    </p>
+
+    <div id="waterfall" style="width: 700px; height: 450px"></div>
+
+    <script>
+      // A profit bridge: an opening balance, four contributions, and a closing
+      // total. `measure` is what tells plotly (and MAIDR) which bars sit on
+      // the baseline rather than floating.
+      Plotly.newPlot(
+        'waterfall',
+        [
+          {
+            type: 'waterfall',
+            x: [
+              'Opening',
+              'Product sales',
+              'Services',
+              'Returns',
+              'Operating costs',
+              'Closing'
+            ],
+            y: [1200, 950, 340, -180, -620, 0],
+            measure: [
+              'absolute',
+              'relative',
+              'relative',
+              'relative',
+              'relative',
+              'total'
+            ],
+            name: 'Profit'
+          }
+        ],
+        {
+          title: { text: 'Profit bridge, FY2024 (thousands)' },
+          xaxis: { title: { text: 'Step' } },
+          yaxis: { title: { text: 'Profit' } }
+        }
+      );
+    </script>
+  </body>
+</html>

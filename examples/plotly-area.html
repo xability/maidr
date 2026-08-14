@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Area Charts - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Area Charts</h1>
+    <p>
+      Three filled plotly.js charts auto-detected by MAIDR. Click on a chart and
+      use arrow keys to navigate; up and down move between series. On the
+      stacked charts each point is announced with the running total of the
+      column it sits in and its share of that total, which is the number the
+      band heights are drawn to compare.
+    </p>
+
+    <h2>Filled bands, independent of one another (<code>fill</code>)</h2>
+    <div id="area" style="width: 700px; height: 400px"></div>
+
+    <h2>Bands stacked on one another (<code>stackgroup</code>)</h2>
+    <div id="stacked-area" style="width: 700px; height: 400px"></div>
+
+    <h2>Bands as shares of a common total (<code>groupnorm</code>)</h2>
+    <div id="normalized-area" style="width: 700px; height: 400px"></div>
+
+    <script>
+      // Quarterly revenue by region. The stacked charts read the same numbers;
+      // only how plotly lays the bands out differs.
+      var quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      var east = [120, 80, 140, 160];
+      var west = [90, 70, 60, 110];
+
+      function series(name, values, extra) {
+        var trace = {
+          x: quarters,
+          y: values,
+          mode: 'lines',
+          type: 'scatter',
+          name: name
+        };
+        for (var key in extra) {
+          trace[key] = extra[key];
+        }
+        return trace;
+      }
+
+      function areaChart(divId, title, extra) {
+        Plotly.newPlot(
+          divId,
+          [series('East', east, extra), series('West', west, extra)],
+          {
+            title: { text: title },
+            xaxis: { title: { text: 'Quarter' } },
+            yaxis: { title: { text: 'Revenue' } }
+          }
+        );
+      }
+
+      areaChart('area', 'Revenue by region', { fill: 'tozeroy' });
+      areaChart('stacked-area', 'Revenue by region (stacked)', {
+        stackgroup: 'one'
+      });
+      areaChart('normalized-area', 'Revenue by region (share)', {
+        stackgroup: 'one',
+        groupnorm: 'percent'
+      });
+    </script>
+  </body>
+</html>

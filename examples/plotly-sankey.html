@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Sankey Diagram - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Sankey Diagram</h1>
+    <p>
+      A plotly.js <code>sankey</code> trace auto-detected by MAIDR. Following a
+      ribbon is the primary move and it is on the keys that already exist:
+      right follows the largest flow out of the current node, left follows the
+      largest flow in, and up and down walk the other nodes stacked in the same
+      column. Plotly names the ends of each flow by index; MAIDR resolves them
+      back to the node labels, because "34 from Coal to Electricity" is the
+      reading and "34 from 0 to 1" is not.
+    </p>
+
+    <div id="sankey" style="width: 800px; height: 500px"></div>
+
+    <script>
+      // A small energy balance, in petajoules.
+      Plotly.newPlot(
+        'sankey',
+        [
+          {
+            type: 'sankey',
+            node: {
+              label: [
+                'Coal',
+                'Gas',
+                'Wind',
+                'Electricity',
+                'Heat',
+                'Losses',
+                'Households',
+                'Industry'
+              ],
+              pad: 18,
+              thickness: 18
+            },
+            link: {
+              source: [0, 0, 1, 1, 2, 3, 3, 3, 4, 4],
+              target: [3, 5, 3, 4, 3, 5, 6, 7, 6, 7],
+              value: [34, 22, 26, 14, 18, 12, 30, 36, 6, 8]
+            }
+          }
+        ],
+        { title: { text: 'Energy flow' } }
+      );
+    </script>
+  </body>
+</html>

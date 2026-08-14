@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Choropleth Map - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Choropleth Map</h1>
+    <p>
+      A plotly.js <code>choropleth</code> trace auto-detected by MAIDR. Read as
+      a bar chart whose categories happen to be places, a map loses everything
+      spatial, so the regions are laid out by the centroid plotly resolved for
+      each one while projecting it: the arrows move north, south, east and west
+      rather than along a list, and the panning follows the longitude. The
+      shaded quantity takes its name from the colorbar, which is the only place
+      a map names it.
+    </p>
+
+    <div id="choropleth" style="width: 800px; height: 500px"></div>
+
+    <script>
+      Plotly.newPlot(
+        'choropleth',
+        [
+          {
+            type: 'choropleth',
+            locationmode: 'ISO-3',
+            locations: ['FRA', 'DEU', 'ESP', 'ITA', 'POL', 'SWE', 'GRC'],
+            text: ['France', 'Germany', 'Spain', 'Italy', 'Poland', 'Sweden', 'Greece'],
+            z: [67.4, 84.4, 47.6, 58.9, 36.8, 10.5, 10.4],
+            colorscale: 'Blues',
+            colorbar: { title: { text: 'Population (millions)' } }
+          }
+        ],
+        {
+          title: { text: 'Population by country' },
+          geo: { scope: 'europe', showframe: false }
+        }
+      );
+    </script>
+  </body>
+</html>

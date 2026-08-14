@@ -1,10 +1,10 @@
-import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, MaidrLayer, PiePoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
+import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
+import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ErrorBarPoint, GanttData, GaugePoint, LinePoint, MaidrLayer, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
 
@@ -125,7 +125,7 @@ describe('plotly extractor', () => {
     it('warns once for a trace type MAIDR has no equivalent for', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const gd = createGraphDiv({
-        traces: [{ type: 'sunburst', y: [1, 2, 3] }],
+        traces: [{ type: 'scatter3d', y: [1, 2, 3] }],
         layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
       });
 
@@ -1651,6 +1651,305 @@ describe('plotly extractor', () => {
         expect(figure.state).toMatchObject({ empty: false });
       });
     });
+
+    it('constructs a navigable trace for each of the bar-like and banded types', () => {
+      const gd = createGraphDiv({
+        traces: [
+          {
+            type: 'waterfall',
+            x: ['Opening', 'Sales', 'Closing'],
+            y: [1000, 400, 0],
+            measure: ['absolute', 'relative', 'total'],
+            name: 'Revenue',
+          },
+          {
+            type: 'funnel',
+            orientation: 'h',
+            y: ['Visited', 'Purchased'],
+            x: [10000, 100],
+            name: 'Conversion',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'scatter',
+            mode: 'markers',
+            x: [1, 2],
+            y: [4.2, 5.1],
+            error_y: { visible: true, type: 'data', array: [0.4, 0.3] },
+            name: 'Treatment',
+            xaxis: 'x3',
+            yaxis: 'y3',
+          },
+          {
+            type: 'scatter',
+            mode: 'lines',
+            x: ['Q1', 'Q2'],
+            y: [120, 80],
+            fill: 'tozeroy',
+            stackgroup: 'one',
+            name: 'East',
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+          {
+            type: 'scatter',
+            mode: 'lines',
+            x: ['Q1', 'Q2'],
+            y: [90, 70],
+            fill: 'tonexty',
+            stackgroup: 'one',
+            name: 'West',
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+        ],
+        layout: twoByTwoLayout(),
+        bgRects: TWO_BY_TWO_RECTS,
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Every payload is one the core's factory recognises and can build a
+        // trace from — the emitted shapes, not just the emitted type names.
+        expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
+          ['waterfall'],
+          ['funnel'],
+          ['error_bar'],
+          ['stacked_area'],
+        ]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('constructs a navigable trace for each of the domain-positioned types', () => {
+      const gd = createGraphDiv({
+        traces: [
+          {
+            type: 'sunburst',
+            labels: ['World', 'Asia', 'Europe'],
+            parents: ['', 'World', 'World'],
+            values: [100, 60, 40],
+            domain: { x: [0, 0.45], y: [0.575, 1] },
+            name: 'Population',
+          },
+          {
+            type: 'sankey',
+            node: { label: ['Coal', 'Electricity', 'Losses'] },
+            link: { source: [0, 0, 1], target: [1, 2, 2], value: [34, 8, 12] },
+            domain: { x: [0.55, 1], y: [0.575, 1] },
+            name: 'Energy',
+          },
+          {
+            type: 'indicator',
+            mode: 'gauge+number',
+            value: 73,
+            title: { text: 'Conversion' },
+            gauge: { shape: 'angular', axis: { range: [0, 100] } },
+            domain: { x: [0, 0.45], y: [0, 0.425] },
+          },
+          {
+            type: 'parcoords',
+            dimensions: [
+              { label: 'mpg', values: [33, 21] },
+              { label: 'hp', values: [65, 110] },
+            ],
+            domain: { x: [0.55, 1], y: [0, 0.425] },
+          },
+        ],
+        layout: {},
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Every payload is one the core's factory recognises and can build a
+        // trace from — the emitted shapes, not just the emitted type names.
+        expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
+          ['sunburst'],
+          ['sankey'],
+          ['gauge'],
+          ['parallel_coordinates'],
+        ]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('constructs a navigable trace for each of the derived cartesian types', () => {
+      const day = 86400000;
+      const march = Date.UTC(2024, 2, 1);
+      const gd = createGraphDiv({
+        traces: [
+          {
+            type: 'bar',
+            orientation: 'h',
+            base: [march],
+            x: [4 * day],
+            y: ['Design'],
+            name: 'Team A',
+          },
+          {
+            type: 'bar',
+            orientation: 'h',
+            y: ['0-9'],
+            x: [-5],
+            name: 'Male',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'bar',
+            orientation: 'h',
+            y: ['0-9'],
+            x: [5],
+            name: 'Female',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'scatter',
+            mode: 'markers',
+            uid: 'dot1',
+            x: ['Chicago', 'Boston'],
+            y: [21, 17],
+            xaxis: 'x3',
+            yaxis: 'y3',
+          },
+          {
+            type: 'scatter',
+            mode: 'text',
+            uid: 'wc1',
+            x: [1, 2],
+            y: [2, 1],
+            text: ['sonification', 'braille'],
+            textfont: { size: [44, 18] },
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+        ],
+        layout: twoByTwoLayout({
+          barmode: 'relative',
+          xaxis: { domain: [0, 0.45], type: 'date' },
+          yaxis: { domain: [0.575, 1], _categories: ['Design'] },
+        }),
+        bgRects: TWO_BY_TWO_RECTS,
+        calcdata: [[{ p: 0, s: 4 * day, b: march }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Every payload is one the core's factory recognises and can build a
+        // trace from — the emitted shapes, not just the emitted type names.
+        expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
+          ['gantt'],
+          ['diverging_bar'],
+          ['dot'],
+          ['word_cloud'],
+        ]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('a plotly choropleth reaches the core as a map of regions', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'choropleth',
+          locations: ['FRA', 'DEU'],
+          z: [10, 20],
+          name: 'Europe',
+        }],
+        layout: { geo: { domain: { x: [0, 1], y: [0, 1] } } },
+        calcdata: [[
+          { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+          { loc: 'DEU', z: 20, ct: [10.4, 51.1] },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.CHOROPLETH]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('a plotly ridgeline reaches the core as one layer of curves', () => {
+      const density = [
+        { v: 0.1, t: 1 },
+        { v: 0.4, t: 3 },
+      ];
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3], name: 'A' },
+          { type: 'violin', orientation: 'h', side: 'positive', x: [2, 4], name: 'B' },
+        ],
+        layout: {
+          xaxis: { domain: [0, 1], title: { text: 'Score' } },
+          yaxis: { domain: [0, 1], _categories: ['A', 'B'] },
+        },
+        calcdata: [[{ pos: 0, density }], [{ pos: 1, density }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.RIDGELINE]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('a plotly polar chart reaches the core as a radar trace', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatterpolar',
+          mode: 'lines+markers',
+          subplot: 'polar',
+          uid: 'aaa111',
+          theta: ['Speed', 'Range', 'Comfort'],
+          r: [8, 4, 6],
+          name: 'Model A',
+        }],
+        layout: {
+          polar: {
+            domain: { x: [0, 1], y: [0, 1] },
+            radialaxis: { title: { text: 'Score' } },
+          },
+        },
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.RADAR]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
   });
 
   describe('segmented bars', () => {
@@ -1934,6 +2233,1766 @@ describe('plotly extractor', () => {
       expect(data[1][2].y).toBeNull();
       // Category labels still come from the trace, so they survive the gaps.
       expect(data[0].map(point => point.x)).toEqual(quarters);
+    });
+  });
+
+  describe('area traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { domain: [0, 1] as [number, number] },
+      yaxis: { domain: [0, 1] as [number, number] },
+    };
+
+    function areaTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'lines',
+        x: ['Q1', 'Q2'],
+        y: [120, 80],
+        fill: 'tozeroy',
+        ...overrides,
+      };
+    }
+
+    function layersOf(gd: PlotlyGraphDiv): MaidrLayer[] {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('binds a filled scatter as an area layer, shaped like a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ name: 'East' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.AREA);
+      expect(layers[0].data).toEqual([[
+        { x: 'Q1', y: 120, z: 'East' },
+        { x: 'Q2', y: 80, z: 'East' },
+      ]]);
+    });
+
+    it('leaves an unfilled scatter a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ fill: 'none' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].type).toBe(TraceType.LINE);
+    });
+
+    it('keeps a filled staircase a step, whose convention still describes it', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ line: { shape: 'hv' } })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].type).toBe(TraceType.STEP);
+      expect(layers[0].stepDirection).toBe('hv');
+    });
+
+    it('merges independent bands into one multi-series area layer', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East' }),
+          areaTrace({ name: 'West', y: [90, 70] }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.AREA);
+      expect(layers[0].data).toHaveLength(2);
+    });
+
+    it('binds a stackgroup as a stacked area carrying each band\'s own value', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.STACKED_AREA);
+      // Not the running total (210/150): AreaTrace accumulates the bands
+      // itself, and pre-accumulated values would be counted twice.
+      expect(layers[0].data).toEqual([
+        [{ x: 'Q1', y: 120, z: 'East' }, { x: 'Q2', y: 80, z: 'East' }],
+        [{ x: 'Q1', y: 90, z: 'West' }, { x: 'Q2', y: 70, z: 'West' }],
+      ]);
+    });
+
+    it('keeps two stack groups apart, so neither invents the other\'s total', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'sales' }),
+          areaTrace({ name: 'North', y: [5, 6], stackgroup: 'costs' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.STACKED_AREA,
+        TraceType.STACKED_AREA,
+      ]);
+      expect(layers.map(layer => (layer.data as unknown[]).length)).toEqual([1, 1]);
+    });
+
+    it('binds a normalized stackgroup as its own type', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.NORMALIZED_AREA);
+    });
+
+    it('announces the rescaled band heights plotly drew for a normalized stack', () => {
+      const gd = createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+        // As plotly leaves it: `sNorm` is the band's own rescaled height and
+        // `y` the running top of the stack.
+        calcdata: [
+          [
+            { x: 0, s: 120, sNorm: 100 * 120 / 210, y: 100 * 120 / 210 },
+            { x: 1, s: 80, sNorm: 100 * 80 / 150, y: 100 * 80 / 150 },
+          ],
+          [
+            { x: 0, s: 90, sNorm: 100 * 90 / 210, y: 100 },
+            { x: 1, s: 70, sNorm: 100 * 70 / 150, y: 100 },
+          ],
+        ],
+      });
+
+      const data = layersOf(gd)[0].data as LinePoint[][];
+
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+      expect(data[0][1].y).toBeCloseTo(53.333333, 5);
+      expect(data[1][1].y).toBeCloseTo(46.666667, 5);
+    });
+
+    it('drops the positions plotly interleaved into a stack from another band', () => {
+      const gd = createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          // West has nothing at Q2, so plotly splices a blank into its
+          // calcdata to line the two bands up.
+          areaTrace({ name: 'West', x: ['Q1'], y: [90], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+        calcdata: [
+          [
+            { x: 0, sNorm: 100 * 120 / 210 },
+            { x: 1, sNorm: 100 },
+          ],
+          [
+            { x: 0, sNorm: 100 * 90 / 210 },
+            { x: 1, i: null, s: 0, sNorm: 0 },
+          ],
+        ],
+      });
+
+      const data = layersOf(gd)[0].data as LinePoint[][];
+
+      // West keeps its one authored sample; the interleaved blank is not one.
+      expect(data[1]).toHaveLength(1);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+    });
+
+    it('falls back to the authored values when plotly computed no calcdata', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].data).toEqual([[
+        { x: 'Q1', y: 120, z: 'East' },
+        { x: 'Q2', y: 80, z: 'East' },
+      ]]);
+    });
+
+    it('highlights the markers of an area drawn with them', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ mode: 'lines+markers', stackgroup: 'one' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].selectors).toBe('.subplot.xy .trace.scatter .point');
+    });
+
+    it('leaves a lines-only area unhighlighted, as it leaves a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].selectors).toBeUndefined();
+    });
+
+    it('does not warn about an area trace, which is supported', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        extractPlotlyData(createGraphDiv({
+          traces: [areaTrace({ stackgroup: 'one' })],
+          layout: SINGLE_PANEL,
+        }));
+
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  describe('funnel traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Users' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Stage' }, domain: [0, 1] as [number, number] },
+    };
+
+    /** The default funnel shape: counts on x, stages on y, drawn sideways. */
+    function funnelTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'funnel',
+        orientation: 'h',
+        y: ['Visited', 'Signed up', 'Purchased'],
+        x: [10000, 2400, 100],
+        name: 'Conversion',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('binds a funnel trace as a funnel layer, in the authored stage order', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.FUNNEL);
+      expect(layer.title).toBe('Conversion');
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      // The count sits on the axis it was drawn against, which is where
+      // AbstractBarPlot reads a horizontal bar's value from.
+      expect(layer.data).toEqual([
+        { x: 10000, y: 'Visited' },
+        { x: 2400, y: 'Signed up' },
+        { x: 100, y: 'Purchased' },
+      ]);
+      expect(layer.axes?.x?.label).toBe('Users');
+      expect(layer.axes?.y?.label).toBe('Stage');
+    });
+
+    it('prefers the size plotly computed over the authored one', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+        calcdata: [[{ p: 0, s: 9000 }, { p: 1, s: 2400 }, { p: 2, s: 100 }]],
+      }));
+
+      expect((layer.data as BarPoint[])[0].x).toBe(9000);
+    });
+
+    it('scopes the highlight to the funnel layer, not to a neighbouring bar', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe('.subplot.xy .funnellayer .trace.bars .point > path');
+    });
+
+    it('keeps a vertical funnel on the value axis it was drawn against', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace({
+          orientation: 'v',
+          x: ['Visited', 'Signed up'],
+          y: [10000, 2400],
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.orientation).toBeUndefined();
+      expect(layer.data).toEqual([
+        { x: 'Visited', y: 10000 },
+        { x: 'Signed up', y: 2400 },
+      ]);
+    });
+  });
+
+  describe('waterfall traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Step' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Amount' }, domain: [0, 1] as [number, number] },
+    };
+
+    function waterfallTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'waterfall',
+        x: ['Opening', 'Sales', 'Returns', 'Closing'],
+        y: [1000, 400, -150, 0],
+        measure: ['absolute', 'relative', 'relative', 'total'],
+        name: 'Revenue',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('accumulates the authored steps when plotly computed no calcdata', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.WATERFALL);
+      expect(layer.title).toBe('Revenue');
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
+        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
+        { x: 'Returns', start: 1400, end: 1250, delta: -150, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 1250, delta: 1250, kind: 'total' },
+      ]);
+    });
+
+    it('reads the running totals plotly computed in preference to its own', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+        // As plotly leaves it: `v` is the total after the step, `rawS` the
+        // authored contribution, `s` the accumulated size it draws with.
+        // The amounts deliberately disagree with the trace's own arrays, so
+        // falling back to `authoredWaterfallSteps` fails this outright rather
+        // than passing on identical numbers.
+        calcdata: [[
+          { p: 0, s: 1100, rawS: 1100, isSum: true, v: 1100 },
+          { p: 1, s: 1500, rawS: 400, isSum: false, v: 1500 },
+          { p: 2, s: 1300, rawS: -200, isSum: false, v: 1300 },
+          { p: 3, s: 1300, rawS: 0, isSum: true, v: 1300 },
+        ]],
+      }));
+
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1100, delta: 1100, kind: 'total' },
+        { x: 'Sales', start: 1100, end: 1500, delta: 400, kind: 'increase' },
+        { x: 'Returns', start: 1500, end: 1300, delta: -200, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 1300, delta: 1300, kind: 'total' },
+      ]);
+    });
+
+    it('measures the steps from the trace base', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace({
+          x: ['Sales'],
+          y: [400],
+          measure: ['relative'],
+          base: 500,
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.data).toEqual([
+        { x: 'Sales', start: 500, end: 900, delta: 400, kind: 'increase' },
+      ]);
+    });
+
+    it('swaps the axis labels of a horizontal waterfall, which reads them fixed', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace({
+          orientation: 'h',
+          y: ['Opening', 'Sales'],
+          x: [1000, 400],
+          measure: ['absolute', 'relative'],
+        })],
+        // Drawn sideways, so plotly's x carries the amounts and its y the
+        // steps — the opposite of how the layer has to name them.
+        layout: {
+          xaxis: { title: { text: 'Amount' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Step' }, domain: [0, 1] },
+        },
+      }));
+
+      // WaterfallTrace names the step with the layer's x axis and the
+      // contribution with its y axis, whichever way plotly drew the bars.
+      expect(layer.axes?.x?.label).toBe('Step');
+      expect(layer.axes?.y?.label).toBe('Amount');
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
+        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
+      ]);
+    });
+
+    it('scopes the highlight to the waterfall layer', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe('.subplot.xy .waterfalllayer .trace.bars .point > path');
+    });
+  });
+
+  describe('error bar traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Group' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Mean' }, domain: [0, 1] as [number, number] },
+    };
+
+    function errorTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'markers',
+        uid: 'trt',
+        x: ['A', 'B'],
+        y: [4.2, 5.1],
+        error_y: { visible: true, type: 'data', array: [0.4, 0.3] },
+        name: 'Treatment',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('binds a scatter carrying intervals as an error bar layer', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+      expect(layer.title).toBe('Treatment');
+      expect(layer.orientation).toBeUndefined();
+      // Absolute bounds, not the offsets the trace declared.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data.map(point => point.x)).toEqual(['A', 'B']);
+      expect(data[0].yMin).toBeCloseTo(3.8, 10);
+      expect(data[0].yMax).toBeCloseTo(4.6, 10);
+      expect(data[1].yMin).toBeCloseTo(4.8, 10);
+      expect(data[1].yMax).toBeCloseTo(5.4, 10);
+    });
+
+    it('leaves a scatter whose intervals plotly turned off a scatter', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({
+          x: [1, 2],
+          error_y: { visible: false, type: 'data', array: [0.4, 0.3] },
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.SCATTER);
+    });
+
+    it('prefers the bounds plotly resolved over recomputing them', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ error_y: { visible: true, type: 'sqrt' } })],
+        layout: SINGLE_PANEL,
+        calcdata: [[
+          { x: 0, y: 4.2, ys: 2.15, yh: 6.25 },
+          { x: 1, y: 5.1, ys: 2.84, yh: 7.36 },
+        ]],
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'A', y: 4.2, yMin: 2.15, yMax: 6.25 });
+      expect(data[1]).toEqual({ x: 'B', y: 5.1, yMin: 2.84, yMax: 7.36 });
+    });
+
+    it('reads the two sides separately when the trace declared them so', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({
+          error_y: {
+            visible: true,
+            type: 'data',
+            symmetric: false,
+            array: [0.4, 0.3],
+            arrayminus: [0.1, 0.2],
+          },
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].yMin).toBeCloseTo(4.1, 10);
+      expect(data[0].yMax).toBeCloseTo(4.6, 10);
+    });
+
+    it('resolves a percentage interval against each estimate', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ error_y: { visible: true, type: 'percent', value: 10 } })],
+        layout: SINGLE_PANEL,
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].yMin).toBeCloseTo(3.78, 10);
+      expect(data[0].yMax).toBeCloseTo(4.62, 10);
+    });
+
+    it('reads a horizontal interval off the axis it was drawn on', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          uid: 'study',
+          y: ['Study A', 'Study B'],
+          x: [1.2, 0.8],
+          error_x: { visible: true, type: 'data', array: [0.3, 0.2] },
+        }],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].x).toBe('Study A');
+      expect(data[0].y).toBe(1.2);
+      expect(data[0].yMin).toBeCloseTo(0.9, 10);
+      expect(data[0].yMax).toBeCloseTo(1.5, 10);
+      expect(layer.selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracestudy .errorbars > g.errorbar > path.xerror',
+      );
+    });
+
+    it('highlights the whip a bar trace hangs off its own group', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ type: 'bar', mode: undefined })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+      expect(layer.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.errorbar > path.yerror',
+      );
+    });
+
+    it('scopes each of two traces on one panel to its own whips', () => {
+      const gd = createGraphDiv({
+        traces: [
+          errorTrace({ uid: 'ctl', name: 'Control' }),
+          errorTrace({ uid: 'trt', name: 'Treatment' }),
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+      expect(layers).toHaveLength(2);
+      // A panel-wide selector would hand both layers every whip on the panel,
+      // and `ErrorBarTrace` drops the highlight outright on a count mismatch.
+      expect(layers[0].selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracectl .errorbars > g.errorbar > path.yerror',
+      );
+      expect(layers[1].selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracetrt .errorbars > g.errorbar > path.yerror',
+      );
+    });
+
+    it('counts the bar traces drawn before one carrying intervals', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['A', 'B'], y: [1, 2] },
+          { type: 'bar', x: ['A', 'B'], y: [3, 4], visible: 'legendonly' },
+          errorTrace({ type: 'bar', mode: undefined }),
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+      const errorLayer = layers.find(layer => layer.type === TraceType.ERROR_BAR);
+      // The hidden trace gets no group in the layer, so it must not shift the
+      // count; the drawn one before it must.
+      expect(errorLayer?.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) > g.errorbar > path.yerror',
+      );
+    });
+
+    it('drops a sample plotly drew no estimate for, as it drew no whip', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ x: ['A', 'B', 'C'], y: [4.2, null as unknown as number, 5.1] })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect((layer.data as ErrorBarPoint[]).map(point => point.x)).toEqual(['A', 'C']);
+    });
+  });
+
+  describe('hierarchy traces', () => {
+    const DOMAIN = { x: [0, 1] as [number, number], y: [0, 1] as [number, number] };
+
+    /** A tree as an author thinks of it, before plotly stratifies one. */
+    interface TreeSpec {
+      label: string;
+      value?: number;
+      children?: TreeSpec[];
+    }
+
+    /**
+     * Builds the tree plotly stashes on the first calcdata entry: a d3
+     * hierarchy whose nodes wrap the sector calc data two levels down, with
+     * every node's children already sorted the way plotly sorts them.
+     */
+    function hierarchyNode(spec: TreeSpec, parent: PlotlyHierarchyNode | null = null): PlotlyHierarchyNode {
+      const node: PlotlyHierarchyNode = {
+        parent,
+        value: spec.value,
+        data: { data: { label: spec.label } },
+      };
+      node.children = spec.children?.map(child => hierarchyNode(child, node));
+      return node;
+    }
+
+    /** The tree every case below is drawn from, largest child first. */
+    const WORLD: TreeSpec = {
+      label: 'World',
+      value: 100,
+      children: [
+        {
+          label: 'Asia',
+          value: 60,
+          children: [
+            { label: 'China', value: 35 },
+            { label: 'India', value: 25 },
+          ],
+        },
+        { label: 'Europe', value: 40, children: [{ label: 'France', value: 40 }] },
+      ],
+    };
+
+    function hierarchyTrace(type: string, overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type,
+        // Authored smallest first at both levels, which is NOT how plotly
+        // draws it: its calc sorts each node's children largest first. The two
+        // orders differing is what lets the drawn-order test discriminate.
+        labels: ['World', 'Europe', 'Asia', 'India', 'China', 'France'],
+        parents: ['', 'World', 'World', 'Asia', 'Asia', 'Europe'],
+        values: [100, 40, 60, 25, 35, 40],
+        domain: DOMAIN,
+        ...overrides,
+      };
+    }
+
+    function hierarchyLayer(type: string, options: {
+      trace?: Partial<PlotlyTrace>;
+      calcdata?: PlotlyCalcData[][];
+    } = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [hierarchyTrace(type, options.trace)],
+        layout: {},
+        calcdata: options.calcdata,
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('reads the sectors in the order plotly drew them, deepest level last', () => {
+      const layer = hierarchyLayer('sunburst', {
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      expect(layer.type).toBe(TraceType.SUNBURST);
+      // Level order, not the authored order: plotly draws the tree a level at
+      // a time, and the `g.slice` groups sit in that order. The trace authored
+      // each level's siblings the other way round, so this is the computed
+      // tree's order and could not have come from the trace's own arrays.
+      expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual([
+        'World',
+        'Asia',
+        'Europe',
+        'China',
+        'India',
+        'France',
+      ]);
+    });
+
+    it('names each sector\'s ancestors root first, excluding itself', () => {
+      const layer = hierarchyLayer('sunburst', {
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      const data = layer.data as TreemapPoint[];
+      expect(data[0]).toEqual({ x: 'World', y: 100 });
+      expect(data[1]).toEqual({ x: 'Asia', y: 60, path: ['World'] });
+      expect(data[3]).toEqual({ x: 'China', y: 35, path: ['World', 'Asia'] });
+    });
+
+    it.each([
+      ['sunburst', TraceType.SUNBURST],
+      ['icicle', TraceType.ICICLE],
+      ['treemap', TraceType.TREEMAP],
+    ])('binds a %s to its own layer and its own slices', (type, expected) => {
+      const layer = hierarchyLayer(type, {
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      expect(layer.type).toBe(expected);
+      expect(layer.selectors).toBe(
+        `.${type}layer > g.trace.${type}:nth-of-type(1) g.slice > path.surface`,
+      );
+      expect(layer.axes?.x?.label).toBe('Label');
+      expect(layer.axes?.y?.label).toBe('Value');
+    });
+
+    it('falls back to the authored arrays and withholds selectors when nothing was computed', () => {
+      const layer = hierarchyLayer('treemap');
+
+      // Authored order this time, which is not the drawn order — so no
+      // highlight rather than one landing on a neighbouring rectangle.
+      expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual([
+        'World',
+        'Europe',
+        'Asia',
+        'India',
+        'China',
+        'France',
+      ]);
+      expect((layer.data as TreemapPoint[])[5]).toEqual({
+        x: 'France',
+        y: 40,
+        path: ['World', 'Europe'],
+      });
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it.each([
+      ['maxdepth', { maxdepth: 2 }],
+      ['level', { level: 'Asia' }],
+    ])('withholds selectors when %s trims what plotly drew', (_name, trace) => {
+      const layer = hierarchyLayer('sunburst', {
+        trace,
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      // Plotly computed the whole tree and drew part of it, so sector k is no
+      // longer slice k — no highlight beats one landing on another sector.
+      expect((layer.data as TreemapPoint[])).toHaveLength(6);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('keeps the selectors when maxdepth asks for the whole tree', () => {
+      const layer = hierarchyLayer('sunburst', {
+        trace: { maxdepth: -1 },
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      expect(layer.selectors).toBe(
+        '.sunburstlayer > g.trace.sunburst:nth-of-type(1) g.slice > path.surface',
+      );
+    });
+
+    it('resolves an authored path through ids when the labels repeat', () => {
+      const layer = hierarchyLayer('treemap', {
+        trace: {
+          labels: ['Sales', 'North', 'North'],
+          ids: ['sales', 'sales/north', 'ops/north'],
+          parents: ['', 'sales', 'sales'],
+          values: [10, 6, 4],
+        },
+      });
+
+      const data = layer.data as TreemapPoint[];
+      expect(data[1]).toEqual({ x: 'North', y: 6, path: ['Sales'] });
+      expect(data[2]).toEqual({ x: 'North', y: 4, path: ['Sales'] });
+    });
+
+    it('refuses the drawn order for a forest plotly gave a stand-in root', () => {
+      const forest = hierarchyNode({
+        label: '',
+        children: [{ label: 'Asia', value: 60 }, { label: 'Europe', value: 40 }],
+      });
+      forest.data = { data: { label: '', hasMultipleRoots: true } };
+
+      const layer = hierarchyLayer('sunburst', { calcdata: [[{ hierarchy: forest }]] });
+
+      // The three layouts disagree over whether the stand-in is drawn, so the
+      // sector list cannot be lined up with the slices at all.
+      expect(layer.selectors).toBeUndefined();
+      expect((layer.data as TreemapPoint[])[0].x).toBe('World');
+    });
+
+    it('keeps a sunburst out of the cartesian panel beside it', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['a', 'b'], y: [1, 2], name: 'Counts' },
+          hierarchyTrace('sunburst', { domain: { x: [0.55, 1], y: [0, 1] } }),
+        ],
+        layout: {
+          xaxis: { domain: [0, 0.45], title: { text: 'Day' } },
+          yaxis: { domain: [0, 1], title: { text: 'Count' } },
+        },
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0]).toHaveLength(2);
+      const [bars, sunburst] = maidr!.subplots[0];
+      expect(bars.layers[0].type).toBe(TraceType.BAR);
+      expect(sunburst.layers[0].type).toBe(TraceType.SUNBURST);
+      // Not the bar panel's axis names.
+      expect(sunburst.layers[0].axes?.x?.label).toBe('Label');
+    });
+  });
+
+  describe('sankey traces', () => {
+    const NODES = { label: ['Coal', 'Electricity', 'Losses'] };
+
+    function sankeyTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'sankey',
+        node: NODES,
+        link: { source: [0, 0, 1], target: [1, 2, 2], value: [34, 8, 12] },
+        domain: { x: [0, 1], y: [0, 1] },
+        name: 'Energy',
+        ...overrides,
+      };
+    }
+
+    function sankeyLayer(options: {
+      trace?: Partial<PlotlyTrace>;
+      calcdata?: PlotlyCalcData[][];
+    } = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [sankeyTrace(options.trace)],
+        layout: {},
+        calcdata: options.calcdata,
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('names both ends of every flow plotly kept', () => {
+      const layer = sankeyLayer({
+        calcdata: [[{
+          _links: [
+            { source: 0, target: 1, value: 34 },
+            { source: 0, target: 2, value: 8 },
+            { source: 1, target: 2, value: 12 },
+          ],
+        }]],
+      });
+
+      expect(layer.type).toBe(TraceType.SANKEY);
+      expect(layer.data).toEqual([
+        { source: 'Coal', target: 'Electricity', value: 34 },
+        { source: 'Coal', target: 'Losses', value: 8 },
+        { source: 'Electricity', target: 'Losses', value: 12 },
+      ]);
+      expect(layer.selectors).toBe('.sankey .sankey-links > path.sankey-link');
+    });
+
+    it('reads the node objects the layout pass leaves on the links', () => {
+      const layer = sankeyLayer({
+        calcdata: [[{
+          _links: [
+            { source: { pointNumber: 0, label: 'Coal' }, target: { pointNumber: 1, label: 'Electricity' }, value: 34 },
+          ],
+        }]],
+      });
+
+      expect(layer.data).toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+    });
+
+    it('falls back to the authored links, dropping the ones plotly would not draw', () => {
+      const layer = sankeyLayer({
+        trace: { link: { source: [0, 0, 1], target: [1, 2, 2], value: [34, 0, 12] } },
+      });
+
+      // The zero-weight flow is not a ribbon, and keeping it would put an
+      // edge in the graph that nothing on screen corresponds to.
+      expect(layer.data).toEqual([
+        { source: 'Coal', target: 'Electricity', value: 34 },
+        { source: 'Electricity', target: 'Losses', value: 12 },
+      ]);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('falls back to the index for a node the trace never named', () => {
+      const layer = sankeyLayer({
+        trace: { node: { label: ['Coal'] } },
+      });
+
+      expect(layer.data).toEqual([
+        { source: 'Coal', target: 1, value: 34 },
+        { source: 'Coal', target: 2, value: 8 },
+        { source: 1, target: 2, value: 12 },
+      ]);
+    });
+  });
+
+  describe('indicator traces', () => {
+    function gaugeTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'indicator',
+        mode: 'gauge+number',
+        value: 73,
+        title: { text: 'Conversion' },
+        gauge: { shape: 'angular', axis: { range: [0, 100] } },
+        domain: { x: [0, 1], y: [0, 1] },
+        ...overrides,
+      };
+    }
+
+    function gaugeLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({ traces: [gaugeTrace(overrides)], layout: {} });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads the measure against the dial it was drawn on', () => {
+      const layer = gaugeLayer();
+
+      expect(layer.type).toBe(TraceType.GAUGE);
+      // A single object, not an array of one: the chart draws one measure.
+      expect(layer.data).toEqual({ value: 73, min: 0, max: 100, label: 'Conversion' });
+      expect(layer.selectors)
+        .toBe('.indicatorlayer > g.trace:nth-of-type(1) g.value-arc > path');
+    });
+
+    it('highlights the filled rectangle of a bullet chart instead of an arc', () => {
+      const layer = gaugeLayer({
+        gauge: { shape: 'bullet', axis: { range: [0, 100] } },
+      });
+
+      expect(layer.selectors)
+        .toBe('.indicatorlayer > g.trace:nth-of-type(1) g.value-bullet > rect');
+    });
+
+    it('takes the threshold line as the target', () => {
+      const layer = gaugeLayer({
+        gauge: { shape: 'angular', axis: { range: [0, 100] }, threshold: { value: 80 } },
+      });
+
+      expect((layer.data as GaugePoint).target).toBe(80);
+    });
+
+    it('ignores the threshold plotly resolves to false, and a self-referencing delta', () => {
+      const layer = gaugeLayer({
+        mode: 'gauge+number+delta',
+        gauge: { shape: 'angular', axis: { range: [0, 100] }, threshold: { value: false } },
+        // Plotly defaults `delta.reference` to the measure itself, and
+        // "0 above target" is not a reading.
+        delta: { reference: 73 },
+      });
+
+      expect((layer.data as GaugePoint).target).toBeUndefined();
+    });
+
+    it('falls back to the delta reference the author really set', () => {
+      const layer = gaugeLayer({
+        mode: 'gauge+number+delta',
+        delta: { reference: 65 },
+      });
+
+      expect((layer.data as GaugePoint).target).toBe(65);
+    });
+
+    it('carries the qualitative bands the author named, ascending', () => {
+      const layer = gaugeLayer({
+        gauge: {
+          shape: 'angular',
+          axis: { range: [0, 100] },
+          steps: [
+            { range: [75, 100], name: 'good' },
+            { range: [0, 50], name: 'poor' },
+            { range: [50, 75], name: 'ok' },
+          ],
+        },
+      });
+
+      expect((layer.data as GaugePoint).bands).toEqual([
+        { to: 50, label: 'poor' },
+        { to: 75, label: 'ok' },
+        { to: 100, label: 'good' },
+      ]);
+    });
+
+    it('withholds the bands entirely when a step went unnamed', () => {
+      const layer = gaugeLayer({
+        gauge: {
+          shape: 'angular',
+          axis: { range: [0, 100] },
+          steps: [{ range: [0, 50], name: 'poor' }, { range: [50, 100] }],
+        },
+      });
+
+      // Colour is what a sighted reader goes by, and there is no honest name
+      // to give the second band.
+      expect((layer.data as GaugePoint).bands).toBeUndefined();
+    });
+
+    it('skips an indicator that draws no gauge', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'indicator',
+          mode: 'number+delta',
+          value: 73,
+          domain: { x: [0, 1], y: [0, 1] },
+        }],
+        layout: {},
+      });
+
+      try {
+        expect(extractPlotlyData(gd)).toBeNull();
+        const skipped = warn.mock.calls.filter(([message]) =>
+          String(message).includes('no gauge to read'),
+        );
+        expect(skipped).toHaveLength(1);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  describe('polar traces', () => {
+    const POLAR_LAYOUT: PlotlyFullLayout = {
+      polar: {
+        domain: { x: [0, 1], y: [0, 1] },
+        radialaxis: { title: { text: 'Score' } },
+      },
+    };
+
+    function polarLayer(traces: PlotlyTrace[], layout: PlotlyFullLayout = POLAR_LAYOUT): MaidrLayer {
+      const gd = createGraphDiv({ traces, layout });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('reads a scatterpolar as a radar, one row per series', () => {
+      const layer = polarLayer([
+        {
+          type: 'scatterpolar',
+          mode: 'lines+markers',
+          subplot: 'polar',
+          uid: 'aaa111',
+          theta: ['Speed', 'Range', 'Comfort'],
+          r: [8, 4, 6],
+          name: 'Model A',
+        },
+        {
+          type: 'scatterpolar',
+          mode: 'lines+markers',
+          subplot: 'polar',
+          uid: 'bbb222',
+          theta: ['Speed', 'Range', 'Comfort'],
+          r: [5, 7, 3],
+          name: 'Model B',
+        },
+      ]);
+
+      expect(layer.type).toBe(TraceType.RADAR);
+      const data = layer.data as LinePoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0][0]).toEqual({ x: 'Speed', y: 8, z: 'Model A' });
+      expect(data[1][2]).toEqual({ x: 'Comfort', y: 3, z: 'Model B' });
+      // The radial axis is the only one plotly lets an author title.
+      expect(layer.axes?.y?.label).toBe('Score');
+      expect(layer.axes?.x?.label).toBe('Spoke');
+    });
+
+    it('names each radar series by its own uid class', () => {
+      const layer = polarLayer([
+        {
+          type: 'scatterpolar',
+          mode: 'markers',
+          subplot: 'polar',
+          uid: 'aaa111',
+          theta: ['Speed'],
+          r: [8],
+        },
+        {
+          type: 'scatterpolar',
+          mode: 'markers',
+          subplot: 'polar',
+          uid: 'bbb222',
+          theta: ['Speed'],
+          r: [5],
+        },
+      ]);
+
+      // One selector per series, which is what a line-shaped layer pairs by
+      // position — a single selector for the layer would resolve to nothing.
+      expect(layer.selectors).toEqual([
+        '.polarlayer > g.polar > g.frontplot > g.scatterlayer > g.trace.traceaaa111 .point',
+        '.polarlayer > g.polar > g.frontplot > g.scatterlayer > g.trace.tracebbb222 .point',
+      ]);
+    });
+
+    it('reads a barpolar as a polar area, counted within the subplot bar layer', () => {
+      const layer = polarLayer([{
+        type: 'barpolar',
+        subplot: 'polar2',
+        theta: ['N', 'E', 'S', 'W'],
+        r: [12, 9, 4, 7],
+        name: 'Wind',
+      }], {
+        polar2: { domain: { x: [0, 1], y: [0, 1] } },
+      });
+
+      expect(layer.type).toBe(TraceType.POLAR_AREA);
+      expect(layer.title).toBe('Wind');
+      expect(layer.selectors).toEqual([
+        '.polarlayer > g.polar2 > g.frontplot > g.barlayer > g.trace:nth-of-type(1) g.point > path',
+      ]);
+      // No radial title on this subplot, so the magnitude keeps its generic name.
+      expect(layer.axes?.y?.label).toBe('Value');
+    });
+
+    it('drops a spoke with no value rather than drawing it at the centre', () => {
+      const layer = polarLayer([{
+        type: 'scatterpolar',
+        mode: 'markers',
+        subplot: 'polar',
+        uid: 'aaa111',
+        theta: ['Speed', 'Range', 'Comfort'],
+        r: [8, null as unknown as number, 6],
+      }]);
+
+      expect((layer.data as LinePoint[][])[0].map(point => point.x))
+        .toEqual(['Speed', 'Comfort']);
+    });
+
+    it('keeps a polar subplot apart from the cartesian panel beside it', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['a', 'b'], y: [1, 2], name: 'Counts' },
+          {
+            type: 'scatterpolar',
+            mode: 'markers',
+            subplot: 'polar',
+            uid: 'aaa111',
+            theta: ['N'],
+            r: [3],
+            name: 'Wind',
+          },
+        ],
+        layout: {
+          xaxis: { domain: [0, 0.45] },
+          yaxis: { domain: [0, 1] },
+          polar: { domain: { x: [0.55, 1], y: [0, 1] } },
+        },
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0]).toHaveLength(2);
+      expect(maidr!.subplots[0].map(panel => panel.layers[0].type))
+        .toEqual([TraceType.BAR, TraceType.RADAR]);
+    });
+  });
+
+  describe('parallel coordinates traces', () => {
+    function parcoordsLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'parcoords',
+          domain: { x: [0, 1], y: [0, 1] },
+          dimensions: [
+            { label: 'mpg', values: [33, 21, 15] },
+            { label: 'hp', values: [65, 110, 230] },
+            { label: 'weight', values: [1800, 2600, 3200] },
+          ],
+          ...overrides,
+        }],
+        layout: {},
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('turns plotly\'s column-per-axis store into a row per observation', () => {
+      const layer = parcoordsLayer();
+
+      expect(layer.type).toBe(TraceType.PARALLEL);
+      const data = layer.data as LinePoint[][];
+      expect(data).toHaveLength(3);
+      expect(data[0]).toEqual([
+        { x: 'mpg', y: 33 },
+        { x: 'hp', y: 65 },
+        { x: 'weight', y: 1800 },
+      ]);
+      expect(data[2][2]).toEqual({ x: 'weight', y: 3200 });
+    });
+
+    it('emits no selectors, because plotly draws the lines to a canvas', () => {
+      expect(parcoordsLayer().selectors).toBeUndefined();
+    });
+
+    it('leaves out an axis the author hid', () => {
+      const layer = parcoordsLayer({
+        dimensions: [
+          { label: 'mpg', values: [33, 21] },
+          { label: 'hp', values: [65, 110], visible: false },
+        ],
+      });
+
+      expect((layer.data as LinePoint[][])[0]).toEqual([{ x: 'mpg', y: 33 }]);
+    });
+
+    it('reads no further than the shortest column reaches', () => {
+      const layer = parcoordsLayer({
+        dimensions: [
+          { label: 'mpg', values: [33, 21, 15] },
+          { label: 'hp', values: [65, 110] },
+        ],
+      });
+
+      expect(layer.data as LinePoint[][]).toHaveLength(2);
+    });
+  });
+  describe('ridgeline traces', () => {
+    /** One halved violin, with the KDE samples plotly computed for it. */
+    function ridgeCalc(pos: number): PlotlyCalcData {
+      return {
+        pos,
+        min: 1,
+        q1: 2,
+        med: 3,
+        q3: 4,
+        max: 9,
+        density: [
+          { v: 0.1, t: 1 },
+          { v: 0.4, t: 3 },
+          { v: 0.05, t: 9 },
+        ],
+      };
+    }
+
+    /** Plotly's own ridgeline recipe: horizontal violins, positive half only. */
+    function ridgeTraces(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace[] {
+      return [
+        { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3, 9], name: 'A', ...overrides },
+        { type: 'violin', orientation: 'h', side: 'positive', x: [2, 4, 8], name: 'B', ...overrides },
+      ];
+    }
+
+    const RIDGE_LAYOUT: PlotlyFullLayout = {
+      xaxis: { domain: [0, 1], title: { text: 'Score' } },
+      yaxis: { domain: [0, 1], title: { text: 'Group' }, _categories: ['A', 'B'] },
+    };
+
+    function ridgeLayers(traces: PlotlyTrace[] = ridgeTraces()): MaidrLayer[] {
+      const gd = createGraphDiv({
+        traces,
+        layout: RIDGE_LAYOUT,
+        calcdata: [[ridgeCalc(0)], [ridgeCalc(1)]],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('emits one ridgeline layer in place of the violin pair', () => {
+      const layers = ridgeLayers();
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.RIDGELINE);
+    });
+
+    it('reads plotly\'s density samples, curves top first', () => {
+      const data = ridgeLayers()[0].data as ViolinKdePoint[][];
+
+      // The last trace is drawn at the top of a horizontal position axis, and
+      // the ridgeline trace reverses nothing of its own.
+      expect(data.map(curve => curve[0].x)).toEqual(['B', 'A']);
+      expect(data[0][1]).toEqual({ x: 'B', y: 3, density: 0.4 });
+    });
+
+    it('names the value axis and the density, one selector per curve', () => {
+      const layer = ridgeLayers()[0];
+
+      expect(layer.axes?.x?.label).toBe('Score');
+      expect(layer.axes?.z?.label).toBe('Density');
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
+        '.subplot.xy .violinlayer > g:nth-child(1) > path.violin:nth-child(1)',
+      ]);
+    });
+
+    it('keeps the violin pair when only some of the violins are halved', () => {
+      const layers = ridgeLayers([
+        { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3, 9], name: 'A' },
+        { type: 'violin', orientation: 'h', x: [2, 4, 8], name: 'B' },
+      ]);
+
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.VIOLIN_BOX,
+        TraceType.VIOLIN_KDE,
+      ]);
+    });
+  });
+
+  describe('gantt traces', () => {
+    const DAY = 86400000;
+    const MARCH_1 = Date.UTC(2024, 2, 1);
+
+    /** A timeline as `plotly.express.timeline` emits one: bars floated on dates. */
+    function timelineTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'bar',
+        orientation: 'h',
+        base: [MARCH_1, MARCH_1 + 4 * DAY],
+        x: [4 * DAY, 6 * DAY],
+        y: ['Design', 'Build'],
+        name: 'Team A',
+        ...overrides,
+      };
+    }
+
+    /**
+     * The lane axis as plotly resolves it for a timeline: categories, with the
+     * range reversed so the first task sits at the top.
+     */
+    function timelineLayout(extra: Partial<PlotlyFullLayout> = {}): PlotlyFullLayout {
+      return {
+        xaxis: { domain: [0, 1], type: 'date', title: { text: 'Date' } },
+        yaxis: {
+          domain: [0, 1],
+          type: 'category',
+          title: { text: 'Task' },
+          _categories: ['Design', 'Build', 'Ship'],
+          range: [2.5, -0.5],
+        },
+        ...extra,
+      };
+    }
+
+    function ganttLayer(
+      traces: PlotlyTrace[] = [timelineTrace()],
+      calcdata?: PlotlyCalcData[][],
+    ): MaidrLayer {
+      const gd = createGraphDiv({
+        traces,
+        layout: timelineLayout(),
+        calcdata: calcdata ?? [[
+          { p: 0, s: 4 * DAY, b: MARCH_1 },
+          { p: 1, s: 6 * DAY, b: MARCH_1 + 4 * DAY },
+        ]],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('reads the intervals plotly floated onto the date axis', () => {
+      const layer = ganttLayer();
+
+      expect(layer.type).toBe(TraceType.GANTT);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as GanttData;
+      // Scaled into the unit the lengths are announced in, so a task reads as
+      // four days rather than as 345,600,000.
+      expect(data.points[0]).toEqual([
+        { x: 'Design', start: MARCH_1 / DAY, end: MARCH_1 / DAY + 4 },
+      ]);
+      expect(data.unit).toBe('days');
+    });
+
+    it('keeps a lane nothing was booked in', () => {
+      const data = ganttLayer().data as GanttData;
+
+      expect(data.lanes).toEqual(['Design', 'Build', 'Ship']);
+      expect(data.points[2]).toEqual([]);
+    });
+
+    it('takes the axis format back to the instant the position names', () => {
+      const format = ganttLayer().axes?.x?.format;
+
+      expect(format?.function).toContain('new Date(value * 86400000)');
+      // eslint-disable-next-line no-new-func
+      const render = new Function('value', format!.function!) as (v: number) => string;
+      expect(render(MARCH_1 / DAY)).toContain('2024');
+    });
+
+    it('addresses each interval by its own bar', () => {
+      expect(ganttLayer().selectors).toEqual([
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(1) > path',
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(2) > path',
+      ]);
+    });
+
+    it('merges the traces plotly.express splits a schedule into by colour', () => {
+      const layer = ganttLayer(
+        [
+          timelineTrace({ base: [MARCH_1], x: [4 * DAY], y: ['Design'], name: 'Alice' }),
+          timelineTrace({ base: [MARCH_1 + 4 * DAY], x: [6 * DAY], y: ['Design'], name: 'Bob' }),
+        ],
+        [
+          [{ p: 0, s: 4 * DAY, b: MARCH_1 }],
+          [{ p: 0, s: 6 * DAY, b: MARCH_1 + 4 * DAY }],
+        ],
+      );
+
+      const data = layer.data as GanttData;
+      expect(data.points[0]).toHaveLength(2);
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(1) > path',
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) > g.points > g.point:nth-of-type(1) > path',
+      ]);
+    });
+
+    it('parses the dates plotly.py writes as strings when calcdata is absent', () => {
+      const layer = ganttLayer(
+        [timelineTrace({ base: ['2024-03-01T00:00:00Z'], x: [2 * DAY], y: ['Design'] })],
+        [],
+      );
+
+      const data = layer.data as GanttData;
+      expect(data.points[0][0].start).toBe(MARCH_1 / DAY);
+      expect(data.points[0][0].end).toBe(MARCH_1 / DAY + 2);
+    });
+
+    it('leaves a horizontal bar chart with no base a bar chart', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', orientation: 'h', x: [4, 6], y: ['Design', 'Build'] }],
+        layout: timelineLayout(),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    });
+  });
+
+  describe('diverging bars', () => {
+    function pyramidTraces(left: number[], right: number[]): PlotlyTrace[] {
+      return [
+        { type: 'bar', orientation: 'h', y: ['0-9', '10-19'], x: left, name: 'Male' },
+        { type: 'bar', orientation: 'h', y: ['0-9', '10-19'], x: right, name: 'Female' },
+      ];
+    }
+
+    function barLayer(traces: PlotlyTrace[], calcdata?: PlotlyCalcData[][]): MaidrLayer {
+      const gd = createGraphDiv({
+        traces,
+        layout: {
+          barmode: 'relative',
+          xaxis: { domain: [0, 1], title: { text: 'Population' } },
+          yaxis: { domain: [0, 1], title: { text: 'Age band' } },
+        },
+        calcdata,
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads two opposed sides as a pyramid, keeping the signs', () => {
+      const layer = barLayer(pyramidTraces([-5, -7], [5, 6]));
+
+      expect(layer.type).toBe(TraceType.DIVERGING);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as SegmentedPoint[][];
+      // The sign is the side rather than a magnitude, and the trace reads it
+      // as one — so it must survive into the payload.
+      expect(data[0][0]).toEqual({ x: -5, y: '0-9', z: 'Male' });
+      expect(data[1][1]).toEqual({ x: 6, y: '10-19', z: 'Female' });
+      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+    });
+
+    it('keeps the sign of the size plotly computed for each bar', () => {
+      // The calc sizes deliberately differ from the authored ones, so reading
+      // `cd.s` — signed, not made absolute — is what this asserts.
+      const layer = barLayer(pyramidTraces([-5, -7], [5, 6]), [
+        [{ p: 0, s: -4 }, { p: 1, s: -8 }],
+        [{ p: 0, s: 4.5 }, { p: 1, s: 6.5 }],
+      ]);
+
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0]).toEqual({ x: -4, y: '0-9', z: 'Male' });
+      expect(data[0][1]).toEqual({ x: -8, y: '10-19', z: 'Male' });
+      expect(data[1][0]).toEqual({ x: 4.5, y: '0-9', z: 'Female' });
+    });
+
+    it('leaves a stack whose series grow the same way alone', () => {
+      expect(barLayer(pyramidTraces([5, 7], [5, 6])).type).toBe(TraceType.STACKED);
+    });
+
+    it('leaves a series that crosses the baseline alone', () => {
+      expect(barLayer(pyramidTraces([-5, 7], [5, 6])).type).toBe(TraceType.STACKED);
+    });
+  });
+
+  describe('dot plots', () => {
+    function dotLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          uid: 'abc123',
+          x: ['Chicago', 'Boston', 'Denver'],
+          y: [21, 17, 24],
+          name: 'Median rent',
+          ...overrides,
+        }],
+        layout: {
+          xaxis: { domain: [0, 1], title: { text: 'City' } },
+          yaxis: { domain: [0, 1], title: { text: 'Rent' } },
+        },
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads one marker per category as a dot plot', () => {
+      const layer = dotLayer();
+
+      expect(layer.type).toBe(TraceType.DOT);
+      expect(layer.orientation).toBeUndefined();
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 'Chicago', y: 21 },
+        { x: 'Boston', y: 17 },
+        { x: 'Denver', y: 24 },
+      ]);
+    });
+
+    it('reads the categories off whichever axis carries them', () => {
+      const layer = dotLayer({ x: [21, 17], y: ['Chicago', 'Boston'] });
+
+      expect(layer.type).toBe(TraceType.DOT);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 21, y: 'Chicago' },
+        { x: 17, y: 'Boston' },
+      ]);
+    });
+
+    it('scopes the highlight to the trace\'s own markers', () => {
+      // The subplot prefix alone would take in every scatter on the panel,
+      // and a bar-shaped layer pairs its selector with its own points.
+      expect(dotLayer().selectors)
+        .toBe('.subplot.xy .scatterlayer g.trace.traceabc123 .point');
+    });
+
+    it('leaves a scatter that draws a category twice alone', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          uid: 'abc123',
+          x: ['Chicago', 'Chicago', 'Boston'],
+          y: [21, 19, 17],
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      // Still a scatter — and a scatter of labels has no numeric coordinates
+      // to emit, which is what it already did before dot plots were read.
+      expect(extractPlotlyData(gd)).toBeNull();
+    });
+  });
+
+  describe('word clouds', () => {
+    function cloudLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'text',
+          uid: 'wc1',
+          x: [3, 1, 2],
+          y: [2, 1, 3],
+          text: ['sonification', 'braille', 'audio'],
+          textfont: { size: [44, 18, 30] },
+          name: 'Terms',
+          ...overrides,
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads a text scatter with per-term glyph sizes as a cloud', () => {
+      const layer = cloudLayer();
+
+      expect(layer.type).toBe(TraceType.WORD_CLOUD);
+      expect(layer.data).toEqual([
+        { x: 'sonification', y: 44 },
+        { x: 'braille', y: 18 },
+        { x: 'audio', y: 30 },
+      ]);
+      expect(layer.axes?.x?.label).toBe('Term');
+      expect(layer.axes?.y?.label).toBe('Weight');
+    });
+
+    it('prefers a weight the author carried over the glyph size', () => {
+      const layer = cloudLayer({ customdata: [1200, 300, 640] });
+
+      expect((layer.data as { y: number }[]).map(point => point.y))
+        .toEqual([1200, 300, 640]);
+    });
+
+    it('highlights the glyph, which is the only mark the cloud draws', () => {
+      expect(cloudLayer().selectors)
+        .toBe('.subplot.xy .scatterlayer g.trace.tracewc1 g.textpoint > text');
+    });
+
+    it('leaves a text scatter with one glyph size a scatter', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers+text',
+          uid: 'wc1',
+          x: [1, 2],
+          y: [3, 4],
+          text: ['a', 'b'],
+          textfont: { size: 12 },
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      expect(extractPlotlyData(gd)!.subplots[0][0].layers[0].type)
+        .toBe(TraceType.SCATTER);
+    });
+  });
+
+  describe('choropleth traces', () => {
+    function choroplethTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'choropleth',
+        locations: ['FRA', 'DEU', 'ITA'],
+        z: [10, 20, 30],
+        text: ['France', 'Germany', 'Italy'],
+        colorbar: { title: { text: 'GDP' } },
+        name: 'Europe',
+        ...overrides,
+      };
+    }
+
+    /** What plotly leaves once the map has been projected. */
+    function choroplethCalc(): PlotlyCalcData[] {
+      return [
+        { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+        { loc: 'DEU', z: 20, ct: [10.4, 51.1] },
+        { loc: 'ITA', z: 30, ct: [12.6, 42.8] },
+      ];
+    }
+
+    function choroplethLayer(
+      trace: PlotlyTrace = choroplethTrace(),
+      calcdata: PlotlyCalcData[] = choroplethCalc(),
+    ): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [trace],
+        layout: { geo: { domain: { x: [0, 1], y: [0, 1] } } },
+        calcdata: [calcdata],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads the regions with the centroids plotly resolved for them', () => {
+      const layer = choroplethLayer();
+
+      expect(layer.type).toBe(TraceType.CHOROPLETH);
+      expect(layer.data as ChoroplethPoint[]).toEqual([
+        { x: 'France', y: 10, lon: 2.2, lat: 46.2 },
+        { x: 'Germany', y: 20, lon: 10.4, lat: 51.1 },
+        { x: 'Italy', y: 30, lon: 12.6, lat: 42.8 },
+      ]);
+      // The colorbar is the only place a choropleth names its magnitude.
+      expect(layer.axes?.y?.label).toBe('GDP');
+      expect(layer.axes?.x?.label).toBe('Region');
+    });
+
+    it('falls back to the location code when nothing names the region', () => {
+      const layer = choroplethLayer(choroplethTrace({ text: undefined }));
+
+      expect((layer.data as ChoroplethPoint[]).map(point => point.x))
+        .toEqual(['FRA', 'DEU', 'ITA']);
+    });
+
+    it('leaves the centroid off a map plotly has not projected', () => {
+      const layer = choroplethLayer(choroplethTrace(), []);
+
+      expect(layer.data as ChoroplethPoint[]).toEqual([
+        { x: 'France', y: 10 },
+        { x: 'Germany', y: 20 },
+        { x: 'Italy', y: 30 },
+      ]);
+    });
+
+    it('drops a region plotly could not shade, keeping the others\' shapes', () => {
+      const layer = choroplethLayer(choroplethTrace(), [
+        { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+        { loc: null, z: undefined },
+        { loc: 'ITA', z: 30, ct: [12.6, 42.8] },
+      ]);
+
+      expect((layer.data as ChoroplethPoint[]).map(point => point.x))
+        .toEqual(['France', 'Italy']);
+      // The dropped region keeps its own path in the DOM, so the ones after it
+      // are still addressed by their own position.
+      expect(layer.selectors).toEqual([
+        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(1)',
+        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(3)',
+      ]);
+    });
+
+    it('keeps a geo subplot apart from the cartesian panel beside it', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['a', 'b'], y: [1, 2], name: 'Counts' },
+          choroplethTrace({ geo: 'geo2' }),
+        ],
+        layout: {
+          xaxis: { domain: [0, 0.45] },
+          yaxis: { domain: [0, 1] },
+          geo2: { domain: { x: [0.55, 1], y: [0, 1] } },
+        },
+        calcdata: [[], choroplethCalc()],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0]).toHaveLength(2);
+      expect(maidr!.subplots[0].map(panel => panel.layers[0].type))
+        .toEqual([TraceType.BAR, TraceType.CHOROPLETH]);
+      expect(maidr!.subplots[0][1].layers[0].selectors)
+        .toEqual(expect.arrayContaining([expect.stringContaining('g.geo.geo2')]));
     });
   });
 });
