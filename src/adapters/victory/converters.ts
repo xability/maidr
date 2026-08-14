@@ -5,6 +5,7 @@ import type {
   CandlestickPoint,
   CandlestickSelector,
   CandlestickTrend,
+  ErrorBarPoint,
   HistogramPoint,
   LinePoint,
   MaidrLayer,
@@ -12,6 +13,8 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  WaterfallKind,
+  WaterfallPoint,
 } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
 import type {
@@ -68,14 +71,27 @@ function getVictoryDisplayName(type: unknown): string | null {
  */
 function isDataComponent(name: string): name is VictoryComponentType {
   return (
-    name === 'VictoryBar'
+    name === 'VictoryArea'
+    || name === 'VictoryBar'
     || name === 'VictoryLine'
     || name === 'VictoryScatter'
     || name === 'VictoryBoxPlot'
     || name === 'VictoryCandlestick'
+    || name === 'VictoryErrorBar'
     || name === 'VictoryHistogram'
     || name === 'VictoryPie'
   );
+}
+
+/**
+ * Whether a data component is drawn around a circle rather than along an axis.
+ *
+ * `polar` is declared either on the component itself or on the enclosing
+ * `<VictoryChart polar>`, which passes it down to every child. A child that
+ * sets `polar={false}` opts back out, so an explicit own prop always wins.
+ */
+function isPolarComponent(props: Record<string, unknown>, chartPolar: boolean): boolean {
+  return typeof props.polar === 'boolean' ? props.polar : chartPolar;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,21 +203,36 @@ function stepDirectionOf(interpolation: unknown): StepDirection | undefined {
 }
 
 /**
- * Extracts data from a VictoryLine element.
+ * Reads a component's `data` prop as one series of {@link LinePoint}s, or
+ * `null` when there is no usable data.
+ *
+ * Shared by every line-shaped layer — line, step, area, stacked area band,
+ * polar area — because Victory draws them all from the same `data` prop under
+ * the same `x`/`y` accessor convention. What differs between them is the mark,
+ * which the layer's `kind` records, not the values.
  */
-function extractLineData(
-  props: Record<string, unknown>,
-): { data: VictoryLayerData; count: number } | null {
+function readLinePoints(props: Record<string, unknown>): LinePoint[] | null {
   const rawData = props.data;
   if (!validateRawData(rawData))
     return null;
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
-  const points: LinePoint[] = rawData.map(d => ({
+  return rawData.map(d => ({
     x: getX(d) as number | string,
     y: Number(getY(d)),
   }));
+}
+
+/**
+ * Extracts data from a VictoryLine element.
+ */
+function extractLineData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const points = readLinePoints(props);
+  if (!points)
+    return null;
 
   const stepDirection = stepDirectionOf(props.interpolation);
 
@@ -211,12 +242,72 @@ function extractLineData(
       points: [points],
       ...(stepDirection ? { stepDirection } : {}),
     },
-    count: rawData.length,
+    count: points.length,
   };
 }
 
 /**
+ * Extracts data from a VictoryArea element.
+ *
+ * An area is a line with the region down to the baseline filled in, and
+ * Victory draws it from the same props, so the values are read exactly as a
+ * line's are. A `polar` area is a radar outline instead, which MAIDR reads
+ * differently — that case is handled by the caller.
+ */
+function extractAreaData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const points = readLinePoints(props);
+  if (!points)
+    return null;
+
+  return { data: { kind: 'area', points: [points] }, count: points.length };
+}
+
+/**
+ * Extracts data from a `polar` VictoryBar element — a coxcomb, whose wedges
+ * radiate from the centre with the value as the radius.
+ *
+ * The payload is a single-series line grid because that is what MAIDR's radar
+ * family navigates: one column per spoke, with the spoke angles derived by the
+ * trace itself.
+ */
+function extractPolarAreaData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const points = readLinePoints(props);
+  if (!points)
+    return null;
+
+  return { data: { kind: 'polarArea', points: [points] }, count: points.length };
+}
+
+/**
+ * Whether every datum's x names a category rather than measuring a position.
+ *
+ * This is Victory's own test: `Data.createStringMap` puts a datum on the
+ * category scale when `typeof value === 'string'`, whatever the string spells,
+ * so `'2024'` is a category to Victory exactly as `'Denmark'` is.
+ *
+ * @param rawData - The component's `data`, already validated
+ * @param getX    - The component's resolved x accessor
+ * @returns True when the chart is drawn against categories
+ */
+function hasCategoricalX(
+  rawData: Record<string, unknown>[],
+  getX: (d: Record<string, unknown>) => unknown,
+): boolean {
+  return rawData.every(d => typeof getX(d) === 'string');
+}
+
+/**
  * Extracts data from a VictoryScatter element.
+ *
+ * A scatter drawn over categories is a Cleveland dot plot: one magnitude per
+ * named category, which is what a bar chart is, drawn as a point. Reading it
+ * as a bivariate scatter would coerce every category name to a number and
+ * announce a chart of `NaN` positions, so the two are separated here — by the
+ * data, since the component is the same either way.
  */
 function extractScatterData(
   props: Record<string, unknown>,
@@ -227,6 +318,16 @@ function extractScatterData(
 
   const getX = resolveAccessor(props.x, 'x');
   const getY = resolveAccessor(props.y, 'y');
+
+  if (hasCategoricalX(rawData, getX)) {
+    const points: BarPoint[] = rawData.map(d => ({
+      x: getX(d) as string,
+      y: getY(d) as number | string,
+    }));
+
+    return { data: { kind: 'dot', points }, count: rawData.length };
+  }
+
   const points: ScatterPoint[] = rawData.map(d => ({
     x: Number(getX(d)),
     y: Number(getY(d)),
@@ -452,6 +553,168 @@ function binByEdges(values: number[], rawEdges: unknown[]): HistogramBin[] | nul
   return bins;
 }
 
+// ---------------------------------------------------------------------------
+// Error bars
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads one side of a Victory error value as a distance from the estimate.
+ *
+ * Victory treats `0` as "draw no whisker on this side" rather than as a
+ * zero-length one (victory-errorbar/src/helper-methods), and so does this:
+ * a bound that coincides with the estimate is not a bound the chart drew.
+ * A missing or non-finite value is no error either.
+ *
+ * @param value - One side of a datum's error, as Victory received it
+ * @returns The distance from the estimate, or undefined for no whisker
+ */
+function errorDelta(value: unknown): number | undefined {
+  const delta = Number(value);
+  return Number.isFinite(delta) && delta !== 0 ? Math.abs(delta) : undefined;
+}
+
+/**
+ * Splits a Victory error value into its upper and lower distances.
+ *
+ * Victory accepts either a scalar — one symmetric error drawn on both sides —
+ * or a `[plus, minus]` pair for an asymmetric interval.
+ *
+ * @param error - A datum's `errorY`, as Victory received it
+ * @returns The distances above and below the estimate
+ */
+function readErrorDeltas(error: unknown): { plus?: number; minus?: number } {
+  if (Array.isArray(error)) {
+    return { plus: errorDelta(error[0]), minus: errorDelta(error[1]) };
+  }
+  const symmetric = errorDelta(error);
+  return { plus: symmetric, minus: symmetric };
+}
+
+/**
+ * Extracts data from a VictoryErrorBar element.
+ *
+ * Victory's error is a **delta** from the estimate while MAIDR's
+ * {@link ErrorBarPoint} fixes **absolute** bounds, so the conversion is the
+ * point of this extractor. Each side is emitted independently: a one-sided
+ * interval is a real chart, and `ErrorBarTrace` drops the row for a bound no
+ * point carries rather than announcing silence.
+ *
+ * Only `errorY` is read. A `errorX`-only chart draws its interval along the
+ * category axis, which is a different layer orientation rather than a
+ * different delta, and reading it as a vertical interval would put every
+ * bound on the wrong axis — so such a layer is left unconverted.
+ */
+function extractErrorBarData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const rawData = props.data;
+  if (!validateRawData(rawData))
+    return null;
+
+  const getX = resolveAccessor(props.x, 'x');
+  const getY = resolveAccessor(props.y, 'y');
+  const getErrorY = resolveAccessor(props.errorY, 'errorY');
+
+  const points: ErrorBarPoint[] = rawData.map((d) => {
+    const y = Number(getY(d));
+    const { plus, minus } = readErrorDeltas(getErrorY(d));
+    return {
+      x: getX(d) as number | string,
+      y,
+      ...(minus === undefined ? {} : { yMin: y - minus }),
+      ...(plus === undefined ? {} : { yMax: y + plus }),
+    };
+  });
+
+  // A layer that draws no interval anywhere is not an interval chart. Calling
+  // it one promises the reader bounds that no navigation can reach.
+  const hasInterval = points.some(p => p.yMin !== undefined || p.yMax !== undefined);
+  if (!hasInterval)
+    return null;
+
+  return { data: { kind: 'errorBar', points }, count: points.length };
+}
+
+// ---------------------------------------------------------------------------
+// Waterfall
+// ---------------------------------------------------------------------------
+
+/**
+ * The value a waterfall step is measured against — a bar sitting here restates
+ * the running total rather than contributing to it.
+ */
+const WATERFALL_BASELINE = 0;
+
+/**
+ * How far a step may miss the previous step's end and still count as chained.
+ *
+ * The chain test is what separates a waterfall from a range bar, so it has to
+ * stay tight — but a running total built by arithmetic (percentages, divided
+ * quantities) lands a fraction of a ULP off the value it was accumulated from,
+ * and an exact comparison would demote such a chart to a plain bar chart with
+ * nothing reported. This tolerance is far below any spacing a reader could
+ * perceive and far above float drift.
+ */
+const WATERFALL_CHAIN_EPSILON = 1e-9;
+
+/** Whether two waterfall bounds meet, allowing for float drift. */
+function meets(a: number, b: number): boolean {
+  return Math.abs(a - b) <= WATERFALL_CHAIN_EPSILON;
+}
+
+/**
+ * Extracts data from a VictoryBar whose bars float on a per-datum `y0`.
+ *
+ * `y0` is an ordinary Victory accessor prop, so a floating bar is native
+ * rather than a hack — but a floating bar alone is not yet a waterfall: a
+ * range bar and a gantt row are drawn the same way, and the adapter cannot
+ * tell those apart from the values. What it can check is whether the bars
+ * **chain**, each one starting where the last one ended, which is the
+ * defining property of a waterfall and something a range chart does not have.
+ * Bars resting on the baseline are exempt from the chain, since those restate
+ * the running total (the opening and closing bars, and any subtotal drawn
+ * along the way) instead of continuing it.
+ *
+ * Returns `null` when the bars are flat or unchained, so the caller falls back
+ * to reading them as an ordinary bar chart.
+ */
+function extractWaterfallData(
+  props: Record<string, unknown>,
+): { data: VictoryLayerData; count: number } | null {
+  const rawData = props.data;
+  if (!validateRawData(rawData))
+    return null;
+
+  const getX = resolveAccessor(props.x, 'x');
+  const getY = resolveAccessor(props.y, 'y');
+  const getY0 = resolveAccessor(props.y0, 'y0');
+
+  const steps = rawData.map(d => ({
+    x: getX(d) as number | string,
+    start: Number(getY0(d) ?? WATERFALL_BASELINE),
+    end: Number(getY(d)),
+  }));
+
+  if (steps.some(s => !Number.isFinite(s.start) || !Number.isFinite(s.end)))
+    return null;
+
+  const floats = steps.some(s => !meets(s.start, WATERFALL_BASELINE));
+  const chains = steps.every((s, i) =>
+    i === 0 || meets(s.start, WATERFALL_BASELINE) || meets(s.start, steps[i - 1].end));
+  if (!floats || !chains)
+    return null;
+
+  const points: WaterfallPoint[] = steps.map(({ x, start, end }) => {
+    const delta = end - start;
+    let kind: WaterfallKind = delta < 0 ? 'decrease' : 'increase';
+    if (meets(start, WATERFALL_BASELINE))
+      kind = 'total';
+    return { x, start, end, delta, kind };
+  });
+
+  return { data: { kind: 'waterfall', points }, count: points.length };
+}
+
 /**
  * Converts a single Victory data component into a {@link VictoryLayerInfo}.
  */
@@ -459,18 +722,32 @@ function extractLayerFromElement(
   element: ReactElement,
   layerId: string,
   axisLabels: { x?: string; y?: string },
+  chartPolar: boolean,
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
   if (!name || !isDataComponent(name))
     return null;
 
   const props = element.props as Record<string, unknown>;
+  const polar = isPolarComponent(props, chartPolar);
 
   let extracted: { data: VictoryLayerData; count: number } | null = null;
 
   switch (name) {
+    case 'VictoryArea':
+      extracted = extractAreaData(props);
+      break;
     case 'VictoryBar':
-      extracted = extractBarData(props);
+      // Two components' worth of chart types come out of `VictoryBar`: drawn
+      // polar it is a coxcomb, and floating on a chaining `y0` it is a
+      // waterfall. Both fall back to a plain bar when the data does not
+      // support the reading.
+      extracted = polar
+        ? extractPolarAreaData(props)
+        : extractWaterfallData(props) ?? extractBarData(props);
+      break;
+    case 'VictoryErrorBar':
+      extracted = extractErrorBarData(props);
       break;
     case 'VictoryLine':
       extracted = extractLineData(props);
@@ -509,11 +786,182 @@ function extractLayerFromElement(
 // Stacked bar extraction
 // ---------------------------------------------------------------------------
 
+/** One data child of a `VictoryStack`, with the name its band is announced under. */
+interface StackChild {
+  /** The Victory component drawing this band. */
+  name: 'VictoryArea' | 'VictoryBar';
+  /** The child's props, already known to carry usable `data`. */
+  props: Record<string, unknown>;
+  /** The band's series name, from the child's `name` prop or its position. */
+  seriesName: string;
+  /** Number of data elements this band contributes. */
+  count: number;
+}
+
 /**
- * Extracts a segmented (stacked) bar layer from a VictoryStack container.
+ * Collects the stackable data children of a `VictoryStack`, in children order.
  *
- * Each child VictoryBar becomes one series (row) in the resulting
- * `SegmentedPoint[][]` data.
+ * Only the two components Victory actually stacks into a readable layer are
+ * kept — everything else in the container (labels, a shared tooltip) draws no
+ * band and would only shift the series numbering.
+ */
+function collectStackChildren(children: ReactNode): StackChild[] {
+  const collected: StackChild[] = [];
+
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child))
+      return;
+    const name = getVictoryDisplayName(child.type);
+    if (name !== 'VictoryBar' && name !== 'VictoryArea')
+      return;
+
+    const props = child.props as Record<string, unknown>;
+    if (!validateRawData(props.data))
+      return;
+
+    collected.push({
+      name,
+      props,
+      seriesName: (props.name as string) ?? `Series ${collected.length + 1}`,
+      count: props.data.length,
+    });
+  });
+
+  return collected;
+}
+
+/**
+ * Whether a stack's bands are shares of one whole.
+ *
+ * Victory has no `normalize` prop — unlike Vega-Lite's `stack: 'normalize'`
+ * there is nothing declarative to read — so the only evidence is arithmetic:
+ * every column adds up to the same whole. Both conventions authors use are
+ * accepted, percentages out of 100 and fractions of 1.
+ *
+ * Deliberately narrow. Two or more bands and two or more columns are required,
+ * because a single column summing to 100 says nothing, and the tolerance is
+ * half a percent so that a stack which merely passes through 100 somewhere is
+ * not swept up. A genuine unnormalized stack whose every column lands on the
+ * whole would still be misread; that is the residual cost of a library that
+ * does not state it.
+ *
+ * @param series - The extracted bands
+ * @returns True when every column sums to a common whole
+ */
+function isNormalizedStack(series: LinePoint[][]): boolean {
+  if (series.length < 2)
+    return false;
+
+  const totals = new Map<string, number>();
+  for (const band of series) {
+    for (const point of band) {
+      if (!Number.isFinite(point.y))
+        return false;
+      totals.set(String(point.x), (totals.get(String(point.x)) ?? 0) + point.y);
+    }
+  }
+  if (totals.size < 2)
+    return false;
+
+  const columns = Array.from(totals.values());
+  return [1, 100].some(whole =>
+    columns.every(total => Math.abs(total - whole) <= whole * 0.005));
+}
+
+/**
+ * Extracts a stacked-area layer from a VictoryStack of VictoryArea children.
+ *
+ * Each band keeps its **own** value rather than the running edge Victory
+ * paints it at: `VictoryStack` accumulates through `_y0` at render time only,
+ * and MAIDR's area trace deliberately computes the total itself from the
+ * series it is handed, so accumulating here would double it.
+ */
+function extractStackedAreaLayer(
+  children: StackChild[],
+  layerId: string,
+  axisLabels: { x?: string; y?: string },
+): VictoryLayerInfo | null {
+  const series: LinePoint[][] = [];
+  const legend: string[] = [];
+  let totalElements = 0;
+
+  for (const { props, seriesName, count } of children) {
+    const points = readLinePoints(props);
+    if (!points)
+      continue;
+
+    series.push(points.map(point => ({ ...point, z: seriesName })));
+    legend.push(seriesName);
+    totalElements += count;
+  }
+
+  if (series.length === 0)
+    return null;
+
+  return {
+    id: layerId,
+    victoryType: 'VictoryStack',
+    data: { kind: 'stackedArea', points: series, normalized: isNormalizedStack(series) },
+    xAxisLabel: axisLabels.x,
+    yAxisLabel: axisLabels.y,
+    dataCount: totalElements,
+    legend,
+  };
+}
+
+/**
+ * Which way one side of a candidate diverging chart grows.
+ *
+ * `SegmentedPoint.y` is typed `number | string` and the extractor below passes
+ * the accessor result through as Victory handed it over, so the value is
+ * coerced here before its sign is read. A side that reaches neither way (every
+ * bar zero) or both ways is not a side of a diverging chart.
+ *
+ * @param points - One series of the stack
+ * @returns The direction it grows, or null when it does not grow one way
+ */
+function growthDirection(points: SegmentedPoint[]): 'up' | 'down' | null {
+  const values = points.map(point => Number(point.y));
+  if (values.some(value => !Number.isFinite(value)))
+    return null;
+  if (values.every(value => value <= 0) && values.some(value => value < 0))
+    return 'down';
+  if (values.every(value => value >= 0) && values.some(value => value > 0))
+    return 'up';
+  return null;
+}
+
+/**
+ * Whether a stack's series are the two sides of a diverging chart.
+ *
+ * A population pyramid is drawn in Victory as a stack of two bar series with
+ * one of them signed negative — the same construct as an ordinary stacked bar,
+ * so the values are the only thing that tells them apart. The signal is the
+ * sign: exactly two series, one drawn entirely at or below the baseline and
+ * the other entirely at or above it, each reaching past it at least once. A
+ * stack whose bands all grow the same way is a stack.
+ *
+ * @param series - The extracted series, in children order
+ * @returns True when the two sides diverge across a shared baseline
+ */
+function isDivergingPair(series: SegmentedPoint[][]): boolean {
+  if (series.length !== 2)
+    return false;
+
+  const [first, second] = series.map(growthDirection);
+  return first !== null && second !== null && first !== second;
+}
+
+/**
+ * Extracts a layer from a VictoryStack container.
+ *
+ * The stack's children decide what it is: `VictoryBar` children make a
+ * segmented (stacked) bar, where each child becomes one series (row) of
+ * `SegmentedPoint[][]`, and `VictoryArea` children make a stacked area, whose
+ * bands are read as a line grid instead. A stack mixing the two is read as a
+ * bar stack, which is what its bars draw. Two bar series signed against each
+ * other are not stacked on one another at all — they are the two sides of a
+ * diverging chart, and are emitted as one.
  */
 function extractSegmentedLayer(
   containerElement: ReactElement,
@@ -522,46 +970,68 @@ function extractSegmentedLayer(
   axisLabels: { x?: string; y?: string },
 ): VictoryLayerInfo | null {
   const containerProps = containerElement.props as { children?: ReactNode };
+  const children = collectStackChildren(containerProps.children);
+  if (children.length === 0)
+    return null;
+
+  if (children.every(child => child.name === 'VictoryArea')) {
+    return extractStackedAreaLayer(children, layerId, axisLabels);
+  }
+
   const series: SegmentedPoint[][] = [];
   const legend: string[] = [];
   let totalElements = 0;
 
-  Children.forEach(containerProps.children, (child) => {
-    if (!isValidElement(child))
-      return;
-    const name = getVictoryDisplayName(child.type);
+  for (const { name, props, seriesName, count } of children) {
     if (name !== 'VictoryBar')
-      return;
+      continue;
 
-    const props = child.props as Record<string, unknown>;
     const rawData = props.data;
     if (!validateRawData(rawData))
-      return;
+      continue;
 
     const getX = resolveAccessor(props.x, 'x');
     const getY = resolveAccessor(props.y, 'y');
-    const seriesName = (props.name as string) ?? `Series ${series.length + 1}`;
 
-    const points: SegmentedPoint[] = rawData.map(d => ({
+    series.push(rawData.map(d => ({
       x: getX(d) as string | number,
       y: getY(d) as number | string,
       z: seriesName,
-    }));
-
-    series.push(points);
+    })));
     legend.push(seriesName);
-    totalElements += rawData.length;
-  });
+    totalElements += count;
+  }
 
   if (series.length === 0)
     return null;
 
   const traceType: VictoryComponentType = containerType;
+  const diverging = isDivergingPair(series);
+
+  // The sides are emitted in the order Victory paints them, which is the
+  // reverse of the order they are declared in (`VictoryStack` reverses its
+  // children so the topmost band paints last). A stacked bar's highlight is
+  // resolved from one flat selector, which the DOM answers in document order,
+  // so declaration order would put every highlight on the opposite side —
+  // silent and visual-only, since the announcement never goes through the
+  // element mapping.
+  //
+  // Only safe here because a diverging chart's sides sit either side of a
+  // baseline rather than on top of one another: there is no stacking order to
+  // preserve, and `DivergingTrace` resolves which side is which by reading the
+  // values rather than by index. A true stack's row order **is** meaningful,
+  // which is why it is left alone.
+  if (diverging) {
+    series.reverse();
+    legend.reverse();
+  }
 
   return {
     id: layerId,
     victoryType: traceType,
-    data: { kind: 'segmented', points: series },
+    data: diverging
+      ? { kind: 'diverging', points: series }
+      : { kind: 'segmented', points: series },
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     dataCount: totalElements,
@@ -579,11 +1049,16 @@ function extractSegmentedLayer(
  * Handles individual data components (e.g. `<VictoryScatter>`) and
  * `<VictoryStack>` for stacked bar charts. Layer ids are produced by
  * `makeId`, called with the layer's local index among the collected layers.
+ *
+ * `chartPolar` carries the enclosing `<VictoryChart polar>` down to the data
+ * components, which is where Victory itself applies it: a child inherits the
+ * chart's `polar` unless it declares its own.
  */
 function collectDataLayers(
   childNodes: ReactNode,
   axisLabels: { x?: string; y?: string },
   makeId: (localIndex: number) => string,
+  chartPolar = false,
 ): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
 
@@ -604,7 +1079,7 @@ function collectDataLayers(
     }
 
     // Individual data components
-    const layer = extractLayerFromElement(child, makeId(layers.length), axisLabels);
+    const layer = extractLayerFromElement(child, makeId(layers.length), axisLabels, chartPolar);
     if (layer)
       layers.push(layer);
   });
@@ -631,9 +1106,14 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
     const name = getVictoryDisplayName(child.type);
 
     if (name === 'VictoryChart') {
-      const chartProps = child.props as { children?: ReactNode };
+      const chartProps = child.props as { children?: ReactNode; polar?: boolean };
       const axisLabels = extractAxisLabels(chartProps.children);
-      layers.push(...collectDataLayers(chartProps.children, axisLabels, n => String(layers.length + n)));
+      layers.push(...collectDataLayers(
+        chartProps.children,
+        axisLabels,
+        n => String(layers.length + n),
+        chartProps.polar === true,
+      ));
     } else {
       layers.push(...collectDataLayers(child, {}, n => String(layers.length + n)));
     }
@@ -699,10 +1179,15 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
   }
 
   return charts.map(({ element, svgIndex }, panelIndex) => {
-    const chartProps = element.props as { children?: ReactNode; title?: string };
+    const chartProps = element.props as { children?: ReactNode; title?: string; polar?: boolean };
     const axisLabels = extractAxisLabels(chartProps.children);
     return {
-      layers: collectDataLayers(chartProps.children, axisLabels, n => `${panelIndex}_${n}`),
+      layers: collectDataLayers(
+        chartProps.children,
+        axisLabels,
+        n => `${panelIndex}_${n}`,
+        chartProps.polar === true,
+      ),
       title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
       svgIndex,
     };
@@ -741,6 +1226,28 @@ export function computeSubplotGrid<T>(panels: T[], layout?: VictoryPanelLayout):
 // ---------------------------------------------------------------------------
 
 /**
+ * Normalises a tagged selector into the per-series array the line family
+ * expects — one entry per row of the layer's `LinePoint[][]`.
+ *
+ * A single-series layer is tagged with one selector string and a multi-band
+ * one with an array already; both have to arrive as an array, because
+ * `LineTrace` compares the selector count against its series count and would
+ * otherwise measure the length of a string.
+ *
+ * @param selector - The selector produced by the DOM tagging pass
+ * @returns One selector per series, or undefined when nothing was tagged
+ */
+function toSeriesSelectors(
+  selector?: string | string[] | BoxSelector[] | CandlestickSelector,
+): string[] | undefined {
+  if (typeof selector === 'string')
+    return [selector];
+  if (Array.isArray(selector) && selector.every(one => typeof one === 'string'))
+    return selector;
+  return undefined;
+}
+
+/**
  * Converts a {@link VictoryLayerInfo} into the MAIDR {@link MaidrLayer}
  * schema.
  *
@@ -750,7 +1257,7 @@ export function computeSubplotGrid<T>(panels: T[], layout?: VictoryPanelLayout):
  */
 export function toMaidrLayer(
   layer: VictoryLayerInfo,
-  selector?: string | BoxSelector[] | CandlestickSelector,
+  selector?: string | string[] | BoxSelector[] | CandlestickSelector,
 ): MaidrLayer {
   const axes: MaidrLayer['axes'] = {
     x: layer.xAxisLabel ? { label: layer.xAxisLabel } : undefined,
@@ -779,10 +1286,64 @@ export function toMaidrLayer(
         data: data.points,
       };
 
+    case 'area':
+      return {
+        id: layer.id,
+        type: TraceType.AREA,
+        axes,
+        selectors: toSeriesSelectors(selector),
+        data: data.points,
+      };
+
+    case 'stackedArea':
+      return {
+        id: layer.id,
+        type: data.normalized ? TraceType.NORMALIZED_AREA : TraceType.STACKED_AREA,
+        axes,
+        selectors: toSeriesSelectors(selector),
+        data: data.points,
+      };
+
+    case 'polarArea':
+      return {
+        id: layer.id,
+        type: TraceType.POLAR_AREA,
+        axes,
+        selectors: toSeriesSelectors(selector),
+        data: data.points,
+      };
+
     case 'scatter':
       return {
         id: layer.id,
         type: TraceType.SCATTER,
+        axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'dot':
+      return {
+        id: layer.id,
+        type: TraceType.DOT,
+        axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'errorBar':
+      return {
+        id: layer.id,
+        type: TraceType.ERROR_BAR,
+        axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'waterfall':
+      return {
+        id: layer.id,
+        type: TraceType.WATERFALL,
         axes,
         selectors: selector,
         data: data.points,
@@ -836,6 +1397,19 @@ export function toMaidrLayer(
         id: layer.id,
         type: TraceType.STACKED,
         axes,
+        selectors: selector,
+        data: data.points,
+      };
+
+    case 'diverging':
+      return {
+        id: layer.id,
+        type: TraceType.DIVERGING,
+        axes,
+        // The values stay signed as the chart draws them. `DivergingTrace`
+        // reads the sign as the side a bar points to and pitches the
+        // magnitude, so stripping it here would leave the left-hand series
+        // indistinguishable from the right.
         selectors: selector,
         data: data.points,
       };

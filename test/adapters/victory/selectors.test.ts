@@ -460,3 +460,314 @@ describe('buildVictorySubplots', () => {
     expect(subplots[0][1].layers[0].selectors).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Post-pie trace types
+// ---------------------------------------------------------------------------
+
+/** An empty jsdom container with one `<svg role="img">` panel inside it. */
+function buildSvg(): { container: HTMLElement; doc: Document; svg: SVGElement } {
+  const dom = new JSDOM('<!doctype html><body><div id="mv-test"></div></body>');
+  const doc = dom.window.document as Document;
+  const container = doc.getElementById('mv-test') as HTMLElement;
+  const wrapper = doc.createElement('div');
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('role', 'img');
+  wrapper.appendChild(svg);
+  container.appendChild(wrapper);
+  return { container, doc, svg };
+}
+
+/** Appends a `<path role="presentation">` with the given attributes. */
+function appendPath(
+  doc: Document,
+  parent: Element,
+  attrs: Record<string, string>,
+): Element {
+  const path = doc.createElementNS(SVG_NS, 'path');
+  path.setAttribute('role', 'presentation');
+  for (const [name, value] of Object.entries(attrs)) {
+    path.setAttribute(name, value);
+  }
+  parent.appendChild(path);
+  return path;
+}
+
+describe('tagLayerElements: area', () => {
+  it('tags the single area path, the way it does a line', () => {
+    const { doc, svg } = buildSvg();
+    // Victory's Area primitive closes the line back along the baseline, so the
+    // path carries twice the vertices plus the closing point.
+    appendPath(doc, svg, { d: 'M50,170L225,130L400,50L400,250L225,250L50,250Z' });
+    const layer: VictoryLayerInfo = {
+      id: '0',
+      victoryType: 'VictoryArea',
+      data: { kind: 'area', points: [[{ x: 1, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 5 }]] },
+      dataCount: 3,
+    };
+
+    const selector = tagLayerElements(svg, layer, 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(svg.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(1);
+  });
+});
+
+describe('tagLayerElements: stacked area', () => {
+  function stackedAreaLayer(bandCount: number): VictoryLayerInfo {
+    const points = Array.from({ length: bandCount }, (_, band) => [
+      { x: 2020, y: band + 1, z: `S${band}` },
+    ]);
+    return {
+      id: '0',
+      victoryType: 'VictoryStack',
+      data: { kind: 'stackedArea', points, normalized: false },
+      dataCount: bandCount,
+    };
+  }
+
+  it('maps bands to paths back to front, matching VictoryStack render order', () => {
+    const { container, doc, svg } = buildSvg();
+    // VictoryStack reverses its children so the topmost band paints last: the
+    // first path in the DOM is the LAST band of the payload.
+    const top = appendPath(doc, svg, { d: 'M0,0L1,1' });
+    const bottom = appendPath(doc, svg, { d: 'M0,2L1,3' });
+
+    const selectors = tagLayerElements(svg, stackedAreaLayer(2), 0, new Set(), '#mv-test ');
+
+    expect(selectors).toEqual([
+      '#mv-test [data-maidr-victory-0-band-0]',
+      '#mv-test [data-maidr-victory-0-band-1]',
+    ]);
+    expect(bottom.hasAttribute('data-maidr-victory-0-band-0')).toBe(true);
+    expect(top.hasAttribute('data-maidr-victory-0-band-1')).toBe(true);
+    // One selector per band, each resolving to exactly one path.
+    for (const selector of selectors as string[]) {
+      expect(container.ownerDocument.querySelectorAll(selector)).toHaveLength(1);
+    }
+  });
+
+  it('clears band tags along with the layer tag', () => {
+    const { container, doc, svg } = buildSvg();
+    appendPath(doc, svg, { d: 'M0,0L1,1' });
+    appendPath(doc, svg, { d: 'M0,2L1,3' });
+
+    tagLayerElements(svg, stackedAreaLayer(2), 0, new Set(), '#mv-test ');
+    expect(getTaggedElements(container)).toHaveLength(2);
+
+    clearTaggedElements(container);
+
+    expect(getTaggedElements(container)).toHaveLength(0);
+    expect(container.querySelectorAll('[data-maidr-victory-0-band-0]')).toHaveLength(0);
+  });
+
+  it('gives up when the stack rendered fewer paths than bands', () => {
+    const { doc, svg } = buildSvg();
+    appendPath(doc, svg, { d: 'M0,0L1,1' });
+
+    expect(tagLayerElements(svg, stackedAreaLayer(2), 0, new Set(), '#mv-test '))
+      .toBeUndefined();
+  });
+});
+
+describe('tagLayerElements: error bar', () => {
+  /**
+   * Builds the DOM VictoryErrorBar renders: one `<g>` per sample holding two
+   * cap lines and two whisker lines, each marked with Victory's `data-type`.
+   */
+  function buildErrorBars(sampleCount: number): { container: HTMLElement; svg: SVGElement } {
+    const { container, doc, svg } = buildSvg();
+    const outer = doc.createElementNS(SVG_NS, 'g');
+    outer.setAttribute('role', 'presentation');
+    svg.appendChild(outer);
+
+    for (let i = 0; i < sampleCount; i++) {
+      const group = doc.createElementNS(SVG_NS, 'g');
+      group.setAttribute('role', 'presentation');
+      for (const type of ['border-bottom', 'border-top', 'cross-bottom', 'cross-top']) {
+        const line = doc.createElementNS(SVG_NS, 'line');
+        line.setAttribute('role', 'presentation');
+        line.setAttribute('data-type', type);
+        group.appendChild(line);
+      }
+      outer.appendChild(group);
+    }
+    return { container, svg };
+  }
+
+  function errorBarLayer(sampleCount: number): VictoryLayerInfo {
+    return {
+      id: '0',
+      victoryType: 'VictoryErrorBar',
+      data: {
+        kind: 'errorBar',
+        points: Array.from({ length: sampleCount }, (_, i) => ({ x: i, y: i, yMin: i - 1, yMax: i + 1 })),
+      },
+      dataCount: sampleCount,
+    };
+  }
+
+  it('tags exactly one whisker per sample', () => {
+    const { container, svg } = buildErrorBars(3);
+
+    const selector = tagLayerElements(svg, errorBarLayer(3), 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    // The trace requires one element per sample: any more and it drops the
+    // highlight entirely.
+    expect(container.ownerDocument.querySelectorAll(selector as string)).toHaveLength(3);
+    for (const group of Array.from(svg.querySelectorAll('g > g'))) {
+      expect(group.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(1);
+    }
+  });
+
+  it('never tags a cap line', () => {
+    const { svg } = buildErrorBars(2);
+
+    tagLayerElements(svg, errorBarLayer(2), 0, new Set(), '#mv-test ');
+
+    const tagged = Array.from(svg.querySelectorAll('[data-maidr-victory-0]'));
+    expect(tagged.every(el => el.getAttribute('data-type')?.startsWith('cross-'))).toBe(true);
+  });
+
+  it('claims every line of a sample so a sibling layer cannot reuse them', () => {
+    const { svg } = buildErrorBars(2);
+    const claimed = new Set<Element>();
+
+    tagLayerElements(svg, errorBarLayer(2), 0, claimed, '#mv-test ');
+
+    expect(claimed.size).toBe(8);
+  });
+
+  it('ignores lines with no data-type, which belong to axes and box plots', () => {
+    const { doc, svg } = buildSvg();
+    const group = doc.createElementNS(SVG_NS, 'g');
+    const bare = doc.createElementNS(SVG_NS, 'line');
+    bare.setAttribute('role', 'presentation');
+    group.appendChild(bare);
+    svg.appendChild(group);
+
+    expect(tagLayerElements(svg, errorBarLayer(1), 0, new Set(), '#mv-test '))
+      .toBeUndefined();
+  });
+});
+
+describe('tagLayerElements: polar area', () => {
+  function polarAreaLayer(wedgeCount: number): VictoryLayerInfo {
+    return {
+      id: '0',
+      victoryType: 'VictoryBar',
+      data: {
+        kind: 'polarArea',
+        points: [Array.from({ length: wedgeCount }, (_, i) => ({ x: i, y: i + 1 }))],
+      },
+      dataCount: wedgeCount,
+    };
+  }
+
+  it.each([
+    ['before', true],
+    ['after', false],
+  ])('skips the polar axis path rendered %s the wedges', (_position, axisFirst) => {
+    const { doc, svg } = buildSvg();
+    // The polar axis is a role="presentation" path too, but Victory leaves it
+    // untransformed while every polar mark is translated to the chart origin.
+    const addAxis = (): Element =>
+      appendPath(doc, svg, { d: 'M 325, 150 A 100, 100, 0, 0, 0, 125, 150' });
+    const axis = axisFirst ? addAxis() : null;
+    const wedges = [0, 1, 2].map(i =>
+      appendPath(doc, svg, { d: `M ${i},0 A 1,1,0,0,0,0,0 L 0,0 z`, transform: 'translate(225, 150)' }));
+    const trailingAxis = axis ?? addAxis();
+
+    const selector = tagLayerElements(svg, polarAreaLayer(3), 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(wedges.every(w => w.hasAttribute('data-maidr-victory-0'))).toBe(true);
+    expect(trailingAxis.hasAttribute('data-maidr-victory-0')).toBe(false);
+  });
+
+  it('gives up rather than tag too few wedges', () => {
+    const { doc, svg } = buildSvg();
+    appendPath(doc, svg, { d: 'M 0,0 z', transform: 'translate(225, 150)' });
+
+    expect(tagLayerElements(svg, polarAreaLayer(3), 0, new Set(), '#mv-test '))
+      .toBeUndefined();
+  });
+});
+
+describe('tagLayerElements: dot plot', () => {
+  function dotLayer(count: number): VictoryLayerInfo {
+    const points: BarPoint[] = Array.from({ length: count }, (_, i) => ({ x: `c${i}`, y: i }));
+    return {
+      id: '0',
+      victoryType: 'VictoryScatter',
+      data: { kind: 'dot', points },
+      dataCount: count,
+    };
+  }
+
+  it('tags one mark per category', () => {
+    const { doc, svg } = buildSvg();
+    const marks = [0, 1, 2].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 100 a 3,3 0 1,0 -6,0` }));
+
+    const selector = tagLayerElements(svg, dotLayer(3), 0, new Set(), '#mv-test ');
+
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(marks.every(mark => mark.hasAttribute('data-maidr-victory-0'))).toBe(true);
+  });
+
+  it('leaves the scatter cx/cy stamp off a dot plot', () => {
+    const { doc, svg } = buildSvg();
+    const marks = [0, 1].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 100 a 3,3 0 1,0 -6,0` }));
+
+    tagLayerElements(svg, dotLayer(2), 0, new Set(), '#mv-test ');
+
+    // The stamp exists for ScatterTrace, which groups its points by cx/cy. A
+    // dot plot is read by the bar trace, which locates its marks by position
+    // in the selector's result.
+    expect(marks.some(mark => mark.hasAttribute('cx'))).toBe(false);
+  });
+
+  it('still stamps cx/cy on a bivariate scatter', () => {
+    const { doc, svg } = buildSvg();
+    const mark = appendPath(doc, svg, { d: 'M 74, 226 a 3,3 0 1,0 -6,0' });
+    const layer: VictoryLayerInfo = {
+      id: '0',
+      victoryType: 'VictoryScatter',
+      data: { kind: 'scatter', points: [{ x: 1, y: 2 }] },
+      dataCount: 1,
+    };
+
+    tagLayerElements(svg, layer, 0, new Set(), '#mv-test ');
+
+    expect(mark.getAttribute('cx')).toBe('74');
+    expect(mark.getAttribute('cy')).toBe('226');
+  });
+});
+
+describe('tagLayerElements: diverging bar', () => {
+  it('tags every bar of both sides under one selector', () => {
+    const { doc, svg } = buildSvg();
+    const bars = [0, 1, 2, 3].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 150 L ${i * 40}, 60 z` }));
+    const layer: VictoryLayerInfo = {
+      id: '0',
+      victoryType: 'VictoryStack',
+      data: {
+        kind: 'diverging',
+        points: [
+          [{ x: '0-14', y: 1140, z: 'Women' }, { x: '15-29', y: 1100, z: 'Women' }],
+          [{ x: '0-14', y: -1200, z: 'Men' }, { x: '15-29', y: -1150, z: 'Men' }],
+        ],
+      },
+      dataCount: 4,
+      legend: ['Women', 'Men'],
+    };
+
+    const selector = tagLayerElements(svg, layer, 0, new Set(), '#mv-test ');
+
+    // `SegmentedTrace` resolves one flat selector and splits the result across
+    // the sides itself, so every bar of both sides carries the same tag.
+    expect(selector).toBe('#mv-test [data-maidr-victory-0]');
+    expect(bars.every(bar => bar.hasAttribute('data-maidr-victory-0'))).toBe(true);
+  });
+});
