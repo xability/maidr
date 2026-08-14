@@ -2601,11 +2601,14 @@ function resolveStampers(
     return [['word cloud', stampWordCloudAttributes]];
   if (isSankeyChart(chart))
     return [['sankey', stampSankeyAttributes]];
-  // A map does have a series API, but none of the XY stampers may run on one:
-  // they pair a datum with a shape by counting DOM order, and a map's shapes
-  // are its geodata's features — every one of them, in the geodata's order —
-  // so the bar stamper would stamp Alabama for California and the count would
-  // be right often enough to say nothing about it.
+  // A map does have a series API, and its regions are a mark family no XY
+  // stamper writes — so a map running the XY set would be stamped by nothing
+  // at all. Running the region stamper ALONE is the second half of that: a
+  // map carrying a `marker` or `bubble` overlay would otherwise have the
+  // scatter stamper loose on it, and its geometric filter cannot tell an
+  // overlaid point from the small islands and legend swatches a map is full
+  // of. The overlay loses its highlight, which is what the pie and radar
+  // branches above already choose over a placed guess.
   if (isMapChart(chart))
     return [['choropleth', stampChoroplethAttributes]];
   // A gantt has no series API at all, and its bars are the one mark family
