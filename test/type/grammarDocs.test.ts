@@ -2,8 +2,17 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 
-/** The input schema, where every addition lands between existing members. */
-const GRAMMAR = join(__dirname, '..', '..', 'src', 'type', 'grammar.ts');
+/**
+ * The input types, where every addition lands between existing members: the
+ * schema itself, and the co-located declaration block that feeds it.
+ *
+ * Each entry carries a landmark string that must still be found, so a path
+ * that stopped resolving cannot make the case below vacuous.
+ */
+const INPUT_TYPES = [
+  { file: 'grammar.ts', landmark: 'export enum TraceType' },
+  { file: 'declaration.ts', landmark: 'export type MaidrTraceDeclaration' },
+] as const;
 
 /**
  * Two JSDoc blocks in a row, with only whitespace between them.
@@ -27,19 +36,18 @@ const STACKED_BLOCKS = /\*\/[\t\v\f\r \xA0\u1680\u2000-\u200A\u2028\u2029\u202F\
  * the file compiles, the tests pass, and the damage is to documentation that
  * only shows up where nobody is looking.
  */
-describe('no doc comment is orphaned in the grammar', () => {
-  const source = readFileSync(GRAMMAR, 'utf8');
+describe.each(INPUT_TYPES)('no doc comment is orphaned in $file', ({ file, landmark }) => {
+  const source = readFileSync(join(__dirname, '..', '..', 'src', 'type', file), 'utf8');
 
-  test('the grammar is where it is expected to be', () => {
-    // A path that stopped resolving would make the case below vacuous.
-    expect(source).toContain('export enum TraceType');
+  test('the file is where it is expected to be', () => {
+    expect(source).toContain(landmark);
   });
 
   test('no JSDoc block is immediately followed by another', () => {
     const lineOf = (index: number): number =>
       source.slice(0, index).split('\n').length;
     const stranded = [...source.matchAll(STACKED_BLOCKS)]
-      .map(match => `grammar.ts:${lineOf(match.index ?? 0)}`);
+      .map(match => `${file}:${lineOf(match.index ?? 0)}`);
 
     expect(stranded).toEqual([]);
   });
