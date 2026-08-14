@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Parallel Coordinates Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Parallel Coordinates</h1>
+    <p>
+      Click on the chart and use up and down arrow keys to move between cars,
+      left and right to move between the variables. Every column is a different
+      quantity, so each value is pitched against its own axis rather than
+      against one range for the chart — two cars whose pitches swap between
+      adjacent axes are the crossing lines. Press 'b' for braille, 't' for text
+      descriptions.
+    </p>
+    <div
+      id="parallel-chart"
+      aria-label="Parallel coordinates plot loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Parallel coordinates: the Vega-Lite gallery's recipe. Fold the
+      // variables into one `key` / `value` pair so a single `line` mark can
+      // draw them all, put the key on x so each variable gets its own tick,
+      // and split the mark with `detail` so one polyline is drawn per
+      // observation. The `joinaggregate` + `calculate` pair min-max
+      // normalises, because Vega-Lite has one y scale and the variables do
+      // not share units; MAIDR reads the raw folded values and scales each
+      // axis for itself, so the announcement keeps the real units.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 500,
+        height: 300,
+        title: 'Cars compared across three variables',
+        data: {
+          values: [
+            { name: 'car A', mpg: 33, hp: 65, weight: 1800 },
+            { name: 'car B', mpg: 21, hp: 110, weight: 2600 },
+            { name: 'car C', mpg: 15, hp: 230, weight: 3200 },
+          ],
+        },
+        transform: [
+          { window: [{ op: 'count', as: 'index' }] },
+          { fold: ['mpg', 'hp', 'weight'] },
+          {
+            joinaggregate: [
+              { op: 'min', field: 'value', as: 'min' },
+              { op: 'max', field: 'value', as: 'max' },
+            ],
+            groupby: ['key'],
+          },
+          {
+            calculate: '(datum.value - datum.min) / (datum.max - datum.min)',
+            as: 'norm_val',
+          },
+        ],
+        layer: [
+          {
+            mark: { type: 'rule', color: '#ccc' },
+            encoding: {
+              detail: { aggregate: 'count' },
+              x: { field: 'key' },
+            },
+          },
+          {
+            mark: 'line',
+            encoding: {
+              color: { field: 'name', type: 'nominal', title: 'Car' },
+              detail: { field: 'index', type: 'nominal' },
+              x: { field: 'key', type: 'nominal', title: 'Variable' },
+              y: { field: 'norm_val', type: 'quantitative', axis: null },
+            },
+          },
+        ],
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#parallel-chart', spec, { id: 'cars-parallel' })
+        .catch((err) => console.error('[vegalite-parallel]', err));
+    </script>
+  </body>
+</html>

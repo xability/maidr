@@ -99,9 +99,17 @@ export interface VegaLiteSpec {
    * Vega-Lite joins consecutive points: the `step`, `step-before` and
    * `step-after` values draw a piecewise-constant staircase, the rest
    * interpolate. `innerRadius` is what turns an `arc` pie into a doughnut —
-   * purely visual, so the two convert identically.
+   * purely visual, so the two convert identically. `extent` is how far a
+   * composite mark's interval reaches — `stderr`, `ci`, `stdev`, `iqr` —
+   * which the adapter reads only when it has to aggregate the raw
+   * observations itself.
    */
-  mark?: string | { type: string; interpolate?: string; innerRadius?: number };
+  mark?: string | {
+    type: string;
+    interpolate?: string;
+    innerRadius?: number;
+    extent?: string;
+  };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];
   hconcat?: VegaLiteSpec[];
@@ -126,6 +134,20 @@ export interface VegaLiteEncoding {
   x?: VegaLiteChannelDef;
   y?: VegaLiteChannelDef;
   /**
+   * Secondary positional channels — the far end of a mark that spans a
+   * range instead of standing on a baseline.
+   *
+   * A `bar` carrying `x` **and** `x2` draws an interval between two
+   * positions on the same axis rather than a magnitude measured from zero,
+   * which is what a gantt chart, a ranged bar and a waterfall step all
+   * are. Vega-Lite's own `y2` accepts a `datum` constant as well as a
+   * field, so the adapter checks for a *field* before reading either as an
+   * interval: a constant baseline is a bar drawn the ordinary way.
+   */
+  x2?: VegaLiteChannelDef;
+  /** Vertical counterpart of `x2`. */
+  y2?: VegaLiteChannelDef;
+  /**
    * Modern Vega-Lite dodge channel — when paired with a categorical
    * `field`, Vega-Lite places bars of each subcategory **side-by-side**
    * within the same x slot. The adapter inspects this to classify a
@@ -140,8 +162,29 @@ export interface VegaLiteEncoding {
    * the slice labels come from `color`/`fill`, since an arc has no x or y.
    */
   theta?: VegaLiteChannelDef;
+  /**
+   * Radial extent of an `arc` mark — the channel that turns a pie into a
+   * polar area (coxcomb, rose) chart, where the wedge's *radius* carries
+   * the magnitude and the angle only says which category it is.
+   *
+   * A pie may also set a radius, but as a constant (`{value: 100}`) or a
+   * scale tweak rather than a data field, so only a bound `field` marks
+   * the mark as radial.
+   */
+  radius?: VegaLiteChannelDef;
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
+  /**
+   * Grouping without a visual channel: it splits one mark into several
+   * without colouring or otherwise marking them apart. Vega-Lite's ranged
+   * dot plot uses it to draw one connector per category.
+   *
+   * Modelled so such a spec type-checks, not dispatched on: the same chart
+   * puts its grouping on `detail` in one layer and on `color` in the next,
+   * so the adapter decides whether the rows really are paired by looking at
+   * the rows.
+   */
+  detail?: VegaLiteChannelDef;
   row?: VegaLiteChannelDef;
   column?: VegaLiteChannelDef;
 }
@@ -190,13 +233,53 @@ export interface VegaLiteFilterPredicate {
 /**
  * A single entry of a spec's `transform` array.
  *
- * Only `filter` is modelled — it is the one transform that identifies the
- * subset of the data a layer draws, and therefore the only one that can
- * name a per-group layer. Every other transform (`density`, `aggregate`,
- * `calculate`, …) is passed over.
+ * Only the transforms that tell one chart from another are modelled.
+ * `filter` identifies the subset of the data a layer draws, and is
+ * therefore the only one that can name a per-group layer; `window`,
+ * `fold` and `density` each mark a chart whose mark alone does not say
+ * what it is. Every other transform (`aggregate`, `calculate`,
+ * `joinaggregate`, …) is passed over.
  */
 export interface VegaLiteTransform {
   filter?: string | VegaLiteFilterPredicate;
+  /**
+   * Window operations, of which the adapter reads two things.
+   *
+   * A running `sum` is what separates a waterfall from any other ranged
+   * bar: both draw a floating bar between `y` and `y2`, but a waterfall's
+   * two bounds are consecutive running totals, and a running total is a
+   * `window` sum. A ranged bar whose bounds are two measured values (a
+   * monthly temperature low and high, say) has no such transform, and
+   * announcing its bounds as contributions to a total would invent an
+   * accumulation the chart does not draw.
+   *
+   * A `rank` is what separates a bump chart from any other line chart:
+   * the y axis carries a *place in a table* rather than a magnitude, and
+   * Vega-Lite has one way to compute one. `as` is required by the
+   * Vega-Lite schema for every window operation, so the ranked column is
+   * always named.
+   */
+  window?: { op?: string; field?: string; as?: string }[];
+  /**
+   * The columns a `fold` transform turns into rows.
+   *
+   * That is how a parallel coordinates plot is built: several variables
+   * are folded into one `key` / `value` pair so a single `line` mark can
+   * draw one polyline per observation across all of them. No Vega-Lite
+   * mark says "parallel coordinates"; the fold does.
+   */
+  fold?: string[];
+  /** The field a `density` transform estimates a distribution over. */
+  density?: string;
+  /** The grouping keys of a `density` or `aggregate` transform. */
+  groupby?: string[];
+  /**
+   * The output column names of whichever transform declares them.
+   *
+   * `fold` and `density` both emit a pair (`["key", "value"]` and
+   * `["value", "density"]` by default); `calculate` and friends emit one.
+   */
+  as?: string | string[];
   [key: string]: unknown;
 }
 

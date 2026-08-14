@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Error Bar Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Error Bars</h1>
+    <p>
+      Click on the chart and use left and right arrow keys to move between
+      groups; up and down move between the lower bound, the estimate and the
+      upper bound at one group, so a whole interval can be traced without
+      leaving it. Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="errorbar-chart"
+      aria-label="Error bar chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Error bar: the `errorbar` composite mark. Vega-Lite aggregates the
+      // raw observations itself into `center_` / `lower_` / `upper_`
+      // columns — whichever `extent` the spec asks for — and MAIDR reads
+      // those, so the interval announced is the interval drawn.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 400,
+        height: 300,
+        title: 'Mean Yield by Variety, with Standard Error',
+        data: {
+          values: [
+            { variety: 'Manchuria', yield: 27.0 },
+            { variety: 'Manchuria', yield: 32.4 },
+            { variety: 'Manchuria', yield: 22.6 },
+            { variety: 'Glabron', yield: 43.1 },
+            { variety: 'Glabron', yield: 55.2 },
+            { variety: 'Glabron', yield: 38.0 },
+            { variety: 'Velvet', yield: 30.5 },
+            { variety: 'Velvet', yield: 47.3 },
+            { variety: 'Velvet', yield: 35.1 },
+          ],
+        },
+        mark: 'errorbar',
+        encoding: {
+          x: { field: 'variety', type: 'nominal', title: 'Variety' },
+          y: { field: 'yield', type: 'quantitative', title: 'Yield' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#errorbar-chart', spec, { id: 'yield-errorbar' })
+        .catch((err) => console.error('[vegalite-errorbar]', err));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Ridgeline Plot Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Ridgeline Plot</h1>
+    <p>
+      Click on the chart and use up and down arrow keys to move between months,
+      left and right to move along one month's curve. Every group is pitched
+      against the whole chart, so the tallest ridge really is the highest note,
+      and a move between months holds the temperature you were on rather than
+      the sample index. Press 'b' for braille, 't' for text descriptions.
+    </p>
+    <div
+      id="ridgeline-chart"
+      aria-label="Ridgeline plot loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Ridgeline (joy plot): a row facet over a `density` transform grouped
+      // by the facet field, with the panels flush against each other so the
+      // curves read as a stack of ridges. The facet is how Vega-Lite offsets
+      // them — it is presentation, not data — so MAIDR reads the whole thing
+      // as one layer rather than as a grid of separate density plots.
+      const months = [
+        ['Jan', 5],
+        ['Apr', 14],
+        ['Jul', 24],
+        ['Oct', 13],
+      ];
+      const values = [];
+      for (const [month, base] of months) {
+        for (let i = 0; i < 12; i++) {
+          values.push({ month, temp: base + (i % 7) - 3 + i * 0.4 });
+        }
+      }
+
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 500,
+        height: 60,
+        bounds: 'flush',
+        spacing: 0,
+        title: 'Daily maximum temperature by month',
+        data: { values },
+        transform: [
+          { density: 'temp', groupby: ['month'], extent: [-5, 40] },
+        ],
+        mark: { type: 'area', opacity: 0.7 },
+        encoding: {
+          x: {
+            field: 'value',
+            type: 'quantitative',
+            title: 'Maximum daily temperature (C)',
+          },
+          y: {
+            field: 'density',
+            type: 'quantitative',
+            axis: null,
+            scale: { range: [60, 0] },
+          },
+          row: {
+            field: 'month',
+            type: 'ordinal',
+            title: 'Month',
+            sort: ['Jan', 'Apr', 'Jul', 'Oct'],
+            header: { labelAngle: 0, labelAlign: 'left' },
+          },
+        },
+        config: { view: { stroke: null } },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#ridgeline-chart', spec, { id: 'weather-ridgeline' })
+        .catch((err) => console.error('[vegalite-ridgeline]', err));
+    </script>
+  </body>
+</html>

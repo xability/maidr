@@ -261,7 +261,10 @@ describe('vega-Lite faceted conversion', () => {
     expect(result.subplots[0]).toHaveLength(3);
 
     const [cellA, cellB, cellC] = result.subplots[0];
-    expect(cellA.layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.SCATTER]);
+    // The point layer draws one dot per variety, so it converts as a DOT
+    // rather than a scatter: its x is a category, and a scatter reading
+    // would coerce that name to NaN.
+    expect(cellA.layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.DOT]);
     expect(cellB.layers.map(l => l.type)).toEqual([TraceType.BAR]);
     expect(cellC.layers.map(l => l.type)).toEqual([TraceType.BAR]);
 
@@ -309,8 +312,10 @@ describe('vega-Lite faceted conversion', () => {
       'site: B',
       'site: C',
     ]);
+    // Points against a category axis are a dot plot; see the DOT note in
+    // the layered-child test above.
     expect(result.subplots[0][0].layers.map(l => l.type))
-      .toEqual([TraceType.SCATTER, TraceType.BAR]);
+      .toEqual([TraceType.DOT, TraceType.BAR]);
     expect(result.subplots[0][1].layers.map(l => l.type)).toEqual([TraceType.BAR]);
   });
 
