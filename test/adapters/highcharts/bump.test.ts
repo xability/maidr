@@ -149,6 +149,47 @@ describe('highcharts bump charts', () => {
       .toBe(TraceType.BUMP);
   });
 
+  it('does not fire when no period ever ranks two competitors', () => {
+    const xAxis = fakeAxis({ categories: ['Q1', 'Q2', 'Q3', 'Q4'] });
+    const yAxis = fakeAxis({ reversed: true, options: {} });
+    const chart = fakeChart({
+      renderToId: 'bump-disjoint',
+      type: 'line',
+      series: [
+        fakeSeries({
+          index: 0,
+          type: 'line',
+          name: 'North',
+          xAxis,
+          yAxis,
+          data: [
+            { x: 0, y: 1, category: 'Q1' },
+            { x: 1, y: 1, category: 'Q2' },
+          ],
+        }),
+        fakeSeries({
+          index: 1,
+          type: 'line',
+          name: 'South',
+          xAxis,
+          yAxis,
+          // A different half of the year entirely, so the two never share a
+          // period. Every period is then a permutation of 1..1 by default.
+          data: [
+            { x: 2, y: 1, category: 'Q3' },
+            { x: 3, y: 1, category: 'Q4' },
+          ],
+        }),
+      ],
+    });
+
+    // Nothing here is a rank -- no two values were ever ordered against each
+    // other -- and reading it as a bump would invert the pitch of an ordinary
+    // line chart, which is worse than reading it plainly.
+    expect(highchartsToMaidr(chart).subplots[0][0].layers[0].type)
+      .toBe(TraceType.LINE);
+  });
+
   it('is forced on by `bump: true` where the heuristic declines', () => {
     // Ranks that skip after a tie — 1, 1, 3 — are a real standings table and
     // no permutation.

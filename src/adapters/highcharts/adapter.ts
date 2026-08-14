@@ -1239,7 +1239,8 @@ function readsAsBump(
  * that were there.
  *
  * @param seriesList - The series to inspect
- * @returns True when every period holds 1..k exactly once each
+ * @returns True when every period holds 1..k exactly once each, and at least
+ * one period actually ranks two competitors against each other
  */
 function ranksPermuteEveryPeriod(seriesList: HighchartsSeries[]): boolean {
   const ranksByPeriod = new Map<string, number[]>();
@@ -1271,7 +1272,14 @@ function ranksPermuteEveryPeriod(seriesList: HighchartsSeries[]): boolean {
       return false;
     }
   }
-  return true;
+
+  // Somewhere, two competitors have to be ranked against each other. A table
+  // of one-competitor periods satisfies 1..k trivially at every column, so
+  // two series drawn over disjoint x categories would pass the test above
+  // without a single rank ever being contested. Reading that as a bump chart
+  // is not a degraded reading -- MAIDR inverts the pitch for a bump -- so an
+  // ordinary line chart admitted here sonifies upside down.
+  return [...ranksByPeriod.values()].some(ranks => ranks.length >= 2);
 }
 
 /**
