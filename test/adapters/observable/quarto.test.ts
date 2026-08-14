@@ -43,6 +43,20 @@ async function settle(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 5));
 }
 
+/**
+ * Does to a chart what MAIDR's mount does: replace it with a wrapper, then
+ * adopt it into React's tree.
+ *
+ * The chart therefore leaves the document and comes back, which is the reason
+ * the adapter cannot treat a chart's absence as a discard until it has seen
+ * that chart in the document at least once since binding.
+ */
+function mountLikeRuntime(chart: Element): void {
+  const wrapper = chart.ownerDocument.createElement('div');
+  chart.parentNode!.replaceChild(wrapper, chart);
+  wrapper.append(chart);
+}
+
 describe('binding a chart', () => {
   it('writes the schema to the svg and announces it to the runtime', () => {
     const { dom, svg, element } = mountFixture('bar');
@@ -182,7 +196,9 @@ describe('charts a reactive cell replaces', () => {
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html;
       await settle();
-      const first = cell?.querySelector('svg');
+      const first = cell!.querySelector('svg')!;
+      mountLikeRuntime(first);
+      await settle();
 
       cell!.innerHTML = FIXTURES.scatter.html;
       await settle();
@@ -196,9 +212,10 @@ describe('charts a reactive cell replaces', () => {
 
   it('does not tear down a chart that was only moved', async () => {
     // Binding a chart moves it: the runtime replaces it with a wrapper and
-    // adopts it into React's tree. Treating that as a removal would tear down
-    // the chart that was just bound, which is why supersession is keyed on the
-    // cell rather than inferred from the chart leaving the DOM.
+    // adopts it into React's tree, which React commits on its own schedule. So
+    // a chart can be out of the document for a frame or two while it is being
+    // mounted, and treating that as a removal would tear down the chart that
+    // was just bound.
     const { dom } = mountFixture('bar');
     const restore = useDom(dom);
     try {
@@ -214,14 +231,49 @@ describe('charts a reactive cell replaces', () => {
       cell!.innerHTML = FIXTURES.bar.html;
       await settle();
 
-      // What the runtime's mount does to the element it binds.
-      const chart = cell!.querySelector('svg')!;
-      const wrapper = document.createElement('div');
-      chart.parentNode!.replaceChild(wrapper, chart);
-      wrapper.append(chart);
+      mountLikeRuntime(cell!.querySelector('svg')!);
       await settle();
 
       expect(released).toEqual([]);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+
+  it('tears down a chart discarded before any sweep saw it mounted', async () => {
+    // The backstop for the case the rule above cannot decide: a chart bound and
+    // then discarded without a single sweep ever finding it in the document. It
+    // is indistinguishable from one still being mounted, so the adapter waits —
+    // but not forever, or a chart that was never seen would be retained for the
+    // life of the page.
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html;
+      await settle();
+      const first = cell!.querySelector('svg')!;
+
+      cell!.innerHTML = FIXTURES.scatter.html;
+      await settle();
+      expect(released).toEqual([]);
+
+      // Each unrelated mutation is one more frame the mount did not land in.
+      for (let frame = 0; frame < 2; frame++) {
+        document.body.appendChild(document.createElement('p'));
+        await settle();
+      }
+
+      expect(released).toEqual([first]);
       stop();
     } finally {
       restore();
@@ -275,6 +327,8 @@ describe('a cell holding more than one chart', () => {
       cell!.innerHTML = FIXTURES.bar.html + FIXTURES.scatter.html;
       await settle();
       const first = Array.from(cell!.querySelectorAll('svg'));
+      first.forEach(mountLikeRuntime);
+      await settle();
 
       cell!.innerHTML = FIXTURES.multiline.html;
       await settle();

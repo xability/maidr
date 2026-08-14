@@ -47,8 +47,41 @@ const bound = new WeakSet<Element>();
  */
 const notPlots = new WeakSet<Element>();
 
-/** Counts passes over the document, so charts can be told apart by age. */
-let pass = 0;
+/**
+ * Charts with a live MAIDR instance, so the ones the page discards can be
+ * released.
+ *
+ * A discarded chart is not reclaimed on its own: the page holds no reference to
+ * it while MAIDR's registries still do, so an OJS document — where a cell
+ * re-runs and replaces its output on every input change — accumulates one whole
+ * chart per frame.
+ *
+ * Held strongly and on purpose. A `WeakSet` cannot be walked, and walking is
+ * the point: a chart is gone precisely when nothing else refers to it, which is
+ * the moment a weak collection would stop being able to tell anyone.
+ */
+const tracked = new Set<Element>();
+
+/**
+ * Charts seen in the document since they were bound.
+ *
+ * Binding a chart *moves* it — the runtime replaces it with a wrapper and
+ * adopts it into React's tree, which React commits on its own schedule — so
+ * "not in the document" means one of two opposite things: discarded by the
+ * page, or still being mounted. A chart that has been seen in the document
+ * since it was bound has finished mounting, and its absence afterwards can only
+ * be the first.
+ */
+const settled = new WeakSet<Element>();
+
+/** Sweeps a chart has been missing for, as a backstop for one never seen. */
+const missing = new WeakMap<Element, number>();
+
+/**
+ * How many sweeps a chart may be missing before it is released even though it
+ * was never seen settled — enough frames for any mount to have landed.
+ */
+const MISSING_LIMIT = 3;
 
 /** The watcher the automatic start owns, so it can be stopped and not doubled. */
 let autoWatcher: (() => void) | null = null;
@@ -84,8 +117,18 @@ export function bindObservablePlot(
   }
 
   const maidr = observablePlotToMaidr(element, options);
-  if (!maidr)
+  if (!maidr) {
+    // Said out loud rather than left as a chart that simply never responds.
+    // A mark this adapter cannot read is the usual reason — a heatmap, a box
+    // plot, a mark drawn as paths — and an author who wanted the chart read
+    // has no other way to find out which.
+    console.warn(
+      `${LOG_PREFIX} no mark on this chart could be read, so it was left `
+      + 'unbound. See https://maidr.ai/observable.html for what is supported.',
+      svg,
+    );
     return null;
+  }
 
   const result: ObservablePlotResult = {
     maidr,
@@ -101,10 +144,6 @@ export function bindObservablePlot(
     return result;
 
   svg.setAttribute('maidr-data', JSON.stringify(maidr));
-  // Read before the dispatch. The runtime mounts synchronously and replaces the
-  // chart with a wrapper of its own, so by the time the event returns the
-  // element has been lifted out of the cell and can no longer name it.
-  const cell = cellOf(svg);
   // Dispatched on the element so it bubbles to the runtime's listener — which
   // needs the element to be in the document. A chart bound before it is
   // inserted would be announced to nobody, and would look bound.
@@ -115,8 +154,7 @@ export function bindObservablePlot(
     );
   }
   svg.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
-  if (cell)
-    claimCell(cell, svg);
+  tracked.add(svg);
   return result;
 }
 
@@ -146,9 +184,12 @@ export function initQuartoObservable(options: QuartoObservableOptions = {}): () 
     return () => {};
 
   let scheduled = false;
+  let stopped = false;
   const scan = (): void => {
     scheduled = false;
-    pass += 1;
+    if (stopped)
+      return;
+    sweepDiscarded();
     for (const candidate of findUnboundPlots(root))
       bindOne(candidate, options);
   };
@@ -169,7 +210,9 @@ export function initQuartoObservable(options: QuartoObservableOptions = {}): () 
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
+      // Removals matter as much as additions: a cell emptied without a
+      // replacement discards a chart that nothing else will report.
+      if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
         schedule();
         return;
       }
@@ -177,7 +220,12 @@ export function initQuartoObservable(options: QuartoObservableOptions = {}): () 
   });
   observer.observe(root, { childList: true, subtree: true });
 
-  return () => observer.disconnect();
+  return () => {
+    observer.disconnect();
+    // A pass already queued would otherwise bind one more chart after the
+    // caller asked the watcher to stop.
+    stopped = true;
+  };
 }
 
 /**
@@ -236,73 +284,38 @@ export function stopQuartoObservable(): void {
 }
 
 /**
- * The charts bound in each output cell, and which pass bound them.
+ * Releases the MAIDR instance of every chart the page has discarded.
  *
- * An OJS cell re-runs whenever an input it depends on changes, and the runtime
- * replaces the cell's output with a freshly drawn chart. The chart it replaced
- * is gone from the page but not from MAIDR, which still holds the mounted
- * instance and everything that instance registered — so a reader dragging a
- * slider accumulates one whole chart per frame.
+ * Covers every way a chart can go, not only the tidy one: a cell that re-runs
+ * into something unreadable, a cell removed outright, and a chart that was
+ * never inside a cell to begin with.
  *
- * A cell holds a *set*, not one chart: a single `{ojs}` cell can return several
- * plots side by side, and they are all its occupants. What tells a replacement
- * apart from a sibling is when each was bound. Siblings arrive together, in one
- * pass over the document; a replacement arrives in a later one, after the chart
- * it replaced has left the page.
+ * See {@link settled} for why absence alone is not enough to act on.
  */
-const occupants = new WeakMap<Element, Set<Element>>();
-
-/** Which scan bound each chart, for the comparison {@link occupants} describes. */
-const boundDuring = new WeakMap<Element, number>();
-
-/**
- * The output cell a chart was drawn into, read before anything moves it.
- *
- * Quarto gives every `{ojs}` cell a container of its own and fills it at
- * runtime; that container is the one thing about a chart's position that does
- * not change when the chart is bound or redrawn. A chart outside one — a plain
- * page that happens to load this adapter — has no such anchor, and is left
- * alone rather than guessed at.
- *
- * @param svg - The chart's `<svg>`, still where the runtime put it.
- * @returns The cell, or `null` when the chart is not in one.
- */
-function cellOf(svg: Element): Element | null {
-  return svg.closest('[id^="ojs-cell-"]');
-}
-
-/**
- * Records a chart as one of its cell's occupants, tearing down any it replaced.
- *
- * A chart is only ever superseded by one bound in a *later* pass, and only if
- * the cell no longer holds it. Both halves matter: the first keeps two charts
- * that arrived together from evicting each other, and the second keeps a chart
- * that is merely mid-mount — binding one moves it, on React's schedule — from
- * being torn down at the moment it was bound.
- *
- * @param cell - The cell the chart was drawn into.
- * @param svg  - The chart just bound.
- */
-function claimCell(cell: Element, svg: Element): void {
-  const held = occupants.get(cell) ?? new Set<Element>();
-  occupants.set(cell, held);
-  boundDuring.set(svg, pass);
-
-  for (const previous of held) {
-    if (previous === svg || boundDuring.get(previous) === pass)
+function sweepDiscarded(): void {
+  for (const chart of tracked) {
+    if (chart.isConnected) {
+      settled.add(chart);
+      missing.delete(chart);
       continue;
-    if (cell.contains(previous))
+    }
+
+    const absences = (missing.get(chart) ?? 0) + 1;
+    missing.set(chart, absences);
+    if (!settled.has(chart) && absences < MISSING_LIMIT)
       continue;
 
-    held.delete(previous);
-    if (!bound.has(previous))
-      continue;
-    bound.delete(previous);
-    // On `document`, with the element in `detail`: the superseded chart is
-    // detached by now, so an event fired on it would reach no listener.
-    document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: previous }));
+    tracked.delete(chart);
+    missing.delete(chart);
+    bound.delete(chart);
+    // On the chart's own document, with the element in `detail`: the chart is
+    // detached by now, so an event fired on it would reach no listener, and a
+    // detached chart still belongs to the document it was drawn in — which is
+    // where the runtime holding its instance is listening.
+    chart.ownerDocument?.dispatchEvent(
+      new CustomEvent('maidr:unbindchart', { detail: chart }),
+    );
   }
-  held.add(svg);
 }
 
 /**
