@@ -15,7 +15,7 @@
  * as a chart that announces correctly and highlights nothing.
  */
 
-import type { MaidrLayer } from '@type/grammar';
+import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
 import type { ReactElement } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
@@ -124,6 +124,57 @@ describe('victory error bar', () => {
     // discards the highlight for the whole layer.
     expect(doc.querySelectorAll(layers[0].selectors as string)).toHaveLength(3);
   });
+
+  it('puts an asymmetric bound on the side victory drew it', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryErrorBar, {
+        data: [
+          { x: 1, y: 2, errorY: [0.4, 0.2] },
+          { x: 2, y: 3, errorY: 0.3 },
+          { x: 3, y: 5, errorY: 0.3 },
+        ],
+      }),
+    ));
+
+    const points = layers[0].data as ErrorBarPoint[];
+    const [asymmetric, symmetric] = Array
+      .from(doc.querySelectorAll(layers[0].selectors as string))
+      .map(whiskerExtent);
+
+    // Reading `errorY: [a, b]` as `[minus, plus]` instead of `[plus, minus]`
+    // would swap yMin and yMax on every asymmetric sample and still satisfy
+    // every count- and shape-based assertion, so the only test that can
+    // falsify the mapping is one against the pixels Victory produced.
+    // Two sample centres one data unit apart calibrate the y scale; screen y
+    // grows downward, so the higher value sits at the smaller y.
+    const pxPerUnit = (asymmetric.centre - symmetric.centre)
+      / (points[1].y - points[0].y);
+
+    expect(asymmetric.centre - asymmetric.top)
+      .toBeCloseTo(pxPerUnit * ((points[0].yMax ?? Number.NaN) - points[0].y), 6);
+    expect(asymmetric.bottom - asymmetric.centre)
+      .toBeCloseTo(pxPerUnit * (points[0].y - (points[0].yMin ?? Number.NaN)), 6);
+  });
+
+  /**
+   * The screen-space span of one whisker, read off the four lines Victory
+   * renders per sample. Its `data-type` names ignore the y axis pointing down
+   * — `border-bottom` is the upper cap — so the sides are taken by geometry.
+   */
+  function whiskerExtent(cross: Element): { centre: number; top: number; bottom: number } {
+    const lines = Array.from((cross.parentElement as Element).querySelectorAll('line'));
+    const ys = lines.flatMap(line => [
+      Number(line.getAttribute('y1')),
+      Number(line.getAttribute('y2')),
+    ]);
+    return {
+      centre: Number(cross.getAttribute('y1')),
+      top: Math.min(...ys),
+      bottom: Math.max(...ys),
+    };
+  }
 });
 
 describe('victory waterfall', () => {
