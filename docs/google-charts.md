@@ -466,6 +466,19 @@ The adapter accepts a `GoogleChartAdapterOptions` object:
 | `title` | `string` | No | Chart title for accessibility announcements |
 | `id` | `string` | No | Unique ID for the MAIDR instance (defaults to container's `id`) |
 
+### Reading options
+
+Four chart types carry meaning that is not in the DataTable at all — it lives in the draw options, in the analysis, or in the author's head — so the adapter cannot infer it and does not guess. Pass it alongside `chartType`. Each is described in full in the note for its chart type above.
+
+| Option | Type | Applies to | Description |
+|--------|------|------------|-------------|
+| `gaugeOptions` | `GoogleGaugeOptions` | `'Gauge'` | The same draw options given to `chart.draw(…)`. Supplies `min` / `max` and the `greenFrom` … `redTo` band edges. Without it every dial falls back to Google's own defaults of 0 to 100 with no bands |
+| `stepDirection` | `StepDirection` | `'SurvivalChart'` | Where the curve jumps between samples — `'hv'` for a Kaplan-Meier estimate. Omitted means MAIDR names no convention rather than assuming one |
+| `thresholdOptions` | `ThresholdOptions` | `'VolcanoChart'`, `'ManhattanChart'` | The significance cutoff, which side of it counts, and the effect size. Drives the entry summary and the rotor that jumps between the hits |
+| `waterfallTotals` | `readonly number[]` | `'WaterfallChart'` | DataTable row indices of the rows that restate the running total (the opening and closing bars, and any subtotal) rather than changing it |
+
+These same options are accepted **per panel** by `createMaidrFromGoogleCharts`, since a faceted figure may mix chart types: set them on the panel object next to its `chartType`.
+
 ## Using with npm/Bundlers
 
 For bundled projects, import the adapter directly:
