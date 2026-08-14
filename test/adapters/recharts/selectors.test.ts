@@ -52,6 +52,33 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('lollipop')).toBe('.recharts-scatter-symbol .recharts-symbols');
     });
 
+    it('returns scoped line dot selector for survival type', () => {
+      // A Kaplan-Meier curve is a <Line type="stepAfter">, so it draws line dots.
+      expect(getRechartsSelector('survival')).toBe('.recharts-line-dots .recharts-line-dot');
+    });
+
+    it('returns scoped scatter symbol selector for volcano, manhattan and forest types', () => {
+      // The first two are literally scatters; a forest plot is a
+      // <ScatterChart> whose symbols carry the study weights.
+      expect(getRechartsSelector('volcano')).toBe('.recharts-scatter-symbol .recharts-symbols');
+      expect(getRechartsSelector('manhattan')).toBe('.recharts-scatter-symbol .recharts-symbols');
+      expect(getRechartsSelector('forest')).toBe('.recharts-scatter-symbol .recharts-symbols');
+    });
+
+    it('returns scoped trapezoid selector for funnel type', () => {
+      expect(getRechartsSelector('funnel')).toBe('.recharts-funnel-trapezoid .recharts-trapezoid');
+    });
+
+    it('returns scoped whisker selector for error_bar type', () => {
+      // The whiskers, not the host mark: the estimate may be drawn by a bar,
+      // a line dot or a scatter symbol, and only the author knows which.
+      expect(getRechartsSelector('error_bar')).toBe('.recharts-errorBars .recharts-errorBar');
+    });
+
+    it('returns scoped sankey link selector for alluvial type', () => {
+      expect(getRechartsSelector('alluvial')).toBe('.recharts-sankey-links .recharts-sankey-link');
+    });
+
     it('returns scoped pie sector selector for pie type', () => {
       expect(getRechartsSelector('pie')).toBe('.recharts-pie-sector .recharts-sector');
     });

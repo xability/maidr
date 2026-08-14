@@ -12,10 +12,18 @@
  *   SegmentedPoint[][]  = [[{ x, y, fill }, ...], ...]  (stacked/dodged/normalized)
  *   HistogramPoint[]    = [{ x, y, xMin, xMax, yMin, yMax }, ...]
  *   PiePoint[]          = [{ x, y }, ...]                (flat, one per slice)
+ *   ErrorBarPoint[]     = [{ x, y, yMin?, yMax? }, ...]  (bounds are ABSOLUTE)
+ *   ForestPoint[]       = [{ x, y, yMin?, yMax?, weight?, pooled? }, ...]
+ *   VolcanoPoint[]      = [{ x, y, label?, group? }, ...]
+ *   SurvivalPoint[][]   = [[{ x, y, censored?, yMin?, yMax? }, ...], ...]
+ *   FlowPoint[]         = [{ source, target, value }, ...]
  */
 
 import type {
   BarPoint,
+  ErrorBarPoint,
+  FlowPoint,
+  ForestPoint,
   HistogramPoint,
   LinePoint,
   Maidr,
@@ -24,6 +32,8 @@ import type {
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  SurvivalPoint,
+  VolcanoPoint,
 } from '@type/grammar';
 import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
 import { cssEscape } from '@adapters/shared/selectorUtil';
@@ -153,6 +163,14 @@ function buildPanelSubplot(
     orientation: panel.orientation ?? config.orientation,
     fillKeys: panel.fillKeys ?? config.fillKeys,
     binConfig: panel.binConfig ?? config.binConfig,
+    // The per-type configs name FIELDS and declare CUTOFFS, both of which the
+    // panels of a facet grid share by construction — every panel plots the
+    // same columns of a split data set — so they have no per-panel override.
+    flowConfig: config.flowConfig,
+    volcanoConfig: config.volcanoConfig,
+    errorConfig: config.errorConfig,
+    forestConfig: config.forestConfig,
+    survivalConfig: config.survivalConfig,
     selectorOverride: panel.selectorOverride,
   };
 
@@ -215,6 +233,13 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     return [buildHistogramLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, orientation, config.binConfig, selectorOverride, config.id, panelScope)];
   }
 
+  // Survival: one layer of SurvivalPoint[][] whether the figure draws one arm
+  // or several. The censoring marks and the confidence band ride on the
+  // points, and the plain line builders have nowhere to put them.
+  if (chartType === 'survival') {
+    return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope)];
+  }
+
   // Line with multiple series: single layer with 2D LinePoint[][] data
   if (isLineType(chartType) && hasMultipleSeries) {
     return [buildMultiSeriesLineLayer(data, xKey, yKeys, chartType, xLabel, yLabel, selectorOverride)];
@@ -226,12 +251,13 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   return yKeys.map((yKey, index) => {
     const seriesIndex = hasMultipleSeries ? index : undefined;
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
-    const layerData = convertData(chartType, data, xKey, yKey);
+    const layerData = convertData(chartType, data, xKey, yKey, config);
 
     return {
       id: String(index),
       type: maidrType,
       title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
+      ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: layerOrientation(chartType, orientation),
@@ -375,6 +401,62 @@ function buildMultiSeriesLineLayer(
 }
 
 /**
+ * Builds a single survival layer with one SurvivalPoint[] row per arm.
+ *
+ * `stepDirection` is emitted because Recharts draws these curves with
+ * `<Line type="stepAfter">` — survival holds until an event drops it, which
+ * is exactly the `hv` convention — and a reader told which way the curve
+ * jumps knows whether the value they hear covers the interval before the time
+ * or after it.
+ */
+function buildSurvivalLayer(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKeys: string[],
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  fillKeys?: string[],
+  survivalConfig?: RechartsAdapterConfig['survivalConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  const hasMultipleArms = yKeys.length > 1;
+  const survivalData: SurvivalPoint[][] = yKeys.map((yKey, arm) =>
+    convertToSurvivalRow(
+      data,
+      xKey,
+      yKey,
+      survivalConfig,
+      arm,
+      // A single-arm curve has nothing to be distinguished from, so it goes
+      // unnamed the way a single-series line does.
+      hasMultipleArms ? (fillKeys?.[arm] ?? yKey) : undefined,
+    ),
+  );
+
+  // Same honest degrade as the other multi-series line families: CSS cannot
+  // tell one <Line> from another, so highlighting is off unless the consumer
+  // named the arms with their own classes.
+  const selector = selectorOverride
+    ?? getRechartsSelector(chartType, hasMultipleArms ? 0 : undefined, chartId, panelScope);
+
+  return {
+    id: '0',
+    type: TraceType.SURVIVAL,
+    // A SurvivalTrace is a LineTrace: one selector per arm, never a bare string.
+    selectors: selector ? yKeys.map(() => selector) : undefined,
+    stepDirection: survivalConfig?.stepDirection ?? 'hv',
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: survivalData,
+  };
+}
+
+/**
  * Builds layers for composed mode (mixed chart types via layers config).
  */
 function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
@@ -406,12 +488,13 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
 
     const maidrType = toTraceType(chartType);
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
-    const layerData = convertData(chartType, data, xKey, yKey);
+    const layerData = convertData(chartType, data, xKey, yKey, config);
 
     return {
       id: String(index),
       type: maidrType,
       title: name,
+      ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
       orientation: layerOrientation(chartType, orientation),
@@ -426,19 +509,27 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
 
 /**
  * Converts Recharts data for a single series into the appropriate MAIDR format.
+ *
+ * `config` is read only by the types whose payload carries more than a
+ * coordinate pair — the flow's node names, the volcano's labels, the
+ * interval's bounds — each of which names its fields in its own sub-config.
  */
 function convertData(
   chartType: RechartsChartType,
   data: Record<string, unknown>[],
   xKey: string,
   yKey: string,
-): BarPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] {
+  config: RechartsAdapterConfig,
+): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | VolcanoPoint[] {
   switch (chartType) {
     // A dot plot and a lollipop carry a bar's data — one category, one
-    // magnitude — and differ only in the mark drawn for it.
+    // magnitude — and differ only in the mark drawn for it. So does a funnel:
+    // the retention and the share it is read for are ratios MAIDR derives
+    // from the counts, never numbers the adapter hands it.
     case 'bar':
     case 'dot':
     case 'lollipop':
+    case 'funnel':
       return convertToBarPoints(data, xKey, yKey);
     // The area, radar and bump families are all read as a line is: one value
     // per sample. What the stacking, the circle and the rank change is how
@@ -450,8 +541,23 @@ function convertData(
     case 'radar':
     case 'bump':
       return convertToLinePoints(data, xKey, yKey);
+    // A composed chart carries one curve per layer, so it reads the first
+    // entry of each per-arm key array.
+    case 'survival':
+      return [convertToSurvivalRow(data, xKey, yKey, config.survivalConfig, 0)];
     case 'scatter':
       return convertToScatterPoints(data, xKey, yKey);
+    // Both are scatters read through a threshold, and differ only in what the
+    // x axis means — effect size against genomic position.
+    case 'volcano':
+    case 'manhattan':
+      return convertToVolcanoPoints(data, xKey, yKey, config.volcanoConfig);
+    case 'error_bar':
+      return convertToErrorBarPoints(data, xKey, yKey, config.errorConfig);
+    case 'forest':
+      return convertToForestPoints(data, xKey, yKey, config.errorConfig, config.forestConfig);
+    case 'alluvial':
+      return convertToFlowPoints(data, xKey, yKey, config.flowConfig);
     case 'pie':
       return convertToPiePoints(data, xKey, yKey);
     // Stacked/dodged/normalized/histogram handled by dedicated builders
@@ -529,6 +635,229 @@ function convertToScatterPoints(
 }
 
 /**
+ * Converts data to VolcanoPoint[] format — a scatter plus what the point is.
+ *
+ * On a Manhattan plot `xKey` should name the position that gets ANNOUNCED,
+ * which is rarely the one that gets plotted: the drawn x is usually a
+ * cumulative genomic offset running across every chromosome, and "position
+ * 1,431,900,204" answers nothing. Point it at the per-chromosome position and
+ * declare the chromosome as `groupKey`.
+ */
+function convertToVolcanoPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  volcanoConfig?: RechartsAdapterConfig['volcanoConfig'],
+): VolcanoPoint[] {
+  const { labelKey, groupKey } = volcanoConfig ?? {};
+
+  return data.map((item) => {
+    const point: VolcanoPoint = {
+      x: toNumber(item[xKey]),
+      y: toNumber(item[yKey]),
+    };
+    const label = labelKey === undefined ? undefined : toText(item[labelKey]);
+    if (label !== undefined) {
+      point.label = label;
+    }
+    const group = groupKey === undefined ? undefined : toText(item[groupKey]);
+    if (group !== undefined) {
+      point.group = group;
+    }
+    return point;
+  });
+}
+
+/**
+ * Converts data to ErrorBarPoint[] format.
+ */
+function convertToErrorBarPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  errorConfig?: RechartsAdapterConfig['errorConfig'],
+): ErrorBarPoint[] {
+  return data.map(item => toErrorBarPoint(item, xKey, yKey, errorConfig));
+}
+
+/**
+ * Converts data to ForestPoint[] format — an interval per study, plus the two
+ * things that make the figure a forest plot rather than a row of intervals.
+ *
+ * Row order is the drawn order, so the pooled summary is wherever the chart
+ * puts it: flagged by `pooledKey`, or named by `pooledIndex` for data that
+ * carries no flag column.
+ */
+function convertToForestPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  errorConfig?: RechartsAdapterConfig['errorConfig'],
+  forestConfig?: RechartsAdapterConfig['forestConfig'],
+): ForestPoint[] {
+  const { weightKey, pooledKey, pooledIndex } = forestConfig ?? {};
+
+  return data.map((item, index) => {
+    const point: ForestPoint = toErrorBarPoint(item, xKey, yKey, errorConfig);
+    const weight = weightKey === undefined ? undefined : toOptionalNumber(item[weightKey]);
+    if (weight !== undefined) {
+      point.weight = weight;
+    }
+    if ((pooledKey !== undefined && Boolean(item[pooledKey])) || index === pooledIndex) {
+      point.pooled = true;
+    }
+    return point;
+  });
+}
+
+/**
+ * Converts one row into an estimate with its interval.
+ *
+ * The bounds are ABSOLUTE positions on the value axis, while Recharts'
+ * `<ErrorBar dataKey>` points at an OFFSET from the estimate, so an offset is
+ * resolved against `y` here — `y - lower`, `y + upper`, the same arithmetic
+ * `ErrorBar.js` does to place the whiskers. Absolute keys win when both are
+ * declared: they need no arithmetic and cannot be misread as offsets.
+ *
+ * The bounds are independently optional. A one-sided interval is a real
+ * chart, and dropping the point for want of its other half would lose the
+ * estimate too, so a missing bound is left off rather than defaulted to `y`.
+ */
+function toErrorBarPoint(
+  item: Record<string, unknown>,
+  xKey: string,
+  yKey: string,
+  errorConfig?: RechartsAdapterConfig['errorConfig'],
+): ErrorBarPoint {
+  const y = toNumber(item[yKey]);
+  const point: ErrorBarPoint = { x: item[xKey] as string | number, y };
+
+  const { errorKey, yMinKey, yMaxKey } = errorConfig ?? {};
+  const error = errorKey === undefined ? undefined : item[errorKey];
+  // A [lower, upper] pair is an asymmetric interval; a bare number is a
+  // symmetric one applied to both sides. Recharts reads the field the same way.
+  const [lower, upper] = Array.isArray(error)
+    ? [toOptionalNumber(error[0]), toOptionalNumber(error[1])]
+    : [toOptionalNumber(error), toOptionalNumber(error)];
+
+  const yMin = yMinKey === undefined
+    ? (lower === undefined ? undefined : y - lower)
+    : toOptionalNumber(item[yMinKey]);
+  const yMax = yMaxKey === undefined
+    ? (upper === undefined ? undefined : y + upper)
+    : toOptionalNumber(item[yMaxKey]);
+
+  if (yMin !== undefined) {
+    point.yMin = yMin;
+  }
+  if (yMax !== undefined) {
+    point.yMax = yMax;
+  }
+  return point;
+}
+
+/**
+ * Converts data to one arm of a survival curve.
+ *
+ * @param data - The Recharts data array
+ * @param xKey - Key holding the time
+ * @param yKey - Key holding this arm's survival probability
+ * @param survivalConfig - Per-arm censoring and confidence band keys
+ * @param arm - Which arm this is; indexes the per-arm key arrays
+ * @param seriesName - Arm display name, when the figure draws more than one
+ * @returns One arm's points, in the order the curve is walked
+ */
+function convertToSurvivalRow(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  survivalConfig?: RechartsAdapterConfig['survivalConfig'],
+  arm: number = 0,
+  seriesName?: string,
+): SurvivalPoint[] {
+  const censoredKey = survivalConfig?.censoredKeys?.[arm];
+  const yMinKey = survivalConfig?.yMinKeys?.[arm];
+  const yMaxKey = survivalConfig?.yMaxKeys?.[arm];
+
+  return data.map((item) => {
+    const point: SurvivalPoint = {
+      x: toLineX(item[xKey]),
+      y: toNumber(item[yKey]),
+    };
+    if (seriesName !== undefined) {
+      point.z = seriesName;
+    }
+    // Only a censored time is marked. An uncensored one says nothing, and a
+    // `censored: false` on every ordinary point is a claim the data never made.
+    if (censoredKey !== undefined && Boolean(item[censoredKey])) {
+      point.censored = true;
+    }
+    const yMin = yMinKey === undefined ? undefined : toOptionalNumber(item[yMinKey]);
+    if (yMin !== undefined) {
+      point.yMin = yMin;
+    }
+    const yMax = yMaxKey === undefined ? undefined : toOptionalNumber(item[yMaxKey]);
+    if (yMax !== undefined) {
+      point.yMax = yMax;
+    }
+    return point;
+  });
+}
+
+/**
+ * Converts data to FlowPoint[] format — one weighted flow per link.
+ *
+ * The `data` array is the `links` half of what Recharts' `<Sankey>` is given,
+ * so `xKey` names the source field and `yKey` the magnitude. Recharts
+ * addresses nodes by their index in the `nodes` array, and an index is not
+ * something to announce — "flow from 3 to 7" names neither end — so the
+ * indices are resolved back to node names whenever `flowConfig.nodes` is
+ * declared. Links that already carry names pass through untouched.
+ */
+function convertToFlowPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  flowConfig?: RechartsAdapterConfig['flowConfig'],
+): FlowPoint[] {
+  if (!flowConfig) {
+    throw new Error('RechartsAdapter: flowConfig with a targetKey is required when chartType is "alluvial"');
+  }
+
+  const { targetKey, nodes, nodeNameKey } = flowConfig;
+  return data.map(item => ({
+    source: resolveFlowNode(item[xKey], nodes, nodeNameKey),
+    target: resolveFlowNode(item[targetKey], nodes, nodeNameKey),
+    value: toNumber(item[yKey]),
+  }));
+}
+
+/**
+ * Resolves one end of a flow to the node it names.
+ *
+ * A numeric end is a position in the `nodes` array, exactly as Recharts reads
+ * it. Anything else — a name the links carry themselves — is already the
+ * answer, and an index with no node list behind it stays a number rather than
+ * becoming a made-up label.
+ */
+function resolveFlowNode(
+  value: unknown,
+  nodes?: Record<string, unknown>[],
+  nodeNameKey: string = 'name',
+): string | number {
+  if (typeof value === 'number' && nodes) {
+    const name = toText(nodes[value]?.[nodeNameKey]);
+    if (name !== undefined) {
+      return name;
+    }
+  }
+  if (typeof value === 'number' || typeof value === 'string') {
+    return value;
+  }
+  return String(value);
+}
+
+/**
  * Returns true if the chart type produces bar-like visuals that benefit from orientation.
  */
 function isBarType(chartType: RechartsChartType): boolean {
@@ -547,13 +876,18 @@ function isBarType(chartType: RechartsChartType): boolean {
  * Bar-like layers default to vertical. A pie and a radar are never oriented —
  * their marks sit around a circle rather than along an axis — so a config-level
  * `orientation` (meaningful for the other layers of a composed chart) must not
- * leak onto one.
+ * leak onto one. Neither is a flow diagram, whose marks run between nodes.
+ *
+ * A funnel is left out for a different reason: `FunnelTrace` is a `BarTrace`,
+ * and a horizontal bar carries its category in `y` rather than `x`. The
+ * adapter always emits the stage label as `x`, so a leaked `HORIZONTAL` would
+ * have every stage announced by its count.
  */
 function layerOrientation(
   chartType: RechartsChartType,
   orientation?: Orientation,
 ): Orientation | undefined {
-  if (chartType === 'pie' || chartType === 'radar') {
+  if (chartType === 'pie' || chartType === 'radar' || chartType === 'funnel' || chartType === 'alluvial') {
     return undefined;
   }
   return orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined);
@@ -579,16 +913,52 @@ function isStackedAreaType(chartType: RechartsChartType): boolean {
 /**
  * Returns true if the chart type maps to a line-like MAIDR type.
  *
- * The whole area family, radar and bump belong here: every one of them is a
- * `LineTrace` subclass in the model, so each expects `LinePoint[][]` data and
- * `selectors` as a `string[]` rather than a bare string.
+ * The whole area family, radar, bump and survival belong here: every one of
+ * them is a `LineTrace` subclass in the model, so each expects `LinePoint[][]`
+ * data and `selectors` as a `string[]` rather than a bare string.
  */
 function isLineType(chartType: RechartsChartType): boolean {
   return chartType === 'line'
     || chartType === 'area'
     || isStackedAreaType(chartType)
     || chartType === 'radar'
-    || chartType === 'bump';
+    || chartType === 'bump'
+    || chartType === 'survival';
+}
+
+/**
+ * Returns the display options a layer of `chartType` carries beyond its data.
+ *
+ * Every one of these is author knowledge rather than Recharts state: a
+ * `<Scatter>` does not know which of its points are significant, and a
+ * `<ReferenceLine x={1}>` does not say that 1 is what "no effect" means. So
+ * each arrives through the adapter config, and is emitted only when declared —
+ * MAIDR substitutes no default for any of them, and a guessed cutoff sorts
+ * every point on the figure onto the wrong side silently.
+ */
+function layerOptions(
+  chartType: RechartsChartType,
+  config: RechartsAdapterConfig,
+): Partial<MaidrLayer> {
+  switch (chartType) {
+    case 'volcano':
+    case 'manhattan': {
+      const { significance, significanceDirection, effect } = config.volcanoConfig ?? {};
+      if (significance === undefined && significanceDirection === undefined && effect === undefined) {
+        return {};
+      }
+      return { thresholdOptions: { significance, significanceDirection, effect } };
+    }
+    case 'forest': {
+      const nullValue = config.forestConfig?.nullValue;
+      return nullValue === undefined ? {} : { forestOptions: { nullValue } };
+    }
+    case 'survival':
+      // Only reachable from composed mode; buildSurvivalLayer sets its own.
+      return { stepDirection: config.survivalConfig?.stepDirection ?? 'hv' };
+    default:
+      return {};
+  }
 }
 
 /**
@@ -630,6 +1000,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.DOT;
     case 'lollipop':
       return TraceType.LOLLIPOP;
+    case 'funnel':
+      return TraceType.FUNNEL;
     case 'histogram':
       return TraceType.HISTOGRAM;
     case 'line':
@@ -644,10 +1016,22 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.RADAR;
     case 'bump':
       return TraceType.BUMP;
+    case 'survival':
+      return TraceType.SURVIVAL;
     case 'scatter':
       return TraceType.SCATTER;
+    case 'volcano':
+      return TraceType.VOLCANO;
+    case 'manhattan':
+      return TraceType.MANHATTAN;
+    case 'error_bar':
+      return TraceType.ERROR_BAR;
+    case 'forest':
+      return TraceType.FOREST;
     case 'pie':
       return TraceType.PIE;
+    case 'alluvial':
+      return TraceType.ALLUVIAL;
   }
 }
 
@@ -664,6 +1048,41 @@ function toLineX(value: unknown): number | string {
   if (typeof value === 'string')
     return value;
   return 0;
+}
+
+/**
+ * Converts a value to a number, or to nothing.
+ *
+ * Unlike {@link toNumber} an absent value stays absent rather than becoming
+ * 0, because every caller here feeds an OPTIONAL field: a missing bound, a
+ * missing weight. Substituting 0 would draw an interval the chart never had
+ * and give a study a weight of none.
+ */
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const num = Number(value);
+    return Number.isNaN(num) ? undefined : num;
+  }
+  return undefined;
+}
+
+/**
+ * Converts a value to display text, or to nothing.
+ *
+ * Only strings and numbers become text: a label is something the author wrote
+ * down, and `[object Object]` announced as a gene name is worse than silence.
+ */
+function toText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value === '' ? undefined : value;
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return undefined;
 }
 
 /**

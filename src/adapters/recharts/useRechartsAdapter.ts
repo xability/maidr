@@ -79,6 +79,11 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     orientation,
     fillKeys,
     binConfig,
+    flowConfig,
+    volcanoConfig,
+    errorConfig,
+    forestConfig,
+    survivalConfig,
     selectorOverride,
   } = config;
 
@@ -100,8 +105,13 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       orientation,
       fillKeys,
       binConfig,
+      flowConfig,
+      volcanoConfig,
+      errorConfig,
+      forestConfig,
+      survivalConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, selectorOverride],
   );
 }

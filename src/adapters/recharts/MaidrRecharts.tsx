@@ -124,6 +124,11 @@ export function MaidrRecharts({
   orientation,
   fillKeys,
   binConfig,
+  flowConfig,
+  volcanoConfig,
+  errorConfig,
+  forestConfig,
+  survivalConfig,
   selectorOverride,
   children,
 }: MaidrRechartsProps): JSX.Element {
@@ -145,9 +150,14 @@ export function MaidrRecharts({
       orientation,
       fillKeys,
       binConfig,
+      flowConfig,
+      volcanoConfig,
+      errorConfig,
+      forestConfig,
+      survivalConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, selectorOverride],
   );
 
   return (

@@ -78,6 +78,11 @@ function AccessibleBarChart() {
 | `orientation` | `Orientation` | No | Bar orientation. Defaults to vertical. |
 | `fillKeys` | `string[]` | No | Display names for series in stacked/dodged/normalized charts. Maps 1:1 with `yKeys`. |
 | `binConfig` | `HistogramBinConfig` | Histogram only | Bin range configuration for histograms. |
+| `flowConfig` | `FlowLinkConfig` | Alluvial only | Target key and the `nodes` half of the `<Sankey>` data. |
+| `volcanoConfig` | `VolcanoPointConfig` | Volcano/Manhattan | Point labels, chromosome key and the significance/effect cutoffs. |
+| `errorConfig` | `ErrorIntervalConfig` | Error bar/forest | Which field holds the interval, as an offset or as absolute bounds. |
+| `forestConfig` | `ForestPlotConfig` | Forest only | Study weights, the pooled row, and the null line. |
+| `survivalConfig` | `SurvivalCurveConfig` | Survival only | Per-arm censoring and confidence band keys, and the step direction. |
 | `selectorOverride` | `string` | No | Custom CSS selector for SVG highlighting (see Advanced section). |
 
 ## Configuration Modes
@@ -134,6 +139,7 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'normalized_bar'` | `<Bar stackId="...">` | 100% stacked bar chart (multiple `yKeys`) |
 | `'dot'` | `<Scatter>` | Cleveland dot plot: one point per category |
 | `'lollipop'` | `<Bar barSize={2}>` + `<Scatter>` | Lollipop chart: a stem and a head |
+| `'funnel'` | `<FunnelChart>` + `<Funnel>` | Funnel chart: a population shrinking across ordered stages |
 | `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
 | `'line'` | `<Line>` | Line chart |
 | `'area'` | `<Area>` | Area chart |
@@ -141,8 +147,14 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'normalized_area'` | `<AreaChart stackOffset="expand">` | 100% stacked area chart (multiple `yKeys`) |
 | `'radar'` | `<RadarChart>` + `<Radar>` | Radar/spider chart |
 | `'bump'` | `<LineChart>` + `<YAxis reversed>` | Bump chart: rank over time |
+| `'survival'` | `<Line type="stepAfter">` | Kaplan-Meier curve (optional `survivalConfig`) |
 | `'scatter'` | `<Scatter>` | Scatter/point plot |
+| `'volcano'` | `<ScatterChart>` + `<Scatter>` | Volcano plot: effect size against significance (`volcanoConfig`) |
+| `'manhattan'` | `<ScatterChart>` + `<Scatter>` | Manhattan plot: genomic position against significance (`volcanoConfig`) |
+| `'error_bar'` | `<ErrorBar>` inside `<Bar>`/`<Line>`/`<Scatter>` | An estimate with its interval (`errorConfig`) |
+| `'forest'` | `<ScatterChart layout="vertical">` + `<ErrorBar direction="x">` | Forest plot (`errorConfig` + `forestConfig`) |
 | `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
+| `'alluvial'` | `<Sankey>` | Weighted flow between nodes (`flowConfig`) |
 
 ## Data Examples by Chart Type
 
@@ -285,6 +297,40 @@ A lollipop has no Recharts primitive; compose a thin `<Bar>` stem with a `<Scatt
 ```
 
 Highlighting targets the head (`.recharts-scatter-symbol .recharts-symbols`), not the stem, because the head is where the value is read off. If you draw the lollipop with a custom `<Bar>` shape that renders its own dot, pass a `selectorOverride` pointing at that element instead.
+
+### Funnel Chart
+
+`xKey` is the stage label and the single `yKeys` entry its count, in the order the stages are drawn:
+
+```tsx
+const data = [
+  { stage: 'Visited', users: 10000 },
+  { stage: 'Signed up', users: 2400 },
+  { stage: 'Activated', users: 2300 },
+  { stage: 'Paid', users: 100 },
+];
+
+<MaidrRecharts
+  id="funnel-example"
+  title="Signup Funnel"
+  data={data}
+  chartType="funnel"
+  xKey="stage"
+  yKeys={['users']}
+  xLabel="Stage"
+  yLabel="Users"
+>
+  <FunnelChart width={600} height={350}>
+    <Funnel dataKey="users" nameKey="stage" data={data} fill="#8884d8">
+      <LabelList position="right" dataKey="stage" />
+    </Funnel>
+  </FunnelChart>
+</MaidrRecharts>
+```
+
+Pass the counts, never a pre-computed ratio. MAIDR sonifies the **retention** — what fraction of the previous stage survived — because that is the number a funnel is read for and the one a listener cannot take by ear from two heights heard one at a time: 2,300 to 100 keeps 4% while 10,000 to 2,400 keeps 24%, and on a raw scale the second sounds like the bigger fall.
+
+A funnel is never given an `orientation`. `FunnelTrace` is a bar trace, and a horizontal bar reads its category off `y`, so a leaked `orientation` would have every stage announced by its count.
 
 ### Histogram
 
@@ -471,6 +517,44 @@ const data = [
 
 > **Warning:** MAIDR inverts the pitch for a bump chart so rank 1 is the highest note, and announces the places gained or lost since the previous period. Declaring a chart of *values* as `'bump'` therefore sonifies it upside down — every rise heard as a fall. The adapter cannot tell the two apart, so this one is on you.
 
+### Survival Curve
+
+A Kaplan-Meier curve is a `<Line type="stepAfter">`. One `yKeys` entry per arm, and the per-arm keys in `survivalConfig` line up with it the way `fillKeys` does:
+
+```tsx
+const data = [
+  { months: 0, treated: 1.0, control: 1.0, treatedCensored: false },
+  { months: 6, treated: 0.88, control: 0.74, treatedCensored: true },
+  { months: 12, treated: 0.77, control: 0.52, treatedCensored: false },
+];
+
+<MaidrRecharts
+  id="survival-example"
+  title="Overall Survival"
+  data={data}
+  chartType="survival"
+  xKey="months"
+  yKeys={['treated', 'control']}
+  fillKeys={['Treatment', 'Control']}
+  survivalConfig={{ censoredKeys: ['treatedCensored'] }}
+  xLabel="Months"
+  yLabel="Survival probability"
+>
+  <LineChart width={600} height={350} data={data}>
+    <XAxis dataKey="months" />
+    <YAxis domain={[0, 1]} />
+    <Line type="stepAfter" dataKey="treated" stroke="#8884d8" dot />
+    <Line type="stepAfter" dataKey="control" stroke="#82ca9d" dot />
+  </LineChart>
+</MaidrRecharts>
+```
+
+Censoring is not an event: the curve does not step at a censored time, which is exactly why a reader has to be told about it — a flat tail backed by two hundred subjects and one backed by three are indistinguishable otherwise. MAIDR offers a rotor mode that jumps between the censored times.
+
+The layer declares `stepDirection: 'hv'`, which is what `type="stepAfter"` draws. Set `survivalConfig.stepDirection` to `'vh'` for a curve drawn with `type="stepBefore"`.
+
+Add a confidence band with `yMinKeys`/`yMaxKeys`; the bounds are absolute positions on the value axis, not offsets.
+
 ### Scatter Chart
 
 ```tsx
@@ -498,6 +582,138 @@ const data = [
   </ScatterChart>
 </MaidrRecharts>
 ```
+
+### Volcano and Manhattan Plots
+
+Both are scatters read almost entirely through a threshold, and both need two things a Recharts `<Scatter>` does not hold: what each point *is*, and where the cutoffs are.
+
+```tsx
+const data = [
+  { gene: 'TP53', log2fc: 2.4, negLog10P: 14.1 },
+  { gene: 'MYC', log2fc: -0.3, negLog10P: 0.8 },
+];
+
+<MaidrRecharts
+  id="volcano-example"
+  title="Differential Expression"
+  data={data}
+  chartType="volcano"
+  xKey="log2fc"
+  yKeys={['negLog10P']}
+  volcanoConfig={{ labelKey: 'gene', significance: 1.3, effect: 1 }}
+  xLabel="log2 fold change"
+  yLabel="-log10(p)"
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="log2fc" type="number" />
+    <YAxis dataKey="negLog10P" type="number" />
+    <ReferenceLine y={1.3} strokeDasharray="4 4" />
+    <Scatter data={data} fill="#8884d8" />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+There is no default cutoff, deliberately: -log10(p) puts the line at 1.3 for p < 0.05 and at 7.3 for genome-wide significance, and a guessed line sorts every point on the figure onto the wrong side silently. A **raw p axis runs the other way** and must declare `significanceDirection: 'below'` — fixed to `above` it would select exactly the points that failed to reach significance and announce them as the result.
+
+A Manhattan plot uses `chartType="manhattan"` with the same config, plus `groupKey` for the chromosome. Point `xKey` at the **per-chromosome position, not the cumulative offset the chart plots**: the offset keeps the chromosomes side by side on screen, and "position 249,388,120" answers nothing a reader asked.
+
+```tsx
+<MaidrRecharts
+  id="manhattan-example"
+  data={data}
+  chartType="manhattan"
+  xKey="bp"                   // announced
+  yKeys={['negLog10P']}
+  volcanoConfig={{ labelKey: 'snp', groupKey: 'chr', significance: 7.3 }}
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="cumulative" type="number" tick={false} />  {/* drawn */}
+    <YAxis dataKey="negLog10P" type="number" />
+    <Scatter data={data} fill="#8884d8" />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+A chart drawn as one `<Scatter>` per chromosome still emits a single MAIDR layer, so list the points in the order the `<Scatter>` elements are declared — highlighting pairs marks to points by index.
+
+### Error Bars
+
+MAIDR fixes the interval as **absolute positions on the value axis**, while Recharts' `<ErrorBar dataKey>` points at an **offset** from the estimate. Declare whichever your data holds:
+
+```tsx
+const data = [
+  { treatment: 'Control', mean: 4.2, sd: 0.6 },
+  { treatment: 'Nitrogen', mean: 5.5, sd: 0.5 },
+];
+
+<MaidrRecharts
+  id="error-bar-example"
+  title="Yield by Treatment"
+  data={data}
+  chartType="error_bar"
+  xKey="treatment"
+  yKeys={['mean']}
+  errorConfig={{ errorKey: 'sd' }}    // an offset, as <ErrorBar> reads it
+  xLabel="Treatment"
+  yLabel="Yield (t/ha)"
+>
+  <BarChart width={600} height={350} data={data}>
+    <XAxis dataKey="treatment" />
+    <YAxis />
+    <Bar dataKey="mean" fill="#8884d8">
+      <ErrorBar dataKey="sd" direction="y" />
+    </Bar>
+  </BarChart>
+</MaidrRecharts>
+```
+
+- `errorKey` — the field the `<ErrorBar>` uses. A number is a symmetric offset; a `[lower, upper]` pair is an asymmetric one. The adapter resolves both to `y - lower` / `y + upper`, the same arithmetic Recharts does to place the whiskers.
+- `yMinKey` / `yMaxKey` — absolute bounds, used as-is. These win when both are declared.
+
+The bounds are independently optional: a one-sided interval is a real chart, and a missing half is left off rather than defaulted to the estimate.
+
+Highlighting targets the whiskers, because the estimate's own mark may be a bar, a line dot or a scatter symbol depending on what you nested the `<ErrorBar>` in — pass the host's selector as `selectorOverride` to highlight that instead. Note that Recharts draws **no whisker at all** for a sample whose error value is zero or missing; MAIDR then sees fewer marks than samples and turns highlighting off for the layer rather than mis-aligning it.
+
+### Forest Plot
+
+A forest plot is an error bar chart on a categorical row axis, plus the two things that make it a meta-analysis:
+
+```tsx
+const studies = [
+  { study: 'Silva 2018', or: 0.62, lower: 0.41, upper: 0.94, weight: 0.12 },
+  { study: 'Okafor 2022', or: 1.71, lower: 1.22, upper: 2.40, weight: 0.55 },
+  { study: 'Pooled', or: 1.28, lower: 1.02, upper: 1.61, pooled: true },
+];
+
+<MaidrRecharts
+  id="forest-example"
+  title="Effect of the intervention"
+  data={studies}
+  chartType="forest"
+  xKey="study"
+  yKeys={['or']}
+  orientation={Orientation.HORIZONTAL}
+  errorConfig={{ yMinKey: 'lower', yMaxKey: 'upper' }}
+  forestConfig={{ weightKey: 'weight', pooledKey: 'pooled', nullValue: 1 }}
+  xLabel="Study"
+  yLabel="Odds ratio"
+>
+  <ScatterChart width={600} height={350} layout="vertical" margin={{ left: 80 }}>
+    <XAxis dataKey="or" type="number" />
+    <YAxis dataKey="study" type="category" width={80} />
+    <ReferenceLine x={1} />
+    <Scatter data={drawn} fill="#8884d8">
+      <ErrorBar dataKey="offsets" direction="x" />
+    </Scatter>
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+- `nullValue` is the `<ReferenceLine>` the chart draws — 1 for a ratio measure, 0 for a difference. Whether a study's interval crosses it *is that study's result*, so MAIDR announces the crossing. There is no default: guessing 0 for a ratio chart would report every study as not crossing, since odds ratios are all positive. Omit it and the reading keeps the estimate, the interval and the weight, and makes no claim about significance.
+- `weightKey` is how much the study contributed, as a fraction of one. A forest plot encodes it as marker *area*, which no reader is otherwise told — two studies whose intervals look alike can contribute wholly differently.
+- The pooled summary is marked by `pooledKey` (a flag column) or `pooledIndex` (its row). It is not one more study, and announcing it as one invites a reader to count it among them.
+
+Row order is the drawn order, with the pooled row wherever the chart puts it. Keep the `orientation` horizontal: the rows are studies and the values run across.
 
 ### Pie Chart
 
@@ -529,6 +745,37 @@ const data = [
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 30.0%". Adding an `innerRadius` makes it a doughnut, which reads identically.
 
 > Recharts draws no sector at all for a slice whose value is `0` (its start and end angles are both zero). MAIDR then sees fewer elements than slices and turns highlighting off for the layer rather than index-aligning the wrong wedges; audio, text, and braille still cover every slice.
+
+### Alluvial Diagram
+
+An alluvial is a `<Sankey>` whose node set repeats at each stage. Pass the `links` half of the Sankey data as `data`, and the `nodes` half through `flowConfig`:
+
+```tsx
+const nodes = [{ name: 'Free (Q1)' }, { name: 'Paid (Q1)' }, { name: 'Free (Q2)' }, { name: 'Paid (Q2)' }];
+const links = [
+  { source: 0, target: 2, value: 420 },
+  { source: 0, target: 3, value: 130 },
+  { source: 1, target: 3, value: 260 },
+];
+
+<MaidrRecharts
+  id="alluvial-example"
+  title="Cohort Movement"
+  data={links}
+  chartType="alluvial"
+  xKey="source"
+  yKeys={['value']}
+  flowConfig={{ targetKey: 'target', nodes }}
+  xLabel="Stage"
+  yLabel="Accounts"
+>
+  <Sankey width={600} height={350} data={{ nodes, links }} link={{ stroke: '#8884d8' }} />
+</MaidrRecharts>
+```
+
+`xKey` names the source field and the single `yKeys` entry the magnitude, so only the target needs a key of its own. Recharts addresses nodes by their index in the `nodes` array; the adapter resolves those indices back to names, because "flow from 1 to 3" names neither end. Links that already carry node names work without `nodes`.
+
+MAIDR reads this as a graph rather than a grid: following a ribbon is the primary move, and arrow keys step between a node and the flows that leave or arrive at it. Highlighting pairs each flow with the `<path class="recharts-sankey-link">` at the same position, so the `links` array order is the order the ribbons are announced in.
 
 ### Composed Chart (Bar + Line)
 
@@ -642,6 +889,11 @@ import {
   type RechartsLayerConfig,    // Layer config for composed mode
   type RechartsSubplotConfig,  // Panel config for subplot mode
   type HistogramBinConfig,     // Histogram bin configuration
+  type FlowLinkConfig,         // Alluvial link/node configuration
+  type VolcanoPointConfig,     // Volcano and Manhattan labels and cutoffs
+  type ErrorIntervalConfig,    // Error bar / forest interval configuration
+  type ForestPlotConfig,       // Forest plot weights, pooled row and null line
+  type SurvivalCurveConfig,    // Survival censoring and confidence band keys
 } from 'maidr/recharts';
 ```
 
@@ -655,6 +907,7 @@ type RechartsChartType =
   | 'normalized_bar'
   | 'dot'
   | 'lollipop'
+  | 'funnel'
   | 'histogram'
   | 'line'
   | 'area'
@@ -662,8 +915,14 @@ type RechartsChartType =
   | 'normalized_area'
   | 'radar'
   | 'bump'
+  | 'survival'
   | 'scatter'
-  | 'pie';
+  | 'volcano'
+  | 'manhattan'
+  | 'error_bar'
+  | 'forest'
+  | 'pie'
+  | 'alluvial';
 ```
 
 ### `RechartsLayerConfig`
@@ -704,6 +963,60 @@ interface HistogramBinConfig {
   xMaxKey: string;   // Key for upper bin edge
   yMinKey?: string;  // Key for minimum count (defaults to 0)
   yMaxKey?: string;  // Key for maximum count (defaults to yKey value)
+}
+```
+
+### `FlowLinkConfig`
+
+```typescript
+interface FlowLinkConfig {
+  targetKey: string;                 // Key for the node the flow arrives at
+  nodes?: Record<string, unknown>[]; // The `nodes` half of the <Sankey> data
+  nodeNameKey?: string;              // Key for a node's name (defaults to 'name')
+}
+```
+
+### `VolcanoPointConfig`
+
+```typescript
+interface VolcanoPointConfig {
+  labelKey?: string;      // Key for what the point is (gene, SNP, probe)
+  groupKey?: string;      // Key for the region it belongs to (chromosome)
+  significance?: number;  // Cutoff on the y axis — no default
+  significanceDirection?: 'above' | 'below'; // Which side is significant (default 'above')
+  effect?: number;        // Cutoff on |x|
+}
+```
+
+### `ErrorIntervalConfig`
+
+```typescript
+interface ErrorIntervalConfig {
+  errorKey?: string;  // Key the <ErrorBar dataKey> points at — an OFFSET
+  yMinKey?: string;   // Key for the absolute lower bound (wins over errorKey)
+  yMaxKey?: string;   // Key for the absolute upper bound (wins over errorKey)
+}
+```
+
+### `ForestPlotConfig`
+
+```typescript
+interface ForestPlotConfig {
+  weightKey?: string;   // Key for the study's weight, as a fraction of one
+  pooledKey?: string;   // Key whose truthy value marks the pooled summary row
+  pooledIndex?: number; // Index of the pooled row, for data with no flag column
+  nullValue?: number;   // The value that means "no effect" — no default
+}
+```
+
+### `SurvivalCurveConfig`
+
+```typescript
+interface SurvivalCurveConfig {
+  censoredKeys?: string[];  // Keys marking censored times, 1:1 with yKeys
+  yMinKeys?: string[];      // Keys for the lower confidence band, 1:1 with yKeys
+  yMaxKeys?: string[];      // Keys for the upper confidence band, 1:1 with yKeys
+  stepDirection?: StepDirection; // Where the curve jumps (defaults to 'hv')
 }
 ```
 

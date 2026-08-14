@@ -5,7 +5,7 @@
  * and SVG structure into MAIDR's accessible format.
  */
 
-import type { Orientation } from '@type/grammar';
+import type { Orientation, StepDirection } from '@type/grammar';
 
 /**
  * Recharts chart types supported by the adapter.
@@ -20,6 +20,9 @@ import type { Orientation } from '@type/grammar';
  * - `'lollipop'` → `TraceType.LOLLIPOP` — Lollipop chart: a `<ComposedChart>`
  *   of a thin `<Bar>` stem plus a `<Scatter>` head. Read exactly as a bar is —
  *   the stem is the mark, not extra data
+ * - `'funnel'` → `TraceType.FUNNEL` — Funnel chart (`<FunnelChart>` + `<Funnel>`):
+ *   a population shrinking across ordered stages. The counts are a bar's data;
+ *   MAIDR derives the retention and share it announces from them
  * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
  * - `'line'` → `TraceType.LINE` — Line chart
  * - `'area'` → `TraceType.AREA` — Area chart (Recharts `<Area>`); the fill is
@@ -31,10 +34,23 @@ import type { Orientation } from '@type/grammar';
  * - `'radar'` → `TraceType.RADAR` — Radar/spider chart (`<RadarChart>` + `<Radar>`)
  * - `'bump'` → `TraceType.BUMP` — Bump chart: rank over time, drawn as a
  *   `<LineChart>` with `<YAxis reversed>`
+ * - `'survival'` → `TraceType.SURVIVAL` — Kaplan-Meier curve: a
+ *   `<Line type="stepAfter">` plus the censoring marks and confidence band
+ *   declared through {@link SurvivalCurveConfig}
  * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
+ * - `'volcano'` → `TraceType.VOLCANO` — Volcano plot: effect size against
+ *   significance, read through the cutoffs in {@link VolcanoPointConfig}
+ * - `'manhattan'` → `TraceType.MANHATTAN` — Manhattan plot: genomic position
+ *   against significance. Same payload and config as `'volcano'`
+ * - `'error_bar'` → `TraceType.ERROR_BAR` — An estimate with the interval
+ *   drawn around it (`<ErrorBar>` inside a `<Bar>`/`<Line>`/`<Scatter>`)
+ * - `'forest'` → `TraceType.FOREST` — Forest plot: one interval per study
+ *   against a shared null line, with the pooled summary last
  * - `'pie'` → `TraceType.PIE` — Pie/doughnut chart (Recharts `<Pie>`); a
  *   doughnut is a pie with an `innerRadius`, which changes nothing about the
  *   data, so both use this type
+ * - `'alluvial'` → `TraceType.ALLUVIAL` — Weighted flow between nodes drawn
+ *   as a `<Sankey>` whose node set repeats at each stage
  */
 export type RechartsChartType
   = | 'bar'
@@ -43,6 +59,7 @@ export type RechartsChartType
     | 'normalized_bar'
     | 'dot'
     | 'lollipop'
+    | 'funnel'
     | 'histogram'
     | 'line'
     | 'area'
@@ -50,8 +67,14 @@ export type RechartsChartType
     | 'normalized_area'
     | 'radar'
     | 'bump'
+    | 'survival'
     | 'scatter'
-    | 'pie';
+    | 'volcano'
+    | 'manhattan'
+    | 'error_bar'
+    | 'forest'
+    | 'pie'
+    | 'alluvial';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -79,6 +102,145 @@ export interface HistogramBinConfig {
   yMinKey?: string;
   /** Key in data objects for the maximum count. Defaults to the yKey value. */
   yMaxKey?: string;
+}
+
+/**
+ * Configuration for a flow (alluvial) diagram.
+ * Required when `chartType` is `'alluvial'`.
+ *
+ * The `data` array is the `links` half of what Recharts' `<Sankey>` is given:
+ * one row per flow. `xKey` names the field holding the source node and the
+ * single `yKeys` entry the field holding the magnitude, so only the target
+ * needs a key of its own.
+ */
+export interface FlowLinkConfig {
+  /** Key in link objects for the node the flow arrives at. */
+  targetKey: string;
+  /**
+   * The `nodes` half of the `<Sankey>` data, used to resolve the numeric
+   * indices Recharts links carry into node names.
+   *
+   * Recharts addresses nodes by their position in this array, and an index is
+   * not something to announce — "flow from 3 to 7" names neither end. Omit it
+   * only when the links already carry node names.
+   */
+  nodes?: Record<string, unknown>[];
+  /** Key in node objects for the node's name. Mirrors `<Sankey nameKey>`, and defaults to `'name'`. */
+  nodeNameKey?: string;
+}
+
+/**
+ * Configuration for volcano and Manhattan plots.
+ * Optional when `chartType` is `'volcano'` or `'manhattan'`.
+ *
+ * None of this is inferable from a Recharts `<Scatter>`: the component holds
+ * coordinates, and these charts are read for identity and for which side of a
+ * cutoff a point falls on. Both arrive from the author or not at all.
+ */
+export interface VolcanoPointConfig {
+  /** Key holding what the point *is* — a gene, a SNP, a probe. */
+  labelKey?: string;
+  /** Key holding the region the point belongs to — a chromosome. */
+  groupKey?: string;
+  /**
+   * The significance cutoff on the y axis.
+   *
+   * There is no default: -log10(p) puts the line at 1.3 for p < 0.05 and at
+   * 7.3 for genome-wide significance, and a guessed line sorts every point
+   * onto the wrong side silently.
+   */
+  significance?: number;
+  /**
+   * Which side of the cutoff is the significant one. Defaults to `'above'`,
+   * which is right for the transformed axes these charts usually carry.
+   * A raw p axis runs the other way and must declare `'below'`.
+   */
+  significanceDirection?: 'above' | 'below';
+  /** The effect-size cutoff, applied to the magnitude of x. */
+  effect?: number;
+}
+
+/**
+ * Configuration for the interval drawn around an estimate.
+ * Used when `chartType` is `'error_bar'` or `'forest'`.
+ *
+ * MAIDR fixes the interval as ABSOLUTE positions on the value axis, while
+ * Recharts' `<ErrorBar dataKey>` points at an OFFSET from the estimate. Both
+ * are accepted here and normalised to absolutes: declare `errorKey` for the
+ * Recharts field, or `yMinKey`/`yMaxKey` when the data already holds bounds.
+ */
+export interface ErrorIntervalConfig {
+  /**
+   * Key holding the interval as an offset from the estimate — the field a
+   * `<ErrorBar dataKey>` points at. A number is a symmetric offset; a
+   * `[lower, upper]` pair is an asymmetric one, exactly as Recharts reads it.
+   */
+  errorKey?: string;
+  /** Key holding the absolute lower bound. Takes precedence over `errorKey`. */
+  yMinKey?: string;
+  /** Key holding the absolute upper bound. Takes precedence over `errorKey`. */
+  yMaxKey?: string;
+}
+
+/**
+ * Configuration for forest plots.
+ * Optional when `chartType` is `'forest'`, but a forest plot that declares no
+ * `nullValue` gets no claim about significance — see {@link nullValue}.
+ */
+export interface ForestPlotConfig {
+  /**
+   * Key holding the study's weight in the pooled estimate, as a fraction of
+   * one. A forest plot encodes this as marker area, which no reader is
+   * otherwise told: two studies whose intervals look alike can contribute
+   * wholly differently to the result.
+   */
+  weightKey?: string;
+  /** Key whose truthy value marks a row as the pooled summary rather than a study. */
+  pooledKey?: string;
+  /**
+   * Index of the pooled summary row, for data that carries no flag column.
+   * A meta-analysis draws the pooled row last, so this is usually
+   * `data.length - 1`.
+   */
+  pooledIndex?: number;
+  /**
+   * The value that means "no effect" — 1 for a ratio measure, 0 for a
+   * difference. It is the `<ReferenceLine>` the chart draws, and whether a
+   * study's interval crosses it is that study's result.
+   *
+   * There is deliberately no default: guessing 0 for a ratio chart reports
+   * every study as not crossing, since odds ratios are all positive.
+   */
+  nullValue?: number;
+}
+
+/**
+ * Configuration for Kaplan-Meier survival curves.
+ * Optional when `chartType` is `'survival'`.
+ *
+ * The key arrays map 1:1 with `yKeys` — the i-th entry belongs to the i-th
+ * arm — the same way `fillKeys` names the i-th series.
+ */
+export interface SurvivalCurveConfig {
+  /**
+   * Keys whose truthy value marks a censored time, one per arm.
+   *
+   * Censoring is not an event: the curve does not step there. A reader who
+   * cannot tell a censored time from an ordinary one cannot tell a flat tail
+   * backed by two hundred subjects from one backed by three.
+   */
+  censoredKeys?: string[];
+  /** Keys for the lower bound of the confidence band, one per arm. */
+  yMinKeys?: string[];
+  /** Keys for the upper bound of the confidence band, one per arm. */
+  yMaxKeys?: string[];
+  /**
+   * Where the curve jumps between times. Defaults to `'hv'`, which is what
+   * `<Line type="stepAfter">` draws and what a Kaplan-Meier curve means:
+   * survival holds until an event drops it. Declare `'vh'` for a curve drawn
+   * with `type="stepBefore"`.
+   */
+  stepDirection?: StepDirection;
 }
 
 /**
@@ -226,6 +388,97 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
+ * @example Survival curve
+ * ```typescript
+ * // One `yKeys` entry per arm, and the per-arm keys line up with it the way
+ * // `fillKeys` does. Censoring marks a time where a subject left the study
+ * // without the event happening — the curve does not step there.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'km-chart',
+ *   title: 'Overall Survival',
+ *   data: [{ months: 0, treated: 1, treatedCensored: false }],
+ *   chartType: 'survival',
+ *   xKey: 'months',
+ *   yKeys: ['treated'],
+ *   survivalConfig: { censoredKeys: ['treatedCensored'] },
+ *   xLabel: 'Months',
+ *   yLabel: 'Survival probability',
+ * };
+ * ```
+ *
+ * @example Error bars
+ * ```typescript
+ * // `errorKey` is the field the Recharts `<ErrorBar dataKey>` points at, so
+ * // it holds an OFFSET; the adapter turns it into the absolute bounds MAIDR
+ * // announces. Data that already holds bounds uses yMinKey/yMaxKey instead.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'yield-chart',
+ *   title: 'Yield by Treatment',
+ *   data: [{ treatment: 'Control', mean: 4.2, sd: 0.6 }],
+ *   chartType: 'error_bar',
+ *   xKey: 'treatment',
+ *   yKeys: ['mean'],
+ *   errorConfig: { errorKey: 'sd' },
+ *   xLabel: 'Treatment',
+ *   yLabel: 'Yield (t/ha)',
+ * };
+ * ```
+ *
+ * @example Forest plot
+ * ```typescript
+ * // `nullValue` is the <ReferenceLine> the chart draws: 1 for a ratio, 0 for
+ * // a difference. Without it MAIDR reports the estimate, the interval and the
+ * // weight, and makes no claim about significance.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'meta-chart',
+ *   title: 'Effect of the intervention',
+ *   data: [{ study: 'Silva 2018', or: 0.62, lo: 0.41, hi: 0.94, weight: 0.12 }],
+ *   chartType: 'forest',
+ *   xKey: 'study',
+ *   yKeys: ['or'],
+ *   orientation: Orientation.HORIZONTAL,
+ *   errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+ *   forestConfig: { weightKey: 'weight', pooledKey: 'pooled', nullValue: 1 },
+ *   xLabel: 'Study',
+ *   yLabel: 'Odds ratio',
+ * };
+ * ```
+ *
+ * @example Volcano plot
+ * ```typescript
+ * // The labels are the payload on these charts — a reader told "x is 2.3,
+ * // y is 14.1" has been given the two numbers they can already see the shape
+ * // of, and withheld the gene they came for.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'volcano-chart',
+ *   title: 'Differential Expression',
+ *   data: [{ gene: 'TP53', log2fc: 2.4, negLog10P: 14.1 }],
+ *   chartType: 'volcano',
+ *   xKey: 'log2fc',
+ *   yKeys: ['negLog10P'],
+ *   volcanoConfig: { labelKey: 'gene', significance: 1.3, effect: 1 },
+ *   xLabel: 'log2 fold change',
+ *   yLabel: '-log10(p)',
+ * };
+ * ```
+ *
+ * @example Alluvial (flow) diagram
+ * ```typescript
+ * // `data` is the `links` half of what <Sankey> is given; `flowConfig.nodes`
+ * // is the other half, and resolves the indices the links carry into names.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'flow-chart',
+ *   title: 'Cohort Movement',
+ *   data: [{ source: 0, target: 2, value: 34 }],
+ *   chartType: 'alluvial',
+ *   xKey: 'source',
+ *   yKeys: ['value'],
+ *   flowConfig: { targetKey: 'target', nodes: [{ name: 'Free' }, { name: 'Paid' }] },
+ *   xLabel: 'Stage',
+ *   yLabel: 'Users',
+ * };
+ * ```
+ *
  * @example Pie chart
  * ```typescript
  * // `xKey` is the Recharts `<Pie nameKey>` (the slice label) and the single
@@ -362,6 +615,36 @@ export interface RechartsAdapterConfig {
    * Required when `chartType` is `'histogram'`.
    */
   binConfig?: HistogramBinConfig;
+
+  /**
+   * Flow link configuration.
+   * Required when `chartType` is `'alluvial'`.
+   */
+  flowConfig?: FlowLinkConfig;
+
+  /**
+   * Point labels and cutoffs for a volcano or Manhattan plot.
+   * Used when `chartType` is `'volcano'` or `'manhattan'`.
+   */
+  volcanoConfig?: VolcanoPointConfig;
+
+  /**
+   * Interval configuration.
+   * Used when `chartType` is `'error_bar'` or `'forest'`.
+   */
+  errorConfig?: ErrorIntervalConfig;
+
+  /**
+   * Forest plot configuration.
+   * Used when `chartType` is `'forest'`.
+   */
+  forestConfig?: ForestPlotConfig;
+
+  /**
+   * Survival curve configuration.
+   * Used when `chartType` is `'survival'`.
+   */
+  survivalConfig?: SurvivalCurveConfig;
 
   /**
    * Custom CSS selector override for SVG highlighting.

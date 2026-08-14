@@ -1,5 +1,5 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, ErrorBarPoint, FlowPoint, ForestPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, VolcanoPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -279,6 +279,61 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.selectors).toBe(
         '#maidr-article-lollipop .recharts-scatter-symbol .recharts-symbols',
       );
+    });
+  });
+
+  describe('funnel chart', () => {
+    const funnelConfig: RechartsAdapterConfig = {
+      id: 'funnel',
+      title: 'Signup Funnel',
+      data: [
+        { stage: 'Visited', users: 10000 },
+        { stage: 'Signed up', users: 2400 },
+        { stage: 'Activated', users: 2300 },
+        { stage: 'Paid', users: 100 },
+      ],
+      chartType: 'funnel',
+      xKey: 'stage',
+      yKeys: ['users'],
+      xLabel: 'Stage',
+      yLabel: 'Users',
+    };
+
+    it('converts the stage counts to BarPoint[] in draw order', () => {
+      const layer = convertRechartsToMaidr(funnelConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.FUNNEL);
+
+      // The counts, untouched: FunnelTrace computes the retention and the
+      // share it announces from them, so a pre-computed ratio here would be
+      // a second source of truth for the same numbers.
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Visited', y: 10000 },
+        { x: 'Signed up', y: 2400 },
+        { x: 'Activated', y: 2300 },
+        { x: 'Paid', y: 100 },
+      ]);
+    });
+
+    it('targets the funnel trapezoids', () => {
+      const layer = convertRechartsToMaidr(funnelConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-funnel .recharts-funnel-trapezoid .recharts-trapezoid',
+      );
+    });
+
+    it('never emits an orientation, even when the config declares one', () => {
+      const layer = convertRechartsToMaidr({
+        ...funnelConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // FunnelTrace is a BarTrace, and a horizontal bar reads its category
+      // off `y`. The stage label is always emitted as `x`, so a leaked
+      // HORIZONTAL would have every stage announced by its count.
+      expect(layer.orientation).toBeUndefined();
     });
   });
 
@@ -638,6 +693,105 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('survival curve', () => {
+    const survivalConfig: RechartsAdapterConfig = {
+      id: 'km',
+      title: 'Overall Survival',
+      data: [
+        { months: 0, treated: 1, control: 1, treatedCensored: false },
+        { months: 6, treated: 0.88, control: 0.74, treatedCensored: true },
+        { months: 12, treated: 0.71, control: 0.52, treatedCensored: false },
+      ],
+      chartType: 'survival',
+      xKey: 'months',
+      yKeys: ['treated'],
+      survivalConfig: { censoredKeys: ['treatedCensored'] },
+      xLabel: 'Months',
+      yLabel: 'Survival probability',
+    };
+
+    it('marks only the censored times', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.SURVIVAL);
+
+      // An ordinary time carries no flag at all: `censored: false` on every
+      // other point is a claim the data never made.
+      const data = layer.data as SurvivalPoint[][];
+      expect(data).toEqual([[
+        { x: 0, y: 1 },
+        { x: 6, y: 0.88, censored: true },
+        { x: 12, y: 0.71 },
+      ]]);
+    });
+
+    it('carries the confidence band as absolute bounds', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        data: [
+          { months: 0, treated: 1, lo: 1, hi: 1 },
+          { months: 6, treated: 0.88, lo: 0.79, hi: 0.97 },
+        ],
+        survivalConfig: { yMinKeys: ['lo'], yMaxKeys: ['hi'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as SurvivalPoint[][];
+      expect(data[0][1]).toEqual({ x: 6, y: 0.88, yMin: 0.79, yMax: 0.97 });
+    });
+
+    it('declares the step direction Recharts draws', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      // <Line type="stepAfter"> holds the value until the next time, then
+      // jumps — which is exactly what a Kaplan-Meier curve means.
+      expect(layer.stepDirection).toBe('hv');
+
+      const stepBefore = convertRechartsToMaidr({
+        ...survivalConfig,
+        survivalConfig: { stepDirection: 'vh' },
+      }).subplots[0][0].layers[0];
+      expect(stepBefore.stepDirection).toBe('vh');
+    });
+
+    it('targets the line dots for a single arm', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      // A SurvivalTrace is a LineTrace: selectors are a string[], one per arm.
+      expect(layer.selectors).toEqual([
+        '#maidr-article-km .recharts-line-dots .recharts-line-dot',
+      ]);
+    });
+
+    it('builds one row per arm, named, with highlighting off', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        yKeys: ['treated', 'control'],
+        fillKeys: ['Treatment', 'Control'],
+        survivalConfig: { censoredKeys: ['treatedCensored'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as SurvivalPoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0][1]).toEqual({ x: 6, y: 0.88, z: 'Treatment', censored: true });
+      // The second arm declares no censoring key of its own, so it gets none.
+      expect(data[1][1]).toEqual({ x: 6, y: 0.74, z: 'Control' });
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('splats a selectorOverride across the arms', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        yKeys: ['treated', 'control'],
+        selectorOverride: '.km .recharts-line-dot',
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '.km .recharts-line-dot',
+        '.km .recharts-line-dot',
+      ]);
+    });
+  });
+
   describe('scatter chart', () => {
     it('converts scatter data to ScatterPoint[]', () => {
       const config: RechartsAdapterConfig = {
@@ -659,6 +813,333 @@ describe('convertRechartsToMaidr', () => {
       const data = layer.data as ScatterPoint[];
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({ x: 1, y: 10 });
+    });
+  });
+
+  describe('volcano plot', () => {
+    const volcanoConfig: RechartsAdapterConfig = {
+      id: 'volcano',
+      title: 'Differential Expression',
+      data: [
+        { gene: 'TP53', log2fc: 2.4, negLog10P: 14.1 },
+        { gene: 'MYC', log2fc: -0.3, negLog10P: 0.8 },
+      ],
+      chartType: 'volcano',
+      xKey: 'log2fc',
+      yKeys: ['negLog10P'],
+      volcanoConfig: { labelKey: 'gene', significance: 1.3, effect: 1 },
+      xLabel: 'log2 fold change',
+      yLabel: '-log10(p)',
+    };
+
+    it('carries the point labels alongside the coordinates', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.VOLCANO);
+
+      const data = layer.data as VolcanoPoint[];
+      expect(data).toEqual([
+        { x: 2.4, y: 14.1, label: 'TP53' },
+        { x: -0.3, y: 0.8, label: 'MYC' },
+      ]);
+    });
+
+    it('emits the declared cutoffs as thresholdOptions', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.thresholdOptions).toEqual({ significance: 1.3, effect: 1 });
+    });
+
+    it('omits thresholdOptions entirely when no cutoff is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...volcanoConfig,
+        volcanoConfig: { labelKey: 'gene' },
+      }).subplots[0][0].layers[0];
+
+      // A guessed cutoff sorts every point onto the wrong side silently, so
+      // an undeclared one stays undeclared.
+      expect(layer.thresholdOptions).toBeUndefined();
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-volcano .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
+  describe('manhattan plot', () => {
+    const manhattanConfig: RechartsAdapterConfig = {
+      id: 'gwas',
+      title: 'Genome-Wide Association',
+      data: [
+        { snp: 'rs1234', chr: '1', bp: 154_300, cumulative: 154_300, negLog10P: 9.2 },
+        { snp: 'rs5678', chr: '2', bp: 88_120, cumulative: 249_388_120, negLog10P: 3.1 },
+      ],
+      chartType: 'manhattan',
+      // The per-chromosome position, NOT the cumulative offset the chart
+      // plots: "position 249,388,120" answers nothing a reader asked.
+      xKey: 'bp',
+      yKeys: ['negLog10P'],
+      volcanoConfig: { labelKey: 'snp', groupKey: 'chr', significance: 7.3 },
+      xLabel: 'Position',
+      yLabel: '-log10(p)',
+    };
+
+    it('carries the SNP and its chromosome', () => {
+      const layer = convertRechartsToMaidr(manhattanConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.MANHATTAN);
+
+      const data = layer.data as VolcanoPoint[];
+      expect(data).toEqual([
+        { x: 154_300, y: 9.2, label: 'rs1234', group: '1' },
+        { x: 88_120, y: 3.1, label: 'rs5678', group: '2' },
+      ]);
+    });
+
+    it('emits the genome-wide significance line', () => {
+      const layer = convertRechartsToMaidr(manhattanConfig).subplots[0][0].layers[0];
+
+      expect(layer.thresholdOptions?.significance).toBe(7.3);
+    });
+  });
+
+  describe('error bars', () => {
+    const errorConfig: RechartsAdapterConfig = {
+      id: 'yield',
+      title: 'Yield by Treatment',
+      data: [
+        { treatment: 'Control', mean: 4.2, sd: 0.6 },
+        { treatment: 'Nitrogen', mean: 5.5, sd: 0.5 },
+      ],
+      chartType: 'error_bar',
+      xKey: 'treatment',
+      yKeys: ['mean'],
+      errorConfig: { errorKey: 'sd' },
+      xLabel: 'Treatment',
+      yLabel: 'Yield (t/ha)',
+    };
+
+    it('resolves a symmetric offset to absolute bounds', () => {
+      const layer = convertRechartsToMaidr(errorConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+
+      // <ErrorBar dataKey="sd"> is an offset; ErrorBarPoint fixes absolute
+      // positions on the value axis, which is the same arithmetic Recharts
+      // does to place the whiskers.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data).toEqual([
+        { x: 'Control', y: 4.2, yMin: 3.6, yMax: 4.8 },
+        { x: 'Nitrogen', y: 5.5, yMin: 5, yMax: 6 },
+      ]);
+    });
+
+    it('reads a [lower, upper] pair as an asymmetric offset', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 10, err: [2, 5] }],
+        errorConfig: { errorKey: 'err' },
+      }).subplots[0][0].layers[0];
+
+      // Recharts reads the field the same way: value - low, value + high.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 10, yMin: 8, yMax: 15 });
+    });
+
+    it('takes absolute bounds straight from the data when declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, lo: 3.1, hi: 5.0 }],
+        errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2, yMin: 3.1, yMax: 5.0 });
+    });
+
+    it('keeps a one-sided interval one-sided', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, hi: 5.0 }],
+        errorConfig: { yMaxKey: 'hi' },
+      }).subplots[0][0].layers[0];
+
+      // An upper bound with no lower is a real chart, and defaulting the
+      // missing half to the estimate would draw an interval nobody measured.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2, yMax: 5.0 });
+    });
+
+    it('drops both bounds when the interval is missing', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, sd: null }],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2 });
+    });
+
+    it('targets the whiskers', () => {
+      const layer = convertRechartsToMaidr(errorConfig).subplots[0][0].layers[0];
+
+      // The estimate's own mark could be a bar, a line dot or a scatter
+      // symbol depending on what the author nested the <ErrorBar> in; the
+      // whiskers are the one element a chart of this type always draws.
+      expect(layer.selectors).toBe(
+        '#maidr-article-yield .recharts-errorBars .recharts-errorBar',
+      );
+    });
+  });
+
+  describe('forest plot', () => {
+    const forestConfig: RechartsAdapterConfig = {
+      id: 'meta',
+      title: 'Effect of the intervention',
+      data: [
+        { study: 'Silva 2018', or: 0.62, lo: 0.41, hi: 0.94, weight: 0.12 },
+        { study: 'Okafor 2022', or: 1.71, lo: 1.22, hi: 2.40, weight: 0.55 },
+        { study: 'Pooled', or: 1.28, lo: 1.02, hi: 1.61, summary: true },
+      ],
+      chartType: 'forest',
+      xKey: 'study',
+      yKeys: ['or'],
+      orientation: Orientation.HORIZONTAL,
+      errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+      forestConfig: { weightKey: 'weight', pooledKey: 'summary', nullValue: 1 },
+      xLabel: 'Study',
+      yLabel: 'Odds ratio',
+    };
+
+    it('converts the studies with their weights and the pooled row', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.FOREST);
+
+      const data = layer.data as ForestPoint[];
+      expect(data).toEqual([
+        { x: 'Silva 2018', y: 0.62, yMin: 0.41, yMax: 0.94, weight: 0.12 },
+        { x: 'Okafor 2022', y: 1.71, yMin: 1.22, yMax: 2.40, weight: 0.55 },
+        { x: 'Pooled', y: 1.28, yMin: 1.02, yMax: 1.61, pooled: true },
+      ]);
+    });
+
+    it('finds the pooled row by index when the data carries no flag', () => {
+      const layer = convertRechartsToMaidr({
+        ...forestConfig,
+        forestConfig: { weightKey: 'weight', pooledIndex: 2, nullValue: 1 },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ForestPoint[];
+      expect(data[1].pooled).toBeUndefined();
+      expect(data[2].pooled).toBe(true);
+    });
+
+    it('emits the null line and keeps the row axis horizontal', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.forestOptions).toEqual({ nullValue: 1 });
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    });
+
+    it('omits forestOptions when no null value is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...forestConfig,
+        forestConfig: { weightKey: 'weight' },
+      }).subplots[0][0].layers[0];
+
+      // Guessing 0 for a ratio measure reports every study as not crossing,
+      // since odds ratios are all positive.
+      expect(layer.forestOptions).toBeUndefined();
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-meta .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
+  describe('alluvial diagram', () => {
+    const nodes = [
+      { name: 'Free' },
+      { name: 'Trial' },
+      { name: 'Paid' },
+      { name: 'Churned' },
+    ];
+
+    const alluvialConfig: RechartsAdapterConfig = {
+      id: 'flow',
+      title: 'Cohort Movement',
+      data: [
+        { source: 0, target: 1, value: 34 },
+        { source: 1, target: 2, value: 21 },
+        { source: 1, target: 3, value: 13 },
+      ],
+      chartType: 'alluvial',
+      xKey: 'source',
+      yKeys: ['value'],
+      flowConfig: { targetKey: 'target', nodes },
+      xLabel: 'Stage',
+      yLabel: 'Users',
+    };
+
+    it('resolves the node indices Recharts links carry into names', () => {
+      const layer = convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.ALLUVIAL);
+
+      // "flow from 1 to 3" names neither end, and the index is a fact about
+      // the nodes array rather than about the data.
+      const data = layer.data as FlowPoint[];
+      expect(data).toEqual([
+        { source: 'Free', target: 'Trial', value: 34 },
+        { source: 'Trial', target: 'Paid', value: 21 },
+        { source: 'Trial', target: 'Churned', value: 13 },
+      ]);
+    });
+
+    it('passes links that already name their ends through untouched', () => {
+      const layer = convertRechartsToMaidr({
+        ...alluvialConfig,
+        data: [{ source: 'Free', target: 'Paid', value: 8 }],
+        flowConfig: { targetKey: 'target' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as FlowPoint[];
+      expect(data).toEqual([{ source: 'Free', target: 'Paid', value: 8 }]);
+    });
+
+    it('keeps an index with no node list behind it as a number', () => {
+      const layer = convertRechartsToMaidr({
+        ...alluvialConfig,
+        flowConfig: { targetKey: 'target' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as FlowPoint[];
+      expect(data[0]).toEqual({ source: 0, target: 1, value: 34 });
+    });
+
+    it('targets the sankey links in declared order', () => {
+      const layer = convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-flow .recharts-sankey-links .recharts-sankey-link',
+      );
+      expect(layer.orientation).toBeUndefined();
+    });
+
+    it('throws when the flow config is missing', () => {
+      expect(() => convertRechartsToMaidr({
+        ...alluvialConfig,
+        flowConfig: undefined,
+      })).toThrow('RechartsAdapter');
     });
   });
 

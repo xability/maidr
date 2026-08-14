@@ -44,6 +44,40 @@
  *   the value is read off, and a lollipop drawn without one (a custom `<Bar>`
  *   shape carrying its own dot) needs `selectorOverride` anyway.
  *
+ * FunnelChart:
+ *   g.recharts-trapezoids > g.recharts-funnel-trapezoid > g > path.recharts-trapezoid
+ *   [target: .recharts-funnel-trapezoid .recharts-trapezoid]
+ *
+ *   One trapezoid per stage, in the order the stages are declared, so the
+ *   funnel's drawn order and its data order are the same thing.
+ *
+ * ErrorBar (inside a Bar/Line/Scatter):
+ *   g.recharts-errorBars > g.recharts-errorBar > line
+ *   [target: .recharts-errorBars .recharts-errorBar]
+ *
+ *   The whiskers rather than the host mark: an `<ErrorBar>` is the only
+ *   element the adapter knows a chart of this type draws, since the estimate
+ *   itself may be a bar, a line dot or a scatter symbol depending on what the
+ *   author nested it in. A chart that would rather highlight its host mark
+ *   passes that selector as `selectorOverride`.
+ *
+ *   Recharts renders NO whisker for a sample whose error value is zero or
+ *   missing (`ErrorBar.js` returns null before drawing). The trace sees fewer
+ *   elements than samples and turns highlighting off for the layer rather
+ *   than mis-aligning it, the same way a zero-value pie slice behaves.
+ *
+ *   A forest plot is drawn as a `<ScatterChart>` with `<ErrorBar direction="x">`,
+ *   so its marks are the scatter symbols — the square whose area carries the
+ *   study's weight — and it targets those instead.
+ *
+ * Sankey:
+ *   g.recharts-sankey-links > path.recharts-sankey-link
+ *   [target: .recharts-sankey-links .recharts-sankey-link]
+ *
+ *   One path per link in declared order, which is the order a flow layer's
+ *   selectors have to be in: the trace sorts its edge lists by value the
+ *   moment it builds them, and carries each edge's declared position with it.
+ *
  * PieChart:
  *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
  *   [target: .recharts-pie-sector .recharts-sector]
@@ -171,9 +205,11 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'normalized_bar':
     case 'histogram':
       return '.recharts-bar-rectangle .recharts-rectangle';
-    // A bump chart is a <LineChart> of ranks, so its marks are line dots too.
+    // A bump chart is a <LineChart> of ranks and a survival curve a
+    // <LineChart> of step segments, so both draw line dots.
     case 'line':
     case 'bump':
+    case 'survival':
       return '.recharts-line-dots .recharts-line-dot';
     case 'area':
     case 'stacked_area':
@@ -181,10 +217,21 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
       return '.recharts-area-dots .recharts-area-dot';
     case 'radar':
       return '.recharts-radar-dots .recharts-radar-dot';
+    // A volcano and a Manhattan plot are literally scatters, and a forest plot
+    // is a <ScatterChart> whose symbols carry the study weights.
     case 'scatter':
     case 'dot':
     case 'lollipop':
+    case 'volcano':
+    case 'manhattan':
+    case 'forest':
       return '.recharts-scatter-symbol .recharts-symbols';
+    case 'funnel':
+      return '.recharts-funnel-trapezoid .recharts-trapezoid';
+    case 'error_bar':
+      return '.recharts-errorBars .recharts-errorBar';
+    case 'alluvial':
+      return '.recharts-sankey-links .recharts-sankey-link';
     case 'pie':
       return '.recharts-pie-sector .recharts-sector';
   }
