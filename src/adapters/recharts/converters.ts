@@ -220,11 +220,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     return [buildMultiSeriesLineLayer(data, xKey, yKeys, chartType, xLabel, yLabel, selectorOverride)];
   }
 
-  // Determine the MAIDR trace type. For segmented bar types with a single yKey,
-  // fall back to BAR since a single series is not segmented.
-  const maidrType = (isSegmentedBarType(chartType) && !hasMultipleSeries)
-    ? TraceType.BAR
-    : toTraceType(chartType);
+  const maidrType = toLayerTraceType(chartType, hasMultipleSeries);
 
   // Simple single-series or multiple separate layers
   return yKeys.map((yKey, index) => {
@@ -438,9 +434,21 @@ function convertData(
   yKey: string,
 ): BarPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] {
   switch (chartType) {
+    // A dot plot and a lollipop carry a bar's data — one category, one
+    // magnitude — and differ only in the mark drawn for it.
     case 'bar':
+    case 'dot':
+    case 'lollipop':
       return convertToBarPoints(data, xKey, yKey);
+    // The area, radar and bump families are all read as a line is: one value
+    // per sample. What the stacking, the circle and the rank change is how
+    // the model announces them, not what the adapter has to emit.
     case 'line':
+    case 'area':
+    case 'stacked_area':
+    case 'normalized_area':
+    case 'radar':
+    case 'bump':
       return convertToLinePoints(data, xKey, yKey);
     case 'scatter':
       return convertToScatterPoints(data, xKey, yKey);
@@ -528,21 +536,24 @@ function isBarType(chartType: RechartsChartType): boolean {
     || chartType === 'stacked_bar'
     || chartType === 'dodged_bar'
     || chartType === 'normalized_bar'
+    || chartType === 'dot'
+    || chartType === 'lollipop'
     || chartType === 'histogram';
 }
 
 /**
  * Returns the orientation to emit for a layer of the given chart type.
  *
- * Bar-like layers default to vertical. A pie is never oriented — its slices sit
- * around a circle rather than along an axis — so a config-level `orientation`
- * (meaningful for the other layers of a composed chart) must not leak onto one.
+ * Bar-like layers default to vertical. A pie and a radar are never oriented —
+ * their marks sit around a circle rather than along an axis — so a config-level
+ * `orientation` (meaningful for the other layers of a composed chart) must not
+ * leak onto one.
  */
 function layerOrientation(
   chartType: RechartsChartType,
   orientation?: Orientation,
 ): Orientation | undefined {
-  if (chartType === 'pie') {
+  if (chartType === 'pie' || chartType === 'radar') {
     return undefined;
   }
   return orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined);
@@ -558,10 +569,48 @@ function isSegmentedBarType(chartType: RechartsChartType): boolean {
 }
 
 /**
+ * Returns true if the chart type maps to a stacked area MAIDR type.
+ */
+function isStackedAreaType(chartType: RechartsChartType): boolean {
+  return chartType === 'stacked_area'
+    || chartType === 'normalized_area';
+}
+
+/**
  * Returns true if the chart type maps to a line-like MAIDR type.
+ *
+ * The whole area family, radar and bump belong here: every one of them is a
+ * `LineTrace` subclass in the model, so each expects `LinePoint[][]` data and
+ * `selectors` as a `string[]` rather than a bare string.
  */
 function isLineType(chartType: RechartsChartType): boolean {
-  return chartType === 'line';
+  return chartType === 'line'
+    || chartType === 'area'
+    || isStackedAreaType(chartType)
+    || chartType === 'radar'
+    || chartType === 'bump';
+}
+
+/**
+ * Returns the MAIDR trace type for a simple-mode layer of `chartType`.
+ *
+ * A stacked type declared over a single yKey is not stacked at all — there is
+ * no second series to stack it against — so it falls back to its unstacked
+ * base: BAR for the bar family, AREA for the area family. Left as declared,
+ * a stacked bar would be handed a one-row `SegmentedPoint[][]`, and a stacked
+ * area would announce a running total equal to its own value and a 100% share
+ * at every single point.
+ */
+function toLayerTraceType(chartType: RechartsChartType, hasMultipleSeries: boolean): TraceType {
+  if (!hasMultipleSeries) {
+    if (isSegmentedBarType(chartType)) {
+      return TraceType.BAR;
+    }
+    if (isStackedAreaType(chartType)) {
+      return TraceType.AREA;
+    }
+  }
+  return toTraceType(chartType);
 }
 
 /**
@@ -577,10 +626,24 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.DODGED;
     case 'normalized_bar':
       return TraceType.NORMALIZED;
+    case 'dot':
+      return TraceType.DOT;
+    case 'lollipop':
+      return TraceType.LOLLIPOP;
     case 'histogram':
       return TraceType.HISTOGRAM;
     case 'line':
       return TraceType.LINE;
+    case 'area':
+      return TraceType.AREA;
+    case 'stacked_area':
+      return TraceType.STACKED_AREA;
+    case 'normalized_area':
+      return TraceType.NORMALIZED_AREA;
+    case 'radar':
+      return TraceType.RADAR;
+    case 'bump':
+      return TraceType.BUMP;
     case 'scatter':
       return TraceType.SCATTER;
     case 'pie':

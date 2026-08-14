@@ -19,9 +19,30 @@
  *   The element-based approach in LineTrace picks up individual dots directly
  *   (similar to how BarTrace uses individual rect elements).
  *
+ * AreaChart:
+ *   g.recharts-area > g.recharts-area-dots > circle.recharts-area-dot
+ *   [target: .recharts-area-dots .recharts-area-dot]
+ *
+ * RadarChart:
+ *   g.recharts-radar > g.recharts-radar-dots > circle.recharts-radar-dot
+ *   [target: .recharts-radar-dots .recharts-radar-dot]
+ *
+ *   Areas and radars carry the line's caveat, because they share its `Dots`
+ *   component: it renders nothing unless the consumer sets `dot` on the
+ *   `<Area>`/`<Radar>` (the sole exception being a series of exactly one
+ *   point). The filled band and the polygon outline are single paths with no
+ *   per-sample element to highlight, so the dots are the only index-aligned
+ *   marks either chart has.
+ *
  * ScatterChart:
  *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
  *   [target: .recharts-scatter-symbol .recharts-symbols]
+ *
+ *   A Cleveland dot plot is a `<Scatter>` against a category axis, and a
+ *   lollipop is a `<Scatter>` head over a thin `<Bar>` stem, so both target
+ *   the symbols. The head is highlighted rather than the stem: it is where
+ *   the value is read off, and a lollipop drawn without one (a custom `<Bar>`
+ *   shape carrying its own dot) needs `selectorOverride` anyway.
  *
  * PieChart:
  *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
@@ -150,9 +171,19 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'normalized_bar':
     case 'histogram':
       return '.recharts-bar-rectangle .recharts-rectangle';
+    // A bump chart is a <LineChart> of ranks, so its marks are line dots too.
     case 'line':
+    case 'bump':
       return '.recharts-line-dots .recharts-line-dot';
+    case 'area':
+    case 'stacked_area':
+    case 'normalized_area':
+      return '.recharts-area-dots .recharts-area-dot';
+    case 'radar':
+      return '.recharts-radar-dots .recharts-radar-dot';
     case 'scatter':
+    case 'dot':
+    case 'lollipop':
       return '.recharts-scatter-symbol .recharts-symbols';
     case 'pie':
       return '.recharts-pie-sector .recharts-sector';

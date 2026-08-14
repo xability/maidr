@@ -199,6 +199,89 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('dot plot', () => {
+    const dotConfig: RechartsAdapterConfig = {
+      id: 'dot',
+      title: 'Median Pay by Role',
+      data: [
+        { role: 'Nurse', pay: 62 },
+        { role: 'Teacher', pay: 54 },
+      ],
+      chartType: 'dot',
+      xKey: 'role',
+      yKeys: ['pay'],
+      xLabel: 'Role',
+      yLabel: 'Median pay ($k)',
+    };
+
+    it('converts dot data to BarPoint[] with the category x kept as a string', () => {
+      const layer = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.DOT);
+
+      // BarPoint, not ScatterPoint: a Cleveland dot plot's x is a category
+      // label, which the scatter converter would coerce to 0.
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Nurse', y: 62 },
+        { x: 'Teacher', y: 54 },
+      ]);
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-dot .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+
+    it('emits an orientation, defaulting to vertical', () => {
+      const vertical = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+      expect(vertical.orientation).toBe(Orientation.VERTICAL);
+
+      const horizontal = convertRechartsToMaidr({
+        ...dotConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+      expect(horizontal.orientation).toBe(Orientation.HORIZONTAL);
+    });
+  });
+
+  describe('lollipop chart', () => {
+    const lollipopConfig: RechartsAdapterConfig = {
+      id: 'lollipop',
+      data: [
+        { country: 'Japan', share: 12 },
+        { country: 'Brazil', share: 8 },
+      ],
+      chartType: 'lollipop',
+      xKey: 'country',
+      yKeys: ['share'],
+    };
+
+    it('converts lollipop data to BarPoint[]', () => {
+      const layer = convertRechartsToMaidr(lollipopConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.LOLLIPOP);
+      expect(layer.orientation).toBe(Orientation.VERTICAL);
+
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Japan', y: 12 },
+        { x: 'Brazil', y: 8 },
+      ]);
+    });
+
+    it('targets the scatter head rather than the bar stem', () => {
+      const layer = convertRechartsToMaidr(lollipopConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-lollipop .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
   describe('histogram', () => {
     it('converts histogram data with bin config', () => {
       const config: RechartsAdapterConfig = {
@@ -345,6 +428,216 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('area chart', () => {
+    const areaConfig: RechartsAdapterConfig = {
+      id: 'area',
+      title: 'Rainfall',
+      data: [
+        { month: 'Jan', mm: 80 },
+        { month: 'Feb', mm: 65 },
+      ],
+      chartType: 'area',
+      xKey: 'month',
+      yKeys: ['mm'],
+      xLabel: 'Month',
+      yLabel: 'Rainfall (mm)',
+    };
+
+    it('converts single series area data to LinePoint[][]', () => {
+      const layer = convertRechartsToMaidr(areaConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([[
+        { x: 'Jan', y: 80 },
+        { x: 'Feb', y: 65 },
+      ]]);
+    });
+
+    it('targets the area dots, as a string[] like every line-family layer', () => {
+      const layer = convertRechartsToMaidr(areaConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-area .recharts-area-dots .recharts-area-dot',
+      ]);
+    });
+
+    it('converts multi-series area data to one row per series', () => {
+      const layer = convertRechartsToMaidr({
+        ...areaConfig,
+        data: [{ month: 'Jan', organic: 40, paid: 20 }],
+        yKeys: ['organic', 'paid'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Jan', y: 40, z: 'organic' }],
+        [{ x: 'Jan', y: 20, z: 'paid' }],
+      ]);
+    });
+  });
+
+  describe('stacked area chart', () => {
+    const stackedAreaConfig: RechartsAdapterConfig = {
+      id: 'stacked-area',
+      data: [
+        { month: 'Jan', organic: 40, paid: 20 },
+        { month: 'Feb', organic: 55, paid: 15 },
+      ],
+      chartType: 'stacked_area',
+      xKey: 'month',
+      yKeys: ['organic', 'paid'],
+    };
+
+    it('passes each band\'s own value, never the accumulated edge', () => {
+      const layer = convertRechartsToMaidr(stackedAreaConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STACKED_AREA);
+
+      // AreaTrace sums the series itself, so the second band carries 20/15
+      // rather than the 60/70 the chart draws its top edge at.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Jan', y: 40, z: 'organic' }, { x: 'Feb', y: 55, z: 'organic' }],
+        [{ x: 'Jan', y: 20, z: 'paid' }, { x: 'Feb', y: 15, z: 'paid' }],
+      ]);
+    });
+
+    it('produces NORMALIZED_AREA for a 100% stacked area', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        chartType: 'normalized_area',
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.NORMALIZED_AREA);
+
+      // Raw values, not the expanded fractions Recharts renders.
+      const data = layer.data as LinePoint[][];
+      expect(data[0][0]).toEqual({ x: 'Jan', y: 40, z: 'organic' });
+    });
+
+    it('falls back to AREA when a stacked area has a single yKey', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        yKeys: ['organic'],
+      }).subplots[0][0].layers[0];
+
+      // One band is not stacked against anything: as STACKED_AREA every point
+      // would announce a total equal to its own value and a 100% share.
+      expect(layer.type).toBe(TraceType.AREA);
+    });
+
+    it('falls back to AREA when a normalized area has a single yKey', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        chartType: 'normalized_area',
+        yKeys: ['organic'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+    });
+  });
+
+  describe('radar chart', () => {
+    const radarConfig: RechartsAdapterConfig = {
+      id: 'radar',
+      title: 'Player Attributes',
+      data: [
+        { attribute: 'Speed', alice: 90, bob: 70 },
+        { attribute: 'Power', alice: 60, bob: 85 },
+      ],
+      chartType: 'radar',
+      xKey: 'attribute',
+      yKeys: ['alice', 'bob'],
+    };
+
+    it('converts radar data to one row per series and one column per spoke', () => {
+      const layer = convertRechartsToMaidr(radarConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.RADAR);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Speed', y: 90, z: 'alice' }, { x: 'Power', y: 60, z: 'alice' }],
+        [{ x: 'Speed', y: 70, z: 'bob' }, { x: 'Power', y: 85, z: 'bob' }],
+      ]);
+    });
+
+    it('targets the radar dots for a single series', () => {
+      const layer = convertRechartsToMaidr({
+        ...radarConfig,
+        yKeys: ['alice'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-radar .recharts-radar-dots .recharts-radar-dot',
+      ]);
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...radarConfig,
+        yKeys: ['alice'],
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // Spokes sit around a circle, not along an axis — same as a pie.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
+  describe('bump chart', () => {
+    const bumpConfig: RechartsAdapterConfig = {
+      id: 'bump',
+      title: 'League Position by Matchday',
+      data: [
+        { matchday: 1, arsenal: 3, chelsea: 1 },
+        { matchday: 2, arsenal: 1, chelsea: 2 },
+      ],
+      chartType: 'bump',
+      xKey: 'matchday',
+      yKeys: ['arsenal', 'chelsea'],
+      xLabel: 'Matchday',
+      yLabel: 'Position',
+    };
+
+    it('passes the ranks through verbatim, one row per competitor', () => {
+      const layer = convertRechartsToMaidr(bumpConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.BUMP);
+
+      // BumpTrace derives the best/worst rank and the per-period moves from
+      // these numbers, so the adapter must not pre-compute either.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 1, y: 3, z: 'arsenal' }, { x: 2, y: 1, z: 'arsenal' }],
+        [{ x: 1, y: 1, z: 'chelsea' }, { x: 2, y: 2, z: 'chelsea' }],
+      ]);
+    });
+
+    it('targets the line dots for a single series', () => {
+      const layer = convertRechartsToMaidr({
+        ...bumpConfig,
+        yKeys: ['arsenal'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-bump .recharts-line-dots .recharts-line-dot',
+      ]);
+    });
+
+    it('omits selectors for a multi-series bump chart', () => {
+      const layer = convertRechartsToMaidr(bumpConfig).subplots[0][0].layers[0];
+
+      // The line-family limitation: CSS cannot pick one competitor's dots
+      // out of the surface, so highlighting degrades rather than misaligns.
+      expect(layer.selectors).toBeUndefined();
+    });
+  });
+
   describe('scatter chart', () => {
     it('converts scatter data to ScatterPoint[]', () => {
       const config: RechartsAdapterConfig = {
@@ -452,6 +745,26 @@ describe('convertRechartsToMaidr', () => {
       expect(layers[0].title).toBe('Revenue');
       expect(layers[1].type).toBe(TraceType.LINE);
       expect(layers[1].title).toBe('Trend');
+    });
+
+    it('wraps an area layer\'s selector in an array, as it does a line\'s', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'composed-area',
+        data: [{ month: 'Jan', revenue: 100, budget: 90 }],
+        xKey: 'month',
+        layers: [
+          { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
+          { yKey: 'budget', chartType: 'area', name: 'Budget' },
+        ],
+      };
+
+      const layers = convertRechartsToMaidr(config).subplots[0][0].layers;
+
+      expect(layers[1].type).toBe(TraceType.AREA);
+      expect(layers[1].selectors).toEqual([
+        '#maidr-article-composed-area .recharts-area-dots .recharts-area-dot',
+      ]);
+      expect(layers[1].data).toEqual([[{ x: 'Jan', y: 90 }]]);
     });
 
     it('returns undefined selectors for multiple same-type layers', () => {

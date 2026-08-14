@@ -4,8 +4,15 @@ import { BarChartExample } from './examples/BarChartExample';
 import { StackedBarExample } from './examples/StackedBarExample';
 import { DodgedBarExample } from './examples/DodgedBarExample';
 import { NormalizedBarExample } from './examples/NormalizedBarExample';
+import { DotPlotExample } from './examples/DotPlotExample';
+import { LollipopExample } from './examples/LollipopExample';
 import { HistogramExample } from './examples/HistogramExample';
 import { LineChartExample } from './examples/LineChartExample';
+import { AreaChartExample } from './examples/AreaChartExample';
+import { StackedAreaExample } from './examples/StackedAreaExample';
+import { NormalizedAreaExample } from './examples/NormalizedAreaExample';
+import { RadarChartExample } from './examples/RadarChartExample';
+import { BumpChartExample } from './examples/BumpChartExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
 import { FacetExample } from './examples/FacetExample';
@@ -15,8 +22,15 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Bar', component: StackedBarExample },
   { name: 'Dodged Bar', component: DodgedBarExample },
   { name: 'Normalized Bar', component: NormalizedBarExample },
+  { name: 'Dot Plot', component: DotPlotExample },
+  { name: 'Lollipop', component: LollipopExample },
   { name: 'Histogram', component: HistogramExample },
   { name: 'Line Chart', component: LineChartExample },
+  { name: 'Area Chart', component: AreaChartExample },
+  { name: 'Stacked Area', component: StackedAreaExample },
+  { name: 'Normalized Area', component: NormalizedAreaExample },
+  { name: 'Radar Chart', component: RadarChartExample },
+  { name: 'Bump Chart', component: BumpChartExample },
   { name: 'Scatter Chart', component: ScatterChartExample },
   { name: 'Composed Chart', component: ComposedChartExample },
   { name: 'Faceted (Multi-Panel)', component: FacetExample },

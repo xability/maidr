@@ -15,8 +15,22 @@ import type { Orientation } from '@type/grammar';
  * - `'stacked_bar'` → `TraceType.STACKED` — Stacked bar chart (Recharts `<Bar stackId="...">`)
  * - `'dodged_bar'` → `TraceType.DODGED` — Grouped/dodged bar chart (multiple `<Bar>` without stackId)
  * - `'normalized_bar'` → `TraceType.NORMALIZED` — Stacked normalized (100%) bar chart
+ * - `'dot'` → `TraceType.DOT` — Cleveland dot plot: one point per category,
+ *   drawn with `<Scatter>` against a category axis
+ * - `'lollipop'` → `TraceType.LOLLIPOP` — Lollipop chart: a `<ComposedChart>`
+ *   of a thin `<Bar>` stem plus a `<Scatter>` head. Read exactly as a bar is —
+ *   the stem is the mark, not extra data
  * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
  * - `'line'` → `TraceType.LINE` — Line chart
+ * - `'area'` → `TraceType.AREA` — Area chart (Recharts `<Area>`); the fill is
+ *   decoration, so the data is a line's
+ * - `'stacked_area'` → `TraceType.STACKED_AREA` — Stacked area chart
+ *   (`<Area stackId="...">`, multiple `yKeys`)
+ * - `'normalized_area'` → `TraceType.NORMALIZED_AREA` — 100% stacked area
+ *   (`<AreaChart stackOffset="expand">`, multiple `yKeys`)
+ * - `'radar'` → `TraceType.RADAR` — Radar/spider chart (`<RadarChart>` + `<Radar>`)
+ * - `'bump'` → `TraceType.BUMP` — Bump chart: rank over time, drawn as a
+ *   `<LineChart>` with `<YAxis reversed>`
  * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
  * - `'pie'` → `TraceType.PIE` — Pie/doughnut chart (Recharts `<Pie>`); a
  *   doughnut is a pie with an `innerRadius`, which changes nothing about the
@@ -27,8 +41,15 @@ export type RechartsChartType
     | 'stacked_bar'
     | 'dodged_bar'
     | 'normalized_bar'
+    | 'dot'
+    | 'lollipop'
     | 'histogram'
     | 'line'
+    | 'area'
+    | 'stacked_area'
+    | 'normalized_area'
+    | 'radar'
+    | 'bump'
     | 'scatter'
     | 'pie';
 
@@ -169,6 +190,39 @@ export interface RechartsSubplotConfig {
  *   binConfig: { xMinKey: 'xMin', xMaxKey: 'xMax' },
  *   xLabel: 'Score',
  *   yLabel: 'Frequency',
+ * };
+ * ```
+ *
+ * @example Stacked area chart
+ * ```typescript
+ * // Pass each band's OWN value, not the accumulated edge — MAIDR sums the
+ * // series to get the running total it announces.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'traffic-chart',
+ *   title: 'Traffic by Source',
+ *   data: [{ month: 'Jan', organic: 40, paid: 20 }],
+ *   chartType: 'stacked_area',
+ *   xKey: 'month',
+ *   yKeys: ['organic', 'paid'],
+ *   xLabel: 'Month',
+ *   yLabel: 'Sessions',
+ * };
+ * ```
+ *
+ * @example Bump chart
+ * ```typescript
+ * // Each yKey holds the competitor's RANK in that period (1 is best), not
+ * // the underlying value. MAIDR inverts the pitch so rank 1 is the highest
+ * // note; handing it values instead would sonify the chart upside down.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'table-chart',
+ *   title: 'League Position by Matchday',
+ *   data: [{ matchday: 1, arsenal: 3, chelsea: 1 }],
+ *   chartType: 'bump',
+ *   xKey: 'matchday',
+ *   yKeys: ['arsenal', 'chelsea'],
+ *   xLabel: 'Matchday',
+ *   yLabel: 'Position',
  * };
  * ```
  *

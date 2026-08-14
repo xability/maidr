@@ -132,8 +132,15 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'stacked_bar'` | `<Bar stackId="...">` | Stacked bar chart (multiple `yKeys`) |
 | `'dodged_bar'` | Multiple `<Bar>` | Grouped/side-by-side bar chart (multiple `yKeys`) |
 | `'normalized_bar'` | `<Bar stackId="...">` | 100% stacked bar chart (multiple `yKeys`) |
+| `'dot'` | `<Scatter>` | Cleveland dot plot: one point per category |
+| `'lollipop'` | `<Bar barSize={2}>` + `<Scatter>` | Lollipop chart: a stem and a head |
 | `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
 | `'line'` | `<Line>` | Line chart |
+| `'area'` | `<Area>` | Area chart |
+| `'stacked_area'` | `<Area stackId="...">` | Stacked area chart (multiple `yKeys`) |
+| `'normalized_area'` | `<AreaChart stackOffset="expand">` | 100% stacked area chart (multiple `yKeys`) |
+| `'radar'` | `<RadarChart>` + `<Radar>` | Radar/spider chart |
+| `'bump'` | `<LineChart>` + `<YAxis reversed>` | Bump chart: rank over time |
 | `'scatter'` | `<Scatter>` | Scatter/point plot |
 | `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
 
@@ -224,6 +231,61 @@ const data = [
 </MaidrRecharts>
 ```
 
+### Dot Plot and Lollipop Chart
+
+Both read exactly as a bar chart does — one category, one magnitude — and take the same config. What differs is the mark, and therefore what MAIDR highlights.
+
+A Cleveland dot plot is a `<Scatter>` against a category axis:
+
+```tsx
+const data = [
+  { role: 'Nurse', pay: 62 },
+  { role: 'Teacher', pay: 54 },
+  { role: 'Engineer', pay: 88 },
+];
+
+<MaidrRecharts
+  id="dot-example"
+  title="Median Pay by Role"
+  data={data}
+  chartType="dot"
+  xKey="role"
+  yKeys={['pay']}
+  xLabel="Role"
+  yLabel="Median pay ($k)"
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="role" type="category" allowDuplicatedCategory={false} />
+    <YAxis dataKey="pay" type="number" />
+    <Scatter data={data} fill="#8884d8" />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+A lollipop has no Recharts primitive; compose a thin `<Bar>` stem with a `<Scatter>` head:
+
+```tsx
+<MaidrRecharts
+  id="lollipop-example"
+  title="Market Share by Country"
+  data={data}
+  chartType="lollipop"
+  xKey="country"
+  yKeys={['share']}
+  xLabel="Country"
+  yLabel="Share (%)"
+>
+  <ComposedChart width={600} height={350} data={data}>
+    <XAxis dataKey="country" />
+    <YAxis />
+    <Bar dataKey="share" barSize={2} fill="#8884d8" />
+    <Scatter dataKey="share" fill="#8884d8" />
+  </ComposedChart>
+</MaidrRecharts>
+```
+
+Highlighting targets the head (`.recharts-scatter-symbol .recharts-symbols`), not the stem, because the head is where the value is read off. If you draw the lollipop with a custom `<Bar>` shape that renders its own dot, pass a `selectorOverride` pointing at that element instead.
+
 ### Histogram
 
 Requires `binConfig` to specify which data keys contain the bin edges:
@@ -284,6 +346,130 @@ const data = [
 ```
 
 > **Tip:** Always include `dot` on the `<Line>` component. MAIDR uses the rendered dot elements for visual highlighting during keyboard navigation.
+
+### Area Chart
+
+```tsx
+const data = [
+  { month: 'Jan', mm: 80 },
+  { month: 'Feb', mm: 65 },
+  { month: 'Mar', mm: 90 },
+];
+
+<MaidrRecharts
+  id="area-example"
+  title="Monthly Rainfall"
+  data={data}
+  chartType="area"
+  xKey="month"
+  yKeys={['mm']}
+  xLabel="Month"
+  yLabel="Rainfall (mm)"
+>
+  <AreaChart width={600} height={350} data={data}>
+    <XAxis dataKey="month" />
+    <YAxis />
+    <Area type="monotone" dataKey="mm" stroke="#8884d8" fill="#8884d8" dot />
+  </AreaChart>
+</MaidrRecharts>
+```
+
+> **Tip:** As with `<Line>`, include `dot` on the `<Area>`. The filled band is a single path with nothing per sample to highlight, so the dots are the only marks MAIDR can align to the data.
+
+### Stacked and 100% Stacked Area
+
+Use `stacked_area` for `<Area stackId="...">` and `normalized_area` when the chart also sets `stackOffset="expand"`. Pass each band's **own** value — not the accumulated top edge, and not the expanded fraction. MAIDR sums the series itself to announce the running total and each point's share of it:
+
+```tsx
+const data = [
+  { month: 'Jan', organic: 40, paid: 20 },
+  { month: 'Feb', organic: 55, paid: 15 },
+];
+
+<MaidrRecharts
+  id="stacked-area-example"
+  title="Sessions by Source"
+  data={data}
+  chartType="stacked_area"
+  xKey="month"
+  yKeys={['organic', 'paid']}
+  xLabel="Month"
+  yLabel="Sessions"
+>
+  <AreaChart width={600} height={350} data={data}>
+    <XAxis dataKey="month" />
+    <YAxis />
+    <Area type="monotone" dataKey="organic" stackId="a" stroke="#8884d8" fill="#8884d8" dot />
+    <Area type="monotone" dataKey="paid" stackId="a" stroke="#82ca9d" fill="#82ca9d" dot />
+  </AreaChart>
+</MaidrRecharts>
+```
+
+A stacked area declared over a single `yKey` falls back to `'area'`: one band is not stacked against anything, and announcing a total equal to the point's own value on every sample is noise rather than information.
+
+### Radar Chart
+
+`xKey` is the `<PolarAngleAxis dataKey>` (the spoke) and each entry in `yKeys` is one `<Radar>`:
+
+```tsx
+const data = [
+  { attribute: 'Speed', alice: 90, bob: 70 },
+  { attribute: 'Power', alice: 60, bob: 85 },
+  { attribute: 'Stamina', alice: 75, bob: 80 },
+];
+
+<MaidrRecharts
+  id="radar-example"
+  title="Player Attributes"
+  data={data}
+  chartType="radar"
+  xKey="attribute"
+  yKeys={['alice', 'bob']}
+  xLabel="Attribute"
+  yLabel="Rating"
+>
+  <RadarChart width={500} height={400} data={data}>
+    <PolarGrid />
+    <PolarAngleAxis dataKey="attribute" />
+    <Radar dataKey="alice" stroke="#8884d8" fill="#8884d8" fillOpacity={0.4} dot />
+    <Radar dataKey="bob" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.4} dot />
+  </RadarChart>
+</MaidrRecharts>
+```
+
+MAIDR pans each spoke to its position around the circle — 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again — so a radar sounds like a circle rather than a row of bars.
+
+### Bump Chart
+
+A bump chart is rank over time: a `<LineChart>` with `<YAxis reversed>` so rank 1 sits at the top. Each `yKey` holds the competitor's **rank** in that period, never the underlying value:
+
+```tsx
+const data = [
+  { matchday: 1, arsenal: 3, chelsea: 1 },
+  { matchday: 2, arsenal: 1, chelsea: 2 },
+  { matchday: 3, arsenal: 1, chelsea: 3 },
+];
+
+<MaidrRecharts
+  id="bump-example"
+  title="League Position by Matchday"
+  data={data}
+  chartType="bump"
+  xKey="matchday"
+  yKeys={['arsenal', 'chelsea']}
+  xLabel="Matchday"
+  yLabel="Position"
+>
+  <LineChart width={600} height={350} data={data}>
+    <XAxis dataKey="matchday" />
+    <YAxis reversed allowDecimals={false} />
+    <Line type="linear" dataKey="arsenal" stroke="#8884d8" dot />
+    <Line type="linear" dataKey="chelsea" stroke="#82ca9d" dot />
+  </LineChart>
+</MaidrRecharts>
+```
+
+> **Warning:** MAIDR inverts the pitch for a bump chart so rank 1 is the highest note, and announces the places gained or lost since the previous period. Declaring a chart of *values* as `'bump'` therefore sonifies it upside down — every rise heard as a fall. The adapter cannot tell the two apart, so this one is on you.
 
 ### Scatter Chart
 
@@ -467,8 +653,15 @@ type RechartsChartType =
   | 'stacked_bar'
   | 'dodged_bar'
   | 'normalized_bar'
+  | 'dot'
+  | 'lollipop'
   | 'histogram'
   | 'line'
+  | 'area'
+  | 'stacked_area'
+  | 'normalized_area'
+  | 'radar'
+  | 'bump'
   | 'scatter'
   | 'pie';
 ```

@@ -26,8 +26,30 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('line')).toBe('.recharts-line-dots .recharts-line-dot');
     });
 
+    it('returns scoped area dot selector for the whole area family', () => {
+      expect(getRechartsSelector('area')).toBe('.recharts-area-dots .recharts-area-dot');
+      expect(getRechartsSelector('stacked_area')).toBe('.recharts-area-dots .recharts-area-dot');
+      expect(getRechartsSelector('normalized_area')).toBe('.recharts-area-dots .recharts-area-dot');
+    });
+
+    it('returns scoped radar dot selector for radar type', () => {
+      expect(getRechartsSelector('radar')).toBe('.recharts-radar-dots .recharts-radar-dot');
+    });
+
+    it('returns scoped line dot selector for bump type', () => {
+      // A bump chart is a <LineChart> of ranks, so it draws line dots.
+      expect(getRechartsSelector('bump')).toBe('.recharts-line-dots .recharts-line-dot');
+    });
+
     it('returns scoped scatter symbol selector for scatter type', () => {
       expect(getRechartsSelector('scatter')).toBe('.recharts-scatter-symbol .recharts-symbols');
+    });
+
+    it('returns scoped scatter symbol selector for dot and lollipop types', () => {
+      // Both are drawn with <Scatter>; the lollipop's stem <Bar> is not the
+      // mark a reader takes the value off.
+      expect(getRechartsSelector('dot')).toBe('.recharts-scatter-symbol .recharts-symbols');
+      expect(getRechartsSelector('lollipop')).toBe('.recharts-scatter-symbol .recharts-symbols');
     });
 
     it('returns scoped pie sector selector for pie type', () => {
