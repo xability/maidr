@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Mosaic Plot - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Mosaic (Marimekko) Plot</h1>
+    <p>
+      A marimekko reaches plotly as stacked <code>bar</code> traces whose
+      columns are drawn at precomputed cumulative positions and given a
+      per-column <code>width</code>. MAIDR does <strong>not</strong> guess at
+      that: <code>width</code> is ordinary bar styling that any bar trace may
+      carry, and reading a non-uniform array as data would announce every
+      column's width as a share of all observations — a number the chart does
+      not contain.
+    </p>
+    <p>
+      So a mosaic is declared, on plotly's own metadata attribute:
+      <code>meta: { maidr: { type: 'mosaic' } }</code>. With it, each cell
+      announces its column's share of all observations alongside its own
+      proportion, and the description names the largest and smallest group —
+      the marginal distribution a reader cannot accumulate by walking the
+      segments. <code>width</code> and <code>count</code> may name columns of
+      <code>customdata</code> when the figure carries the contingency table it
+      was drawn from; without them the drawn widths are normalised into shares.
+    </p>
+
+    <div id="mosaic" style="width: 760px; height: 520px"></div>
+
+    <script>
+      const classes = ['First', 'Second', 'Third', 'Crew'];
+      const passengers = [325, 285, 706, 885];
+      const survived = [203, 118, 178, 212];
+
+      // The bars are positioned by hand: a column's centre is everything
+      // before it plus half of itself, which is what makes the widths mean
+      // something.
+      const total = passengers.reduce((sum, count) => sum + count, 0);
+      let travelled = 0;
+      const centres = passengers.map((count) => {
+        const centre = travelled + count / 2;
+        travelled += count;
+        return centre;
+      });
+
+      const cells = (counts) =>
+        counts.map((count, i) => ({ count, share: passengers[i] / total }));
+
+      Plotly.newPlot(
+        'mosaic',
+        [
+          {
+            type: 'bar',
+            name: 'Survived',
+            x: centres,
+            y: survived.map((count, i) => count / passengers[i]),
+            width: passengers,
+            customdata: cells(survived),
+            // The declaration. `width` and `count` name columns of
+            // `customdata`; leaving them out reads the drawn widths instead.
+            meta: {
+              maidr: { type: 'mosaic', width: 'share', count: 'count' }
+            }
+          },
+          {
+            type: 'bar',
+            name: 'Died',
+            x: centres,
+            y: survived.map((count, i) => 1 - count / passengers[i]),
+            width: passengers,
+            customdata: cells(
+              survived.map((count, i) => passengers[i] - count)
+            )
+          }
+        ],
+        {
+          title: { text: 'Titanic survival by class' },
+          barmode: 'stack',
+          bargap: 0,
+          xaxis: {
+            title: { text: 'Class' },
+            tickmode: 'array',
+            tickvals: centres,
+            ticktext: classes
+          },
+          yaxis: { title: { text: 'Proportion' } }
+        }
+      );
+    </script>
+  </body>
+</html>

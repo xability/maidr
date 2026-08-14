@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ErrorBarPoint, GanttData, GaugePoint, LinePoint, MaidrLayer, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, LinePoint, MaidrLayer, MosaicPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -4237,6 +4237,481 @@ describe('plotly extractor', () => {
         .toEqual([TraceType.BAR, TraceType.CHOROPLETH]);
       expect(maidr!.subplots[0][1].layers[0].selectors)
         .toEqual(expect.arrayContaining([expect.stringContaining('g.geo.geo2')]));
+    });
+  });
+  describe('contour', () => {
+    /**
+     * A single peak at the centre of a 3x3 grid. Every level between 0 and 4
+     * crosses it as one closed diamond, which is small enough to write down.
+     */
+    const PEAK = [
+      [0, 0, 0],
+      [0, 4, 0],
+      [0, 0, 0],
+    ];
+
+    function contourGd(
+      trace: PlotlyTrace,
+      calcdata?: PlotlyCalcData[][],
+      extra: PlotlyTrace[] = [],
+    ): PlotlyGraphDiv {
+      return createGraphDiv({
+        traces: [trace, ...extra],
+        layout: {
+          xaxis: { title: { text: 'X' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Y' }, domain: [0, 1] },
+        },
+        calcdata,
+        bgRects: [{ x: 0, y: 0 }],
+      });
+    }
+
+    function contourLayer(
+      trace: PlotlyTrace,
+      calcdata?: PlotlyCalcData[][],
+    ): MaidrLayer {
+      const maidr = extractPlotlyData(contourGd(trace, calcdata));
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('walks the grid itself at the level the trace states', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      expect(layer.type).toBe(TraceType.CONTOUR);
+      // The level runs half way up every edge out of the peak, and the curve
+      // closes by repeating the vertex it started at.
+      expect(layer.data as ContourPoint[][]).toEqual([[
+        { x: 1, y: 0.5, level: 2 },
+        { x: 0.5, y: 1, level: 2 },
+        { x: 1, y: 1.5, level: 2 },
+        { x: 1.5, y: 1, level: 2 },
+        { x: 1, y: 0.5, level: 2 },
+      ]]);
+      expect(layer.axes?.x?.label).toBe('X');
+      expect(layer.axes?.y?.label).toBe('Y');
+    });
+
+    it('reads the coordinates in data units rather than in grid positions', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 10, 20],
+        y: [0, 5, 10],
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      expect((layer.data as ContourPoint[][])[0]).toEqual([
+        { x: 10, y: 2.5, level: 2 },
+        { x: 5, y: 5, level: 2 },
+        { x: 10, y: 7.5, level: 2 },
+        { x: 15, y: 5, level: 2 },
+        { x: 10, y: 2.5, level: 2 },
+      ]);
+    });
+
+    it('keeps a level the field never crosses out of the layer, and out of nothing else', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        // Nothing is below 0, so the first level of the ladder draws no curve
+        // at all -- but plotly still gives it a group of its own.
+        contours: { start: 0, end: 4, size: 2 },
+      });
+
+      expect((layer.data as ContourPoint[][]).map(curve => curve[0].level))
+        .toEqual([2, 4]);
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .contourlayer > g.contour:nth-of-type(1) > g.contourlines'
+        + ' > g.contourlevel:nth-of-type(2) > path',
+        '.subplot.xy .contourlayer > g.contour:nth-of-type(1) > g.contourlines'
+        + ' > g.contourlevel:nth-of-type(3) > path',
+      ]);
+    });
+
+    it('counts a contour past the ones drawn into the same panel before it', () => {
+      const maidr = extractPlotlyData(contourGd(
+        {
+          type: 'histogram2dcontour',
+          x: [1, 2],
+          y: [1, 2],
+          contours: { start: 2, end: 2, size: 1 },
+        },
+        [[{ z: PEAK, x: [0, 1, 2], y: [0, 1, 2] }], []],
+        [{
+          type: 'contour',
+          z: PEAK,
+          x: [0, 1, 2],
+          y: [0, 1, 2],
+          contours: { start: 2, end: 2, size: 1 },
+        }],
+      ));
+
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers.map(layer => layer.type))
+        .toEqual([TraceType.CONTOUR, TraceType.CONTOUR]);
+      // Both trace types are drawn into `contourlayer` and given the same
+      // group class, so the second one is the second group.
+      expect(layers[1].selectors).toEqual([
+        '.subplot.xy .contourlayer > g.contour:nth-of-type(2) > g.contourlines'
+        + ' > g.contourlevel:nth-of-type(1) > path',
+      ]);
+    });
+
+    it('reads the grid plotly binned for a histogram2dcontour', () => {
+      const layer = contourLayer(
+        {
+          type: 'histogram2dcontour',
+          x: [1, 2, 3],
+          y: [1, 2, 3],
+          contours: { start: 2, end: 2, size: 1 },
+        },
+        [[{ z: PEAK, x: [0, 10, 20], y: [0, 5, 10] }]],
+      );
+
+      // The trace carries samples rather than a grid; only calcdata has the
+      // binned field, and the bin centres with it.
+      expect(layer.type).toBe(TraceType.CONTOUR);
+      expect((layer.data as ContourPoint[][])[0][0]).toEqual({ x: 10, y: 2.5, level: 2 });
+    });
+
+    it('names the level axis from the colorbar, and leaves it unnamed without one', () => {
+      const trace: PlotlyTrace = {
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1 },
+      };
+
+      expect(contourLayer(trace).axes?.z).toBeUndefined();
+      expect(contourLayer({
+        ...trace,
+        colorbar: { title: { text: 'Density' } },
+      }).axes?.z).toEqual({ label: 'Density' });
+    });
+
+    it('skips a contour whose levels plotly has not resolved', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      expect(extractPlotlyData(contourGd({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+      }))).toBeNull();
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('states no levels'));
+      warn.mockRestore();
+    });
+
+    it('skips a constraint contour, which draws a region and not a ladder', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      expect(extractPlotlyData(contourGd({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { type: 'constraint', start: 1, end: 3, size: 1 },
+      }))).toBeNull();
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('constraint region'));
+      warn.mockRestore();
+    });
+
+    it('flattens a level drawn as several disjoint curves into one row', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        // A ridge along the middle row: the level runs across the grid twice,
+        // once below the ridge and once above it, and neither curve closes.
+        z: [
+          [0, 0, 0],
+          [4, 4, 4],
+          [0, 0, 0],
+        ],
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      // One row per LEVEL, not per curve: the level is what the reader
+      // navigates, and the two halves of it are one thing to walk.
+      expect(layer.data as ContourPoint[][]).toEqual([[
+        { x: 0, y: 0.5, level: 2 },
+        { x: 1, y: 0.5, level: 2 },
+        { x: 2, y: 0.5, level: 2 },
+        { x: 0, y: 1.5, level: 2 },
+        { x: 1, y: 1.5, level: 2 },
+        { x: 2, y: 1.5, level: 2 },
+      ]]);
+    });
+
+    it('joins an ambiguous cell the way the field runs through it', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        // An anti-diagonal ridge. Both middle cells have their high corners
+        // opposite each other, so which pair of edges the curve joins is
+        // decided by the middle of the cell -- and joining the other pair
+        // would splice the two curves into one that runs through the ridge.
+        z: [
+          [0, 0, 4],
+          [0, 4, 0],
+          [4, 0, 0],
+        ],
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      expect(layer.data as ContourPoint[][]).toEqual([[
+        // The curve below the ridge, walked back to the end the scan did not
+        // start from.
+        { x: 1.5, y: 0, level: 2 },
+        { x: 1, y: 0.5, level: 2 },
+        { x: 0.5, y: 1, level: 2 },
+        { x: 0, y: 1.5, level: 2 },
+        // And the one above it.
+        { x: 2, y: 0.5, level: 2 },
+        { x: 1.5, y: 1, level: 2 },
+        { x: 1, y: 1.5, level: 2 },
+        { x: 0.5, y: 2, level: 2 },
+      ]]);
+    });
+  });
+
+  describe('mosaic', () => {
+    /**
+     * A two-column marimekko: the columns sit at cumulative centres and are
+     * drawn 30 and 90 wide, so they are a quarter and three quarters of all
+     * observations.
+     */
+    function mosaicTraces(
+      declaration: unknown,
+      overrides: Partial<PlotlyTrace> = {},
+    ): PlotlyTrace[] {
+      return [
+        {
+          type: 'bar',
+          name: 'Survived',
+          x: [15, 75],
+          y: [0.6, 0.3],
+          width: [30, 90],
+          meta: declaration === undefined ? undefined : { maidr: declaration },
+          ...overrides,
+        },
+        {
+          type: 'bar',
+          name: 'Died',
+          x: [15, 75],
+          y: [0.4, 0.7],
+          width: [30, 90],
+        },
+      ];
+    }
+
+    function mosaicGd(
+      traces: PlotlyTrace[],
+      layout: Partial<PlotlyFullLayout> = {},
+    ): PlotlyGraphDiv {
+      return createGraphDiv({
+        traces,
+        layout: {
+          barmode: 'stack',
+          xaxis: {
+            title: { text: 'Class' },
+            domain: [0, 1],
+            tickvals: [15, 75],
+            ticktext: ['First', 'Third'],
+          },
+          yaxis: { title: { text: 'Proportion' }, domain: [0, 1] },
+          ...layout,
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+    }
+
+    function mosaicLayer(
+      traces: PlotlyTrace[],
+      layout: Partial<PlotlyFullLayout> = {},
+    ): MaidrLayer {
+      const maidr = extractPlotlyData(mosaicGd(traces, layout));
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads a declared marimekko as one, with each column carrying its share', () => {
+      const layer = mosaicLayer(mosaicTraces({ type: 'mosaic' }));
+
+      expect(layer.type).toBe(TraceType.MOSAIC);
+      expect(layer.data as MosaicPoint[][]).toEqual([
+        [
+          { x: 'First', y: 0.6, z: 'Survived', width: 0.25 },
+          { x: 'Third', y: 0.3, z: 'Survived', width: 0.75 },
+        ],
+        [
+          { x: 'First', y: 0.4, z: 'Died', width: 0.25 },
+          { x: 'Third', y: 0.7, z: 'Died', width: 0.75 },
+        ],
+      ]);
+      // Drawn as a stacked bar chart, and highlighted as one.
+      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+    });
+
+    it('leaves an undeclared stacked bar chart a stacked bar chart', () => {
+      const layer = mosaicLayer(mosaicTraces(undefined));
+
+      // The widths are still there and still non-uniform: plotly's `width` is
+      // ordinary bar styling, so nothing but the declaration says otherwise.
+      expect(layer.type).toBe(TraceType.STACKED);
+      expect(layer.data as SegmentedPoint[][]).toEqual([
+        [
+          { x: 15, y: 0.6, z: 'Survived' },
+          { x: 75, y: 0.3, z: 'Survived' },
+        ],
+        [
+          { x: 15, y: 0.4, z: 'Died' },
+          { x: 75, y: 0.7, z: 'Died' },
+        ],
+      ]);
+    });
+
+    it('reads the share and the count off the columns the author named', () => {
+      const [survived, died] = mosaicTraces(
+        { type: 'mosaic', width: 'share', count: 'n' },
+        {
+          customdata: [{ share: 0.3, n: 203 }, { share: 0.7, n: 178 }],
+        },
+      );
+      const layer = mosaicLayer([
+        survived,
+        { ...died, customdata: [{ share: 0.3, n: 122 }, { share: 0.7, n: 528 }] },
+      ]);
+
+      // The declared column wins over the widths plotly drew, which would
+      // have given 0.25 and 0.75.
+      expect(layer.data as MosaicPoint[][]).toEqual([
+        [
+          { x: 'First', y: 0.6, z: 'Survived', width: 0.3, count: 203 },
+          { x: 'Third', y: 0.3, z: 'Survived', width: 0.7, count: 178 },
+        ],
+        [
+          { x: 'First', y: 0.4, z: 'Died', width: 0.3, count: 122 },
+          { x: 'Third', y: 0.7, z: 'Died', width: 0.7, count: 528 },
+        ],
+      ]);
+    });
+
+    it('reports a named column no row carries, and leaves the field out', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = mosaicLayer(mosaicTraces(
+        { type: 'mosaic', count: 'tally' },
+        { customdata: [{ n: 203 }, { n: 178 }] },
+      ));
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('names "tally" for count'),
+      );
+      expect((layer.data as MosaicPoint[][])[0][0].count).toBeUndefined();
+      warn.mockRestore();
+    });
+
+    it('names the columns from the ticks when the bars sit at cumulative positions', () => {
+      const layer = mosaicLayer(mosaicTraces({ type: 'mosaic' }), {
+        xaxis: { domain: [0, 1], tickvals: [15, 75], ticktext: ['Crew', 'Third'] },
+      });
+
+      expect((layer.data as MosaicPoint[][])[0].map(point => point.x))
+        .toEqual(['Crew', 'Third']);
+    });
+
+    it('prefers the text the author drew on the columns to the axis ticks', () => {
+      const [survived, died] = mosaicTraces({ type: 'mosaic' });
+      const layer = mosaicLayer([
+        { ...survived, text: ['First class', 'Third class'] },
+        died,
+      ]);
+
+      const data = layer.data as MosaicPoint[][];
+      expect(data[0].map(point => point.x)).toEqual(['First class', 'Third class']);
+      // Named per trace: the series that drew no text still takes the ticks.
+      expect(data[1].map(point => point.x)).toEqual(['First', 'Third']);
+    });
+
+    it('keeps the position when nothing names the column', () => {
+      const layer = mosaicLayer(mosaicTraces({ type: 'mosaic' }), {
+        xaxis: { domain: [0, 1] },
+      });
+
+      expect((layer.data as MosaicPoint[][])[0].map(point => point.x))
+        .toEqual([15, 75]);
+    });
+
+    it('refuses a mosaic declared on bars plotly drew side by side', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = mosaicLayer(mosaicTraces({ type: 'mosaic' }), {
+        barmode: 'group',
+      });
+
+      expect(layer.type).toBe(TraceType.DODGED);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('barmode "group"'));
+      warn.mockRestore();
+    });
+
+    it('refuses a mosaic declared on a trace that draws no bars', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const maidr = extractPlotlyData(mosaicGd([
+        ...mosaicTraces(undefined),
+        {
+          type: 'scatter',
+          mode: 'markers',
+          x: [1, 2],
+          y: [1, 2],
+          meta: { maidr: { type: 'mosaic' } },
+        },
+      ]));
+
+      expect(maidr!.subplots[0][0].layers.map(layer => layer.type))
+        .toEqual([TraceType.STACKED, TraceType.SCATTER]);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('is not on a bar trace'),
+      );
+      warn.mockRestore();
+    });
+
+    it('reports a declared type the adapter does not read, and reads the chart undeclared', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = mosaicLayer(mosaicTraces({ type: 'boxen' }));
+
+      expect(layer.type).toBe(TraceType.STACKED);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('declares "boxen", which the plotly adapter does not read'),
+      );
+      warn.mockRestore();
+    });
+
+    it('passes over a meta that is not a declaration at all', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // `meta` is plotly's own metadata attribute and is very often a plain
+      // string that has nothing to do with MAIDR.
+      const layer = mosaicLayer(mosaicTraces(undefined, { meta: 'run 3' }));
+
+      expect(layer.type).toBe(TraceType.STACKED);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 });

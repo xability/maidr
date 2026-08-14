@@ -92,6 +92,8 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Dot Plot | `type: 'scatter'`, `mode: 'markers'`, one marker per category | [Dot plot](examples.html) |
 | Word Cloud | `type: 'scatter'`, `mode: 'text'`, array `textfont.size` | [Word cloud](examples.html) |
 | Choropleth | `type: 'choropleth'` | [Choropleth map](examples.html) |
+| Contour | `type: 'contour'` or `type: 'histogram2dcontour'` | [Contour plot](examples.html) |
+| Mosaic / Marimekko | stacked `bar` traces declaring `meta: { maidr: { type: 'mosaic' } }` | [Mosaic plot](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 **Notes on chart-type detection:**
@@ -183,6 +185,32 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   layer carries no selectors — audio, text, braille, and navigation all work,
   visual highlighting alone does not.
 
+- A `contour` (and a `histogram2dcontour`) is read as one curve per level.
+  Plotly computes its curves while it draws and keeps none of them — the
+  calculated data holds the grid and nothing else — so MAIDR walks the grid
+  itself by marching squares, at the levels the trace states in
+  `contours.start`, `.end` and `.size`. Those are resolved by Plotly even when
+  `autocontour` chose them, so nothing is guessed: a chart whose levels are not
+  resolved is skipped rather than read at invented ones. The level is announced
+  on the field's own axis — named from the colorbar title when there is one —
+  and each point announces the distance to the nearest point on the adjacent
+  level, which is what the crowding of the lines conveys visually. Where a
+  level is drawn as several disjoint curves, they are walked as one row, in the
+  order they were found. A `contours.type: 'constraint'` trace shades the
+  region satisfying an inequality rather than drawing a level ladder, so it is
+  skipped instead of being announced as one. Plotly draws a level as whole
+  curves with no element per vertex, so the visual highlight is synthesised
+  along the drawn curve; each level's selector is scoped to that level's own
+  group, so a highlight always lands on the level being read.
+
+- A mosaic (marimekko) is **declared**, not detected. Plotly draws one as
+  stacked `bar` traces with a per-column `width`, but `width` is ordinary bar
+  styling that any bar trace may carry, so reading a non-uniform array as data
+  would announce every column's width as a share of all observations — a number
+  the chart does not contain. Writing `meta: { maidr: { type: 'mosaic' } }` on
+  one of the panel's bar traces is what says otherwise; see
+  [Declaring a mosaic](#declaring-a-mosaic).
+
 - Plotly sorts pie slices by descending value unless the trace sets
   `sort: false`, so the authored order is not necessarily the drawn order. The
   adapter reads the slices Plotly actually drew where the rendered chart exposes
@@ -190,6 +218,56 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   it emits the layer without selectors, since slice *k* is then not wedge *k*.
   That costs visual highlighting only — audio, text, and braille are unaffected.
   Set `sort: false` to keep both.
+
+## Declaring a mosaic
+
+Most Plotly charts name themselves in `trace.type`, and MAIDR reads them with
+no configuration at all. A marimekko is the exception: it is stacked bars plus
+a convention, and the convention is invisible to the schema. It is declared on
+`meta`, Plotly's own metadata attribute — ordinary trace config, so it survives
+`Plotly.react` and a JSON-authored figure.
+
+```javascript
+{
+  type: 'bar',
+  name: 'Survived',
+  x: centres,          // cumulative column centres, computed by the author
+  y: proportions,
+  width: passengers,   // each column's width, in x-axis units
+  customdata: rows,    // the author's own rows, one per column
+  meta: {
+    maidr: {
+      type: 'mosaic',
+      width: 'share',  // optional: the column of `customdata` holding the share
+      count: 'count'   // optional: the column holding the cell's own count
+    }
+  }
+}
+```
+
+Only the bare `{ type: 'mosaic' }` is required, and only on one of the panel's
+bar traces — it declares the layer, not the series. Then:
+
+- **The share of all observations** comes from `width` when the declaration
+  names a column of `customdata` that carries it, and otherwise from the drawn
+  widths, normalised by their own total. A chart authored in counts, in
+  percentages or already in fractions therefore all read the same.
+- **The cell count** is emitted only when a column holds it. A mosaic drawn
+  from proportions alone genuinely has no counts, and multiplying a rounded
+  share back out would put a number in the announcement that the data does not
+  contain.
+- **The column names** come from the trace's `text`, then its `hovertext`, and
+  then the axis `ticktext` at the matching `tickvals`. A marimekko's `x` is a
+  precomputed position rather than a category, so without one of those a column
+  is announced by the number it sits at.
+
+The declaration is checked when it is read. An unknown key, a value of the
+wrong kind, or a `type` that is not a MAIDR trace type is reported on the
+console and the chart is read as the undeclared one — never dropped, and never
+read as something it is not. A declaration this adapter cannot honour is
+reported too: a `mosaic` on a trace that draws no bars, or on a panel whose
+bars Plotly drew side by side, leaves the panel read as the grouped bar chart
+it is.
 
 ## Code Examples
 
@@ -321,6 +399,64 @@ the ones drawn with a mean line highlight it.
     colorscale: 'Viridis'
   }], {
     title: { text: 'Activity Heatmap' }
+  });
+</script>
+```
+
+### Contour Plot
+
+```html
+<div id="contour-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('contour-chart', [{
+    type: 'contour',
+    z: field,                 // a 2D array of magnitudes
+    x: eastings,              // one coordinate per column
+    y: northings,             // one coordinate per row
+    contours: { start: 0.2, end: 1.4, size: 0.2 },
+    colorbar: { title: { text: 'Concentration' } }
+  }], {
+    title: { text: 'Concentration over the sampling area' },
+    xaxis: { title: { text: 'Easting (km)' } },
+    yaxis: { title: { text: 'Northing (km)' } }
+  });
+</script>
+```
+
+`contours` may be left out entirely — Plotly picks the ladder itself and MAIDR
+reads whichever one it resolved.
+
+### Mosaic (Marimekko)
+
+```html
+<div id="mosaic-chart" style="width: 700px; height: 500px"></div>
+<script>
+  // Column centres are cumulative: everything before the column, plus half
+  // of it. The widths are what makes it a mosaic rather than a stacked bar.
+  Plotly.newPlot('mosaic-chart', [{
+    type: 'bar',
+    name: 'Survived',
+    x: centres,
+    y: [0.62, 0.41, 0.25, 0.24],
+    width: [325, 285, 706, 885],
+    meta: { maidr: { type: 'mosaic' } }
+  }, {
+    type: 'bar',
+    name: 'Died',
+    x: centres,
+    y: [0.38, 0.59, 0.75, 0.76],
+    width: [325, 285, 706, 885]
+  }], {
+    title: { text: 'Titanic survival by class' },
+    barmode: 'stack',
+    bargap: 0,
+    xaxis: {
+      title: { text: 'Class' },
+      tickmode: 'array',
+      tickvals: centres,
+      ticktext: ['First', 'Second', 'Third', 'Crew']
+    },
+    yaxis: { title: { text: 'Proportion' } }
   });
 </script>
 ```

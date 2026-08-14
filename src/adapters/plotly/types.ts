@@ -72,6 +72,19 @@ export interface PlotlyTrace {
   textfont?: { size?: number | number[] };
   /** Author-supplied values carried through to hover templates and events. */
   customdata?: unknown[];
+  /**
+   * Plotly's own arbitrary-metadata attribute, and the slot a co-located
+   * `maidr` declaration rides in — `trace.meta.maidr`. Typed `unknown`
+   * because it is very often a plain string that has nothing to do with
+   * MAIDR; {@link readDeclarationSlot} narrows it.
+   */
+  meta?: unknown;
+  /**
+   * How wide each bar is drawn, in position-axis units. Ordinary bar styling
+   * — which is exactly why a non-uniform array is NOT read as a marimekko on
+   * its own. It becomes data only once a trace declares `type: 'mosaic'`.
+   */
+  width?: number | number[];
   // Waterfall-specific
   /**
    * What each step does to the running total: `relative` contributes,
@@ -185,6 +198,31 @@ export interface PlotlyTrace {
   domain?: { x?: [number, number]; y?: [number, number] };
   // Heatmap colorbar
   colorbar?: { title?: { text?: string } | string };
+  // Contour-specific
+  /** The iso-value curves the trace draws. */
+  contours?: PlotlyContours;
+}
+
+/**
+ * The levels a contour trace draws its curves at.
+ *
+ * Plotly resolves all three during calc — `setContours` fills them in even
+ * when the author left `autocontour` on — so a drawn chart states its own
+ * levels and nothing has to be guessed from the grid.
+ */
+export interface PlotlyContours {
+  /** The lowest level drawn. */
+  start?: number;
+  /** The highest level drawn; the walk stops at or before it. */
+  end?: number;
+  /** The value between one level and the next. */
+  size?: number;
+  /**
+   * `levels` for the ordinary reading, `constraint` for the region-shading
+   * one — which draws a boundary rather than a family of iso-curves, so its
+   * `start`/`end` are the ends of an interval and not a level ladder.
+   */
+  type?: 'levels' | 'constraint';
 }
 
 /**
@@ -370,6 +408,12 @@ export interface PlotlyAxis {
   tick0?: number | string;
   tickmode?: 'auto' | 'linear' | 'array';
   tickvals?: number[];
+  /**
+   * The label drawn at each of {@link PlotlyAxis.tickvals}. A marimekko names
+   * its columns here: its bars sit at precomputed cumulative positions, so
+   * the tick text is the only place the category names survive.
+   */
+  ticktext?: (number | string)[];
   type?: string;
   categories?: string[];
   /** Fraction of the plot area this axis spans: `[start, end]` in [0, 1]. */
@@ -392,8 +436,14 @@ export interface PlotlyAxis {
 }
 
 export interface PlotlyCalcData {
-  x?: number;
-  y?: number;
+  /**
+   * One sample's position — and, on the 2d-map traces whose calc entry holds
+   * the whole grid rather than one point, the ARRAY of coordinates that grid
+   * is indexed by. A contour's `x` is its columns' coordinates in data units,
+   * already trimmed to the grid plotly drew.
+   */
+  x?: number | number[];
+  y?: number | number[];
   p?: number | string; // position (bar, box)
   s?: number; // size/value (bar); running total after the step (waterfall)
   s0?: number;

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Contour Plot - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Contour Plot</h1>
+    <p>
+      A <code>contour</code> trace draws a scalar field as curves of constant
+      value. Plotly computes those curves while it draws and keeps none of
+      them — its calculated data holds the grid and nothing else — so MAIDR
+      walks the grid itself, by marching squares, at the levels the trace
+      states in <code>contours</code>. Each curve becomes one navigable row:
+      the level is announced on the field's own axis rather than as a series
+      name, and every point announces the distance to the nearest point on the
+      adjacent level, which is what the crowding of the lines says visually.
+    </p>
+    <p>
+      Nothing has to be declared. <code>contour</code> and
+      <code>histogram2dcontour</code> name themselves, and plotly resolves the
+      level ladder even when <code>autocontour</code> chose it.
+    </p>
+
+    <div id="contour" style="width: 760px; height: 520px"></div>
+
+    <script>
+      // Two peaks of different heights and widths, so the curves crowd on one
+      // slope and spread on the other.
+      const size = 41;
+      const coordinates = Array.from(
+        { length: size },
+        (_, i) => -3 + (6 * i) / (size - 1)
+      );
+      const field = coordinates.map((y) =>
+        coordinates.map((x) => {
+          const tall = 1.6 * Math.exp(-((x + 1) ** 2 + (y + 0.6) ** 2) / 0.6);
+          const wide = 1.0 * Math.exp(-((x - 1.2) ** 2 + (y - 1) ** 2) / 2.4);
+          return Number((tall + wide).toFixed(4));
+        })
+      );
+
+      Plotly.newPlot(
+        'contour',
+        [
+          {
+            type: 'contour',
+            z: field,
+            x: coordinates,
+            y: coordinates,
+            contours: { start: 0.2, end: 1.4, size: 0.2 },
+            colorbar: { title: { text: 'Concentration' } }
+          }
+        ],
+        {
+          title: { text: 'Concentration over the sampling area' },
+          xaxis: { title: { text: 'Easting (km)' } },
+          yaxis: { title: { text: 'Northing (km)' } }
+        }
+      );
+    </script>
+  </body>
+</html>
