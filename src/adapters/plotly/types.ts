@@ -223,6 +223,16 @@ export interface PlotlyContours {
    * `start`/`end` are the ends of an interval and not a level ladder.
    */
   type?: 'levels' | 'constraint';
+  /**
+   * Whether the curves themselves are stroked, default `true`.
+   *
+   * It decides whether the elements a contour is highlighted through exist at
+   * all: `createLines` binds the level groups to no data when this is off, and
+   * a labels-only trace has the group removed again once the labels are
+   * placed. A fill-only contour is drawn entirely out of `g.contourfill`
+   * paths, one per level with no per-curve element.
+   */
+  showlines?: boolean;
 }
 
 /**

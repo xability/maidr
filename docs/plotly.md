@@ -201,7 +201,10 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   skipped instead of being announced as one. Plotly draws a level as whole
   curves with no element per vertex, so the visual highlight is synthesised
   along the drawn curve; each level's selector is scoped to that level's own
-  group, so a highlight always lands on the level being read.
+  group, so a highlight always lands on the level being read. A fill-only
+  contour — one that turned `contours.showlines` off — is drawn as one filled
+  path per level with no curve elements at all, so it is read and sonified but
+  not highlighted.
 
 - A mosaic (marimekko) is **declared**, not detected. Plotly draws one as
   stacked `bar` traces with a per-column `width`, but `width` is ordinary bar
@@ -256,6 +259,11 @@ bar traces — it declares the layer, not the series. Then:
   from proportions alone genuinely has no counts, and multiplying a rounded
   share back out would put a number in the announcement that the data does not
   contain.
+- **`customdata` rows must be objects**, `{ share: 0.3, count: 203 }` rather
+  than `['First', 0.3, 203]`. A declared field is a column *name*, and Plotly's
+  other canonical shape — one array per point — has no names to resolve
+  against, so a declared column is reported as unresolved rather than guessed
+  at by position.
 - **The column names** come from the trace's `text`, then its `hovertext`, and
   then the axis `ticktext` at the matching `tickvals`. A marimekko's `x` is a
   precomputed position rather than a category, so without one of those a column

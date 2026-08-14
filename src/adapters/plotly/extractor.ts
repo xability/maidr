@@ -3075,11 +3075,19 @@ function extractContourLayer(
     ? { ...axes, z: { label: fieldLabel } }
     : axes;
 
+  // The selectors address the level groups, and a trace that strokes no lines
+  // has none: plotly builds them only for a trace drawing lines or labels, and
+  // removes them again when only the labels were wanted. A fill-only contour
+  // is one filled path per level with nothing per curve inside it, so the
+  // layer goes out without selectors rather than with ones that match nothing
+  // — the same choice a resorted pie makes, and for the same reason.
+  const linesDrawn = trace.contours?.showlines !== false;
+
   return {
     id,
     type: TraceType.CONTOUR,
     title,
-    selectors: contourLevelSelectors(gd, traceIndex, levelIndices),
+    selectors: linesDrawn ? contourLevelSelectors(gd, traceIndex, levelIndices) : undefined,
     axes: contourAxes,
     data,
   };
@@ -4940,12 +4948,24 @@ function mosaicColumnNames(
  * `customdata` is plotly's only per-point channel for values it does not draw
  * with, which makes it the row a declared field is read off.
  *
+ * An ARRAY row is refused. Plotly's canonical `customdata` shape is one array
+ * per point — `[[a, b], [c, d]]` — and a `FieldRef` is a property NAME, so an
+ * array carries nothing a declared field could resolve against. It would not
+ * be inert, though: `resolveFieldRef` accepts an array as a row on purpose (a
+ * hexbin bin **is** the array of its points), and `count`'s fallback chain
+ * starts at `length`. A marimekko declared with no `count` would then announce
+ * every cell's number of COLUMNS as its number of observations — a fabricated
+ * count, stated with no warning, which is the one thing the declaration
+ * design refuses to do.
+ *
  * @param trace - The resolved plotly trace
  * @param index - Which point
  * @returns The row, or undefined when the point has none
  */
 function customRow(trace: PlotlyTrace, index: number): unknown {
   const row = trace.customdata?.[index];
+  if (Array.isArray(row))
+    return undefined;
   return typeof row === 'object' && row !== null ? row : undefined;
 }
 

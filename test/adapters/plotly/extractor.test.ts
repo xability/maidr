@@ -4337,6 +4337,23 @@ describe('plotly extractor', () => {
       ]);
     });
 
+    it('withholds the selectors from a contour that strokes no lines', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1, showlines: false },
+      });
+
+      // A fill-only contour is drawn as one filled path per level and has no
+      // level groups at all, so a selector could only match nothing. The
+      // curves are still read, sonified and navigated.
+      expect(layer.type).toBe(TraceType.CONTOUR);
+      expect(layer.selectors).toBeUndefined();
+      expect((layer.data as ContourPoint[][])[0][0]).toEqual({ x: 1, y: 0.5, level: 2 });
+    });
+
     it('counts a contour past the ones drawn into the same panel before it', () => {
       const maidr = extractPlotlyData(contourGd(
         {
@@ -4608,6 +4625,37 @@ describe('plotly extractor', () => {
           { x: 'Third', y: 0.7, z: 'Died', width: 0.7, count: 528 },
         ],
       ]);
+    });
+
+    it('reads no count off array-shaped customdata rather than inventing one', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = mosaicLayer(mosaicTraces(
+        { type: 'mosaic' },
+        // Plotly's canonical customdata shape: one array per point. A declared
+        // field is a property NAME, so an array row answers to nothing --
+        // least of all `length`, which is the number of columns here and not
+        // the number of observations behind the cell.
+        { customdata: [['First', 203], ['Third', 178]] },
+      ));
+
+      const cells = (layer.data as MosaicPoint[][])[0];
+      expect(cells.map(cell => cell.count)).toEqual([undefined, undefined]);
+      // The share is still the one plotly drew.
+      expect(cells.map(cell => cell.width)).toEqual([0.25, 0.75]);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it('reads a lone bar trace declared a mosaic as a spineplot', () => {
+      const [survived] = mosaicTraces({ type: 'mosaic' });
+      // One trace is a spineplot -- a real chart, and one whose columns plotly
+      // has nothing to stack against, so the barmode check does not apply.
+      const layer = mosaicLayer([survived], { barmode: 'group' });
+
+      expect(layer.type).toBe(TraceType.MOSAIC);
+      expect((layer.data as MosaicPoint[][])[0].map(cell => cell.width))
+        .toEqual([0.25, 0.75]);
     });
 
     it('reports a named column no row carries, and leaves the field out', () => {
