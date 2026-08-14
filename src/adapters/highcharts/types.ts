@@ -32,6 +32,56 @@ export interface HighchartsAdapterOptions {
     /** What the `high` end is called. */
     end?: string;
   };
+  /**
+   * Whether the chart's line series carry **ranks** rather than values — a
+   * bump chart.
+   *
+   * Highcharts has no bump series: the chart is ordinary `line` series over a
+   * reversed axis, so the adapter otherwise decides from the data, and only
+   * for a table that is a rank permutation at every period on a reversed axis
+   * (see `readsAsBump`). Set it to force that reading on a chart the
+   * heuristic declines, or to `false` to suppress it on one it accepts.
+   */
+  bump?: boolean;
+  /**
+   * Reads the chart's `scatter` series as a volcano or Manhattan plot.
+   *
+   * Declared here because Highcharts ships neither series: both are drawn as
+   * an ordinary scatter with a plot line across it, and nothing in the chart
+   * object distinguishes one from a scatter of two variables. Without this
+   * the points are read as a scatter — accurate, but a per-point walk of
+   * tens of thousands of points rather than the threshold reading the chart
+   * was drawn for.
+   */
+  significancePlot?: {
+    /**
+     * Which of the two it is: `volcano` puts effect size against
+     * significance, `manhattan` genomic position against it.
+     */
+    type: 'volcano' | 'manhattan';
+    /**
+     * Which series to read this way, by Highcharts series index. Defaults to
+     * every scatter series, which is what a Manhattan needs — one series per
+     * chromosome, all of them one cloud.
+     */
+    seriesIndices?: number[];
+    /**
+     * The significance cutoff on the y axis. Defaults to the first numeric
+     * `yAxis.plotLines` value, which is the line the chart already draws.
+     */
+    significance?: number;
+    /**
+     * Which side of the cutoff is the significant one. MAIDR reads `above`
+     * when nothing is declared, which suits the transformed axes these charts
+     * usually carry; a **raw p axis runs the other way** and must say so.
+     */
+    significanceDirection?: 'above' | 'below';
+    /**
+     * The effect-size cutoff, applied to the magnitude of x. Defaults to the
+     * first non-zero numeric `xAxis.plotLines` value.
+     */
+    effect?: number;
+  };
 }
 
 /**
@@ -139,6 +189,12 @@ export interface HighchartsSeries {
      * asked for it. Legacy `true` means `'left'`.
      */
     step?: 'left' | 'center' | 'right' | boolean;
+    /**
+     * The shape a tilemap draws its tiles with — `hexagon` (the default),
+     * `diamond`, `circle` or `square`. The first three stagger alternate
+     * columns; a square tilemap is an aligned grid.
+     */
+    tileShape?: string;
     /** Set by Highcharts on internal series (e.g. the Highstock navigator). */
     isInternal?: boolean;
     /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
@@ -191,8 +247,9 @@ export interface HighchartsPoint {
   /** Treemap / sunburst id of this node's parent, empty at the top level. */
   parent?: string;
   /**
-   * Treemap / sunburst magnitude. Those series declare
-   * `pointArrayMap: ['value']`, so the number is here rather than in `y`.
+   * Treemap / sunburst magnitude, and a heatmap or tilemap cell's colour
+   * value. Those series declare `value` in their `pointArrayMap`, so the
+   * number is here rather than in `y` — on a tilemap `y` is the lattice row.
    */
   value?: number;
   /** The marker a bullet chart draws beside its bar. */
@@ -216,6 +273,12 @@ export interface HighchartsAxis {
   categories?: string[];
   getExtremes: () => { min: number; max: number };
   isDatetimeAxis?: boolean;
+  /**
+   * Whether the axis runs the other way — the resolved value, which
+   * Highcharts copies from `options.reversed` and also sets by itself on an
+   * inverted chart's x axis.
+   */
+  reversed?: boolean;
   /** Rendered distance from the chart top in px (present after render). */
   top?: number;
   /** Rendered distance from the chart left in px (present after render). */
@@ -227,6 +290,14 @@ export interface HighchartsAxis {
   options: {
     title?: { text?: string };
     type?: string;
+    /** Declares {@link HighchartsAxis.reversed}; read as its fallback. */
+    reversed?: boolean;
+    /**
+     * Reference lines drawn across the plot — the significance cutoff of a
+     * volcano or Manhattan plot, which is the only place either chart states
+     * where its threshold is.
+     */
+    plotLines?: { value?: number }[];
     /**
      * Qualitative bands drawn behind the axis — the shaded zones of a gauge
      * or a bullet chart. Highcharts names one only in styled mode (via

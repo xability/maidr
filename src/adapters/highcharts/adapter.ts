@@ -29,6 +29,7 @@ import type {
   GaugeBand,
   GaugePoint,
   HeatmapData,
+  HexbinPoint,
   HistogramPoint,
   LinePoint,
   Maidr,
@@ -39,7 +40,9 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  ThresholdOptions,
   TreemapPoint,
+  VolcanoPoint,
   WaterfallKind,
   WaterfallPoint,
   WordCloudPoint,
@@ -59,6 +62,7 @@ import {
   ganttSelectors,
   gaugeSelector,
   heatmapSelectors,
+  hexbinSelectors,
   histogramSelector,
   lineSelectors,
   lollipopSelector,
@@ -69,6 +73,7 @@ import {
   seriesGroupSelector,
   solidGaugeSelector,
   treemapSelectors,
+  volcanoSelector,
   waterfallSelector,
   wordCloudSelector,
 } from './selectors';
@@ -104,6 +109,8 @@ let chartCounter = 0;
  * - `gantt`, `xrange` → {@link TraceType.GANTT}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
+ * - `tilemap` → {@link TraceType.HEXBIN}, or {@link TraceType.HEATMAP} when
+ *   its `tileShape` is `square` (an aligned grid rather than a stagger)
  * - `histogram` → {@link TraceType.HISTOGRAM}
  * - `candlestick`, `ohlc` → {@link TraceType.CANDLESTICK}
  * - `pie` (including doughnuts, which are a pie with an `innerSize`) →
@@ -121,6 +128,14 @@ let chartCounter = 0;
  * - `chart.polar` → {@link TraceType.RADAR} for `line`/`spline`/`area`
  *   series, {@link TraceType.POLAR_AREA} for `column`/`bar` ones
  * - `chart.parallelCoordinates` → {@link TraceType.PARALLEL}
+ *
+ * Two more are read from the data or declared by the caller, because
+ * Highcharts draws them with a series type it shares with something else:
+ * - `line`/`spline` series carrying a rank permutation on a reversed axis →
+ *   {@link TraceType.BUMP}, forced or suppressed with `options.bump`
+ * - `scatter` series named by `options.significancePlot` →
+ *   {@link TraceType.VOLCANO} or {@link TraceType.MANHATTAN}, merged into one
+ *   layer
  *
  * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
  * bands, e.g. the Highstock price + volume pattern) are detected from the
@@ -223,6 +238,12 @@ export function buildSubplot(
   const absorbed = seriesReadAsErrorBars(seriesToConvert, chart);
   const convertible = seriesToConvert.filter(series => !absorbed.has(series));
 
+  // A volcano or Manhattan plot is drawn as plain `scatter` series, so only
+  // the caller can say that is what it is. They are pulled out ahead of the
+  // buckets because they become ONE layer: a Manhattan is one series per
+  // chromosome and one cloud, and its threshold spans all of them.
+  const significanceSeries = significancePlotSeries(convertible, chart, options);
+
   // Categorize series by how they need to be converted. Areas are their own
   // bucket rather than part of the line one: a filled band is a different
   // chart to announce, and a stacked band draws a second magnitude that a
@@ -240,7 +261,8 @@ export function buildSubplot(
   const barSeries = convertible.filter(s => barTypes.has(resolveSeriesType(s, chart)));
   const otherSeries = convertible.filter((s) => {
     const type = resolveSeriesType(s, chart);
-    return !lineTypes.has(type) && !areaTypes.has(type) && !barTypes.has(type);
+    return !significanceSeries.includes(s)
+      && !lineTypes.has(type) && !areaTypes.has(type) && !barTypes.has(type);
   });
 
   const layers: MaidrLayer[] = [];
@@ -275,6 +297,20 @@ export function buildSubplot(
     }
   }
 
+  // Convert the scatter series the caller declared as one threshold-read
+  // cloud.
+  if (significanceSeries.length > 0 && options?.significancePlot) {
+    const layer = convertSignificanceSeries(
+      significanceSeries,
+      chart,
+      containerId,
+      options.significancePlot,
+    );
+    if (layer) {
+      layers.push(layer);
+    }
+  }
+
   // Under a radial mode the whole line bucket is one layer — one outline per
   // series around the shared spokes — and `step` has no meaning there, since
   // there is no interpolation to make piecewise constant.
@@ -286,6 +322,18 @@ export function buildSubplot(
       layers.push(layer);
     }
     return finishSubplot(layers, seriesToConvert, containerId);
+  }
+
+  // A bump chart is drawn from ordinary line series too — what makes it one
+  // is that the numbers are ranks, which is a fact about the data rather than
+  // about the series type. It has to be decided before the step split, since
+  // a rank table is one layer whatever the lines are drawn like.
+  if (lineSeries.length > 0 && readsAsBump(lineSeries, options)) {
+    const layer = convertBumpSeries(lineSeries, containerId);
+    if (layer) {
+      layers.push(layer);
+      return finishSubplot(layers, seriesToConvert, containerId);
+    }
   }
 
   // Convert line series together as a single multi-line layer (MAIDR expects
@@ -1028,6 +1076,14 @@ function convertSeries(
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
       return convertHeatmapSeries(series, containerId);
+    // A tilemap is a heatmap with a configurable tile shape, and the shape
+    // decides which it reads as: `square` tiles are the aligned grid a heatmap
+    // already is, while every other shape staggers alternate columns by half a
+    // row so the tiles tessellate — a lattice, which is what a hexbin is.
+    case 'tilemap':
+      return series.options.tileShape === 'square'
+        ? convertHeatmapSeries(series, containerId)
+        : convertHexbinSeries(series, containerId);
     case 'histogram':
       return convertHistogramSeries(series, containerId);
     case 'candlestick':
@@ -1110,6 +1166,157 @@ function convertLineSeries(
       y: getAxisLabel(first, 'y'),
     },
     ...(stepDirection ? { stepDirection } : {}),
+    data,
+  };
+}
+
+/**
+ * Whether an axis runs the other way.
+ *
+ * Highcharts resolves `options.reversed` onto the axis itself (and sets it by
+ * itself on an inverted chart's x axis), so the resolved flag is read first
+ * and the declared option serves the partially built chart objects the
+ * adapter is sometimes handed.
+ *
+ * @param axis - The axis to inspect
+ * @returns True when the axis is reversed
+ */
+function isReversedAxis(axis: HighchartsAxis | undefined): boolean {
+  return axis?.reversed === true || axis?.options?.reversed === true;
+}
+
+/**
+ * Whether a chart's line series carry **ranks** rather than values — a bump
+ * chart.
+ *
+ * Highcharts has no bump series. A bump chart is its own line-chart demo
+ * pattern: one line per competitor over a `yAxis.reversed` axis, so that rank
+ * 1 is drawn at the top. That leaves the adapter deciding from the data, and
+ * deciding wrongly is not a degraded reading — {@link TraceType.BUMP} inverts
+ * the pitch, so an ordinary line chart read as one sonifies every value
+ * upside down.
+ *
+ * So the test is deliberately narrow, and both halves have to hold: the value
+ * axis is reversed, **and** at every period the values across the series are
+ * exactly 1..k with no duplicates. A chart of measurements that happens to sit
+ * on a reversed axis — a depth profile, a golf scorecard — fails the second
+ * half unless its numbers really are a standings table.
+ *
+ * `options.bump` overrides both, in either direction: a rank chart the
+ * heuristic declines (ties, or ranks that skip) can declare itself, and a
+ * genuine permutation that is not a standings table can opt out.
+ *
+ * @param seriesList - The chart's line-family series
+ * @param options - The adapter options, which may decide this outright
+ * @returns True when the layer should be read as ranks
+ */
+function readsAsBump(
+  seriesList: HighchartsSeries[],
+  options?: HighchartsAdapterOptions,
+): boolean {
+  if (options?.bump !== undefined) {
+    return options.bump;
+  }
+
+  // One line is a sequence of positions, not a table of them: with nothing to
+  // be ranked against, every value is trivially rank 1.
+  if (seriesList.length < 2) {
+    return false;
+  }
+  if (!seriesList.every(series => isReversedAxis(series.yAxis))) {
+    return false;
+  }
+  return ranksPermuteEveryPeriod(seriesList);
+}
+
+/**
+ * Whether the series' values are a rank permutation at every period.
+ *
+ * Ranks are keyed by the period's label rather than by column index, so a
+ * competitor that joined late is compared against the others in the periods it
+ * actually ran — the ragged table {@link BumpTrace} already reads correctly.
+ * A period with fewer competitors is still a permutation, of 1..k for the k
+ * that were there.
+ *
+ * @param seriesList - The series to inspect
+ * @returns True when every period holds 1..k exactly once each
+ */
+function ranksPermuteEveryPeriod(seriesList: HighchartsSeries[]): boolean {
+  const ranksByPeriod = new Map<string, number[]>();
+  for (const series of seriesList) {
+    for (const point of series.data) {
+      if (typeof point.y !== 'number') {
+        continue;
+      }
+      const period = String(pointLabel(point));
+      const ranks = ranksByPeriod.get(period);
+      if (ranks) {
+        ranks.push(point.y);
+      } else {
+        ranksByPeriod.set(period, [point.y]);
+      }
+    }
+  }
+
+  // A single period cannot be a bump chart: with nothing to move between,
+  // there is no overtake to read, and any column of distinct ranks would
+  // qualify.
+  if (ranksByPeriod.size < 2) {
+    return false;
+  }
+
+  for (const ranks of ranksByPeriod.values()) {
+    const sorted = [...ranks].sort((a, b) => a - b);
+    if (sorted.some((rank, position) => rank !== position + 1)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Converts line-family series carrying ranks into one bump layer.
+ *
+ * The payload is a multi-line layer's, because that is what the chart is:
+ * `BumpTrace` extends `LineTrace` and navigates it identically. What the rank
+ * adds — the inverted pitch and the places gained or lost between periods —
+ * the trace derives from the ranks themselves, so the adapter has nothing
+ * extra to supply.
+ *
+ * `step` is not carried through: a rank table is one layer whatever its lines
+ * are drawn like, and splitting it by drawing convention would compare
+ * competitors against different tables.
+ */
+function convertBumpSeries(
+  seriesList: HighchartsSeries[],
+  containerId: string,
+): MaidrLayer | null {
+  if (seriesList.length === 0)
+    return null;
+
+  const data: LinePoint[][] = seriesList.map(series =>
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({
+        x: pointLabel(p),
+        y: p.y as number,
+        z: series.name || undefined,
+      })),
+  );
+
+  const first = seriesList[0];
+  const indices = seriesList.map(s => s.index);
+
+  return {
+    id: indices.map(String).join('-'),
+    type: TraceType.BUMP,
+    title: seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined,
+    // One path per competitor, as any line layer has.
+    selectors: lineSelectors(containerId, indices),
+    axes: {
+      x: getAxisLabel(first, 'x'),
+      y: getAxisLabel(first, 'y'),
+    },
     data,
   };
 }
@@ -1731,9 +1938,34 @@ function ancestorsOf(
  * Idempotent: re-stamping overwrites existing attributes.
  */
 function stampTreeIndices(series: HighchartsSeries): void {
-  series.data.forEach((point, index) => {
-    point.graphic?.element.setAttribute('data-maidr-node-index', String(index));
-  });
+  stampPointIndices([series.data], 'data-maidr-node-index');
+}
+
+/**
+ * Stamps a running index onto each point's rendered element, counted across
+ * the groups in order.
+ *
+ * Several trace types need this — a treemap, a gantt, a hexbin — for the same
+ * reason: MAIDR indexes their selector lists by the order it reads the data
+ * in, and Highcharts draws in an order of its own. What differs between them
+ * is only the order the groups arrive in and the attribute name, so the walk
+ * itself lives here.
+ *
+ * A point Highcharts did not draw carries no `graphic` and is skipped rather
+ * than shifting the indices, so the missing element makes its own selector
+ * match nothing instead of pairing every later point with a neighbour's mark.
+ *
+ * @param groups - The points, in the order MAIDR reads them
+ * @param attribute - The data attribute the selectors address
+ */
+function stampPointIndices(groups: HighchartsPoint[][], attribute: string): void {
+  let index = 0;
+  for (const group of groups) {
+    for (const point of group) {
+      point.graphic?.element.setAttribute(attribute, String(index));
+      index++;
+    }
+  }
 }
 
 /**
@@ -2231,13 +2463,7 @@ function isDatetimeAxis(axis: HighchartsAxis | undefined): boolean {
  * @param laneSources - The Highcharts points, grouped by lane
  */
 function stampGanttIndices(laneSources: HighchartsPoint[][]): void {
-  let index = 0;
-  for (const lane of laneSources) {
-    for (const point of lane) {
-      point.graphic?.element.setAttribute('data-maidr-task-index', String(index));
-      index++;
-    }
-  }
+  stampPointIndices(laneSources, 'data-maidr-task-index');
 }
 
 function convertScatterSeries(
@@ -2259,6 +2485,157 @@ function convertScatterSeries(
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * The scatter series a caller declared as one volcano or Manhattan plot.
+ *
+ * Named by Highcharts series index, since that is what the rest of the
+ * adapter's options are keyed by, and defaulting to every scatter series in
+ * the panel — a Manhattan is drawn as one series per chromosome and read as
+ * one cloud.
+ *
+ * @param seriesList - The panel's convertible series
+ * @param chart - The chart, for resolving each series' type
+ * @param options - The adapter options carrying the declaration
+ * @returns The series to merge into a threshold layer, empty when none
+ */
+function significancePlotSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  options?: HighchartsAdapterOptions,
+): HighchartsSeries[] {
+  const declared = options?.significancePlot;
+  if (!declared) {
+    return [];
+  }
+
+  const scatters = seriesList.filter(s => resolveSeriesType(s, chart) === 'scatter');
+  if (scatters.length === 0) {
+    return [];
+  }
+  if (!declared.seriesIndices) {
+    return scatters;
+  }
+
+  const chosen = scatters.filter(s => declared.seriesIndices?.includes(s.index));
+  if (chosen.length === 0) {
+    console.warn(
+      `[MAIDR Highcharts] significancePlot names series ${
+        JSON.stringify(declared.seriesIndices)}, none of which is a scatter `
+        + `series here; reading this panel's scatters as scatters.`,
+    );
+  }
+  return chosen;
+}
+
+/**
+ * The thresholds a volcano or Manhattan layer declares.
+ *
+ * What the caller states wins. Failing that the cutoffs are read from the
+ * plot lines the chart already draws across itself, which is the only place
+ * either chart says where its threshold is: the significance line runs across
+ * the y axis, and a volcano's effect-size pair across the x axis, symmetric
+ * about zero — so the magnitude of the first non-zero one is the cutoff.
+ *
+ * A layer that ends up declaring nothing gets no `thresholdOptions` at all,
+ * and MAIDR then reads the cloud without making any claim about significance.
+ * The direction is passed through only when it was stated: MAIDR reads
+ * `above` by default, which suits a -log10(p) axis, and guessing it for a raw
+ * p axis would select exactly the points that failed to reach significance.
+ *
+ * @param series - The series whose axes carry the plot lines
+ * @param declared - What the caller stated
+ * @returns The threshold options, or undefined when nothing is known
+ */
+function significanceThresholds(
+  series: HighchartsSeries,
+  declared: NonNullable<HighchartsAdapterOptions['significancePlot']>,
+): ThresholdOptions | undefined {
+  const significance = declared.significance
+    ?? plotLineValues(series.yAxis).find(value => Number.isFinite(value));
+  const effect = declared.effect
+    ?? plotLineValues(series.xAxis).map(Math.abs).find(value => value > 0);
+
+  const thresholds: ThresholdOptions = {
+    ...(typeof significance === 'number' ? { significance } : {}),
+    ...(declared.significanceDirection
+      ? { significanceDirection: declared.significanceDirection }
+      : {}),
+    ...(typeof effect === 'number' ? { effect } : {}),
+  };
+  return Object.keys(thresholds).length > 0 ? thresholds : undefined;
+}
+
+/**
+ * The numeric values of an axis' plot lines, in declaration order.
+ *
+ * @param axis - The axis to read
+ * @returns Every plot line value that is a finite number
+ */
+function plotLineValues(axis: HighchartsAxis | undefined): number[] {
+  return (axis?.options?.plotLines ?? [])
+    .map(line => line.value)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+}
+
+/**
+ * Converts the declared `scatter` series into one volcano or Manhattan layer.
+ *
+ * Both charts are scatters read through a threshold, so the payload is the
+ * scatter's coordinates plus the two things a scatter has nowhere to carry:
+ * what each point **is**, and which region it belongs to. Identity is the
+ * payload on these charts — a reader told "x is 2.3, y is 14.1" has been given
+ * the two numbers the axes already describe and withheld the gene — so the
+ * point's name travels as the label, and the series name as the group, which
+ * on a Manhattan is the chromosome.
+ *
+ * The series are merged rather than layered because the threshold spans all of
+ * them: a Manhattan is one cloud drawn as twenty-two series, and a volcano
+ * split into up- and down-regulated series is one cloud too. A merged layer
+ * takes no title from a single series, since none of them names the whole.
+ *
+ * A point with no y is dropped: Highcharts draws no marker for it, so keeping
+ * it would slide every later point's highlight onto its neighbour.
+ */
+function convertSignificanceSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  declared: NonNullable<HighchartsAdapterOptions['significancePlot']>,
+): MaidrLayer | null {
+  if (seriesList.length === 0)
+    return null;
+
+  const data: VolcanoPoint[] = seriesList.flatMap((series) => {
+    // The series is the region: on a Manhattan it is the chromosome, on a
+    // volcano the regulation class the points were split into.
+    const group = series.name || undefined;
+    return series.data
+      .filter(p => typeof p.y === 'number')
+      .map(p => ({
+        x: p.x,
+        y: p.y as number,
+        ...(p.name ? { label: p.name } : {}),
+        ...(group ? { group } : {}),
+      }));
+  });
+
+  const first = seriesList[0];
+  const thresholds = significanceThresholds(first, declared);
+
+  return {
+    id: seriesList.map(s => String(s.index)).join('-'),
+    type: declared.type === 'manhattan' ? TraceType.MANHATTAN : TraceType.VOLCANO,
+    title: seriesList.length === 1 ? first.name || undefined : undefined,
+    selectors: volcanoSelector(containerId, seriesList.map(s => s.index)),
+    ...(thresholds ? { thresholdOptions: thresholds } : {}),
+    axes: {
+      x: getAxisLabel(first, 'x'),
+      y: getAxisLabel(first, 'y'),
     },
     data,
   };
@@ -2665,6 +3042,137 @@ function stampHeatmapIndices(series: HighchartsSeries): void {
     element.setAttribute('data-maidr-col', String(xIdx));
     element.setAttribute('data-maidr-row', String(yIdx));
   }
+}
+
+/**
+ * What a hexbin's third dimension is called. A tile's magnitude is bound to
+ * the colour axis rather than to x or y, so {@link getAxisLabel} has nothing
+ * to read it from, and MAIDR's own fallback names it "Level".
+ */
+const HEXBIN_COUNT_AXIS = 'Count';
+
+/**
+ * Converts a `tilemap` series into a hexbin layer.
+ *
+ * A tilemap is a heatmap whose tiles tessellate, and every shape but `square`
+ * staggers: `TilemapShapes.hexagon.translate` shifts every odd **column** by
+ * half a row so the hexagons interlock. That stagger is what separates this
+ * from a heatmap — a lattice row is not a straight line of cells — and it is
+ * what {@link TraceType.HEXBIN} is navigated by.
+ *
+ * Two things this reading is honest about.
+ *
+ * **Highcharts never binned anything.** The tiles are supplied pre-binned, so
+ * a bin's "count" is whatever magnitude the author gave the tile. A tile with
+ * no value counts as zero, which is what an empty bin is; Highcharts still
+ * draws it, so dropping it would slide every later bin's highlight onto its
+ * neighbour.
+ *
+ * **The centres are the authored ones.** The half-row shift is applied in
+ * pixel space during `translate` and never reaches the point, so the tile at
+ * `(3, 2)` still belongs to row 2 in every other reading of the chart — the
+ * tooltip's included. Announcing a shifted 1.5 would put the bin at a
+ * coordinate nothing else on the page agrees with.
+ *
+ * The bins are grouped into rows by their y and ordered along x within each,
+ * because that is the lattice MAIDR walks; rows run in drawn order, so
+ * "up" is up on a reversed axis too. `x` stays numeric even where the axis
+ * carries categories: `HexbinTrace` resolves a vertical move by x distance,
+ * and a category label would make every one of them land on the first bin of
+ * the row.
+ */
+function convertHexbinSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const yCategories = series.yAxis?.categories ?? [];
+
+  // Group the tiles into lattice rows, then order each row along x. Highcharts
+  // draws them in `series.data` order, which a tilemap is routinely authored
+  // in some other order entirely — a honeycomb map is declared country by
+  // country.
+  const byRow = new Map<number, HighchartsPoint[]>();
+  for (const point of series.data) {
+    if (typeof point.y !== 'number') {
+      continue;
+    }
+    const row = Math.round(point.y);
+    const tiles = byRow.get(row);
+    if (tiles) {
+      tiles.push(point);
+    } else {
+      byRow.set(row, [point]);
+    }
+  }
+
+  // Row 0 is the bottom of the lattice, which is where MAIDR's "up" moves away
+  // from — so a reversed y axis, the way a honeycomb map is usually drawn,
+  // orders the rows the other way.
+  const ascending = !isReversedAxis(series.yAxis);
+  const rows = [...byRow.keys()]
+    .sort((a, b) => (ascending ? a - b : b - a))
+    .map(row => (byRow.get(row) ?? []).slice().sort((a, b) => a.x - b.x));
+
+  const data: HexbinPoint[][] = rows.map(tiles => tiles.map(point => ({
+    x: point.x,
+    y: yCategories[Math.round(point.y as number)] ?? (point.y as number),
+    count: tileValue(point),
+  })));
+
+  stampHexbinIndices(rows);
+
+  return {
+    id: String(series.index),
+    type: TraceType.HEXBIN,
+    title: series.name || undefined,
+    selectors: hexbinSelectors(containerId, series.index, rows.flat().length),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+      z: { label: HEXBIN_COUNT_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * The magnitude a tilemap tile carries.
+ *
+ * A tilemap declares `value` in its `pointArrayMap` rather than using `y`, so
+ * Highcharts resolves it onto the point; the options are read as a fallback
+ * for the partially built chart objects the adapter is sometimes handed.
+ *
+ * @param point - The tile to read
+ * @returns Its value, or zero when it declares none
+ */
+function tileValue(point: HighchartsPoint): number {
+  if (typeof point.value === 'number') {
+    return point.value;
+  }
+  const options = point.options ?? {};
+  if (typeof options.value === 'number') {
+    return options.value;
+  }
+  return typeof options.colorValue === 'number' ? options.colorValue : 0;
+}
+
+/**
+ * Stamps each rendered tile with `data-maidr-bin-index`, its position in the
+ * lattice order MAIDR slices its selectors by.
+ *
+ * `TilemapSeries#drawPoints` runs the column point-drawing pass over
+ * `series.points`, so the DOM follows declaration order — which for a tilemap
+ * is whatever order the author listed the tiles in, and not the row-by-row
+ * order `HexbinTrace` reads. A tile Highcharts did not draw has no element to
+ * stamp, so its selector matches nothing and the layer's highlighting is
+ * withdrawn rather than shifted onto its neighbours.
+ *
+ * Idempotent: re-stamping overwrites existing attributes.
+ *
+ * @param rows - The Highcharts points, grouped into lattice rows
+ */
+function stampHexbinIndices(rows: HighchartsPoint[][]): void {
+  stampPointIndices(rows, 'data-maidr-bin-index');
 }
 
 function convertHistogramSeries(

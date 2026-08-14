@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Volcano Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Volcano Plot</h1>
+    <p>
+      A Highcharts volcano plot made accessible by the MAIDR Highcharts adapter.
+      Highcharts ships no volcano series — the chart is an ordinary scatter with
+      the cutoffs drawn as plot lines — so nothing in the chart object says what
+      it is, and the reading is declared with
+      <code>significancePlot: { type: 'volcano' }</code>. MAIDR then reads the
+      cloud through the threshold: it opens with how many genes clear it, names
+      them, and announces each point's gene rather than its two coordinates.
+      Click on the chart and use the arrow keys.
+    </p>
+
+    <div id="volcano-chart" style="width: 800px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('volcano-chart', {
+        chart: { type: 'scatter' },
+        title: { text: 'Differential Expression' },
+        xAxis: {
+          title: { text: 'log2 fold change' },
+          plotLines: [
+            { value: -1, width: 1, color: '#999', dashStyle: 'Dash' },
+            { value: 1, width: 1, color: '#999', dashStyle: 'Dash' },
+          ],
+        },
+        yAxis: {
+          title: { text: '-log10 p' },
+          plotLines: [{ value: 1.3, width: 1, color: '#c33', dashStyle: 'Dash' }],
+        },
+        series: [
+          {
+            name: 'Up-regulated',
+            data: [
+              { name: 'BRCA1', x: 2.4, y: 5.1 },
+              { name: 'MYC', x: 1.8, y: 4.4 },
+              { name: 'EGFR', x: 3.2, y: 6.8 },
+              { name: 'CCND1', x: 1.2, y: 2.1 },
+              { name: 'VEGFA', x: 0.6, y: 0.9 },
+            ],
+          },
+          {
+            name: 'Down-regulated',
+            data: [
+              { name: 'TP53', x: -3.1, y: 6.7 },
+              { name: 'PTEN', x: -2.2, y: 3.9 },
+              { name: 'RB1', x: -1.4, y: 1.7 },
+              { name: 'ACTB', x: -0.3, y: 0.4 },
+              { name: 'GAPDH', x: 0.1, y: 0.2 },
+            ],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, {
+        id: 'volcano-chart',
+        significancePlot: { type: 'volcano' },
+      });
+      document.getElementById('volcano-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

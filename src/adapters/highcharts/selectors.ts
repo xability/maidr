@@ -114,6 +114,57 @@ export function scatterSelector(containerId: string, seriesIndex: number): strin
 }
 
 /**
+ * Generates a CSS selector for the markers of several `scatter` series read as
+ * one volcano or Manhattan plot.
+ *
+ * MAIDR's `VolcanoTrace` inherits `ScatterTrace`'s single-string selector and
+ * pairs the elements it finds with the points by index, so a Manhattan drawn
+ * as one series per chromosome needs one selector spanning all of them. A
+ * comma-joined selector returns them in **document order**, which is series
+ * order: Highcharts appends each series' group and marker group to the shared
+ * `.highcharts-series-group` as it renders them, in series order, and gives
+ * both the same z-index. That is the order the layer concatenates its points
+ * in.
+ *
+ * The hidden hit-detection duplicates documented on {@link scatterSelector}
+ * apply here too and are filtered out the same way.
+ */
+export function volcanoSelector(containerId: string, seriesIndices: number[]): string {
+  return seriesIndices
+    .map(i => scatterSelector(containerId, i))
+    .join(', ');
+}
+
+/**
+ * Generates per-bin CSS selectors for a `tilemap` series read as a hexbin.
+ *
+ * MAIDR's `HexbinTrace` slices its selector list row by row, so the list has
+ * to run in lattice order — rows along the y axis, bins along x within each —
+ * while Highcharts draws the tiles in `series.data` order, which a tilemap is
+ * routinely authored in some other order entirely (a honeycomb map is
+ * declared country by country). The adapter therefore stamps
+ * `data-maidr-bin-index="N"` onto each rendered tile in lattice order (see
+ * `stampHexbinIndices` in adapter.ts) and these selectors address the stamp.
+ *
+ * A tile Highcharts did not draw has no element to stamp, so its selector
+ * matches nothing and `HexbinTrace` withdraws the layer's highlighting rather
+ * than pairing bins with their neighbours' tiles — which on a staggered
+ * lattice is not even a neighbour in the direction a reader would guess.
+ */
+export function hexbinSelectors(
+  containerId: string,
+  seriesIndex: number,
+  binCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < binCount; i++) {
+    selectors.push(`${base} [data-maidr-bin-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
  * Generates a CSS selector for the markers of a lollipop series.
  *
  * Highcharts draws each lollipop as two elements: the marker, rendered by

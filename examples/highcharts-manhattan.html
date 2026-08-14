@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Manhattan Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Manhattan Plot</h1>
+    <p>
+      A Highcharts Manhattan plot made accessible by the MAIDR Highcharts
+      adapter. The chart is one ordinary scatter series per chromosome, which is
+      how the alternating colours are drawn, but it is one cloud read through
+      one genome-wide threshold — so the reading is declared with
+      <code>significancePlot: { type: 'manhattan' }</code> and the adapter
+      merges the series into a single layer. Each point announces its SNP and
+      its chromosome, and the summary opens with how many clear the line. Click
+      on the chart and use the arrow keys.
+    </p>
+
+    <div id="manhattan-chart" style="width: 800px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('manhattan-chart', {
+        chart: { type: 'scatter' },
+        title: { text: 'Genome-wide Association' },
+        xAxis: { title: { text: 'Genomic position (Mb)' } },
+        yAxis: {
+          title: { text: '-log10 p' },
+          plotLines: [{ value: 7.3, width: 1, color: '#c33', dashStyle: 'Dash' }],
+        },
+        legend: { title: { text: 'Chromosome' } },
+        series: [
+          {
+            name: 'chr1',
+            data: [
+              { name: 'rs1042522', x: 12, y: 2.1 },
+              { name: 'rs1801133', x: 48, y: 8.4 },
+              { name: 'rs4680', x: 96, y: 3.3 },
+            ],
+          },
+          {
+            name: 'chr2',
+            data: [
+              { name: 'rs9939609', x: 141, y: 1.8 },
+              { name: 'rs7903146', x: 188, y: 9.6 },
+              { name: 'rs1333049', x: 214, y: 4.2 },
+            ],
+          },
+          {
+            name: 'chr3',
+            data: [
+              { name: 'rs2200733', x: 253, y: 2.7 },
+              { name: 'rs6983267', x: 291, y: 7.9 },
+              { name: 'rs10993994', x: 327, y: 1.4 },
+            ],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, {
+        id: 'manhattan-chart',
+        significancePlot: { type: 'manhattan', significance: 7.3 },
+      });
+      document.getElementById('manhattan-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
