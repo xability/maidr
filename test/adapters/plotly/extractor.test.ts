@@ -2539,6 +2539,197 @@ describe('plotly extractor', () => {
     });
   });
 
+  describe('candlestick and OHLC traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Date' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Price' }, domain: [0, 1] as [number, number] },
+    };
+
+    function candlestickTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'candlestick',
+        x: ['d1', 'd2', 'd3', 'd4'],
+        open: [1, 2, 3, 2.5],
+        high: [2, 3, 4, 3.2],
+        low: [0, 1, 2, 1.8],
+        close: [1.5, 2.5, 3.5, 2],
+        name: 'ACME',
+        ...overrides,
+      };
+    }
+
+    function layersOf(gd: PlotlyGraphDiv): MaidrLayer[] {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('scopes the selector to the panel, leaving the rangeslider out', () => {
+      // Plotly gives a candlestick chart a rangeslider *by default*, and it
+      // holds a complete second copy of the plot. Measured in Chromium for
+      // this four-candle chart:
+      //
+      //   .trace.boxes .box                                     8   ** the copy
+      //   .subplot.xy .boxlayer > .trace.boxes:nth-child(1) …   4
+      //
+      // The duplicate sits under `g.rangeslider-rangeplot.xy`, which carries
+      // the `xy` class but not `subplot` — so the prefix is what excludes it.
+      // Unscoped, the index-to-element mapping was wrong for every candle and
+      // half the highlights landed in the thumbnail.
+      const [layer] = layersOf(createGraphDiv({
+        traces: [candlestickTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.CANDLESTICK);
+      expect(layer.selectors).toBe(
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+      );
+    });
+
+    it('counts past a box plot sharing the same layer', () => {
+      // A `go.Box` draws into `g.boxlayer` too, and emits its own `path.box`.
+      // Measured: one box beside this four-candle trace makes
+      // `.subplot.xy .trace.boxes path.box` match five, and the candlestick's
+      // marks are the *second* group's.
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          { type: 'box', y: [1, 2, 3, 4], name: 'spread' },
+          candlestickTrace(),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
+      expect(candlestick?.selectors).toBe(
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(2) path.box',
+      );
+    });
+
+    it('keeps the first slot when the candlestick is declared first', () => {
+      // The mirror of the case above. `boxlayer` children follow `_fullData`
+      // order — verified in Chromium with three interleaved traces, unlike
+      // `.scatterlayer`, whose groups are in fill z-order.
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          candlestickTrace(),
+          { type: 'box', y: [1, 2, 3, 4], name: 'spread' },
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
+      expect(candlestick?.selectors).toBe(
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+      );
+    });
+
+    it('does not count a violin or a scatter, which draw in other layers', () => {
+      // A `go.Violin` draws into `g.violinlayer` and a scatter into
+      // `g.scatterlayer`, so neither takes a `boxlayer` slot. Counting every
+      // preceding trace instead would push this one to a group that does not
+      // exist — and a selector matching nothing loses the highlight silently,
+      // with the audio and text still correct, so nothing else would report it.
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3, 4], name: 'shape' },
+          scatterTrace({ name: 'points' }),
+          candlestickTrace(),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
+      expect(candlestick?.selectors).toBe(
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+      );
+    });
+
+    it('reads an OHLC trace as a candlestick', () => {
+      // `ohlc` carries the same four numbers and differs only in how plotly
+      // draws a bar. Before this it mapped to no MAIDR type at all, so the
+      // trace was dropped and the chart announced nothing.
+      const [layer] = layersOf(createGraphDiv({
+        traces: [candlestickTrace({ type: 'ohlc' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.CANDLESTICK);
+      expect(layer.data).toEqual([
+        { value: 'd1', open: 1, high: 2, low: 0, close: 1.5, volume: undefined, trend: 'Bull', volatility: 2 },
+        { value: 'd2', open: 2, high: 3, low: 1, close: 2.5, volume: undefined, trend: 'Bull', volatility: 2 },
+        { value: 'd3', open: 3, high: 4, low: 2, close: 3.5, volume: undefined, trend: 'Bull', volatility: 2 },
+        { value: 'd4', open: 2.5, high: 3.2, low: 1.8, close: 2, volume: undefined, trend: 'Bear', volatility: 3.2 - 1.8 },
+      ]);
+    });
+
+    it('addresses an OHLC trace in its own layer', () => {
+      // Measured: `ohlc` draws into `g.ohlclayer > g.trace.ohlc > path`, not
+      // into `boxlayer`. A shared selector would match nothing for it, which
+      // is a silent loss rather than a visible one.
+      const [layer] = layersOf(createGraphDiv({
+        traces: [candlestickTrace({ type: 'ohlc' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe(
+        '.subplot.xy .ohlclayer > .trace.ohlc:nth-child(1) > path',
+      );
+    });
+
+    it('counts OHLC traces among themselves, not among box-family ones', () => {
+      // The two layers are independent, so a box before an OHLC trace must
+      // not push it out of the first `ohclayer` slot, and a candlestick must
+      // not either.
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          { type: 'box', y: [1, 2, 3, 4], name: 'spread' },
+          candlestickTrace({ name: 'candles' }),
+          candlestickTrace({ type: 'ohlc', name: 'bars' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      const selectors = layers
+        .filter(l => l.type === TraceType.CANDLESTICK)
+        .map(l => l.selectors);
+
+      expect(selectors).toEqual([
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(2) path.box',
+        '.subplot.xy .ohlclayer > .trace.ohlc:nth-child(1) > path',
+      ]);
+    });
+
+    it('scopes a candlestick on a second panel to that panel', () => {
+      // Two panels each holding one candlestick both sit at the first slot of
+      // their own `boxlayer`, so the axis pair is the only thing telling them
+      // apart.
+      const gd = createGraphDiv({
+        traces: [
+          candlestickTrace(),
+          candlestickTrace({ xaxis: 'x2', yaxis: 'y2', name: 'OTHER' }),
+        ],
+        layout: {
+          xaxis: { title: { text: 'Date' }, domain: [0, 0.45] },
+          yaxis: { title: { text: 'Price' }, domain: [0, 1] },
+          xaxis2: { title: { text: 'Date' }, domain: [0.55, 1] },
+          yaxis2: { title: { text: 'Price' }, domain: [0, 1] },
+        },
+        bgRects: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      const selectors = maidr!.subplots
+        .flat()
+        .flatMap(subplot => subplot.layers.map(layer => layer.selectors));
+
+      expect(selectors).toEqual([
+        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+        '.subplot.x2y2 .boxlayer > .trace.boxes:nth-child(1) path.box',
+      ]);
+    });
+  });
+
   describe('waterfall traces', () => {
     const SINGLE_PANEL = {
       xaxis: { title: { text: 'Step' }, domain: [0, 1] as [number, number] },
