@@ -14,8 +14,11 @@ import type {
   BoxPoint,
   BoxSelector,
   CandlestickPoint,
+  ChoroplethPoint,
   ErrorBarPoint,
   FlowPoint,
+  GanttData,
+  GanttPoint,
   GaugeBand,
   GaugePoint,
   HeatmapData,
@@ -32,6 +35,7 @@ import type {
   ViolinKdePoint,
   WaterfallKind,
   WaterfallPoint,
+  WordCloudPoint,
 } from '../../type/grammar';
 import type {
   PlotlyAnnotation,
@@ -49,6 +53,8 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
+  barPointSelector,
+  choroplethRegionSelectors,
   errorBarAxis,
   generatePlotlySelectors,
   polarSeriesSelectors,
@@ -368,6 +374,12 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'parcoords':
       return TraceType.PARALLEL;
 
+    // Only the SVG choropleth. `choroplethmapbox` and `choroplethmap` draw
+    // their regions into a WebGL canvas, so there is no element per region to
+    // highlight and nothing the adapter could scope a selector to.
+    case 'choropleth':
+      return TraceType.CHOROPLETH;
+
     default:
       console.warn(`[maidr] Unsupported plotly trace type: "${type}". Skipping.`);
       return null;
@@ -387,6 +399,11 @@ function mapScatterMode(trace: PlotlyTrace): TraceType {
   const mode = trace.mode;
   if (!mode)
     return TraceType.SCATTER;
+  // Ahead of the mark tests, because a cloud is drawn with no mark at all: its
+  // terms ARE the text, and read as a scatter it would announce the packing
+  // coordinates plotly was handed to lay the glyphs out with.
+  if (wordCloudWeights(trace) !== null)
+    return TraceType.WORD_CLOUD;
   // When both lines and markers exist, prefer LINE for navigational context.
   if (mode.includes('lines')) {
     // A staircase keeps its step reading even when it is filled: with nothing
@@ -398,7 +415,58 @@ function mapScatterMode(trace: PlotlyTrace): TraceType {
   }
   if (isFilled(trace.fill))
     return TraceType.AREA;
+  // A marker per category, with no category drawn twice, is a Cleveland dot
+  // plot: the same category-and-value pairing a bar chart draws, with a dot in
+  // place of the bar. A scatter reading would announce the category as a
+  // coordinate and offer a grid walk over a single row of them.
+  if (mode.includes('markers') && dotCategoryAxis(trace) !== null)
+    return TraceType.DOT;
   return TraceType.SCATTER;
+}
+
+/**
+ * Which axis of a markers-only scatter is the category axis of a dot plot, or
+ * `null` when the trace is not one.
+ *
+ * Read off the data rather than off the resolved axis, which is not in hand
+ * here and which an author can set to `category` for a chart that is nothing
+ * of the kind. The test is deliberately narrow: every position on one axis is
+ * a distinct label, and every value on the other is a number. One label drawn
+ * twice means the chart is comparing points within a category rather than
+ * naming it once, which is a scatter — so the ambiguous case stays a scatter,
+ * as it is announced today.
+ *
+ * @param trace - The resolved plotly trace
+ * @returns `'x'`, `'y'`, or null when this is not a dot plot
+ */
+function dotCategoryAxis(trace: PlotlyTrace): 'x' | 'y' | null {
+  if (isDistinctLabels(trace.x) && isMagnitudes(trace.y))
+    return 'x';
+  if (isDistinctLabels(trace.y) && isMagnitudes(trace.x))
+    return 'y';
+  return null;
+}
+
+/** Whether a column is a non-empty run of labels, none of them repeated. */
+function isDistinctLabels(values: (number | string)[] | undefined): boolean {
+  if (!values || values.length === 0)
+    return false;
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== 'string' || value === '')
+      return false;
+    if (seen.has(value))
+      return false;
+    seen.add(value);
+  }
+  return true;
+}
+
+/** Whether a column is a non-empty run of numbers, parallel to the labels. */
+function isMagnitudes(values: (number | string)[] | undefined): boolean {
+  if (!values || values.length === 0)
+    return false;
+  return values.every(value => value != null && Number.isFinite(Number(value)));
 }
 
 /**
@@ -477,11 +545,11 @@ interface SubplotGroup {
    */
   domain?: { x: DomainInterval; y: DomainInterval };
   /**
-   * The polar subplot the panel is, when it is one (`polar`, `polar2`, …).
-   * Its domain lives on the layout rather than on the trace, so unlike the
+   * The named subplot the panel is, when it is one (`polar`, `polar2`, `geo`,
+   * …). Its domain lives on the layout rather than on the trace, so unlike the
    * domain-positioned types it is resolved later, where the layout is in hand.
    */
-  polarId?: string;
+  subplotId?: string;
   traces: PlotlyTrace[];
   calcdata: PlotlyCalcData[][];
   traceIndices: number[];
@@ -512,6 +580,13 @@ const DOMAIN_POSITIONED_TYPES = new Set([
  */
 const POLAR_TYPES = new Set(['scatterpolar', 'scatterpolargl', 'barpolar']);
 
+/**
+ * The trace types plotly draws on a geo subplot. They are keyed the way the
+ * polar types are — by the subplot named on the trace — and their domain
+ * likewise lives on the layout entry rather than on the trace.
+ */
+const GEO_TYPES = new Set(['choropleth', 'scattergeo']);
+
 /** A trace within a subplot group, keyed to its calcdata and its global index. */
 interface TraceEntry {
   trace: PlotlyTrace;
@@ -537,23 +612,27 @@ function groupTracesBySubplot(
       continue;
 
     // A domain-positioned trace is its own panel, keyed by its trace index and
-    // positioned from its own domain; a polar trace shares a panel with every
-    // other trace on the same polar subplot. Neither has an axis pair, so both
-    // leave the axis ids blank.
+    // positioned from its own domain; a polar or geo trace shares a panel with
+    // every other trace on the same named subplot. Neither has an axis pair,
+    // so both leave the axis ids blank.
     const type = trace.type ?? 'scatter';
     const isDomain = DOMAIN_POSITIONED_TYPES.has(type);
-    const polarId = POLAR_TYPES.has(type) ? (trace.subplot ?? 'polar') : undefined;
-    const positioned = isDomain || polarId !== undefined;
+    const subplotId = POLAR_TYPES.has(type)
+      ? (trace.subplot ?? 'polar')
+      : GEO_TYPES.has(type)
+        ? (trace.geo ?? 'geo')
+        : undefined;
+    const positioned = isDomain || subplotId !== undefined;
     const xAxisId = positioned ? '' : (trace.xaxis ?? 'x');
     const yAxisId = positioned ? '' : (trace.yaxis ?? 'y');
-    const key = isDomain ? `domain${i}` : (polarId ?? `${xAxisId}${yAxisId}`);
+    const key = isDomain ? `domain${i}` : (subplotId ?? `${xAxisId}${yAxisId}`);
 
     if (!map.has(key)) {
       map.set(key, {
         xAxisId,
         yAxisId,
         ...(isDomain ? { domain: readTraceDomain(trace) } : {}),
-        ...(polarId === undefined ? {} : { polarId }),
+        ...(subplotId === undefined ? {} : { subplotId }),
         traces: [],
         calcdata: [],
         traceIndices: [],
@@ -746,9 +825,16 @@ function buildSubplotLayers(
   }
 
   // Build the violin pair: every violin in the subplot shares one box layer
-  // and one KDE layer.
+  // and one KDE layer. Halved and overlapped, the same traces are plotly's
+  // ridgeline, which is one layer rather than two.
   if (violinTraces.length > 0) {
-    layers.push(...extractViolinLayers(violinTraces, group, layout, xLabel, yLabel));
+    if (isRidgeline(violinTraces)) {
+      const layer = extractRidgelineLayer(violinTraces, group, layout, xLabel, yLabel);
+      if (layer)
+        layers.push(layer);
+    } else {
+      layers.push(...extractViolinLayers(violinTraces, group, layout, xLabel, yLabel));
+    }
   }
 
   // One layer per mark on the polar subplot: the spokes are shared, but a
@@ -764,8 +850,17 @@ function buildSubplotLayers(
       layers.push(layer);
   }
 
+  // A schedule reaches plotly as bars floated onto a time axis, so it has to
+  // be recognised before the bar shapes are: read as bars, the intervals would
+  // announce their durations as magnitudes measured from nothing.
+  const ganttLayer = isGanttPanel(barTraces, group, layout)
+    ? extractGanttLayer(barTraces, group, layout, xLabel, yLabel)
+    : null;
+
   // Build bar layers: grouped/stacked/normalized for multiple bar traces.
-  if (barTraces.length > 1) {
+  if (ganttLayer) {
+    layers.push(ganttLayer);
+  } else if (barTraces.length > 1) {
     const barmode = layout.barmode ?? 'group';
     const barnorm = layout.barnorm ?? '';
 
@@ -774,9 +869,14 @@ function buildSubplotLayers(
       if (layer)
         layers.push(layer);
     } else if (barmode === 'stack' || barmode === 'relative') {
+      // A pyramid is stacked the same way and drawn the same way; what tells
+      // the two apart is that its sides grow in opposite directions from the
+      // baseline, which is the sign of the values themselves.
       const type = barnorm === 'percent' || barnorm === 'fraction'
         ? TraceType.NORMALIZED
-        : TraceType.STACKED;
+        : divergingSides(barTraces)
+          ? TraceType.DIVERGING
+          : TraceType.STACKED;
       const layer = extractSegmentedBarLayer(barTraces, group, type, xLabel, yLabel, gd);
       if (layer)
         layers.push(layer);
@@ -836,7 +936,7 @@ function arrangePanelsIntoGrid(
     // A domain-positioned panel carries its own domain and a polar one names
     // the layout entry holding it (neither has axes to read one from);
     // everything else takes it from the axis pair it was grouped by.
-    const own = panel.group.domain ?? readPolarDomain(layout, panel.group.polarId);
+    const own = panel.group.domain ?? readSubplotDomain(layout, panel.group.subplotId);
     const xDomain = own?.x ?? readAxisDomain(getAxis(layout, panel.group.xAxisId));
     const yDomain = own?.y ?? readAxisDomain(getAxis(layout, panel.group.yAxisId));
     if (!xDomain || !yDomain)
@@ -928,18 +1028,18 @@ function readTraceDomain(
 }
 
 /**
- * Reads a polar subplot's paper domain. Plotly keeps it on the layout entry
- * the traces name rather than on the traces themselves, so it is resolved here
- * rather than while they are grouped.
+ * Reads a named subplot's paper domain — a polar dial, a geo map. Plotly keeps
+ * it on the layout entry the traces name rather than on the traces themselves,
+ * so it is resolved here rather than while they are grouped.
  */
-function readPolarDomain(
+function readSubplotDomain(
   layout: PlotlyFullLayout,
-  polarId: string | undefined,
+  subplotId: string | undefined,
 ): { x: DomainInterval; y: DomainInterval } | undefined {
-  const polar = polarId === undefined
+  const subplot = subplotId === undefined
     ? undefined
-    : (layout[polarId] as PlotlyPolarLayout | undefined);
-  return polar ? readTraceDomain(polar) : undefined;
+    : (layout[subplotId] as PlotlyPolarLayout | undefined);
+  return subplot ? readTraceDomain(subplot) : undefined;
 }
 
 function readAxisDomain(axis: PlotlyAxis | undefined): DomainInterval | null {
@@ -1270,6 +1370,18 @@ function extractLayer(
     case TraceType.BAR:
       return extractBarLayer(trace, calcdata, TraceType.BAR, id, title, selectors, axes);
 
+    // A dot plot is a bar chart drawn with dots, and MAIDR reads it as one.
+    // Its calcdata is a scatter's and carries no bar size, so the marks are
+    // the authored values — which is what the chart put on the axis.
+    case TraceType.DOT:
+      return extractBarLayer(trace, [], TraceType.DOT, id, title, selectors, axes, dotCategoryAxis(trace) === 'y');
+
+    case TraceType.WORD_CLOUD:
+      return extractWordCloudLayer(trace, id, title, selectors);
+
+    case TraceType.CHOROPLETH:
+      return extractChoroplethLayer(trace, calcdata, id, title, traceIndex, gd);
+
     // A funnel is a bar chart whose order means something: same points, same
     // orientation handling, and the retention between stages is derived by
     // the trace rather than carried in the payload.
@@ -1432,18 +1544,21 @@ function barPoint(
 function extractBarLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
-  type: TraceType.BAR | TraceType.FUNNEL,
+  type: TraceType.BAR | TraceType.FUNNEL | TraceType.DOT,
   id: string,
   title: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
+  horizontal?: boolean,
 ): MaidrLayer | null {
   const x = trace.x;
   const y = trace.y;
   if (!x || !y)
     return null;
 
-  const isHorizontal = trace.orientation === 'h';
+  // A scatter has no `orientation`, so a dot plot says which way it lies by
+  // which of its axes holds the categories.
+  const isHorizontal = horizontal ?? trace.orientation === 'h';
   const len = Math.min(x.length, y.length);
   const data: BarPoint[] = [];
 
@@ -1461,6 +1576,424 @@ function extractBarLayer(
     selectors,
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gantt
+// ---------------------------------------------------------------------------
+
+/**
+ * The units a schedule is read in, coarsest first, with the milliseconds a
+ * plotly date axis measures in.
+ *
+ * A date axis puts every position and every duration in milliseconds, and a
+ * task announced as lasting 1,209,600,000 has not been announced. The coarsest
+ * unit that still gives the shortest interval a whole number of its own is the
+ * one a reader would use to describe the chart.
+ */
+const GANTT_UNITS: { unit: string; ms: number }[] = [
+  { unit: 'days', ms: 86400000 },
+  { unit: 'hours', ms: 3600000 },
+  { unit: 'minutes', ms: 60000 },
+  { unit: 'seconds', ms: 1000 },
+];
+
+/** One interval, before it is grouped into the lane it belongs to. */
+interface GanttInterval {
+  /** The lane, as the position axis names it. */
+  lane: string;
+  /** Where it begins, in milliseconds. */
+  start: number;
+  /** Where it ends, in milliseconds. */
+  end: number;
+  /** Which of the panel's bar-layer traces drew it, and which of its points. */
+  tracePosition: number;
+  pointIndex: number;
+}
+
+/**
+ * Whether the panel's bar traces are a schedule rather than a bar chart.
+ *
+ * Plotly has no gantt trace: `plotly.express.timeline` and
+ * `figure_factory.create_gantt` both emit horizontal bars whose `base` array
+ * floats each one onto a date axis, with the DURATION in `x`. All three
+ * conditions are required together — a horizontal bar chart with a shared
+ * numeric base is a floating bar chart, not a timeline — and every bar trace
+ * on the panel has to be one, since a schedule shares its lanes across the
+ * traces and half a schedule cannot be laid out.
+ *
+ * @param barTraces - The panel's bar traces
+ * @param group     - The panel they were grouped into
+ * @param layout    - The resolved layout, which types the axes
+ * @returns True when the panel draws intervals
+ */
+function isGanttPanel(
+  barTraces: TraceEntry[],
+  group: SubplotGroup,
+  layout: PlotlyFullLayout,
+): boolean {
+  if (barTraces.length === 0 || getAxis(layout, group.xAxisId)?.type !== 'date')
+    return false;
+  return barTraces.every(
+    ({ trace }) => trace.orientation === 'h' && Array.isArray(trace.base),
+  );
+}
+
+/**
+ * Reads one interval's ends.
+ *
+ * Plotly resolved both while positioning the bar: `cd.b` is the base it was
+ * floated onto and `cd.s` the duration it runs for, both already converted to
+ * the axis's own milliseconds. Without calcdata the authored pair is parsed
+ * the way plotly's own `d2c` would, so a chart captured before it was
+ * positioned still reads.
+ *
+ * @param cd       - The calcdata entry for this bar
+ * @param base     - What the trace declared as its start
+ * @param duration - What the trace declared as its length
+ * @returns The two ends in milliseconds, or null when neither source resolves
+ */
+function ganttEnds(
+  cd: PlotlyCalcData | undefined,
+  base: number | string | undefined,
+  duration: number | string | undefined,
+): { start: number; end: number } | null {
+  if (typeof cd?.b === 'number' && Number.isFinite(cd.b)
+    && typeof cd?.s === 'number' && Number.isFinite(cd.s)) {
+    return { start: cd.b, end: cd.b + cd.s };
+  }
+
+  const start = ganttInstant(base);
+  const length = duration == null ? Number.NaN : Number(duration);
+  if (start === null || !Number.isFinite(length))
+    return null;
+  return { start, end: start + length };
+}
+
+/**
+ * Parses an authored instant into milliseconds.
+ *
+ * A date axis accepts both what plotly.py sends — an ISO string — and the
+ * epoch milliseconds a hand-written figure may use, so both are admitted.
+ *
+ * @param value - The authored start of an interval
+ * @returns Milliseconds, or null when the value is not an instant
+ */
+function ganttInstant(value: number | string | undefined): number | null {
+  if (value == null)
+    return null;
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * The unit the intervals are announced in, and the milliseconds in one of it.
+ *
+ * @param intervals - Every interval on the panel
+ * @returns The unit, or undefined when nothing lasts a whole second
+ */
+function ganttUnit(intervals: GanttInterval[]): { unit: string; ms: number } | undefined {
+  const shortest = shortestInterval(intervals);
+  return GANTT_UNITS.find(candidate => shortest >= candidate.ms);
+}
+
+/**
+ * The shortest interval on the panel, ignoring the milestones a schedule marks
+ * with a zero-length bar — those would drive every unit down to milliseconds
+ * while saying nothing about how long the work takes.
+ *
+ * @param intervals - Every interval on the panel
+ * @returns Its length in milliseconds, or 0 when nothing has one
+ */
+function shortestInterval(intervals: GanttInterval[]): number {
+  const lengths = intervals
+    .map(interval => interval.end - interval.start)
+    .filter(length => Number.isFinite(length) && length > 0);
+  return lengths.length === 0 ? 0 : Math.min(...lengths);
+}
+
+/**
+ * The lanes the schedule is drawn on, in visual order from the top.
+ *
+ * Taken from the axis rather than from the intervals so a lane with nothing
+ * booked survives — an empty row is a real statement about a schedule, and
+ * {@link GanttData} is nested to be able to make it. Plotly stacks categories
+ * upwards from index 0, so the drawn order is the reverse of the declared one
+ * unless the axis was reversed, which is what `plotly.express.timeline` does
+ * to put the first task at the top.
+ *
+ * @param axis      - The position axis, when the layout has one
+ * @param intervals - The intervals, for a panel whose lanes are not categories
+ * @returns The lane names, top first
+ */
+function ganttLanes(axis: PlotlyAxis | undefined, intervals: GanttInterval[]): string[] {
+  const categories = axis?._categories;
+  if (categories && categories.length > 0) {
+    const names = categories.map(String);
+    const reversed = Array.isArray(axis?.range) && Number(axis.range[0]) > Number(axis.range[1]);
+    return reversed ? names : names.reverse();
+  }
+  // No category axis to read: the lanes are whichever positions were drawn,
+  // first seen first, and nothing is claimed about lanes that hold nothing.
+  return [...new Set(intervals.map(interval => interval.lane))];
+}
+
+/**
+ * Builds the schedule layer from every bar trace on the panel.
+ *
+ * The intervals are regrouped by lane rather than by trace, because a lane is
+ * what a reader navigates: `plotly.express.timeline` splits one schedule into
+ * a trace per colour, so a resource booked twice in two colours is two traces
+ * to plotly and one row here.
+ *
+ * @param barTraces - The panel's bar traces, all of them intervals
+ * @param group     - The panel they were grouped into
+ * @param layout    - The resolved layout
+ * @param xLabel    - The time axis's name
+ * @param yLabel    - The lane axis's name
+ * @returns The layer, or null when nothing resolved
+ */
+function extractGanttLayer(
+  barTraces: TraceEntry[],
+  group: SubplotGroup,
+  layout: PlotlyFullLayout,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+): MaidrLayer | null {
+  const posAxis = getAxis(layout, group.yAxisId);
+  const intervals: GanttInterval[] = [];
+
+  for (const { trace, calcIdx } of barTraces) {
+    const cds = group.calcdata[calcIdx] ?? [];
+    const positions = trace.y ?? [];
+    const bases = Array.isArray(trace.base) ? trace.base : [];
+    const durations = trace.x ?? [];
+    // Plotly draws a bar per calc entry whether or not it resolved, so the
+    // position within the trace is what the selector counts by — dropping an
+    // interval must not shift the ones after it.
+    const tracePosition = barLayerPosition(group, calcIdx);
+
+    for (let i = 0; i < positions.length; i++) {
+      const ends = ganttEnds(cds[i], bases[i], durations[i]);
+      const lane = resolveAxisCategory(cds[i]?.p ?? positions[i], posAxis);
+      if (!ends || lane === undefined)
+        continue;
+      intervals.push({ lane, ...ends, tracePosition, pointIndex: i });
+    }
+  }
+
+  if (intervals.length === 0)
+    return null;
+
+  const scale = ganttUnit(intervals);
+  const lanes = ganttLanes(posAxis, intervals);
+  const points: GanttPoint[][] = lanes.map(() => []);
+  const selectors: string[] = [];
+  const prefix = subplotCssPrefix(barTraces[0].trace.xaxis, barTraces[0].trace.yaxis);
+
+  for (let row = 0; row < lanes.length; row++) {
+    for (const interval of intervals) {
+      if (interval.lane !== lanes[row])
+        continue;
+      points[row].push({
+        x: interval.lane,
+        // Divided into the announced unit so the LENGTH reads in it. The axis
+        // format below turns the same number back into the date it names, so
+        // both halves of an interval stay readable.
+        start: interval.start / (scale?.ms ?? 1),
+        end: interval.end / (scale?.ms ?? 1),
+      });
+      selectors.push(barPointSelector(prefix, interval.tracePosition, interval.pointIndex));
+    }
+  }
+
+  // Positions are scaled milliseconds, which no reader wants read out. The
+  // format takes them back to the instant they name — as a date alone for a
+  // schedule measured in days, where the time of day is always midnight.
+  const rendered = scale?.unit === 'days' ? 'toLocaleDateString' : 'toLocaleString';
+  const axes: MaidrLayer['axes'] = {
+    x: {
+      ...(xLabel ? { label: xLabel } : {}),
+      format: { function: `return new Date(value * ${scale?.ms ?? 1}).${rendered}();` },
+    },
+  };
+  if (yLabel)
+    axes.y = { label: yLabel };
+
+  const data: GanttData = {
+    points,
+    lanes,
+    ...(scale ? { unit: scale.unit } : {}),
+  };
+
+  return {
+    id: String(barTraces[0].globalIdx),
+    type: TraceType.GANTT,
+    selectors,
+    axes,
+    // The lanes run down the page and the axis across it, which is what a
+    // gantt's `orientation` says — the grid stays lanes-by-intervals either
+    // way, and the trace uses this to name its two axes the right way round.
+    orientation: Orientation.HORIZONTAL,
+    data,
+  };
+}
+
+/**
+ * Where a trace sits among the ones plotly draws into the panel's bar layer.
+ *
+ * Histograms share bar's renderer and therefore its layer, so they are counted
+ * too: a histogram drawn before a schedule's bars shifts every group after it.
+ *
+ * @param group   - The panel the traces were grouped into
+ * @param calcIdx - The trace's index within that panel
+ * @returns Its position among the panel's bar-layer traces
+ */
+function barLayerPosition(group: SubplotGroup, calcIdx: number): number {
+  let position = 0;
+  for (let i = 0; i < calcIdx; i++) {
+    const type = group.traces[i].type;
+    if (type === 'bar' || type === 'histogram')
+      position++;
+  }
+  return position;
+}
+
+/**
+ * Names a categorical coordinate.
+ *
+ * Plotly stores a category as its index on the axis and keeps the labels in
+ * `_categories`, so a position is only a name once the axis is in hand. A
+ * position that is already a string is one plotly has not indexed yet, which
+ * happens before the chart is drawn.
+ *
+ * @param pos  - The coordinate, as an index or as the label itself
+ * @param axis - The axis it is measured on
+ * @returns The category name, or undefined when there is none
+ */
+function resolveAxisCategory(
+  pos: number | string | undefined,
+  axis: PlotlyAxis | undefined,
+): string | undefined {
+  if (typeof pos === 'string')
+    return pos;
+  if (pos === undefined)
+    return undefined;
+
+  const categories = axis?._categories;
+  if (categories && pos >= 0 && pos < categories.length)
+    return String(categories[pos]);
+  return String(pos);
+}
+
+// ---------------------------------------------------------------------------
+// Word cloud
+// ---------------------------------------------------------------------------
+
+/**
+ * The weight behind each term of a word cloud, or null when the trace is not
+ * one.
+ *
+ * Plotly has no word cloud. Its documented recipe is a text-mode scatter whose
+ * `textfont.size` is an ARRAY — a per-term glyph size is the whole chart, and
+ * it is what tells one apart from an ordinary annotated scatter.
+ *
+ * The weight is the honest difficulty here. The only magnitude the trace is
+ * obliged to carry is the size in pixels, which many recipes set to the count
+ * itself but some set to a rescaled version of it. So a real weight is taken
+ * wherever the author put one — `customdata`, then a numeric `hovertext`,
+ * which are the two places plotly carries a per-point number it does not draw
+ * — and the glyph size stands in otherwise. The size ranks the terms
+ * correctly either way, which is what the reading is walked in.
+ *
+ * @param trace - The resolved plotly trace
+ * @returns One weight per term, or null when this is not a word cloud
+ */
+function wordCloudWeights(trace: PlotlyTrace): number[] | null {
+  const sizes = trace.textfont?.size;
+  const terms = trace.text;
+  if (
+    !trace.mode?.includes('text')
+    || !Array.isArray(terms)
+    || !Array.isArray(sizes)
+  ) {
+    return null;
+  }
+
+  const len = Math.min(terms.length, sizes.length);
+  if (len === 0)
+    return null;
+
+  const declared = declaredWeights(trace, len);
+  const weights: number[] = [];
+  for (let i = 0; i < len; i++) {
+    const weight = declared?.[i] ?? Number(sizes[i]);
+    if (!Number.isFinite(weight))
+      return null;
+    weights.push(weight);
+  }
+  return weights;
+}
+
+/**
+ * The per-term numbers the author carried alongside the glyphs, when they did.
+ *
+ * Taken whole or not at all: a column that is numeric for some terms and not
+ * for others is not the weights, and mixing it with the glyph sizes would put
+ * two different quantities on one axis.
+ *
+ * @param trace - The resolved plotly trace
+ * @param len   - How many terms the cloud draws
+ * @returns The weights, or undefined when neither carrier holds them
+ */
+function declaredWeights(trace: PlotlyTrace, len: number): number[] | undefined {
+  for (const carrier of [trace.customdata, trace.hovertext]) {
+    if (!Array.isArray(carrier) || carrier.length < len)
+      continue;
+    const values = carrier.slice(0, len).map(entry => Number(entry));
+    if (values.every(value => Number.isFinite(value)))
+      return values;
+  }
+  return undefined;
+}
+
+/**
+ * What a word cloud calls its two dimensions. The layout carries nothing, so
+ * the axes plotly gives the trace name the packing coordinates rather than the
+ * chart — they are deliberately not read.
+ */
+const WORD_CLOUD_TERM_AXIS = 'Term';
+const WORD_CLOUD_WEIGHT_AXIS = 'Weight';
+
+function extractWordCloudLayer(
+  trace: PlotlyTrace,
+  id: string,
+  title: string | undefined,
+  selectors: string | undefined,
+): MaidrLayer | null {
+  const weights = wordCloudWeights(trace);
+  const terms = trace.text;
+  if (!weights || !Array.isArray(terms))
+    return null;
+
+  const data: WordCloudPoint[] = weights.map((weight, i) => ({
+    x: String(terms[i]),
+    y: weight,
+  }));
+
+  return {
+    id,
+    type: TraceType.WORD_CLOUD,
+    title,
+    selectors,
+    axes: {
+      x: { label: WORD_CLOUD_TERM_AXIS },
+      y: { label: WORD_CLOUD_WEIGHT_AXIS },
+    },
     data,
   };
 }
@@ -1669,7 +2202,7 @@ function extractPolarLayer(
   if (data.length === 0)
     return null;
 
-  const subplotId = group.polarId ?? 'polar';
+  const subplotId = group.subplotId ?? 'polar';
   const polar = layout[subplotId] as PlotlyPolarLayout | undefined;
   const radialLabel = extractAxisLabel(polar?.radialaxis, layout);
 
@@ -1901,6 +2434,81 @@ function extractViolinLayers(
 }
 
 /**
+ * Whether the subplot's violins are plotly's ridgeline.
+ *
+ * A ridgeline is drawn by halving the curves — `side: 'positive'` — and
+ * widening them so they overlap, which is plotly's own documented recipe and
+ * the only thing on the trace that distinguishes one. Every violin has to be
+ * halved: a chart mixing halved and whole violins is comparing two things and
+ * is not a ridgeline.
+ *
+ * @param violinTraces - The subplot's violin traces
+ * @returns True when the panel is a ridgeline
+ */
+function isRidgeline(violinTraces: TraceEntry[]): boolean {
+  return violinTraces.every(({ trace }) => trace.side === 'positive');
+}
+
+/**
+ * What a ridgeline layer calls its dimensions.
+ *
+ * `RidgelineTrace` announces the sample's place on the value axis against the
+ * layer's x and the density against its z, so the value axis's own name goes
+ * on x whichever way plotly drew the curves. Plotly titles no density axis —
+ * the offset baseline is not one — so it is named for what it is.
+ */
+const RIDGELINE_DENSITY_AXIS = 'Density';
+
+/**
+ * Builds the ridgeline layer from the subplot's halved violins.
+ *
+ * The payload is the KDE layer's — plotly computed the same `cd.density`
+ * samples either way — and what differs is that a ridgeline is ONE layer: the
+ * recipe draws no inner box, so the quartile summary the violin pair opens
+ * with would describe marks that are not on the chart.
+ *
+ * Curves are emitted top first. `RidgelineTrace` reverses nothing, and plotly
+ * stacks its categories upwards from the bottom of the position axis, so a
+ * horizontal ridgeline's own order is the reverse of the reading one.
+ */
+function extractRidgelineLayer(
+  violinTraces: TraceEntry[],
+  group: SubplotGroup,
+  layout: PlotlyFullLayout,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+): MaidrLayer | null {
+  const isHorizontal = violinTraces[0].trace.orientation === 'h';
+  const posAxis = getAxis(layout, isHorizontal ? group.yAxisId : group.xAxisId);
+
+  const violins = collectViolins(violinTraces, group, posAxis);
+  if (violins.length === 0)
+    return null;
+  if (isHorizontal)
+    violins.reverse();
+
+  const data: ViolinKdePoint[][] = violins.map(({ label, cd }) =>
+    (cd.density ?? []).map(sample => ({ x: label, y: sample.t, density: sample.v })),
+  );
+
+  // The value axis is plotly's x on a horizontal ridgeline, which is where the
+  // trace reads it from; a vertical one has the two exchanged.
+  const axes: MaidrLayer['axes'] = {};
+  const valueLabel = isHorizontal ? xLabel : yLabel;
+  if (valueLabel)
+    axes.x = { label: valueLabel };
+  axes.z = { label: RIDGELINE_DENSITY_AXIS };
+
+  return {
+    id: `${violinTraces[0].globalIdx}-ridgeline`,
+    type: TraceType.RIDGELINE,
+    selectors: violins.map(violin => violin.kdeSelector),
+    axes,
+    data,
+  };
+}
+
+/**
  * Flattens the subplot's violin traces into one violin per calcdata entry,
  * in the order plotly renders them, and builds each one's selectors.
  *
@@ -1976,26 +2584,11 @@ function resolveViolinLabel(
   posAxis: PlotlyAxis | undefined,
   violinsInTrace: number,
 ): string {
-  const category = resolveViolinCategory(cd.pos, posAxis);
+  const category = resolveAxisCategory(cd.pos, posAxis);
   if (violinsInTrace > 1 && category) {
     return trace.name ? `${trace.name}, ${category}` : category;
   }
   return trace.name ?? category ?? '';
-}
-
-function resolveViolinCategory(
-  pos: number | string | undefined,
-  posAxis: PlotlyAxis | undefined,
-): string | undefined {
-  if (typeof pos === 'string')
-    return pos;
-  if (pos === undefined)
-    return undefined;
-
-  const categories = posAxis?._categories;
-  if (categories && pos >= 0 && pos < categories.length)
-    return String(categories[pos]);
-  return String(pos);
 }
 
 /**
@@ -2150,22 +2743,26 @@ function extractHeatmapLayer(
   axes: MaidrLayer['axes'],
   gd: PlotlyGraphDiv,
 ): MaidrLayer | null {
-  if (!trace.z || trace.z.length === 0)
+  // A heatmap's `z` is the grid of cells. The same attribute carries a flat
+  // column on a choropleth, which is a different trace type and a different
+  // extractor — so a grid is what it is not being one.
+  const grid = Array.isArray(trace.z?.[0]) ? (trace.z as number[][]) : undefined;
+  if (!grid || grid.length === 0)
     return null;
 
-  const numCols = trace.z[0]?.length ?? 0;
-  const numRows = trace.z.length;
+  const numCols = grid[0]?.length ?? 0;
+  const numRows = grid.length;
   if (numCols === 0)
     return null;
 
   // Ensure labels match z dimensions (trim if Plotly provides extras).
-  const xLabels = trace.x ? trace.x.slice(0, numCols).map(String) : trace.z[0].map((_, i) => String(i));
-  const yLabels = trace.y ? trace.y.slice(0, numRows).map(String) : trace.z.map((_, i) => String(i));
+  const xLabels = trace.x ? trace.x.slice(0, numCols).map(String) : grid[0].map((_, i) => String(i));
+  const yLabels = trace.y ? trace.y.slice(0, numRows).map(String) : grid.map((_, i) => String(i));
 
   const data: HeatmapData = {
     x: xLabels,
     y: yLabels,
-    points: trace.z,
+    points: grid,
   };
 
   // Set the z axis label for z-values from the colorbar title, or default.
@@ -2187,6 +2784,141 @@ function extractHeatmapLayer(
  */
 function extractColorbarTitle(trace: PlotlyTrace, layout: PlotlyLayout | undefined): string | undefined {
   return extractGivenTitle(trace.colorbar?.title, layout);
+}
+
+// ---------------------------------------------------------------------------
+// Choropleth
+// ---------------------------------------------------------------------------
+
+/**
+ * What a choropleth layer calls its two dimensions. A map has no axes to take
+ * a name from; the shaded quantity usually names itself on the colorbar, and
+ * the regions are named for what they are.
+ */
+const CHOROPLETH_REGION_AXIS = 'Region';
+const CHOROPLETH_VALUE_AXIS = 'Value';
+
+/** One region as the layer needs it, keyed to the shape plotly drew for it. */
+interface ChoroplethRegion {
+  name: string | number;
+  value: number;
+  /** The centroid plotly resolved, when the map has been drawn. */
+  ct?: [number, number];
+  /** Its position in the trace's own arrays, which is the shape's position. */
+  index: number;
+}
+
+/**
+ * Names one region.
+ *
+ * `locations` addresses the region rather than naming it: on a world map it is
+ * usually an ISO code, and with `locationmode: 'geojson-id'` it is whatever key
+ * the feature collection uses — `01`, `06`. Plotly draws no labels either, so
+ * the name a sighted reader is given is the text the author attached, and it
+ * is preferred wherever there is one.
+ *
+ * @param trace - The resolved plotly trace
+ * @param index - Which region
+ * @returns The name to announce it by
+ */
+function regionName(trace: PlotlyTrace, index: number): string | number {
+  for (const carrier of [trace.hovertext, trace.text]) {
+    const entry = Array.isArray(carrier) ? carrier[index] : undefined;
+    if (typeof entry === 'string' && entry !== '')
+      return entry;
+  }
+  return trace.locations?.[index] ?? index;
+}
+
+/**
+ * Reads the regions plotly shaded, keeping each one's own position.
+ *
+ * A region whose value is missing, or whose name matched no feature on the
+ * map, is dropped rather than shaded at zero — plotly leaves its path in the
+ * DOM with no shape at all, which is why the position is carried rather than
+ * recounted: the regions that survive still have to line up with the shapes.
+ *
+ * The centroid is plotly's own `ct`, copied off the resolved feature while the
+ * map was projected, and it is what turns a region list into a map: without a
+ * longitude and a latitude there is no north, no gradient and no neighbouring
+ * region to move to.
+ *
+ * @param trace    - The resolved plotly trace
+ * @param calcdata - What plotly computed for it
+ * @returns The regions, in the order the trace declared them
+ */
+function drawnRegions(trace: PlotlyTrace, calcdata: PlotlyCalcData[]): ChoroplethRegion[] {
+  const values = (trace.z ?? []) as (number | string)[];
+  const len = Math.max(values.length, trace.locations?.length ?? 0);
+
+  const regions: ChoroplethRegion[] = [];
+  for (let index = 0; index < len; index++) {
+    const cd = calcdata[index];
+    // Plotly's own calc marks an unusable region by nulling its location, and
+    // `Number(null)` is a finite zero that would be shaded as a real reading.
+    const raw = cd && 'z' in cd ? cd.z : values[index];
+    if (raw == null || (cd && cd.loc === null))
+      continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value))
+      continue;
+
+    const centroid = cd?.ct;
+    regions.push({
+      name: regionName(trace, index),
+      value,
+      ...(isLonLat(centroid) ? { ct: centroid } : {}),
+      index,
+    });
+  }
+  return regions;
+}
+
+/** Whether plotly resolved a usable `[lon, lat]` pair for a region. */
+function isLonLat(ct: [number, number] | undefined): ct is [number, number] {
+  return Array.isArray(ct) && ct.length >= 2
+    && Number.isFinite(Number(ct[0])) && Number.isFinite(Number(ct[1]));
+}
+
+/**
+ * Builds a choropleth layer.
+ *
+ * `neighbors` is deliberately never emitted: plotly holds each region's
+ * polygons but nothing that says which regions share a border, and the
+ * grammar asks for silence rather than a guess — two regions can have near
+ * centroids and no shared border at all.
+ */
+function extractChoroplethLayer(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+  id: string,
+  title: string | undefined,
+  traceIndex: number,
+  gd: PlotlyGraphDiv,
+): MaidrLayer | null {
+  const regions = drawnRegions(trace, calcdata);
+  if (regions.length === 0)
+    return null;
+
+  const data: ChoroplethPoint[] = regions.map(region => ({
+    x: region.name,
+    y: region.value,
+    ...(region.ct ? { lon: Number(region.ct[0]), lat: Number(region.ct[1]) } : {}),
+  }));
+
+  const valueLabel = extractColorbarTitle(trace, gd._fullLayout ?? gd.layout);
+
+  return {
+    id,
+    type: TraceType.CHOROPLETH,
+    title,
+    selectors: choroplethRegionSelectors(gd, traceIndex, regions.map(region => region.index)),
+    axes: {
+      x: { label: CHOROPLETH_REGION_AXIS },
+      y: { label: valueLabel ?? CHOROPLETH_VALUE_AXIS },
+    },
+    data,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3244,6 +3976,46 @@ function extractErrorBarLayer(
 // ---------------------------------------------------------------------------
 // Segmented bars (dodged / stacked / normalized)
 // ---------------------------------------------------------------------------
+
+/**
+ * Whether the panel's bar traces are two sides of one baseline.
+ *
+ * A population pyramid, and a Likert scale split around a neutral midpoint,
+ * are authored the same way: the values on one side are negated so the bars
+ * grow the other way, and `barmode` stacks them from a shared zero. What makes
+ * it a pyramid rather than a stack is exactly that — one series growing left
+ * and another growing right — so it is read off the signs of the values.
+ *
+ * Every series has to keep to one side. A series that crosses the baseline is
+ * not a side of anything, and announcing the chart as diverging would promise
+ * a direction per series that it does not have.
+ *
+ * @param barTraces - The panel's bar traces
+ * @returns True when the panel draws two opposed sides
+ */
+function divergingSides(barTraces: TraceEntry[]): boolean {
+  let growsUp = false;
+  let growsDown = false;
+
+  for (const { trace } of barTraces) {
+    const values = (trace.orientation === 'h' ? trace.x : trace.y) ?? [];
+    const numbers = values
+      .filter(value => value != null)
+      .map(Number)
+      .filter(value => Number.isFinite(value) && value !== 0);
+    if (numbers.length === 0)
+      continue;
+
+    const positive = numbers.every(value => value > 0);
+    const negative = numbers.every(value => value < 0);
+    if (!positive && !negative)
+      return false;
+    growsUp = growsUp || positive;
+    growsDown = growsDown || negative;
+  }
+
+  return growsUp && growsDown;
+}
 
 /**
  * Combines multiple plotly bar traces into a single MAIDR segmented bar layer.

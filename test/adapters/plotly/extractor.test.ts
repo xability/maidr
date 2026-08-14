@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, ErrorBarPoint, GaugePoint, LinePoint, MaidrLayer, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ErrorBarPoint, GanttData, GaugePoint, LinePoint, MaidrLayer, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -1784,6 +1784,142 @@ describe('plotly extractor', () => {
       });
     });
 
+    it('constructs a navigable trace for each of the derived cartesian types', () => {
+      const day = 86400000;
+      const march = Date.UTC(2024, 2, 1);
+      const gd = createGraphDiv({
+        traces: [
+          {
+            type: 'bar',
+            orientation: 'h',
+            base: [march],
+            x: [4 * day],
+            y: ['Design'],
+            name: 'Team A',
+          },
+          {
+            type: 'bar',
+            orientation: 'h',
+            y: ['0-9'],
+            x: [-5],
+            name: 'Male',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'bar',
+            orientation: 'h',
+            y: ['0-9'],
+            x: [5],
+            name: 'Female',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'scatter',
+            mode: 'markers',
+            uid: 'dot1',
+            x: ['Chicago', 'Boston'],
+            y: [21, 17],
+            xaxis: 'x3',
+            yaxis: 'y3',
+          },
+          {
+            type: 'scatter',
+            mode: 'text',
+            uid: 'wc1',
+            x: [1, 2],
+            y: [2, 1],
+            text: ['sonification', 'braille'],
+            textfont: { size: [44, 18] },
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+        ],
+        layout: twoByTwoLayout({
+          barmode: 'relative',
+          xaxis: { domain: [0, 0.45], type: 'date' },
+          yaxis: { domain: [0.575, 1], _categories: ['Design'] },
+        }),
+        bgRects: TWO_BY_TWO_RECTS,
+        calcdata: [[{ p: 0, s: 4 * day, b: march }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Every payload is one the core's factory recognises and can build a
+        // trace from — the emitted shapes, not just the emitted type names.
+        expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
+          ['gantt'],
+          ['diverging_bar'],
+          ['dot'],
+          ['word_cloud'],
+        ]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('a plotly choropleth reaches the core as a map of regions', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'choropleth',
+          locations: ['FRA', 'DEU'],
+          z: [10, 20],
+          name: 'Europe',
+        }],
+        layout: { geo: { domain: { x: [0, 1], y: [0, 1] } } },
+        calcdata: [[
+          { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+          { loc: 'DEU', z: 20, ct: [10.4, 51.1] },
+        ]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.CHOROPLETH]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
+    it('a plotly ridgeline reaches the core as one layer of curves', () => {
+      const density = [
+        { v: 0.1, t: 1 },
+        { v: 0.4, t: 3 },
+      ];
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3], name: 'A' },
+          { type: 'violin', orientation: 'h', side: 'positive', x: [2, 4], name: 'B' },
+        ],
+        layout: {
+          xaxis: { domain: [0, 1], title: { text: 'Score' } },
+          yaxis: { domain: [0, 1], _categories: ['A', 'B'] },
+        },
+        calcdata: [[{ pos: 0, density }], [{ pos: 1, density }]],
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.RIDGELINE]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
+
     it('a plotly polar chart reaches the core as a radar trace', () => {
       const gd = createGraphDiv({
         traces: [{
@@ -3261,6 +3397,508 @@ describe('plotly extractor', () => {
       });
 
       expect(layer.data as LinePoint[][]).toHaveLength(2);
+    });
+  });
+  describe('ridgeline traces', () => {
+    /** One halved violin, with the KDE samples plotly computed for it. */
+    function ridgeCalc(pos: number): PlotlyCalcData {
+      return {
+        pos,
+        min: 1,
+        q1: 2,
+        med: 3,
+        q3: 4,
+        max: 9,
+        density: [
+          { v: 0.1, t: 1 },
+          { v: 0.4, t: 3 },
+          { v: 0.05, t: 9 },
+        ],
+      };
+    }
+
+    /** Plotly's own ridgeline recipe: horizontal violins, positive half only. */
+    function ridgeTraces(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace[] {
+      return [
+        { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3, 9], name: 'A', ...overrides },
+        { type: 'violin', orientation: 'h', side: 'positive', x: [2, 4, 8], name: 'B', ...overrides },
+      ];
+    }
+
+    const RIDGE_LAYOUT: PlotlyFullLayout = {
+      xaxis: { domain: [0, 1], title: { text: 'Score' } },
+      yaxis: { domain: [0, 1], title: { text: 'Group' }, _categories: ['A', 'B'] },
+    };
+
+    function ridgeLayers(traces: PlotlyTrace[] = ridgeTraces()): MaidrLayer[] {
+      const gd = createGraphDiv({
+        traces,
+        layout: RIDGE_LAYOUT,
+        calcdata: [[ridgeCalc(0)], [ridgeCalc(1)]],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('emits one ridgeline layer in place of the violin pair', () => {
+      const layers = ridgeLayers();
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.RIDGELINE);
+    });
+
+    it('reads plotly\'s density samples, curves top first', () => {
+      const data = ridgeLayers()[0].data as ViolinKdePoint[][];
+
+      // The last trace is drawn at the top of a horizontal position axis, and
+      // the ridgeline trace reverses nothing of its own.
+      expect(data.map(curve => curve[0].x)).toEqual(['B', 'A']);
+      expect(data[0][1]).toEqual({ x: 'B', y: 3, density: 0.4 });
+    });
+
+    it('names the value axis and the density, one selector per curve', () => {
+      const layer = ridgeLayers()[0];
+
+      expect(layer.axes?.x?.label).toBe('Score');
+      expect(layer.axes?.z?.label).toBe('Density');
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
+        '.subplot.xy .violinlayer > g:nth-child(1) > path.violin:nth-child(1)',
+      ]);
+    });
+
+    it('keeps the violin pair when only some of the violins are halved', () => {
+      const layers = ridgeLayers([
+        { type: 'violin', orientation: 'h', side: 'positive', x: [1, 3, 9], name: 'A' },
+        { type: 'violin', orientation: 'h', x: [2, 4, 8], name: 'B' },
+      ]);
+
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.VIOLIN_BOX,
+        TraceType.VIOLIN_KDE,
+      ]);
+    });
+  });
+
+  describe('gantt traces', () => {
+    const DAY = 86400000;
+    const MARCH_1 = Date.UTC(2024, 2, 1);
+
+    /** A timeline as `plotly.express.timeline` emits one: bars floated on dates. */
+    function timelineTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'bar',
+        orientation: 'h',
+        base: [MARCH_1, MARCH_1 + 4 * DAY],
+        x: [4 * DAY, 6 * DAY],
+        y: ['Design', 'Build'],
+        name: 'Team A',
+        ...overrides,
+      };
+    }
+
+    /**
+     * The lane axis as plotly resolves it for a timeline: categories, with the
+     * range reversed so the first task sits at the top.
+     */
+    function timelineLayout(extra: Partial<PlotlyFullLayout> = {}): PlotlyFullLayout {
+      return {
+        xaxis: { domain: [0, 1], type: 'date', title: { text: 'Date' } },
+        yaxis: {
+          domain: [0, 1],
+          type: 'category',
+          title: { text: 'Task' },
+          _categories: ['Design', 'Build', 'Ship'],
+          range: [2.5, -0.5],
+        },
+        ...extra,
+      };
+    }
+
+    function ganttLayer(
+      traces: PlotlyTrace[] = [timelineTrace()],
+      calcdata?: PlotlyCalcData[][],
+    ): MaidrLayer {
+      const gd = createGraphDiv({
+        traces,
+        layout: timelineLayout(),
+        calcdata: calcdata ?? [[
+          { p: 0, s: 4 * DAY, b: MARCH_1 },
+          { p: 1, s: 6 * DAY, b: MARCH_1 + 4 * DAY },
+        ]],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('reads the intervals plotly floated onto the date axis', () => {
+      const layer = ganttLayer();
+
+      expect(layer.type).toBe(TraceType.GANTT);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as GanttData;
+      // Scaled into the unit the lengths are announced in, so a task reads as
+      // four days rather than as 345,600,000.
+      expect(data.points[0]).toEqual([
+        { x: 'Design', start: MARCH_1 / DAY, end: MARCH_1 / DAY + 4 },
+      ]);
+      expect(data.unit).toBe('days');
+    });
+
+    it('keeps a lane nothing was booked in', () => {
+      const data = ganttLayer().data as GanttData;
+
+      expect(data.lanes).toEqual(['Design', 'Build', 'Ship']);
+      expect(data.points[2]).toEqual([]);
+    });
+
+    it('takes the axis format back to the instant the position names', () => {
+      const format = ganttLayer().axes?.x?.format;
+
+      expect(format?.function).toContain('new Date(value * 86400000)');
+      // eslint-disable-next-line no-new-func
+      const render = new Function('value', format!.function!) as (v: number) => string;
+      expect(render(MARCH_1 / DAY)).toContain('2024');
+    });
+
+    it('addresses each interval by its own bar', () => {
+      expect(ganttLayer().selectors).toEqual([
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(1) > path',
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(2) > path',
+      ]);
+    });
+
+    it('merges the traces plotly.express splits a schedule into by colour', () => {
+      const layer = ganttLayer(
+        [
+          timelineTrace({ base: [MARCH_1], x: [4 * DAY], y: ['Design'], name: 'Alice' }),
+          timelineTrace({ base: [MARCH_1 + 4 * DAY], x: [6 * DAY], y: ['Design'], name: 'Bob' }),
+        ],
+        [
+          [{ p: 0, s: 4 * DAY, b: MARCH_1 }],
+          [{ p: 0, s: 6 * DAY, b: MARCH_1 + 4 * DAY }],
+        ],
+      );
+
+      const data = layer.data as GanttData;
+      expect(data.points[0]).toHaveLength(2);
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.points > g.point:nth-of-type(1) > path',
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) > g.points > g.point:nth-of-type(1) > path',
+      ]);
+    });
+
+    it('parses the dates plotly.py writes as strings when calcdata is absent', () => {
+      const layer = ganttLayer(
+        [timelineTrace({ base: ['2024-03-01T00:00:00Z'], x: [2 * DAY], y: ['Design'] })],
+        [],
+      );
+
+      const data = layer.data as GanttData;
+      expect(data.points[0][0].start).toBe(MARCH_1 / DAY);
+      expect(data.points[0][0].end).toBe(MARCH_1 / DAY + 2);
+    });
+
+    it('leaves a horizontal bar chart with no base a bar chart', () => {
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', orientation: 'h', x: [4, 6], y: ['Design', 'Build'] }],
+        layout: timelineLayout(),
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    });
+  });
+
+  describe('diverging bars', () => {
+    function pyramidTraces(left: number[], right: number[]): PlotlyTrace[] {
+      return [
+        { type: 'bar', orientation: 'h', y: ['0-9', '10-19'], x: left, name: 'Male' },
+        { type: 'bar', orientation: 'h', y: ['0-9', '10-19'], x: right, name: 'Female' },
+      ];
+    }
+
+    function barLayer(traces: PlotlyTrace[]): MaidrLayer {
+      const gd = createGraphDiv({
+        traces,
+        layout: {
+          barmode: 'relative',
+          xaxis: { domain: [0, 1], title: { text: 'Population' } },
+          yaxis: { domain: [0, 1], title: { text: 'Age band' } },
+        },
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads two opposed sides as a pyramid, keeping the signs', () => {
+      const layer = barLayer(pyramidTraces([-5, -7], [5, 6]));
+
+      expect(layer.type).toBe(TraceType.DIVERGING);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as SegmentedPoint[][];
+      // The sign is the side rather than a magnitude, and the trace reads it
+      // as one — so it must survive into the payload.
+      expect(data[0][0]).toEqual({ x: -5, y: '0-9', z: 'Male' });
+      expect(data[1][1]).toEqual({ x: 6, y: '10-19', z: 'Female' });
+      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+    });
+
+    it('leaves a stack whose series grow the same way alone', () => {
+      expect(barLayer(pyramidTraces([5, 7], [5, 6])).type).toBe(TraceType.STACKED);
+    });
+
+    it('leaves a series that crosses the baseline alone', () => {
+      expect(barLayer(pyramidTraces([-5, 7], [5, 6])).type).toBe(TraceType.STACKED);
+    });
+  });
+
+  describe('dot plots', () => {
+    function dotLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          uid: 'abc123',
+          x: ['Chicago', 'Boston', 'Denver'],
+          y: [21, 17, 24],
+          name: 'Median rent',
+          ...overrides,
+        }],
+        layout: {
+          xaxis: { domain: [0, 1], title: { text: 'City' } },
+          yaxis: { domain: [0, 1], title: { text: 'Rent' } },
+        },
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads one marker per category as a dot plot', () => {
+      const layer = dotLayer();
+
+      expect(layer.type).toBe(TraceType.DOT);
+      expect(layer.orientation).toBeUndefined();
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 'Chicago', y: 21 },
+        { x: 'Boston', y: 17 },
+        { x: 'Denver', y: 24 },
+      ]);
+    });
+
+    it('reads the categories off whichever axis carries them', () => {
+      const layer = dotLayer({ x: [21, 17], y: ['Chicago', 'Boston'] });
+
+      expect(layer.type).toBe(TraceType.DOT);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 21, y: 'Chicago' },
+        { x: 17, y: 'Boston' },
+      ]);
+    });
+
+    it('scopes the highlight to the trace\'s own markers', () => {
+      // The subplot prefix alone would take in every scatter on the panel,
+      // and a bar-shaped layer pairs its selector with its own points.
+      expect(dotLayer().selectors)
+        .toBe('.subplot.xy .scatterlayer g.trace.traceabc123 .point');
+    });
+
+    it('leaves a scatter that draws a category twice alone', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          uid: 'abc123',
+          x: ['Chicago', 'Chicago', 'Boston'],
+          y: [21, 19, 17],
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      // Still a scatter — and a scatter of labels has no numeric coordinates
+      // to emit, which is what it already did before dot plots were read.
+      expect(extractPlotlyData(gd)).toBeNull();
+    });
+  });
+
+  describe('word clouds', () => {
+    function cloudLayer(overrides: Partial<PlotlyTrace> = {}): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'text',
+          uid: 'wc1',
+          x: [3, 1, 2],
+          y: [2, 1, 3],
+          text: ['sonification', 'braille', 'audio'],
+          textfont: { size: [44, 18, 30] },
+          name: 'Terms',
+          ...overrides,
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads a text scatter with per-term glyph sizes as a cloud', () => {
+      const layer = cloudLayer();
+
+      expect(layer.type).toBe(TraceType.WORD_CLOUD);
+      expect(layer.data).toEqual([
+        { x: 'sonification', y: 44 },
+        { x: 'braille', y: 18 },
+        { x: 'audio', y: 30 },
+      ]);
+      expect(layer.axes?.x?.label).toBe('Term');
+      expect(layer.axes?.y?.label).toBe('Weight');
+    });
+
+    it('prefers a weight the author carried over the glyph size', () => {
+      const layer = cloudLayer({ customdata: [1200, 300, 640] });
+
+      expect((layer.data as { y: number }[]).map(point => point.y))
+        .toEqual([1200, 300, 640]);
+    });
+
+    it('highlights the glyph, which is the only mark the cloud draws', () => {
+      expect(cloudLayer().selectors)
+        .toBe('.subplot.xy .scatterlayer g.trace.tracewc1 g.textpoint > text');
+    });
+
+    it('leaves a text scatter with one glyph size a scatter', () => {
+      const gd = createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers+text',
+          uid: 'wc1',
+          x: [1, 2],
+          y: [3, 4],
+          text: ['a', 'b'],
+          textfont: { size: 12 },
+        }],
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      expect(extractPlotlyData(gd)!.subplots[0][0].layers[0].type)
+        .toBe(TraceType.SCATTER);
+    });
+  });
+
+  describe('choropleth traces', () => {
+    function choroplethTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'choropleth',
+        locations: ['FRA', 'DEU', 'ITA'],
+        z: [10, 20, 30],
+        text: ['France', 'Germany', 'Italy'],
+        colorbar: { title: { text: 'GDP' } },
+        name: 'Europe',
+        ...overrides,
+      };
+    }
+
+    /** What plotly leaves once the map has been projected. */
+    function choroplethCalc(): PlotlyCalcData[] {
+      return [
+        { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+        { loc: 'DEU', z: 20, ct: [10.4, 51.1] },
+        { loc: 'ITA', z: 30, ct: [12.6, 42.8] },
+      ];
+    }
+
+    function choroplethLayer(
+      trace: PlotlyTrace = choroplethTrace(),
+      calcdata: PlotlyCalcData[] = choroplethCalc(),
+    ): MaidrLayer {
+      const gd = createGraphDiv({
+        traces: [trace],
+        layout: { geo: { domain: { x: [0, 1], y: [0, 1] } } },
+        calcdata: [calcdata],
+      });
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    it('reads the regions with the centroids plotly resolved for them', () => {
+      const layer = choroplethLayer();
+
+      expect(layer.type).toBe(TraceType.CHOROPLETH);
+      expect(layer.data as ChoroplethPoint[]).toEqual([
+        { x: 'France', y: 10, lon: 2.2, lat: 46.2 },
+        { x: 'Germany', y: 20, lon: 10.4, lat: 51.1 },
+        { x: 'Italy', y: 30, lon: 12.6, lat: 42.8 },
+      ]);
+      // The colorbar is the only place a choropleth names its magnitude.
+      expect(layer.axes?.y?.label).toBe('GDP');
+      expect(layer.axes?.x?.label).toBe('Region');
+    });
+
+    it('falls back to the location code when nothing names the region', () => {
+      const layer = choroplethLayer(choroplethTrace({ text: undefined }));
+
+      expect((layer.data as ChoroplethPoint[]).map(point => point.x))
+        .toEqual(['FRA', 'DEU', 'ITA']);
+    });
+
+    it('leaves the centroid off a map plotly has not projected', () => {
+      const layer = choroplethLayer(choroplethTrace(), []);
+
+      expect(layer.data as ChoroplethPoint[]).toEqual([
+        { x: 'France', y: 10 },
+        { x: 'Germany', y: 20 },
+        { x: 'Italy', y: 30 },
+      ]);
+    });
+
+    it('drops a region plotly could not shade, keeping the others\' shapes', () => {
+      const layer = choroplethLayer(choroplethTrace(), [
+        { loc: 'FRA', z: 10, ct: [2.2, 46.2] },
+        { loc: null, z: undefined },
+        { loc: 'ITA', z: 30, ct: [12.6, 42.8] },
+      ]);
+
+      expect((layer.data as ChoroplethPoint[]).map(point => point.x))
+        .toEqual(['France', 'Italy']);
+      // The dropped region keeps its own path in the DOM, so the ones after it
+      // are still addressed by their own position.
+      expect(layer.selectors).toEqual([
+        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(1)',
+        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(3)',
+      ]);
+    });
+
+    it('keeps a geo subplot apart from the cartesian panel beside it', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['a', 'b'], y: [1, 2], name: 'Counts' },
+          choroplethTrace({ geo: 'geo2' }),
+        ],
+        layout: {
+          xaxis: { domain: [0, 0.45] },
+          yaxis: { domain: [0, 1] },
+          geo2: { domain: { x: [0.55, 1], y: [0, 1] } },
+        },
+        calcdata: [[], choroplethCalc()],
+      });
+
+      const maidr = extractPlotlyData(gd);
+
+      expect(maidr!.subplots[0]).toHaveLength(2);
+      expect(maidr!.subplots[0].map(panel => panel.layers[0].type))
+        .toEqual([TraceType.BAR, TraceType.CHOROPLETH]);
+      expect(maidr!.subplots[0][1].layers[0].selectors)
+        .toEqual(expect.arrayContaining([expect.stringContaining('g.geo.geo2')]));
     });
   });
 });

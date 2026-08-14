@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Gantt Chart - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Gantt Chart</h1>
+    <p>
+      Plotly has no gantt trace: a schedule is drawn as horizontal bars whose
+      <code>base</code> array floats each one onto a date axis, which is what
+      <code>plotly.express.timeline</code> emits. MAIDR reads that back as
+      intervals rather than as bars — an interval has two positions and no
+      baseline, so its length is a difference a reader has to be told. The
+      pitch carries the length and the stereo position carries the start,
+      mapped along the whole axis, so two tasks that line up sound like they
+      line up and a lane whose work happens late sounds late.
+    </p>
+
+    <div id="gantt" style="width: 800px; height: 420px"></div>
+
+    <script>
+      const day = 86400000;
+      const start = date => Date.parse(date + 'T00:00:00Z');
+      const tasks = [
+        { lane: 'Research', from: '2024-03-01', to: '2024-03-12' },
+        { lane: 'Design', from: '2024-03-08', to: '2024-03-22' },
+        { lane: 'Build', from: '2024-03-18', to: '2024-04-19' },
+        { lane: 'Build', from: '2024-04-24', to: '2024-05-06' },
+        { lane: 'Launch', from: '2024-05-06', to: '2024-05-13' }
+      ];
+
+      Plotly.newPlot(
+        'gantt',
+        [
+          {
+            type: 'bar',
+            orientation: 'h',
+            y: tasks.map(task => task.lane),
+            base: tasks.map(task => task.from),
+            x: tasks.map(task => start(task.to) - start(task.from)),
+            marker: { color: '#4C78A8' }
+          }
+        ],
+        {
+          title: { text: 'Release schedule' },
+          xaxis: { type: 'date', title: { text: 'Date' } },
+          yaxis: { title: { text: 'Phase' }, autorange: 'reversed' },
+          showlegend: false
+        }
+      );
+    </script>
+  </body>
+</html>

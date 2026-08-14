@@ -54,11 +54,15 @@ export function generatePlotlySelectors(
     case TraceType.SCATTER:
       return `${prefix}.trace.scatter .point`;
 
+    // A pyramid is among these: it is a stacked bar chart whose two sides grow
+    // opposite ways, drawn through the same renderer, so its bars are the same
+    // elements in the same trace-by-trace order.
     case TraceType.BAR:
     case TraceType.HISTOGRAM:
     case TraceType.DODGED:
     case TraceType.STACKED:
     case TraceType.NORMALIZED:
+    case TraceType.DIVERGING:
       return `${prefix}.trace.bars .point > path`;
 
     // A step trace is a scatter trace plotly drew as a staircase, and an area
@@ -80,6 +84,18 @@ export function generatePlotlySelectors(
 
     case TraceType.WATERFALL:
       return `${prefix}.waterfalllayer .trace.bars .point > path`;
+
+    // A dot plot is a scatter with one marker per category, so its marks are
+    // scatter markers — but a bar-shaped layer pairs its selector with its own
+    // points alone, so this one is scoped to the single trace it describes
+    // rather than to every scatter on the panel.
+    case TraceType.DOT:
+      return scatterTraceScope(prefix, traceData, '.point');
+
+    // A word cloud is a scatter drawn as text: the glyph is the mark, and it
+    // is the only thing on the panel that carries the term.
+    case TraceType.WORD_CLOUD:
+      return scatterTraceScope(prefix, traceData, 'g.textpoint > text');
 
     case TraceType.ERROR_BAR:
       return errorBarSelector(prefix, traceData);
@@ -146,6 +162,95 @@ function lineSelector(prefix: string, mode?: string): string | undefined {
   }
   // Lines-only mode: no per-point SVG elements to highlight.
   return undefined;
+}
+
+/**
+ * Scopes a selector to one scatter trace's own marks.
+ *
+ * The subplot prefix alone matches every scatter on the panel, which is what
+ * the line and scatter layers want — they describe all of them. A layer built
+ * from a single trace needs its own marks and nothing else, and the uid class
+ * plotly hangs on each `g.trace` is the only thing that names one: the group
+ * order inside `.scatterlayer` is the fill z-order plotly sorted them into,
+ * not the order of `_fullData`, so counting siblings would pick the wrong one.
+ *
+ * A uid that is not a usable class name — plotly generates safe ones, but an
+ * author may set `uid` to anything — withdraws the selector rather than
+ * emitting one that would silently match nothing.
+ *
+ * @param prefix - The subplot prefix the trace is drawn in
+ * @param trace  - The resolved plotly trace
+ * @param marks  - The selector for the marks within the trace's group
+ * @returns The scoped selector, or undefined when the trace cannot be named
+ */
+function scatterTraceScope(
+  prefix: string,
+  trace: PlotlyTrace | undefined,
+  marks: string,
+): string | undefined {
+  const uid = trace?.uid;
+  if (!uid || !/^[\w-]+$/.test(uid)) {
+    return undefined;
+  }
+  return `${prefix}.scatterlayer g.trace.trace${uid} ${marks}`;
+}
+
+/**
+ * The bar plotly drew for one point of one bar-family trace.
+ *
+ * Bars are addressed individually — rather than through the one selector the
+ * bar layers share — wherever a layer regroups its points into rows that are
+ * not the traces plotly drew. A schedule does exactly that: its lanes are
+ * categories, and the intervals in one lane may come from several traces.
+ *
+ * @param prefix        - The subplot prefix the trace is drawn in
+ * @param tracePosition - Its position among the panel's bar-layer traces
+ * @param pointIndex    - Which of that trace's points, in calc order
+ * @returns The selector for that one bar's path
+ */
+export function barPointSelector(
+  prefix: string,
+  tracePosition: number,
+  pointIndex: number,
+): string {
+  return `${prefix}.barlayer > g.trace.bars:nth-of-type(${tracePosition + 1})`
+    + ` > g.points > g.point:nth-of-type(${pointIndex + 1}) > path`;
+}
+
+/**
+ * Choropleth selectors: one region at a time, in the order the trace declared
+ * them.
+ *
+ * Plotly draws a path per calc entry — including the entries it resolved to no
+ * region at all, which stay in the DOM with no shape — so a region is
+ * addressed by its own position rather than by counting the ones before it.
+ * That keeps the pairing right for a map whose data has holes, which is the
+ * ordinary case: a value the source had nothing for is still a row.
+ *
+ * The trace's group is counted within its own geo subplot, since plotly hangs
+ * no uid class on these groups either.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The global index of the choropleth trace
+ * @param indices    - The calc index of each region the layer emitted
+ * @returns One selector per region
+ */
+export function choroplethRegionSelectors(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  indices: number[],
+): string[] {
+  const geoId = gd._fullData?.[traceIndex]?.geo ?? 'geo';
+  const position = drawnBefore(
+    gd,
+    traceIndex,
+    'choropleth',
+    trace => (trace.geo ?? 'geo') === geoId,
+  ) + 1;
+  const group = `.geolayer > g.geo.${geoId} > g.backplot > g.choroplethlayer`
+    + ` > g.trace.choropleth:nth-of-type(${position})`;
+  return indices.map(index =>
+    `${group} > path.choroplethlocation:nth-of-type(${index + 1})`);
 }
 
 /**
@@ -237,14 +342,26 @@ function isDrawnPie(trace: PlotlyTrace | undefined): boolean {
  * @param gd         - The plotly graph div
  * @param traceIndex - The global index of the trace being selected
  * @param type       - The plotly trace type sharing the layer
+ * @param sameLayer  - Narrows the count to the traces sharing one layer, for a
+ *                     family drawn once per subplot rather than once per paper
  * @returns How many traces of that type plotly drew before this one
  */
-function drawnBefore(gd: PlotlyGraphDiv, traceIndex: number, type: string): number {
+function drawnBefore(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  type: string,
+  sameLayer?: (trace: PlotlyTrace) => boolean,
+): number {
   const traces = gd._fullData ?? [];
   let count = 0;
   for (let i = 0; i < traceIndex; i++) {
     const trace = traces[i];
-    if (trace?.type === type && trace.visible !== false && trace.visible !== 'legendonly') {
+    if (
+      trace?.type === type
+      && trace.visible !== false
+      && trace.visible !== 'legendonly'
+      && (sameLayer === undefined || sameLayer(trace))
+    ) {
       count++;
     }
   }

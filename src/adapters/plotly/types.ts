@@ -42,12 +42,36 @@ export interface PlotlyTrace {
   groupnorm?: string;
   x?: (number | string)[];
   y?: (number | string)[];
-  z?: number[][];
+  /**
+   * A heatmap's grid of magnitudes — and a choropleth's flat column of them,
+   * which is the same attribute carrying one value per region rather than one
+   * per cell.
+   */
+  z?: number[][] | (number | string)[];
   xaxis?: string;
   yaxis?: string;
   orientation?: 'v' | 'h';
-  /** Value-axis offset every bar-like size is measured from. */
-  base?: number;
+  /**
+   * Value-axis offset every bar-like size is measured from. An ARRAY floats
+   * each bar from its own offset, which is how a schedule is drawn: the bar
+   * starts at `base[i]` and runs for the duration in `x[i]`.
+   */
+  base?: number | (number | string)[];
+  /**
+   * Text drawn at, or associated with, each point. A word cloud is a scatter
+   * whose terms live here, and a choropleth names its regions here when the
+   * locations themselves are codes.
+   */
+  text?: (number | string)[] | string;
+  /** Hover-only text. Plotly.py's `hover_name` resolves to this. */
+  hovertext?: (number | string)[] | string;
+  /**
+   * Glyph styling for the text marks. An ARRAY of sizes is what makes a text
+   * scatter a word cloud: the size is per term rather than per trace.
+   */
+  textfont?: { size?: number | number[] };
+  /** Author-supplied values carried through to hover templates and events. */
+  customdata?: unknown[];
   // Waterfall-specific
   /**
    * What each step does to the running total: `relative` contributes,
@@ -66,6 +90,12 @@ export interface PlotlyTrace {
   upperfence?: number[];
   mean?: number[];
   // Violin-specific
+  /**
+   * Which half of each violin is drawn. `positive` is plotly's own ridgeline
+   * recipe: the curves are halved so they can overlap without hiding one
+   * another.
+   */
+  side?: 'both' | 'positive' | 'negative';
   /** Inner box overlay. Plotly draws `path.box` only when `visible` is true. */
   box?: { visible?: boolean };
   /** Mean line overlay drawn across the violin. */
@@ -120,6 +150,17 @@ export interface PlotlyTrace {
   r?: (number | string)[];
   /** Angular coordinates — which spoke each value sits on. */
   theta?: (number | string)[];
+  // Choropleth-specific
+  /**
+   * Which geo subplot the trace is drawn on (`geo`, `geo2`, …). A choropleth
+   * carries this instead of an `xaxis`/`yaxis` pair.
+   */
+  geo?: string;
+  /**
+   * The regions shaded, named the way `locationmode` addresses them — an ISO
+   * code, a state name, a GeoJSON feature id. Parallel to the values in `z`.
+   */
+  locations?: (number | string)[];
   // Parallel-coordinates-specific
   /**
    * One entry per axis, each carrying the whole column of observations.
@@ -409,13 +450,23 @@ export interface PlotlyCalcData {
   // Sankey: plotly stashes the whole graph on the first entry
   /** The flows plotly kept, in the order it drew the ribbons. */
   _links?: PlotlySankeyLink[];
+  // Choropleth
+  /** The region this entry shades, as the trace addressed it. */
+  loc?: number | string | null;
+  /**
+   * The region's centroid as `[lon, lat]` in degrees, copied off the
+   * topojson/GeoJSON feature plotly resolved the region to. Present only once
+   * the map has been drawn.
+   */
+  ct?: [number, number];
   // Polar
   /** Radial coordinate (scatterpolar). */
   r?: number;
   /** Angular coordinate (scatterpolar). */
   theta?: number | string;
-  // Heatmap
-  z?: number[][];
+  // Heatmap, and choropleth — where the same field is one region's magnitude
+  // rather than a grid of them.
+  z?: number[][] | number;
   trace?: PlotlyTrace;
   [key: string]: unknown;
 }

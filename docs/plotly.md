@@ -86,6 +86,12 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Radar | `type: 'scatterpolar'` | [Radar](examples.html) |
 | Polar Area / Rose | `type: 'barpolar'` | [Polar area](examples.html) |
 | Parallel Coordinates | `type: 'parcoords'` | [Parallel coordinates](examples.html) |
+| Ridgeline | `type: 'violin'` with `side: 'positive'` | [Ridgeline](examples.html) |
+| Gantt / Timeline | horizontal `bar` traces with a `base` array on a date axis | [Gantt chart](examples.html) |
+| Diverging Bar / Pyramid | `barmode: 'relative'` + bar traces with opposed signs | [Population pyramid](examples.html) |
+| Dot Plot | `type: 'scatter'`, `mode: 'markers'`, one marker per category | [Dot plot](examples.html) |
+| Word Cloud | `type: 'scatter'`, `mode: 'text'`, array `textfont.size` | [Word cloud](examples.html) |
+| Choropleth | `type: 'choropleth'` | [Choropleth map](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 **Notes on chart-type detection:**
@@ -505,7 +511,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from Plotly |
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Auto-generated |
 | Configuration | Required | Required | Zero configuration |
-| Chart types | All MAIDR types | All MAIDR types | 23 Plotly types |
+| Chart types | All MAIDR types | All MAIDR types | 29 Plotly types |
 | Dynamic charts | Manual init | React lifecycle | Auto-detected |
 
 ## Python and R Binders
