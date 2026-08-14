@@ -42,19 +42,24 @@ import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
 import { buildBoxenLayer } from './boxen';
 import { buildCandlestickLayer } from './candlestick';
+import { buildContourLayer } from './contour';
 import { buildDumbbellLayer } from './dumbbell';
 import { buildErrorBarLayer, buildForestLayer } from './errorBar';
 import { buildFlowLayer } from './flow';
 import { buildGanttLayer } from './gantt';
 import { buildGaugeLayer } from './gauge';
 import { buildHeatmapLayer } from './heatmap';
+import { buildHexbinLayer } from './hexbin';
 import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
 import { buildNetworkLayer } from './network';
+import { buildParallelLayer } from './parallel';
 import { buildPieLayer, buildPolarAreaLayer } from './pie';
+import { buildRidgelineLayer } from './ridgeline';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
 import { buildSmoothLayer } from './smooth';
+import { buildSurvivalLayer } from './survival';
 import { buildTreemapLayer } from './treemap';
 import { buildWaterfallLayer } from './waterfall';
 import { buildWordCloudLayer } from './wordCloud';
@@ -257,6 +262,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildCandlestickLayer(root, spec.config, panel);
     case 'chord':
       return buildFlowLayer(root, spec.config, panel, TraceType.CHORD);
+    case 'contour':
+      return buildContourLayer(root, spec.config, panel);
     case 'dot':
       return buildBarLayer(root, spec.config, panel, TraceType.DOT);
     case 'dumbbell':
@@ -273,6 +280,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildGaugeLayer(root, spec.config, panel);
     case 'heatmap':
       return buildHeatmapLayer(root, spec.config, panel);
+    case 'hexbin':
+      return buildHexbinLayer(root, spec.config, panel);
     case 'histogram':
       return buildHistogramLayer(root, spec.config, panel);
     case 'icicle':
@@ -287,12 +296,16 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildSegmentedLayer(root, { ...spec.config, type: TraceType.MOSAIC }, panel);
     case 'network':
       return buildNetworkLayer(root, spec.config, panel);
+    case 'parallel':
+      return buildParallelLayer(root, spec.config, panel);
     case 'pie':
       return buildPieLayer(root, spec.config, panel);
     case 'polarArea':
       return buildPolarAreaLayer(root, spec.config, panel);
     case 'radar':
       return buildLineLayer(root, spec.config, panel, TraceType.RADAR);
+    case 'ridgeline':
+      return buildRidgelineLayer(root, spec.config, panel);
     case 'sankey':
       return buildFlowLayer(root, spec.config, panel, TraceType.SANKEY);
     case 'scatter':
@@ -303,6 +316,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildSmoothLayer(root, spec.config, panel);
     case 'sunburst':
       return buildTreemapLayer(root, spec.config, panel, TraceType.SUNBURST);
+    case 'survival':
+      return buildSurvivalLayer(root, spec.config, panel);
     case 'treemap':
       return buildTreemapLayer(root, spec.config, panel);
     case 'volcano':

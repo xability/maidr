@@ -132,11 +132,50 @@ export function bindD3Radar(svg: Element, config: D3LineConfig): D3BinderResult 
 }
 
 /**
+ * Adds a chart-specific field to a point after the line core has read its
+ * `x`, `y` and `z` from the same datum.
+ *
+ * A survival curve is a line whose samples also say whether the time was
+ * censored and how wide the confidence band is there. Those live on the very
+ * datum the core has just resolved, and the core is the only place that knows
+ * which datum produced which point across all three of its extraction
+ * patterns — so the extension point is here rather than a second pass that
+ * would have to guess the pairing.
+ *
+ * @param point - The point the core built, to add fields to in place
+ * @param datum - The datum it was read from
+ * @param index - That datum's index within its selection
+ *
+ * @internal
+ */
+export type LinePointDecorator = (point: LinePoint, datum: unknown, index: number) => void;
+
+/**
+ * Samples a point-level datum the way {@link buildLineLayer} does, so a binder
+ * layered on top of it can infer its own accessors from the same shape.
+ *
+ * @param root - The extraction root (the SVG, or a panel element)
+ * @param config - The binder config, read for `selector` and `pointSelector`
+ * @returns One point's datum, or `undefined` when none can be reached
+ *
+ * @internal
+ */
+export function sampleLineDatum(root: Element, config: D3LineConfig): unknown {
+  if (config.pointSelector) {
+    return queryD3Elements(root, config.pointSelector)[0]?.datum;
+  }
+  const pathDatum = queryD3Elements(root, config.selector)[0]?.datum;
+  return Array.isArray(pathDatum) ? pathDatum[0] : pathDatum;
+}
+
+/**
  * Pure extraction core for line charts. See {@link buildBarLayer} for the
  * single-chart vs multi-panel contract.
  *
  * The trailing `type` selects which chart the layer announces itself as; the
  * extraction is the same for all of them (see {@link LineMarkTraceType}).
+ * `decorate`, when given, adds the fields a chart carries beyond a line's —
+ * see {@link LinePointDecorator}.
  *
  * @internal
  */
@@ -145,6 +184,7 @@ export function buildLineLayer(
   config: D3LineConfig,
   panel?: D3PanelScope,
   type: LineMarkTraceType = TraceType.LINE,
+  decorate?: LinePointDecorator,
 ): D3BuiltLayer {
   const {
     title,
@@ -218,6 +258,7 @@ export function buildLineLayer(
           yAccessor,
           fillAccessor,
           pointSelector,
+          decorate,
         );
         if (lineData.length > 0) {
           data.push(lineData);
@@ -250,6 +291,7 @@ export function buildLineLayer(
         if (fill !== undefined) {
           point.z = fill;
         }
+        decorate?.(point, datum, index);
 
         const key = fill ?? '__default__';
         if (!lineMap.has(key)) {
@@ -293,6 +335,7 @@ export function buildLineLayer(
         if (fill !== undefined) {
           point.z = fill;
         }
+        decorate?.(point, d, index);
         return point;
       });
 
@@ -416,6 +459,7 @@ function extractPointsFromElements(
   yAccessor: DataAccessor<number>,
   fillAccessor: DataAccessor<string>,
   pointSelector: string,
+  decorate?: LinePointDecorator,
 ): LinePoint[] {
   const lineData: LinePoint[] = [];
   for (const { datum, index } of points) {
@@ -430,6 +474,7 @@ function extractPointsFromElements(
     if (fill !== undefined) {
       point.z = fill;
     }
+    decorate?.(point, datum, index);
     lineData.push(point);
   }
   return lineData;

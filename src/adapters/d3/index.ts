@@ -46,6 +46,11 @@
  * - **Sankey diagrams** via {@link bindD3Sankey}
  * - **Alluvial diagrams** via {@link bindD3Alluvial}
  * - **Chord diagrams** via {@link bindD3Chord}
+ * - **Kaplan-Meier survival curves** via {@link bindD3Survival}
+ * - **Parallel coordinates plots** via {@link bindD3Parallel}
+ * - **Ridgeline / joy plots** via {@link bindD3Ridgeline}
+ * - **Hexbin density plots** via {@link bindD3Hexbin}
+ * - **Contour plots** via {@link bindD3Contour}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
  * ## Multi-Panel Charts
@@ -124,20 +129,25 @@ export { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/ba
 export { bindD3Box } from './binders/box';
 export { bindD3Boxen } from './binders/boxen';
 export { bindD3Candlestick } from './binders/candlestick';
+export { bindD3Contour } from './binders/contour';
 export { bindD3Dumbbell } from './binders/dumbbell';
 export { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
 export { bindD3Alluvial, bindD3Chord, bindD3Sankey } from './binders/flow';
 export { bindD3Gantt } from './binders/gantt';
 export { bindD3Gauge } from './binders/gauge';
 export { bindD3Heatmap } from './binders/heatmap';
+export { bindD3Hexbin } from './binders/hexbin';
 export { bindD3Histogram } from './binders/histogram';
 export { bindD3Bump, bindD3Line, bindD3Radar } from './binders/line';
 export { bindD3Network } from './binders/network';
+export { bindD3Parallel } from './binders/parallel';
 export { bindD3Pie, bindD3PolarArea } from './binders/pie';
+export { bindD3Ridgeline } from './binders/ridgeline';
 export { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter';
 export { bindD3Diverging, bindD3Mosaic, bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
 export { bindD3Facets, bindD3Subplots } from './binders/subplots';
+export { bindD3Survival } from './binders/survival';
 export { bindD3Icicle, bindD3Sunburst, bindD3Treemap } from './binders/treemap';
 export { bindD3Waterfall } from './binders/waterfall';
 export { bindD3WordCloud } from './binders/wordCloud';
@@ -153,6 +163,7 @@ export type {
   D3BoxConfig,
   D3BoxenConfig,
   D3CandlestickConfig,
+  D3ContourConfig,
   D3DumbbellConfig,
   D3ErrorBarConfig,
   D3FacetsConfig,
@@ -160,7 +171,9 @@ export type {
   D3ForestConfig,
   D3GanttConfig,
   D3GaugeConfig,
+  D3GridTransform,
   D3HeatmapConfig,
+  D3HexbinConfig,
   D3HistogramConfig,
   D3LineConfig,
   D3ManhattanConfig,
@@ -169,13 +182,16 @@ export type {
   D3NetworkConfig,
   D3PanelChartSpec,
   D3PanelLayout,
+  D3ParallelConfig,
   D3PieConfig,
   D3PolarAreaConfig,
+  D3RidgelineConfig,
   D3ScatterConfig,
   D3SegmentedConfig,
   D3SmoothConfig,
   D3SubplotEntry,
   D3SubplotsConfig,
+  D3SurvivalConfig,
   D3TreemapConfig,
   D3VolcanoConfig,
   D3WaterfallConfig,

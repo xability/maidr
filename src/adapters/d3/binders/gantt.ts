@@ -17,7 +17,7 @@ import type { GanttData, GanttPoint, MaidrLayer } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
 import type { D3BinderResult, D3BuiltLayer, D3GanttConfig, DataAccessor } from '../types';
 import { Orientation, TraceType } from '../../../type/grammar';
-import { scopeSelector, selectorPrefix } from '../selectors';
+import { scopeSelector, stampOrderedSelectors } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /** Attribute the binder stamps on each interval to key its highlight. */
@@ -65,39 +65,6 @@ function coerceTime(value: unknown, end: 'start' | 'end', index: number): number
     + `Pass a \`${end}\` accessor that returns one, e.g. `
     + `\`${end}: d => +d.${end}Date\`.`,
   );
-}
-
-/**
- * Emits one highlight selector per interval, in the payload's lane-grouped
- * order, by stamping each element with a MAIDR-owned attribute.
- *
- * `GanttTrace` resolves the selectors to a flat list and slices it lane by
- * lane, so the list has to be in the order the payload nests them — which is
- * not the order the chart drew them in unless the data happened to arrive
- * grouped. A bare selector would resolve in DOM order and hand each lane
- * whichever intervals sat at those positions, highlighting one task while
- * announcing another; the trace cannot detect that, because the count matches.
- *
- * @param root - The extraction root (the SVG, or a panel element)
- * @param selector - The user-provided selector matching the intervals
- * @param ordered - The interval elements, in payload order
- * @param panel - Optional panel scope for multi-panel binds
- * @returns One selector per interval, in payload order
- */
-function stampIntervalSelectors(
-  root: Element,
-  selector: string,
-  ordered: Element[],
-  panel?: D3PanelScope,
-): string[] {
-  const prefix = selectorPrefix(root, panel);
-  return ordered.map((element, index) => {
-    // Clear any prior stamp so rebinding after a D3 data update produces a
-    // clean, deterministic state.
-    element.removeAttribute(INTERVAL_ATTRIBUTE);
-    element.setAttribute(INTERVAL_ATTRIBUTE, String(index));
-    return `${prefix} ${selector}[${INTERVAL_ATTRIBUTE}="${index}"]`;
-  });
 }
 
 /**
@@ -260,11 +227,14 @@ export function buildGanttLayer(root: Element, config: D3GanttConfig, panel?: D3
     id: generateId(),
     type: TraceType.GANTT,
     title,
-    // One selector per interval, in the payload's lane-grouped order. See
-    // {@link stampIntervalSelectors} for why a bare selector will not do —
-    // except when there is exactly one interval, where the two agree.
+    // One selector per interval, in the payload's lane-grouped order.
+    // `GanttTrace` resolves the selectors to a flat list and slices it lane by
+    // lane, so the list has to be in the order the payload nests them, which
+    // is not DOM order unless the data happened to arrive grouped. See
+    // {@link stampOrderedSelectors} — except when there is exactly one
+    // interval, where the two agree.
     selectors: ordered.length > 1
-      ? stampIntervalSelectors(root, selector, ordered, panel)
+      ? stampOrderedSelectors(root, selector, INTERVAL_ATTRIBUTE, ordered, panel)
       : scopeSelector(root, selector, panel),
     orientation,
     axes: buildAxes(axes, format),

@@ -162,6 +162,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'candlestick', config: props.config };
     case 'chord':
       return { chartType: 'chord', config: props.config };
+    case 'contour':
+      return { chartType: 'contour', config: props.config };
     case 'dot':
       return { chartType: 'dot', config: props.config };
     case 'dumbbell':
@@ -178,6 +180,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'gauge', config: props.config };
     case 'heatmap':
       return { chartType: 'heatmap', config: props.config };
+    case 'hexbin':
+      return { chartType: 'hexbin', config: props.config };
     case 'histogram':
       return { chartType: 'histogram', config: props.config };
     case 'icicle':
@@ -192,12 +196,16 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'mosaic', config: props.config };
     case 'network':
       return { chartType: 'network', config: props.config };
+    case 'parallel':
+      return { chartType: 'parallel', config: props.config };
     case 'pie':
       return { chartType: 'pie', config: props.config };
     case 'polarArea':
       return { chartType: 'polarArea', config: props.config };
     case 'radar':
       return { chartType: 'radar', config: props.config };
+    case 'ridgeline':
+      return { chartType: 'ridgeline', config: props.config };
     case 'sankey':
       return { chartType: 'sankey', config: props.config };
     case 'scatter':
@@ -208,6 +216,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'smooth', config: props.config };
     case 'sunburst':
       return { chartType: 'sunburst', config: props.config };
+    case 'survival':
+      return { chartType: 'survival', config: props.config };
     case 'treemap':
       return { chartType: 'treemap', config: props.config };
     case 'volcano':

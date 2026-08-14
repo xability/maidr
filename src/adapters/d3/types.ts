@@ -160,11 +160,12 @@ export interface D3LineConfig extends D3BinderConfig {
  * per sample.
  *
  * An area fills the band under the line, a bump chart plots ranks instead of
- * magnitudes, and a radar wraps the samples around a circle; all of them are
- * navigated as a multi-line grid, so all of them are built by
- * {@link buildLineLayer} and differ only in the type the layer announces —
- * which is what makes the trace read the values correctly (an area reports its
- * stack total, a bump inverts its pitch, a radar pans by the spoke's angle).
+ * magnitudes, a radar wraps the samples around a circle, and a survival curve
+ * steps down them; all of them are navigated as a multi-line grid, so all of
+ * them are built by {@link buildLineLayer} and differ only in the type the
+ * layer announces — which is what makes the trace read the values correctly
+ * (an area reports its stack total, a bump inverts its pitch, a radar pans by
+ * the spoke's angle, a survival curve finds its median).
  */
 export type LineMarkTraceType
   = | typeof TraceType.AREA
@@ -172,7 +173,8 @@ export type LineMarkTraceType
     | typeof TraceType.LINE
     | typeof TraceType.NORMALIZED_AREA
     | typeof TraceType.RADAR
-    | typeof TraceType.STACKED_AREA;
+    | typeof TraceType.STACKED_AREA
+    | typeof TraceType.SURVIVAL;
 
 /**
  * Area chart type: independent bands, stacked bands, or stacked bands scaled
@@ -1234,6 +1236,205 @@ export interface D3GaugeConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 Kaplan-Meier survival curve.
+ *
+ * A survival curve is a step line — `d3.line().curve(d3.curveStepAfter)` over
+ * one `<path>` per arm — so `selector`, `pointSelector` and the `x`/`y`/`fill`
+ * accessors are {@link D3LineConfig}'s, unchanged. What a survival figure
+ * carries beyond a step chart is the two things it is read for: which times
+ * were **censored**, and how wide the **confidence band** is.
+ *
+ * Censoring marks are drawn as ticks from their own data join, not as vertices
+ * of the curve, so they are usually a separate selection: point
+ * `censoredSelector` at them and the binder merges each tick into its arm by
+ * time — flagging the vertex already at that time, or inserting one carrying
+ * the probability the curve holds there. When the curve's own samples already
+ * say (a `censored` column), leave `censoredSelector` unset and let the
+ * `censored` accessor read it.
+ */
+export interface D3SurvivalConfig extends D3LineConfig {
+  /**
+   * Accessor for whether a sample is a censored time. @default 'censored',
+   * falling back to `censor` or `isCensored`. `true`, `1`, `'1'` and `'true'`
+   * count as censored; anything else does not.
+   *
+   * Deliberately NOT aliased to `event`, which most survival datasets carry
+   * with the opposite meaning — a 1 there is the event happening, which is
+   * exactly the times that are not censored.
+   */
+  censored?: DataAccessor<unknown>;
+  /**
+   * CSS selector for the censoring tick marks, when the chart draws them from
+   * a separate data join (e.g. `'line.censor'`). Each tick is merged into the
+   * arm its `fill` names — or the only arm, on a single-curve chart — at the
+   * time its `x` gives.
+   */
+  censoredSelector?: string;
+  /** Accessor for the confidence band's lower bound. @default 'yMin', falling back to `lower`, `lo`, `ciLower` or `low`. */
+  yMin?: DataAccessor<number>;
+  /** Accessor for the confidence band's upper bound. @default 'yMax', falling back to `upper`, `hi`, `ciUpper` or `high`. */
+  yMax?: DataAccessor<number>;
+}
+
+/**
+ * Configuration for binding a D3 parallel coordinates plot.
+ *
+ * The chart draws one `<path>` (or `<polyline>`) per **observation** across
+ * several per-variable scales, and the datum bound to it is that observation
+ * as a whole — `{ mpg: 21, hp: 110, weight: 2600 }`. The layer's rows are the
+ * observations and its columns are the axes, so the binder transposes: for
+ * each observation it emits one point per entry of `dimensions`, whose `x` is
+ * the axis' name and whose `y` is that observation's value on it.
+ *
+ * `dimensions` is required, and is the same list the chart already built one
+ * scale per: the order is the order the axes are drawn in, which is the order
+ * a reader arrows through them. Nothing on the datum says it — an object's key
+ * order is not an axis order — and a guessed one would announce the chart's
+ * columns in the wrong places.
+ */
+export interface D3ParallelConfig extends D3BinderConfig {
+  /**
+   * CSS selector for the observation paths (e.g. `'path.observation'`,
+   * `'polyline.line'`). Each matched element is one observation.
+   */
+  selector: string;
+  /** The axes, in the order they are drawn. Each is a key on the observation. */
+  dimensions: string[];
+  /**
+   * Reads one dimension off an observation. Defaults to a plain property
+   * lookup — supply this when the values are nested (`d.values[dimension]`)
+   * or need converting.
+   */
+  value?: (datum: unknown, dimension: string, index: number) => number;
+  /**
+   * Accessor for the observation's name, announced as its series name.
+   * @default 'name', falling back to `label`, `id`, `key`, `group` or `fill`.
+   */
+  label?: DataAccessor<string>;
+}
+
+/**
+ * Configuration for binding a D3 ridgeline (joy) plot.
+ *
+ * One `d3.area()` density curve per group, the curves offset down the page so
+ * their shapes can be compared. `selector` matches one `<path>` per group, and
+ * the samples come from that path's own bound array.
+ *
+ * **`density` is the curve's own half-width, never the drawn y.** A ridgeline
+ * is drawn by adding the group's baseline to every density, and that baseline
+ * is layout rather than data: fed to MAIDR it would make every group's
+ * loudness a function of where it happened to be stacked, and the lowest ridge
+ * the loudest. So the binder reads the kernel-density value the chart computed
+ * before* offsetting it, and refuses to guess when the samples do not carry
+ * one.
+ *
+ * The fields are named for what they mean rather than for the payload keys
+ * they land on, because a ridgeline's value axis is usually the drawn `x`
+ * while the payload's `y` is that same value: `group` names the ridge,
+ * `value` is the position along the value axis, `density` is the height there.
+ */
+export interface D3RidgelineConfig extends D3BinderConfig {
+  /** CSS selector for the group curves (e.g. `'path.ridge'`). One per group. */
+  selector: string;
+  /**
+   * Accessor for the sample array, when the path's datum wraps it rather than
+   * being it. Defaults to the datum itself when it is an array, the second
+   * item of a `d3.groups()` tuple, or a `values` / `samples` / `points` /
+   * `curve` property.
+   */
+  samples?: DataAccessor<unknown[]>;
+  /**
+   * Accessor for the group's name, resolved against the path's datum.
+   * @default 'group', falling back to `key`, `name`, `x`, `label` or
+   * `category`; then to the group's ordinal when the datum names nothing.
+   */
+  group?: DataAccessor<string | number>;
+  /**
+   * Accessor for a sample's position along the value axis.
+   * @default 'value', falling back to `x`, `t` or `position`.
+   */
+  value?: DataAccessor<number>;
+  /**
+   * Accessor for the curve's own half-width at a sample — the density before
+   * the group's baseline was added.
+   * @default 'density', falling back to `kde`, `width`, `p` or `estimate`.
+   */
+  density?: DataAccessor<number>;
+}
+
+/**
+ * Configuration for binding a D3 hexbin density plot.
+ *
+ * The `d3-hexbin` plugin returns one bin per occupied hexagon, and each bin is
+ * an **array** of the points that fell in it, carrying `.x` and `.y` (the
+ * hexagon's centre, in SCREEN space) and `.length` (the count). So the default
+ * accessors read `x`, `y` and `length` off the bin, and `x`/`y` are where the
+ * inverse scales go: `x: d => xScale.invert(d.x)`. Passing the screen
+ * coordinates through unchanged would announce every bin's position in pixels.
+ *
+ * The payload is a lattice of rows, which the binder assembles itself: a
+ * hexbin's DOM is a flat list in whatever order the bins were generated, and
+ * an empty bin is simply absent from it. Rows are grouped by the bins' `y`
+ * (override with `row` when the y values do not come out identical per row),
+ * ordered from the lowest upward, and each row is ordered left to right.
+ */
+export interface D3HexbinConfig extends D3BinderConfig {
+  /** CSS selector for the hexagons (e.g. `'path.hexagon'`). One per bin. */
+  selector: string;
+  /** Accessor for the bin's centre along the x axis. @default 'x', falling back to `x0` or `cx`. */
+  x?: DataAccessor<number>;
+  /** Accessor for the bin's centre along the y axis. @default 'y', falling back to `y0` or `cy`. */
+  y?: DataAccessor<number>;
+  /** Accessor for how many points fell in the bin. @default 'count', falling back to `length`, `value`, `n` or `total`. */
+  count?: DataAccessor<number>;
+  /**
+   * Accessor for the lattice row a bin belongs to. Supply this only when the
+   * bins' `y` centres do not come out identical within a row — `d3-hexbin`'s
+   * do, so the default grouping by `y` is normally right.
+   */
+  row?: DataAccessor<number | string>;
+}
+
+/**
+ * Maps one coordinate of a contour's grid onto the data axis it stands for.
+ *
+ * Not a {@link DataAccessor}: the input is a single number from a coordinate
+ * pair, not a bound datum, and there is no element index to pass.
+ */
+export type D3GridTransform = (gridCoordinate: number) => number;
+
+/**
+ * Configuration for binding a D3 contour plot.
+ *
+ * `d3.contours()` and `d3.contourDensity()` emit one GeoJSON `MultiPolygon`
+ * per threshold, carrying the threshold as `.value`, so `selector` matches one
+ * `<path>` per level and the layer's rows are the levels.
+ *
+ * **The coordinates are not in data space.** `d3.contours()` emits grid
+ * indices and `d3.contourDensity()` emits pixels, so `x` and `y` are the
+ * transforms back onto the axes — `x: i => x0 + i * dx` for the former,
+ * `x: px => xScale.invert(px)` for the latter. Left out, the chart announces
+ * its positions in grid cells or screen pixels.
+ *
+ * A level drawn as several disjoint rings is flattened into one curve, in the
+ * order the rings appear, since a row of the payload is a single polyline.
+ * Every point announced is a real point of the level; what a reader cannot
+ * hear is the jump from the end of one ring to the start of the next.
+ */
+export interface D3ContourConfig extends D3BinderConfig {
+  /** CSS selector for the level paths (e.g. `'path.contour'`). One per level. */
+  selector: string;
+  /** Accessor for the level's value. @default 'value', falling back to `level`, `threshold` or `z`. */
+  level?: DataAccessor<number>;
+  /** Accessor for the GeoJSON rings. @default 'coordinates'. */
+  coordinates?: DataAccessor<unknown>;
+  /** Maps a grid x onto the x axis. @default identity. */
+  x?: D3GridTransform;
+  /** Maps a grid y onto the y axis. @default identity. */
+  y?: D3GridTransform;
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -1270,6 +1471,7 @@ export type D3PanelChartSpec
     | { chartType: 'bump'; config: D3LineConfig }
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
     | { chartType: 'chord'; config: D3FlowConfig }
+    | { chartType: 'contour'; config: D3ContourConfig }
     | { chartType: 'dot'; config: D3BarConfig }
     | { chartType: 'dumbbell'; config: D3DumbbellConfig }
     | { chartType: 'errorBar'; config: D3ErrorBarConfig }
@@ -1278,6 +1480,7 @@ export type D3PanelChartSpec
     | { chartType: 'gantt'; config: D3GanttConfig }
     | { chartType: 'gauge'; config: D3GaugeConfig }
     | { chartType: 'heatmap'; config: D3HeatmapConfig }
+    | { chartType: 'hexbin'; config: D3HexbinConfig }
     | { chartType: 'histogram'; config: D3HistogramConfig }
     | { chartType: 'icicle'; config: D3TreemapConfig }
     | { chartType: 'line'; config: D3LineConfig }
@@ -1285,14 +1488,17 @@ export type D3PanelChartSpec
     | { chartType: 'manhattan'; config: D3ManhattanConfig }
     | { chartType: 'mosaic'; config: D3MosaicConfig }
     | { chartType: 'network'; config: D3NetworkConfig }
+    | { chartType: 'parallel'; config: D3ParallelConfig }
     | { chartType: 'pie'; config: D3PieConfig }
     | { chartType: 'polarArea'; config: D3PolarAreaConfig }
     | { chartType: 'radar'; config: D3LineConfig }
+    | { chartType: 'ridgeline'; config: D3RidgelineConfig }
     | { chartType: 'sankey'; config: D3FlowConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }
     | { chartType: 'smooth'; config: D3SmoothConfig }
     | { chartType: 'sunburst'; config: D3TreemapConfig }
+    | { chartType: 'survival'; config: D3SurvivalConfig }
     | { chartType: 'treemap'; config: D3TreemapConfig }
     | { chartType: 'volcano'; config: D3VolcanoConfig }
     | { chartType: 'waterfall'; config: D3WaterfallConfig }

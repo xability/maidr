@@ -68,20 +68,25 @@ import { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/ba
 import { bindD3Box } from './binders/box';
 import { bindD3Boxen } from './binders/boxen';
 import { bindD3Candlestick } from './binders/candlestick';
+import { bindD3Contour } from './binders/contour';
 import { bindD3Dumbbell } from './binders/dumbbell';
 import { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
 import { bindD3Alluvial, bindD3Chord, bindD3Sankey } from './binders/flow';
 import { bindD3Gantt } from './binders/gantt';
 import { bindD3Gauge } from './binders/gauge';
 import { bindD3Heatmap } from './binders/heatmap';
+import { bindD3Hexbin } from './binders/hexbin';
 import { bindD3Histogram } from './binders/histogram';
 import { bindD3Bump, bindD3Line, bindD3Radar } from './binders/line';
 import { bindD3Network } from './binders/network';
+import { bindD3Parallel } from './binders/parallel';
 import { bindD3Pie, bindD3PolarArea } from './binders/pie';
+import { bindD3Ridgeline } from './binders/ridgeline';
 import { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter';
 import { bindD3Mosaic, bindD3Segmented } from './binders/segmented';
 import { bindD3Smooth } from './binders/smooth';
 import { bindD3Facets, bindD3Subplots } from './binders/subplots';
+import { bindD3Survival } from './binders/survival';
 import { bindD3Icicle, bindD3Sunburst, bindD3Treemap } from './binders/treemap';
 import { bindD3Waterfall } from './binders/waterfall';
 import { bindD3WordCloud } from './binders/wordCloud';
@@ -141,6 +146,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Candlestick(svg, { ...spec.config, autoApply: false });
     case 'chord':
       return bindD3Chord(svg, { ...spec.config, autoApply: false });
+    case 'contour':
+      return bindD3Contour(svg, { ...spec.config, autoApply: false });
     case 'dot':
       return bindD3Dot(svg, { ...spec.config, autoApply: false });
     case 'dumbbell':
@@ -157,6 +164,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Gauge(svg, { ...spec.config, autoApply: false });
     case 'heatmap':
       return bindD3Heatmap(svg, { ...spec.config, autoApply: false });
+    case 'hexbin':
+      return bindD3Hexbin(svg, { ...spec.config, autoApply: false });
     case 'histogram':
       return bindD3Histogram(svg, { ...spec.config, autoApply: false });
     case 'icicle':
@@ -171,12 +180,16 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Mosaic(svg, { ...spec.config, autoApply: false });
     case 'network':
       return bindD3Network(svg, { ...spec.config, autoApply: false });
+    case 'parallel':
+      return bindD3Parallel(svg, { ...spec.config, autoApply: false });
     case 'pie':
       return bindD3Pie(svg, { ...spec.config, autoApply: false });
     case 'polarArea':
       return bindD3PolarArea(svg, { ...spec.config, autoApply: false });
     case 'radar':
       return bindD3Radar(svg, { ...spec.config, autoApply: false });
+    case 'ridgeline':
+      return bindD3Ridgeline(svg, { ...spec.config, autoApply: false });
     case 'sankey':
       return bindD3Sankey(svg, { ...spec.config, autoApply: false });
     case 'scatter':
@@ -187,6 +200,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Smooth(svg, { ...spec.config, autoApply: false });
     case 'sunburst':
       return bindD3Sunburst(svg, { ...spec.config, autoApply: false });
+    case 'survival':
+      return bindD3Survival(svg, { ...spec.config, autoApply: false });
     case 'treemap':
       return bindD3Treemap(svg, { ...spec.config, autoApply: false });
     case 'volcano':
@@ -225,6 +240,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'chord':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'contour':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'dot':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'dumbbell':
@@ -241,6 +258,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'heatmap':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'hexbin':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'histogram':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'icicle':
@@ -255,11 +274,15 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'network':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'parallel':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'pie':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'polarArea':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'radar':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'ridgeline':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'sankey':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
@@ -270,6 +293,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'smooth':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'sunburst':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'survival':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'treemap':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

@@ -94,3 +94,40 @@ export function selectorPrefix(container: Element, panel?: D3PanelScope): string
 export function scopeSelector(container: Element, selector: string, panel?: D3PanelScope): string {
   return `${selectorPrefix(container, panel)} ${selector}`;
 }
+
+/**
+ * Emits one selector per element, in the order given, by stamping each with a
+ * MAIDR-owned index attribute.
+ *
+ * For the traces whose payload order is the binder's own rather than the DOM's
+ * — a gantt nests its intervals by lane, a hexbin its bins by lattice row —
+ * a single selector matching every mark is worse than no selector at all: it
+ * resolves in DOM order, so the model pairs each announced datum with whatever
+ * mark sat at that position, and the counts still match so nothing detects it.
+ *
+ * The stamp is an attribute the binder owns rather than a structural
+ * `:nth-child(N)`, which any later DOM insertion would shift, and it is
+ * cleared before it is set so rebinding after a D3 data update leaves a clean
+ * state.
+ *
+ * @param container - The extraction root (the SVG, or a panel element).
+ * @param selector - The user-provided selector matching the marks.
+ * @param attribute - The `data-maidr-*` attribute to key the marks by.
+ * @param ordered - The elements, in the payload's order.
+ * @param panel - Optional panel scope for multi-panel binds.
+ * @returns One selector per element, in the same order.
+ */
+export function stampOrderedSelectors(
+  container: Element,
+  selector: string,
+  attribute: string,
+  ordered: Element[],
+  panel?: D3PanelScope,
+): string[] {
+  const prefix = selectorPrefix(container, panel);
+  return ordered.map((element, index) => {
+    element.removeAttribute(attribute);
+    element.setAttribute(attribute, String(index));
+    return `${prefix} ${selector}[${attribute}="${index}"]`;
+  });
+}
