@@ -1,11 +1,12 @@
 /**
- * D3 binder for line and bump charts.
+ * D3 binder for line, bump and radar charts.
  *
  * Extracts data from D3.js-rendered line chart SVG elements and generates
  * the MAIDR JSON schema for accessible line chart interaction. A bump chart
- * plots ranks instead of magnitudes but is drawn and navigated as a multi-line
- * layer, so it shares this extraction core; the area family builds on it too
- * (see `binders/area.ts`).
+ * plots ranks instead of magnitudes and a radar wraps its samples around a
+ * circle, but both are drawn and navigated as a multi-line layer, so they
+ * share this extraction core; the area family builds on it too (see
+ * `binders/area.ts`).
  */
 
 import type { LinePoint, MaidrLayer } from '../../../type/grammar';
@@ -93,6 +94,41 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
  */
 export function bindD3Bump(svg: Element, config: D3LineConfig): D3BinderResult {
   return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, TraceType.BUMP));
+}
+
+/**
+ * Binds a D3.js radar (spider) chart to MAIDR.
+ *
+ * A radar is a multi-line layer wrapped around a circle: `selector` matches one
+ * closed `d3.lineRadial()` `<path>` per series, `x` names the **spoke** (the
+ * variable) and `fill` names the series. The trace pans each spoke by its angle
+ * — 12 o'clock centre, 3 o'clock hard right — so a radar sounds like a circle
+ * rather than a row of bars, and nothing extra has to be computed here.
+ *
+ * A closed outline is usually drawn by repeating the first vertex at the end.
+ * That repeat is how the polygon closes, not a spoke of its own, so the binder
+ * drops a trailing sample whose `x` matches the first one — otherwise the chart
+ * announces one spoke more than it has, and the reader walks off the end into
+ * a duplicate.
+ *
+ * @param svg - The SVG element containing the D3 radar chart.
+ * @param config - Configuration specifying selectors and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Radar(svgElement, {
+ *   selector: 'path.radar-area',
+ *   title: 'Model Comparison',
+ *   axes: { x: 'Attribute', y: 'Score', fill: 'Model' },
+ *   x: 'attribute',
+ *   y: 'score',
+ *   fill: 'model',
+ * });
+ * ```
+ */
+export function bindD3Radar(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, TraceType.RADAR));
 }
 
 /**
@@ -264,6 +300,18 @@ export function buildLineLayer(
         data.push(lineData);
         // This path's datum produced this row; pair them for a precise stamp.
         rowPaths.push(element);
+      }
+    }
+  }
+
+  // A closed radar outline repeats its first vertex to shut the polygon. That
+  // repeat is geometry, not a spoke, so it goes before anything counts the
+  // spokes: RadarTrace spaces its angles by the widest series' length, and one
+  // phantom spoke rotates every announced position away from where it is drawn.
+  if (type === TraceType.RADAR) {
+    for (const row of data) {
+      if (row.length > 1 && row[row.length - 1].x === row[0].x) {
+        row.pop();
       }
     }
   }

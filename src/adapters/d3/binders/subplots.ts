@@ -47,10 +47,12 @@ import { buildGaugeLayer } from './gauge';
 import { buildHeatmapLayer } from './heatmap';
 import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
-import { buildPieLayer } from './pie';
+import { buildNetworkLayer } from './network';
+import { buildPieLayer, buildPolarAreaLayer } from './pie';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
 import { buildSmoothLayer } from './smooth';
+import { buildTreemapLayer } from './treemap';
 import { buildWaterfallLayer } from './waterfall';
 import { buildWordCloudLayer } from './wordCloud';
 
@@ -266,14 +268,28 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildBarLayer(root, spec.config, panel, TraceType.LOLLIPOP);
     case 'manhattan':
       return buildScatterLayer(root, spec.config, panel, TraceType.MANHATTAN);
+    case 'mosaic':
+      return buildSegmentedLayer(root, { ...spec.config, type: TraceType.MOSAIC }, panel);
+    case 'network':
+      return buildNetworkLayer(root, spec.config, panel);
     case 'pie':
       return buildPieLayer(root, spec.config, panel);
+    case 'polarArea':
+      return buildPolarAreaLayer(root, spec.config, panel);
+    case 'radar':
+      return buildLineLayer(root, spec.config, panel, TraceType.RADAR);
     case 'scatter':
       return buildScatterLayer(root, spec.config, panel);
     case 'segmented':
       return buildSegmentedLayer(root, spec.config, panel);
     case 'smooth':
       return buildSmoothLayer(root, spec.config, panel);
+    case 'sunburst':
+      return buildTreemapLayer(root, spec.config, panel, TraceType.SUNBURST);
+    case 'treemap':
+      return buildTreemapLayer(root, spec.config, panel);
+    case 'volcano':
+      return buildScatterLayer(root, spec.config, panel, TraceType.VOLCANO);
     case 'waterfall':
       return buildWaterfallLayer(root, spec.config, panel);
     case 'wordCloud':

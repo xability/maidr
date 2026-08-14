@@ -32,6 +32,13 @@
  * - **Word clouds** via {@link bindD3WordCloud}
  * - **Gauges and bullet charts** via {@link bindD3Gauge}
  * - **Manhattan plots** via {@link bindD3Manhattan}
+ * - **Volcano plots** via {@link bindD3Volcano}
+ * - **Radar / spider charts** via {@link bindD3Radar}
+ * - **Polar area / coxcomb charts** via {@link bindD3PolarArea}
+ * - **Mosaic / marimekko plots** via {@link bindD3Mosaic}
+ * - **Force-directed networks** via {@link bindD3Network}
+ * - **Treemaps** via {@link bindD3Treemap}
+ * - **Sunbursts** via {@link bindD3Sunburst}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
  * ## Multi-Panel Charts
@@ -114,12 +121,14 @@ export { bindD3ErrorBar } from './binders/errorBar';
 export { bindD3Gauge } from './binders/gauge';
 export { bindD3Heatmap } from './binders/heatmap';
 export { bindD3Histogram } from './binders/histogram';
-export { bindD3Bump, bindD3Line } from './binders/line';
-export { bindD3Pie } from './binders/pie';
-export { bindD3Manhattan, bindD3Scatter } from './binders/scatter';
-export { bindD3Diverging, bindD3Segmented } from './binders/segmented';
+export { bindD3Bump, bindD3Line, bindD3Radar } from './binders/line';
+export { bindD3Network } from './binders/network';
+export { bindD3Pie, bindD3PolarArea } from './binders/pie';
+export { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter';
+export { bindD3Diverging, bindD3Mosaic, bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
 export { bindD3Facets, bindD3Subplots } from './binders/subplots';
+export { bindD3Sunburst, bindD3Treemap } from './binders/treemap';
 export { bindD3Waterfall } from './binders/waterfall';
 export { bindD3WordCloud } from './binders/wordCloud';
 
@@ -141,19 +150,25 @@ export type {
   D3HistogramConfig,
   D3LineConfig,
   D3ManhattanConfig,
+  D3MosaicConfig,
   D3MultiPanelResult,
+  D3NetworkConfig,
   D3PanelChartSpec,
   D3PanelLayout,
   D3PieConfig,
+  D3PolarAreaConfig,
   D3ScatterConfig,
   D3SegmentedConfig,
   D3SmoothConfig,
   D3SubplotEntry,
   D3SubplotsConfig,
+  D3TreemapConfig,
+  D3VolcanoConfig,
   D3WaterfallConfig,
   D3WordCloudConfig,
   DataAccessor,
   LineMarkTraceType,
   ScatterMarkTraceType,
   SegmentedTraceType,
+  TreemapTraceType,
 } from './types';

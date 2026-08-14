@@ -176,14 +176,28 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'lollipop', config: props.config };
     case 'manhattan':
       return { chartType: 'manhattan', config: props.config };
+    case 'mosaic':
+      return { chartType: 'mosaic', config: props.config };
+    case 'network':
+      return { chartType: 'network', config: props.config };
     case 'pie':
       return { chartType: 'pie', config: props.config };
+    case 'polarArea':
+      return { chartType: 'polarArea', config: props.config };
+    case 'radar':
+      return { chartType: 'radar', config: props.config };
     case 'scatter':
       return { chartType: 'scatter', config: props.config };
     case 'segmented':
       return { chartType: 'segmented', config: props.config };
     case 'smooth':
       return { chartType: 'smooth', config: props.config };
+    case 'sunburst':
+      return { chartType: 'sunburst', config: props.config };
+    case 'treemap':
+      return { chartType: 'treemap', config: props.config };
+    case 'volcano':
+      return { chartType: 'volcano', config: props.config };
     case 'waterfall':
       return { chartType: 'waterfall', config: props.config };
     case 'wordCloud':

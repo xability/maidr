@@ -20,12 +20,15 @@ import type {
   LinePoint,
   Maidr,
   MaidrLayer,
+  MosaicPoint,
+  NetworkPoint,
   Orientation,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
   TraceType,
+  TreemapPoint,
   VolcanoPoint,
   WaterfallKind,
   WaterfallPoint,
@@ -152,17 +155,19 @@ export interface D3LineConfig extends D3BinderConfig {
  * Trace types that share the line extraction: one series per path, one value
  * per sample.
  *
- * An area fills the band under the line and a bump chart plots ranks instead
- * of magnitudes; both are navigated as a multi-line grid, so all of them are
- * built by {@link buildLineLayer} and differ only in the type the layer
- * announces — which is what makes the trace read the values correctly (an
- * area reports its stack total, a bump inverts its pitch).
+ * An area fills the band under the line, a bump chart plots ranks instead of
+ * magnitudes, and a radar wraps the samples around a circle; all of them are
+ * navigated as a multi-line grid, so all of them are built by
+ * {@link buildLineLayer} and differ only in the type the layer announces —
+ * which is what makes the trace read the values correctly (an area reports its
+ * stack total, a bump inverts its pitch, a radar pans by the spoke's angle).
  */
 export type LineMarkTraceType
   = | typeof TraceType.AREA
     | typeof TraceType.BUMP
     | typeof TraceType.LINE
     | typeof TraceType.NORMALIZED_AREA
+    | typeof TraceType.RADAR
     | typeof TraceType.STACKED_AREA;
 
 /**
@@ -229,13 +234,15 @@ export interface D3ScatterConfig extends D3BinderConfig {
  * Trace types that share the scatter extraction: one x and one y per point.
  *
  * A Manhattan plot is a scatter read almost entirely through a threshold —
- * `-log10(p)` against genomic position — so it carries two things a scatter
- * does not (what each point *is*, and which region it belongs to) but is
- * extracted the same way, by {@link buildScatterLayer}.
+ * `-log10(p)` against genomic position — and a volcano is the same reading
+ * with effect size on the x axis. Both carry two things a scatter does not
+ * (what each point *is*, and which region it belongs to) but are extracted the
+ * same way, by {@link buildScatterLayer}.
  */
 export type ScatterMarkTraceType
   = | typeof TraceType.MANHATTAN
-    | typeof TraceType.SCATTER;
+    | typeof TraceType.SCATTER
+    | typeof TraceType.VOLCANO;
 
 /**
  * Configuration for binding a D3 Manhattan plot.
@@ -287,6 +294,40 @@ export interface D3ManhattanConfig extends D3ScatterConfig {
    * axis runs the other way** and needs `'below'`.
    */
   significanceDirection?: 'above' | 'below';
+}
+
+/**
+ * Configuration for binding a D3 volcano plot.
+ *
+ * Extends {@link D3ManhattanConfig} because the two are the same chart read
+ * the same way: `label` names the gene the way it names the SNP, and
+ * `significance` is the same cutoff on the same axis. What a volcano adds is
+ * the **second** cutoff — the x axis is an effect size rather than a position,
+ * so a point is a finding only when it clears both.
+ *
+ * @example
+ * ```ts
+ * bindD3Volcano(svgElement, {
+ *   selector: 'circle.gene',
+ *   axes: { x: 'log2 fold change', y: '-log10(p)' },
+ *   x: 'lfc',
+ *   y: 'logP',
+ *   label: 'gene',
+ *   significance: 1.3,
+ *   effect: 1,
+ * });
+ * ```
+ */
+export interface D3VolcanoConfig extends D3ManhattanConfig {
+  /**
+   * The effect-size cutoff on the x axis, applied to its **magnitude** — a
+   * volcano is symmetric, and a fold change of -2 is as large an effect as
+   * one of +2.
+   *
+   * Like `significance`, there is no default: the conventions differ by field,
+   * and a guessed line would sort every gene onto the wrong side silently.
+   */
+  effect?: number;
 }
 
 /**
@@ -391,12 +432,17 @@ export interface D3CandlestickConfig extends D3BinderConfig {
  * values are read but not how they are extracted — so it is built by
  * {@link buildSegmentedLayer} like the other three, selected through
  * `config.type`.
+ *
+ * A mosaic is a stacked bar whose column widths carry a second magnitude. That
+ * width is the one thing the segmented extraction does not already read, so a
+ * mosaic is the same core with two extra accessors ({@link D3MosaicConfig}).
  */
 export type SegmentedTraceType
   = | typeof TraceType.STACKED
     | typeof TraceType.DODGED
     | typeof TraceType.NORMALIZED
-    | typeof TraceType.DIVERGING;
+    | typeof TraceType.DIVERGING
+    | typeof TraceType.MOSAIC;
 
 /**
  * Configuration for binding a D3 segmented bar chart (stacked, dodged, or normalized).
@@ -470,6 +516,154 @@ export interface D3SegmentedConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 mosaic (marimekko) plot.
+ *
+ * Extends {@link D3SegmentedConfig} because a mosaic *is* a stacked bar: same
+ * `<rect>` per cell, same `{ x, y, fill }` extraction, same DOM-order
+ * detection. What it adds is the column **width**, which on every other chart
+ * is how the bars were drawn and here is the second magnitude the plot exists
+ * to show — a category of six people and one of six hundred read identically
+ * without it.
+ *
+ * The width is read from the datum, never measured off the rendered `<rect>`:
+ * a drawn width is a layout fact (padding, margins, a log scale) and turning
+ * it back into a proportion would announce a number the data does not contain.
+ *
+ * @example
+ * ```ts
+ * bindD3Mosaic(svgElement, {
+ *   selector: 'rect.cell',
+ *   axes: { x: 'Class', y: 'Proportion', fill: 'Outcome' },
+ *   x: 'klass',
+ *   y: 'share',
+ *   fill: 'outcome',
+ *   width: 'columnShare',
+ *   count: 'n',
+ * });
+ * ```
+ */
+export interface D3MosaicConfig extends D3SegmentedConfig {
+  /**
+   * Accessor for the column's share of all observations, as a fraction of one.
+   * @default 'width', falling back to `share`, `proportion`, or `marginal`.
+   * Omitted from the payload when the datum carries none of them, and when the
+   * value read is not a finite number.
+   */
+  width?: DataAccessor<number>;
+  /**
+   * Accessor for the cell's own count, when the producer has the contingency
+   * table the mosaic was drawn from.
+   * @default 'count', falling back to `n`, `freq`, or `frequency`. Omitted
+   * from the payload when absent — a count multiplied out of a rounded share
+   * is a number the data does not contain.
+   */
+  count?: DataAccessor<number>;
+}
+
+/**
+ * Configuration for binding a D3 force-directed network.
+ *
+ * Point `selector` at the **links** — one `<line>` per edge — rather than at
+ * the node circles: the nodes are derived from the links, so a link is what
+ * maps one-to-one onto the payload, and it is what the chart draws between a
+ * pair of nodes.
+ *
+ * Positions are deliberately not read. Where a force-directed node lands is a
+ * fact about the solver's seed rather than about the data.
+ *
+ * @example
+ * ```ts
+ * bindD3Network(svgElement, {
+ *   selector: 'line.link',
+ *   axes: { x: 'Person', y: 'Links' },
+ * });
+ * ```
+ */
+export interface D3NetworkConfig extends D3BinderConfig {
+  /** CSS selector for the link elements (e.g. `'line.link'`). */
+  selector: string;
+  /**
+   * Accessor for the node a link leaves. @default 'source', falling back to
+   * `from` or `src`.
+   *
+   * `d3.forceLink` **replaces** each link's `source` with the node object it
+   * resolved the id to, so the resolved value is normalised either way: an
+   * object end is read through its `id`, `name`, `key` or `label`.
+   */
+  source?: DataAccessor<unknown>;
+  /**
+   * Accessor for the node a link arrives at. @default 'target', falling back
+   * to `to` or `dst`. Normalised the same way as {@link D3NetworkConfig.source}.
+   */
+  target?: DataAccessor<unknown>;
+}
+
+/**
+ * Trace types that share the hierarchy extraction: one node per mark, named by
+ * the path from the root down to it.
+ *
+ * A treemap lays the tree out as nested rectangles and a sunburst as concentric
+ * arcs; the tree is the same, so both are built by {@link buildTreemapLayer}
+ * and differ only in the type the layer announces — which is what makes the
+ * sunburst pan by the node's angle around the dial.
+ */
+export type TreemapTraceType
+  = | typeof TraceType.SUNBURST
+    | typeof TraceType.TREEMAP;
+
+/**
+ * Configuration for binding a D3 treemap or sunburst.
+ *
+ * The canonical layout is `d3.treemap()` / `d3.partition()` over a
+ * `d3.hierarchy()`, so the datum bound to each mark is a **hierarchy node**:
+ * the binder recognises it and reads the node's own `value` plus its ancestor
+ * chain, exactly as the pie binder unwraps a `d3.pie()` arc. Both accessors
+ * are then read against YOUR datum (`node.data`), not against the node.
+ *
+ * Every matched element becomes one point, in DOM order — nothing is filtered.
+ * A treemap draws only its leaves and a sunburst draws its interior nodes too;
+ * whichever you select is what the reader navigates, and the counts have to
+ * match for highlighting to survive.
+ *
+ * @example
+ * ```ts
+ * // svg.selectAll('rect.leaf').data(d3.treemap()(root).leaves())
+ * bindD3Treemap(svgElement, {
+ *   selector: 'rect.leaf',
+ *   axes: { x: 'Region', y: 'Population, millions' },
+ * });
+ * ```
+ */
+export interface D3TreemapConfig extends D3BinderConfig {
+  /** CSS selector for the node elements (e.g. `'rect.leaf'`, `'path.arc'`). */
+  selector: string;
+  /**
+   * Accessor for the node's own name, read against your datum.
+   * @default 'name', falling back to `id`, `label`, `key`, or `x`. A datum
+   * that is a bare string or number names its own node.
+   *
+   * The same accessor names every ancestor when `path` is derived, so the
+   * breadcrumb and the node agree about what things are called.
+   */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the node's magnitude. Defaults to the `value` that
+   * `d3.hierarchy().sum(...)` computed — which is what the rectangle's area
+   * was drawn from — falling back to `value` or `size` on your datum.
+   */
+  y?: DataAccessor<number>;
+  /**
+   * Accessor for the node's ancestors, root first and **excluding the node
+   * itself**. Defaults to the hierarchy node's own ancestor chain, so a layout
+   * built with `d3.hierarchy()` needs nothing here.
+   *
+   * Supply it for a tree drawn without `d3.hierarchy()`: `[]` (or an omitted
+   * value) marks a top-level node.
+   */
+  path?: DataAccessor<(string | number)[]>;
+}
+
+/**
  * Configuration for binding a D3 smooth/regression curve.
  */
 export interface D3SmoothConfig extends D3BinderConfig {
@@ -528,6 +722,27 @@ export interface D3PieConfig extends D3BinderConfig {
     y?: D3AxisInput;
   };
 }
+
+/**
+ * Configuration for binding a D3 polar area (coxcomb, rose) chart.
+ *
+ * The wedges are drawn the way a pie's are — `d3.arc()` per category, usually
+ * over `d3.pie()` output — so this is {@link D3PieConfig} verbatim, and the
+ * binder unwraps the layout's arc for you the same way. What differs is what
+ * the wedge encodes: a polar area gives every category the same angle and
+ * varies the **radius**, so the values are read as a series around the spokes
+ * rather than as shares of a whole.
+ *
+ * @example
+ * ```ts
+ * bindD3PolarArea(svgElement, {
+ *   selector: 'path.wedge',
+ *   axes: { x: 'Month', y: 'Deaths' },
+ *   x: 'month',
+ * });
+ * ```
+ */
+export type D3PolarAreaConfig = D3PieConfig;
 
 /**
  * Configuration for binding a D3 error-bar (point-range) chart.
@@ -802,10 +1017,17 @@ export type D3PanelChartSpec
     | { chartType: 'line'; config: D3LineConfig }
     | { chartType: 'lollipop'; config: D3BarConfig }
     | { chartType: 'manhattan'; config: D3ManhattanConfig }
+    | { chartType: 'mosaic'; config: D3MosaicConfig }
+    | { chartType: 'network'; config: D3NetworkConfig }
     | { chartType: 'pie'; config: D3PieConfig }
+    | { chartType: 'polarArea'; config: D3PolarAreaConfig }
+    | { chartType: 'radar'; config: D3LineConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }
     | { chartType: 'smooth'; config: D3SmoothConfig }
+    | { chartType: 'sunburst'; config: D3TreemapConfig }
+    | { chartType: 'treemap'; config: D3TreemapConfig }
+    | { chartType: 'volcano'; config: D3VolcanoConfig }
     | { chartType: 'waterfall'; config: D3WaterfallConfig }
     | { chartType: 'wordCloud'; config: D3WordCloudConfig };
 
@@ -926,10 +1148,13 @@ export type D3ExtractedData
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
+    | MosaicPoint[][]
+    | NetworkPoint[]
     | PiePoint[]
     | ScatterPoint[]
     | SegmentedPoint[][]
     | SmoothPoint[][]
+    | TreemapPoint[]
     | VolcanoPoint[]
     | WaterfallPoint[]
     | WordCloudPoint[];

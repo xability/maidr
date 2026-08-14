@@ -1,21 +1,22 @@
 /**
- * D3 binder for segmented bar charts (stacked, dodged, normalized, and
- * diverging).
+ * D3 binder for segmented bar charts (stacked, dodged, normalized, diverging
+ * and mosaic).
  *
  * Extracts data from D3.js-rendered grouped/stacked bar chart SVG elements
- * and generates the MAIDR JSON schema for accessible interaction. All four
+ * and generates the MAIDR JSON schema for accessible interaction. All five
  * carry one category, one value and one series key per mark, which is why
  * they share a single extraction core and differ only in the type the layer
  * announces — the type is what makes a diverging chart read its values as
- * sides rather than as a stack.
+ * sides rather than as a stack. A mosaic adds one thing to the payload, the
+ * column width, because on that chart alone the width is data.
  */
 
-import type { MaidrLayer, SegmentedPoint } from '../../../type/grammar';
+import type { MaidrLayer, MosaicPoint, SegmentedPoint } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
-import type { D3BinderResult, D3BuiltLayer, D3SegmentedConfig } from '../types';
+import type { D3BinderResult, D3BuiltLayer, D3MosaicConfig, D3SegmentedConfig, DataAccessor, SegmentedTraceType } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
-import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
+import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
  * Binds a D3.js segmented bar chart (stacked, dodged, or normalized) to MAIDR.
@@ -118,12 +119,143 @@ export function bindD3Diverging(svg: Element, config: D3SegmentedConfig): D3Bind
 }
 
 /**
+ * Binds a D3.js mosaic (marimekko) plot to MAIDR.
+ *
+ * A mosaic is a stacked bar chart in which the **column widths also encode
+ * data** — usually each category's share of all observations. That share is
+ * the one thing this binder reads that the stacked one does not, and it is
+ * worth supplying: a reader given only the segment heights has half the table,
+ * so a category of six people and one of six hundred read identically.
+ *
+ * The width is read from the datum, never measured off the rendered `<rect>`.
+ * A drawn width is a layout fact — padding, margins, the scale the columns
+ * were laid out on — and turning it back into a proportion would announce a
+ * number the data does not contain.
+ *
+ * `count` travels too when you have the contingency table the mosaic was drawn
+ * from, since those counts are the numbers a reader would quote back.
+ *
+ * @param svg - The SVG element containing the D3 mosaic plot.
+ * @param config - Configuration specifying the selector and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Mosaic(svgElement, {
+ *   selector: 'rect.cell',
+ *   title: 'Survival by Passenger Class',
+ *   axes: { x: 'Class', y: 'Proportion', fill: 'Outcome' },
+ *   x: 'klass',
+ *   y: 'share',
+ *   fill: 'outcome',
+ *   width: 'columnShare',
+ *   count: 'n',
+ * });
+ * ```
+ */
+export function bindD3Mosaic(svg: Element, config: D3MosaicConfig): D3BinderResult {
+  return finalizeSingleChart(
+    svg,
+    config,
+    buildSegmentedLayer(svg, { ...config, type: TraceType.MOSAIC }),
+  );
+}
+
+/**
+ * The two accessors a mosaic reads on top of the segmented ones, or `null` for
+ * the four chart types that carry neither.
+ */
+interface MosaicAccessors {
+  width: DataAccessor<number>;
+  count: DataAccessor<number>;
+}
+
+/**
+ * Resolves the mosaic-only accessors, once, from a sample datum.
+ *
+ * Returns `null` for every other segmented type, so a stacked bar whose datum
+ * happens to carry a `width` key does not pick up a column share it never
+ * meant to declare.
+ *
+ * @param config - The user's config
+ * @param type - The type the layer will announce
+ * @param sampleDatum - First segment datum, for key inference
+ * @returns The accessors, or `null` when the chart is not a mosaic
+ */
+function inferMosaicAccessors(
+  config: D3MosaicConfig,
+  type: SegmentedTraceType,
+  sampleDatum: unknown,
+): MosaicAccessors | null {
+  if (type !== TraceType.MOSAIC) {
+    return null;
+  }
+  return {
+    width: inferAccessor<number>(
+      config,
+      'width',
+      'width',
+      ['share', 'proportion', 'marginal'],
+      sampleDatum,
+    ),
+    count: inferAccessor<number>(
+      config,
+      'count',
+      'count',
+      ['n', 'freq', 'frequency'],
+      sampleDatum,
+    ),
+  };
+}
+
+/**
+ * Adds the column share and the cell count to a segment, where the datum
+ * declares them.
+ *
+ * Both are optional and both are read optionally: a producer working from
+ * proportions alone genuinely has no counts, and a cell missing its width is a
+ * cell whose column declared one elsewhere — {@link MosaicTrace} reads the
+ * width from whichever series of the column carries it. Non-finite values are
+ * dropped rather than emitted, since `NaN` would be announced as a share.
+ *
+ * @param point - The segment built by the segmented extraction
+ * @param datum - The segment's D3-bound datum
+ * @param index - Position of the segment in its selection
+ * @param mosaic - The mosaic accessors, or `null` for the other types
+ * @returns The same point, with the mosaic fields set where they resolved
+ */
+function withMosaicFields(
+  point: SegmentedPoint,
+  datum: unknown,
+  index: number,
+  mosaic: MosaicAccessors | null,
+): SegmentedPoint {
+  if (mosaic === null) {
+    return point;
+  }
+  const cell = point as MosaicPoint;
+  const width = resolveAccessorOptional<number>(datum, mosaic.width, index);
+  if (typeof width === 'number' && Number.isFinite(width)) {
+    cell.width = width;
+  }
+  const count = resolveAccessorOptional<number>(datum, mosaic.count, index);
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    cell.count = count;
+  }
+  return cell;
+}
+
+/**
  * Pure extraction core for segmented bar charts. See {@link buildBarLayer}
  * for the single-chart vs multi-panel contract.
  *
+ * The config is typed as the superset {@link D3MosaicConfig}: the other four
+ * types leave the mosaic-only accessors unset, and nothing extra is then read
+ * or emitted.
+ *
  * @internal
  */
-export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, panel?: D3PanelScope): D3BuiltLayer {
+export function buildSegmentedLayer(root: Element, config: D3MosaicConfig, panel?: D3PanelScope): D3BuiltLayer {
   const {
     title,
     axes,
@@ -181,6 +313,7 @@ export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, pa
       ['group', 'series', 'category', 'z', 'color'],
       sampleDatum,
     );
+    const mosaic = inferMosaicAccessors(config, type, sampleDatum);
 
     for (const { element: groupEl, datum: groupDatum } of groupElements) {
       const segments = queryD3Elements(groupEl, selector);
@@ -195,11 +328,11 @@ export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, pa
           throw buildNoDatumError(selector, index);
         }
         const fillValue = groupKey ?? resolveAccessor<string>(datum, fillAccessor, index);
-        return {
+        return withMosaicFields({
           x: resolveAccessor<string | number>(datum, xAccessor, index),
           y: resolveAccessor<number | string>(datum, yAccessor, index),
           z: fillValue,
-        };
+        }, datum, index, mosaic);
       });
 
       if (groupPoints.length > 0) {
@@ -280,17 +413,18 @@ export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, pa
       ['group', 'series', 'category', 'z', 'color'],
       sampleDatum,
     );
+    const mosaic = inferMosaicAccessors(config, type, sampleDatum);
 
     const groups = new Map<string, SegmentedPoint[]>();
     for (const { datum, index } of elements) {
       if (datum === undefined || datum === null) {
         throw buildNoDatumError(selector, index);
       }
-      const point: SegmentedPoint = {
+      const point: SegmentedPoint = withMosaicFields({
         x: resolveAccessor<string | number>(datum, xAccessor, index),
         y: resolveAccessor<number | string>(datum, yAccessor, index),
         z: resolveAccessor<string>(datum, fillAccessor, index),
-      };
+      }, datum, index, mosaic);
       if (!groups.has(point.z)) {
         groupOrder.push(point.z);
         groups.set(point.z, []);

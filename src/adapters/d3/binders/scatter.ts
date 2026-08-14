@@ -1,17 +1,18 @@
 /**
- * D3 binder for scatter plots and Manhattan plots.
+ * D3 binder for scatter, Manhattan and volcano plots.
  *
  * Extracts data from D3.js-rendered point elements and generates the MAIDR
  * JSON schema for accessible interaction. A Manhattan plot is a scatter with
  * two extra things a reader cannot see without them — what each point *is* and
- * which chromosome it sits on — so both are built by the same extraction core
+ * which chromosome it sits on — and a volcano is that same reading with an
+ * effect size on the x axis, so all three are built by the same extraction core
  * and differ only in the type the layer announces and in the accessors the
  * caller supplies.
  */
 
 import type { MaidrLayer, VolcanoPoint } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
-import type { D3BinderResult, D3BuiltLayer, D3ManhattanConfig, D3ScatterConfig, ScatterMarkTraceType } from '../types';
+import type { D3BinderResult, D3BuiltLayer, D3ManhattanConfig, D3ScatterConfig, D3VolcanoConfig, ScatterMarkTraceType } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
@@ -100,18 +101,58 @@ export function bindD3Manhattan(svg: Element, config: D3ManhattanConfig): D3Bind
 }
 
 /**
- * Pure extraction core for scatter and Manhattan plots. See
+ * Binds a D3.js volcano plot to MAIDR.
+ *
+ * A volcano plots effect size against significance, and is read exactly as a
+ * Manhattan plot is: which points clear the line, and what they are called.
+ * The difference is that it has **two** lines — a gene matters when its change
+ * is both large and significant — so `effect` joins `significance`.
+ *
+ * Supply `label`. On a volcano the gene name is the payload: a reader told
+ * "x is 2.3, y is 14.1" has been given the two numbers whose shape they can
+ * already hear, and withheld the one thing they came for. The binder warns
+ * when no label resolves rather than failing, since the chart still reads
+ * without it.
+ *
+ * @param svg - The SVG element containing the D3 volcano plot.
+ * @param config - Configuration specifying the selector, accessors and cutoffs.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Volcano(svgElement, {
+ *   selector: 'circle.gene',
+ *   title: 'Differential Expression',
+ *   axes: { x: 'log2 fold change', y: '-log10(p)' },
+ *   x: 'lfc',
+ *   y: 'logP',
+ *   label: 'gene',
+ *   significance: 1.3,
+ *   effect: 1,
+ * });
+ * ```
+ */
+export function bindD3Volcano(svg: Element, config: D3VolcanoConfig): D3BinderResult {
+  return finalizeSingleChart(
+    svg,
+    config,
+    buildScatterLayer(svg, config, undefined, TraceType.VOLCANO),
+  );
+}
+
+/**
+ * Pure extraction core for scatter, Manhattan and volcano plots. See
  * {@link buildBarLayer} for the single-chart vs multi-panel contract.
  *
- * The config is typed as the superset {@link D3ManhattanConfig}: a plain
- * scatter leaves the Manhattan-only accessors unset, and nothing extra is then
- * read or emitted.
+ * The config is typed as the superset {@link D3VolcanoConfig}: a plain scatter
+ * leaves the threshold accessors unset, and nothing extra is then read or
+ * emitted.
  *
  * @internal
  */
 export function buildScatterLayer(
   root: Element,
-  config: D3ManhattanConfig,
+  config: D3VolcanoConfig,
   panel?: D3PanelScope,
   type: ScatterMarkTraceType = TraceType.SCATTER,
 ): D3BuiltLayer {
@@ -122,6 +163,7 @@ export function buildScatterLayer(
     selector,
     significance,
     significanceDirection,
+    effect,
   } = config;
 
   const elements = queryD3Elements(root, selector);
@@ -146,28 +188,28 @@ export function buildScatterLayer(
     firstDatum,
   );
 
-  // Manhattan-only: a plain scatter carries neither, so nothing extra is read
-  // or emitted for it. Both are read optionally even here — a point whose
+  // Threshold plots only: a plain scatter carries neither, so nothing extra is
+  // read or emitted for it. Both are read optionally even here — a point whose
   // datum names no SNP is still a point, and dropping it for want of a label
   // would lose the reading the chart was drawn for.
-  const identity = type === TraceType.MANHATTAN
-    ? {
+  const identity = type === TraceType.SCATTER
+    ? null
+    : {
         label: inferAccessor<string>(
           config,
           'label',
           'label',
-          ['snp', 'id', 'name', 'gene', 'probe'],
+          ['snp', 'gene', 'symbol', 'id', 'name', 'probe'],
           firstDatum,
         ),
         group: inferAccessor<string>(
           config,
           'group',
           'group',
-          ['chromosome', 'chrom', 'chr', 'region'],
+          ['chromosome', 'chrom', 'chr', 'regulation', 'direction', 'region'],
           firstDatum,
         ),
-      }
-    : null;
+      };
 
   const data: VolcanoPoint[] = elements.map(({ datum, index }) => {
     if (datum === undefined || datum === null) {
@@ -191,6 +233,17 @@ export function buildScatterLayer(
     return point;
   });
 
+  // A volcano is read by gene name, so say so when none resolved. It is a
+  // warning rather than an error: the chart still reads as a scatter with a
+  // cutoff, and refusing to bind would leave the reader with nothing at all.
+  if (type === TraceType.VOLCANO && !data.some(point => point.label !== undefined)) {
+    console.warn(
+      `[maidr/d3] No label resolved for any point of the volcano plot matched `
+      + `by "${selector}". The gene name is what a volcano is read for — pass `
+      + `a \`label\` accessor naming the property that carries it.`,
+    );
+  }
+
   const layer: MaidrLayer = {
     id: generateId(),
     type,
@@ -203,10 +256,11 @@ export function buildScatterLayer(
   // Only when the caller declared a cutoff. There is no default: these charts
   // are drawn on transformed axes whose conventions differ by field, and a
   // guessed line would sort every point onto the wrong side silently.
-  if (significance !== undefined || significanceDirection !== undefined) {
+  if (significance !== undefined || significanceDirection !== undefined || effect !== undefined) {
     layer.thresholdOptions = {
       ...(significance !== undefined ? { significance } : {}),
       ...(significanceDirection !== undefined ? { significanceDirection } : {}),
+      ...(effect !== undefined ? { effect } : {}),
     };
   }
 
