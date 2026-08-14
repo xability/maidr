@@ -2541,6 +2541,14 @@ function significancePlotSeries(
  * the y axis, and a volcano's effect-size pair across the x axis, symmetric
  * about zero — so the magnitude of the first non-zero one is the cutoff.
  *
+ * The x-axis reading is a **volcano's only**. A volcano's x is fold change and
+ * a line across it is a cutoff, but a Manhattan's x is genomic position, where
+ * the plot lines a chart draws are chromosome dividers. Inferring an effect
+ * from one would compare every point's position against a divider's coordinate
+ * and reject nearly all of them, emptying the significance summary and the
+ * rotor filter — the silent failure this whole design exists to avoid. A
+ * Manhattan can still carry an `effect`, but only by stating it.
+ *
  * A layer that ends up declaring nothing gets no `thresholdOptions` at all,
  * and MAIDR then reads the cloud without making any claim about significance.
  * The direction is passed through only when it was stated: MAIDR reads
@@ -2558,7 +2566,9 @@ function significanceThresholds(
   const significance = declared.significance
     ?? plotLineValues(series.yAxis).find(value => Number.isFinite(value));
   const effect = declared.effect
-    ?? plotLineValues(series.xAxis).map(Math.abs).find(value => value > 0);
+    ?? (declared.type === 'volcano'
+      ? plotLineValues(series.xAxis).map(Math.abs).find(value => value > 0)
+      : undefined);
 
   const thresholds: ThresholdOptions = {
     ...(typeof significance === 'number' ? { significance } : {}),

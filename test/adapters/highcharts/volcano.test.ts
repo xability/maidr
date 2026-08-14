@@ -156,6 +156,40 @@ describe('highcharts significance plots', () => {
     expect(layers[0].title).toBeUndefined();
   });
 
+  it('does not read a Manhattan\'s chromosome dividers as an effect cutoff', () => {
+    const chart = volcanoChart({
+      chr1: [{ x: 1.2e8, y: 4.2, name: 'rs1' }, { x: 2.4e8, y: 8.9, name: 'rs2' }],
+      chr2: [{ x: 5.1e8, y: 9.4, name: 'rs3' }],
+    });
+    // A Manhattan's x is genomic position, and the lines drawn across it
+    // separate chromosomes -- they are not a cutoff of any kind.
+    for (const axis of chart.xAxis) {
+      axis.options.plotLines = [{ value: 2.5e8 }, { value: 4.9e8 }];
+    }
+
+    const layer = highchartsToMaidr(chart, {
+      significancePlot: { type: 'manhattan' },
+    }).subplots[0][0].layers[0];
+
+    // Inferring `effect: 2.5e8` here would test every point's position against
+    // a divider's coordinate, so almost nothing would clear the threshold and
+    // both the significance summary and the rotor filter would fall silent.
+    expect(layer.thresholdOptions).toEqual({ significance: 1.3 });
+  });
+
+  it('still lets a Manhattan state an effect cutoff outright', () => {
+    const chart = volcanoChart({
+      chr1: [{ x: 1.2e8, y: 4.2, name: 'rs1' }],
+    });
+
+    const layer = highchartsToMaidr(chart, {
+      significancePlot: { type: 'manhattan', effect: 1e8 },
+    }).subplots[0][0].layers[0];
+
+    // Only the guess is withheld; a stated cutoff is the caller's to make.
+    expect(layer.thresholdOptions).toEqual({ significance: 1.3, effect: 1e8 });
+  });
+
   it('reads only the series the caller named', () => {
     const chart = volcanoChart({
       Genes: [{ x: 2.4, y: 5.1, name: 'BRCA1' }],

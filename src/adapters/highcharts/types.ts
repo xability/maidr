@@ -77,8 +77,10 @@ export interface HighchartsAdapterOptions {
      */
     significanceDirection?: 'above' | 'below';
     /**
-     * The effect-size cutoff, applied to the magnitude of x. Defaults to the
-     * first non-zero numeric `xAxis.plotLines` value.
+     * The effect-size cutoff, applied to the magnitude of x. On a `volcano`
+     * it defaults to the first non-zero numeric `xAxis.plotLines` value. A
+     * `manhattan` has no default: its x is genomic position, so the plot
+     * lines across it are chromosome dividers rather than a cutoff.
      */
     effect?: number;
   };
