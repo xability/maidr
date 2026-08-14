@@ -2658,13 +2658,22 @@ function extractChoroplethData(
     if (declaration) {
       const lon = toDegrees(resolveFieldRef(row, declaration.lon, 'lon'));
       const lat = toDegrees(resolveFieldRef(row, declaration.lat, 'lat'));
+      // Each half is tracked on its own, because the diagnostic answers a
+      // different question than the payload does: whether *this* name found
+      // degrees on the row. Tracking the pair together makes a correctly
+      // named `lon` report as missing whenever `lat` is the typo, pointing
+      // the author at the one field that was right.
+      if (lon !== undefined) {
+        resolved.add('lon');
+      }
+      if (lat !== undefined) {
+        resolved.add('lat');
+      }
       // Both or neither: half a centroid places a region nowhere, and
       // `ChoroplethTrace` bands the map only when every region has the pair.
       if (lon !== undefined && lat !== undefined) {
         point.lon = lon;
         point.lat = lat;
-        resolved.add('lon');
-        resolved.add('lat');
       }
     }
     points.push(point);
@@ -2763,6 +2772,12 @@ function applyDeclaredType(
  * `facet` or `repeat` parent it names none of the several layers below it,
  * and guessing which one it meant would announce the wrong half of a
  * composite map as the chart. Move it down onto the child it describes.
+ *
+ * Called at every point a composite node is descended into, not only on the
+ * entry spec: a concat child or a faceted child can itself be a `layer`, and
+ * a declaration stranded on one of those is as unusable as on the outer
+ * node. Each call site fires once per node, so a misplaced declaration is
+ * reported once however many panels the node expands into.
  *
  * @param spec - The spec about to be converted
  */
@@ -3332,6 +3347,10 @@ function buildConcatMaidr(
   let globalLayerIndex = 0;
 
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
+    // A concat child is a spec node `vegaLiteToMaidr` never sees, so a
+    // declaration written on one that is itself composite is caught here or
+    // not at all. Once per child, not once per layer.
+    warnCompositeDeclaration(childSpec);
     // Each concat child compiles to a per-cell Vega scope group
     // (`concat_<i>_group`) wrapping the panel's background path. Pointing
     // the subplot selector at that background gives MAIDR core a real
@@ -3770,6 +3789,15 @@ function buildFacetMaidr(
   domOrder?: 'series-major' | 'subject-major',
 ): Maidr {
   const childSpec = descriptor.childSpec;
+  // With the `facet` operator the child is a separate spec node that
+  // `vegaLiteToMaidr` never inspects, so a declaration misplaced on a
+  // layered child is caught here. The `encoding.row`/`column` shorthand is
+  // deliberately excluded: there the child is the entry spec with the facet
+  // channels stripped, carrying the same declaration object, and it was
+  // already checked once — warning again would print the same line twice.
+  if (spec.facet != null && spec.spec != null) {
+    warnCompositeDeclaration(spec.spec);
+  }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
   const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
   const facetFields = [
@@ -3964,6 +3992,11 @@ function buildRepeatMaidr(
   domOrder?: 'series-major' | 'subject-major',
 ): Maidr {
   const childSpec = descriptor.childSpec;
+  // `describeRepeat` only answers for `spec.repeat` + `spec.spec`, so the
+  // child is always a separate node the entry check never saw. Warn once
+  // here, before the per-cell loop — a misplaced declaration is one mistake,
+  // not one per repeated panel.
+  warnCompositeDeclaration(childSpec);
 
   // Grid of per-cell field mappings in reading order.
   interface RepeatCellDef { mapping: RepeatCellMapping; title: string }

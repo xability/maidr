@@ -294,6 +294,29 @@ describe('vega-Lite geoshape maps with a usermeta declaration', () => {
     // which name missed is the only way the author finds out.
     expect(regionsOf(layer)).toEqual([{ x: 'Nevada', y: 4.2 }]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"centoidLon"'));
+
+    // Only the name that missed. `lat` is on the row and reads as degrees;
+    // it is left out of the point because its partner is missing, which is a
+    // fact about the *pair*, not about the name `lat`. Reporting it here
+    // would send the author to rename the one field that was correct.
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('"lat"'));
+  });
+
+  it('reports only the missing half when the other centroid field resolves', () => {
+    // The mirror of the case above, so a regression that re-couples the two
+    // is caught whichever half the author typos.
+    const declared: VegaLiteSpec = {
+      ...CHOROPLETH_SPEC,
+      usermeta: { maidr: { type: TraceType.CHOROPLETH, lon: 'lon', lat: 'centoidLat' } },
+    };
+
+    const layer = onlyLayer(declared, {
+      data_0: [{ properties: { name: 'Nevada' }, rate: 4.2, lon: -116.6, centroidLat: 39.3 }],
+    });
+
+    expect(regionsOf(layer)).toEqual([{ x: 'Nevada', y: 4.2 }]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"centoidLat"'));
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('"lon"'));
   });
 
   it('reads a declared choropleth that no colour encoding shades', () => {
@@ -344,6 +367,61 @@ describe('vega-Lite geoshape maps with a usermeta declaration', () => {
     expect(allLayers(composite, { data_1: STATE_ROWS })[0].type)
       .toBe(TraceType.CHOROPLETH);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('composite spec'));
+  });
+
+  it('ignores a declaration on a composite nested inside a composite', () => {
+    const composite: VegaLiteSpec = {
+      data: { values: [{ a: 'A', b: 28 }] },
+      hconcat: [
+        {
+          usermeta: { maidr: { type: TraceType.CHOROPLETH, name: 'Rates' } },
+          layer: [
+            {
+              mark: 'bar',
+              encoding: {
+                x: { field: 'a', type: 'nominal' },
+                y: { field: 'b', type: 'quantitative' },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    // The entry spec carries no declaration, so the check that fires on it
+    // sees nothing. A concat child is descended into without passing back
+    // through `vegaLiteToMaidr`, so a block stranded on a layered child is
+    // caught at the descent or never — and it names no one layer either
+    // way. Left silent, the author gets a `name` that never appears on any
+    // layer and no reason why.
+    const layers = vegaLiteToMaidr(composite, makeView({ data_0: [{ a: 'A', b: 28 }] }))
+      .subplots[0][0]
+      .layers;
+    expect(layers[0].type).toBe(TraceType.BAR);
+    expect(layers[0].name).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('composite spec'));
+  });
+
+  it('reports a misplaced declaration once for a whole repeat grid', () => {
+    const composite: VegaLiteSpec = {
+      data: { values: [{ a: 1, b: 2, c: 3 }] },
+      repeat: { column: ['b', 'c'] },
+      spec: {
+        usermeta: { maidr: { type: TraceType.CHOROPLETH } },
+        layer: [
+          { mark: 'point', encoding: { x: { field: 'a', type: 'quantitative' } } },
+        ],
+      },
+    };
+
+    vegaLiteToMaidr(composite, makeView({ data_0: [{ a: 1, b: 2, c: 3 }] }));
+
+    // One mistake, one line. The repeated child is converted once per panel,
+    // so warning from inside that loop would print the same sentence for
+    // every column and bury whatever else the conversion had to say.
+    const composites = warn.mock.calls
+      .filter(([message]) => String(message).includes('composite spec'));
+    expect(composites).toHaveLength(1);
   });
 
   it('falls back to the drawn chart when the declaration is malformed', () => {
