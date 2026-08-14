@@ -152,6 +152,8 @@ A bar, a dot, and a rect are positioned by attributes the adapter reads directly
 
 A **line or area** is different. Its vertices come back out of the path's `d` attribute, where the serializer has already rounded each coordinate, so the value is only good to the quantum that rounding left. The adapter rounds to that precision and no finer — on an ordinary chart the quantum is worth far less than the last decimal of the data and the value comes back exact, but a line spanning tens of thousands of units will be announced to the nearest hundredth or so. Reporting the inverted figure in full would present a rounded pixel as an exact measurement.
 
+**Bin edges** are reconstructed rather than measured. Plot insets a binned rect so neighbouring bars are visually separated, which puts every measured edge a pixel inside the true one, and the spacing between bars gives the bin width back exactly. A chart whose bins are not evenly spaced — author-set thresholds — cannot be reconstructed that way and keeps its measured edges, which are inset by that pixel.
+
 Three more things worth knowing:
 
 - **Draw order is data order.** Plot draws marks in the order the data arrived, which is not the visual order when a mark is given `sort`. Navigation follows that same order, so the highlight always matches what was announced, but on a sorted chart the arrow keys will not sweep strictly left to right.
