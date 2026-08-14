@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR — Observable Plot in a Quarto document</title>
+
+    <!--
+      This page reproduces what Quarto renders for `{ojs}` cells: an empty
+      `div#ojs-cell-N` in the served HTML, filled in later by the Observable
+      runtime with a `div.observablehq` holding the chart the cell evaluated to.
+
+      Nothing here calls the adapter. Loading `observable.js` is the whole
+      integration — it watches the page and binds each chart as it appears,
+      which is exactly what it does in a real Quarto document.
+
+      Charts are drawn with Observable Plot 0.6.11, the version Quarto bundles.
+    -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/observable.js"></script>
+
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0 auto;
+        max-width: 44rem;
+        padding: 2rem 1rem 4rem;
+        line-height: 1.5;
+      }
+      .cell { margin: 2.5rem 0; }
+      .cell-output { min-height: 3rem; }
+      kbd {
+        background: #f2f2f2;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        padding: 0 0.3em;
+      }
+      #error {
+        display: none;
+        color: #a00;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Observable Plot in a Quarto document</h1>
+
+      <p>
+        Tab to a chart and press the arrow keys to move between data points.
+        <kbd>S</kbd> toggles sonification, <kbd>B</kbd> braille, <kbd>T</kbd>
+        text descriptions. On the faceted chart, <kbd>Page Up</kbd> and
+        <kbd>Page Down</kbd> move between panels.
+      </p>
+
+      <p id="error">
+        Observable Plot could not be loaded from the CDN, so this page has no
+        charts to show.
+      </p>
+
+      <div class="cell">
+        <h2>Bar chart</h2>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-1" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Scatter plot</h2>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-2" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Multi-series line chart</h2>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-3" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Histogram</h2>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-4" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Stacked bar chart</h2>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-5" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Faceted bar chart</h2>
+        <p>Each facet becomes a MAIDR panel, named after the facet it was drawn for.</p>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-6" data-nodetype="expression"></div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <h2>Reactive cell</h2>
+        <p>
+          Change the year and the cell redraws, exactly as an
+          <code>{ojs}</code> cell driven by a <code>viewof</code> input does.
+          The adapter binds each replacement, so the chart stays navigable.
+        </p>
+        <p>
+          <label for="year">Year</label>
+          <input id="year" type="range" min="2020" max="2024" step="1" value="2022" />
+          <output id="year-value">2022</output>
+        </p>
+        <div class="cell-output cell-output-display">
+          <div id="ojs-cell-7" data-nodetype="expression"></div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      let Plot;
+      try {
+        Plot = await import('https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.11/+esm');
+      } catch {
+        document.querySelector('#error').style.display = 'block';
+      }
+
+      if (Plot) {
+        // What the Observable runtime does: create a `div.observablehq` inside
+        // the cell's target div, then append the cell's value to it.
+        const fill = (id, node) => {
+          const target = document.querySelector(`#${id}`);
+          const wrapper = document.createElement('div');
+          wrapper.className = 'observablehq';
+          wrapper.append(node);
+          target.replaceChildren(wrapper);
+        };
+
+        const visitors = [
+          { day: 'Mon', count: 120 },
+          { day: 'Tue', count: 240 },
+          { day: 'Wed', count: 180 },
+          { day: 'Thu', count: 300 },
+          { day: 'Fri', count: 150 },
+        ];
+
+        const measurements = [
+          { mass: 3.75, length: 18.2 },
+          { mass: 4.25, length: 19.6 },
+          { mass: 5.1, length: 21.4 },
+          { mass: 3.2, length: 17.1 },
+          { mass: 4.8, length: 20.5 },
+          { mass: 5.6, length: 22.3 },
+        ];
+
+        const series = [
+          { quarter: 1, revenue: 12, region: 'North' },
+          { quarter: 2, revenue: 19, region: 'North' },
+          { quarter: 3, revenue: 15, region: 'North' },
+          { quarter: 4, revenue: 24, region: 'North' },
+          { quarter: 1, revenue: 8, region: 'South' },
+          { quarter: 2, revenue: 11, region: 'South' },
+          { quarter: 3, revenue: 17, region: 'South' },
+          { quarter: 4, revenue: 14, region: 'South' },
+        ];
+
+        const samples = Array.from({ length: 200 }, (_, i) =>
+          ({ value: Math.round(20 + 12 * Math.sin(i / 7) + (i % 11)) }));
+
+        const split = [
+          { product: 'Alpha', channel: 'Online', units: 30 },
+          { product: 'Beta', channel: 'Online', units: 44 },
+          { product: 'Gamma', channel: 'Online', units: 22 },
+          { product: 'Alpha', channel: 'Retail', units: 18 },
+          { product: 'Beta', channel: 'Retail', units: 27 },
+          { product: 'Gamma', channel: 'Retail', units: 35 },
+        ];
+
+        const byYear = [
+          { year: 2020, region: 'North', sales: 40 },
+          { year: 2020, region: 'South', sales: 28 },
+          { year: 2021, region: 'North', sales: 46 },
+          { year: 2021, region: 'South', sales: 33 },
+          { year: 2022, region: 'North', sales: 51 },
+          { year: 2022, region: 'South', sales: 39 },
+          { year: 2023, region: 'North', sales: 47 },
+          { year: 2023, region: 'South', sales: 44 },
+          { year: 2024, region: 'North', sales: 58 },
+          { year: 2024, region: 'South', sales: 41 },
+        ];
+
+        fill('ojs-cell-1', Plot.plot({
+          title: 'Daily visitors',
+          caption: 'Visits to the documentation site, weekdays only.',
+          x: { label: 'Day' },
+          y: { label: 'Visitors' },
+          marks: [Plot.barY(visitors, { x: 'day', y: 'count' })],
+        }));
+
+        fill('ojs-cell-2', Plot.plot({
+          title: 'Body mass against flipper length',
+          x: { label: 'Body mass (kg)' },
+          y: { label: 'Flipper length (cm)' },
+          marks: [Plot.dot(measurements, { x: 'mass', y: 'length' })],
+        }));
+
+        fill('ojs-cell-3', Plot.plot({
+          title: 'Revenue by quarter',
+          x: { label: 'Quarter' },
+          y: { label: 'Revenue (millions)' },
+          marks: [Plot.line(series, { x: 'quarter', y: 'revenue', stroke: 'region' })],
+        }));
+
+        fill('ojs-cell-4', Plot.plot({
+          title: 'Distribution of sample values',
+          y: { label: 'Count' },
+          marks: [Plot.rectY(samples, Plot.binX({ y: 'count' }, { x: 'value' }))],
+        }));
+
+        fill('ojs-cell-5', Plot.plot({
+          title: 'Units sold by product and channel',
+          x: { label: 'Product' },
+          y: { label: 'Units' },
+          marks: [Plot.barY(split, { x: 'product', y: 'units', fill: 'channel' })],
+          color: { legend: false },
+        }));
+
+        fill('ojs-cell-6', Plot.plot({
+          title: 'Sales by region',
+          x: { label: 'Region' },
+          y: { label: 'Sales' },
+          marks: [Plot.barY(byYear.filter(d => d.year >= 2022), {
+            x: 'region',
+            y: 'sales',
+            fx: 'year',
+          })],
+        }));
+
+        const drawYear = (year) => {
+          fill('ojs-cell-7', Plot.plot({
+            title: `Sales in ${year}`,
+            x: { label: 'Region' },
+            y: { label: 'Sales', domain: [0, 60] },
+            marks: [Plot.barY(byYear.filter(d => d.year === Number(year)), {
+              x: 'region',
+              y: 'sales',
+            })],
+          }));
+        };
+
+        const slider = document.querySelector('#year');
+        drawYear(slider.value);
+        slider.addEventListener('input', () => {
+          document.querySelector('#year-value').textContent = slider.value;
+          drawYear(slider.value);
+        });
+      }
+    </script>
+  </body>
+</html>

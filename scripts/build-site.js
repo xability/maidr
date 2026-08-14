@@ -59,6 +59,7 @@ const PAGE_DESCRIPTIONS = {
   'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, box plot, and arc (pie) specs.',
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix), and pie / doughnut chart types.',
   'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, heatmap, and pie chart types.',
+  'observable': 'How to make Observable Plot charts accessible with MAIDR — zero-configuration binding for bar, stacked bar, histogram, scatter, dot, line, area, and faceted plots, including the {ojs} cells of a Quarto document.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
   'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
@@ -152,6 +153,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
     .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
     .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
+    .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
@@ -293,6 +295,20 @@ if (fs.existsSync(amchartsMdPath)) {
   fs.writeFileSync(path.join(SITE_DIR, 'amcharts.html'), amchartsPage);
 }
 
+// Build observable.html from docs/observable.md
+console.log('Building observable.html from docs/observable.md...');
+const observableMdPath = path.join(ROOT, 'docs', 'observable.md');
+if (fs.existsSync(observableMdPath)) {
+  const observableMd = fs.readFileSync(observableMdPath, 'utf-8');
+  const observableHtml = `
+<div class="content">
+  ${marked.parse(observableMd)}
+</div>
+`;
+  const observablePage = generatePage({ title: 'Observable Plot', content: observableHtml, activePage: 'observable', slug: 'observable.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'observable.html'), observablePage);
+}
+
 // Build frappe.html from docs/frappe.md
 console.log('Building frappe.html from docs/frappe.md...');
 const frappeMdPath = path.join(ROOT, 'docs', 'frappe.md');
@@ -431,6 +447,12 @@ const examplesContent = `
     <li><a href="#" onclick="loadHTML('chartjs/pie.html', 'Chart.js Pie Chart'); return false;">Pie Chart</a></li>
   </ul>
   <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+
+  <h3>Observable Plot &amp; Quarto</h3>
+  <ul>
+    <li><a href="#" onclick="loadHTML('observable-quarto.html', 'Observable Plot in a Quarto document'); return false;">Quarto OJS cells (bar, scatter, line, histogram, facets)</a></li>
+  </ul>
+  <p>See the <a href="observable.html">Observable Plot &amp; Quarto Integration Guide</a> for setup instructions, including the Quarto extension.</p>
 
   <h3>Frappe Charts</h3>
   <ul>
@@ -724,7 +746,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'observable.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -787,6 +809,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
   { loc: 'https://maidr.ai/amcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'amcharts.md')) },
   { loc: 'https://maidr.ai/frappe.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'frappe.md')) },
+  { loc: 'https://maidr.ai/observable.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'observable.md')) },
   { loc: 'https://maidr.ai/victory.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'victory.md')) },
   { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
   { loc: 'https://maidr.ai/highcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'highcharts.md')) },
@@ -797,7 +820,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'observable.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({

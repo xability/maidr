@@ -213,6 +213,23 @@ export const builds = [
     },
   },
   {
+    name: 'observable',
+    entry: 'src/observable-entry.ts',
+    libName: 'maidrObservable',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'observable.mjs' : 'observable.js',
+    emptyOutDir: false,
+    // Observable Plot is never imported — the adapter reads the SVG the host
+    // page already rendered — so there is nothing to externalise.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
