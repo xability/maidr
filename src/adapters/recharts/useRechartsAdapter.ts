@@ -87,6 +87,10 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     waterfallConfig,
     ganttConfig,
     gaugeConfig,
+    parallelConfig,
+    ridgelineConfig,
+    hexbinConfig,
+    boxenConfig,
     selectorOverride,
   } = config;
 
@@ -116,8 +120,12 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       waterfallConfig,
       ganttConfig,
       gaugeConfig,
+      parallelConfig,
+      ridgelineConfig,
+      hexbinConfig,
+      boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 }

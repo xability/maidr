@@ -155,6 +155,52 @@
  *   highlighting off for the layer rather than mis-aligning it, so audio,
  *   text, and braille still describe every slice including the zero.
  *
+ * Parallel coordinates:
+ *   g.recharts-line > path.recharts-line-curve
+ *   [target: .recharts-line .recharts-line-curve]
+ *
+ *   One `<Line>` per OBSERVATION, so one curve path each — the same selector
+ *   repeated once per observation, which is the shape `ParallelTrace` inherits
+ *   from `LineTrace`. There are no per-vertex marks aligned to the grid, so
+ *   the trace parses each path's own vertices into marks; a chart drawn some
+ *   other way (a `<Line>` per axis, an extra reference line) gets no
+ *   highlighting rather than a highlight on the wrong polyline.
+ *
+ * Ridgeline:
+ *   g.recharts-area > path.recharts-area-area
+ *   [target: .recharts-area .recharts-area-area]
+ *
+ *   One `<Area>` per group, so one filled band each, and `RidgelineTrace`
+ *   wants exactly that — one element per ridge, lit from any sample of it.
+ *   The bands come out in the order the `<Area>`s are declared, so they must
+ *   be declared in the order the groups first appear in `data`.
+ *
+ * Hexbin:
+ *   g.recharts-scatter-symbol > g.recharts-shape > (the drawn hexagon)
+ *   [target: .recharts-scatter-symbol .recharts-shape > *]
+ *
+ *   The bins are a `<Scatter>`, one symbol group per row in row order — but
+ *   Recharts has no hexagon among its own symbol types, so a hexbin always
+ *   passes a custom `shape` and there is no `path.recharts-symbols` to target
+ *   the way the other scatter families do. What both cases share is the
+ *   `g.recharts-shape` wrapper Recharts puts around whatever was drawn, so the
+ *   selector takes its child: one element per bin, custom shape or not.
+ *
+ *   The payload is a LATTICE — rows from the bottom up, each ordered left to
+ *   right — while the symbols come out in the order the rows arrive. The two
+ *   agree only when the rows already arrive in that order, which is what the
+ *   converter checks before emitting this selector at all.
+ *
+ * Boxen:
+ *   no generated selector.
+ *
+ *   A letter-value plot has no box primitive in Recharts: the rungs are
+ *   stacked `<Bar>`s over a transparent base, so the rectangles are one per
+ *   rung per distribution and no class name says which rung is which.
+ *   `BoxenTrace` wants exactly one element per DISTRIBUTION, so a chart that
+ *   wants highlighting puts a `className` on the single `<Bar>` drawing the
+ *   outermost rung and passes it as `selectorOverride`.
+ *
  * Selectors are scoped to their parent container classes to avoid matching
  * Recharts utility elements (e.g. Tooltip cursor rectangles) that share the
  * same leaf class name.
@@ -312,5 +358,14 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'pie':
     case 'polar_area':
       return '.recharts-pie-sector .recharts-sector';
+    case 'parallel':
+      return '.recharts-line .recharts-line-curve';
+    case 'ridgeline':
+      return '.recharts-area .recharts-area-area';
+    case 'hexbin':
+      return '.recharts-scatter-symbol .recharts-shape > *';
+    // A boxen has no per-distribution mark of its own; see the module docs.
+    case 'boxen':
+      return undefined;
   }
 }

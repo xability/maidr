@@ -66,7 +66,7 @@ function AccessibleBarChart() {
 | `data` | `Record<string, unknown>[]` | Simple/composed mode | Recharts data array. Each item is one data point with named fields. In subplot mode it is the default data for panels without their own `data`. |
 | `xKey` | `string` | Yes | Key in data objects for x-axis values. |
 | `chartType` | `RechartsChartType` | Simple mode | Chart type (see supported types below). |
-| `yKeys` | `string[]` | Simple mode | Keys in data objects for y-axis values. Each key is a data series. |
+| `yKeys` | `string[]` | Simple mode | Keys in data objects for y-axis values. Each key is a data series. Not used by `parallel`, `ridgeline` and `boxen`, whose fields are all named by their own config; on a `hexbin` the first entry is the bin centre's y. |
 | `layers` | `RechartsLayerConfig[]` | Composed mode | Layer configs for mixed chart types (see Composed Charts). |
 | `subplots` | `RechartsSubplotConfig[][]` or `RechartsSubplotConfig[]` | Subplot mode | Panel grid for multi-panel (faceted) figures (see Multi-Panel Charts). Mutually exclusive with `chartType`/`layers`. |
 | `columns` | `number` | No | Panels per row when `subplots` is a flat array. Ignored for 2D grids. |
@@ -83,6 +83,10 @@ function AccessibleBarChart() {
 | `errorConfig` | `ErrorIntervalConfig` | Error bar/forest | Which field holds the interval, as an offset or as absolute bounds. |
 | `forestConfig` | `ForestPlotConfig` | Forest only | Study weights, the pooled row, and the null line. |
 | `survivalConfig` | `SurvivalCurveConfig` | Survival only | Per-arm censoring and confidence band keys, and the step direction. |
+| `parallelConfig` | `ParallelAxesConfig` | Parallel only | The axes in draw order, naming the raw fields, and the observation's label key. |
+| `ridgelineConfig` | `RidgelineCurveConfig` | Ridgeline only | Group key, value key, and the density key — the density BEFORE the ridge offset. |
+| `hexbinConfig` | `HexbinLatticeConfig` | Hexbin | Bin centre, count and lattice row keys. |
+| `boxenConfig` | `BoxenLadderConfig` | Boxen | Median, ladder and outlier keys. |
 | `selectorOverride` | `string` | No | Custom CSS selector for SVG highlighting (see Advanced section). |
 
 ## Configuration Modes
@@ -165,6 +169,10 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'treemap'` | `<Treemap>` | A hierarchy laid out as nested area (nested `data`) |
 | `'sunburst'` | `<SunburstChart>` | The same hierarchy drawn as rings (nested `data`) |
 | `'icicle'` | `<BarChart layout="vertical">` + floating `<Bar>` | The same hierarchy drawn as depth-ordered bands (nested `data`) |
+| `'parallel'` | `<LineChart>` + one `<Line>` per observation | Parallel coordinates: an axis per variable (`parallelConfig`) |
+| `'ridgeline'` | Overlapping `<Area>`s, one per group | Ridgeline/joy plot: a density curve per group (`ridgelineConfig`) |
+| `'hexbin'` | `<Scatter shape={hexagon}>` | Hexagonal binning of an overplotted scatter (`hexbinConfig`) |
+| `'boxen'` | Stacked `<Bar>`s over a transparent base | Letter-value plot: a variable-depth quantile ladder (`boxenConfig`) |
 
 ## Data Examples by Chart Type
 
@@ -1080,6 +1088,184 @@ const bands = [
 
 Built the other obvious way — one stacked `<Bar>` per depth level — the rectangles come out series-major rather than depth-first, which is not the order the nodes are in. Such a chart needs `selectorOverride`.
 
+### Parallel Coordinates
+
+An observation per row, an axis per variable. Recharts has no parallel coordinates chart and cannot quite have one: a `<Line>` binds to a single `yAxisId`, so a polyline crossing axes measured in different units has to be drawn from values **min-max normalised** onto one shared scale, over rows keyed by axis with one `<Line>` per observation.
+
+MAIDR must not see those normalised numbers. It derives each column's own extent and pitches a value against its **own** axis — that is the whole chart — so handed 0-to-1 values every axis would run the same range and the crossings the plot is drawn to show would be gone. So `data` here is the **observations, with their raw values**, and `parallelConfig.dimensions` names the raw fields in the order the axes are drawn:
+
+```tsx
+const cars = [
+  { car: 'Mazda RX4', mpg: 21, hp: 110, wt: 2.62 },
+  { car: 'Datsun 710', mpg: 22.8, hp: 93, wt: 2.32 },
+  { car: 'Hornet 4 Drive', mpg: 21.4, hp: 110, wt: 3.215 },
+  { car: 'Valiant', mpg: 18.1, hp: 105, wt: 3.46 },
+];
+
+// What the chart is drawn from: the transpose, normalised per axis.
+const axisRows = [
+  { axis: 'Miles per gallon', obs0: 0.62, obs1: 1, obs2: 0.7, obs3: 0 },
+  { axis: 'Horsepower', obs0: 0.2, obs1: 0, obs2: 0.2, obs3: 0.14 },
+  { axis: 'Weight (1000 lb)', obs0: 0.26, obs1: 0, obs2: 0.79, obs3: 1 },
+];
+
+<MaidrRecharts
+  id="parallel-example"
+  title="Cars by Specification"
+  data={cars}
+  chartType="parallel"
+  xKey="car"
+  parallelConfig={{
+    dimensions: ['mpg', 'hp', { label: 'Weight (1000 lb)', key: 'wt' }],
+    labelKey: 'car',
+  }}
+  xLabel="Variable"
+  yLabel="Value"
+>
+  <LineChart width={600} height={350} data={axisRows}>
+    <XAxis dataKey="axis" />
+    <YAxis domain={[0, 1]} />
+    {cars.map((car, i) => (
+      <Line key={car.car} dataKey={`obs${i}`} name={car.car} dot={false} />
+    ))}
+  </LineChart>
+</MaidrRecharts>
+```
+
+A bare `dimensions` string names both the axis and the field; the object form separates them, for a column whose key is not what a reader should hear. The order is the order a reader arrows through the axes, and nothing on an observation states it — an object's key order is not an axis order.
+
+`labelKey` names the observation, which becomes the polyline's series name. Without it an observation is announced by its position among the rest.
+
+Highlighting resolves one `<Line>` path per observation and marks each vertex on it. It is withheld in one case: a chart with exactly as many observations as axes, where MAIDR's element-based resolution cannot tell the two counts apart and would light the wrong polyline.
+
+### Ridgeline (Joy) Plot
+
+One density curve per group along a shared value axis, the curves offset down the page so their shapes can be compared. There is no primitive for it: the chart is overlapping `<Area>`s with a per-group offset **baked into the plotted values**.
+
+The offset is presentation — it exists so the curves do not overlap illegibly, and says nothing about any group — so `densityKey` must name the density **before** it was added. Fed the drawn y instead, every group's loudness becomes a function of where it was stacked, and the lowest ridge is the loudest thing on the chart. Where nothing resolves as a density the adapter refuses the reading rather than subtracting a guessed baseline.
+
+The kernel density itself is computed outside both Recharts and the adapter; `data` is the sampled curves, one row per sample:
+
+```tsx
+const samples = [
+  { month: 'Jan', temp: -4, density: 0.06, plotted: 2.06 },
+  { month: 'Jan', temp: 0, density: 0.11, plotted: 2.11 },
+  { month: 'Feb', temp: -2, density: 0.08, plotted: 1.08 },
+  { month: 'Feb', temp: 2, density: 0.13, plotted: 1.13 },
+];
+
+<MaidrRecharts
+  id="ridgeline-example"
+  title="Daily Temperature by Month"
+  data={samples}
+  chartType="ridgeline"
+  xKey="temp"
+  ridgelineConfig={{ groupKey: 'month', valueKey: 'temp', densityKey: 'density' }}
+  xLabel="Temperature (C)"
+  yLabel="Month"
+>
+  <AreaChart width={600} height={350}>
+    <XAxis dataKey="temp" type="number" />
+    <YAxis type="number" />
+    {['Jan', 'Feb'].map(month => (
+      <Area
+        key={month}
+        data={samples.filter(s => s.month === month)}
+        dataKey="plotted"
+        name={month}
+      />
+    ))}
+  </AreaChart>
+</MaidrRecharts>
+```
+
+Groups are announced in the order they first appear in `data`. Highlighting lights one whole ridge — a chart draws a filled band per group, not an element per sample — so the `<Area>`s have to be declared in that same order; otherwise pass `selectorOverride`.
+
+Arrowing up and down moves between groups **holding the value**, which is the comparison a ridgeline exists for and the one a listener cannot make by holding a dozen numbers in their head.
+
+### Hexbin
+
+The standard answer to an overplotted scatter: bin the points into hexagons and encode the count. Recharts places the marks and nothing else — `<Scatter>` accepts a custom `shape`, which is documented API — so the binning happens before the chart is drawn and `data` is one row per **occupied** bin, its centre in **data units**:
+
+```tsx
+const bins = [
+  { carat: 0.35, price: 800, count: 41 },
+  { carat: 0.55, price: 800, count: 96 },
+  { carat: 0.45, price: 1600, count: 27 },
+  { carat: 0.65, price: 1600, count: 88 },
+];
+
+<MaidrRecharts
+  id="hexbin-example"
+  title="Carat against Price"
+  data={bins}
+  chartType="hexbin"
+  xKey="carat"
+  yKeys={['price']}
+  hexbinConfig={{ countKey: 'count' }}
+  xLabel="Carat"
+  yLabel="Price ($)"
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="carat" type="number" />
+    <YAxis dataKey="price" type="number" />
+    <Scatter data={bins} shape={Hexagon} />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+The adapter assembles the **lattice** those bins form: rows grouped by their y centre (or by `rowKey`), ordered from the lowest upward, each row ordered left to right. MAIDR needs that shape because a hex lattice staggers alternate rows — a column index is not a position, so a vertical move keeps the bin whose centre is nearest the x the reader started from, and every bin is announced by its centre rather than by an index.
+
+Screen coordinates must not be passed through: a bin computed with `d3-hexbin` carries its centre in pixels, so invert the scales before handing the rows over. A `count` left undeclared is read from a `count`, `length`, `value`, `n` or `total` column — the `length` fallback being what makes a `d3-hexbin` bin, which *is* the array of points that fell in it, work untouched.
+
+Highlighting is emitted only when the rows already arrive in lattice order, since a `<Scatter>` draws its symbols in row order and any other order would light a bin half a field away.
+
+### Boxen (Letter-Value) Plot
+
+A box plot's five-number summary generalised to a variable-depth ladder: a large sample gets *more* rungs, so its tails stay legible instead of collapsing into a whisker and a scatter of dots. Recharts has no box primitive at all, so the rungs are drawn as stacked `<Bar>`s over a transparent base — and neither the ladder nor the median is anything that construction holds. Both are computed from the raw sample and arrive through `data`, one row per distribution:
+
+```tsx
+const distributions = [
+  {
+    region: 'East',
+    median: 180,
+    levels: [
+      { p: 0.25, lo: 150, hi: 240 },
+      { p: 0.125, lo: 130, hi: 310 },
+      { p: 0.0625, lo: 110, hi: 420 },
+    ],
+    slow: [820, 910],
+  },
+  { region: 'West', median: 210, levels: [{ p: 0.25, lo: 175, hi: 260 }] },
+];
+
+<MaidrRecharts
+  id="boxen-example"
+  title="Response Time by Region"
+  data={distributions}
+  chartType="boxen"
+  xKey="region"
+  boxenConfig={{ upperOutliersKey: 'slow' }}
+  selectorOverride="#maidr-article-boxen-example .boxen-centre .recharts-rectangle"
+  xLabel="Region"
+  yLabel="Response time (ms)"
+>
+  <BarChart width={600} height={350} data={drawn}>
+    <XAxis dataKey="region" />
+    <YAxis />
+    <Bar dataKey="base" stackId="ladder" fill="transparent" />
+    <Bar dataKey="seg0" stackId="ladder" fill="#dcdcf0" />
+    {/* ... one <Bar> per gap between consecutive ladder positions ... */}
+  </BarChart>
+</MaidrRecharts>
+```
+
+`p` is the **tail** probability, which is how letter-value plots are defined and how the libraries that draw them report it: `p = 0.25` is the rung spanning the middle half, `p = 0.125` the middle three quarters, and so on inwards. MAIDR announces each position as the percentile it actually is, and walks the ladder in value order — deepest lower quantile, inward to the median, outward again — so arrowing across rises monotonically through the distribution and the *rate* it rises at is where the sample is thin. The order the rungs arrive in does not matter.
+
+A rung whose three numbers are not all finite is dropped rather than announced as a quantile the data never contained, and a row with no median is dropped entirely: the median is the ladder's centre and a navigable position in its own right.
+
+No highlight selector is generated. A rung is a rectangle and a distribution is not, and no class name says which rung is which — so a chart that wants highlighting puts a `className` on the single `<Bar>` that can stand for the whole distribution and passes it as `selectorOverride`, as above.
+
 ### Composed Chart (Bar + Line)
 
 Use `layers` mode to mix different chart types in a single chart:
@@ -1235,7 +1421,11 @@ type RechartsChartType =
   | 'sankey'
   | 'treemap'
   | 'sunburst'
-  | 'icicle';
+  | 'icicle'
+  | 'parallel'
+  | 'ridgeline'
+  | 'hexbin'
+  | 'boxen';
 ```
 
 ### `RechartsLayerConfig`
@@ -1362,6 +1552,50 @@ interface GaugeDialConfig {
   target?: number;     // The target marker a bullet chart draws
   bands?: GaugeBand[]; // Qualitative bands, ascending, upper edges only
   label?: string;      // What the measure is called (defaults to the xKey value)
+}
+```
+
+### `ParallelAxesConfig`
+
+```typescript
+interface ParallelAxesConfig {
+  // The axes in draw order, naming the RAW fields — not the normalised ones
+  // the chart plots. A bare string is both the axis name and the field.
+  dimensions: (string | { label?: string; key: string })[];
+  labelKey?: string; // Key naming the observation (defaults to label/snp/id/name/gene/probe)
+}
+```
+
+### `RidgelineCurveConfig`
+
+```typescript
+interface RidgelineCurveConfig {
+  groupKey: string;    // Key holding the group a sample's curve belongs to
+  valueKey?: string;   // Position on the value axis (defaults to value/x/t/position)
+  densityKey?: string; // Density BEFORE the ridge offset (defaults to density/kde/width/p/estimate)
+}
+```
+
+### `HexbinLatticeConfig`
+
+```typescript
+interface HexbinLatticeConfig {
+  xKey?: string;     // Bin centre x, in DATA units (defaults to the chart's xKey)
+  yKey?: string;     // Bin centre y, in DATA units (defaults to the first yKeys entry)
+  countKey?: string; // Points in the bin (defaults to count/length/value/n/total)
+  rowKey?: string;   // Lattice row (defaults to grouping by identical y)
+}
+```
+
+### `BoxenLadderConfig`
+
+```typescript
+interface BoxenLadderConfig {
+  xKey?: string;             // The category (defaults to the chart's xKey)
+  medianKey?: string;        // Defaults to median/q2/mid/y
+  levelsKey?: string;        // The { p, lo, hi } ladder (defaults to levels/letterValues/letter_values/quantiles/ladder)
+  lowerOutliersKey?: string; // Values below the deepest rung
+  upperOutliersKey?: string; // Values above the deepest rung
 }
 ```
 
