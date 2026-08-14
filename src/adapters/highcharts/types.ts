@@ -6,6 +6,8 @@
  * library; MAIDR does not depend on it directly.
  */
 
+import type { MaidrTraceDeclaration } from '../../type/declaration';
+
 /**
  * Options for customizing the {@link highchartsToMaidr} adapter output.
  */
@@ -156,7 +158,31 @@ export interface HighchartsChart {
     refresh: (point: HighchartsPoint | HighchartsPoint[]) => void;
     hide: () => void;
   };
+  /**
+   * The Highmaps view (v10+) — the thing that knows the projection a map is
+   * drawn through, and the only way back from where a shape sits to where it
+   * is on the globe.
+   */
+  mapView?: {
+    /**
+     * Turns a position in the map's projected units into degrees.
+     *
+     * Returns nothing on a map with no geographic projection, which is the
+     * answer MAIDR wants there: a pre-projected map's units are not degrees
+     * and must not be announced as though they were.
+     */
+    projectedUnitsToLonLat?: (point: { x: number; y: number }) => MapLonLat | undefined;
+  };
 }
+
+/**
+ * A longitude and latitude in degrees.
+ *
+ * Both shapes are accepted because the pair is the one thing MAIDR needs off
+ * the map view, and it is not worth losing every centroid on a Highcharts
+ * release that spells the return value the other way.
+ */
+export type MapLonLat = [number, number] | { lon?: number; lat?: number };
 
 /**
  * Represents a single data series within a Highcharts chart.
@@ -201,6 +227,17 @@ export interface HighchartsSeries {
     isInternal?: boolean;
     /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
     className?: string;
+    /**
+     * Highcharts' reserved subspace — documented as "a reserved subspace to
+     * store options and values for customized functionality". MAIDR reads only
+     * the `maidr` key of it, and leaves everything else alone.
+     *
+     * This is where a chart says what a series *means* when the drawing cannot:
+     * nothing about a stepped `line` series says it is a survival curve, and
+     * nothing about a `scatter` on an inverted category axis says its rows are
+     * studies in a meta-analysis. See {@link MaidrTraceDeclaration}.
+     */
+    custom?: { maidr?: MaidrTraceDeclaration };
   };
 }
 
@@ -261,6 +298,26 @@ export interface HighchartsPoint {
   /** Waterfall step that restates the total since the previous subtotal. */
   isIntermediateSum?: boolean;
   options?: Record<string, unknown>;
+  /**
+   * The map feature's own properties, copied off the GeoJSON / TopoJSON
+   * geometry the point was joined to. Some map collections carry a centroid
+   * here as `hc-middle-lon` / `hc-middle-lat`, in degrees.
+   */
+  properties?: Record<string, unknown>;
+  /**
+   * A map point's extent in the map view's **projected** units, set while the
+   * series projects its geometry. `midX`/`midY` are the anchor Highcharts
+   * places the shape's label at, which is the nearest thing a map series has
+   * to a centroid.
+   */
+  bounds?: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    midX?: number;
+    midY?: number;
+  };
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
   series: HighchartsSeries;

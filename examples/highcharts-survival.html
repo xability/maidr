@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Survival Curve - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships the arearange series the band is drawn with. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Survival Curve</h1>
+    <p>
+      A Kaplan-Meier figure drawn the way Highcharts draws one: a stepped
+      <code>line</code> per arm, a linked <code>scatter</code> for the
+      censoring ticks, and a linked <code>arearange</code> for the confidence
+      band. Nothing in those series says the chart is a survival analysis, so
+      the curve says it itself — in the <code>maidr</code> block of Highcharts'
+      reserved <code>custom</code> subspace.
+    </p>
+    <p>
+      Click on the chart and use left and right arrow keys to walk the times,
+      and up and down to switch between the treated and control arms. The
+      description names the median survival; the rotor (<code>r</code>)
+      restricts navigation to the censored times, which the curve does not step
+      at and which nothing else in the announcement would distinguish.
+    </p>
+
+    <div id="survival-chart" style="width: 800px; height: 520px"></div>
+
+    <script>
+      const chart = Highcharts.chart('survival-chart', {
+        title: { text: 'Overall survival by treatment arm' },
+        xAxis: { title: { text: 'Months since randomisation' } },
+        yAxis: { title: { text: 'Survival probability' }, min: 0, max: 1 },
+        series: [{
+          id: 'treated',
+          name: 'Treated',
+          type: 'line',
+          step: 'left',
+          // The declaration. `censored` is the column on these rows; the two
+          // companions are paired with Highcharts' own `linkedTo`, so they
+          // need no naming here.
+          custom: { maidr: { type: 'survival', censored: 'censored' } },
+          data: [
+            { x: 0, y: 1.0 },
+            { x: 3, y: 0.94 },
+            { x: 6, y: 0.88, censored: true },
+            { x: 9, y: 0.81 },
+            { x: 12, y: 0.74 },
+            { x: 18, y: 0.66, censored: true },
+            { x: 24, y: 0.61 },
+          ],
+        }, {
+          name: 'Treated 95% CI',
+          type: 'arearange',
+          linkedTo: 'treated',
+          data: [
+            [0, 1.0, 1.0], [3, 0.88, 0.99], [6, 0.79, 0.95], [9, 0.71, 0.90],
+            [12, 0.63, 0.85], [18, 0.54, 0.78], [24, 0.48, 0.74],
+          ],
+        }, {
+          name: 'Treated censored',
+          type: 'scatter',
+          linkedTo: 'treated',
+          data: [[6, 0.88], [18, 0.66]],
+        }, {
+          name: 'Control',
+          type: 'line',
+          step: 'left',
+          data: [
+            { x: 0, y: 1.0 },
+            { x: 3, y: 0.89 },
+            { x: 6, y: 0.78 },
+            { x: 9, y: 0.68 },
+            { x: 12, y: 0.57 },
+            { x: 18, y: 0.46 },
+            { x: 24, y: 0.39 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'survival-chart' });
+      document
+        .getElementById('survival-chart')
+        .setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

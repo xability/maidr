@@ -15,15 +15,25 @@
  */
 
 import type {
+  ChoroplethDeclaration,
+  FieldRef,
+  ForestDeclaration,
+  MaidrTraceDeclaration,
+  SeriesRef,
+  SurvivalDeclaration,
+} from '../../type/declaration';
+import type {
   AxisConfig,
   BarPoint,
   BoxPoint,
   CandlestickPoint,
   CandlestickTrend,
+  ChoroplethPoint,
   DumbbellData,
   DumbbellPoint,
   ErrorBarPoint,
   FlowPoint,
+  ForestPoint,
   GanttData,
   GanttPoint,
   GaugeBand,
@@ -40,6 +50,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  SurvivalPoint,
   ThresholdOptions,
   TreemapPoint,
   VolcanoPoint,
@@ -47,13 +58,21 @@ import type {
   WaterfallPoint,
   WordCloudPoint,
 } from '../../type/grammar';
+import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import {
+  isFlagValue,
+  readDeclarationSlot,
+  resolveFieldRef,
+  warnUnresolvedRef,
+} from '../shared/traceDeclaration';
 import {
   barSelector,
   boxplotSelectors,
   bulletSelector,
   candlestickSelectors,
+  choroplethSelectors,
   dumbbellSelector,
   ensureContainerId,
   errorBarSelector,
@@ -109,6 +128,7 @@ let chartCounter = 0;
  * - `gantt`, `xrange` → {@link TraceType.GANTT}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
+ * - `map` (Highmaps) → {@link TraceType.CHOROPLETH}
  * - `tilemap` → {@link TraceType.HEXBIN}, or {@link TraceType.HEATMAP} when
  *   its `tileShape` is `square` (an aligned grid rather than a stagger)
  * - `histogram` → {@link TraceType.HISTOGRAM}
@@ -136,6 +156,16 @@ let chartCounter = 0;
  * - `scatter` series named by `options.significancePlot` →
  *   {@link TraceType.VOLCANO} or {@link TraceType.MANHATTAN}, merged into one
  *   layer
+ *
+ * Two more are declared on the series itself, in the `maidr` block of
+ * Highcharts' reserved `custom` subspace, because nothing in the chart object
+ * says what the drawing means:
+ * - `custom.maidr = { type: 'survival' }` on a stepped `line` series →
+ *   {@link TraceType.SURVIVAL}, absorbing a linked `scatter` as its censoring
+ *   ticks and a linked `arearange` as its confidence band
+ * - `custom.maidr = { type: 'forest', … }` on the estimate series →
+ *   {@link TraceType.FOREST}, taking its interval from the `errorbar` linked
+ *   over it and its weights, pooled row and null line from the declaration
  *
  * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
  * bands, e.g. the Highstock price + volume pattern) are detected from the
@@ -232,11 +262,19 @@ export function buildSubplot(
   const radialType = radialLineType(chart);
   const isPolar = chart.options.chart?.polar === true;
 
+  // A series that says what it means is read that way, ahead of everything
+  // else: the buckets below decide from how a series is drawn, and the whole
+  // point of a declaration is that the drawing does not say. It also runs
+  // before the error bar pass, since a forest plot's estimate series is
+  // exactly the parent that pass would otherwise absorb.
+  const declared = convertDeclaredSeries(seriesToConvert, chart, containerId);
+  const undeclared = seriesToConvert.filter(series => !declared.consumed.has(series));
+
   // An error bar carries only the interval; its estimate lives in the series
   // it is linked to. That series is therefore read THROUGH the error bar
   // layer rather than as a bar of its own, so it is dropped here.
-  const absorbed = seriesReadAsErrorBars(seriesToConvert, chart);
-  const convertible = seriesToConvert.filter(series => !absorbed.has(series));
+  const absorbed = seriesReadAsErrorBars(undeclared, chart);
+  const convertible = undeclared.filter(series => !absorbed.has(series));
 
   // A volcano or Manhattan plot is drawn as plain `scatter` series, so only
   // the caller can say that is what it is. They are pulled out ahead of the
@@ -265,7 +303,7 @@ export function buildSubplot(
       && !lineTypes.has(type) && !areaTypes.has(type) && !barTypes.has(type);
   });
 
-  const layers: MaidrLayer[] = [];
+  const layers: MaidrLayer[] = [...declared.layers];
 
   // Convert bar/column series — may be stacked, dodged, normalized or, on a
   // polar chart, the wedges of a wind rose.
@@ -1015,6 +1053,284 @@ function convertDivergingBar(
 }
 
 // ---------------------------------------------------------------------------
+// The co-located `maidr` declaration
+// ---------------------------------------------------------------------------
+
+/** How this adapter names itself in the warnings a declaration raises. */
+const ADAPTER = 'Highcharts';
+
+/**
+ * Declarations already read off a series, so one binding warns once.
+ *
+ * `validateDeclaration` holds no state of its own, and a series is read more
+ * than once per binding: {@link buildSubplotGrid} converts a pane grid and
+ * then falls back to the single-subplot path when too few panes survive, so
+ * an author with a typo would hear about it twice. Keyed by the series object
+ * because Highcharts builds new ones when a chart is rebuilt — a corrected
+ * declaration is therefore reported again, while a chart converted repeatedly
+ * is not.
+ */
+const declarationCache = new WeakMap<HighchartsSeries, MaidrTraceDeclaration | null>();
+
+/**
+ * How a series is named in a warning.
+ *
+ * The `id` first, because that is what a declaration's own companion fields
+ * name a series by; failing that the index and the legend name, which is what
+ * an author looking at the chart has.
+ *
+ * @param series - The series to name
+ * @returns A locating phrase, e.g. `series 2 ("Treated")`
+ */
+function seriesRef(series: HighchartsSeries): string {
+  const id = series.options.id;
+  if (typeof id === 'string' && id !== '') {
+    return `series "${id}"`;
+  }
+  return series.name
+    ? `series ${series.index} ("${series.name}")`
+    : `series ${series.index}`;
+}
+
+/**
+ * Who is reading a declaration, and off what.
+ *
+ * @param series - The series carrying the block
+ * @returns The context the shared reader locates its warnings from
+ */
+function declarationContext(series: HighchartsSeries): DeclarationContext {
+  return { adapter: ADAPTER, seriesRef: seriesRef(series) };
+}
+
+/**
+ * The validated `maidr` block a series carries, or null when it carries none.
+ *
+ * Highcharts documents `series.custom` as "a reserved subspace to store
+ * options and values for customized functionality", which is why the block
+ * rides there rather than on a key of MAIDR's own invention: a bare `maidr`
+ * option would be competing for a name Highcharts may one day want.
+ *
+ * @param series - The series to read
+ * @returns The declaration, or null
+ */
+function declarationOf(series: HighchartsSeries): MaidrTraceDeclaration | null {
+  const cached = declarationCache.get(series);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const declaration = readDeclarationSlot(
+    series.options.custom,
+    declarationContext(series),
+  );
+  declarationCache.set(series, declaration);
+  return declaration;
+}
+
+/**
+ * Reads one declared fact off every point of a series.
+ *
+ * The row is `point.options` — the object the author wrote, which Highcharts
+ * keeps whole alongside the properties it resolves out of it. A field name the
+ * author gave that no row carries is reported once for the series rather than
+ * per point: {@link resolveFieldRef} answers per row and cannot tell a typo
+ * from a row that legitimately lacks the field.
+ *
+ * @param series - The series whose rows are read
+ * @param ref - The field the author named, or undefined to default
+ * @param canonical - The grammar field being filled, e.g. `'yMin'`
+ * @returns One reading per point, aligned with `series.data`
+ */
+function readSeriesField(
+  series: HighchartsSeries,
+  ref: FieldRef | undefined,
+  canonical: string,
+): unknown[] {
+  const values = series.data.map(point =>
+    resolveFieldRef<unknown>(point.options, ref, canonical));
+  if (ref !== undefined && values.length > 0 && values.every(value => value === undefined)) {
+    warnUnresolvedRef(declarationContext(series), ref, canonical);
+  }
+  return values;
+}
+
+/**
+ * A value, when it is a number MAIDR can announce.
+ *
+ * @param value - Whatever was resolved
+ * @returns The number, or undefined
+ */
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Reports a declaration the series it sits on cannot back.
+ *
+ * The reading falls through to the undeclared chart rather than being forced:
+ * a survival curve read off a pie is not a degraded announcement, it is a
+ * wrong one.
+ *
+ * @param series - The declaring series
+ * @param type - The declared type
+ * @param chart - The chart, for resolving what the series actually is
+ * @param needs - What the type needs, phrased to follow "needs"
+ */
+function warnWrongConstruct(
+  series: HighchartsSeries,
+  type: string,
+  chart: HighchartsChart,
+  needs: string,
+): void {
+  console.warn(
+    `[MAIDR ${ADAPTER}] maidr declaration for "${type}" on ${seriesRef(series)} needs `
+    + `${needs}, and this is a "${resolveSeriesType(series, chart)}" series; `
+    + `reading it as the undeclared chart.`,
+  );
+}
+
+/**
+ * The series drawing one half of a declared layer.
+ *
+ * Two ways in, and Highcharts' own is preferred: a series whose `linkedTo`
+ * resolves to the declaring one is absorbed with its role taken from its own
+ * type, which is the pairing the chart already states and the adapter already
+ * follows for error bars. The parent's role field — `censoredSeries`,
+ * `bandSeries`, `intervalSeries` — is for charts that do not link, and names
+ * the companion by its `id` rather than by position, since an index into a
+ * series list goes stale the moment a series is filtered or reordered.
+ *
+ * An absorbed companion is added to `consumed`, which is what stops it
+ * becoming a second layer announcing half a chart.
+ *
+ * @param parent - The declaring series
+ * @param ref - The `id` the role field names, when it names one
+ * @param drawnAs - The series type the linked form infers this role from, or
+ * undefined for a role that must be named outright
+ * @param seriesList - The panel's series
+ * @param chart - The chart, for resolving types and links
+ * @param consumed - The series the declared layers already announce
+ * @param type - The declared type, for the warning
+ * @returns The companion, or undefined
+ */
+function companionSeries(
+  parent: HighchartsSeries,
+  ref: SeriesRef | undefined,
+  drawnAs: string | undefined,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  consumed: Set<HighchartsSeries>,
+  type: string,
+): HighchartsSeries | undefined {
+  if (ref === undefined && drawnAs === undefined) {
+    return undefined;
+  }
+
+  const found = ref === undefined
+    ? seriesList.find(candidate => candidate !== parent
+      && resolveSeriesType(candidate, chart) === drawnAs
+      && linkedParentOf(candidate, chart) === parent)
+    : seriesList.find(candidate => candidate.options.id === ref);
+
+  if (found === undefined) {
+    if (ref !== undefined) {
+      console.warn(
+        `[MAIDR ${ADAPTER}] maidr declaration for "${type}" on ${seriesRef(parent)} names `
+        + `series "${ref}", which this chart does not have; emitting the layer without it.`,
+      );
+    }
+    return undefined;
+  }
+
+  consumed.add(found);
+  return found;
+}
+
+/** The layers a panel's declared series produce, and the series they cover. */
+interface DeclaredSeries {
+  /** One layer per declaration that could be read. */
+  layers: MaidrLayer[];
+  /** The series those layers already announce, companions included. */
+  consumed: Set<HighchartsSeries>;
+}
+
+/**
+ * Converts the panel's series that declare what they mean.
+ *
+ * Run before every other bucket, because a declaration wins over the type
+ * dispatch and over the heuristics: a stepped `line` series that says it is a
+ * survival curve must not be merged into the step layer it would otherwise
+ * become, and a `scatter` that says it is a forest plot must not be read as a
+ * cloud of two variables. What a declaration cannot do is invent a drawing —
+ * a type its series cannot back is warned about and dropped back to the
+ * undeclared reading.
+ *
+ * @param seriesList - The panel's series
+ * @param chart - The chart being converted
+ * @param containerId - The chart's render-target id
+ * @returns The declared layers and the series they cover
+ */
+function convertDeclaredSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): DeclaredSeries {
+  const layers: MaidrLayer[] = [];
+  const consumed = new Set<HighchartsSeries>();
+
+  for (const series of seriesList) {
+    const declaration = declarationOf(series);
+    if (declaration === null || consumed.has(series)) {
+      continue;
+    }
+
+    let layer: MaidrLayer | null = null;
+    switch (declaration.type) {
+      case TraceType.SURVIVAL:
+        layer = convertSurvivalSeries(
+          series,
+          declaration,
+          seriesList,
+          chart,
+          containerId,
+          consumed,
+        );
+        break;
+      case TraceType.FOREST:
+        layer = convertForestSeries(
+          series,
+          declaration,
+          seriesList,
+          chart,
+          containerId,
+          consumed,
+        );
+        break;
+      case TraceType.CHOROPLETH:
+        // A Highmaps `map` series names itself, so a choropleth is read
+        // without any declaration at all and this one only renames its
+        // fields — which the map converter does for itself, further down the
+        // ordinary dispatch. Nothing else in Highcharts draws regions.
+        if (resolveSeriesType(series, chart) !== 'map') {
+          warnWrongConstruct(series, declaration.type, chart, 'a "map" series');
+        }
+        break;
+      default:
+        console.warn(
+          `[MAIDR ${ADAPTER}] maidr declaration on ${seriesRef(series)} declares `
+          + `"${declaration.type}", which this adapter does not read yet; `
+          + `reading it as the undeclared chart.`,
+        );
+    }
+
+    if (layer) {
+      layers.push(layer);
+    }
+  }
+
+  return { layers, consumed };
+}
+
+// ---------------------------------------------------------------------------
 // Individual series converters
 // ---------------------------------------------------------------------------
 
@@ -1076,6 +1392,11 @@ function convertSeries(
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
       return convertHeatmapSeries(series, containerId);
+    // The Highmaps choropleth. It is the one deferred trace type that needs no
+    // declaration at all: `map` is a series type of its own, and its siblings
+    // `mapbubble` and `mappoint` are different charts under different names.
+    case 'map':
+      return convertChoroplethSeries(series, chart, containerId);
     // A tilemap is a heatmap with a configurable tile shape, and the shape
     // decides which it reads as: `square` tiles are the aligned grid a heatmap
     // already is, while every other shape staggers alternate columns by half a
@@ -1168,6 +1489,201 @@ function convertLineSeries(
     ...(stepDirection ? { stepDirection } : {}),
     data,
   };
+}
+
+/**
+ * The series types a survival curve's arms are drawn with.
+ *
+ * A Kaplan-Meier curve is a `line` series with `step` set — the estimate holds
+ * until an event drops it — and nothing else in Highcharts draws one. The
+ * `step` itself is not required here: an author who drew the curve
+ * interpolated has drawn it slightly wrong, but the times and probabilities
+ * announced are the same ones either way, and refusing the reading would cost
+ * the median and the censoring for a cosmetic difference.
+ */
+const SURVIVAL_ARM_TYPES = new Set(['line', 'spline']);
+
+/**
+ * Converts a declared Kaplan-Meier curve into a survival layer.
+ *
+ * A survival curve is indistinguishable from any other step chart by
+ * inspection, which is why this one is declared: without the declaration the
+ * same series becomes a {@link TraceType.STEP} layer, correct about every
+ * number and silent about the median survival and the censoring that are what
+ * the figure is read for.
+ *
+ * The figure is drawn as up to three Highcharts series and read as one layer.
+ * The curve carries the estimates; a linked `scatter` draws the censoring
+ * ticks, whose times are a *separate data join* rather than a column of the
+ * curve; a linked `arearange` draws the confidence band. Both are matched to
+ * the curve by x and suppressed from becoming layers of their own — a band
+ * read as its own area layer would announce the interval as if it were the
+ * estimate.
+ *
+ * Sibling curves merge into further arms by default, because a survival
+ * figure is one figure: treated and control are read against each other, and
+ * splitting them across layers makes the comparison the chart exists for a
+ * layer switch away. `SurvivalTrace` keeps an arm per row, so each stays
+ * individually navigable.
+ *
+ * @param series - The declaring series
+ * @param declaration - What the author said the series means
+ * @param seriesList - The panel's series, for companions and further arms
+ * @param chart - The chart being converted
+ * @param containerId - The chart's render-target id
+ * @param consumed - The series the declared layers already announce
+ * @returns The survival layer, or null when the series cannot back it
+ */
+function convertSurvivalSeries(
+  series: HighchartsSeries,
+  declaration: SurvivalDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  consumed: Set<HighchartsSeries>,
+): MaidrLayer | null {
+  if (!SURVIVAL_ARM_TYPES.has(resolveSeriesType(series, chart))) {
+    warnWrongConstruct(series, declaration.type, chart, 'a "line" or "spline" series');
+    return null;
+  }
+
+  const arms = survivalArms(series, declaration, seriesList, chart, consumed);
+  const data: SurvivalPoint[][] = arms.map(arm =>
+    survivalCurve(arm, declaration, seriesList, chart, consumed));
+
+  // Highcharts states the convention on the series; the declaration is how a
+  // curve drawn interpolated still says which way its steps go.
+  const stepDirection = declaration.stepDirection ?? stepDirectionOf(series);
+  const armNames = arms.map(arm => arm.name).filter(Boolean);
+
+  return {
+    id: arms.map(arm => String(arm.index)).join('-'),
+    type: TraceType.SURVIVAL,
+    title: declaration.title ?? (armNames.join(', ') || undefined),
+    ...(declaration.name ? { name: declaration.name } : {}),
+    selectors: lineSelectors(containerId, arms.map(arm => arm.index)),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    ...(stepDirection ? { stepDirection } : {}),
+    data,
+  };
+}
+
+/**
+ * The curves this layer covers — the declaring one, and the arms merged into
+ * it.
+ *
+ * A merged arm is a *following* line series that declares nothing of its own
+ * and is linked to nothing: a series with its own block is its own layer, and
+ * a linked one is somebody's companion. Marked consumed here rather than by
+ * the caller, so an arm cannot also be picked up by the line bucket.
+ *
+ * @param series - The declaring series
+ * @param declaration - What the author said, including whether to merge
+ * @param seriesList - The panel's series
+ * @param chart - The chart, for resolving types and links
+ * @param consumed - The series the declared layers already announce
+ * @returns The arms, declaring series first
+ */
+function survivalArms(
+  series: HighchartsSeries,
+  declaration: SurvivalDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  consumed: Set<HighchartsSeries>,
+): HighchartsSeries[] {
+  consumed.add(series);
+  const arms = [series];
+  if (declaration.merge === false) {
+    return arms;
+  }
+
+  for (const candidate of seriesList.slice(seriesList.indexOf(series) + 1)) {
+    if (consumed.has(candidate)
+      || declarationOf(candidate) !== null
+      || !SURVIVAL_ARM_TYPES.has(resolveSeriesType(candidate, chart))
+      || linkedParentOf(candidate, chart) !== undefined) {
+      continue;
+    }
+    consumed.add(candidate);
+    arms.push(candidate);
+  }
+  return arms;
+}
+
+/**
+ * Reads one arm's times, with whatever the chart says about each of them.
+ *
+ * Censoring is read from the curve's own rows first and from the companion
+ * ticks second, because a row that carries the flag has said so for that time
+ * exactly, while a tick series says it by drawing a mark at the same x.
+ *
+ * @param arm - The curve to read
+ * @param declaration - The field names and companion refs the author gave
+ * @param seriesList - The panel's series, for companions
+ * @param chart - The chart, for resolving links
+ * @param consumed - The series the declared layers already announce
+ * @returns The arm's points
+ */
+function survivalCurve(
+  arm: HighchartsSeries,
+  declaration: SurvivalDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  consumed: Set<HighchartsSeries>,
+): SurvivalPoint[] {
+  const ticks = companionSeries(
+    arm,
+    declaration.censoredSeries,
+    'scatter',
+    seriesList,
+    chart,
+    consumed,
+    declaration.type,
+  );
+  const band = companionSeries(
+    arm,
+    declaration.bandSeries,
+    'arearange',
+    seriesList,
+    chart,
+    consumed,
+    declaration.type,
+  );
+
+  const tickTimes = new Set((ticks?.data ?? []).map(point => point.x));
+  const bandAt = new Map<number, { low?: number; high?: number }>();
+  for (const point of band?.data ?? []) {
+    bandAt.set(point.x, { low: finiteNumber(point.low), high: finiteNumber(point.high) });
+  }
+
+  const censored = readSeriesField(arm, declaration.censored, 'censored');
+  const lower = readSeriesField(arm, declaration.yMin, 'yMin');
+  const upper = readSeriesField(arm, declaration.yMax, 'yMax');
+
+  const curve: SurvivalPoint[] = [];
+  arm.data.forEach((point, index) => {
+    const y = finiteNumber(point.y);
+    if (y === undefined) {
+      return;
+    }
+    const flag = censored[index];
+    const isCensored = flag === undefined ? tickTimes.has(point.x) : isFlagValue(flag);
+    const yMin = finiteNumber(lower[index]) ?? bandAt.get(point.x)?.low;
+    const yMax = finiteNumber(upper[index]) ?? bandAt.get(point.x)?.high;
+
+    curve.push({
+      x: pointLabel(point),
+      y,
+      ...(arm.name ? { z: arm.name } : {}),
+      ...(isCensored ? { censored: true } : {}),
+      ...(yMin === undefined ? {} : { yMin }),
+      ...(yMax === undefined ? {} : { yMax }),
+    });
+  });
+  return curve;
 }
 
 /**
@@ -2297,6 +2813,290 @@ function convertErrorBarSeries(
 }
 
 /**
+ * The series types a forest plot's rows are drawn with.
+ *
+ * A meta-analysis draws each study as one mark on a categorical row axis, and
+ * Highcharts has no series that means "a study" — which of these an author
+ * reached for is a drawing decision. The declaration may equally sit on the
+ * `errorbar` itself, for the common figure whose only series is the whip.
+ */
+const FOREST_ROW_TYPES = new Set([
+  'scatter',
+  'column',
+  'bar',
+  'lollipop',
+  'line',
+  'spline',
+  'errorbar',
+]);
+
+/**
+ * The selector for the marks a forest row is highlighted through.
+ *
+ * @param series - The series drawing the marks
+ * @param chart - The chart, for resolving the series type
+ * @param containerId - The chart's render-target id
+ * @returns The selector
+ */
+function forestMarkSelector(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+  containerId: string,
+): string {
+  const drawnAs = resolveSeriesType(series, chart);
+  if (drawnAs === 'errorbar') {
+    return errorBarSelector(containerId, series.index);
+  }
+  return drawnAs === 'column' || drawnAs === 'bar'
+    ? barSelector(containerId, series.index)
+    : scatterSelector(containerId, series.index);
+}
+
+/**
+ * Converts a declared meta-analysis into a forest layer.
+ *
+ * A forest plot is an error bar chart laid out on a categorical row axis, and
+ * that much the adapter already reads. What is declared is everything else,
+ * because none of it is in the chart object at all:
+ *
+ * - **The weight.** A forest plot encodes it as marker *area*, so it exists in
+ *   the drawing as a radius and nowhere else. Inverting it back out of
+ *   `point.marker.radius` is not attempted: the arithmetic depends on how the
+ *   author scaled the markers, and it yields a confident number for every
+ *   figure whose author never varied them at all. It comes from a column of
+ *   the author's own rows or not at all.
+ * - **Which row is the summary.** The pooled result is not evidence, it is
+ *   what the evidence came to, and nothing distinguishes its point from a
+ *   study's. Named by a flag column, by `pooledIndex` for data that carries
+ *   none, or by the companion series that draws its diamond.
+ * - **The null line.** `nullValue` comes from the declaration only. The
+ *   chart's `xAxis.plotLines` are deliberately *not* read for it: this
+ *   adapter's existing plot-line fallback belongs to a volcano's threshold,
+ *   and a forest plot's axis carries reference lines for other reasons too.
+ *   Guessed wrong, every study is reported as not crossing — a wrong answer
+ *   handed to every row — so a layer that declares none makes no claim.
+ *
+ * The interval comes from the `errorbar` series linked over the estimates,
+ * which is how Highcharts draws one, or from the rows themselves.
+ *
+ * @param series - The declaring series
+ * @param declaration - What the author said the series means
+ * @param seriesList - The panel's series, for the companions
+ * @param chart - The chart being converted
+ * @param containerId - The chart's render-target id
+ * @param consumed - The series the declared layers already announce
+ * @returns The forest layer, or null when the series cannot back it
+ */
+function convertForestSeries(
+  series: HighchartsSeries,
+  declaration: ForestDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  consumed: Set<HighchartsSeries>,
+): MaidrLayer | null {
+  const drawnAs = resolveSeriesType(series, chart);
+  if (!FOREST_ROW_TYPES.has(drawnAs)) {
+    warnWrongConstruct(series, declaration.type, chart, 'a series drawing one mark per study');
+    return null;
+  }
+  consumed.add(series);
+
+  // The whip may be this series or the one linked over it. Either way it is
+  // where the interval lives, since Highcharts puts `low` and `high` there as
+  // absolute positions — the form MAIDR wants.
+  const interval = drawnAs === 'errorbar'
+    ? series
+    : companionSeries(
+        series,
+        declaration.intervalSeries,
+        'errorbar',
+        seriesList,
+        chart,
+        consumed,
+        declaration.type,
+      );
+  // A declaration on the whip leaves the estimates in the series it is linked
+  // to, which the adapter already drops from the other buckets — but only when
+  // the whip covers every sample that series drew.
+  if (interval === series) {
+    for (const parent of seriesReadAsErrorBars([series], chart)) {
+      consumed.add(parent);
+    }
+  }
+  const summary = companionSeries(
+    series,
+    declaration.pooledSeries,
+    undefined,
+    seriesList,
+    chart,
+    consumed,
+    declaration.type,
+  );
+
+  const data: ForestPoint[] = [
+    ...forestRows(series, declaration, chart, interval, false),
+    // The summary's own mark is drawn last, at the foot of the figure, which
+    // is where its rows belong so the selector lists stay aligned.
+    ...(summary ? forestRows(summary, declaration, chart, summary, true) : []),
+  ];
+
+  const marks = forestMarkSelector(interval ?? series, chart, containerId);
+  const orientation = declaration.orientation
+    ?? (chart.options.chart?.inverted === true ? Orientation.HORIZONTAL : undefined);
+
+  return {
+    id: String(series.index),
+    type: TraceType.FOREST,
+    title: declaration.title ?? (series.name || undefined),
+    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(orientation ? { orientation } : {}),
+    selectors: summary
+      ? [marks, forestMarkSelector(summary, chart, containerId)]
+      : marks,
+    ...(declaration.nullValue === undefined
+      ? {}
+      : { forestOptions: { nullValue: declaration.nullValue } }),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Reads one series' rows as studies.
+ *
+ * The bounds are taken from the author's own columns first and from the drawn
+ * whip second: a row that names its interval has said what it is, while a whip
+ * only says where it was drawn. `error` — an interval given as a positive
+ * offset from the estimate, the form a Recharts `<ErrorBar>` or a matplotlib
+ * `yerr` carries — is normalised into absolute bounds and loses to both, since
+ * those need no arithmetic.
+ *
+ * @param source - The series carrying the rows
+ * @param declaration - The field names the author gave
+ * @param chart - The chart, for resolving the series type
+ * @param interval - The series drawing this one's whips, when one does
+ * @param pooledDefault - True when every row of this series is the summary
+ * @returns The rows, in the order the series declared them
+ */
+function forestRows(
+  source: HighchartsSeries,
+  declaration: ForestDeclaration,
+  chart: HighchartsChart,
+  interval: HighchartsSeries | undefined,
+  pooledDefault: boolean,
+): ForestPoint[] {
+  const bounds = new Map<number, { low?: number; high?: number }>();
+  for (const point of interval?.data ?? []) {
+    bounds.set(point.x, { low: finiteNumber(point.low), high: finiteNumber(point.high) });
+  }
+  // An error bar carries no estimate of its own: `pointValKey` is `high`, so
+  // whatever `y` it has is the top of the whip rather than the middle of it.
+  const drawsEstimate = resolveSeriesType(source, chart) !== 'errorbar';
+  const estimates = new Map<number, number>();
+  if (!drawsEstimate) {
+    for (const point of linkedParentOf(source, chart)?.data ?? []) {
+      const y = finiteNumber(point.y);
+      if (y !== undefined) {
+        estimates.set(point.x, y);
+      }
+    }
+  }
+
+  const lower = readSeriesField(source, declaration.yMin, 'yMin');
+  const upper = readSeriesField(source, declaration.yMax, 'yMax');
+  const offsets = declaration.error === undefined
+    ? []
+    : readSeriesField(source, declaration.error, 'error');
+  const weights = readSeriesField(source, declaration.weight, 'weight');
+  const flags = readSeriesField(source, declaration.pooled, 'pooled');
+
+  let rescaled = false;
+  const rows: ForestPoint[] = [];
+  source.data.forEach((point, index) => {
+    const offset = errorOffset(offsets[index]);
+    const drawn = bounds.get(point.x);
+    const estimate = estimates.get(point.x)
+      ?? (drawsEstimate ? finiteNumber(point.y) : undefined);
+
+    const yMin = finiteNumber(lower[index])
+      ?? drawn?.low
+      ?? (estimate === undefined || offset === undefined ? undefined : estimate - offset[0]);
+    const yMax = finiteNumber(upper[index])
+      ?? drawn?.high
+      ?? (estimate === undefined || offset === undefined ? undefined : estimate + offset[1]);
+
+    // An unlinked whip draws its estimate at the centre of the interval, which
+    // is the honest reading of where such a chart put it.
+    const y = estimate
+      ?? (yMin === undefined || yMax === undefined ? undefined : (yMin + yMax) / 2);
+    if (y === undefined) {
+      return;
+    }
+
+    // A fraction of one, never a percentage. Meta-analysis software reports
+    // this column as `12.5` for one study in eight, and dividing by a hundred
+    // would guess that the column sums to one — while announcing it untouched
+    // says the study weighs 1250%.
+    const weight = finiteNumber(weights[index]);
+    const usable = weight !== undefined && weight >= 0 && weight <= 1;
+    rescaled ||= weight !== undefined && !usable;
+
+    // `pooledIndex` counts the declaring series' rows as authored, dropped
+    // ones included, since that is the only sequence an author can see.
+    const pooled = pooledDefault
+      || isFlagValue(flags[index])
+      || index === declaration.pooledIndex;
+
+    rows.push({
+      x: pointLabel(point),
+      y,
+      ...(yMin === undefined ? {} : { yMin }),
+      ...(yMax === undefined ? {} : { yMax }),
+      ...(usable ? { weight } : {}),
+      ...(pooled ? { pooled: true } : {}),
+    });
+  });
+
+  if (rescaled) {
+    console.warn(
+      `[MAIDR ${ADAPTER}] maidr declaration for "${declaration.type}" on ${seriesRef(source)} `
+      + `reads weights outside 0 to 1, which are percentages rather than shares; `
+      + `those rows are emitted without a weight.`,
+    );
+  }
+  return rows;
+}
+
+/**
+ * An interval declared as an offset from the estimate, as a lower and upper
+ * magnitude.
+ *
+ * Both are **positive magnitudes**, which is the form every producer that
+ * hands out offsets rather than bounds uses: an interval given as `[0.2, 0.3]`
+ * around 1.4 is 1.2 to 1.7. A negative entry is left out rather than flipped,
+ * since read the other way the same pair would give 1.6 to 1.7 and nothing
+ * downstream could tell the two readings apart.
+ *
+ * @param value - Whatever the `error` field resolved to
+ * @returns The lower and upper magnitudes, or undefined
+ */
+function errorOffset(value: unknown): [number, number] | undefined {
+  if (Array.isArray(value)) {
+    const low = finiteNumber(value[0]);
+    const high = finiteNumber(value[1]);
+    return low === undefined || high === undefined || low < 0 || high < 0
+      ? undefined
+      : [low, high];
+  }
+  const symmetric = finiteNumber(value);
+  return symmetric === undefined || symmetric < 0 ? undefined : [symmetric, symmetric];
+}
+
+/**
  * Converts a `dumbbell` series into a dumbbell layer.
  *
  * The payload is a single object rather than an array, because the names of
@@ -3192,6 +3992,223 @@ function tileValue(point: HighchartsPoint): number {
  */
 function stampHexbinIndices(rows: HighchartsPoint[][]): void {
   stampPointIndices(rows, 'data-maidr-bin-index');
+}
+
+/**
+ * What a choropleth's two dimensions are called. A `map` series is bound to no
+ * axis a title could be read from — the value runs along a colour axis and the
+ * regions along nothing at all — so {@link getAxisLabel}'s `'X'` / `'Y'`
+ * fallback would name them after coordinates the chart does not have.
+ */
+const CHOROPLETH_REGION_AXIS = 'Region';
+const CHOROPLETH_VALUE_AXIS = 'Value';
+
+/**
+ * Converts a `map` series into a choropleth layer.
+ *
+ * This one needs no declaration. `map` is the Highmaps choropleth series and
+ * nothing else wears its name: `mapbubble` and `mappoint` are different charts
+ * under different names, and are deliberately not routed here.
+ *
+ * **The centroids are what make it a map rather than a bar chart whose
+ * categories happen to be places.** `ChoroplethTrace` walks north, south, east
+ * and west out of a longitude and a latitude in **degrees**, and the grammar
+ * takes nothing else: a projected or normalised coordinate announced as a
+ * degree is a wrong compass direction, which is worse than the region list the
+ * grammar explicitly sanctions when the pair is missing. So they are read from
+ * the three places that state them in degrees and from nowhere else —
+ * see {@link mapCentroid} — and omitted otherwise.
+ *
+ * `neighbors` is not emitted at all. Adjacency is not derivable from a
+ * rendered map: Highcharts knows which shapes it drew, not which of them share
+ * a border, and centroids do not answer it either. The trace keeps its spatial
+ * walk and is told nothing about borders rather than something guessed.
+ *
+ * A region Highcharts drew but gave no value is left out — the layer's value
+ * is a number and a null region has none — so the announced regions are
+ * stamped with their own index and the selectors address the stamp, rather
+ * than counting on the drawn shapes and the announced regions being the same
+ * list.
+ *
+ * @param series - The `map` series
+ * @param chart - The chart being converted, for the map view
+ * @param containerId - The chart's render-target id
+ * @returns The choropleth layer
+ */
+function convertChoroplethSeries(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer {
+  const declared = declarationOf(series);
+  const declaration: ChoroplethDeclaration | undefined
+    = declared?.type === TraceType.CHOROPLETH ? declared : undefined;
+
+  // The name and the value are read off the point Highcharts already resolved
+  // them onto, and the declaration only renames them. The default fallback
+  // chain is deliberately not walked for either: `value`'s chain includes `x`,
+  // which on a map row is as likely to be the region's own name.
+  const names = declaration?.region === undefined
+    ? undefined
+    : readSeriesField(series, declaration.region, 'region');
+  const values = declaration?.value === undefined
+    ? undefined
+    : readSeriesField(series, declaration.value, 'value');
+  const lons = readSeriesField(series, declaration?.lon, 'lon');
+  const lats = readSeriesField(series, declaration?.lat, 'lat');
+
+  const announced: HighchartsPoint[] = [];
+  const data: ChoroplethPoint[] = [];
+  series.data.forEach((point, index) => {
+    const y = finiteNumber(values?.[index]) ?? mapValue(point);
+    if (y === undefined) {
+      return;
+    }
+
+    const centroid = mapCentroid(point, chart);
+    const lon = degrees(lons[index], 180) ?? centroid?.lon;
+    const lat = degrees(lats[index], 90) ?? centroid?.lat;
+
+    announced.push(point);
+    data.push({
+      x: regionName(names?.[index]) ?? mapRegionName(point),
+      y,
+      ...(lon === undefined ? {} : { lon }),
+      ...(lat === undefined ? {} : { lat }),
+    });
+  });
+
+  stampPointIndices([announced], 'data-maidr-region-index');
+
+  return {
+    id: String(series.index),
+    type: TraceType.CHOROPLETH,
+    title: declaration?.title ?? (series.name || undefined),
+    ...(declaration?.name ? { name: declaration.name } : {}),
+    selectors: choroplethSelectors(containerId, series.index, data.length),
+    axes: {
+      x: { label: CHOROPLETH_REGION_AXIS },
+      y: { label: CHOROPLETH_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * The value a map region is shaded by.
+ *
+ * A `map` series declares `value` in its `pointArrayMap` rather than using
+ * `y`, so Highcharts resolves it onto the point; `y` and the raw options are
+ * read as fallbacks for the partially built chart objects the adapter is
+ * sometimes handed.
+ *
+ * @param point - The region to read
+ * @returns Its value, or undefined for a region the chart shades as null
+ */
+function mapValue(point: HighchartsPoint): number | undefined {
+  return finiteNumber(point.value)
+    ?? finiteNumber(point.y)
+    ?? finiteNumber(point.options?.value);
+}
+
+/**
+ * What a map region is called.
+ *
+ * `name` first, because that is where Highcharts puts the label it joined the
+ * point to its map feature by; the category and the bare x are the fallbacks
+ * for a series that supplied neither.
+ *
+ * @param point - The region to read
+ * @returns Its name
+ */
+function mapRegionName(point: HighchartsPoint): string | number {
+  return point.name ?? point.category ?? point.x;
+}
+
+/**
+ * A declared region name, when the field held one MAIDR can announce.
+ *
+ * @param value - Whatever the `region` field resolved to
+ * @returns The name, or undefined
+ */
+function regionName(value: unknown): string | number | undefined {
+  if (typeof value === 'string' && value !== '') {
+    return value;
+  }
+  return finiteNumber(value);
+}
+
+/**
+ * A value, when it is a coordinate in degrees.
+ *
+ * The bound is what makes this more than a number check: it is the one test
+ * that separates degrees from the projected units the same fields could be
+ * carrying, and a coordinate that fails it is dropped rather than converted by
+ * guesswork.
+ *
+ * @param value - Whatever was resolved
+ * @param limit - 180 for a longitude, 90 for a latitude
+ * @returns The coordinate, or undefined
+ */
+function degrees(value: unknown, limit: number): number | undefined {
+  const coordinate = finiteNumber(value);
+  return coordinate === undefined || Math.abs(coordinate) > limit ? undefined : coordinate;
+}
+
+/**
+ * Where a map region sits, in degrees.
+ *
+ * Two sources, both of which state degrees outright:
+ *
+ * 1. The map feature's own `hc-middle-lon` / `hc-middle-lat`, which some of
+ *    the Highcharts map collections carry alongside the shape.
+ * 2. The map view's `projectedUnitsToLonLat`, applied to the anchor Highcharts
+ *    placed the shape's label at. This is the documented way back through the
+ *    projection, and it answers with nothing on a map that has no geographic
+ *    projection — which is the answer MAIDR wants there, since a pre-projected
+ *    map's units are not degrees.
+ *
+ * Both readings go through {@link degrees}, so a number arriving from either
+ * that could not be a coordinate is dropped instead of announced. A region
+ * with no centroid simply has none: `ChoroplethTrace` keeps the declared order
+ * unless *every* region is placed, which is the reading the data supports.
+ *
+ * @param point - The region to place
+ * @param chart - The chart holding the map view
+ * @returns The centroid, or undefined
+ */
+function mapCentroid(
+  point: HighchartsPoint,
+  chart: HighchartsChart,
+): { lon: number; lat: number } | undefined {
+  const properties = point.properties;
+  if (properties) {
+    const lon = degrees(properties['hc-middle-lon'], 180);
+    const lat = degrees(properties['hc-middle-lat'], 90);
+    if (lon !== undefined && lat !== undefined) {
+      return { lon, lat };
+    }
+  }
+
+  const bounds = point.bounds;
+  const toLonLat = chart.mapView?.projectedUnitsToLonLat;
+  if (!bounds || !toLonLat) {
+    return undefined;
+  }
+  const projected = toLonLat({
+    x: bounds.midX ?? (bounds.x1 + bounds.x2) / 2,
+    y: bounds.midY ?? (bounds.y1 + bounds.y2) / 2,
+  });
+  if (!projected) {
+    return undefined;
+  }
+
+  const [lon, lat] = Array.isArray(projected)
+    ? projected
+    : [projected.lon, projected.lat];
+  const east = degrees(lon, 180);
+  const north = degrees(lat, 90);
+  return east === undefined || north === undefined ? undefined : { lon: east, lat: north };
 }
 
 function convertHistogramSeries(

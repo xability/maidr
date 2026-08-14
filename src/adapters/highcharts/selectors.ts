@@ -165,6 +165,36 @@ export function hexbinSelectors(
 }
 
 /**
+ * Generates per-region CSS selectors for a `map` series read as a choropleth.
+ *
+ * MAIDR's `ChoroplethTrace` indexes its selector list by the order the layer
+ * declared its regions — the grid it walks is in latitude order, and `source`
+ * takes it back to the declaration — so the list has to run in that order and
+ * hold exactly one element per region. Highcharts draws a shape for every
+ * point including the ones with no value, which the layer leaves out, so
+ * document order is one entry longer than the payload on any map with a gap
+ * in it. The adapter therefore stamps `data-maidr-region-index="N"` onto each
+ * announced region's shape (see `stampChoroplethIndices` in adapter.ts) and
+ * these selectors address the stamp.
+ *
+ * A region Highcharts did not draw has no element to stamp, so its selector
+ * matches nothing and `ChoroplethTrace` withdraws the layer's highlighting
+ * rather than shading a neighbouring country for the rest of the session.
+ */
+export function choroplethSelectors(
+  containerId: string,
+  seriesIndex: number,
+  regionCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < regionCount; i++) {
+    selectors.push(`${base} [data-maidr-region-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
  * Generates a CSS selector for the markers of a lollipop series.
  *
  * Highcharts draws each lollipop as two elements: the marker, rendered by

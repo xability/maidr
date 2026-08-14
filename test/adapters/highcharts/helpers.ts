@@ -77,6 +77,10 @@ export interface FakeChartInput {
   polar?: boolean;
   /** One axis per variable, one series per observation. */
   parallelCoordinates?: boolean;
+  /** Swaps the axes — how a forest plot puts its studies down the page. */
+  inverted?: boolean;
+  /** The Highmaps view, for a chart whose regions carry projected centroids. */
+  mapView?: HighchartsChart['mapView'];
 }
 
 export function fakeChart(input: FakeChartInput): HighchartsChart {
@@ -91,11 +95,13 @@ export function fakeChart(input: FakeChartInput): HighchartsChart {
     title: { textStr: input.title },
     container: renderTo,
     renderTo,
+    mapView: input.mapView,
     options: {
       chart: {
         type: input.type,
         polar: input.polar,
         parallelCoordinates: input.parallelCoordinates,
+        inverted: input.inverted,
       },
       plotOptions: input.plotOptions,
     },

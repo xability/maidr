@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Forest Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships the errorbar series. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Forest Plot</h1>
+    <p>
+      The standard figure of a meta-analysis, drawn the way Highcharts draws
+      one: a <code>scatter</code> of effect estimates on an inverted category
+      axis, with an <code>errorbar</code> linked over it for the confidence
+      intervals. Three of the things that make it a forest plot are in the
+      drawing and nowhere in the chart object — the weight, which is drawn as
+      marker area; which row is the pooled summary rather than a study; and
+      where the null line sits — so those are declared in the
+      <code>maidr</code> block of the series' <code>custom</code> subspace.
+    </p>
+    <p>
+      Click on the chart and use left and right arrow keys to walk the studies,
+      and up and down at one study to walk the lower bound, the estimate and
+      the upper bound. Each study announces its weight and whether its interval
+      crosses the null value of 1, which is the result for that study.
+    </p>
+
+    <div id="forest-chart" style="width: 800px; height: 520px"></div>
+
+    <script>
+      const studies = [
+        { name: 'Adams 2016', or: 1.24, low: 0.91, high: 1.69, weight: 0.14 },
+        { name: 'Brown 2017', or: 0.82, low: 0.61, high: 1.10, weight: 0.19 },
+        { name: 'Chen 2018', or: 0.71, low: 0.55, high: 0.92, weight: 0.23 },
+        { name: 'Diaz 2020', or: 0.95, low: 0.74, high: 1.22, weight: 0.21 },
+        { name: 'Evans 2022', or: 0.68, low: 0.49, high: 0.94, weight: 0.16 },
+        // The summary is not evidence, so it carries no weight of its own.
+        { name: 'Pooled', or: 0.83, low: 0.72, high: 0.96, weight: null },
+      ];
+
+      const chart = Highcharts.chart('forest-chart', {
+        chart: { inverted: true },
+        title: { text: 'Effect of the intervention on relapse' },
+        xAxis: { categories: studies.map(study => study.name) },
+        yAxis: {
+          title: { text: 'Odds ratio' },
+          plotLines: [{ value: 1, width: 1, color: '#666' }],
+        },
+        legend: { enabled: false },
+        series: [{
+          id: 'effects',
+          name: 'Odds ratio',
+          type: 'scatter',
+          // The declaration. `weight` and `pooled` name columns on these rows;
+          // `nullValue` is the same for the whole layer, so it is the value
+          // itself. The interval series is paired with `linkedTo` below.
+          custom: {
+            maidr: {
+              type: 'forest',
+              weight: 'weight',
+              pooled: 'pooled',
+              nullValue: 1,
+            },
+          },
+          data: studies.map((study, index) => ({
+            x: index,
+            y: study.or,
+            weight: study.weight,
+            pooled: study.name === 'Pooled',
+            // Drawn as area, which is why MAIDR reads the column and never
+            // tries to invert the radius back out of it.
+            marker: { radius: 4 + (study.weight ?? 0) * 20 },
+          })),
+        }, {
+          name: '95% CI',
+          type: 'errorbar',
+          linkedTo: 'effects',
+          data: studies.map((study, index) => [index, study.low, study.high]),
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'forest-chart' });
+      document
+        .getElementById('forest-chart')
+        .setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
