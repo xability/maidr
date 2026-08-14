@@ -41,6 +41,9 @@ import { buildAreaLayer } from './area';
 import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
 import { buildCandlestickLayer } from './candlestick';
+import { buildDumbbellLayer } from './dumbbell';
+import { buildErrorBarLayer } from './errorBar';
+import { buildGaugeLayer } from './gauge';
 import { buildHeatmapLayer } from './heatmap';
 import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
@@ -48,6 +51,8 @@ import { buildPieLayer } from './pie';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
 import { buildSmoothLayer } from './smooth';
+import { buildWaterfallLayer } from './waterfall';
+import { buildWordCloudLayer } from './wordCloud';
 
 /**
  * Binds a faceted D3 chart (homogeneous small multiples) to MAIDR.
@@ -243,8 +248,14 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildCandlestickLayer(root, spec.config, panel);
     case 'dot':
       return buildBarLayer(root, spec.config, panel, TraceType.DOT);
+    case 'dumbbell':
+      return buildDumbbellLayer(root, spec.config, panel);
+    case 'errorBar':
+      return buildErrorBarLayer(root, spec.config, panel);
     case 'funnel':
       return buildBarLayer(root, spec.config, panel, TraceType.FUNNEL);
+    case 'gauge':
+      return buildGaugeLayer(root, spec.config, panel);
     case 'heatmap':
       return buildHeatmapLayer(root, spec.config, panel);
     case 'histogram':
@@ -253,6 +264,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildLineLayer(root, spec.config, panel);
     case 'lollipop':
       return buildBarLayer(root, spec.config, panel, TraceType.LOLLIPOP);
+    case 'manhattan':
+      return buildScatterLayer(root, spec.config, panel, TraceType.MANHATTAN);
     case 'pie':
       return buildPieLayer(root, spec.config, panel);
     case 'scatter':
@@ -261,6 +274,10 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildSegmentedLayer(root, spec.config, panel);
     case 'smooth':
       return buildSmoothLayer(root, spec.config, panel);
+    case 'waterfall':
+      return buildWaterfallLayer(root, spec.config, panel);
+    case 'wordCloud':
+      return buildWordCloudLayer(root, spec.config, panel);
   }
 }
 

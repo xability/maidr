@@ -1,8 +1,13 @@
 /**
- * D3 binder for segmented bar charts (stacked, dodged, and normalized).
+ * D3 binder for segmented bar charts (stacked, dodged, normalized, and
+ * diverging).
  *
  * Extracts data from D3.js-rendered grouped/stacked bar chart SVG elements
- * and generates the MAIDR JSON schema for accessible interaction.
+ * and generates the MAIDR JSON schema for accessible interaction. All four
+ * carry one category, one value and one series key per mark, which is why
+ * they share a single extraction core and differ only in the type the layer
+ * announces — the type is what makes a diverging chart read its values as
+ * sides rather than as a stack.
  */
 
 import type { MaidrLayer, SegmentedPoint } from '../../../type/grammar';
@@ -70,6 +75,49 @@ export function bindD3Segmented(svg: Element, config: D3SegmentedConfig): D3Bind
 }
 
 /**
+ * Binds a D3.js diverging bar chart — a population pyramid, a Likert scale —
+ * to MAIDR.
+ *
+ * A diverging chart is two series drawn back to back across a shared category
+ * axis, which is the segmented extraction with a different reading: the sign
+ * of a value is a **side**, not a magnitude, and the trace pitches the
+ * magnitude while announcing the side.
+ *
+ * So emit the values **as the chart draws them** — the left-hand series
+ * negative — and do not take their absolute value. Handed unsigned data the
+ * trace has no way to tell the two sides apart, and the balance it reports
+ * between them becomes a total instead of a comparison.
+ *
+ * A pyramid is usually drawn on its side. Pass
+ * `orientation: Orientation.HORIZONTAL` (with `x` reading the signed value and
+ * `y` the category) so the axes are announced the way it was drawn.
+ *
+ * @param svg - The SVG element containing the D3 diverging bar chart.
+ * @param config - Configuration specifying the selector and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Diverging(svgElement, {
+ *   selector: 'rect.band',
+ *   title: 'Population by Age Band',
+ *   orientation: Orientation.HORIZONTAL,
+ *   axes: { x: 'People, thousands', y: 'Age band', fill: 'Sex' },
+ *   x: 'people',   // negative for the side drawn to the left
+ *   y: 'band',
+ *   fill: 'sex',
+ * });
+ * ```
+ */
+export function bindD3Diverging(svg: Element, config: D3SegmentedConfig): D3BinderResult {
+  return finalizeSingleChart(
+    svg,
+    config,
+    buildSegmentedLayer(svg, { ...config, type: TraceType.DIVERGING }),
+  );
+}
+
+/**
  * Pure extraction core for segmented bar charts. See {@link buildBarLayer}
  * for the single-chart vs multi-panel contract.
  *
@@ -83,6 +131,7 @@ export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, pa
     selector,
     groupSelector,
     type = TraceType.STACKED,
+    orientation,
     domOrder: domOrderOverride,
   } = config;
 
@@ -290,6 +339,9 @@ export function buildSegmentedLayer(root: Element, config: D3SegmentedConfig, pa
     type,
     title,
     selectors: selectorValue,
+    // Omitted when the caller did not declare one, so the core keeps applying
+    // its own default rather than being told a value the chart never claimed.
+    ...(orientation ? { orientation } : {}),
     axes: buildAxes(axes, format),
     data,
     domMapping,

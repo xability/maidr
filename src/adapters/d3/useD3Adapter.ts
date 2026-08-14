@@ -67,14 +67,19 @@ import { bindD3Area } from './binders/area';
 import { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/bar';
 import { bindD3Box } from './binders/box';
 import { bindD3Candlestick } from './binders/candlestick';
+import { bindD3Dumbbell } from './binders/dumbbell';
+import { bindD3ErrorBar } from './binders/errorBar';
+import { bindD3Gauge } from './binders/gauge';
 import { bindD3Heatmap } from './binders/heatmap';
 import { bindD3Histogram } from './binders/histogram';
 import { bindD3Bump, bindD3Line } from './binders/line';
 import { bindD3Pie } from './binders/pie';
-import { bindD3Scatter } from './binders/scatter';
+import { bindD3Manhattan, bindD3Scatter } from './binders/scatter';
 import { bindD3Segmented } from './binders/segmented';
 import { bindD3Smooth } from './binders/smooth';
 import { bindD3Facets, bindD3Subplots } from './binders/subplots';
+import { bindD3Waterfall } from './binders/waterfall';
+import { bindD3WordCloud } from './binders/wordCloud';
 
 /**
  * Discriminated union describing which binder to run and the config to pass it.
@@ -127,8 +132,14 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Candlestick(svg, { ...spec.config, autoApply: false });
     case 'dot':
       return bindD3Dot(svg, { ...spec.config, autoApply: false });
+    case 'dumbbell':
+      return bindD3Dumbbell(svg, { ...spec.config, autoApply: false });
+    case 'errorBar':
+      return bindD3ErrorBar(svg, { ...spec.config, autoApply: false });
     case 'funnel':
       return bindD3Funnel(svg, { ...spec.config, autoApply: false });
+    case 'gauge':
+      return bindD3Gauge(svg, { ...spec.config, autoApply: false });
     case 'heatmap':
       return bindD3Heatmap(svg, { ...spec.config, autoApply: false });
     case 'histogram':
@@ -137,6 +148,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Line(svg, { ...spec.config, autoApply: false });
     case 'lollipop':
       return bindD3Lollipop(svg, { ...spec.config, autoApply: false });
+    case 'manhattan':
+      return bindD3Manhattan(svg, { ...spec.config, autoApply: false });
     case 'pie':
       return bindD3Pie(svg, { ...spec.config, autoApply: false });
     case 'scatter':
@@ -145,6 +158,10 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Segmented(svg, { ...spec.config, autoApply: false });
     case 'smooth':
       return bindD3Smooth(svg, { ...spec.config, autoApply: false });
+    case 'waterfall':
+      return bindD3Waterfall(svg, { ...spec.config, autoApply: false });
+    case 'wordCloud':
+      return bindD3WordCloud(svg, { ...spec.config, autoApply: false });
     case 'facets':
       return bindD3Facets(svg, withFacetsAutoApplyOff(spec.config));
     case 'subplots':
@@ -171,7 +188,13 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'dot':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'dumbbell':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'errorBar':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'funnel':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'gauge':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'heatmap':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
@@ -181,6 +204,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'lollipop':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'manhattan':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'pie':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'scatter':
@@ -188,6 +213,10 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'segmented':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'smooth':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'waterfall':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'wordCloud':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
   }
 }

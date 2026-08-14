@@ -25,6 +25,13 @@
  * - **Histograms** via {@link bindD3Histogram}
  * - **Candlestick charts** via {@link bindD3Candlestick}
  * - **Segmented bar charts** (stacked, dodged, normalized) via {@link bindD3Segmented}
+ * - **Diverging bars / population pyramids** via {@link bindD3Diverging}
+ * - **Error-bar / point-range charts** via {@link bindD3ErrorBar}
+ * - **Dumbbell charts** via {@link bindD3Dumbbell}
+ * - **Waterfall / bridge charts** via {@link bindD3Waterfall}
+ * - **Word clouds** via {@link bindD3WordCloud}
+ * - **Gauges and bullet charts** via {@link bindD3Gauge}
+ * - **Manhattan plots** via {@link bindD3Manhattan}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
  * ## Multi-Panel Charts
@@ -102,14 +109,19 @@ export { bindD3Area } from './binders/area';
 export { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/bar';
 export { bindD3Box } from './binders/box';
 export { bindD3Candlestick } from './binders/candlestick';
+export { bindD3Dumbbell } from './binders/dumbbell';
+export { bindD3ErrorBar } from './binders/errorBar';
+export { bindD3Gauge } from './binders/gauge';
 export { bindD3Heatmap } from './binders/heatmap';
 export { bindD3Histogram } from './binders/histogram';
 export { bindD3Bump, bindD3Line } from './binders/line';
 export { bindD3Pie } from './binders/pie';
-export { bindD3Scatter } from './binders/scatter';
-export { bindD3Segmented } from './binders/segmented';
+export { bindD3Manhattan, bindD3Scatter } from './binders/scatter';
+export { bindD3Diverging, bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
 export { bindD3Facets, bindD3Subplots } from './binders/subplots';
+export { bindD3Waterfall } from './binders/waterfall';
+export { bindD3WordCloud } from './binders/wordCloud';
 
 // Types
 export type {
@@ -121,10 +133,14 @@ export type {
   D3BinderResult,
   D3BoxConfig,
   D3CandlestickConfig,
+  D3DumbbellConfig,
+  D3ErrorBarConfig,
   D3FacetsConfig,
+  D3GaugeConfig,
   D3HeatmapConfig,
   D3HistogramConfig,
   D3LineConfig,
+  D3ManhattanConfig,
   D3MultiPanelResult,
   D3PanelChartSpec,
   D3PanelLayout,
@@ -134,7 +150,10 @@ export type {
   D3SmoothConfig,
   D3SubplotEntry,
   D3SubplotsConfig,
+  D3WaterfallConfig,
+  D3WordCloudConfig,
   DataAccessor,
   LineMarkTraceType,
+  ScatterMarkTraceType,
   SegmentedTraceType,
 } from './types';

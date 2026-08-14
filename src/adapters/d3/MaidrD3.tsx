@@ -158,8 +158,14 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'candlestick', config: props.config };
     case 'dot':
       return { chartType: 'dot', config: props.config };
+    case 'dumbbell':
+      return { chartType: 'dumbbell', config: props.config };
+    case 'errorBar':
+      return { chartType: 'errorBar', config: props.config };
     case 'funnel':
       return { chartType: 'funnel', config: props.config };
+    case 'gauge':
+      return { chartType: 'gauge', config: props.config };
     case 'heatmap':
       return { chartType: 'heatmap', config: props.config };
     case 'histogram':
@@ -168,6 +174,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'line', config: props.config };
     case 'lollipop':
       return { chartType: 'lollipop', config: props.config };
+    case 'manhattan':
+      return { chartType: 'manhattan', config: props.config };
     case 'pie':
       return { chartType: 'pie', config: props.config };
     case 'scatter':
@@ -176,6 +184,10 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'segmented', config: props.config };
     case 'smooth':
       return { chartType: 'smooth', config: props.config };
+    case 'waterfall':
+      return { chartType: 'waterfall', config: props.config };
+    case 'wordCloud':
+      return { chartType: 'wordCloud', config: props.config };
     case 'facets':
       return { chartType: 'facets', config: props.config };
     case 'subplots':

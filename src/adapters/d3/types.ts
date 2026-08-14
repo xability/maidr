@@ -11,6 +11,10 @@ import type {
   BarPoint,
   BoxPoint,
   CandlestickPoint,
+  DumbbellData,
+  ErrorBarPoint,
+  GaugeBand,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -22,6 +26,10 @@ import type {
   SegmentedPoint,
   SmoothPoint,
   TraceType,
+  VolcanoPoint,
+  WaterfallKind,
+  WaterfallPoint,
+  WordCloudPoint,
 } from '../../type/grammar';
 
 /**
@@ -218,6 +226,70 @@ export interface D3ScatterConfig extends D3BinderConfig {
 }
 
 /**
+ * Trace types that share the scatter extraction: one x and one y per point.
+ *
+ * A Manhattan plot is a scatter read almost entirely through a threshold —
+ * `-log10(p)` against genomic position — so it carries two things a scatter
+ * does not (what each point *is*, and which region it belongs to) but is
+ * extracted the same way, by {@link buildScatterLayer}.
+ */
+export type ScatterMarkTraceType
+  = | typeof TraceType.MANHATTAN
+    | typeof TraceType.SCATTER;
+
+/**
+ * Configuration for binding a D3 Manhattan plot.
+ *
+ * Extends {@link D3ScatterConfig} because the marks are the same: one element
+ * per point, with `x` the genomic position and `y` the transformed p-value.
+ * What it adds is the part of the chart a sighted reader takes from the labels
+ * and the colours — which SNP a point is, which chromosome it sits on, and
+ * where the significance line was drawn.
+ *
+ * @example
+ * ```ts
+ * bindD3Manhattan(svgElement, {
+ *   selector: 'circle.snp',
+ *   axes: { x: 'Position', y: '-log10(p)', fill: 'Chromosome' },
+ *   x: 'pos',
+ *   y: 'logP',
+ *   label: 'snp',
+ *   group: 'chromosome',
+ *   significance: 7.3,
+ * });
+ * ```
+ */
+export interface D3ManhattanConfig extends D3ScatterConfig {
+  /**
+   * Accessor for what each point *is* — a SNP id, a probe, a marker.
+   * @default 'label', falling back to `snp`, `id`, `name`, `gene`, or `probe`.
+   * Left out of the payload when the datum carries none of them.
+   */
+  label?: DataAccessor<string>;
+  /**
+   * Accessor for the region a point belongs to — its chromosome.
+   * @default 'group', falling back to `chromosome`, `chrom`, `chr`, or
+   * `region`. Left out of the payload when the datum carries none of them.
+   */
+  group?: DataAccessor<string>;
+  /**
+   * The significance cutoff on the y axis, on the axis the chart is drawn
+   * against — 7.3 for genome-wide significance on a `-log10(p)` axis.
+   *
+   * There is deliberately no default: the conventions differ by field and by
+   * software, and a guessed line would sort every point onto the wrong side
+   * silently. Omit it and the trace simply reports no findings.
+   */
+  significance?: number;
+  /**
+   * Which side of `significance` is the significant one. `'above'` (the
+   * default) suits the transformed axes these charts usually carry; a **raw p
+   * axis runs the other way** and needs `'below'`.
+   */
+  significanceDirection?: 'above' | 'below';
+}
+
+/**
  * Configuration for binding a D3 heatmap.
  */
 export interface D3HeatmapConfig extends D3BinderConfig {
@@ -311,12 +383,20 @@ export interface D3CandlestickConfig extends D3BinderConfig {
 }
 
 /**
- * Segmented bar chart type for stacked, dodged, or normalized.
+ * Trace types that share the segmented extraction: one category, one value and
+ * one series key per mark.
+ *
+ * A diverging bar chart (a population pyramid, a Likert scale) is two series
+ * drawn back to back rather than one on top of the other, which changes how the
+ * values are read but not how they are extracted — so it is built by
+ * {@link buildSegmentedLayer} like the other three, selected through
+ * `config.type`.
  */
 export type SegmentedTraceType
   = | typeof TraceType.STACKED
     | typeof TraceType.DODGED
-    | typeof TraceType.NORMALIZED;
+    | typeof TraceType.NORMALIZED
+    | typeof TraceType.DIVERGING;
 
 /**
  * Configuration for binding a D3 segmented bar chart (stacked, dodged, or normalized).
@@ -354,6 +434,15 @@ export interface D3SegmentedConfig extends D3BinderConfig {
   groupSelector?: string;
   /** The type of segmented chart. @default TraceType.STACKED */
   type?: SegmentedTraceType;
+  /**
+   * Chart orientation. Emitted only when given, so a chart that does not
+   * declare one is read the core's way (vertical).
+   *
+   * Set it for the charts that are drawn on their side — a population pyramid
+   * is the usual one: with `Orientation.HORIZONTAL`, `x` reads the (signed)
+   * value and `y` the category, which is the order the bars are drawn in.
+   */
+  orientation?: Orientation;
   /** Accessor for the x-axis (category) value. @default 'x' */
   x?: DataAccessor<string | number>;
   /** Accessor for the y-axis (numeric) value. @default 'y' */
@@ -441,6 +530,235 @@ export interface D3PieConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 error-bar (point-range) chart.
+ *
+ * The canonical D3 idiom is one `<g>` per estimate holding a `<line>` for the
+ * interval and a marker for the estimate itself, so point `selector` at those
+ * groups — one matched element per estimate, whichever mark carries it.
+ *
+ * The bounds are **absolute positions** on the value axis, not half-widths.
+ * That is the one conversion this binder cannot do for you: a datum carrying
+ * `±se` needs a function accessor (`yMin: d => d.mean - d.se`), because the
+ * binder has no way to tell an offset from a bound by looking at it.
+ *
+ * @example
+ * ```ts
+ * bindD3ErrorBar(svgElement, {
+ *   selector: 'g.estimate',
+ *   axes: { x: 'Group', y: 'Response' },
+ *   x: 'group',
+ *   y: 'mean',
+ *   yMin: d => d.mean - 1.96 * d.se,
+ *   yMax: d => d.mean + 1.96 * d.se,
+ * });
+ * ```
+ */
+export interface D3ErrorBarConfig extends D3BinderConfig {
+  /** CSS selector for the per-estimate elements (e.g. `'g.estimate'`). */
+  selector: string;
+  /** Accessor for the x-axis (category) value. @default 'x' */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the estimate itself. @default 'y', falling back to `value`,
+   * `mean`, `estimate`, or `median`.
+   */
+  y?: DataAccessor<number>;
+  /**
+   * Accessor for the interval's absolute lower bound. @default 'yMin',
+   * falling back to `lower`, `ciLow`, `ci_low`, `low`, or `min`. Omitted from
+   * the payload when the datum carries none of them — a one-sided interval is
+   * a real chart.
+   */
+  yMin?: DataAccessor<number>;
+  /**
+   * Accessor for the interval's absolute upper bound. @default 'yMax',
+   * falling back to `upper`, `ciHigh`, `ci_high`, `high`, or `max`.
+   */
+  yMax?: DataAccessor<number>;
+  /** Chart orientation. @default Orientation.VERTICAL */
+  orientation?: Orientation;
+}
+
+/**
+ * Configuration for binding a D3 dumbbell (connected-dot) chart.
+ *
+ * Point `selector` at the **connectors** — one `<line>` per row — rather than
+ * at the dots: a chart draws one segment per row and two dots, so the
+ * connectors are the elements that map one-to-one onto the data, and the
+ * trace highlights the same segment at both ends of a row.
+ *
+ * `startLabel` / `endLabel` are config rather than accessors because they
+ * belong to the chart and not to any one row — they are what the two dots are
+ * called ("1990" and "2020"), which is exactly what a legend gives a sighted
+ * reader and what the announcement would otherwise have to call "start" and
+ * "end".
+ *
+ * @example
+ * ```ts
+ * bindD3Dumbbell(svgElement, {
+ *   selector: 'line.connector',
+ *   orientation: Orientation.HORIZONTAL,
+ *   axes: { x: 'Years', y: 'Country' },
+ *   x: 'country',
+ *   start: 'y1990',
+ *   end: 'y2020',
+ *   startLabel: '1990',
+ *   endLabel: '2020',
+ * });
+ * ```
+ */
+export interface D3DumbbellConfig extends D3BinderConfig {
+  /** CSS selector for the connector elements (e.g. `'line.connector'`). */
+  selector: string;
+  /** Accessor for the category value. @default 'x' */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the value the segment starts at. @default 'start',
+   * falling back to `from`, `before`, or `y0`.
+   */
+  start?: DataAccessor<number>;
+  /**
+   * Accessor for the value the segment ends at. @default 'end',
+   * falling back to `to`, `after`, or `y1`.
+   */
+  end?: DataAccessor<number>;
+  /** What the starting end is called — `'1990'`, `'before'`, `'control'`. */
+  startLabel?: string;
+  /** What the finishing end is called — `'2020'`, `'after'`, `'treatment'`. */
+  endLabel?: string;
+  /** Chart orientation. @default Orientation.VERTICAL */
+  orientation?: Orientation;
+}
+
+/**
+ * Configuration for binding a D3 waterfall (bridge) chart.
+ *
+ * A waterfall draws each step as a bar floating between the running total
+ * before it and the running total after it, so `start` and `end` are the two
+ * numbers the rect is already drawn from. The contribution (`delta`) is
+ * derived from them.
+ *
+ * `kind` is the one thing the binder cannot infer: an opening, closing or
+ * subtotal bar is drawn exactly like a step but contributes nothing, and only
+ * the author knows which bars those are. Supply the accessor for them; every
+ * other bar is classified from the sign of its contribution.
+ *
+ * @example
+ * ```ts
+ * bindD3Waterfall(svgElement, {
+ *   selector: 'rect.step',
+ *   axes: { x: 'Step', y: 'Amount' },
+ *   x: 'label',
+ *   kind: d => (d.isTotal ? 'total' : undefined),
+ * });
+ * ```
+ */
+export interface D3WaterfallConfig extends D3BinderConfig {
+  /** CSS selector for the per-step elements (e.g. `'rect.step'`). */
+  selector: string;
+  /** Accessor for the step's label. @default 'x' */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the running total before the step. @default 'start',
+   * falling back to `from`, `y0`, or `base`.
+   */
+  start?: DataAccessor<number>;
+  /**
+   * Accessor for the running total after the step. @default 'end',
+   * falling back to `to`, `y1`, or `cumulative`.
+   */
+  end?: DataAccessor<number>;
+  /**
+   * Accessor marking a bar as an opening, closing or subtotal (`'total'`).
+   * Returning `undefined` falls back to the derived kind, so
+   * `d => (d.isTotal ? 'total' : undefined)` marks only the totals.
+   *
+   * When omitted, a step is an `'increase'` unless its contribution is
+   * negative, in which case it is a `'decrease'`.
+   */
+  kind?: DataAccessor<WaterfallKind | undefined>;
+}
+
+/**
+ * Configuration for binding a D3 word cloud.
+ *
+ * The layout — `d3-cloud`'s `cloud().words(...)`, or any other — is
+ * deliberately not read: where a term landed carries no data, so the payload
+ * is the term and its weight alone. Point `selector` at the `<text>` glyphs.
+ *
+ * The default accessors are `d3-cloud`'s own datum keys (`text` and `size`),
+ * since that is what all but hand-rolled clouds are laid out with.
+ *
+ * @example
+ * ```ts
+ * bindD3WordCloud(svgElement, {
+ *   selector: 'text.term',
+ *   axes: { x: 'Term', y: 'Occurrences' },
+ * });
+ * ```
+ */
+export interface D3WordCloudConfig extends D3BinderConfig {
+  /** CSS selector for the term elements (e.g. `'text.term'`). */
+  selector: string;
+  /**
+   * Accessor for the term. @default 'text', falling back to `word`,
+   * `term`, `label`, `name`, or `x`.
+   */
+  x?: DataAccessor<string>;
+  /**
+   * Accessor for the term's weight. @default 'size', falling back to
+   * `value`, `weight`, `count`, `frequency`, or `y`.
+   */
+  y?: DataAccessor<number | string>;
+}
+
+/**
+ * Configuration for binding a D3 gauge or bullet chart.
+ *
+ * A drawn gauge binds only the measure — the dial's range, the target marker
+ * and the qualitative bands are drawn from numbers the author holds and the
+ * DOM does not carry, which is why they are config rather than accessors.
+ * They are also the whole reading: "73" means nothing without the range it
+ * sits in, the target it was aiming at, and the band it lands in.
+ *
+ * Point `selector` at the needle, the value arc, or the bullet's measure bar
+ * — the mark that moves with the value.
+ *
+ * @example
+ * ```ts
+ * bindD3Gauge(svgElement, {
+ *   selector: 'rect.measure',
+ *   axes: { x: 'Measure', y: 'Percent' },
+ *   label: 'Conversion',
+ *   min: 0,
+ *   max: 100,
+ *   target: 80,
+ *   bands: [{ to: 50, label: 'poor' }, { to: 75, label: 'ok' }, { to: 100, label: 'good' }],
+ * });
+ * ```
+ */
+export interface D3GaugeConfig extends D3BinderConfig {
+  /** CSS selector for the needle or value arc (e.g. `'path.needle'`). */
+  selector: string;
+  /**
+   * Accessor for the measure. @default 'value', falling back to `y`,
+   * `amount`, `measure`, `current`, or `actual`. A datum that is a bare
+   * number is the measure itself.
+   */
+  value?: DataAccessor<number>;
+  /** Lower end of the dial. */
+  min: number;
+  /** Upper end of the dial. */
+  max: number;
+  /** What the measure is called — `'Conversion'`. */
+  label?: string;
+  /** The target marker a bullet chart draws, when it has one. */
+  target?: number;
+  /** Qualitative bands, in ascending order. */
+  bands?: GaugeBand[];
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -475,15 +793,21 @@ export type D3PanelChartSpec
     | { chartType: 'bump'; config: D3LineConfig }
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
     | { chartType: 'dot'; config: D3BarConfig }
+    | { chartType: 'dumbbell'; config: D3DumbbellConfig }
+    | { chartType: 'errorBar'; config: D3ErrorBarConfig }
     | { chartType: 'funnel'; config: D3BarConfig }
+    | { chartType: 'gauge'; config: D3GaugeConfig }
     | { chartType: 'heatmap'; config: D3HeatmapConfig }
     | { chartType: 'histogram'; config: D3HistogramConfig }
     | { chartType: 'line'; config: D3LineConfig }
     | { chartType: 'lollipop'; config: D3BarConfig }
+    | { chartType: 'manhattan'; config: D3ManhattanConfig }
     | { chartType: 'pie'; config: D3PieConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }
-    | { chartType: 'smooth'; config: D3SmoothConfig };
+    | { chartType: 'smooth'; config: D3SmoothConfig }
+    | { chartType: 'waterfall'; config: D3WaterfallConfig }
+    | { chartType: 'wordCloud'; config: D3WordCloudConfig };
 
 /**
  * Grid layout hint for multi-panel binds.
@@ -596,10 +920,16 @@ export type D3ExtractedData
   = | BarPoint[]
     | BoxPoint[]
     | CandlestickPoint[]
+    | DumbbellData
+    | ErrorBarPoint[]
+    | GaugePoint
     | HeatmapData
     | HistogramPoint[]
     | LinePoint[][]
     | PiePoint[]
     | ScatterPoint[]
     | SegmentedPoint[][]
-    | SmoothPoint[][];
+    | SmoothPoint[][]
+    | VolcanoPoint[]
+    | WaterfallPoint[]
+    | WordCloudPoint[];
