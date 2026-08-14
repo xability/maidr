@@ -122,6 +122,10 @@ export interface PlotlyTrace {
   parents?: (number | string)[];
   /** Sector ids, for a hierarchy whose labels repeat. Parallel to {@link labels}. */
   ids?: (number | string)[];
+  /** How many levels below the entry point are drawn; `-1` for all of them. */
+  maxdepth?: number;
+  /** The sector the layout is entered at, drawing that subtree alone. */
+  level?: number | string;
   // Sankey-specific
   /** The nodes the flows run between. */
   node?: { label?: (number | string)[]; groups?: number[][] };

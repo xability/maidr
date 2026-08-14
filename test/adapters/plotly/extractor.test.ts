@@ -2586,19 +2586,22 @@ describe('plotly extractor', () => {
         layout: SINGLE_PANEL,
         // As plotly leaves it: `v` is the total after the step, `rawS` the
         // authored contribution, `s` the accumulated size it draws with.
+        // The amounts deliberately disagree with the trace's own arrays, so
+        // falling back to `authoredWaterfallSteps` fails this outright rather
+        // than passing on identical numbers.
         calcdata: [[
-          { p: 0, s: 1000, rawS: 1000, isSum: true, v: 1000 },
-          { p: 1, s: 1400, rawS: 400, isSum: false, v: 1400 },
-          { p: 2, s: 1250, rawS: -150, isSum: false, v: 1250 },
-          { p: 3, s: 1250, rawS: 0, isSum: true, v: 1250 },
+          { p: 0, s: 1100, rawS: 1100, isSum: true, v: 1100 },
+          { p: 1, s: 1500, rawS: 400, isSum: false, v: 1500 },
+          { p: 2, s: 1300, rawS: -200, isSum: false, v: 1300 },
+          { p: 3, s: 1300, rawS: 0, isSum: true, v: 1300 },
         ]],
       }));
 
       expect(layer.data).toEqual([
-        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
-        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
-        { x: 'Returns', start: 1400, end: 1250, delta: -150, kind: 'decrease' },
-        { x: 'Closing', start: 0, end: 1250, delta: 1250, kind: 'total' },
+        { x: 'Opening', start: 0, end: 1100, delta: 1100, kind: 'total' },
+        { x: 'Sales', start: 1100, end: 1500, delta: 400, kind: 'increase' },
+        { x: 'Returns', start: 1500, end: 1300, delta: -200, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 1300, delta: 1300, kind: 'total' },
       ]);
     });
 
@@ -2664,6 +2667,7 @@ describe('plotly extractor', () => {
       return {
         type: 'scatter',
         mode: 'markers',
+        uid: 'trt',
         x: ['A', 'B'],
         y: [4.2, 5.1],
         error_y: { visible: true, type: 'data', array: [0.4, 0.3] },
@@ -2760,6 +2764,7 @@ describe('plotly extractor', () => {
         traces: [{
           type: 'scatter',
           mode: 'markers',
+          uid: 'study',
           y: ['Study A', 'Study B'],
           x: [1.2, 0.8],
           error_x: { visible: true, type: 'data', array: [0.3, 0.2] },
@@ -2773,8 +2778,9 @@ describe('plotly extractor', () => {
       expect(data[0].y).toBe(1.2);
       expect(data[0].yMin).toBeCloseTo(0.9, 10);
       expect(data[0].yMax).toBeCloseTo(1.5, 10);
-      expect(layer.selectors)
-        .toBe('.subplot.xy .trace.scatter .errorbars > g.errorbar > path.xerror');
+      expect(layer.selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracestudy .errorbars > g.errorbar > path.xerror',
+      );
     });
 
     it('highlights the whip a bar trace hangs off its own group', () => {
@@ -2784,7 +2790,49 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.type).toBe(TraceType.ERROR_BAR);
-      expect(layer.selectors).toBe('.subplot.xy .trace.bars > g.errorbar > path.yerror');
+      expect(layer.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) > g.errorbar > path.yerror',
+      );
+    });
+
+    it('scopes each of two traces on one panel to its own whips', () => {
+      const gd = createGraphDiv({
+        traces: [
+          errorTrace({ uid: 'ctl', name: 'Control' }),
+          errorTrace({ uid: 'trt', name: 'Treatment' }),
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+      expect(layers).toHaveLength(2);
+      // A panel-wide selector would hand both layers every whip on the panel,
+      // and `ErrorBarTrace` drops the highlight outright on a count mismatch.
+      expect(layers[0].selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracectl .errorbars > g.errorbar > path.yerror',
+      );
+      expect(layers[1].selectors).toBe(
+        '.subplot.xy .scatterlayer g.trace.tracetrt .errorbars > g.errorbar > path.yerror',
+      );
+    });
+
+    it('counts the bar traces drawn before one carrying intervals', () => {
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['A', 'B'], y: [1, 2] },
+          { type: 'bar', x: ['A', 'B'], y: [3, 4], visible: 'legendonly' },
+          errorTrace({ type: 'bar', mode: undefined }),
+        ],
+        layout: SINGLE_PANEL,
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+      const errorLayer = layers.find(layer => layer.type === TraceType.ERROR_BAR);
+      // The hidden trace gets no group in the layer, so it must not shift the
+      // count; the drawn one before it must.
+      expect(errorLayer?.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) > g.errorbar > path.yerror',
+      );
     });
 
     it('drops a sample plotly drew no estimate for, as it drew no whip', () => {
@@ -2842,9 +2890,12 @@ describe('plotly extractor', () => {
     function hierarchyTrace(type: string, overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
       return {
         type,
-        labels: ['World', 'Asia', 'Europe', 'China', 'India', 'France'],
+        // Authored smallest first at both levels, which is NOT how plotly
+        // draws it: its calc sorts each node's children largest first. The two
+        // orders differing is what lets the drawn-order test discriminate.
+        labels: ['World', 'Europe', 'Asia', 'India', 'China', 'France'],
         parents: ['', 'World', 'World', 'Asia', 'Asia', 'Europe'],
-        values: [100, 60, 40, 35, 25, 40],
+        values: [100, 40, 60, 25, 35, 40],
         domain: DOMAIN,
         ...overrides,
       };
@@ -2873,7 +2924,9 @@ describe('plotly extractor', () => {
 
       expect(layer.type).toBe(TraceType.SUNBURST);
       // Level order, not the authored order: plotly draws the tree a level at
-      // a time, and the `g.slice` groups sit in that order.
+      // a time, and the `g.slice` groups sit in that order. The trace authored
+      // each level's siblings the other way round, so this is the computed
+      // tree's order and could not have come from the trace's own arrays.
       expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual([
         'World',
         'Asia',
@@ -2919,10 +2972,10 @@ describe('plotly extractor', () => {
       // highlight rather than one landing on a neighbouring rectangle.
       expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual([
         'World',
-        'Asia',
         'Europe',
-        'China',
+        'Asia',
         'India',
+        'China',
         'France',
       ]);
       expect((layer.data as TreemapPoint[])[5]).toEqual({
@@ -2931,6 +2984,32 @@ describe('plotly extractor', () => {
         path: ['World', 'Europe'],
       });
       expect(layer.selectors).toBeUndefined();
+    });
+
+    it.each([
+      ['maxdepth', { maxdepth: 2 }],
+      ['level', { level: 'Asia' }],
+    ])('withholds selectors when %s trims what plotly drew', (_name, trace) => {
+      const layer = hierarchyLayer('sunburst', {
+        trace,
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      // Plotly computed the whole tree and drew part of it, so sector k is no
+      // longer slice k — no highlight beats one landing on another sector.
+      expect((layer.data as TreemapPoint[])).toHaveLength(6);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('keeps the selectors when maxdepth asks for the whole tree', () => {
+      const layer = hierarchyLayer('sunburst', {
+        trace: { maxdepth: -1 },
+        calcdata: [[{ hierarchy: hierarchyNode(WORLD) }]],
+      });
+
+      expect(layer.selectors).toBe(
+        '.sunburstlayer > g.trace.sunburst:nth-of-type(1) g.slice > path.surface',
+      );
     });
 
     it('resolves an authored path through ids when the labels repeat', () => {
@@ -3623,7 +3702,7 @@ describe('plotly extractor', () => {
       ];
     }
 
-    function barLayer(traces: PlotlyTrace[]): MaidrLayer {
+    function barLayer(traces: PlotlyTrace[], calcdata?: PlotlyCalcData[][]): MaidrLayer {
       const gd = createGraphDiv({
         traces,
         layout: {
@@ -3631,6 +3710,7 @@ describe('plotly extractor', () => {
           xaxis: { domain: [0, 1], title: { text: 'Population' } },
           yaxis: { domain: [0, 1], title: { text: 'Age band' } },
         },
+        calcdata,
       });
       const maidr = extractPlotlyData(gd);
       expect(maidr).not.toBeNull();
@@ -3648,6 +3728,20 @@ describe('plotly extractor', () => {
       expect(data[0][0]).toEqual({ x: -5, y: '0-9', z: 'Male' });
       expect(data[1][1]).toEqual({ x: 6, y: '10-19', z: 'Female' });
       expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+    });
+
+    it('keeps the sign of the size plotly computed for each bar', () => {
+      // The calc sizes deliberately differ from the authored ones, so reading
+      // `cd.s` — signed, not made absolute — is what this asserts.
+      const layer = barLayer(pyramidTraces([-5, -7], [5, 6]), [
+        [{ p: 0, s: -4 }, { p: 1, s: -8 }],
+        [{ p: 0, s: 4.5 }, { p: 1, s: 6.5 }],
+      ]);
+
+      const data = layer.data as SegmentedPoint[][];
+      expect(data[0][0]).toEqual({ x: -4, y: '0-9', z: 'Male' });
+      expect(data[0][1]).toEqual({ x: -8, y: '10-19', z: 'Male' });
+      expect(data[1][0]).toEqual({ x: 4.5, y: '0-9', z: 'Female' });
     });
 
     it('leaves a stack whose series grow the same way alone', () => {

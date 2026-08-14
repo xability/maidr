@@ -1791,25 +1791,30 @@ function extractGanttLayer(
 
   const scale = ganttUnit(intervals);
   const lanes = ganttLanes(posAxis, intervals);
+  const rowByLane = new Map(lanes.map((lane, row) => [lane, row]));
   const points: GanttPoint[][] = lanes.map(() => []);
-  const selectors: string[] = [];
+  // The layer's selectors are one flat list read row by row, so each row
+  // collects its own and they are joined once the intervals are placed.
+  const rowSelectors: string[][] = lanes.map(() => []);
   const prefix = subplotCssPrefix(barTraces[0].trace.xaxis, barTraces[0].trace.yaxis);
 
-  for (let row = 0; row < lanes.length; row++) {
-    for (const interval of intervals) {
-      if (interval.lane !== lanes[row])
-        continue;
-      points[row].push({
-        x: interval.lane,
-        // Divided into the announced unit so the LENGTH reads in it. The axis
-        // format below turns the same number back into the date it names, so
-        // both halves of an interval stay readable.
-        start: interval.start / (scale?.ms ?? 1),
-        end: interval.end / (scale?.ms ?? 1),
-      });
-      selectors.push(barPointSelector(prefix, interval.tracePosition, interval.pointIndex));
-    }
+  for (const interval of intervals) {
+    const row = rowByLane.get(interval.lane);
+    if (row === undefined)
+      continue;
+    points[row].push({
+      x: interval.lane,
+      // Divided into the announced unit so the LENGTH reads in it. The axis
+      // format below turns the same number back into the date it names, so
+      // both halves of an interval stay readable.
+      start: interval.start / (scale?.ms ?? 1),
+      end: interval.end / (scale?.ms ?? 1),
+    });
+    rowSelectors[row].push(
+      barPointSelector(prefix, interval.tracePosition, interval.pointIndex),
+    );
   }
+  const selectors = rowSelectors.flat();
 
   // Positions are scaled milliseconds, which no reader wants read out. The
   // format takes them back to the instant they name — as a date alone for a
@@ -3160,6 +3165,23 @@ function ancestorLabels(
 }
 
 /**
+ * Whether the trace draws only part of the tree it declared.
+ *
+ * `maxdepth` stops the layout after that many levels below its entry point,
+ * and `level` moves the entry point to a sector partway down — either way,
+ * plotly puts fewer slices on the page than the tree has nodes. `-1` is
+ * plotly's own "all of it" and trims nothing.
+ *
+ * @param trace - The resolved plotly trace
+ * @returns True when plotly drew a subset of the computed tree
+ */
+function isTrimmedHierarchy(trace: PlotlyTrace): boolean {
+  const depth = trace.maxdepth;
+  return (typeof depth === 'number' && depth > 0)
+    || (trace.level !== undefined && trace.level !== '');
+}
+
+/**
  * Builds a sunburst, icicle or treemap layer.
  *
  * One extractor for all three because plotly gives them one attribute set and
@@ -3193,7 +3215,12 @@ function extractHierarchyLayer(
     // is not the drawn one, so a layer built from the trace's own arrays goes
     // out without selectors. No highlight at all beats one that lands on a
     // neighbouring sector while the text announces this one.
-    selectors: drawn ? selectors : undefined,
+    //
+    // A trimmed tree is withheld for the same reason. `maxdepth` and `level`
+    // narrow what plotly draws without narrowing what it computed, so the walk
+    // still yields every node while only some have a `g.slice` on the page —
+    // and sector k would then be some other sector's slice.
+    selectors: drawn && !isTrimmedHierarchy(trace) ? selectors : undefined,
     axes: {
       x: { label: HIERARCHY_LABEL_AXIS },
       y: { label: HIERARCHY_VALUE_AXIS },
@@ -3222,9 +3249,13 @@ const SANKEY_VALUE_AXIS = 'Value';
  * declared labels (one plotly generated for a `node.groups` entry) falls back
  * to its index, which at least identifies it consistently across the flows
  * that touch it.
+ *
+ * `null` is admitted because `typeof null` is `'object'`: a hole in an
+ * authored `link.source` array would otherwise be read as a node and have its
+ * label taken off nothing.
  */
 function sankeyEndpoint(
-  end: number | PlotlySankeyNode | undefined,
+  end: number | PlotlySankeyNode | null | undefined,
   labels: (number | string)[],
 ): string | number {
   if (end !== null && typeof end === 'object') {

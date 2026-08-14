@@ -98,7 +98,7 @@ export function generatePlotlySelectors(
       return scatterTraceScope(prefix, traceData, 'g.textpoint > text');
 
     case TraceType.ERROR_BAR:
-      return errorBarSelector(prefix, traceData);
+      return errorBarSelector(prefix, plotlyGd, traceIndex);
 
     case TraceType.BOX:
       return `${prefix}.trace.boxes .point > path`;
@@ -288,16 +288,72 @@ export function errorBarAxis(trace: PlotlyTrace): 'x' | 'y' | null {
  *
  * Plotly puts a bar-like trace's error bars straight into the trace group and
  * a scatter's into an `errorbars` group of their own, drawn under the line.
+ *
+ * Both are scoped to the one trace the layer describes rather than to the
+ * panel. Two traces carrying intervals on one subplot is an ordinary chart —
+ * a measurement against its control — and a panel-wide selector would give
+ * both layers every whip on the panel. `ErrorBarTrace` withholds highlighting
+ * outright when the elements do not match its samples, so the visual modality
+ * would go silently missing for both.
+ *
+ * @param prefix     - The subplot prefix the trace is drawn in
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The global index of the trace carrying the intervals
+ * @returns The selector, or undefined when the trace draws no intervals
  */
-function errorBarSelector(prefix: string, trace: PlotlyTrace | undefined): string | undefined {
+function errorBarSelector(
+  prefix: string,
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+): string | undefined {
+  const trace = gd._fullData?.[traceIndex];
   const axis = trace ? errorBarAxis(trace) : null;
-  if (axis === null) {
+  if (!trace || axis === null) {
     return undefined;
   }
-  const group = trace?.type === 'bar'
-    ? `${prefix}.trace.bars`
-    : `${prefix}.trace.scatter .errorbars`;
-  return `${group} > g.errorbar > path.${axis}error`;
+  const whip = `g.errorbar > path.${axis}error`;
+  if (trace.type === 'bar') {
+    // Bar groups carry no uid class, so the trace is named by its position
+    // among the panel's bar-layer traces — the count {@link barPointSelector}
+    // is under, and histograms share that layer.
+    const position = barLayerPosition(gd, traceIndex, trace) + 1;
+    return `${prefix}.barlayer > g.trace.bars:nth-of-type(${position}) > ${whip}`;
+  }
+  return scatterTraceScope(prefix, trace, `.errorbars > ${whip}`);
+}
+
+/**
+ * A bar-family trace's position among the ones plotly drew into its panel's
+ * `barlayer`, which is what a `nth-of-type` selector counts by.
+ *
+ * Histograms are counted too: plotly draws them through the bar renderer and
+ * into the same layer, so one sitting before this trace shifts its group.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The global index of the trace being selected
+ * @param trace      - That trace, whose axes name the panel
+ * @returns How many bar-layer traces plotly drew before it on that panel
+ */
+function barLayerPosition(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  trace: PlotlyTrace,
+): number {
+  const traces = gd._fullData ?? [];
+  let position = 0;
+  for (let i = 0; i < traceIndex; i++) {
+    const other = traces[i];
+    if (
+      (other?.type === 'bar' || other?.type === 'histogram')
+      && other.visible !== false
+      && other.visible !== 'legendonly'
+      && (other.xaxis ?? 'x') === (trace.xaxis ?? 'x')
+      && (other.yaxis ?? 'y') === (trace.yaxis ?? 'y')
+    ) {
+      position++;
+    }
+  }
+  return position;
 }
 
 /**
