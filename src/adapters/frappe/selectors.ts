@@ -10,13 +10,17 @@
  *   Bars:    <rect class="bar"> inside <g class="dataset-units dataset-bars dataset-{i}">
  *   Lines:   <path class="line-graph-path"> + one <circle> per data point, inside
  *            <g class="dataset-units dataset-line dataset-{i}">
- *   Points:  <circle> inside <g class="dataset-units dataset-line dataset-{i}">  (scatter reuses the line group)
+ *   Areas:   the line group again, plus a <path class="region-fill"> under it
+ *            (`lineOptions.regionFill`)
+ *   Points:  <circle> inside <g class="dataset-units dataset-line dataset-{i}">  (scatter and dot reuse the line group)
  *   Pie:     <path class="pie-path"> inside <g class="pie-slices">
  *   Donut:   <path class="donut-path"> inside <g class="donut-slices">
  *
  * For line traces MAIDR highlights one element per data point, so the line
- * selectors target the per-point `<circle>` dots (not the single `<path>`).
- * This requires the Frappe chart to render dots (`lineOptions.dotSize > 0`).
+ * selectors target the per-point `<circle>` dots — never the single
+ * `path.line-graph-path` or `path.region-fill`, which are one element for the
+ * whole series. This requires the Frappe chart to render dots
+ * (`lineOptions.dotSize > 0`, and no `hideDots`).
  *
  * Every selector is scoped to the container element's `id` so that charts
  * elsewhere on the same page are never matched.
@@ -56,7 +60,14 @@ export function ensureContainerId(container: HTMLElement): void {
   }
 }
 
-/** Scoped selector for all bar rects (single or stacked bar groups). */
+/**
+ * Scoped selector for every dataset group's bar rects, in the order Frappe
+ * appends them (dataset 0's rects, then dataset 1's, …).
+ *
+ * The segmented bar family — a diverging chart here — maps ONE selector across
+ * all of its series and splits the match by `domMapping`, so it needs the
+ * broad selector rather than the per-dataset one below.
+ */
 export function barSelector(containerId: string): string {
   return `#${containerId} svg.frappe-chart .dataset-units.dataset-bars rect.bar`;
 }

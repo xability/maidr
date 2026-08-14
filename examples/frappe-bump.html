@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Bump - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Bump Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        // The values are RANKS, 1 = best, not magnitudes. Emit them as ranks:
+        // MAIDR inverts the pitch itself so first place is the highest note, and
+        // announces the places gained or lost at each week. Frappe v1.6.2 cannot
+        // reverse an axis, so the DRAWN chart shows rank 1 at the bottom -
+        // pre-inverting the values to fix the picture would make every
+        // announcement report the wrong rank.
+        const data = {
+          labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+          datasets: [
+            {
+              name: 'Alpha',
+              values: [1, 2, 2, 1, 1],
+            },
+            {
+              name: 'Beta',
+              values: [2, 1, 3, 3, 2],
+            },
+            {
+              name: 'Gamma',
+              values: [3, 3, 1, 2, 3],
+            },
+          ],
+        };
+
+        // dotSize > 0 renders per-point <circle> dots, which the adapter's line
+        // selector targets for highlighting.
+        const chart = new frappe.Chart('#chart', {
+          title: 'Weekly League Standings',
+          data: data,
+          type: 'line',
+          height: 400,
+          colors: ['#7cd6fd', '#e44c55', '#5e64ff'],
+          lineOptions: {
+            dotSize: 6,
+          },
+        });
+
+        // Nothing in Frappe's data distinguishes a rank from a magnitude, so the
+        // chart type has to be declared. The adapter emits one selector per
+        // competitor plus a legend from the dataset names.
+        //
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting.
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'bump',
+          title: 'Weekly League Standings',
+          axes: { x: 'Week', y: 'Rank' },
+        });
+
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
+            return;
+          }
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -46,15 +46,46 @@ export interface FrappeChart {
    * in which case Frappe's own default (20) is assumed.
    */
   config?: { maxSlices?: number };
+  /**
+   * The chart's line rendering options, an instance field on Frappe's
+   * `AxisChart` rather than part of `config`. Only `regionFill` is read: it is
+   * what fills the band between the line and the baseline, which makes the
+   * chart an area chart rather than a line chart, and reading it here means an
+   * author cannot mislabel one as the other. Absent on a plain `{ data }`
+   * object — pass `chartType: 'area'` in that case.
+   */
+  lineOptions?: { regionFill?: number };
 }
 
 /**
- * Frappe Charts chart-type strings the adapter can convert.
+ * Chart-type strings the adapter can convert.
  *
- * Frappe additionally supports `percentage` and a calendar-style `heatmap`;
- * those have no clean MAIDR equivalent and are not supported by this adapter.
+ * These are the **adapter's** names, not Frappe's own `type` strings. Frappe
+ * v1.6.2 draws only `bar`, `line`, `axis-mixed`, `pie`, `donut`, `percentage`
+ * and a calendar `heatmap`; several distinct statistical charts are all drawn
+ * with `type: 'line'` or `type: 'bar'` and differ only in their options or in
+ * what the numbers mean, which no chart instance records. Naming them here is
+ * how the author says which chart they drew, so MAIDR announces that one:
+ *
+ * - `'scatter'` / `'dot'` — `type: 'line'` with `lineOptions.hideLine`
+ * - `'area'` — `type: 'line'` with `lineOptions.regionFill` (also inferred)
+ * - `'bump'` — a multi-dataset `type: 'line'` chart whose y values are ranks
+ * - `'diverging'` — a two-dataset `type: 'bar'` chart with signed values
+ *
+ * `percentage` and the calendar-style `heatmap` have no clean MAIDR equivalent
+ * and are not supported.
  */
-export type FrappeChartType = 'axis-mixed' | 'bar' | 'donut' | 'line' | 'pie' | 'scatter';
+export type FrappeChartType
+  = | 'area'
+    | 'axis-mixed'
+    | 'bar'
+    | 'bump'
+    | 'diverging'
+    | 'donut'
+    | 'dot'
+    | 'line'
+    | 'pie'
+    | 'scatter';
 
 /**
  * One panel of a multi-panel (small-multiples) figure built from several
@@ -75,5 +106,5 @@ export interface FrappePanel {
   /** Panel display name, announced when navigating between subplots. */
   title?: string;
   /** Axis labels for this panel. */
-  axes?: { x?: string; y?: string };
+  axes?: { x?: string; y?: string; z?: string };
 }

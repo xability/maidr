@@ -80,7 +80,7 @@ Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 The Frappe Charts adapter:
 
 1. **Reads data** - takes the chart's `{ labels, datasets }` and converts it to MAIDR's schema
-2. **Creates selectors** - generates CSS selectors (scoped to the chart container) for the Frappe SVG elements used in visual highlighting. Line and scatter traces highlight one element per point, so they target the per-point `<circle>` dots — keep `lineOptions.dotSize > 0`.
+2. **Creates selectors** - generates CSS selectors (scoped to the chart container) for the Frappe SVG elements used in visual highlighting. MAIDR highlights one element per data point, so every line-based chart — line, area, bump, scatter, dot — targets the per-point `<circle>` dots rather than the one `<path>` drawn for the whole series. Keep `lineOptions.dotSize > 0` and leave `hideDots` off.
 3. **Returns MAIDR config** - produces a complete `Maidr` object you set as the `maidr` attribute
 
 ### Wait for the chart to settle
@@ -98,16 +98,28 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 | Bar | `'bar'` | `'bar'` |
 | Line | `'line'` | `'line'` |
 | Multi-line | `'line'` (multiple datasets) | `'line'` |
+| Area | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
+| Bump (rank over time) | `'line'` (one dataset per competitor) | `'bump'` |
 | Scatter | `'line'` + `lineOptions: { hideLine: 1 }` | `'scatter'` |
+| Dot plot | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
+| Diverging bar | `'bar'` (two signed datasets) | `'diverging'` |
 | Mixed axis (bar + line) | `'axis-mixed'` | `'axis-mixed'` |
 | Pie | `'pie'` | `'pie'` |
 | Donut | `'donut'` | `'donut'` |
+
+The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws several distinct statistical charts with the same `type: 'line'` or `type: 'bar'`, differing only in their options or in what the numbers mean — nothing a chart instance records — so naming the chart is how you tell MAIDR which one to announce.
 
 **Not supported:** Percentage charts (no MAIDR equivalent), and Frappe's calendar-style Heatmap (structurally unlike MAIDR's matrix heatmap).
 
 > **Pie note:** Frappe aggregates before it draws — it sums every dataset at each label, drops labels whose total is negative, and collapses everything past `maxSlices` (default 20) into one "Rest" wedge. The adapter reproduces that aggregation so each announced slice is the wedge it highlights. Pass the chart instance (not a plain `{ data }` object) when you override `maxSlices`, so the adapter can read it.
 
-> **Scatter note:** Frappe Charts v1.6.2 has no native `scatter` type. Render a dot plot with a line chart whose connecting line is hidden (`lineOptions: { hideLine: 1 }`); pass `chartType: 'scatter'` to the adapter so it is treated as a scatter plot. Frappe spaces x-axis labels evenly regardless of their numeric value, so use evenly spaced numeric labels.
+> **Area note:** `lineOptions.regionFill` is an instance field the adapter reads directly, so a chart passed as `chartType: 'line'` with the region filled is announced as an area chart anyway — you cannot mislabel one as the other. Pass `chartType: 'area'` when you hand the adapter a plain `{ data }` object, which has no instance to read. Several filled bands in one chart **overlap** in Frappe rather than stacking, so they stay independent series (`area`, never `stacked_area`). Keep `dotSize > 0`: the fill is one `<path>` for the whole series and cannot highlight individual points.
+
+> **Scatter / dot note:** Frappe Charts v1.6.2 has no native `scatter` type. Render either chart with a line chart whose connecting line is hidden (`lineOptions: { hideLine: 1, dotSize: 6 }`). Frappe places its marks at **evenly spaced label positions whatever the label holds**, so which of the two you have depends on the labels: numeric, evenly spaced labels are a scatter plot (`chartType: 'scatter'`), and category names are a Cleveland dot plot (`chartType: 'dot'`). Passing `'scatter'` with categorical labels is converted as a dot plot with a console warning, because `Number('Mon')` is `NaN` and a scatter layer built from those labels would have no x values at all.
+
+> **Bump note:** A bump chart is a multi-dataset line chart whose y values are **ranks** — one dataset per competitor, `1` = best. MAIDR inverts the pitch so first place is the highest note and announces the places gained or lost at each period, which is why the type has to be declared: nothing in the data distinguishes a rank from a magnitude. Emit the **true ranks**. Frappe v1.6.2 cannot invert or reverse an axis, so a rank chart it draws shows rank 1 at the *bottom*; pre-inverting the values to make the picture look right would make MAIDR announce the wrong ranks.
+
+> **Diverging note:** A diverging bar chart is two bar datasets with opposite signs, drawn either side of Frappe's zero line — negate the values of the series that should grow downwards and emit them signed, exactly as the chart draws them. MAIDR takes the magnitude for the pitch and names the side. The adapter throws unless the chart is exactly two datasets, one all-negative and one all-positive, rather than announce sides that are not there. Two limits are Frappe's: it has no horizontal bars, so the back-to-back population pyramid orientation is not drawable — only the vertical up/down form — and `barOptions: { stacked: 1 }` must **not** be used, because Frappe cumulates raw values and would stack the negative series onto the positive one.
 
 ## Code Examples
 
@@ -181,6 +193,123 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
     chartType: 'line',
     title: 'Monthly Product Sales',
     axes: { x: 'Month', y: 'Sales (thousands USD)' },
+  });
+</script>
+```
+
+### Area Chart
+
+```html
+<div id="area-chart"></div>
+<script>
+  const data = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [{ name: 'Rainfall', values: [42, 55, 71, 63, 48, 30] }],
+  };
+  // regionFill: 1 fills the band between the line and the baseline. The
+  // adapter reads it off the instance, so `chartType: 'line'` is announced as
+  // an area chart too — pass 'area' when handing over a plain { data } object.
+  const chart = new frappe.Chart('#area-chart', {
+    data,
+    type: 'line',
+    height: 400,
+    lineOptions: { regionFill: 1, dotSize: 5 },
+  });
+
+  activateMaidrWhenSettled(document.querySelector('#area-chart'), {
+    chartType: 'area',
+    title: 'Monthly Rainfall',
+    axes: { x: 'Month', y: 'Rainfall (mm)' },
+  });
+</script>
+```
+
+### Bump Chart (Rank Over Time)
+
+```html
+<div id="bump-chart"></div>
+<script>
+  // The values are RANKS, 1 = best. Emit them as ranks: MAIDR inverts the
+  // pitch itself, and Frappe cannot reverse an axis, so the drawn chart shows
+  // rank 1 at the bottom while the announcements stay correct.
+  const data = {
+    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    datasets: [
+      { name: 'Alpha', values: [1, 2, 2, 1] },
+      { name: 'Beta', values: [2, 1, 3, 3] },
+      { name: 'Gamma', values: [3, 3, 1, 2] },
+    ],
+  };
+  const chart = new frappe.Chart('#bump-chart', {
+    data,
+    type: 'line',
+    height: 400,
+    lineOptions: { dotSize: 6 },
+  });
+
+  activateMaidrWhenSettled(document.querySelector('#bump-chart'), {
+    chartType: 'bump',
+    title: 'Weekly League Standings',
+    axes: { x: 'Week', y: 'Rank' },
+  });
+</script>
+```
+
+### Dot Plot
+
+```html
+<div id="dot-chart"></div>
+<script>
+  const data = {
+    labels: ['North', 'South', 'East', 'West', 'Central'],
+    datasets: [{ name: 'Sales', values: [64, 41, 78, 55, 92] }],
+  };
+  // Same rendering as the scatter plot below — a line chart with the line
+  // hidden. The labels are what tells the two apart: category names place one
+  // mark per category, which is a dot plot.
+  const chart = new frappe.Chart('#dot-chart', {
+    data,
+    type: 'line',
+    height: 400,
+    lineOptions: { hideLine: 1, dotSize: 8 },
+  });
+
+  activateMaidrWhenSettled(document.querySelector('#dot-chart'), {
+    chartType: 'dot',
+    title: 'Sales by Region',
+    axes: { x: 'Region', y: 'Sales (thousands USD)' },
+  });
+</script>
+```
+
+### Diverging Bar Chart
+
+```html
+<div id="diverging-chart"></div>
+<script>
+  // Two datasets with opposite signs. The downward series is NEGATIVE: MAIDR
+  // takes the magnitude for the pitch and names the side, so stripping the
+  // sign would leave it nothing to name the sides with. Do not set
+  // barOptions.stacked — Frappe cumulates raw values and would stack the
+  // negative series onto the positive one.
+  const data = {
+    labels: ['0-14', '15-29', '30-44', '45-59', '60-74', '75+'],
+    datasets: [
+      { name: 'Men', values: [-1200, -1150, -1080, -990, -720, -310] },
+      { name: 'Women', values: [1140, 1100, 1060, 1010, 830, 520] },
+    ],
+  };
+  const chart = new frappe.Chart('#diverging-chart', {
+    data,
+    type: 'bar',
+    height: 420,
+    colors: ['#4c72b0', '#c44e52'],
+  });
+
+  activateMaidrWhenSettled(document.querySelector('#diverging-chart'), {
+    chartType: 'diverging',
+    title: 'Population by Age Band',
+    axes: { x: 'Age band', y: 'People, thousands', z: 'Sex' },
   });
 </script>
 ```
@@ -308,9 +437,9 @@ The adapter accepts a `FrappeChartAdapterOptions` object:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `chartType` | `'bar' \| 'line' \| 'scatter' \| 'axis-mixed'` | Yes | The Frappe chart type. Multi-line uses `'line'`. |
+| `chartType` | `'bar' \| 'line' \| 'area' \| 'bump' \| 'scatter' \| 'dot' \| 'diverging' \| 'axis-mixed' \| 'pie' \| 'donut'` | Yes | Which chart you drew (see [Supported Chart Types](#supported-chart-types)). Multi-line uses `'line'`. |
 | `title` | `string` | No | Chart title for accessibility announcements |
-| `axes` | `{ x?: string; y?: string }` | No | Axis labels |
+| `axes` | `{ x?: string; y?: string; z?: string }` | No | Axis labels. `z` names the dimension the series themselves vary along (the two sides of a `'diverging'` chart, say) and is ignored by the types that have no third dimension. |
 | `id` | `string` | No | Unique ID for the MAIDR instance (defaults to the container's `id`) |
 
 ## Using with npm/Bundlers
