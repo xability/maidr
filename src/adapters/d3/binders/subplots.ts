@@ -40,9 +40,12 @@ import { applyMaidrData, generateId, getD3Datum, isMaidrOwned, resolveAccessorOp
 import { buildAreaLayer } from './area';
 import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
+import { buildBoxenLayer } from './boxen';
 import { buildCandlestickLayer } from './candlestick';
 import { buildDumbbellLayer } from './dumbbell';
-import { buildErrorBarLayer } from './errorBar';
+import { buildErrorBarLayer, buildForestLayer } from './errorBar';
+import { buildFlowLayer } from './flow';
+import { buildGanttLayer } from './gantt';
 import { buildGaugeLayer } from './gauge';
 import { buildHeatmapLayer } from './heatmap';
 import { buildHistogramLayer } from './histogram';
@@ -238,30 +241,42 @@ function buildPanelGrid(
 /** Dispatches a panel cell to the matching per-type extraction core. */
 function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelScope): D3BuiltLayer {
   switch (spec.chartType) {
+    case 'alluvial':
+      return buildFlowLayer(root, spec.config, panel, TraceType.ALLUVIAL);
     case 'area':
       return buildAreaLayer(root, spec.config, panel);
     case 'bar':
       return buildBarLayer(root, spec.config, panel);
     case 'box':
       return buildBoxLayer(root, spec.config, panel);
+    case 'boxen':
+      return buildBoxenLayer(root, spec.config, panel);
     case 'bump':
       return buildLineLayer(root, spec.config, panel, TraceType.BUMP);
     case 'candlestick':
       return buildCandlestickLayer(root, spec.config, panel);
+    case 'chord':
+      return buildFlowLayer(root, spec.config, panel, TraceType.CHORD);
     case 'dot':
       return buildBarLayer(root, spec.config, panel, TraceType.DOT);
     case 'dumbbell':
       return buildDumbbellLayer(root, spec.config, panel);
     case 'errorBar':
       return buildErrorBarLayer(root, spec.config, panel);
+    case 'forest':
+      return buildForestLayer(root, spec.config, panel);
     case 'funnel':
       return buildBarLayer(root, spec.config, panel, TraceType.FUNNEL);
+    case 'gantt':
+      return buildGanttLayer(root, spec.config, panel);
     case 'gauge':
       return buildGaugeLayer(root, spec.config, panel);
     case 'heatmap':
       return buildHeatmapLayer(root, spec.config, panel);
     case 'histogram':
       return buildHistogramLayer(root, spec.config, panel);
+    case 'icicle':
+      return buildTreemapLayer(root, spec.config, panel, TraceType.ICICLE);
     case 'line':
       return buildLineLayer(root, spec.config, panel);
     case 'lollipop':
@@ -278,6 +293,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildPolarAreaLayer(root, spec.config, panel);
     case 'radar':
       return buildLineLayer(root, spec.config, panel, TraceType.RADAR);
+    case 'sankey':
+      return buildFlowLayer(root, spec.config, panel, TraceType.SANKEY);
     case 'scatter':
       return buildScatterLayer(root, spec.config, panel);
     case 'segmented':

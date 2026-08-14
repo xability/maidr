@@ -22,14 +22,17 @@
  * - **Scatter plots** via {@link bindD3Scatter}
  * - **Heatmaps** via {@link bindD3Heatmap}
  * - **Box plots** via {@link bindD3Box}
+ * - **Boxen / letter-value plots** via {@link bindD3Boxen}
  * - **Histograms** via {@link bindD3Histogram}
  * - **Candlestick charts** via {@link bindD3Candlestick}
  * - **Segmented bar charts** (stacked, dodged, normalized) via {@link bindD3Segmented}
  * - **Diverging bars / population pyramids** via {@link bindD3Diverging}
  * - **Error-bar / point-range charts** via {@link bindD3ErrorBar}
+ * - **Forest plots** via {@link bindD3Forest}
  * - **Dumbbell charts** via {@link bindD3Dumbbell}
  * - **Waterfall / bridge charts** via {@link bindD3Waterfall}
  * - **Word clouds** via {@link bindD3WordCloud}
+ * - **Gantt / timeline / swimlane charts** via {@link bindD3Gantt}
  * - **Gauges and bullet charts** via {@link bindD3Gauge}
  * - **Manhattan plots** via {@link bindD3Manhattan}
  * - **Volcano plots** via {@link bindD3Volcano}
@@ -39,6 +42,10 @@
  * - **Force-directed networks** via {@link bindD3Network}
  * - **Treemaps** via {@link bindD3Treemap}
  * - **Sunbursts** via {@link bindD3Sunburst}
+ * - **Icicles** via {@link bindD3Icicle}
+ * - **Sankey diagrams** via {@link bindD3Sankey}
+ * - **Alluvial diagrams** via {@link bindD3Alluvial}
+ * - **Chord diagrams** via {@link bindD3Chord}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
  * ## Multi-Panel Charts
@@ -115,9 +122,12 @@ export { Orientation, TraceType } from '../../type/grammar';
 export { bindD3Area } from './binders/area';
 export { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/bar';
 export { bindD3Box } from './binders/box';
+export { bindD3Boxen } from './binders/boxen';
 export { bindD3Candlestick } from './binders/candlestick';
 export { bindD3Dumbbell } from './binders/dumbbell';
-export { bindD3ErrorBar } from './binders/errorBar';
+export { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
+export { bindD3Alluvial, bindD3Chord, bindD3Sankey } from './binders/flow';
+export { bindD3Gantt } from './binders/gantt';
 export { bindD3Gauge } from './binders/gauge';
 export { bindD3Heatmap } from './binders/heatmap';
 export { bindD3Histogram } from './binders/histogram';
@@ -128,7 +138,7 @@ export { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter
 export { bindD3Diverging, bindD3Mosaic, bindD3Segmented } from './binders/segmented';
 export { bindD3Smooth } from './binders/smooth';
 export { bindD3Facets, bindD3Subplots } from './binders/subplots';
-export { bindD3Sunburst, bindD3Treemap } from './binders/treemap';
+export { bindD3Icicle, bindD3Sunburst, bindD3Treemap } from './binders/treemap';
 export { bindD3Waterfall } from './binders/waterfall';
 export { bindD3WordCloud } from './binders/wordCloud';
 
@@ -141,10 +151,14 @@ export type {
   D3BinderConfig,
   D3BinderResult,
   D3BoxConfig,
+  D3BoxenConfig,
   D3CandlestickConfig,
   D3DumbbellConfig,
   D3ErrorBarConfig,
   D3FacetsConfig,
+  D3FlowConfig,
+  D3ForestConfig,
+  D3GanttConfig,
   D3GaugeConfig,
   D3HeatmapConfig,
   D3HistogramConfig,
@@ -167,6 +181,7 @@ export type {
   D3WaterfallConfig,
   D3WordCloudConfig,
   DataAccessor,
+  FlowTraceType,
   LineMarkTraceType,
   ScatterMarkTraceType,
   SegmentedTraceType,

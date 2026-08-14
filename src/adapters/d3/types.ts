@@ -9,10 +9,14 @@ import type {
   AxisConfig,
   AxisFormat,
   BarPoint,
+  BoxenPoint,
   BoxPoint,
   CandlestickPoint,
   DumbbellData,
   ErrorBarPoint,
+  FlowPoint,
+  ForestPoint,
+  GanttData,
   GaugeBand,
   GaugePoint,
   HeatmapData,
@@ -599,16 +603,272 @@ export interface D3NetworkConfig extends D3BinderConfig {
 }
 
 /**
+ * Trace types that share the flow extraction: one ribbon per weighted link,
+ * named by the pair of nodes it joins.
+ *
+ * A sankey runs its ribbons left to right, an alluvial repeats the node columns
+ * and a chord wraps them around a circle; all three are the same weighted graph,
+ * so all three are built by {@link buildFlowLayer} and differ only in the type
+ * the layer announces.
+ */
+export type FlowTraceType
+  = | typeof TraceType.ALLUVIAL
+    | typeof TraceType.CHORD
+    | typeof TraceType.SANKEY;
+
+/**
+ * Configuration for binding a D3 sankey, alluvial or chord diagram.
+ *
+ * Point `selector` at the **ribbons** — one `<path>` per link — rather than at
+ * the node rectangles: the nodes are derived from the links exactly as a
+ * network's are, so a link is what maps one-to-one onto the payload.
+ *
+ * `d3-sankey` **replaces** each link's `source` and `target` with the node
+ * objects it resolved them to, the way `d3.forceLink` does, so an object end is
+ * read through its `id`, `name`, `key` or `label`. `d3.chord()` is the one that
+ * needs help: its ends are the matrix's row and column **indices**, which is
+ * what {@link D3FlowConfig.names} is for.
+ *
+ * @example
+ * ```ts
+ * bindD3Sankey(svgElement, {
+ *   selector: 'path.ribbon',
+ *   axes: { x: 'Node', y: 'Petajoules' },
+ * });
+ * ```
+ */
+export interface D3FlowConfig extends D3BinderConfig {
+  /** CSS selector for the ribbon elements (e.g. `'path.ribbon'`). */
+  selector: string;
+  /**
+   * Accessor for the node a flow leaves. @default 'source', falling back to
+   * `from` or `src`. An object end is named through its `id`, `name`, `key` or
+   * `label`, or — for a chord — through {@link D3FlowConfig.names}.
+   */
+  source?: DataAccessor<unknown>;
+  /**
+   * Accessor for the node a flow arrives at. @default 'target', falling back
+   * to `to` or `dst`. Named the same way as {@link D3FlowConfig.source}.
+   */
+  target?: DataAccessor<unknown>;
+  /**
+   * Accessor for how much flows. @default 'value', falling back to `weight`,
+   * `amount`, `count`, or `y`. When the datum carries none of them, the
+   * magnitude `d3.chord()` put on each end (`d.source.value`) is used, which
+   * is what the ribbon's width was drawn from.
+   */
+  value?: DataAccessor<number>;
+  /**
+   * What the matrix's rows are called, in matrix order — the labels a chord
+   * diagram draws around the dial.
+   *
+   * `d3.chord()` binds `{ index, value, … }` to each end rather than a name,
+   * because a matrix has no names in it. Without this a chord announces its
+   * ends as the bare indices they are; with it, the reader is told which
+   * groups the ribbon joins.
+   */
+  names?: (string | number)[];
+}
+
+/**
+ * Configuration for binding a D3 gantt (timeline, swimlane) chart.
+ *
+ * Point `selector` at the interval marks — one `<rect>` per booked interval on
+ * a band scale of lanes. The binder groups them into lanes itself: the payload
+ * is nested by lane, and the DOM order a chart happens to draw in is not that
+ * grouping.
+ *
+ * **Dates are coerced to epoch milliseconds.** A `Date` or a date string is
+ * turned into a number so the trace can measure lengths at all; pair it with
+ * `format: { type: 'date' }` so the ends are announced as dates rather than as
+ * timestamps.
+ *
+ * @example
+ * ```ts
+ * bindD3Gantt(svgElement, {
+ *   selector: 'rect.task',
+ *   axes: { x: 'Day', y: 'Phase' },
+ *   x: 'phase',
+ *   start: 'from',
+ *   end: 'to',
+ *   label: 'task',
+ *   lanes: ['Design', 'Build', 'Review', 'Launch'],
+ *   unit: 'days',
+ * });
+ * ```
+ */
+export interface D3GanttConfig extends D3BinderConfig {
+  /** CSS selector for the interval elements (e.g. `'rect.task'`). */
+  selector: string;
+  /**
+   * Accessor for the lane an interval belongs to. @default 'x', falling back
+   * to `lane`, `category`, `label`, `name`, `key`, `group`, or `task`.
+   */
+  x?: DataAccessor<string | number | Date>;
+  /**
+   * Accessor for where the interval begins. @default 'start', falling back to
+   * `from`, `begin`, `x0`, or `startDate`.
+   */
+  start?: DataAccessor<number | string | Date>;
+  /**
+   * Accessor for where the interval ends. @default 'end', falling back to
+   * `to`, `finish`, `x1`, or `endDate`.
+   */
+  end?: DataAccessor<number | string | Date>;
+  /**
+   * Accessor for what the interval is called, when the lane is not already its
+   * name. @default 'label', falling back to `name`, `task`, `title`, or
+   * `activity`. Omitted from the payload when the datum carries none of them.
+   */
+  label?: DataAccessor<string>;
+  /**
+   * The lanes, in the order the chart draws them.
+   *
+   * Needed only for **empty** lanes: a lane with nothing booked has no element
+   * in the DOM at all, so the binder cannot discover it, and an empty row is a
+   * real statement about a schedule. Lanes carrying intervals name themselves
+   * and need no entry here; any the binder finds and this does not declare are
+   * appended in the order they were drawn.
+   */
+  lanes?: (string | number)[];
+  /** What a unit of the axis is called — `'days'`, `'hours'`, `'weeks'`. */
+  unit?: string;
+  /**
+   * Chart orientation. @default Orientation.HORIZONTAL — a gantt drawn the
+   * ordinary way runs its bars left to right, which puts the axis on x and the
+   * lanes on y. Pass `Orientation.VERTICAL` for a schedule drawn as columns.
+   */
+  orientation?: Orientation;
+}
+
+/**
+ * Configuration for binding a D3 boxen (letter-value) plot.
+ *
+ * Point `selector` at one element per distribution — the `<g>` holding the
+ * stack of nested rungs — the way {@link D3BoxConfig} points at a box group.
+ * Every rung of a distribution highlights that whole group, because a chart
+ * does not draw an element per quantile that MAIDR could pair up positionally.
+ *
+ * The ladder is read from the datum rather than measured off the rungs: a
+ * letter-value plot computes its quantiles before it draws them, and a height
+ * in pixels is a layout fact rather than a quantile.
+ *
+ * @example
+ * ```ts
+ * bindD3Boxen(svgElement, {
+ *   selector: 'g.boxen',
+ *   axes: { x: 'Group', y: 'Milliseconds' },
+ *   x: 'group',
+ *   median: 'median',
+ *   levels: 'letterValues',
+ * });
+ * ```
+ */
+export interface D3BoxenConfig extends D3BinderConfig {
+  /** CSS selector for the per-distribution elements (e.g. `'g.boxen'`). */
+  selector: string;
+  /**
+   * Accessor for the category the distribution summarises. @default 'x',
+   * falling back to `z`, `category`, `label`, `name`, `key`, or `group`.
+   */
+  x?: DataAccessor<string | number>;
+  /**
+   * Accessor for the middle of the distribution. @default 'median', falling
+   * back to `q2`, `mid`, or `y`.
+   */
+  median?: DataAccessor<number>;
+  /**
+   * Accessor for the ladder of quantile pairs — one entry per rung, each
+   * carrying the tail probability `p` and the pair of quantiles `lo` / `hi`
+   * (`lower` / `upper` are accepted too).
+   *
+   * @default 'levels', falling back to `letterValues`, `letter_values`,
+   * `quantiles`, or `ladder`. A rung whose three numbers are not all finite is
+   * dropped rather than announced as a quantile the data does not contain.
+   */
+  levels?: DataAccessor<unknown[]>;
+  /** Accessor for values below the deepest rung. @default 'lowerOutliers' */
+  lowerOutliers?: DataAccessor<number[]>;
+  /** Accessor for values above the deepest rung. @default 'upperOutliers' */
+  upperOutliers?: DataAccessor<number[]>;
+  /** Chart orientation. @default Orientation.VERTICAL */
+  orientation?: Orientation;
+}
+
+/**
+ * Configuration for binding a D3 forest plot.
+ *
+ * Extends {@link D3ErrorBarConfig} because a forest plot *is* a point-range
+ * chart: one row per study, an estimate and an interval read the same way. What
+ * it adds is the part a sighted reader takes from the drawing — how much each
+ * study weighs, which row is the pooled summary, and where the null line sits.
+ *
+ * The pooled row is usually a differently-shaped mark (a diamond `<path>`, not
+ * a whip), so it is selected separately with `pooledSelector` and appended
+ * after the studies. A chart that draws every row alike can instead mark it
+ * with the `pooled` accessor.
+ *
+ * @example
+ * ```ts
+ * bindD3Forest(svgElement, {
+ *   selector: 'g.study',
+ *   pooledSelector: 'path.pooled',
+ *   orientation: Orientation.HORIZONTAL,
+ *   axes: { x: 'Odds ratio', y: 'Study' },
+ *   x: 'study',
+ *   y: 'or',
+ *   yMin: 'ciLow',
+ *   yMax: 'ciHigh',
+ *   weight: 'weight',
+ *   nullValue: 1,
+ * });
+ * ```
+ */
+export interface D3ForestConfig extends D3ErrorBarConfig {
+  /**
+   * Accessor for the study's weight in the pooled estimate, as a fraction of
+   * one. @default 'weight', falling back to `w` or `share`. Omitted from the
+   * payload when the datum carries none of them — a forest plot without
+   * weights is a real chart.
+   */
+  weight?: DataAccessor<number>;
+  /**
+   * Accessor marking a row as the pooled summary rather than a study.
+   * @default 'pooled', falling back to `isPooled` or `summary`. Every row
+   * matched by `pooledSelector` is pooled regardless.
+   */
+  pooled?: DataAccessor<boolean>;
+  /**
+   * CSS selector for the pooled summary's own mark, when it is drawn
+   * differently from the studies — the diamond a meta-analysis ends with.
+   * Its rows are appended after the studies, in the order they are drawn.
+   */
+  pooledSelector?: string;
+  /**
+   * The value that means "no effect" — 1 for a ratio measure, 0 for a
+   * difference.
+   *
+   * Whether a study's interval crosses it is the result for that study, so the
+   * trace announces the crossing. There is deliberately **no default**: a ratio
+   * chart guessed at 0 would report every study as not crossing, which is a
+   * confident wrong answer given to every row.
+   */
+  nullValue?: number;
+}
+
+/**
  * Trace types that share the hierarchy extraction: one node per mark, named by
  * the path from the root down to it.
  *
- * A treemap lays the tree out as nested rectangles and a sunburst as concentric
- * arcs; the tree is the same, so both are built by {@link buildTreemapLayer}
- * and differ only in the type the layer announces — which is what makes the
- * sunburst pan by the node's angle around the dial.
+ * A treemap lays the tree out as nested rectangles, a sunburst as concentric
+ * arcs and an icicle as depth-ordered bands; the tree is the same, so all three
+ * are built by {@link buildTreemapLayer} and differ only in the type the layer
+ * announces — which is what makes the sunburst pan by the node's angle around
+ * the dial.
  */
 export type TreemapTraceType
-  = | typeof TraceType.SUNBURST
+  = | typeof TraceType.ICICLE
+    | typeof TraceType.SUNBURST
     | typeof TraceType.TREEMAP;
 
 /**
@@ -1002,18 +1262,24 @@ export interface D3BuiltLayer {
  * base of the React adapter's {@link D3AdapterSpec}.
  */
 export type D3PanelChartSpec
-  = | { chartType: 'area'; config: D3AreaConfig }
+  = | { chartType: 'alluvial'; config: D3FlowConfig }
+    | { chartType: 'area'; config: D3AreaConfig }
     | { chartType: 'bar'; config: D3BarConfig }
     | { chartType: 'box'; config: D3BoxConfig }
+    | { chartType: 'boxen'; config: D3BoxenConfig }
     | { chartType: 'bump'; config: D3LineConfig }
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
+    | { chartType: 'chord'; config: D3FlowConfig }
     | { chartType: 'dot'; config: D3BarConfig }
     | { chartType: 'dumbbell'; config: D3DumbbellConfig }
     | { chartType: 'errorBar'; config: D3ErrorBarConfig }
+    | { chartType: 'forest'; config: D3ForestConfig }
     | { chartType: 'funnel'; config: D3BarConfig }
+    | { chartType: 'gantt'; config: D3GanttConfig }
     | { chartType: 'gauge'; config: D3GaugeConfig }
     | { chartType: 'heatmap'; config: D3HeatmapConfig }
     | { chartType: 'histogram'; config: D3HistogramConfig }
+    | { chartType: 'icicle'; config: D3TreemapConfig }
     | { chartType: 'line'; config: D3LineConfig }
     | { chartType: 'lollipop'; config: D3BarConfig }
     | { chartType: 'manhattan'; config: D3ManhattanConfig }
@@ -1022,6 +1288,7 @@ export type D3PanelChartSpec
     | { chartType: 'pie'; config: D3PieConfig }
     | { chartType: 'polarArea'; config: D3PolarAreaConfig }
     | { chartType: 'radar'; config: D3LineConfig }
+    | { chartType: 'sankey'; config: D3FlowConfig }
     | { chartType: 'scatter'; config: D3ScatterConfig }
     | { chartType: 'segmented'; config: D3SegmentedConfig }
     | { chartType: 'smooth'; config: D3SmoothConfig }
@@ -1140,10 +1407,14 @@ export interface D3MultiPanelResult {
  */
 export type D3ExtractedData
   = | BarPoint[]
+    | BoxenPoint[]
     | BoxPoint[]
     | CandlestickPoint[]
     | DumbbellData
     | ErrorBarPoint[]
+    | FlowPoint[]
+    | ForestPoint[]
+    | GanttData
     | GaugePoint
     | HeatmapData
     | HistogramPoint[]

@@ -1,5 +1,5 @@
 import type { TreemapPoint } from '@type/grammar';
-import { bindD3Sunburst, bindD3Treemap } from '@adapters/d3/binders/treemap';
+import { bindD3Icicle, bindD3Sunburst, bindD3Treemap } from '@adapters/d3/binders/treemap';
 import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
@@ -187,6 +187,32 @@ describe('bindD3Sunburst', () => {
   });
 });
 
+describe('bindD3Icicle', () => {
+  test('reads the same partition a sunburst does, as bands', () => {
+    // An icicle is the sunburst's partition in cartesian coordinates: the
+    // tree is identical, and only the type the layer announces differs.
+    const bands = hierarchy(WORLD).slice(1);
+    const svg = buildTreeSvg('ic-svg', 'rect', 'band', bands);
+
+    const result = bindD3Icicle(svg, {
+      selector: 'rect.band',
+      title: 'World population by region',
+      axes: { x: 'Region', y: 'Population, millions' },
+    });
+
+    expect(result.layer.type).toBe(TraceType.ICICLE);
+    expect(result.layer.data).toEqual([
+      { x: 'Asia', y: 2853, path: ['World'] },
+      { x: 'China', y: 1425, path: ['World', 'Asia'] },
+      { x: 'India', y: 1428, path: ['World', 'Asia'] },
+      { x: 'Africa', y: 224, path: ['World'] },
+      { x: 'Nigeria', y: 224, path: ['World', 'Africa'] },
+    ]);
+    const matched = svg.ownerDocument.querySelectorAll(result.layer.selectors as string);
+    expect(matched).toHaveLength(bands.length);
+  });
+});
+
 describe('core-model integration', () => {
   test('a treemap layer constructs a navigable Figure', () => {
     const svg = buildTreeSvg('tm-svg', 'rect', 'leaf', leaves());
@@ -202,6 +228,22 @@ describe('core-model integration', () => {
 
       expect(figure.state.empty).toBe(false);
       expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.TREEMAP]);
+    });
+  });
+
+  test('an icicle layer constructs a navigable Figure', () => {
+    const svg = buildTreeSvg('ic-svg', 'rect', 'band', hierarchy(WORLD).slice(1));
+    const result = bindD3Icicle(svg, {
+      selector: 'rect.band',
+      title: 'World population by region',
+    });
+
+    withPageDocument(svg, () => {
+      const figure = new Figure(result.maidr);
+      figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+      expect(figure.state.empty).toBe(false);
+      expect(figure.subplots[0][0].traceTypes).toEqual([TraceType.ICICLE]);
     });
   });
 

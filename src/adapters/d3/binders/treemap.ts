@@ -1,5 +1,5 @@
 /**
- * D3 binder for treemaps and sunbursts.
+ * D3 binder for treemaps, sunbursts and icicles.
  *
  * Extracts the tree a `d3.treemap()` or `d3.partition()` laid out and generates
  * the MAIDR JSON schema for accessible interaction. Both layouts run over a
@@ -219,8 +219,45 @@ export function bindD3Sunburst(svg: Element, config: D3TreemapConfig): D3BinderR
 }
 
 /**
- * Pure extraction core for treemaps and sunbursts. See {@link buildBarLayer}
- * for the single-chart vs multi-panel contract.
+ * Binds a D3.js icicle to MAIDR.
+ *
+ * An icicle is the sunburst's partition drawn in cartesian coordinates: the
+ * same `d3.partition()` over the same `d3.hierarchy()`, laid out as
+ * depth-ordered bands rather than concentric arcs. Nothing about the tree
+ * changes, so the extraction is that of {@link bindD3Sunburst} — `selector`
+ * matches the `<rect>` bands the partition produced, and whatever you joined
+ * (leaves alone, or `descendants()` with its interior nodes) is what the reader
+ * navigates.
+ *
+ * @param svg - The SVG element containing the D3 icicle.
+ * @param config - Configuration specifying the selector and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * const root = d3.partition().size([height, width])(
+ *   d3.hierarchy(data).sum(d => d.population),
+ * );
+ * svg.selectAll('rect.band').data(root.descendants().slice(1)).join('rect')…;
+ *
+ * bindD3Icicle(svgElement, {
+ *   selector: 'rect.band',
+ *   title: 'World population by region',
+ *   axes: { x: 'Region', y: 'Population, millions' },
+ * });
+ * ```
+ */
+export function bindD3Icicle(svg: Element, config: D3TreemapConfig): D3BinderResult {
+  return finalizeSingleChart(
+    svg,
+    config,
+    buildTreemapLayer(svg, config, undefined, TraceType.ICICLE),
+  );
+}
+
+/**
+ * Pure extraction core for treemaps, sunbursts and icicles. See
+ * {@link buildBarLayer} for the single-chart vs multi-panel contract.
  *
  * The trailing `type` selects which layout the layer announces itself as; the
  * tree is the same for both (see {@link TreemapTraceType}).
