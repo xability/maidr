@@ -34,18 +34,35 @@ import type {
   D3SubplotsConfig,
   DataAccessor,
 } from '../types';
+import { TraceType } from '../../../type/grammar';
 import { ensureContainerId, PANEL_ATTRIBUTE } from '../selectors';
 import { applyMaidrData, generateId, getD3Datum, isMaidrOwned, resolveAccessorOptional } from '../util';
+import { buildAreaLayer } from './area';
 import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
+import { buildBoxenLayer } from './boxen';
 import { buildCandlestickLayer } from './candlestick';
+import { buildContourLayer } from './contour';
+import { buildDumbbellLayer } from './dumbbell';
+import { buildErrorBarLayer, buildForestLayer } from './errorBar';
+import { buildFlowLayer } from './flow';
+import { buildGanttLayer } from './gantt';
+import { buildGaugeLayer } from './gauge';
 import { buildHeatmapLayer } from './heatmap';
+import { buildHexbinLayer } from './hexbin';
 import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
-import { buildPieLayer } from './pie';
+import { buildNetworkLayer } from './network';
+import { buildParallelLayer } from './parallel';
+import { buildPieLayer, buildPolarAreaLayer } from './pie';
+import { buildRidgelineLayer } from './ridgeline';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
 import { buildSmoothLayer } from './smooth';
+import { buildSurvivalLayer } from './survival';
+import { buildTreemapLayer } from './treemap';
+import { buildWaterfallLayer } from './waterfall';
+import { buildWordCloudLayer } from './wordCloud';
 
 /**
  * Binds a faceted D3 chart (homogeneous small multiples) to MAIDR.
@@ -229,26 +246,88 @@ function buildPanelGrid(
 /** Dispatches a panel cell to the matching per-type extraction core. */
 function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelScope): D3BuiltLayer {
   switch (spec.chartType) {
+    case 'alluvial':
+      return buildFlowLayer(root, spec.config, panel, TraceType.ALLUVIAL);
+    case 'area':
+      return buildAreaLayer(root, spec.config, panel);
     case 'bar':
       return buildBarLayer(root, spec.config, panel);
     case 'box':
       return buildBoxLayer(root, spec.config, panel);
+    case 'boxen':
+      return buildBoxenLayer(root, spec.config, panel);
+    case 'bump':
+      return buildLineLayer(root, spec.config, panel, TraceType.BUMP);
     case 'candlestick':
       return buildCandlestickLayer(root, spec.config, panel);
+    case 'chord':
+      return buildFlowLayer(root, spec.config, panel, TraceType.CHORD);
+    case 'contour':
+      return buildContourLayer(root, spec.config, panel);
+    case 'diverging':
+      return buildSegmentedLayer(root, { ...spec.config, type: TraceType.DIVERGING }, panel);
+    case 'dot':
+      return buildBarLayer(root, spec.config, panel, TraceType.DOT);
+    case 'dumbbell':
+      return buildDumbbellLayer(root, spec.config, panel);
+    case 'errorBar':
+      return buildErrorBarLayer(root, spec.config, panel);
+    case 'forest':
+      return buildForestLayer(root, spec.config, panel);
+    case 'funnel':
+      return buildBarLayer(root, spec.config, panel, TraceType.FUNNEL);
+    case 'gantt':
+      return buildGanttLayer(root, spec.config, panel);
+    case 'gauge':
+      return buildGaugeLayer(root, spec.config, panel);
     case 'heatmap':
       return buildHeatmapLayer(root, spec.config, panel);
+    case 'hexbin':
+      return buildHexbinLayer(root, spec.config, panel);
     case 'histogram':
       return buildHistogramLayer(root, spec.config, panel);
+    case 'icicle':
+      return buildTreemapLayer(root, spec.config, panel, TraceType.ICICLE);
     case 'line':
       return buildLineLayer(root, spec.config, panel);
+    case 'lollipop':
+      return buildBarLayer(root, spec.config, panel, TraceType.LOLLIPOP);
+    case 'manhattan':
+      return buildScatterLayer(root, spec.config, panel, TraceType.MANHATTAN);
+    case 'mosaic':
+      return buildSegmentedLayer(root, { ...spec.config, type: TraceType.MOSAIC }, panel);
+    case 'network':
+      return buildNetworkLayer(root, spec.config, panel);
+    case 'parallel':
+      return buildParallelLayer(root, spec.config, panel);
     case 'pie':
       return buildPieLayer(root, spec.config, panel);
+    case 'polarArea':
+      return buildPolarAreaLayer(root, spec.config, panel);
+    case 'radar':
+      return buildLineLayer(root, spec.config, panel, TraceType.RADAR);
+    case 'ridgeline':
+      return buildRidgelineLayer(root, spec.config, panel);
+    case 'sankey':
+      return buildFlowLayer(root, spec.config, panel, TraceType.SANKEY);
     case 'scatter':
       return buildScatterLayer(root, spec.config, panel);
     case 'segmented':
       return buildSegmentedLayer(root, spec.config, panel);
     case 'smooth':
       return buildSmoothLayer(root, spec.config, panel);
+    case 'sunburst':
+      return buildTreemapLayer(root, spec.config, panel, TraceType.SUNBURST);
+    case 'survival':
+      return buildSurvivalLayer(root, spec.config, panel);
+    case 'treemap':
+      return buildTreemapLayer(root, spec.config, panel);
+    case 'volcano':
+      return buildScatterLayer(root, spec.config, panel, TraceType.VOLCANO);
+    case 'waterfall':
+      return buildWaterfallLayer(root, spec.config, panel);
+    case 'wordCloud':
+      return buildWordCloudLayer(root, spec.config, panel);
   }
 }
 

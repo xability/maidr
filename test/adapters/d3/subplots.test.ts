@@ -498,6 +498,123 @@ describe('bindD3Subplots', () => {
     expect(subplots[1][0].layers[0].title).toBe('Panel 2');
   });
 
+  test('composes a stacked-area panel beside a funnel panel', () => {
+    // The bar and line cores serve several marks each; a panel must announce
+    // the mark its entry asked for, and stay scoped to its own subtree.
+    const dom = new JSDOM(`<!doctype html><body><svg xmlns="${SVG_NS}" id="mixed"></svg></body>`);
+    const doc = dom.window.document as Document;
+    const svg = doc.querySelector('svg') as unknown as SVGElement;
+
+    const areaPanel = doc.createElementNS(SVG_NS, 'g');
+    areaPanel.setAttribute('class', 'revenue');
+    for (const [key, offset] of [['Subscriptions', 0], ['Services', 10]] as [string, number][]) {
+      const path = doc.createElementNS(SVG_NS, 'path');
+      path.setAttribute('class', 'area');
+      const series = [0, 1].map((i) => {
+        const tuple: number[] & { data?: unknown } = [offset, offset + 10 + i];
+        tuple.data = { year: `201${9 + i}` };
+        return tuple;
+      });
+      setDatum(path, Object.assign(series, { key }));
+      areaPanel.appendChild(path);
+    }
+    svg.appendChild(areaPanel);
+
+    const funnelPanel = doc.createElementNS(SVG_NS, 'g');
+    funnelPanel.setAttribute('class', 'checkout');
+    for (const datum of [{ stage: 'Visited', count: 900 }, { stage: 'Purchased', count: 40 }]) {
+      const path = doc.createElementNS(SVG_NS, 'path');
+      path.setAttribute('class', 'stage');
+      setDatum(path, datum);
+      funnelPanel.appendChild(path);
+    }
+    svg.appendChild(funnelPanel);
+
+    const result = bindD3Subplots(svg, {
+      subplots: [[
+        { chartType: 'area', root: 'g.revenue', config: { selector: 'path.area', type: TraceType.STACKED_AREA, x: 'year' } },
+        { chartType: 'funnel', root: 'g.checkout', config: { selector: 'path.stage' } },
+      ]],
+    });
+
+    const subplots = subplotGrid(result.maidr.subplots);
+    expect(subplots[0][0].layers[0].type).toBe(TraceType.STACKED_AREA);
+    expect(subplots[0][1].layers[0].type).toBe(TraceType.FUNNEL);
+    // Per-band selectors stay inside their own panel.
+    expect(subplots[0][0].layers[0].selectors).toEqual([
+      '#mixed [data-maidr-panel="0"] path.area[data-maidr-line-index="0"]',
+      '#mixed [data-maidr-panel="0"] path.area[data-maidr-line-index="1"]',
+    ]);
+    expect(subplots[0][0].legend).toEqual(['Subscriptions', 'Services']);
+    expect(subplots[0][1].layers[0].selectors).toBe('#mixed [data-maidr-panel="1"] path.stage');
+    expect(subplots[0][1].layers[0].data).toEqual([
+      { x: 'Visited', y: 900 },
+      { x: 'Purchased', y: 40 },
+    ]);
+  });
+
+  test('composes a diverging panel beside a bar panel', () => {
+    // `diverging` is the segmented core read as two sides rather than a stack.
+    // It is a chart type of its own in the panel dispatch, so a facet or a
+    // subplot grid can hold a population pyramid without the caller dropping
+    // to the standalone binder.
+    const dom = new JSDOM(`<!doctype html><body><svg xmlns="${SVG_NS}" id="pyramid-grid"></svg></body>`);
+    const doc = dom.window.document as Document;
+    const svg = doc.querySelector('svg') as unknown as SVGElement;
+
+    const pyramidPanel = doc.createElementNS(SVG_NS, 'g');
+    pyramidPanel.setAttribute('class', 'pyramid');
+    // Negative for the side drawn to the left: the sign is the side, so the
+    // binder must carry it through rather than take a magnitude.
+    for (const datum of [
+      { people: -1230, band: '0-14', sex: 'Men' },
+      { people: -1180, band: '15-29', sex: 'Men' },
+      { people: 1140, band: '0-14', sex: 'Women' },
+      { people: 1100, band: '15-29', sex: 'Women' },
+    ]) {
+      const rect = doc.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('class', 'band');
+      setDatum(rect, datum);
+      pyramidPanel.appendChild(rect);
+    }
+    svg.appendChild(pyramidPanel);
+
+    const barPanel = doc.createElementNS(SVG_NS, 'g');
+    barPanel.setAttribute('class', 'totals');
+    for (const datum of [{ x: 'Men', y: 2410 }, { x: 'Women', y: 2240 }]) {
+      const rect = doc.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('class', 'bar');
+      setDatum(rect, datum);
+      barPanel.appendChild(rect);
+    }
+    svg.appendChild(barPanel);
+
+    const result = bindD3Subplots(svg, {
+      subplots: [[
+        {
+          chartType: 'diverging',
+          root: 'g.pyramid',
+          config: { selector: 'rect.band', title: 'By age band', x: 'people', y: 'band', fill: 'sex' },
+        },
+        { chartType: 'bar', root: 'g.totals', config: { selector: 'rect.bar', title: 'Totals', x: 'x', y: 'y' } },
+      ]],
+    });
+
+    const subplots = subplotGrid(result.maidr.subplots);
+    // The panel announces the diverging type, not the stacked one it shares a
+    // core with — the type is what makes the trace read the values as sides.
+    expect(subplots[0][0].layers[0].type).toBe(TraceType.DIVERGING);
+    expect(subplots[0][1].layers[0].type).toBe(TraceType.BAR);
+    expect(subplots[0][0].legend).toEqual(['Men', 'Women']);
+    // Signed values survive the panel path.
+    expect(subplots[0][0].layers[0].data).toEqual([
+      [{ x: -1230, y: '0-14', z: 'Men' }, { x: -1180, y: '15-29', z: 'Men' }],
+      [{ x: 1140, y: '0-14', z: 'Women' }, { x: 1100, y: '15-29', z: 'Women' }],
+    ]);
+    // Highlighting stays inside the panel that owns the marks.
+    expect(subplots[0][0].layers[0].selectors).toBe('#pyramid-grid [data-maidr-panel="0"] rect.band');
+  });
+
   test('rejects empty rows and unresolvable roots', () => {
     const { svg } = buildHeterogeneousSvg();
 

@@ -146,26 +146,88 @@ export function MaidrD3(props: MaidrD3Props): JSX.Element {
  */
 function buildSpec(props: MaidrD3Props): D3AdapterSpec {
   switch (props.chartType) {
+    case 'alluvial':
+      return { chartType: 'alluvial', config: props.config };
+    case 'area':
+      return { chartType: 'area', config: props.config };
     case 'bar':
       return { chartType: 'bar', config: props.config };
     case 'box':
       return { chartType: 'box', config: props.config };
+    case 'boxen':
+      return { chartType: 'boxen', config: props.config };
+    case 'bump':
+      return { chartType: 'bump', config: props.config };
     case 'candlestick':
       return { chartType: 'candlestick', config: props.config };
+    case 'chord':
+      return { chartType: 'chord', config: props.config };
+    case 'contour':
+      return { chartType: 'contour', config: props.config };
+    case 'diverging':
+      return { chartType: 'diverging', config: props.config };
+    case 'dot':
+      return { chartType: 'dot', config: props.config };
+    case 'dumbbell':
+      return { chartType: 'dumbbell', config: props.config };
+    case 'errorBar':
+      return { chartType: 'errorBar', config: props.config };
+    case 'forest':
+      return { chartType: 'forest', config: props.config };
+    case 'funnel':
+      return { chartType: 'funnel', config: props.config };
+    case 'gantt':
+      return { chartType: 'gantt', config: props.config };
+    case 'gauge':
+      return { chartType: 'gauge', config: props.config };
     case 'heatmap':
       return { chartType: 'heatmap', config: props.config };
+    case 'hexbin':
+      return { chartType: 'hexbin', config: props.config };
     case 'histogram':
       return { chartType: 'histogram', config: props.config };
+    case 'icicle':
+      return { chartType: 'icicle', config: props.config };
     case 'line':
       return { chartType: 'line', config: props.config };
+    case 'lollipop':
+      return { chartType: 'lollipop', config: props.config };
+    case 'manhattan':
+      return { chartType: 'manhattan', config: props.config };
+    case 'mosaic':
+      return { chartType: 'mosaic', config: props.config };
+    case 'network':
+      return { chartType: 'network', config: props.config };
+    case 'parallel':
+      return { chartType: 'parallel', config: props.config };
     case 'pie':
       return { chartType: 'pie', config: props.config };
+    case 'polarArea':
+      return { chartType: 'polarArea', config: props.config };
+    case 'radar':
+      return { chartType: 'radar', config: props.config };
+    case 'ridgeline':
+      return { chartType: 'ridgeline', config: props.config };
+    case 'sankey':
+      return { chartType: 'sankey', config: props.config };
     case 'scatter':
       return { chartType: 'scatter', config: props.config };
     case 'segmented':
       return { chartType: 'segmented', config: props.config };
     case 'smooth':
       return { chartType: 'smooth', config: props.config };
+    case 'sunburst':
+      return { chartType: 'sunburst', config: props.config };
+    case 'survival':
+      return { chartType: 'survival', config: props.config };
+    case 'treemap':
+      return { chartType: 'treemap', config: props.config };
+    case 'volcano':
+      return { chartType: 'volcano', config: props.config };
+    case 'waterfall':
+      return { chartType: 'waterfall', config: props.config };
+    case 'wordCloud':
+      return { chartType: 'wordCloud', config: props.config };
     case 'facets':
       return { chartType: 'facets', config: props.config };
     case 'subplots':

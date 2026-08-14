@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + D3.js Funnel Chart Example</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/d3.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + D3.js Funnel Chart</h1>
+    <p>
+      Click on the chart and use arrow keys to move between stages. The pitch
+      carries the <strong>retention</strong> — what fraction of the previous
+      stage survived — because that is the number a funnel is read for; the
+      counts are announced alongside it.
+    </p>
+    <div id="chart"></div>
+
+    <script>
+      // Draw order is stage order, and the trace reads each stage against the
+      // one before it — so keep the array in funnel order.
+      const stages = [
+        { stage: 'Visited', count: 10000 },
+        { stage: 'Signed up', count: 2400 },
+        { stage: 'Viewed cart', count: 2300 },
+        { stage: 'Purchased', count: 100 },
+      ];
+
+      const margin = { top: 40, right: 40, bottom: 50, left: 120 };
+      const width = 600 - margin.left - margin.right;
+      const height = 360 - margin.top - margin.bottom;
+
+      const svg = d3.select('#chart')
+        .append('svg')
+        .attr('id', 'd3-funnel-chart')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const yScale = d3.scaleBand()
+        .domain(stages.map(d => d.stage))
+        .range([0, height])
+        .padding(0.25);
+      const widthScale = d3.scaleLinear()
+        .domain([0, d3.max(stages, d => d.count)])
+        .range([0, width]);
+
+      // One centred <rect> per stage: the classic funnel silhouette, and one
+      // element per stage is exactly what the binder wants.
+      svg.selectAll('rect.stage')
+        .data(stages)
+        .join('rect')
+        .attr('class', 'stage')
+        .attr('x', d => (width - widthScale(d.count)) / 2)
+        .attr('y', d => yScale(d.stage))
+        .attr('width', d => widthScale(d.count))
+        .attr('height', yScale.bandwidth())
+        .attr('fill', '#2196F3');
+
+      svg.append('g').call(d3.axisLeft(yScale));
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .text('Checkout Funnel');
+
+      // X-axis title
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + 40)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '13px')
+        .text('People');
+
+      // === MAIDR Integration ===
+      const svgElement = document.getElementById('d3-funnel-chart');
+      const result = maidrD3.bindD3Funnel(svgElement, {
+        selector: 'rect.stage',
+        title: 'Checkout Funnel',
+        axes: { x: 'Stage', y: 'People' },
+        // `stage` / `count` would also be inferred from the datum's keys.
+        x: 'stage',
+        y: 'count',
+      });
+      // The binder auto-applies `maidr-data` to the SVG.
+      void result;
+    </script>
+  </body>
+</html>

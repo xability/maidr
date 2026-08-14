@@ -1,13 +1,17 @@
 /**
- * D3 binder for line charts.
+ * D3 binder for line, bump and radar charts.
  *
  * Extracts data from D3.js-rendered line chart SVG elements and generates
- * the MAIDR JSON schema for accessible line chart interaction.
+ * the MAIDR JSON schema for accessible line chart interaction. A bump chart
+ * plots ranks instead of magnitudes and a radar wraps its samples around a
+ * circle, but both are drawn and navigated as a multi-line layer, so they
+ * share this extraction core; the area family builds on it too (see
+ * `binders/area.ts`).
  */
 
 import type { LinePoint, MaidrLayer } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
-import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor } from '../types';
+import type { D3BinderResult, D3BuiltLayer, D3LineConfig, DataAccessor, LineMarkTraceType } from '../types';
 import { TraceType } from '../../../type/grammar';
 import { scopeSelector, selectorPrefix } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, getD3Datum, inferAccessor, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
@@ -61,12 +65,127 @@ export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
 }
 
 /**
- * Pure extraction core for line charts. See {@link buildBarLayer} for the
- * single-chart vs multi-panel contract.
+ * Binds a D3.js bump chart (rank over time) to MAIDR.
+ *
+ * A bump chart is a multi-line layer whose y values are **ranks**: 1 is the
+ * best position and the smallest number. The extraction is that of
+ * {@link bindD3Line} — one `<path>` per competitor, `fill` naming it — and the
+ * ranks you already bind are what `y` should read. The trace inverts the pitch
+ * so first place is the highest note, and announces the places gained or lost
+ * at each period, so nothing extra has to be computed here.
+ *
+ * A slope graph of *values* is a line chart with two samples, not this.
+ *
+ * @param svg - The SVG element containing the D3 bump chart.
+ * @param config - Configuration specifying selectors and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Bump(svgElement, {
+ *   selector: 'path.rank-line',
+ *   title: 'League Table by Round',
+ *   axes: { x: 'Round', y: 'Rank', fill: 'Team' },
+ *   x: 'round',
+ *   y: 'rank',
+ *   fill: 'team',
+ * });
+ * ```
+ */
+export function bindD3Bump(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, TraceType.BUMP));
+}
+
+/**
+ * Binds a D3.js radar (spider) chart to MAIDR.
+ *
+ * A radar is a multi-line layer wrapped around a circle: `selector` matches one
+ * closed `d3.lineRadial()` `<path>` per series, `x` names the **spoke** (the
+ * variable) and `fill` names the series. The trace pans each spoke by its angle
+ * — 12 o'clock centre, 3 o'clock hard right — so a radar sounds like a circle
+ * rather than a row of bars, and nothing extra has to be computed here.
+ *
+ * A closed outline is usually drawn by repeating the first vertex at the end.
+ * That repeat is how the polygon closes, not a spoke of its own, so the binder
+ * drops a trailing sample whose `x` matches the first one — otherwise the chart
+ * announces one spoke more than it has, and the reader walks off the end into
+ * a duplicate.
+ *
+ * @param svg - The SVG element containing the D3 radar chart.
+ * @param config - Configuration specifying selectors and data accessors.
+ * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
+ *
+ * @example
+ * ```ts
+ * bindD3Radar(svgElement, {
+ *   selector: 'path.radar-area',
+ *   title: 'Model Comparison',
+ *   axes: { x: 'Attribute', y: 'Score', fill: 'Model' },
+ *   x: 'attribute',
+ *   y: 'score',
+ *   fill: 'model',
+ * });
+ * ```
+ */
+export function bindD3Radar(svg: Element, config: D3LineConfig): D3BinderResult {
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, TraceType.RADAR));
+}
+
+/**
+ * Adds a chart-specific field to a point after the line core has read its
+ * `x`, `y` and `z` from the same datum.
+ *
+ * A survival curve is a line whose samples also say whether the time was
+ * censored and how wide the confidence band is there. Those live on the very
+ * datum the core has just resolved, and the core is the only place that knows
+ * which datum produced which point across all three of its extraction
+ * patterns — so the extension point is here rather than a second pass that
+ * would have to guess the pairing.
+ *
+ * @param point - The point the core built, to add fields to in place
+ * @param datum - The datum it was read from
+ * @param index - That datum's index within its selection
  *
  * @internal
  */
-export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3PanelScope): D3BuiltLayer {
+export type LinePointDecorator = (point: LinePoint, datum: unknown, index: number) => void;
+
+/**
+ * Samples a point-level datum the way {@link buildLineLayer} does, so a binder
+ * layered on top of it can infer its own accessors from the same shape.
+ *
+ * @param root - The extraction root (the SVG, or a panel element)
+ * @param config - The binder config, read for `selector` and `pointSelector`
+ * @returns One point's datum, or `undefined` when none can be reached
+ *
+ * @internal
+ */
+export function sampleLineDatum(root: Element, config: D3LineConfig): unknown {
+  if (config.pointSelector) {
+    return queryD3Elements(root, config.pointSelector)[0]?.datum;
+  }
+  const pathDatum = queryD3Elements(root, config.selector)[0]?.datum;
+  return Array.isArray(pathDatum) ? pathDatum[0] : pathDatum;
+}
+
+/**
+ * Pure extraction core for line charts. See {@link buildBarLayer} for the
+ * single-chart vs multi-panel contract.
+ *
+ * The trailing `type` selects which chart the layer announces itself as; the
+ * extraction is the same for all of them (see {@link LineMarkTraceType}).
+ * `decorate`, when given, adds the fields a chart carries beyond a line's —
+ * see {@link LinePointDecorator}.
+ *
+ * @internal
+ */
+export function buildLineLayer(
+  root: Element,
+  config: D3LineConfig,
+  panel?: D3PanelScope,
+  type: LineMarkTraceType = TraceType.LINE,
+  decorate?: LinePointDecorator,
+): D3BuiltLayer {
   const {
     title,
     axes,
@@ -139,6 +258,7 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
           yAccessor,
           fillAccessor,
           pointSelector,
+          decorate,
         );
         if (lineData.length > 0) {
           data.push(lineData);
@@ -171,6 +291,7 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
         if (fill !== undefined) {
           point.z = fill;
         }
+        decorate?.(point, datum, index);
 
         const key = fill ?? '__default__';
         if (!lineMap.has(key)) {
@@ -214,6 +335,7 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
         if (fill !== undefined) {
           point.z = fill;
         }
+        decorate?.(point, d, index);
         return point;
       });
 
@@ -221,6 +343,18 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
         data.push(lineData);
         // This path's datum produced this row; pair them for a precise stamp.
         rowPaths.push(element);
+      }
+    }
+  }
+
+  // A closed radar outline repeats its first vertex to shut the polygon. That
+  // repeat is geometry, not a spoke, so it goes before anything counts the
+  // spokes: RadarTrace spaces its angles by the widest series' length, and one
+  // phantom spoke rotates every announced position away from where it is drawn.
+  if (type === TraceType.RADAR) {
+    for (const row of data) {
+      if (row.length > 1 && row[row.length - 1].x === row[0].x) {
+        row.pop();
       }
     }
   }
@@ -234,60 +368,17 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
     }
   }
 
-  // Ensure the SVG has a stable id so we can emit absolutely-scoped selectors
-  // (the model resolves selectors via global `document.querySelector`, so they
-  // MUST be unique page-wide). `selectorPrefix` auto-assigns an id when the
-  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
-  // the `data-maidr-panel` segment on multi-panel binds.
-  const prefix = selectorPrefix(root, panel);
-
-  // LineTrace's `mapToSvgElements` requires one selector per line (it uses
-  // `Svg.selectElement(selectors[r])` to grab a single <path> per series for
-  // path-parsing, or `selectAllElements(selectors[r])` for per-point markers).
-  // A bare `selector` like `"path.line"` matches ALL line paths at once, so
-  // `selectors.length (1) !== lineValues.length (N)` → the model bails out
-  // and no highlight renders.
-  //
-  // Structural selectors (e.g. `:nth-child(N)`) are fragile to DOM reordering
-  // (legend/axis insertions, React re-renders, non-path siblings shifting
-  // nth-child indices). Instead, stamp a MAIDR-owned `data-maidr-line-index`
-  // attribute on each line path at bind time and emit selectors that pin
-  // that attribute, absolutely scoped by the SVG's id. This matches the
-  // Google Charts adapter's `data-maidr-line-series` / `data-maidr-point`
-  // convention and survives any DOM reordering that leaves the path itself
-  // intact.
-  // Emit selectors from the same rows that produced `data`. `rowPaths` is
-  // parallel to `data`, so stamping each path with its row index guarantees
-  // `selectors.length === data.length` — even when some paths were dropped
-  // (empty series) or the path↔series mapping was ambiguous. When any surviving
-  // row lacks an identified path, we cannot emit a safe per-series selector, so
-  // degrade to no-highlight (`undefined`) instead of mis-highlighting.
-  //
-  // Stamp a MAIDR-owned `data-maidr-line-index` attribute (absolutely scoped by
-  // the SVG's id) rather than a structural `:nth-child` selector, which is
-  // fragile to DOM reordering. This matches the Google Charts adapter's
-  // `data-maidr-line-series` convention and survives any reordering that leaves
-  // the path itself intact.
-  let selectorValue: string | string[] | undefined;
-  if (lineElements.length > 1) {
-    if (rowPaths.length === data.length && rowPaths.every(el => el !== null)) {
-      selectorValue = rowPaths.map((element, rowIndex) => {
-        // Clear any prior stamp so rebinding after a D3 data update produces
-        // a clean, deterministic state.
-        element!.removeAttribute('data-maidr-line-index');
-        element!.setAttribute('data-maidr-line-index', String(rowIndex));
-        return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
-      });
-    } else {
-      selectorValue = undefined;
-    }
-  } else {
+  // Emit selectors from the same rows that produced `data`: `rowPaths` is
+  // parallel to it. See {@link stampSeriesSelectors} for why a bare selector
+  // will not do.
+  const selectorValue: string | string[] | undefined = lineElements.length > 1
+    ? stampSeriesSelectors(root, selector, rowPaths, data.length, panel)
     // Exactly one path matched → a single scoped selector highlights it.
-    selectorValue = scopeSelector(root, selector, panel);
-  }
+    : scopeSelector(root, selector, panel);
+
   const layer: MaidrLayer = {
     id: generateId(),
-    type: TraceType.LINE,
+    type,
     title,
     selectors: selectorValue,
     axes: buildAxes(axes, format),
@@ -295,6 +386,68 @@ export function buildLineLayer(root: Element, config: D3LineConfig, panel?: D3Pa
   };
 
   return { layer, legend };
+}
+
+/**
+ * Emits one highlight selector per series, by stamping each series' `<path>`
+ * with a MAIDR-owned `data-maidr-line-index` attribute and pinning it.
+ *
+ * `LineTrace.mapToSvgElements` requires one selector per line (it uses
+ * `Svg.selectElement(selectors[r])` to grab a single `<path>` per series for
+ * path-parsing, or `selectAllElements(selectors[r])` for per-point markers).
+ * A bare `selector` like `"path.line"` matches ALL line paths at once, so
+ * `selectors.length (1) !== lineValues.length (N)` → the model bails out and
+ * no highlight renders.
+ *
+ * Structural selectors (e.g. `:nth-child(N)`) are fragile to DOM reordering
+ * (legend/axis insertions, React re-renders, non-path siblings shifting
+ * nth-child indices), so the stamp is an attribute the binder owns, absolutely
+ * scoped by the SVG's id. This matches the Google Charts adapter's
+ * `data-maidr-line-series` / `data-maidr-point` convention and survives any
+ * DOM reordering that leaves the path itself intact.
+ *
+ * @param root      - The extraction root (the SVG, or a panel element).
+ * @param selector  - The user-provided selector matching the series paths.
+ * @param rowPaths  - The `<path>` that produced each data row, parallel to the
+ *                    emitted rows. A `null` entry marks a row whose rendering
+ *                    path could not be reliably identified.
+ * @param rowCount  - How many rows the layer emits.
+ * @param panel     - Optional panel scope for multi-panel binds.
+ * @returns One selector per row, or `undefined` when a safe per-series
+ *          selector cannot be emitted — the model then withdraws highlighting
+ *          instead of highlighting the wrong series.
+ *
+ * @internal
+ */
+export function stampSeriesSelectors(
+  root: Element,
+  selector: string,
+  rowPaths: (Element | null)[],
+  rowCount: number,
+  panel?: D3PanelScope,
+): string[] | undefined {
+  if (rowPaths.length !== rowCount) {
+    return undefined;
+  }
+  const paths: Element[] = [];
+  for (const element of rowPaths) {
+    if (element === null) {
+      return undefined;
+    }
+    paths.push(element);
+  }
+
+  // `selectorPrefix` auto-assigns an id when the container lacks one,
+  // mirroring `scopeSelector`'s behaviour, and appends the `data-maidr-panel`
+  // segment on multi-panel binds.
+  const prefix = selectorPrefix(root, panel);
+  return paths.map((element, rowIndex) => {
+    // Clear any prior stamp so rebinding after a D3 data update produces a
+    // clean, deterministic state.
+    element.removeAttribute('data-maidr-line-index');
+    element.setAttribute('data-maidr-line-index', String(rowIndex));
+    return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
+  });
 }
 
 /**
@@ -306,6 +459,7 @@ function extractPointsFromElements(
   yAccessor: DataAccessor<number>,
   fillAccessor: DataAccessor<string>,
   pointSelector: string,
+  decorate?: LinePointDecorator,
 ): LinePoint[] {
   const lineData: LinePoint[] = [];
   for (const { datum, index } of points) {
@@ -320,6 +474,7 @@ function extractPointsFromElements(
     if (fill !== undefined) {
       point.z = fill;
     }
+    decorate?.(point, datum, index);
     lineData.push(point);
   }
   return lineData;
