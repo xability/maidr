@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plotly.js Error Bars - Auto MAIDR</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+  </head>
+  <body>
+    <h1>Plotly.js Error Bars</h1>
+    <p>
+      Plotly.js traces carrying <code>error_y</code> / <code>error_x</code>,
+      auto-detected by MAIDR as interval charts rather than as a scatter or a
+      bar chart. Click on a chart and use arrow keys: left and right walk the
+      samples, up and down walk the lower bound, the estimate and the upper
+      bound at one sample — so whether two intervals overlap can be traced by
+      ear.
+    </p>
+
+    <h2>An estimate with its interval (<code>error_y</code> on a scatter)</h2>
+    <div id="pointrange" style="width: 700px; height: 400px"></div>
+
+    <h2>Group means with standard errors (<code>error_y</code> on bars)</h2>
+    <div id="bar-errors" style="width: 700px; height: 400px"></div>
+
+    <h2>Horizontal intervals (<code>error_x</code>)</h2>
+    <div id="horizontal-errors" style="width: 700px; height: 400px"></div>
+
+    <script>
+      var doses = [0, 10, 20, 30, 40];
+      var response = [2.1, 3.4, 4.2, 4.6, 4.7];
+      var responseError = [0.3, 0.4, 0.35, 0.5, 0.45];
+
+      Plotly.newPlot(
+        'pointrange',
+        [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            x: doses,
+            y: response,
+            error_y: { type: 'data', array: responseError, visible: true },
+            name: 'Response'
+          }
+        ],
+        {
+          title: { text: 'Dose response, with 95% intervals' },
+          xaxis: { title: { text: 'Dose (mg)' } },
+          yaxis: { title: { text: 'Response' } }
+        }
+      );
+
+      Plotly.newPlot(
+        'bar-errors',
+        [
+          {
+            type: 'bar',
+            x: ['Control', 'Low', 'High'],
+            y: [12.4, 15.1, 19.8],
+            error_y: { type: 'data', array: [1.1, 1.4, 2.2], visible: true },
+            name: 'Mean yield'
+          }
+        ],
+        {
+          title: { text: 'Mean yield by treatment' },
+          xaxis: { title: { text: 'Treatment' } },
+          yaxis: { title: { text: 'Yield' } }
+        }
+      );
+
+      Plotly.newPlot(
+        'horizontal-errors',
+        [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            y: ['Study A', 'Study B', 'Study C', 'Study D'],
+            x: [1.24, 0.86, 1.05, 1.42],
+            // Asymmetric, which is the ordinary shape of a ratio interval.
+            error_x: {
+              type: 'data',
+              symmetric: false,
+              array: [0.31, 0.22, 0.18, 0.46],
+              arrayminus: [0.24, 0.19, 0.17, 0.38],
+              visible: true
+            },
+            name: 'Odds ratio'
+          }
+        ],
+        {
+          title: { text: 'Odds ratio by study' },
+          xaxis: { title: { text: 'Odds ratio' } },
+          yaxis: { title: { text: 'Study' } }
+        }
+      );
+    </script>
+  </body>
+</html>

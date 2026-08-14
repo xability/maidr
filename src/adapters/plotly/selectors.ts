@@ -48,11 +48,28 @@ export function generatePlotlySelectors(
     case TraceType.NORMALIZED:
       return `${prefix}.trace.bars .point > path`;
 
-    // A step trace is a scatter trace plotly drew as a staircase, so its
-    // markers — when it has any — are the same `.point` elements.
+    // A step trace is a scatter trace plotly drew as a staircase, and an area
+    // is one it filled in underneath, so their markers — when they have any —
+    // are the same `.point` elements.
     case TraceType.LINE:
     case TraceType.STEP:
+    case TraceType.AREA:
+    case TraceType.STACKED_AREA:
+    case TraceType.NORMALIZED_AREA:
       return lineSelector(prefix, traceData?.mode);
+
+    // Funnel and waterfall are bar-like: plotly draws both through the bar
+    // renderer, down to the `trace bars` group class. Only the layer they sit
+    // in differs, and scoping by it keeps them apart from an actual bar trace
+    // sharing the panel.
+    case TraceType.FUNNEL:
+      return `${prefix}.funnellayer .trace.bars .point > path`;
+
+    case TraceType.WATERFALL:
+      return `${prefix}.waterfalllayer .trace.bars .point > path`;
+
+    case TraceType.ERROR_BAR:
+      return errorBarSelector(prefix, traceData);
 
     case TraceType.BOX:
       return `${prefix}.trace.boxes .point > path`;
@@ -102,6 +119,53 @@ function lineSelector(prefix: string, mode?: string): string | undefined {
   }
   // Lines-only mode: no per-point SVG elements to highlight.
   return undefined;
+}
+
+/**
+ * Which axis carries a trace's error bars, or `null` when it draws none.
+ *
+ * Plotly resolves an `error_x`/`error_y` container onto every trace that
+ * could carry one, so the `visible` flag — not the container's presence — is
+ * what says a chart drew intervals. A trace with both gets its vertical ones
+ * read: a MAIDR error-bar layer carries one interval per sample, and the
+ * vertical is the one a reader means by "the error bar".
+ *
+ * Lives here, beside the selector, because the two must agree: reading the
+ * y bounds while highlighting `path.xerror` would announce one interval and
+ * light up another.
+ *
+ * @param trace - The resolved plotly trace
+ * @returns `'y'`, `'x'`, or null when neither axis draws an interval
+ */
+export function errorBarAxis(trace: PlotlyTrace): 'x' | 'y' | null {
+  if (trace.error_y?.visible === true)
+    return 'y';
+  if (trace.error_x?.visible === true)
+    return 'x';
+  return null;
+}
+
+/**
+ * Error-bar selector: the whip drawn at each sample.
+ *
+ * The `g.errorbar` group around it would be the tidier target — plotly emits
+ * exactly one per sample, whether or not the sample got a whip — but the
+ * whisker inside carries its own inline stroke, so a highlight clone of the
+ * group would be recoloured on the group and repaint identically to the
+ * original. The path itself is what can actually be seen highlighted.
+ *
+ * Plotly puts a bar-like trace's error bars straight into the trace group and
+ * a scatter's into an `errorbars` group of their own, drawn under the line.
+ */
+function errorBarSelector(prefix: string, trace: PlotlyTrace | undefined): string | undefined {
+  const axis = trace ? errorBarAxis(trace) : null;
+  if (axis === null) {
+    return undefined;
+  }
+  const group = trace?.type === 'bar'
+    ? `${prefix}.trace.bars`
+    : `${prefix}.trace.scatter .errorbars`;
+  return `${group} > g.errorbar > path.${axis}error`;
 }
 
 /**

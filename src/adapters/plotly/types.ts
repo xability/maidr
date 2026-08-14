@@ -23,12 +23,41 @@ export interface PlotlyTrace {
    * piecewise-constant staircase.
    */
   line?: { shape?: string };
+  /**
+   * What the trace fills towards: `tozeroy`, `tonexty`, `toself`, … Plotly
+   * resolves an unfilled trace to the string `'none'` rather than dropping
+   * the attribute, so a filled trace is any other non-empty value.
+   */
+  fill?: string;
+  /**
+   * The stack this trace belongs to. Plotly stacks scatter traces that name
+   * the same group, drawing them as an area chart whose bands sit on one
+   * another; an empty or absent value means the trace stands alone.
+   */
+  stackgroup?: string;
+  /**
+   * How a stack group is rescaled: `percent` makes each column sum to 100,
+   * `fraction` to 1. Empty or absent leaves the bands at their own totals.
+   */
+  groupnorm?: string;
   x?: (number | string)[];
   y?: (number | string)[];
   z?: number[][];
   xaxis?: string;
   yaxis?: string;
   orientation?: 'v' | 'h';
+  /** Value-axis offset every bar-like size is measured from. */
+  base?: number;
+  // Waterfall-specific
+  /**
+   * What each step does to the running total: `relative` contributes,
+   * `total` restates it, `absolute` resets it. Parallel to the position
+   * array, and `relative` where it says nothing.
+   */
+  measure?: string[];
+  // Error bars, which any scatter or bar trace may carry
+  error_x?: PlotlyErrorBar;
+  error_y?: PlotlyErrorBar;
   // Box-specific
   q1?: number[];
   median?: number[];
@@ -67,6 +96,30 @@ export interface PlotlyTrace {
   domain?: { x?: [number, number]; y?: [number, number] };
   // Heatmap colorbar
   colorbar?: { title?: { text?: string } | string };
+}
+
+/**
+ * The interval drawn around each sample on one axis.
+ *
+ * Plotly resolves `visible` for every trace that could carry error bars, so a
+ * trace without them has `visible: false` rather than no container at all —
+ * which is what makes the flag the reliable test. The magnitudes below are
+ * what `type` selects between; plotly turns them into absolute bounds during
+ * calc, and they are only read here when it has not.
+ */
+export interface PlotlyErrorBar {
+  visible?: boolean;
+  type?: 'data' | 'percent' | 'constant' | 'sqrt';
+  /** False when the two sides are given separately. */
+  symmetric?: boolean;
+  /** Per-sample magnitudes, for `type: 'data'`. */
+  array?: number[];
+  /** Per-sample magnitudes below the estimate, when not symmetric. */
+  arrayminus?: number[];
+  /** Single magnitude, for `percent` and `constant`. */
+  value?: number;
+  /** Single magnitude below the estimate, when not symmetric. */
+  valueminus?: number;
 }
 
 export interface PlotlyLayout {
@@ -164,9 +217,30 @@ export interface PlotlyCalcData {
   x?: number;
   y?: number;
   p?: number | string; // position (bar, box)
-  s?: number; // size/value (bar)
+  s?: number; // size/value (bar); running total after the step (waterfall)
   s0?: number;
   s1?: number;
+  /**
+   * Index into the trace's own arrays, and `null` for a sample plotly
+   * inserted rather than the author writing it — the positions a stacked
+   * scatter borrows from the other traces in its stack.
+   */
+  i?: number | null;
+  // Stacked scatter (area)
+  /** This band's own size after `groupnorm` rescaled the stack. */
+  sNorm?: number;
+  // Waterfall calc data
+  /** The step's authored contribution, before it was accumulated. */
+  rawS?: number;
+  /** Whether the step restates the running total rather than changing it. */
+  isSum?: boolean;
+  /** Base the bar is measured from, set while plotly positions the group. */
+  b?: number;
+  // Error bars: the bounds plotly resolved per sample, on each axis
+  xs?: number;
+  xh?: number;
+  ys?: number;
+  yh?: number;
   // Box calc data
   pos?: number | string;
   min?: number;
@@ -189,7 +263,10 @@ export interface PlotlyCalcData {
   /** Per-trace calc metadata; plotly stores it on the first entry of a trace. */
   t?: PlotlyCalcMeta;
   // Pie calc data
-  /** Slice magnitude, after plotly dropped the values it would not draw. */
+  /**
+   * Slice magnitude, after plotly dropped the values it would not draw. A
+   * waterfall keeps the running total the step produced here instead.
+   */
   v?: number;
   /** Slice label. */
   label?: number | string;

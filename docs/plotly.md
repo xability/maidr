@@ -72,6 +72,12 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Pie | `type: 'pie'` | [Pie chart](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
+| Area | `type: 'scatter'`, `fill: 'tozeroy' \| 'tozerox' \| 'toself'` | [Area chart](examples.html) |
+| Stacked Area | `type: 'scatter'` + `stackgroup` | [Stacked area](examples.html) |
+| 100% Stacked Area | `stackgroup` + `groupnorm: 'percent' \| 'fraction'` | [Normalized area](examples.html) |
+| Funnel | `type: 'funnel'` | [Funnel chart](examples.html) |
+| Waterfall | `type: 'waterfall'` | [Waterfall chart](examples.html) |
+| Error Bars | `error_y` or `error_x` on a scatter or bar trace | [Error bars](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 **Notes on chart-type detection:**
@@ -90,6 +96,35 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   whichever cartesian panel happens to use the first axis pair. `axes.x` and
   `axes.y` are named `Label` and `Value`, since there is no drawn axis title to
   read them from. A doughnut (`hole`) is the same trace and reads identically.
+
+- A filled scatter is an area chart. Naming a `stackgroup` makes it a stacked
+  one, and adding `groupnorm` makes that a 100% stacked one; each stack group
+  in a panel becomes its own layer, so two independent stacks are never merged
+  into a running total neither of them draws. The layer carries each band's
+  **own** value rather than the running edge Plotly draws it at — MAIDR derives
+  the totals and each band's share of them — except under `groupnorm`, where
+  the rescaled heights Plotly drew are read from its calculated data so the
+  announced number matches the percentage axis. A filled trace whose
+  `line.shape` is step-wise stays a step chart: with nothing accumulating, the
+  fill is decoration and the staircase convention is the part worth announcing.
+
+- Error bars are a modifier rather than a trace type, so a scatter or bar trace
+  whose `error_y` (or `error_x`) is visible becomes an error-bar layer instead
+  of a scatter, line, or bar one. The interval is what such a chart is drawn to
+  show, and a scatter reading announces the estimate and drops it. MAIDR reads
+  the absolute bounds Plotly resolved for each sample, whichever way they were
+  declared — `array`, `percent`, `constant`, or `sqrt` — and navigates them as
+  three rows: lower bound, value, upper bound.
+
+- A funnel is read as a bar chart whose order means something: the pitch
+  carries the **retention** between adjacent stages rather than the count,
+  since the drop-off is what a funnel is read for and a ratio is what a
+  listener cannot take by ear. The counts are announced alongside it.
+
+- A waterfall step carries both numbers the bar draws: the contribution (the
+  bar's height, which is what the pitch follows) and the running total it
+  produced (the bar's position). Steps whose `measure` is `total` or `absolute`
+  are announced as totals, so a subtotal is not mistaken for a contribution.
 
 - Plotly sorts pie slices by descending value unless the trace sets
   `sort: false`, so the authored order is not necessarily the drawn order. The
@@ -419,7 +454,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from Plotly |
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Auto-generated |
 | Configuration | Required | Required | Zero configuration |
-| Chart types | All MAIDR types | All MAIDR types | 9 Plotly types |
+| Chart types | All MAIDR types | All MAIDR types | 15 Plotly types |
 | Dynamic charts | Manual init | React lifecycle | Auto-detected |
 
 ## Python and R Binders

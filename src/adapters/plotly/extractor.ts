@@ -14,6 +14,7 @@ import type {
   BoxPoint,
   BoxSelector,
   CandlestickPoint,
+  ErrorBarPoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -25,18 +26,21 @@ import type {
   SegmentedPoint,
   StepDirection,
   ViolinKdePoint,
+  WaterfallKind,
+  WaterfallPoint,
 } from '../../type/grammar';
 import type {
   PlotlyAnnotation,
   PlotlyAxis,
   PlotlyCalcData,
+  PlotlyErrorBar,
   PlotlyFullLayout,
   PlotlyGraphDiv,
   PlotlyLayout,
   PlotlyTrace,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
-import { generatePlotlySelectors, subplotCssPrefix } from './selectors';
+import { errorBarAxis, generatePlotlySelectors, subplotCssPrefix } from './selectors';
 
 // Monotonic counter for generating unique IDs when the graph div has no id.
 let plotlyIdCounter = 0;
@@ -257,11 +261,28 @@ function extractAxisGridConfig(
 // ---------------------------------------------------------------------------
 
 /**
+ * The trace types plotly draws error bars on top of. It is a modifier rather
+ * than a trace type of its own, so it has to be recognised before the type
+ * itself: a scatter with intervals is an error-bar chart, not a scatter that
+ * happens to have whiskers, and reading it as a scatter announces the
+ * estimate and drops the uncertainty the chart was drawn to show.
+ *
+ * A histogram is deliberately absent even though plotly will draw error bars
+ * on one: its counts are computed rather than authored, and the layer is
+ * already built from bins that carry no per-bin interval.
+ */
+const ERROR_BAR_TRACE_TYPES = new Set(['scatter', 'scattergl', 'bar']);
+
+/**
  * Maps a plotly.js trace type + mode to a MAIDR TraceType.
  * Returns `null` for unsupported types.
  */
 function mapTraceType(trace: PlotlyTrace): TraceType | null {
   const type = trace.type ?? 'scatter';
+
+  if (ERROR_BAR_TRACE_TYPES.has(type) && errorBarAxis(trace) !== null) {
+    return TraceType.ERROR_BAR;
+  }
 
   switch (type) {
     case 'scatter':
@@ -292,6 +313,12 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'pie':
       return TraceType.PIE;
 
+    case 'funnel':
+      return TraceType.FUNNEL;
+
+    case 'waterfall':
+      return TraceType.WATERFALL;
+
     default:
       console.warn(`[maidr] Unsupported plotly trace type: "${type}". Skipping.`);
       return null;
@@ -299,15 +326,49 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
 }
 
 function mapScatterMode(trace: PlotlyTrace): TraceType {
+  // A stacked scatter IS plotly's area chart: naming a `stackgroup` is how one
+  // is authored, and plotly turns the fill on itself. The mode does not enter
+  // into it — the accumulation is the payload either way.
+  if (trace.stackgroup) {
+    return isNormalizedStack(trace.groupnorm)
+      ? TraceType.NORMALIZED_AREA
+      : TraceType.STACKED_AREA;
+  }
+
   const mode = trace.mode;
   if (!mode)
     return TraceType.SCATTER;
   // When both lines and markers exist, prefer LINE for navigational context.
-  if (mode.includes('lines'))
-    return isStepShape(trace.line?.shape) ? TraceType.STEP : TraceType.LINE;
-  if (mode.includes('markers'))
-    return TraceType.SCATTER;
+  if (mode.includes('lines')) {
+    // A staircase keeps its step reading even when it is filled: with nothing
+    // accumulating, AREA would trade the announced convention for a fill that
+    // is decoration.
+    if (isStepShape(trace.line?.shape))
+      return TraceType.STEP;
+    return isFilled(trace.fill) ? TraceType.AREA : TraceType.LINE;
+  }
+  if (isFilled(trace.fill))
+    return TraceType.AREA;
   return TraceType.SCATTER;
+}
+
+/**
+ * Whether plotly fills the region under (or around) this trace.
+ *
+ * Plotly resolves an unfilled trace to the literal string `'none'` rather
+ * than leaving the attribute off, so the absent case has to be spelled out
+ * alongside it.
+ */
+function isFilled(fill: string | undefined): boolean {
+  return fill !== undefined && fill !== '' && fill !== 'none';
+}
+
+/**
+ * Whether a stack group's bands were rescaled to a common total — the direct
+ * analogue of the `barnorm` test that splits STACKED from NORMALIZED.
+ */
+function isNormalizedStack(groupnorm: string | undefined): boolean {
+  return groupnorm === 'percent' || groupnorm === 'fraction';
 }
 
 /**
@@ -487,6 +548,13 @@ function buildSubplotLayers(
   // with a `vh` one would describe one of them wrongly. Keyed by direction,
   // with '' for the shapes that report none, so those stay together too.
   const stepTraces = new Map<StepDirection | '', TraceEntry[]>();
+  // Independent bands over shared axes, read as a multi-series layer the way
+  // plain lines are — the fill is what they look like, not a second magnitude.
+  const areaTraces: TraceEntry[] = [];
+  // Stacked bands, keyed by the group they stack in, for the reason step
+  // traces are keyed by direction: two stacks drawn on one panel have two
+  // running totals, and merging them would announce a total nothing drew.
+  const stackedAreaTraces = new Map<string, TraceEntry[]>();
   const boxTraces: TraceEntry[] = [];
   const barTraces: TraceEntry[] = [];
   const violinTraces: TraceEntry[] = [];
@@ -512,6 +580,19 @@ function buildSubplotLayers(
       } else {
         stepTraces.set(key, [entry]);
       }
+    } else if (entry.maidrType === TraceType.AREA) {
+      areaTraces.push(entry);
+    } else if (
+      entry.maidrType === TraceType.STACKED_AREA
+      || entry.maidrType === TraceType.NORMALIZED_AREA
+    ) {
+      const key = trace.stackgroup ?? '';
+      const bucket = stackedAreaTraces.get(key);
+      if (bucket) {
+        bucket.push(entry);
+      } else {
+        stackedAreaTraces.set(key, [entry]);
+      }
     } else if (entry.maidrType === TraceType.BOX) {
       boxTraces.push(entry);
     } else if (entry.maidrType === TraceType.BAR) {
@@ -536,6 +617,32 @@ function buildSubplotLayers(
       type: TraceType.STEP,
       stepDirection: direction === '' ? undefined : direction,
     });
+    if (layer)
+      layers.push(layer);
+  }
+
+  // Unstacked areas share one layer, the way unstacked lines do.
+  if (areaTraces.length > 0) {
+    const layer = extractMultiLineLayer(areaTraces, xLabel, yLabel, gd, {
+      type: TraceType.AREA,
+    });
+    if (layer)
+      layers.push(layer);
+  }
+
+  // One layer per stack group. Every trace in a group shares its `groupnorm`,
+  // so the first one settles whether the layer is stacked or normalized.
+  for (const [, traces] of stackedAreaTraces) {
+    const type = traces[0].maidrType === TraceType.NORMALIZED_AREA
+      ? TraceType.NORMALIZED_AREA
+      : TraceType.STACKED_AREA;
+    const bands = type === TraceType.NORMALIZED_AREA
+      ? traces.map(entry => ({
+          ...entry,
+          values: normalizedBandHeights(entry.trace, group.calcdata[entry.calcIdx] ?? []),
+        }))
+      : traces;
+    const layer = extractMultiLineLayer(bands, xLabel, yLabel, gd, { type });
     if (layer)
       layers.push(layer);
   }
@@ -1038,7 +1145,19 @@ function extractLayer(
       return extractScatterLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.BAR:
-      return extractBarLayer(trace, calcdata, id, title, selectors, axes);
+      return extractBarLayer(trace, calcdata, TraceType.BAR, id, title, selectors, axes);
+
+    // A funnel is a bar chart whose order means something: same points, same
+    // orientation handling, and the retention between stages is derived by
+    // the trace rather than carried in the payload.
+    case TraceType.FUNNEL:
+      return extractBarLayer(trace, calcdata, TraceType.FUNNEL, id, title, selectors, axes);
+
+    case TraceType.WATERFALL:
+      return extractWaterfallLayer(trace, calcdata, id, title, selectors, axes);
+
+    case TraceType.ERROR_BAR:
+      return extractErrorBarLayer(trace, calcdata, id, title, selectors, axes);
 
     case TraceType.HEATMAP:
       return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
@@ -1168,9 +1287,14 @@ function barPoint(
     : { x, y: drawn ?? y };
 }
 
+/**
+ * Builds a bar-shaped layer: a plain bar, or a funnel, which plotly draws
+ * through the same renderer and describes with the same calcdata.
+ */
 function extractBarLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
+  type: TraceType.BAR | TraceType.FUNNEL,
   id: string,
   title: string | undefined,
   selectors: string | undefined,
@@ -1194,7 +1318,7 @@ function extractBarLayer(
 
   return {
     id,
-    type: TraceType.BAR,
+    type,
     title,
     selectors,
     axes,
@@ -1207,27 +1331,52 @@ function extractBarLayer(
 // Line (multi-series)
 // ---------------------------------------------------------------------------
 
+/** One trace of a line-shaped layer, with the values to read off it. */
+interface LineTraceEntry {
+  trace: PlotlyTrace;
+  calcIdx: number;
+  globalIdx: number;
+  /**
+   * Magnitudes to announce instead of the trace's own `y`, parallel to it.
+   * Only a normalized stack needs this: plotly rescaled the bands it drew and
+   * the authored numbers are no longer what is on the axis.
+   */
+  values?: number[];
+}
+
 /**
- * Builds one line-shaped layer from every line (or step) trace in a subplot.
+ * How a line-shaped layer is emitted: the type it announces, and — for a
+ * staircase — which convention it jumps by. Absent means a plain line.
+ */
+interface LineVariant {
+  type: TraceType;
+  stepDirection?: StepDirection;
+}
+
+/**
+ * Builds one line-shaped layer from every line (step, or area) trace in a
+ * subplot.
  *
- * Step traces reuse this because their point shape is identical — plotly
- * varies only how the segments between samples are drawn, not the samples
- * themselves — so `step` differs from `line` here by its layer type and the
- * convention it announces.
+ * Step and area traces reuse this because their point shape is identical —
+ * plotly varies only how the segments between samples are drawn and whether
+ * the region under them is filled, not the samples themselves — so they
+ * differ from a line here by their layer type and, for a step, the convention
+ * it announces. A stacked area emits each band's OWN value, which is what
+ * `AreaTrace` accumulates the running totals from.
  */
 function extractMultiLineLayer(
-  lineTraces: { trace: PlotlyTrace; calcIdx: number; globalIdx: number }[],
+  lineTraces: LineTraceEntry[],
   xLabel: string | undefined,
   yLabel: string | undefined,
   gd: PlotlyGraphDiv,
-  step?: { type: TraceType.STEP; stepDirection?: StepDirection },
+  variant?: LineVariant,
 ): MaidrLayer | null {
   const data: LinePoint[][] = [];
   const legend: string[] = [];
 
-  for (const { trace } of lineTraces) {
+  for (const { trace, values } of lineTraces) {
     const x = trace.x;
-    const y = trace.y;
+    const y = values ?? trace.y;
     if (!x || !y)
       continue;
 
@@ -1262,23 +1411,64 @@ function extractMultiLineLayer(
   if (yLabel)
     axes.y = { label: yLabel };
 
+  const type = variant?.type ?? TraceType.LINE;
+
   // All line traces in the same subplot share the same unscoped selector
   // (e.g. `.subplot.xy .trace.scatter .point`), so any trace index works here.
-  const selectors = generatePlotlySelectors(
-    step?.type ?? TraceType.LINE,
-    lineTraces[0].globalIdx,
-    gd,
-  );
+  const selectors = generatePlotlySelectors(type, lineTraces[0].globalIdx, gd);
 
   return {
     id: String(lineTraces[0].globalIdx),
-    type: step?.type ?? TraceType.LINE,
+    type,
     title: legend.length === 1 ? legend[0] : undefined,
     selectors,
     axes,
-    ...(step?.stepDirection ? { stepDirection: step.stepDirection } : {}),
+    ...(variant?.stepDirection ? { stepDirection: variant.stepDirection } : {}),
     data,
   };
+}
+
+/**
+ * The band heights plotly drew for one trace of a normalized stack.
+ *
+ * `groupnorm` rescales every band so the stack sums to 100 (or to 1), and the
+ * axis a reader is on shows the rescaled figure. Plotly keeps each band's own
+ * rescaled height on `cd.sNorm`; `cd.y` is deliberately not used, because for
+ * a stacked scatter that is the RUNNING TOTAL rather than the band, and
+ * feeding it back to a trace that accumulates the bands itself would count
+ * every series twice.
+ *
+ * Stacking interleaves the positions of every trace in the group, so a trace
+ * that skipped one gets a blank spliced into its calcdata (`cd.i === null`).
+ * Those are not samples this trace authored — dropping them lines the rest up
+ * with the trace's own arrays, and a count that still disagrees means the
+ * calcdata does not describe these samples and the raw values are the honest
+ * fallback.
+ *
+ * @param trace - The resolved plotly trace
+ * @param calcdata - What plotly computed for it
+ * @returns One height per authored sample, or undefined when unavailable
+ */
+function normalizedBandHeights(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+): number[] | undefined {
+  // A horizontal stack carries its bands on x, where the layer wants its
+  // positions; the raw arrays already sit the right way round for that.
+  if (trace.orientation === 'h' || calcdata.length === 0) {
+    return undefined;
+  }
+
+  const heights: number[] = [];
+  for (const cd of calcdata) {
+    if (cd.i === null)
+      continue;
+    if (typeof cd.sNorm !== 'number' || !Number.isFinite(cd.sNorm))
+      return undefined;
+    heights.push(cd.sNorm);
+  }
+
+  return heights.length === trace.y?.length ? heights : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -2001,6 +2191,346 @@ function extractCandlestickLayer(
     title,
     selectors,
     axes,
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Waterfall
+// ---------------------------------------------------------------------------
+
+/**
+ * The `measure` values that mark a step restating the running total rather
+ * than contributing to it. Plotly accepts both the words and their initials.
+ */
+const WATERFALL_TOTAL_MEASURES = new Set(['total', 't', 'absolute', 'a']);
+
+/** A measure that resets the running total to the step's own amount. */
+const WATERFALL_ABSOLUTE_MEASURES = new Set(['absolute', 'a']);
+
+/** One step as the layer needs it, before its label is attached. */
+interface WaterfallStep {
+  start: number;
+  end: number;
+  delta: number;
+  kind: WaterfallKind;
+}
+
+/**
+ * Names what a step did to the running total.
+ *
+ * A zero-sized relative step is an increase rather than a decrease, matching
+ * plotly's own `dir`, which reserves `decreasing` for a negative amount.
+ */
+function waterfallKind(isSum: boolean, delta: number): WaterfallKind {
+  if (isSum)
+    return 'total';
+  return delta < 0 ? 'decrease' : 'increase';
+}
+
+/**
+ * Reads one step out of what plotly computed for it.
+ *
+ * This is the arithmetic plotly's own hover does: the running total after the
+ * step is `cd.v` — the trace's base plus everything accumulated so far — and
+ * the contribution is the step's authored amount `cd.rawS`. A total's
+ * contribution is the whole total it restates, which is what leaves it
+ * sitting on the baseline rather than floating like the steps around it.
+ *
+ * `cd.s` is deliberately not read: for a relative step it already holds the
+ * accumulated total, so taking it for the contribution would announce the
+ * running total twice and never the change.
+ *
+ * @param cd - The calcdata entry for this step, when plotly has computed one
+ * @returns The step, or null when calcdata cannot describe it
+ */
+function calcWaterfallStep(cd: PlotlyCalcData | undefined): WaterfallStep | null {
+  if (!cd || typeof cd.v !== 'number' || !Number.isFinite(cd.v)) {
+    return null;
+  }
+
+  const end = cd.v;
+  const isSum = cd.isSum === true;
+  if (!isSum && (typeof cd.rawS !== 'number' || !Number.isFinite(cd.rawS))) {
+    return null;
+  }
+
+  const delta = isSum ? end : (cd.rawS as number);
+  return { start: end - delta, end, delta, kind: waterfallKind(isSum, delta) };
+}
+
+/**
+ * Accumulates the steps from what the author wrote, for a chart captured
+ * before plotly computed it.
+ *
+ * Mirrors plotly's own calc so the two agree: a relative step adds its amount
+ * to the running total, an absolute one replaces it, and a total leaves it
+ * alone while restating it as a bar from the baseline.
+ *
+ * @param sizes - The value-axis amounts, in step order
+ * @param measures - What each step does, `relative` where it says nothing
+ * @param base - The value-axis offset the trace is measured from
+ * @returns One step per amount
+ */
+function authoredWaterfallSteps(
+  sizes: (number | string)[],
+  measures: string[] | undefined,
+  base: number,
+): WaterfallStep[] {
+  const steps: WaterfallStep[] = [];
+  let running = 0;
+
+  for (let i = 0; i < sizes.length; i++) {
+    const parsed = Number(sizes[i]);
+    const amount = Number.isFinite(parsed) ? parsed : 0;
+    const measure = measures?.[i] ?? 'relative';
+    const isSum = WATERFALL_TOTAL_MEASURES.has(measure);
+
+    if (WATERFALL_ABSOLUTE_MEASURES.has(measure)) {
+      running = amount;
+    } else if (!isSum) {
+      running += amount;
+    }
+
+    const end = base + running;
+    const delta = isSum ? end : amount;
+    steps.push({ start: end - delta, end, delta, kind: waterfallKind(isSum, delta) });
+  }
+
+  return steps;
+}
+
+function extractWaterfallLayer(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+  id: string,
+  title: string | undefined,
+  selectors: string | undefined,
+  axes: MaidrLayer['axes'],
+): MaidrLayer | null {
+  const isHorizontal = trace.orientation === 'h';
+  const positions = isHorizontal ? trace.y : trace.x;
+  const sizes = isHorizontal ? trace.x : trace.y;
+  if (!positions || !sizes)
+    return null;
+
+  const parsedBase = Number(trace.base);
+  const base = Number.isFinite(parsedBase) ? parsedBase : 0;
+  const authored = authoredWaterfallSteps(sizes, trace.measure, base);
+
+  const len = Math.min(positions.length, sizes.length);
+  const data: WaterfallPoint[] = [];
+  for (let i = 0; i < len; i++) {
+    const step = calcWaterfallStep(calcdata[i]) ?? authored[i];
+    data.push({
+      x: positions[i] as number | string,
+      start: step.start,
+      end: step.end,
+      delta: step.delta,
+      kind: step.kind,
+    });
+  }
+
+  if (data.length === 0)
+    return null;
+
+  return {
+    id,
+    type: TraceType.WATERFALL,
+    title,
+    selectors,
+    // `WaterfallTrace` names the step with the layer's x axis and the
+    // contribution with its y axis whichever way plotly drew the bars — the
+    // sequence navigates the same either way, so it has no orientation to
+    // read. On a horizontal waterfall those are plotly's y and x, so the
+    // labels are swapped into the layer rather than announced crossed over.
+    axes: isHorizontal ? swappedAxes(axes) : axes,
+    data,
+  };
+}
+
+/**
+ * Exchanges a layer's x and y axis labels, for a trace whose navigation has
+ * no orientation of its own.
+ */
+function swappedAxes(axes: MaidrLayer['axes']): MaidrLayer['axes'] {
+  const swapped: MaidrLayer['axes'] = {};
+  if (axes?.y)
+    swapped.x = axes.y;
+  if (axes?.x)
+    swapped.y = axes.x;
+  return swapped;
+}
+
+// ---------------------------------------------------------------------------
+// Error bars
+// ---------------------------------------------------------------------------
+
+/** A sample's interval, either side of which the chart may leave undrawn. */
+interface ErrorBounds {
+  min?: number;
+  max?: number;
+}
+
+/**
+ * Reads the bounds plotly resolved for one sample.
+ *
+ * Plotly's errorbar calc turns every flavour of `error_y` — arrays,
+ * percentages, square roots — into the two absolute positions it will draw
+ * the whip between, and stores them per sample as `ys`/`yh` (`xs`/`xh` for
+ * horizontal intervals). Those are exactly what {@link ErrorBarPoint} wants,
+ * so nothing is recomputed here.
+ *
+ * @param cd - The calcdata entry for this sample
+ * @param axis - The axis the interval is drawn on
+ * @returns The bounds, or null when plotly resolved none
+ */
+function calcErrorBounds(
+  cd: PlotlyCalcData | undefined,
+  axis: 'x' | 'y',
+): ErrorBounds | null {
+  if (!cd)
+    return null;
+
+  const low = axis === 'y' ? cd.ys : cd.xs;
+  const high = axis === 'y' ? cd.yh : cd.xh;
+  if (!Number.isFinite(low) && !Number.isFinite(high))
+    return null;
+
+  return {
+    ...(Number.isFinite(low) ? { min: low } : {}),
+    ...(Number.isFinite(high) ? { max: high } : {}),
+  };
+}
+
+/**
+ * The magnitudes an error-bar container declares at one sample, below and
+ * above the estimate.
+ *
+ * Mirrors plotly's own `computeError`, for the chart captured before it ran.
+ *
+ * @param options - The trace's `error_x`/`error_y` container
+ * @param value - The estimate the interval is drawn around
+ * @param index - Which sample this is, for the per-sample arrays
+ * @returns `[below, above]`, or null when the container declares nothing
+ */
+function errorMagnitudes(
+  options: PlotlyErrorBar,
+  value: number,
+  index: number,
+): [number, number] | null {
+  // Only `data` reads a second array; the scalar types repeat their single
+  // magnitude unless the trace declared the other side separately.
+  const separate = options.symmetric === false;
+
+  switch (options.type) {
+    case 'data': {
+      const above = Number(options.array?.[index]);
+      return [separate ? Number(options.arrayminus?.[index]) : above, above];
+    }
+    case 'constant': {
+      const above = Math.abs(Number(options.value));
+      return [separate ? Math.abs(Number(options.valueminus)) : above, above];
+    }
+    case 'percent': {
+      const above = Math.abs(value * Number(options.value) / 100);
+      return [separate ? Math.abs(value * Number(options.valueminus) / 100) : above, above];
+    }
+    case 'sqrt': {
+      const magnitude = Math.sqrt(Math.abs(value));
+      return [magnitude, magnitude];
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Turns the declared magnitudes into the absolute bounds the grammar fixes.
+ */
+function authoredErrorBounds(
+  options: PlotlyErrorBar,
+  value: number,
+  index: number,
+): ErrorBounds | null {
+  const magnitudes = errorMagnitudes(options, value, index);
+  if (!magnitudes)
+    return null;
+
+  const [below, above] = magnitudes;
+  if (!Number.isFinite(below) && !Number.isFinite(above))
+    return null;
+
+  return {
+    ...(Number.isFinite(below) ? { min: value - below } : {}),
+    ...(Number.isFinite(above) ? { max: value + above } : {}),
+  };
+}
+
+/**
+ * Builds the interval layer for a scatter or bar trace drawn with error bars.
+ *
+ * A horizontal interval is the same shape with the axes exchanged: the
+ * estimate and its bounds come off plotly's x and the sample labels off its
+ * y, which is what `orientation` tells the trace so it announces each against
+ * the right axis.
+ *
+ * Samples plotly would not draw are dropped rather than emitted at zero. That
+ * also keeps the points lined up with the whips in the DOM, which plotly
+ * leaves out for exactly the same samples.
+ */
+function extractErrorBarLayer(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+  id: string,
+  title: string | undefined,
+  selectors: string | undefined,
+  axes: MaidrLayer['axes'],
+): MaidrLayer | null {
+  const axis = errorBarAxis(trace);
+  if (axis === null)
+    return null;
+
+  const isHorizontal = axis === 'x';
+  const positions = isHorizontal ? trace.y : trace.x;
+  const values = isHorizontal ? trace.x : trace.y;
+  const options = (isHorizontal ? trace.error_x : trace.error_y) ?? {};
+  if (!positions || !values)
+    return null;
+
+  const len = Math.min(positions.length, values.length);
+  const data: ErrorBarPoint[] = [];
+
+  for (let i = 0; i < len; i++) {
+    // The explicit null gap goes first: `Number(null)` is 0, which is finite
+    // and would be announced as an estimate of zero the chart never drew.
+    if (positions[i] == null || values[i] == null)
+      continue;
+    const value = Number(values[i]);
+    if (!Number.isFinite(value))
+      continue;
+
+    const bounds = calcErrorBounds(calcdata[i], axis)
+      ?? authoredErrorBounds(options, value, i);
+
+    data.push({
+      x: positions[i] as number | string,
+      y: value,
+      ...(bounds?.min !== undefined ? { yMin: bounds.min } : {}),
+      ...(bounds?.max !== undefined ? { yMax: bounds.max } : {}),
+    });
+  }
+
+  if (data.length === 0)
+    return null;
+
+  return {
+    id,
+    type: TraceType.ERROR_BAR,
+    title,
+    selectors,
+    axes,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     data,
   };
 }

@@ -1,10 +1,10 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, MaidrLayer, PiePoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, ErrorBarPoint, LinePoint, MaidrLayer, PiePoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
 
@@ -1651,6 +1651,81 @@ describe('plotly extractor', () => {
         expect(figure.state).toMatchObject({ empty: false });
       });
     });
+
+    it('constructs a navigable trace for each of the bar-like and banded types', () => {
+      const gd = createGraphDiv({
+        traces: [
+          {
+            type: 'waterfall',
+            x: ['Opening', 'Sales', 'Closing'],
+            y: [1000, 400, 0],
+            measure: ['absolute', 'relative', 'total'],
+            name: 'Revenue',
+          },
+          {
+            type: 'funnel',
+            orientation: 'h',
+            y: ['Visited', 'Purchased'],
+            x: [10000, 100],
+            name: 'Conversion',
+            xaxis: 'x2',
+            yaxis: 'y2',
+          },
+          {
+            type: 'scatter',
+            mode: 'markers',
+            x: [1, 2],
+            y: [4.2, 5.1],
+            error_y: { visible: true, type: 'data', array: [0.4, 0.3] },
+            name: 'Treatment',
+            xaxis: 'x3',
+            yaxis: 'y3',
+          },
+          {
+            type: 'scatter',
+            mode: 'lines',
+            x: ['Q1', 'Q2'],
+            y: [120, 80],
+            fill: 'tozeroy',
+            stackgroup: 'one',
+            name: 'East',
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+          {
+            type: 'scatter',
+            mode: 'lines',
+            x: ['Q1', 'Q2'],
+            y: [90, 70],
+            fill: 'tonexty',
+            stackgroup: 'one',
+            name: 'West',
+            xaxis: 'x4',
+            yaxis: 'y4',
+          },
+        ],
+        layout: twoByTwoLayout(),
+        bgRects: TWO_BY_TWO_RECTS,
+      });
+
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      withDomGlobals(gd, () => {
+        const figure = new Figure(maidr!);
+        figure.applyLayout(resolveSubplotLayout(figure.subplots));
+
+        // Every payload is one the core's factory recognises and can build a
+        // trace from — the emitted shapes, not just the emitted type names.
+        expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
+          ['waterfall'],
+          ['funnel'],
+          ['error_bar'],
+          ['stacked_area'],
+        ]);
+        expect(figure.state).toMatchObject({ empty: false });
+      });
+    });
   });
 
   describe('segmented bars', () => {
@@ -1934,6 +2009,567 @@ describe('plotly extractor', () => {
       expect(data[1][2].y).toBeNull();
       // Category labels still come from the trace, so they survive the gaps.
       expect(data[0].map(point => point.x)).toEqual(quarters);
+    });
+  });
+
+  describe('area traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { domain: [0, 1] as [number, number] },
+      yaxis: { domain: [0, 1] as [number, number] },
+    };
+
+    function areaTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'lines',
+        x: ['Q1', 'Q2'],
+        y: [120, 80],
+        fill: 'tozeroy',
+        ...overrides,
+      };
+    }
+
+    function layersOf(gd: PlotlyGraphDiv): MaidrLayer[] {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('binds a filled scatter as an area layer, shaped like a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ name: 'East' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.AREA);
+      expect(layers[0].data).toEqual([[
+        { x: 'Q1', y: 120, z: 'East' },
+        { x: 'Q2', y: 80, z: 'East' },
+      ]]);
+    });
+
+    it('leaves an unfilled scatter a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ fill: 'none' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].type).toBe(TraceType.LINE);
+    });
+
+    it('keeps a filled staircase a step, whose convention still describes it', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ line: { shape: 'hv' } })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].type).toBe(TraceType.STEP);
+      expect(layers[0].stepDirection).toBe('hv');
+    });
+
+    it('merges independent bands into one multi-series area layer', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East' }),
+          areaTrace({ name: 'West', y: [90, 70] }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.AREA);
+      expect(layers[0].data).toHaveLength(2);
+    });
+
+    it('binds a stackgroup as a stacked area carrying each band\'s own value', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.STACKED_AREA);
+      // Not the running total (210/150): AreaTrace accumulates the bands
+      // itself, and pre-accumulated values would be counted twice.
+      expect(layers[0].data).toEqual([
+        [{ x: 'Q1', y: 120, z: 'East' }, { x: 'Q2', y: 80, z: 'East' }],
+        [{ x: 'Q1', y: 90, z: 'West' }, { x: 'Q2', y: 70, z: 'West' }],
+      ]);
+    });
+
+    it('keeps two stack groups apart, so neither invents the other\'s total', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'sales' }),
+          areaTrace({ name: 'North', y: [5, 6], stackgroup: 'costs' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.STACKED_AREA,
+        TraceType.STACKED_AREA,
+      ]);
+      expect(layers.map(layer => (layer.data as unknown[]).length)).toEqual([1, 1]);
+    });
+
+    it('binds a normalized stackgroup as its own type', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.NORMALIZED_AREA);
+    });
+
+    it('announces the rescaled band heights plotly drew for a normalized stack', () => {
+      const gd = createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          areaTrace({ name: 'West', y: [90, 70], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+        // As plotly leaves it: `sNorm` is the band's own rescaled height and
+        // `y` the running top of the stack.
+        calcdata: [
+          [
+            { x: 0, s: 120, sNorm: 100 * 120 / 210, y: 100 * 120 / 210 },
+            { x: 1, s: 80, sNorm: 100 * 80 / 150, y: 100 * 80 / 150 },
+          ],
+          [
+            { x: 0, s: 90, sNorm: 100 * 90 / 210, y: 100 },
+            { x: 1, s: 70, sNorm: 100 * 70 / 150, y: 100 },
+          ],
+        ],
+      });
+
+      const data = layersOf(gd)[0].data as LinePoint[][];
+
+      expect(data[0][0].y).toBeCloseTo(57.142857, 5);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+      expect(data[0][1].y).toBeCloseTo(53.333333, 5);
+      expect(data[1][1].y).toBeCloseTo(46.666667, 5);
+    });
+
+    it('drops the positions plotly interleaved into a stack from another band', () => {
+      const gd = createGraphDiv({
+        traces: [
+          areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' }),
+          // West has nothing at Q2, so plotly splices a blank into its
+          // calcdata to line the two bands up.
+          areaTrace({ name: 'West', x: ['Q1'], y: [90], stackgroup: 'one', groupnorm: 'percent' }),
+        ],
+        layout: SINGLE_PANEL,
+        calcdata: [
+          [
+            { x: 0, sNorm: 100 * 120 / 210 },
+            { x: 1, sNorm: 100 },
+          ],
+          [
+            { x: 0, sNorm: 100 * 90 / 210 },
+            { x: 1, i: null, s: 0, sNorm: 0 },
+          ],
+        ],
+      });
+
+      const data = layersOf(gd)[0].data as LinePoint[][];
+
+      // West keeps its one authored sample; the interleaved blank is not one.
+      expect(data[1]).toHaveLength(1);
+      expect(data[1][0].y).toBeCloseTo(42.857143, 5);
+    });
+
+    it('falls back to the authored values when plotly computed no calcdata', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ name: 'East', stackgroup: 'one', groupnorm: 'percent' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].data).toEqual([[
+        { x: 'Q1', y: 120, z: 'East' },
+        { x: 'Q2', y: 80, z: 'East' },
+      ]]);
+    });
+
+    it('highlights the markers of an area drawn with them', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace({ mode: 'lines+markers', stackgroup: 'one' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].selectors).toBe('.subplot.xy .trace.scatter .point');
+    });
+
+    it('leaves a lines-only area unhighlighted, as it leaves a line', () => {
+      const layers = layersOf(createGraphDiv({
+        traces: [areaTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layers[0].selectors).toBeUndefined();
+    });
+
+    it('does not warn about an area trace, which is supported', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        extractPlotlyData(createGraphDiv({
+          traces: [areaTrace({ stackgroup: 'one' })],
+          layout: SINGLE_PANEL,
+        }));
+
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  describe('funnel traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Users' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Stage' }, domain: [0, 1] as [number, number] },
+    };
+
+    /** The default funnel shape: counts on x, stages on y, drawn sideways. */
+    function funnelTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'funnel',
+        orientation: 'h',
+        y: ['Visited', 'Signed up', 'Purchased'],
+        x: [10000, 2400, 100],
+        name: 'Conversion',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('binds a funnel trace as a funnel layer, in the authored stage order', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.FUNNEL);
+      expect(layer.title).toBe('Conversion');
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      // The count sits on the axis it was drawn against, which is where
+      // AbstractBarPlot reads a horizontal bar's value from.
+      expect(layer.data).toEqual([
+        { x: 10000, y: 'Visited' },
+        { x: 2400, y: 'Signed up' },
+        { x: 100, y: 'Purchased' },
+      ]);
+      expect(layer.axes?.x?.label).toBe('Users');
+      expect(layer.axes?.y?.label).toBe('Stage');
+    });
+
+    it('prefers the size plotly computed over the authored one', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+        calcdata: [[{ p: 0, s: 9000 }, { p: 1, s: 2400 }, { p: 2, s: 100 }]],
+      }));
+
+      expect((layer.data as BarPoint[])[0].x).toBe(9000);
+    });
+
+    it('scopes the highlight to the funnel layer, not to a neighbouring bar', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe('.subplot.xy .funnellayer .trace.bars .point > path');
+    });
+
+    it('keeps a vertical funnel on the value axis it was drawn against', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [funnelTrace({
+          orientation: 'v',
+          x: ['Visited', 'Signed up'],
+          y: [10000, 2400],
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.orientation).toBeUndefined();
+      expect(layer.data).toEqual([
+        { x: 'Visited', y: 10000 },
+        { x: 'Signed up', y: 2400 },
+      ]);
+    });
+  });
+
+  describe('waterfall traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Step' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Amount' }, domain: [0, 1] as [number, number] },
+    };
+
+    function waterfallTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'waterfall',
+        x: ['Opening', 'Sales', 'Returns', 'Closing'],
+        y: [1000, 400, -150, 0],
+        measure: ['absolute', 'relative', 'relative', 'total'],
+        name: 'Revenue',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('accumulates the authored steps when plotly computed no calcdata', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.WATERFALL);
+      expect(layer.title).toBe('Revenue');
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
+        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
+        { x: 'Returns', start: 1400, end: 1250, delta: -150, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 1250, delta: 1250, kind: 'total' },
+      ]);
+    });
+
+    it('reads the running totals plotly computed in preference to its own', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+        // As plotly leaves it: `v` is the total after the step, `rawS` the
+        // authored contribution, `s` the accumulated size it draws with.
+        calcdata: [[
+          { p: 0, s: 1000, rawS: 1000, isSum: true, v: 1000 },
+          { p: 1, s: 1400, rawS: 400, isSum: false, v: 1400 },
+          { p: 2, s: 1250, rawS: -150, isSum: false, v: 1250 },
+          { p: 3, s: 1250, rawS: 0, isSum: true, v: 1250 },
+        ]],
+      }));
+
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
+        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
+        { x: 'Returns', start: 1400, end: 1250, delta: -150, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 1250, delta: 1250, kind: 'total' },
+      ]);
+    });
+
+    it('measures the steps from the trace base', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace({
+          x: ['Sales'],
+          y: [400],
+          measure: ['relative'],
+          base: 500,
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.data).toEqual([
+        { x: 'Sales', start: 500, end: 900, delta: 400, kind: 'increase' },
+      ]);
+    });
+
+    it('swaps the axis labels of a horizontal waterfall, which reads them fixed', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace({
+          orientation: 'h',
+          y: ['Opening', 'Sales'],
+          x: [1000, 400],
+          measure: ['absolute', 'relative'],
+        })],
+        // Drawn sideways, so plotly's x carries the amounts and its y the
+        // steps — the opposite of how the layer has to name them.
+        layout: {
+          xaxis: { title: { text: 'Amount' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Step' }, domain: [0, 1] },
+        },
+      }));
+
+      // WaterfallTrace names the step with the layer's x axis and the
+      // contribution with its y axis, whichever way plotly drew the bars.
+      expect(layer.axes?.x?.label).toBe('Step');
+      expect(layer.axes?.y?.label).toBe('Amount');
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
+        { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
+      ]);
+    });
+
+    it('scopes the highlight to the waterfall layer', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [waterfallTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toBe('.subplot.xy .waterfalllayer .trace.bars .point > path');
+    });
+  });
+
+  describe('error bar traces', () => {
+    const SINGLE_PANEL = {
+      xaxis: { title: { text: 'Group' }, domain: [0, 1] as [number, number] },
+      yaxis: { title: { text: 'Mean' }, domain: [0, 1] as [number, number] },
+    };
+
+    function errorTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'markers',
+        x: ['A', 'B'],
+        y: [4.2, 5.1],
+        error_y: { visible: true, type: 'data', array: [0.4, 0.3] },
+        name: 'Treatment',
+        ...overrides,
+      };
+    }
+
+    function onlyLayer(gd: PlotlyGraphDiv): MaidrLayer {
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+      const layers = maidr!.subplots[0][0].layers;
+      expect(layers).toHaveLength(1);
+      return layers[0];
+    }
+
+    it('binds a scatter carrying intervals as an error bar layer', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace()],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+      expect(layer.title).toBe('Treatment');
+      expect(layer.orientation).toBeUndefined();
+      // Absolute bounds, not the offsets the trace declared.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data.map(point => point.x)).toEqual(['A', 'B']);
+      expect(data[0].yMin).toBeCloseTo(3.8, 10);
+      expect(data[0].yMax).toBeCloseTo(4.6, 10);
+      expect(data[1].yMin).toBeCloseTo(4.8, 10);
+      expect(data[1].yMax).toBeCloseTo(5.4, 10);
+    });
+
+    it('leaves a scatter whose intervals plotly turned off a scatter', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({
+          x: [1, 2],
+          error_y: { visible: false, type: 'data', array: [0.4, 0.3] },
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.SCATTER);
+    });
+
+    it('prefers the bounds plotly resolved over recomputing them', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ error_y: { visible: true, type: 'sqrt' } })],
+        layout: SINGLE_PANEL,
+        calcdata: [[
+          { x: 0, y: 4.2, ys: 2.15, yh: 6.25 },
+          { x: 1, y: 5.1, ys: 2.84, yh: 7.36 },
+        ]],
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'A', y: 4.2, yMin: 2.15, yMax: 6.25 });
+      expect(data[1]).toEqual({ x: 'B', y: 5.1, yMin: 2.84, yMax: 7.36 });
+    });
+
+    it('reads the two sides separately when the trace declared them so', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({
+          error_y: {
+            visible: true,
+            type: 'data',
+            symmetric: false,
+            array: [0.4, 0.3],
+            arrayminus: [0.1, 0.2],
+          },
+        })],
+        layout: SINGLE_PANEL,
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].yMin).toBeCloseTo(4.1, 10);
+      expect(data[0].yMax).toBeCloseTo(4.6, 10);
+    });
+
+    it('resolves a percentage interval against each estimate', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ error_y: { visible: true, type: 'percent', value: 10 } })],
+        layout: SINGLE_PANEL,
+      }));
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].yMin).toBeCloseTo(3.78, 10);
+      expect(data[0].yMax).toBeCloseTo(4.62, 10);
+    });
+
+    it('reads a horizontal interval off the axis it was drawn on', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [{
+          type: 'scatter',
+          mode: 'markers',
+          y: ['Study A', 'Study B'],
+          x: [1.2, 0.8],
+          error_x: { visible: true, type: 'data', array: [0.3, 0.2] },
+        }],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0].x).toBe('Study A');
+      expect(data[0].y).toBe(1.2);
+      expect(data[0].yMin).toBeCloseTo(0.9, 10);
+      expect(data[0].yMax).toBeCloseTo(1.5, 10);
+      expect(layer.selectors)
+        .toBe('.subplot.xy .trace.scatter .errorbars > g.errorbar > path.xerror');
+    });
+
+    it('highlights the whip a bar trace hangs off its own group', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ type: 'bar', mode: undefined })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+      expect(layer.selectors).toBe('.subplot.xy .trace.bars > g.errorbar > path.yerror');
+    });
+
+    it('drops a sample plotly drew no estimate for, as it drew no whip', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [errorTrace({ x: ['A', 'B', 'C'], y: [4.2, null as unknown as number, 5.1] })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect((layer.data as ErrorBarPoint[]).map(point => point.x)).toEqual(['A', 'C']);
     });
   });
 });
