@@ -326,7 +326,12 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'histogram':
       return TraceType.HISTOGRAM;
 
+    // `ohlc` carries the same four numbers and differs only in how plotly
+    // draws a bar — a tick either side of a vertical range rather than a
+    // filled body — so a reader is told open, high, low and close either way.
+    // It draws into a layer of its own, which the selector handles.
     case 'candlestick':
+    case 'ohlc':
       return TraceType.CANDLESTICK;
 
     case 'pie':

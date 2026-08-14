@@ -107,8 +107,7 @@ export function generatePlotlySelectors(
       return `${prefix}.heatmaplayer image`;
 
     case TraceType.CANDLESTICK:
-      // Candlestick reuses box plot rendering: boxlayer > trace.boxes > path.box
-      return `${prefix}.trace.boxes .box`;
+      return candlestickSelector(plotlyGd, traceIndex, prefix);
 
     case TraceType.PIE:
       return pieSelector(plotlyGd, traceIndex);
@@ -382,6 +381,75 @@ function pieSelector(gd: PlotlyGraphDiv, traceIndex: number): string {
  * Whether a trace is a pie plotly put on the paper. A hidden or legend-only
  * trace gets no group in `.pielayer`, so it must not shift the count.
  */
+/**
+ * The trace types plotly draws into `g.boxlayer`, and so the ones that
+ * occupy a slot a candlestick has to count past.
+ *
+ * A `go.Violin` draws into `g.violinlayer` and a scatter into
+ * `g.scatterlayer`, so neither shifts the count — measured, not assumed.
+ */
+const BOXLAYER_TRACE_TYPES = new Set(['box', 'candlestick']);
+
+/**
+ * The marks of one candlestick or OHLC trace.
+ *
+ * Scoped three ways, each for a measured reason.
+ *
+ * **The subplot prefix excludes the rangeslider.** Plotly gives a candlestick
+ * chart one *by default*, and it holds a complete second copy of the plot at
+ * `g.infolayer > g.rangeslider-container > g.rangeslider-rangeplot`. For a
+ * four-candle chart the old `.trace.boxes .box` matched **eight** elements,
+ * so the index-to-element mapping was wrong for every candle and half the
+ * highlights landed in the thumbnail. The duplicate's ancestor carries the
+ * `xy` class but not `subplot`, so the prefix is what leaves it out.
+ *
+ * **The position picks this trace out of its layer.** A `go.Box` shares
+ * `g.boxlayer` and draws its own `path.box`, so one box beside one
+ * four-candle trace made `.trace.boxes path.box` match five. Counting
+ * siblings is safe here in a way it is not for `.scatterlayer`, whose groups
+ * are in fill z-order: measured with three interleaved traces, `boxlayer`
+ * children follow `_fullData` order.
+ *
+ * The count comes from {@link drawnBefore}, once per type sharing the layer,
+ * so a hidden trace does not take a slot — it draws no group, and counting it
+ * would push its neighbours onto one that does not exist. Only traces on this
+ * panel are counted, because each panel has a `boxlayer` of its own; a pie is
+ * counted across the figure instead, since `pielayer` is figure-level.
+ *
+ * **`ohlc` is a different layer.** It draws into
+ * `g.ohlclayer > g.trace.ohlc > path` rather than sharing the box machinery,
+ * so a `boxlayer` selector matches nothing at all for it.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The trace's index in `_fullData`
+ * @param prefix     - The subplot prefix the trace is drawn in
+ * @returns The selector for that trace's marks
+ */
+function candlestickSelector(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  prefix: string,
+): string {
+  const self = gd._fullData?.[traceIndex];
+  const isOhlc = self?.type === 'ohlc';
+  const onThisPanel = (trace: PlotlyTrace): boolean =>
+    trace.xaxis === self?.xaxis && trace.yaxis === self?.yaxis;
+
+  // `drawnBefore` counts one plotly type at a time, so the box-family layer
+  // takes one call per type it holds. Summing them is the whole count,
+  // because a trace has exactly one type.
+  const types = isOhlc ? ['ohlc'] : [...BOXLAYER_TRACE_TYPES];
+  const position = types.reduce(
+    (total, type) => total + drawnBefore(gd, traceIndex, type, onThisPanel),
+    0,
+  );
+
+  const nth = position + 1;
+  return isOhlc
+    ? `${prefix}.ohlclayer > .trace.ohlc:nth-of-type(${nth}) > path`
+    : `${prefix}.boxlayer > .trace.boxes:nth-of-type(${nth}) path.box`;
+}
+
 function isDrawnPie(trace: PlotlyTrace | undefined): boolean {
   return trace?.type === 'pie'
     && trace.visible !== false
