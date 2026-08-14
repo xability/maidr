@@ -281,7 +281,11 @@ function arrangeSubplots(cells: FacetCell[]): MaidrSubplot[][] {
   }
 
   // Faceted plots name their panels so a reader arriving at one is told which
-  // it is; an unfaceted plot has exactly one cell and nothing to name.
+  // facet they are in rather than "Subplot 2 of 3: this is a bar plot" — which
+  // is the whole content of the split, and what a legend gives a sighted
+  // reader for free. The name goes on the layer's `title`, which is where
+  // `focusedSubplotTitle` (src/model/plot.ts) reads a panel's name from.
+  // An unfaceted plot has exactly one cell and nothing to name.
   if (grid.length === 1 && grid[0].length === 1)
     return grid;
 
@@ -290,7 +294,7 @@ function arrangeSubplots(cells: FacetCell[]): MaidrSubplot[][] {
     if (!layers || !cell.label)
       continue;
     for (const layer of layers)
-      layer.name ??= cell.label;
+      layer.title ??= cell.label;
   }
   return grid;
 }

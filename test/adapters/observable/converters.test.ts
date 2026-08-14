@@ -165,13 +165,16 @@ describe('faceted plots', () => {
   });
 
   it('names each panel after the facet it was drawn for', () => {
-    // Without this a reader moving between panels is told "bar plot" twice and
-    // never which facet they are in, which is the whole content of the split.
+    // Without this a reader moving between panels hears "Subplot 2 of 2: this
+    // is a bar plot" and is never told which facet they are in, which is the
+    // whole content of the split. The name has to go on the layer's `title`:
+    // that is where focusedSubplotTitle (src/model/plot.ts) reads a panel's
+    // name from, and `name` surfaces only on a layer switch *within* a panel.
     const { element } = mountFixture('facet');
     const maidr = observablePlotToMaidr(element);
 
-    expect(maidr?.subplots[0][0].layers[0].name).toBe('F1');
-    expect(maidr?.subplots[0][1].layers[0].name).toBe('F2');
+    expect(maidr?.subplots[0][0].layers[0].title).toBe('F1');
+    expect(maidr?.subplots[0][1].layers[0].title).toBe('F2');
   });
 
   it('carries the shared axis labels at the figure level', () => {
