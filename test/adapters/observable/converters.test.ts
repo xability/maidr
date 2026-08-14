@@ -330,6 +330,46 @@ describe('composite marks', () => {
     expect(observablePlotToMaidr(element)).toBeNull();
   });
 
+  it('leaves a horizontal box plot alone as well', () => {
+    // `boxX` stacks the same four marks the other way round, so a test that
+    // only knows the vertical arrangement passes while half the cases fail.
+    const { element } = mountFixture('boxHorizontal');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('finds the box even when another rule is drawn first', () => {
+    // Taking the first mark of each kind lets an unrelated `ruleY([0])` occupy
+    // the whisker's place, and the box plot is then read after all — the exact
+    // mis-announcement the check exists to prevent. `ruleY([0])` in front of a
+    // box plot is an ordinary thing to write.
+    const { element } = mountFixture('ruleThenBox');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('leaves a faceted box plot alone, outliers included', () => {
+    // Plot draws a facet's outlier group only where that facet has outliers, so
+    // a check that counts a mark's children counts facets for some marks and
+    // elements for others. The outlier mark then survives on its own and the
+    // chart presents itself as a complete scatter of the outliers.
+    const { element } = mountFixture('facetedBox');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('reads an error-bar chart that happens to use the same three marks', () => {
+    // A bar, a rule and a tick per category is also an error-bar chart with a
+    // target line. What makes a box plot is where the parts sit: the median
+    // inside the box, the whisker around it. Here neither holds, and skipping
+    // the chart would make an ordinary bar chart silently unreachable.
+    const { element } = mountFixture('errorBarsWithTarget');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.BAR);
+    expect((layer?.data as BarPoint[]).map(point => point.y)).toEqual([5, 3, 8]);
+  });
+
   it('still reads a bar chart drawn with a baseline rule', () => {
     // The composite is recognised by its parts arriving with one element each
     // per distribution. A baseline `ruleY([0])` draws one line however many

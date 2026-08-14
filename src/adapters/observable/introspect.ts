@@ -148,9 +148,11 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
  * that appears nowhere in the data and never hears the median or the whiskers
  * at all.
  *
- * The composite is recognised by its parts arriving together with one element
- * each per distribution. A baseline `ruleY([0])` alongside a bar chart draws a
- * single line however many bars there are, so it does not match.
+ * What identifies the composite is not that those three marks are present —
+ * an error bar chart, a candlestick and a bar chart with a target line each
+ * draw the same three — but how they sit on top of each other. In a box plot
+ * every median tick lies *inside* its box and every whisker rule *contains*
+ * it. Nothing that merely shares the mark types satisfies both.
  *
  * @param groups - The plot's mark groups, in draw order.
  * @returns Indices of the groups that form box plots.
@@ -159,31 +161,199 @@ export function boxCompositeGroups(
   groups: readonly { label: string; group: Element }[],
 ): Set<number> {
   const skip = new Set<number>();
-  const find = (label: string): number => groups.findIndex((entry, index) =>
-    entry.label === label && !skip.has(index));
+  const indices = (label: string): number[] => groups
+    .map((entry, index) => (entry.label === label ? index : -1))
+    .filter(index => index >= 0);
 
-  const rule = find('rule');
-  const bar = find('bar');
-  const tick = find('tick');
-  if (rule < 0 || bar < 0 || tick < 0)
-    return skip;
+  // Every combination, not the first of each: a `ruleY([0])` baseline drawn
+  // before the box would otherwise take the rule's place and hide the box plot
+  // from a check that only looks once.
+  for (const bar of indices('bar')) {
+    for (const rule of indices('rule')) {
+      for (const tick of indices('tick')) {
+        if (skip.has(bar) || skip.has(rule) || skip.has(tick))
+          continue;
+        if (!isBoxComposite(groups[bar].group, groups[rule].group, groups[tick].group))
+          continue;
 
-  const count = groups[bar].group.children.length;
-  if (count === 0
-    || groups[rule].group.children.length !== count
-    || groups[tick].group.children.length !== count) {
-    return skip;
+        skip.add(bar).add(rule).add(tick);
+        const outliers = indices('dot')
+          .find(index => !skip.has(index) && isOutlierMark(groups[index].group, groups[bar].group));
+        if (outliers !== undefined)
+          skip.add(outliers);
+      }
+    }
   }
 
-  skip.add(rule).add(bar).add(tick);
-  // The outliers, when the data has any: a dot mark drawn after the box with
-  // one element per distribution. A scatter of its own would not sit here.
-  const dot = groups.findIndex((entry, index) =>
-    entry.label === 'dot' && index > tick && entry.group.children.length === count);
-  if (dot >= 0)
-    skip.add(dot);
-
   return skip;
+}
+
+/**
+ * Whether three marks sit together the way a box plot's parts do.
+ *
+ * @param bar  - The candidate interquartile boxes.
+ * @param rule - The candidate whiskers.
+ * @param tick - The candidate medians.
+ * @returns True when every box has a median inside it and a whisker around it.
+ */
+function isBoxComposite(bar: Element, rule: Element, tick: Element): boolean {
+  const boxes = leafElements(bar).map(boxOf).filter((box): box is Box => box !== null);
+  const ticks = leafElements(tick).map(segmentOf).filter((one): one is Segment => one !== null);
+  const rules = leafElements(rule).map(segmentOf).filter((one): one is Segment => one !== null);
+  if (boxes.length === 0 || ticks.length < boxes.length || rules.length < boxes.length)
+    return false;
+
+  // Either way round: `boxY` stacks its parts vertically and `boxX`
+  // horizontally, and both draw the same relationship — the median across the
+  // box, the whisker along it and past both ends.
+  return boxes.every(box =>
+    ticks.some(median => crosses(box, median))
+    && rules.some(whisker => runsThrough(box, whisker)));
+}
+
+/**
+ * Whether a line lies across a box, the way a median does.
+ *
+ * @param box  - The interquartile box.
+ * @param line - The candidate median.
+ * @returns True on either axis.
+ */
+function crosses(box: Box, line: Segment): boolean {
+  return (spans(box.x, line.x) && within(box.y, midpoint(line.y)))
+    || (spans(box.y, line.y) && within(box.x, midpoint(line.x)));
+}
+
+/**
+ * Whether a line runs along a box and past both of its ends, the way a whisker
+ * does.
+ *
+ * @param box  - The interquartile box.
+ * @param line - The candidate whisker.
+ * @returns True on either axis.
+ */
+function runsThrough(box: Box, line: Segment): boolean {
+  return (spans(box.x, line.x) && contains(line.y, box.y))
+    || (spans(box.y, line.y) && contains(line.x, box.x));
+}
+
+/**
+ * Whether a dot mark holds a box plot's outliers rather than data of its own.
+ *
+ * Outliers sit on the same categories as the boxes and outside them, which is
+ * what makes them outliers. Counting them cannot identify them: Plot draws a
+ * facet's dot group only where that facet has any.
+ *
+ * @param dot - The candidate outlier mark.
+ * @param bar - The composite's interquartile boxes.
+ * @returns True when every dot sits on a box's category, beyond the box.
+ */
+function isOutlierMark(dot: Element, bar: Element): boolean {
+  const dots = leafElements(dot).map(centreOf).filter((one): one is Point => one !== null);
+  const boxes = leafElements(bar).map(boxOf).filter((box): box is Box => box !== null);
+  if (dots.length === 0 || boxes.length === 0)
+    return false;
+
+  // Beyond the box on the axis the distribution runs along, and on it on the
+  // other — whichever way round the box plot was drawn.
+  return dots.every(point => boxes.some(box =>
+    (within(box.x, point.x) && !within(box.y, point.y))
+    || (within(box.y, point.y) && !within(box.x, point.x))));
+}
+
+/** A rectangle's extent along both axes. */
+interface Box {
+  x: [number, number];
+  y: [number, number];
+}
+
+/** A straight mark: a point on one axis and an extent on the other. */
+interface Segment {
+  x: [number, number];
+  y: [number, number];
+}
+
+/** A dot's centre. */
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Reads a `<rect>`'s extent, or `null` when it is not one. */
+function boxOf(element: Element): Box | null {
+  const x = numberOf(element, 'x');
+  const y = numberOf(element, 'y');
+  const width = numberOf(element, 'width');
+  const height = numberOf(element, 'height');
+  if (x === null || y === null || width === null || height === null)
+    return null;
+  return { x: [x, x + width], y: [y, y + height] };
+}
+
+/** Reads a `<line>`'s extent, or `null` when it is not one. */
+function segmentOf(element: Element): Segment | null {
+  const x1 = numberOf(element, 'x1');
+  const x2 = numberOf(element, 'x2');
+  const y1 = numberOf(element, 'y1');
+  const y2 = numberOf(element, 'y2');
+  if (x1 === null || x2 === null || y1 === null || y2 === null)
+    return null;
+  return { x: [Math.min(x1, x2), Math.max(x1, x2)], y: [Math.min(y1, y2), Math.max(y1, y2)] };
+}
+
+/** Reads a `<circle>`'s centre, or `null` when it is not one. */
+function centreOf(element: Element): Point | null {
+  const x = numberOf(element, 'cx');
+  const y = numberOf(element, 'cy');
+  return x === null || y === null ? null : { x, y };
+}
+
+/** Reads a numeric attribute. */
+function numberOf(element: Element, name: string): number | null {
+  const raw = element.getAttribute(name);
+  if (raw === null)
+    return null;
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Half a pixel of slack, for marks drawn on a shared edge. */
+const SLACK = 0.5;
+
+/** The middle of a range. */
+function midpoint(range: [number, number]): number {
+  return (range[0] + range[1]) / 2;
+}
+
+/** Whether a value lies within a range. */
+function within(range: [number, number], value: number): boolean {
+  return value >= range[0] - SLACK && value <= range[1] + SLACK;
+}
+
+/** Whether an outer range covers an inner one. */
+function contains(outer: [number, number], inner: [number, number]): boolean {
+  return outer[0] <= inner[0] + SLACK && outer[1] >= inner[1] - SLACK;
+}
+
+/** Whether two ranges overlap along an axis. */
+function spans(range: [number, number], other: [number, number]): boolean {
+  return other[0] <= range[1] + SLACK && other[1] >= range[0] - SLACK;
+}
+
+/**
+ * Every drawn element of a mark, from inside its facet groups when it has any.
+ *
+ * A faceted mark's children are facets rather than marks, so counting or
+ * reading them directly answers a different question from the one asked.
+ *
+ * @param group - A mark group.
+ * @returns The mark's leaf elements.
+ */
+function leafElements(group: Element): Element[] {
+  const children = Array.from(group.children);
+  const facets = children.filter(child => child.tagName.toLowerCase() === 'g');
+  if (facets.length > 0 && facets.length === children.length)
+    return facets.flatMap(facet => Array.from(facet.children));
+  return children;
 }
 
 /**

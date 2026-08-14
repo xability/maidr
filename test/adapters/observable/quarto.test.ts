@@ -228,3 +228,61 @@ describe('charts a reactive cell replaces', () => {
     }
   });
 });
+
+describe('a cell holding more than one chart', () => {
+  it('keeps both when an OJS cell returns two plots side by side', async () => {
+    // A single `{ojs}` cell can return several plots — the standard
+    // side-by-side idiom puts them in one container — and they are siblings,
+    // not replacements. Treating the second as having superseded the first
+    // tears the first one's instance down while it is still on screen: the
+    // chart stays visible and silently loses every way in.
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html + FIXTURES.scatter.html;
+      await settle();
+
+      expect(cell?.querySelectorAll('svg[maidr-data]')).toHaveLength(2);
+      expect(released).toEqual([]);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+
+  it('tears down both when that cell re-runs', async () => {
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html + FIXTURES.scatter.html;
+      await settle();
+      const first = Array.from(cell!.querySelectorAll('svg'));
+
+      cell!.innerHTML = FIXTURES.multiline.html;
+      await settle();
+
+      expect(released).toEqual(first);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+});

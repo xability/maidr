@@ -47,6 +47,9 @@ const bound = new WeakSet<Element>();
  */
 const notPlots = new WeakSet<Element>();
 
+/** Counts passes over the document, so charts can be told apart by age. */
+let pass = 0;
+
 /** The watcher the automatic start owns, so it can be stopped and not doubled. */
 let autoWatcher: (() => void) | null = null;
 
@@ -145,6 +148,7 @@ export function initQuartoObservable(options: QuartoObservableOptions = {}): () 
   let scheduled = false;
   const scan = (): void => {
     scheduled = false;
+    pass += 1;
     for (const candidate of findUnboundPlots(root))
       bindOne(candidate, options);
   };
@@ -232,7 +236,7 @@ export function stopQuartoObservable(): void {
 }
 
 /**
- * The chart currently bound in each output cell.
+ * The charts bound in each output cell, and which pass bound them.
  *
  * An OJS cell re-runs whenever an input it depends on changes, and the runtime
  * replaces the cell's output with a freshly drawn chart. The chart it replaced
@@ -240,14 +244,16 @@ export function stopQuartoObservable(): void {
  * instance and everything that instance registered — so a reader dragging a
  * slider accumulates one whole chart per frame.
  *
- * Keyed by the cell rather than derived from the DOM, because the DOM cannot
- * answer the question. Binding a chart *moves* it — the runtime replaces it
- * with a wrapper and adopts it into React's tree, on React's schedule — so a
- * chart observed leaving the document may equally be one in the middle of
- * being mounted, and tearing that one down destroys the chart just bound.
- * Which chart a cell holds is not ambiguous in that way.
+ * A cell holds a *set*, not one chart: a single `{ojs}` cell can return several
+ * plots side by side, and they are all its occupants. What tells a replacement
+ * apart from a sibling is when each was bound. Siblings arrive together, in one
+ * pass over the document; a replacement arrives in a later one, after the chart
+ * it replaced has left the page.
  */
-const occupant = new WeakMap<Element, Element>();
+const occupants = new WeakMap<Element, Set<Element>>();
+
+/** Which scan bound each chart, for the comparison {@link occupants} describes. */
+const boundDuring = new WeakMap<Element, number>();
 
 /**
  * The output cell a chart was drawn into, read before anything moves it.
@@ -266,21 +272,37 @@ function cellOf(svg: Element): Element | null {
 }
 
 /**
- * Records a chart as its cell's occupant, tearing down the one it replaced.
+ * Records a chart as one of its cell's occupants, tearing down any it replaced.
+ *
+ * A chart is only ever superseded by one bound in a *later* pass, and only if
+ * the cell no longer holds it. Both halves matter: the first keeps two charts
+ * that arrived together from evicting each other, and the second keeps a chart
+ * that is merely mid-mount — binding one moves it, on React's schedule — from
+ * being torn down at the moment it was bound.
  *
  * @param cell - The cell the chart was drawn into.
  * @param svg  - The chart just bound.
  */
 function claimCell(cell: Element, svg: Element): void {
-  const previous = occupant.get(cell);
-  occupant.set(cell, svg);
-  if (!previous || previous === svg || !bound.has(previous))
-    return;
+  const held = occupants.get(cell) ?? new Set<Element>();
+  occupants.set(cell, held);
+  boundDuring.set(svg, pass);
 
-  bound.delete(previous);
-  // On `document`, with the element in `detail`: the superseded chart is
-  // detached by now, so an event fired on it would reach no listener.
-  document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: previous }));
+  for (const previous of held) {
+    if (previous === svg || boundDuring.get(previous) === pass)
+      continue;
+    if (cell.contains(previous))
+      continue;
+
+    held.delete(previous);
+    if (!bound.has(previous))
+      continue;
+    bound.delete(previous);
+    // On `document`, with the element in `detail`: the superseded chart is
+    // detached by now, so an event fired on it would reach no listener.
+    document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: previous }));
+  }
+  held.add(svg);
 }
 
 /**
