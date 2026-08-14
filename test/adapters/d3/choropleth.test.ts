@@ -174,6 +174,24 @@ describe('bindD3Choropleth', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/geoCentroid/));
   });
 
+  test('counts the dropped centroids against the regions that carried a value', () => {
+    // California is drawn but never reaches the centroid check — it has no
+    // value, so it is out of the payload before the coordinates are read.
+    // Counting it in the denominator would offer a total that no region in
+    // the warning could have come from.
+    const svg = buildMapSvg([
+      WASHINGTON,
+      CALIFORNIA,
+      feature('41', { name: 'Oregon', rate: 16.4, lon: 480.2, lat: 320.9 }),
+    ]);
+
+    bindD3Choropleth(svg, { selector: 'path.region' });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/Dropped the centroid of 1 of the 2 regions/),
+    );
+  });
+
   test('drops the pair when only one half of the centroid resolves', () => {
     // A longitude alone places nothing, and `ChoroplethTrace` bands the map
     // only when every region carries both — so half a centroid is a field

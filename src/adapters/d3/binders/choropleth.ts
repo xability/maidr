@@ -90,6 +90,16 @@ function featureProperties(datum: unknown): Record<string, unknown> | undefined 
  * names none of the keys the join would have written — so sampling it would
  * leave the whole map unreadable on the strength of one region.
  *
+ * The bias is toward a value-bearing feature only, and deliberately not also
+ * toward one carrying a region name. `id` is itself a region candidate and
+ * every feature `topojson.feature()` emits has one, so a feature that names a
+ * value practically always names a region key too — the extra test would
+ * qualify the same feature and decide nothing. Ranking the region key across
+ * features instead (preferring a `name` some *other* feature carries) would
+ * trade this fallback for a hard throw on any map whose odd feature names a
+ * key the rest do not, which is the worse failure. Real exports carry uniform
+ * `properties` and the question does not arise.
+ *
  * @param elements - Every matched region, with its D3-bound datum
  * @returns The names available on the sampled feature
  */
@@ -292,8 +302,10 @@ export function buildChoroplethLayer(
   warnPartialCentroids(data, selector);
   if (projected > 0) {
     console.warn(
+      // Counted against the regions that carried a value, not against every
+      // matched path: a region with no value never reached the centroid check.
       `[maidr/d3] Dropped the centroid of ${projected} of the `
-      + `${elements.length} regions matched by "${selector}": it fell outside `
+      + `${data.length} regions read from "${selector}": it fell outside `
       + `±${LON_LIMIT}° longitude or ±${LAT_LIMIT}° latitude, so it is a `
       + `projected coordinate rather than a geographic one. `
       + `\`d3.geoPath().centroid(d)\` returns pixels; \`d3.geoCentroid(d)\` `
