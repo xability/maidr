@@ -109,6 +109,33 @@ describe('bindD3Hexbin', () => {
     expect(counts).toEqual([1, 3, 4, 2, 7]);
   });
 
+  test('a rebind clears stamps left on MAIDR-owned clones', () => {
+    const svg = buildHexbinSvg(SCATTERED);
+    bindD3Hexbin(svg, { selector: 'path.hexagon' });
+
+    // MAIDR clones a mark to highlight it, and the clone copies the stamp the
+    // bind just laid down. `queryD3Elements` skips owned elements, so the
+    // clone never joins the payload — but the emitted
+    // `path.hexagon[data-maidr-hexbin-index="N"]` does not exclude it, so on a
+    // rebind that index would resolve to two hexagons: the real one and the
+    // clone. The count of selectors still matches the count of bins, so
+    // nothing downstream can tell.
+    const original = svg.querySelector('path.hexagon')!;
+    const clone = original.cloneNode(true) as Element;
+    clone.setAttribute('data-maidr-owned', 'true');
+    svg.appendChild(clone);
+    expect(clone.getAttribute('data-maidr-hexbin-index')).not.toBeNull();
+
+    const result = bindD3Hexbin(svg, { selector: 'path.hexagon' });
+
+    const selectors = result.layer.selectors as string[];
+    expect(selectors).toHaveLength(5);
+    for (const one of selectors) {
+      expect(svg.ownerDocument.querySelectorAll(one)).toHaveLength(1);
+    }
+    expect(clone.hasAttribute('data-maidr-hexbin-index')).toBe(false);
+  });
+
   test('groups by an explicit `row` accessor when the y values do not line up', () => {
     const svg = buildHexbinSvg([
       Object.assign([0], { x: 3, y: 10.0001, row: 0 }),

@@ -106,9 +106,9 @@ export function scopeSelector(container: Element, selector: string, panel?: D3Pa
  * mark sat at that position, and the counts still match so nothing detects it.
  *
  * The stamp is an attribute the binder owns rather than a structural
- * `:nth-child(N)`, which any later DOM insertion would shift, and it is
- * cleared before it is set so rebinding after a D3 data update leaves a clean
- * state.
+ * `:nth-child(N)`, which any later DOM insertion would shift, and every stamp
+ * already under the root is cleared before the new ones are laid down so
+ * rebinding after a D3 data update leaves a clean state.
  *
  * @param container - The extraction root (the SVG, or a panel element).
  * @param selector - The user-provided selector matching the marks.
@@ -125,8 +125,19 @@ export function stampOrderedSelectors(
   panel?: D3PanelScope,
 ): string[] {
   const prefix = selectorPrefix(container, panel);
+
+  // Clear every stamp under this root before laying down the new ones.
+  // Clearing only the elements about to be re-stamped would leave a mark that
+  // has dropped out of the payload — a rebind after a D3 update that draws
+  // fewer bins, an `exit()` selection still in the DOM — carrying its old
+  // index, and the emitted `[attribute="N"]` selector would then resolve to
+  // two elements for one datum. Scoped to the root, so a panel never clears
+  // its siblings' stamps.
+  for (const stale of Array.from(container.querySelectorAll(`[${attribute}]`))) {
+    stale.removeAttribute(attribute);
+  }
+
   return ordered.map((element, index) => {
-    element.removeAttribute(attribute);
     element.setAttribute(attribute, String(index));
     return `${prefix} ${selector}[${attribute}="${index}"]`;
   });
