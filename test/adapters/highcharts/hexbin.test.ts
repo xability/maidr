@@ -101,6 +101,34 @@ describe('highcharts tilemap charts', () => {
       .toEqual(['4', '0', '2', '1', '3']);
   });
 
+  it('skips rather than compacts the index of a tile it never drew', () => {
+    const chart = tilemapChart(TILES, { withGraphics: true });
+    // Highcharts drew no marker for (0, 0) and (1, 0) -- lattice bins 0 and 1.
+    for (const point of chart.series[0].data) {
+      if (point.y === 0 && point.x !== 2) {
+        point.graphic = undefined;
+      }
+    }
+
+    highchartsToMaidr(chart);
+
+    // The undrawn bins simply carry no stamp, and every bin that was drawn
+    // keeps the lattice index its announcement uses. Renumbering around the
+    // gaps would slide bin 2's highlight onto bin 0's neighbour and mispair
+    // every announcement after it.
+    expect(chart.series[0].data.map(p => [
+      p.x,
+      p.y,
+      p.graphic?.element.getAttribute('data-maidr-bin-index') ?? null,
+    ])).toEqual([
+      [1, 1, '4'],
+      [0, 0, null],
+      [2, 0, '2'],
+      [1, 0, null],
+      [0, 1, '3'],
+    ]);
+  });
+
   it('names the rows from the y axis categories when it has them', () => {
     const chart = tilemapChart(TILES, { yCategories: ['South', 'North'] });
 
