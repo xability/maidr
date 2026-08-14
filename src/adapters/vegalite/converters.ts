@@ -149,16 +149,17 @@ export function vegaLiteToMaidr(
     // as a segment layer plus a dot layer, and neither half is the chart.
     // Converting them separately dropped the segment (a `rule` resolves to
     // no trace type at all) and announced the dots as a scatter.
+    const layerSpecs = spec.layer ?? [];
     const rawLayers: ConvertedLayer[] = [];
-    for (let i = 0; i < spec.layer!.length;) {
-      const paired = convertPairedLayers(spec.layer!, i, view, spec.encoding);
+    for (let i = 0; i < layerSpecs.length;) {
+      const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
       if (paired) {
-        rawLayers.push({ layer: paired, spec: spec.layer![i] });
+        rawLayers.push({ layer: paired, spec: layerSpecs[i] });
         i += 2;
         continue;
       }
       const layer = convertLayerSpec(
-        spec.layer![i],
+        layerSpecs[i],
         i,
         view,
         spec.encoding,
@@ -169,7 +170,7 @@ export function vegaLiteToMaidr(
         spec.transform,
       );
       if (layer)
-        rawLayers.push({ layer, spec: spec.layer![i] });
+        rawLayers.push({ layer, spec: layerSpecs[i] });
       i += 1;
     }
 
@@ -928,7 +929,20 @@ function resolveRangedBarType(
     return hasRunningSumTransform(transform) ? TraceType.WATERFALL : TraceType.GANTT;
   }
   if (hasField(encoding?.x) && hasField(encoding?.x2) && isCategorical(encoding?.y)) {
-    return TraceType.GANTT;
+    return hasRunningSumTransform(transform) ? TraceType.WATERFALL : TraceType.GANTT;
+  }
+  // Both bounds are there but the axis opposite them left its type to
+  // Vega-Lite's inference, which the spec alone cannot recover — see
+  // `isCategorical`. The bar then reads as an ordinary one, whose magnitude
+  // is the lower bound by itself: a silent misread rather than an
+  // unsupported chart, so say which one line of the spec would fix it.
+  if ((hasField(encoding?.y) && hasField(encoding?.y2))
+    || (hasField(encoding?.x) && hasField(encoding?.x2))) {
+    console.warn(
+      '[maidr/vegalite] A bar spanning two positional bounds needs an explicit '
+      + '"nominal" or "ordinal" type on the axis opposite them to read as a gantt '
+      + 'or a waterfall; reading it as an ordinary bar.',
+    );
   }
   return null;
 }
@@ -2359,10 +2373,20 @@ function extractDumbbellData(
     return null;
 
   // The scale's domain is the order the chart draws the ends in; failing
-  // that, the order they first appear in the data.
-  const ends = (endOrder ?? rows.map(row => row[groupField]))
-    .map(value => String(value ?? ''))
-    .filter((value, index, all) => all.indexOf(value) === index);
+  // that, the order they first appear in the data. A third distinct value
+  // settles it — the group is not a pair — so stop there rather than walk
+  // the rest of the rows.
+  const ends: string[] = [];
+  const endSet = new Set<string>();
+  for (const value of endOrder ?? rows.map(row => row[groupField])) {
+    const name = String(value ?? '');
+    if (endSet.has(name))
+      continue;
+    if (ends.length === 2)
+      return null;
+    endSet.add(name);
+    ends.push(name);
+  }
   if (ends.length !== 2)
     return null;
 
@@ -2370,7 +2394,7 @@ function extractDumbbellData(
   for (const row of rows) {
     const category = String(row[channels.catField] ?? '');
     const end = String(row[groupField] ?? '');
-    if (!ends.includes(end))
+    if (!endSet.has(end))
       return null;
     if (!pairs.has(category))
       pairs.set(category, new Map());
@@ -2444,6 +2468,18 @@ function convertPairedLayers(
   if (!channels
     || connectorEncoding.x?.field !== dotEncoding.x?.field
     || connectorEncoding.y?.field !== dotEncoding.y?.field) {
+    return null;
+  }
+
+  // A `line` connector only connects when it says what it joins. Vega-Lite's
+  // ranged dot plot draws one path per category by naming that category in
+  // `detail`; a `line` under a dot layer without it is the ordinary
+  // line-with-markers idiom, whose colour series a dumbbell reading would
+  // announce as the two ends of a comparison nobody drew — a two-series line
+  // over an ordinal x, one row per category per series, satisfies every other
+  // test here. A `rule` needs no such proof: it is one segment per row by
+  // construction, and it draws no series of its own.
+  if (connectorMark === 'line' && connectorEncoding.detail?.field !== channels.catField) {
     return null;
   }
 
@@ -2789,10 +2825,19 @@ function convertLayerSpec(
       }
       break;
     }
-    case TraceType.WATERFALL:
+    case TraceType.WATERFALL: {
       data = extractWaterfallData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      // `WaterfallTrace` carries no orientation: it announces the step's
+      // label against `axes.x` and the contribution against `axes.y`. A
+      // waterfall drawn along x holds those the other way round, so the two
+      // titles swap here — otherwise the step name is announced under the
+      // amount axis' title and the amount under the step's.
+      if (resolveRangedFields(encoding).isHorizontal) {
+        [axes.x, axes.y] = [axes.y, axes.x];
+      }
       break;
+    }
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);

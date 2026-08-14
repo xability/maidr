@@ -198,4 +198,64 @@ describe('vega-Lite bars that span a range', () => {
 
     expect(layer.type).toBe(TraceType.GANTT);
   });
+
+  it('reads a waterfall drawn along x as a waterfall, not a schedule', () => {
+    // The same running total laid out sideways: the steps run down an
+    // ordinal y and the bars span x–x2. Read as a gantt, the accumulation
+    // would be announced as start and end times of a schedule.
+    const rows = [
+      { label: 'Begin', amount: 4000, sum: 4000, previous_sum: 0 },
+      { label: 'Jan', amount: 1707, sum: 5707, previous_sum: 4000 },
+      { label: 'Feb', amount: -1425, sum: 4282, previous_sum: 5707 },
+    ];
+    const layer = onlyLayer(
+      {
+        data: { values: rows },
+        transform: [{ window: [{ op: 'sum', field: 'amount', as: 'sum' }] }],
+        mark: 'bar',
+        encoding: {
+          y: { field: 'label', type: 'ordinal', title: 'Month' },
+          x: { field: 'previous_sum', type: 'quantitative', title: 'Amount' },
+          x2: { field: 'sum' },
+        },
+      },
+      { data_0: rows },
+    );
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data as WaterfallPoint[]).toEqual([
+      { x: 'Begin', start: 0, end: 4000, delta: 4000, kind: 'total' },
+      { x: 'Jan', start: 4000, end: 5707, delta: 1707, kind: 'increase' },
+      { x: 'Feb', start: 5707, end: 4282, delta: -1425, kind: 'decrease' },
+    ]);
+    // `WaterfallTrace` announces the step against `axes.x` and the
+    // contribution against `axes.y` whichever way the chart is drawn, so
+    // the sideways layout swaps the two titles rather than the reading.
+    expect(layer.axes?.x?.label).toBe('Month');
+    expect(layer.axes?.y?.label).toBe('Amount');
+  });
+
+  it('warns when a ranged bar leaves its category axis untyped', () => {
+    // Without a declared `nominal`/`ordinal` the adapter cannot tell the
+    // lane axis from a magnitude, and the bar falls back to an ordinary one
+    // whose value is the lower bound alone — quiet enough to be worth
+    // saying out loud.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const layer = onlyLayer({
+        data: { values: [{ task: 'Design', start: 0, end: 3 }] },
+        mark: 'bar',
+        encoding: {
+          y: { field: 'task' },
+          x: { field: 'start', type: 'quantitative' },
+          x2: { field: 'end' },
+        },
+      });
+
+      expect(layer.type).toBe(TraceType.BAR);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"nominal" or "ordinal"'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

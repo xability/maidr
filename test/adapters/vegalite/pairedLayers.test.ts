@@ -184,6 +184,36 @@ describe('vega-Lite segment-plus-dot layers', () => {
     expect(result.subplots[0][0].layers.map(l => l.type)).toEqual([TraceType.HISTOGRAM]);
   });
 
+  it('leaves a two-series line with markers a line, not a dumbbell', () => {
+    // The line-with-markers idiom over an ordinal x: two colour series, one
+    // row per category each. Every other dumbbell test passes — one
+    // category axis against one magnitude, exactly two groups, one row per
+    // category per group — so what separates it from a ranged dot plot is
+    // that its `line` layer names no `detail` to pair the ends by. Read as
+    // a dumbbell, the two series would be announced as the two ends of a
+    // comparison the chart never drew.
+    const rows = [
+      { month: 'Jan', series: 'A', value: 3 },
+      { month: 'Jan', series: 'B', value: 5 },
+      { month: 'Feb', series: 'A', value: 4 },
+      { month: 'Feb', series: 'B', value: 6 },
+    ];
+    const layers = convertLayers({
+      data: { values: rows },
+      encoding: {
+        x: { field: 'month', type: 'ordinal' },
+        y: { field: 'value', type: 'quantitative' },
+        color: { field: 'series', type: 'nominal' },
+      },
+      layer: [{ mark: 'line' }, { mark: 'point' }],
+    }, rows);
+
+    // The markers over a categorical x are a dot plot, exactly as in the
+    // three-value case above — the point is that neither layer is swallowed
+    // into a dumbbell.
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE, TraceType.DOT]);
+  });
+
   it('leaves a line with a point overlay a line and a scatter', () => {
     // Both channels are magnitudes, so this is not a category-and-value
     // chart and the pair test does not apply.
