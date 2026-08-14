@@ -2751,6 +2751,36 @@ describe('plotly extractor', () => {
         '.subplot.x2y2 .boxlayer > .trace.boxes:nth-of-type(1) path.box',
       ]);
     });
+
+    it('shifts a box that a candlestick was declared before', () => {
+      // The mirror of the case above, and the one `extractMultiBoxLayer` got
+      // wrong: it numbered its groups across box traces alone, so the box here
+      // came out `nth-child(1)` — the candlestick's group. Measured in
+      // Chromium with the candlestick declared first, `boxlayer > g:nth-child(1)`
+      // matches its 4 candles and `g:nth-child(2)` the box's 1.
+      const gd = createGraphDiv({
+        traces: [candlestickTrace(), { type: 'box', y: [1, 2, 3, 4], name: 'spread' }],
+        layout: SINGLE_PANEL,
+        calcdata: [
+          [],
+          [{ min: 1, q1: 2, med: 3, q3: 4, max: 9, pts2: [] }] as PlotlyCalcData[],
+        ],
+      });
+
+      const layers = layersOf(gd);
+      const candlestick = layers.find(layer => layer.type === TraceType.CANDLESTICK);
+      const box = layers.find(layer => layer.type === TraceType.BOX);
+      expect(candlestick).toBeDefined();
+      expect(box).toBeDefined();
+
+      expect(candlestick!.selectors).toBe(
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+      );
+      const boxSelectors = box!.selectors as unknown as BoxSelector[];
+      expect(boxSelectors[0].q2).toBe(
+        '.subplot.xy .boxlayer > g:nth-child(2) > path.box',
+      );
+    });
   });
 
   describe('waterfall traces', () => {
