@@ -233,4 +233,23 @@ export interface AmChartsBinderOptions {
    * says which dot the cursor is on but not what it stands for.
    */
   dumbbellLabels?: { start?: string; end?: string };
+
+  /**
+   * Whether the chart's line series carry ranks — a bump chart — rather than
+   * magnitudes.
+   *
+   * amCharts has no bump series: a rank table is line series on a value axis
+   * whose renderer is inversed, so first place sits at the top. That inversion
+   * is also how a plain chart of descending magnitudes is drawn, which is why
+   * the adapter corroborates it against the values themselves and why this
+   * option exists at all.
+   *
+   * - `true` says the lines are ranks when amCharts was not told to invert the
+   *   axis. The values still have to read as ranks, since the option applies to
+   *   every panel of the figure and must not invert a plain line chart's pitch.
+   * - `false` suppresses the reading entirely, for a chart of small integers
+   *   that happens to look like a ranking.
+   * - Left out, the adapter decides from the axis and the values together.
+   */
+  bump?: boolean;
 }

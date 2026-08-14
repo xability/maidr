@@ -18,6 +18,7 @@ import {
   fakePieSeries,
   fakePolarSeries,
   fakeRadarSeries,
+  fakeRankSeries,
   fakeSlicedChart,
   fakeWordCloudSeries,
 } from './helpers';
@@ -405,5 +406,32 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(targets[0].dataItem.get('valueY')).toBe(60);
     expect(targets[0].kind).toBe('point');
     expect(navMap.chartFor('lines')).toBe(chart);
+  });
+
+  it('resolves a bump layer to the competitor whose place is being announced', () => {
+    // A bump chart is drawn as lines and collected with them, so the position
+    // addresses the same mark a line layer's does — the rank is what the trace
+    // announces, not a different thing to point at.
+    const ash = fakeRankSeries('Ash', [
+      { categoryX: 'R1', valueY: 1 },
+      { categoryX: 'R2', valueY: 2 },
+    ]);
+    const birch = fakeRankSeries('Birch', [
+      { categoryX: 'R1', valueY: 2 },
+      { categoryX: 'R2', valueY: 1 },
+    ]);
+    const chart = fakeChart({ series: [ash, birch] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'places', type: TraceType.BUMP, data: [] }],
+      groups: { ...emptyGroups(), lineSeriesList: [ash, birch] },
+    }]);
+
+    const targets = navMap.resolve('places', 1, 1);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].series).toBe(birch);
+    expect(targets[0].dataItem.get('valueY')).toBe(1);
+    expect(targets[0].kind).toBe('point');
+    expect(navMap.resolve('places', 2, 0)).toEqual([]);
   });
 });

@@ -89,6 +89,7 @@ Series are classified by their amCharts class name and field configuration:
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
 - `am5wc.WordCloud` → **word cloud**
+- `LineSeries` on a value axis whose renderer is `inversed`, carrying a genuine ranking → **bump** (rank over time); the `bump` option settles the cases the axis cannot
 
 ### Visual Highlighting
 
@@ -122,6 +123,7 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
+| Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -447,6 +449,38 @@ series.data.setAll([
 
 A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
 
+### Bump (Rank Over Time)
+
+amCharts has no bump series: a rank table is ordinary `LineSeries` on a `ValueAxis` whose renderer is `inversed`, so that first place is drawn at the top. A runnable page is at [`examples/amcharts-bump.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-bump.html).
+
+```js
+var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+  min: 1, max: 4, strictMinMax: true,
+  renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+}));
+["ash", "birch", "cedar", "cyan"].forEach(function (field) {
+  var s = chart.series.push(am5xy.LineSeries.new(root, {
+    name: field, xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "round",
+  }));
+  s.data.setAll(data); // one place per competitor per round: 1, 2, 3, 4
+});
+```
+
+**A rank is not a magnitude**, and that is the whole of what this type buys. Rank 1 is the best position and the smallest number, so read as a line chart the leader is sonified as the lowest note on the chart and a team climbing the table is heard *falling* — on every move, with nothing to say the reading was upside down. MAIDR's bump trace inverts the pitch so first place is the highest note, announces the places gained or lost alongside the rank (the overtake is what the chart is drawn for, and it is not recoverable from hearing ranks one at a time), and offers rank-gained / rank-lost rotor units that jump between the periods where something moved.
+
+An inversed axis alone does not make a bump chart — it is also how a plain chart counting down is drawn — so the adapter corroborates it against the values, which have to read as a ranking: whole places, no two competitors on the same place in the same period, and somebody in first. A chart drawn from the *middle* of a larger field (places 3 through 9 of twenty) fails that test and stays a line chart rather than being sonified against a rank range it does not carry.
+
+The `bump` option settles what amCharts leaves ambiguous:
+
+```js
+// The axis runs the ordinary way up, but the lines carry places.
+maidrAmCharts.bindAmCharts(root, { bump: true });
+// A chart of small integers that only looks like a ranking.
+maidrAmCharts.bindAmCharts(root, { bump: false });
+```
+
+`true` stands in for the inversed axis and no more: the values still have to read as a ranking, because the option applies to every panel of the figure and must not invert the pitch of a plain line chart in the next one. `false` suppresses the reading outright. A *slope graph* of values is not a bump chart — it is a line layer with two samples, which the line trace already reads correctly.
+
 ## Keyboard Controls
 
 Once a chart is focused, use the standard MAIDR shortcuts:
@@ -481,7 +515,7 @@ const binding = bindAmCharts(root, { title: 'Sales by Day' });
 // later: binding.dispose();
 ```
 
-`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, `dumbbellLabels: { start, end }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
+`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, `dumbbellLabels: { start, end }`, `bump`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
 
 For the data-only path (no highlighting), use `fromAmCharts(root, options?)` / `fromXYChart(chart, containerEl, options?)`, which return MAIDR JSON for the `maidr` attribute or `<Maidr data={...}>`.
 

@@ -664,6 +664,92 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Rank detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a setting off anything that answers `get`, without asserting a type.
+ *
+ * The axis a series is bound to, and the renderer that axis draws itself with,
+ * are both reached this way: they are am5 entities the adapter never models,
+ * and every read of one is a single setting deep.
+ */
+function settingOf(entity: unknown, key: string): unknown {
+  if (entity == null || typeof entity !== 'object')
+    return undefined;
+  const get = (entity as { get?: unknown }).get;
+  if (typeof get !== 'function')
+    return undefined;
+  return (get as (k: string) => unknown).call(entity, key);
+}
+
+/**
+ * Whether every line of a layer is plotted against an upside-down value axis.
+ *
+ * A rank axis runs the other way: first place is the smallest number and sits
+ * at the top, which amCharts draws by inverting the axis' renderer. That is the
+ * one thing a bump chart declares about itself, and it is asked of every series
+ * rather than of any — a chart mixing an inversed line with an ordinary one is
+ * not a table of ranks, and reading it as one would invert the pitch of both.
+ *
+ * It is not sufficient on its own. An inversed axis is also how a plain chart
+ * of descending magnitudes is drawn, so {@link holdsRanks} has to agree before
+ * the layer is announced as a bump chart.
+ */
+export function hasRankAxis(seriesList: AmXYSeries[]): boolean {
+  return seriesList.length > 0 && seriesList.every((series) => {
+    const renderer = settingOf(series.get('yAxis'), 'renderer');
+    return settingOf(renderer, 'inversed') === true;
+  });
+}
+
+/**
+ * Whether a group of line series carries ranks rather than magnitudes.
+ *
+ * A rank is a permutation, and that is what makes this decidable from the data
+ * alone: every value is a whole place between first and last, no two
+ * competitors hold the same place in the same period, and somebody comes first.
+ * Counts and magnitudes fail all three the moment there is more than one of
+ * them — two series that ever share a value are not a ranking, and a value
+ * above the number of competitors is not a place any of them can hold.
+ *
+ * Deliberately strict about what it will not read: a chart showing places 3
+ * through 9 of a twenty-strong field is a genuine bump chart this answers `false`
+ * for, and it stays a line chart rather than being sonified against a rank
+ * range that does not include the leader it never draws.
+ */
+export function holdsRanks(seriesList: AmXYSeries[]): boolean {
+  const competitors = seriesList.length;
+  if (competitors === 0)
+    return false;
+
+  const takenAt = new Map<string, Set<number>>();
+  let best = Number.POSITIVE_INFINITY;
+  let ranks = 0;
+
+  for (const series of seriesList) {
+    for (const point of extractLinePoints(series)) {
+      if (!Number.isInteger(point.y) || point.y < 1 || point.y > competitors)
+        return false;
+
+      const period = String(point.x);
+      const taken = takenAt.get(period);
+      if (taken == null)
+        takenAt.set(period, new Set([point.y]));
+      else if (taken.has(point.y))
+        return false;
+      else
+        taken.add(point.y);
+
+      best = Math.min(best, point.y);
+      ranks++;
+    }
+  }
+
+  return ranks > 0 && best === 1;
+}
+
+// ---------------------------------------------------------------------------
 // Pie extraction
 // ---------------------------------------------------------------------------
 

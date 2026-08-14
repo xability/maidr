@@ -57,6 +57,8 @@ import {
   extractPiePoints,
   extractSegmentedPoints,
   extractWaterfallPoints,
+  hasRankAxis,
+  holdsRanks,
   isDivergingPair,
   readAxisLabel,
   STANDALONE_SERIES_CLASSES,
@@ -257,10 +259,12 @@ function buildChartLayers(
     polar: emptyMergedSeries(),
   };
 
-  // Collect bar series for grouped handling (stacked/dodged/normalized), and
-  // area series for the stacking their merged layer's type has to report.
+  // Collect bar series for grouped handling (stacked/dodged/normalized), area
+  // series for the stacking their merged layer's type has to report, and line
+  // series for the question of whether they carry ranks.
   const barSeriesList: AmXYSeries[] = [];
   const areaSeriesList: AmXYSeries[] = [];
+  const lineSeriesList: AmXYSeries[] = [];
 
   for (const series of chart.series.values) {
     const kind = classifySeriesKind(series);
@@ -308,6 +312,8 @@ function buildChartLayers(
         collectSeries(merged[kind], series, points, containerEl);
         if (kind === 'area')
           areaSeriesList.push(series);
+        else if (kind === 'line')
+          lineSeriesList.push(series);
         break;
       }
       case 'pie': {
@@ -387,7 +393,7 @@ function buildChartLayers(
   // Merge each bucket of point series into a single layer of its own type.
   // The area bucket is the one that has to name its stacking, read from the
   // same per-series settings the bar path reads.
-  pushMerged(layers, merged.line, TraceType.LINE, xLabel, yLabel);
+  pushMerged(layers, merged.line, lineTraceType(lineSeriesList, options), xLabel, yLabel);
   pushMerged(layers, merged.step, TraceType.STEP, xLabel, yLabel);
   pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
   pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
@@ -407,6 +413,37 @@ function pushMerged(
   if (merged.data.length > 0) {
     layers.push(buildLineLayer(merged, type, xLabel, yLabel));
   }
+}
+
+/**
+ * The trace type a line layer reports: a bump chart when its lines carry ranks
+ * rather than magnitudes.
+ *
+ * A rank is not a magnitude — first place is the smallest number — so a bump
+ * chart read as a line chart sonifies the leader as the lowest note it has, and
+ * a team climbing the table is heard falling on every move. Getting this right
+ * is the whole of what the trace type buys, and getting it wrong inverts a
+ * reading that has nothing to say it is upside down, so both halves of the
+ * signature must agree: the axis has to be drawn as a rank axis, and the values
+ * have to be ranks. See {@link hasRankAxis} and {@link holdsRanks}.
+ *
+ * {@link AmChartsBinderOptions.bump} settles the case amCharts leaves
+ * ambiguous, and is asked in the order the two answers deserve — `false`
+ * suppresses the reading outright, while `true` stands in for the axis alone
+ * and still requires the data to be ranks. That asymmetry is deliberate: the
+ * option is figure-wide, so a `true` meant for one panel must not invert the
+ * pitch of a plain line chart in the next one.
+ */
+function lineTraceType(
+  lineSeriesList: AmXYSeries[],
+  options?: AmChartsBinderOptions,
+): MergedTraceType {
+  if (options?.bump === false || !holdsRanks(lineSeriesList))
+    return TraceType.LINE;
+
+  return options?.bump === true || hasRankAxis(lineSeriesList)
+    ? TraceType.BUMP
+    : TraceType.LINE;
 }
 
 /**
@@ -795,6 +832,7 @@ type MergedKind = 'line' | 'step' | 'area' | 'radar' | 'polar';
 /** The trace types those merged layers are emitted as. */
 type MergedTraceType
   = | TraceType.LINE
+    | TraceType.BUMP
     | TraceType.STEP
     | TraceType.AREA
     | TraceType.STACKED_AREA
@@ -805,6 +843,7 @@ type MergedTraceType
 /** Layer-id prefix per merged type, so an id still names what it holds. */
 const MERGED_ID_PREFIX: Record<MergedTraceType, string> = {
   [TraceType.LINE]: 'line',
+  [TraceType.BUMP]: 'bump',
   [TraceType.STEP]: 'step',
   [TraceType.AREA]: 'area',
   [TraceType.STACKED_AREA]: 'area',

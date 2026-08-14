@@ -67,7 +67,12 @@ export interface SeriesGroups {
   dotSeriesList: AmXYSeries[];
   /** One LOLLIPOP layer each, in series order. */
   lollipopSeriesList: AmXYSeries[];
-  /** Merged into a single multi-line LINE layer (one entry per line). */
+  /**
+   * Merged into a single multi-line layer (one entry per line) — a LINE, or
+   * the BUMP the same lines become when they carry ranks. The two are one
+   * bucket because they are one layer: what differs is how the numbers are
+   * announced, not which mark each position addresses.
+   */
   lineSeriesList: AmXYSeries[];
   /** Merged into a single STEP layer, the staircase counterpart of the above. */
   stepSeriesList: AmXYSeries[];
@@ -342,6 +347,7 @@ function addEntryResolvers(
   // misplace every highlight on a chart carrying two of these at once.
   const mergedByType: Partial<Record<TraceType, FilteredSeries[]>> = {
     [TraceType.LINE]: lineSeries,
+    [TraceType.BUMP]: lineSeries,
     [TraceType.STEP]: stepSeries,
     [TraceType.AREA]: areaSeries,
     [TraceType.STACKED_AREA]: areaSeries,
@@ -402,7 +408,11 @@ function addEntryResolvers(
         register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
+      // A bump chart is navigated as the multi-line layer it is drawn as, and
+      // its lines were collected with the rest — the rank is what the trace
+      // announces, not a different mark to point at.
       case TraceType.LINE:
+      case TraceType.BUMP:
       case TraceType.STEP:
       case TraceType.AREA:
       case TraceType.STACKED_AREA:

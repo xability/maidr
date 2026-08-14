@@ -219,6 +219,9 @@ function groupSeries(chart: AmChart): SeriesGroups {
       case 'lollipop':
         groups.lollipopSeriesList.push(series);
         break;
+      // A bump chart's competitors are line series too. Whether the layer they
+      // merge into is read as ranks is a property of the group, decided where
+      // the layer is built, so the highlight path has one bucket for both.
       case 'line':
         groups.lineSeriesList.push(series);
         break;

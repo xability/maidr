@@ -164,6 +164,42 @@ export function fakeLineSeries(
 }
 
 /**
+ * A value axis, optionally drawn upside down — the rank axis a bump chart
+ * plots on. amCharts keeps the inversion on the axis' renderer rather than on
+ * the axis itself, which is where the adapter reads it from.
+ */
+export function fakeValueAxis(inversed: boolean): AmAxis {
+  const renderer = {
+    get: (key: string) => (key === 'inversed' ? inversed : undefined),
+  };
+  return {
+    className: 'ValueAxis',
+    get: (key: string) => (key === 'renderer' ? renderer : undefined),
+    dataItems: [],
+  } as unknown as AmAxis;
+}
+
+/**
+ * One competitor of a bump chart: an ordinary `LineSeries` carrying places
+ * rather than magnitudes, bound by default to an inversed value axis.
+ */
+export function fakeRankSeries(
+  name: string,
+  places: Array<{ categoryX: string; valueY: number }>,
+  config: { inversed?: boolean } = {},
+): AmXYSeries {
+  return fakeSeries({
+    className: 'LineSeries',
+    name,
+    settings: {
+      categoryXField: 'category',
+      yAxis: fakeValueAxis(config.inversed !== false),
+    },
+    data: places,
+  });
+}
+
+/**
  * How an area series declares its band, mirroring the settings amCharts reads:
  * a visible fill is what makes a `LineSeries` an area at all, and `stacked` /
  * `valueYShow` are what make the bands a stack.

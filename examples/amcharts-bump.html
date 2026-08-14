@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Bump Chart</title>
+
+    <!-- 1. Load amCharts 5 (core + XY; a bump chart is line series on an
+         inversed value axis, so no extra module is needed) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 700px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Bump Chart</h1>
+    <p>
+      A bump chart is rank over time: one line per competitor, plotted on a
+      value axis drawn upside down so first place sits at the top. amCharts has
+      no bump series — the chart is ordinary <code>LineSeries</code> and an
+      <code>AxisRendererY</code> with <code>inversed: true</code> — so the
+      adapter reads the inversion together with the values, which have to be a
+      genuine ranking: whole places, one competitor per place per round, and
+      somebody in first.
+    </p>
+    <p>
+      That distinction is the whole point. A rank is not a magnitude, so read as
+      a line chart the leader would be sonified as the <em>lowest</em> note on
+      the chart and a team climbing the table would be heard falling, on every
+      move, with nothing to say the reading was upside down. MAIDR's bump trace
+      inverts the pitch, announces the places gained or lost alongside the rank,
+      and offers rank-gained / rank-lost rotor units (Alt+Shift+Up/Down) that
+      jump between the rounds where something actually moved.
+    </p>
+
+    <h2>League table by round</h2>
+    <div id="bump-chart" class="chart"></div>
+
+    <h2>Market share position, declared rather than detected</h2>
+    <p>
+      The same chart drawn the right way up. Nothing about the numbers says
+      which way the axis runs, so the <code>bump: true</code> option is what
+      says these lines are places; the values still have to read as a ranking
+      before MAIDR announces them as one.
+    </p>
+    <div id="upright-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      // Ash starts top and finishes bottom while Cyan does the exact reverse,
+      // so the inverted pitch is audible on the first two arrow keys.
+      var LEAGUE_DATA = [
+        { round: "R1", ash: 1, birch: 2, cedar: 3, cyan: 4 },
+        { round: "R2", ash: 2, birch: 3, cedar: 1, cyan: 4 },
+        { round: "R3", ash: 3, birch: 2, cedar: 4, cyan: 1 },
+        { round: "R4", ash: 4, birch: 2, cedar: 3, cyan: 1 },
+      ];
+
+      var SHARE_DATA = [
+        { quarter: "Q1", north: 1, south: 2, east: 3 },
+        { quarter: "Q2", north: 2, south: 1, east: 3 },
+        { quarter: "Q3", north: 3, south: 1, east: 2 },
+        { quarter: "Q4", north: 2, south: 3, east: 1 },
+      ];
+
+      // A rank table: a category axis of periods, and a value axis whose
+      // renderer is inversed so rank 1 is drawn at the top. `min`/`max` keep
+      // the places on whole gridlines.
+      function makeRankChart(elId, title, categoryField, data, competitors, inversed) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: categoryField,
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, {
+            min: 1,
+            max: competitors,
+            strictMinMax: true,
+            renderer: am5xy.AxisRendererY.new(root, { inversed: inversed }),
+          })
+        );
+        xAxis.data.setAll(data);
+
+        return { root: root, chart: chart, xAxis: xAxis, yAxis: yAxis };
+      }
+
+      // One line per competitor, with a bullet on each place so the highlight
+      // box has a mark to sit on.
+      function addCompetitor(built, name, field, categoryField, data) {
+        var series = built.chart.series.push(
+          am5xy.LineSeries.new(built.root, {
+            name: name,
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueYField: field,
+            categoryXField: categoryField,
+          })
+        );
+        series.bullets.push(function () {
+          return am5.Bullet.new(built.root, {
+            sprite: am5.Circle.new(built.root, {
+              radius: 5,
+              fill: series.get("fill"),
+            }),
+          });
+        });
+        series.data.setAll(data);
+      }
+
+      // Detected: the inversed axis and the places agree, so no option needed.
+      (function () {
+        var built = makeRankChart(
+          "bump-chart", "League Table by Round", "round", LEAGUE_DATA, 4, true
+        );
+        [["Ash", "ash"], ["Birch", "birch"], ["Cedar", "cedar"], ["Cyan", "cyan"]]
+          .forEach(function (pair) {
+            addCompetitor(built, pair[0], pair[1], "round", LEAGUE_DATA);
+          });
+        register(built.root, {
+          title: "League Table by Round",
+          axisLabels: { x: "Round", y: "Rank" },
+        });
+      })();
+
+      // Declared: the axis runs the ordinary way up, so the option is what
+      // says these lines carry places.
+      (function () {
+        var built = makeRankChart(
+          "upright-chart", "Market Share Position", "quarter", SHARE_DATA, 3, false
+        );
+        [["North", "north"], ["South", "south"], ["East", "east"]]
+          .forEach(function (pair) {
+            addCompetitor(built, pair[0], pair[1], "quarter", SHARE_DATA);
+          });
+        register(built.root, {
+          title: "Market Share Position",
+          axisLabels: { x: "Quarter", y: "Position" },
+          bump: true,
+        });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

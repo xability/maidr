@@ -1,4 +1,4 @@
-import type { AmXYSeries } from '@adapters/amcharts/types';
+import type { AmChartsBinderOptions, AmXYSeries } from '@adapters/amcharts/types';
 import type {
   BarPoint,
   DumbbellData,
@@ -31,6 +31,7 @@ import {
   fakePieSeries,
   fakePolarSeries,
   fakeRadarSeries,
+  fakeRankSeries,
   fakeRoot,
   fakeSeries,
   fakeSlicedChart,
@@ -371,6 +372,158 @@ describe('fromAmCharts (area chart)', () => {
       [TraceType.LINE, 'Trend'],
       [TraceType.AREA, 'Band'],
     ]);
+  });
+});
+
+describe('fromAmCharts (bump chart)', () => {
+  const ASH = [
+    { categoryX: 'R1', valueY: 1 },
+    { categoryX: 'R2', valueY: 2 },
+    { categoryX: 'R3', valueY: 3 },
+  ];
+  const BIRCH = [
+    { categoryX: 'R1', valueY: 2 },
+    { categoryX: 'R2', valueY: 3 },
+    { categoryX: 'R3', valueY: 1 },
+  ];
+  const CEDAR = [
+    { categoryX: 'R1', valueY: 3 },
+    { categoryX: 'R2', valueY: 1 },
+    { categoryX: 'R3', valueY: 2 },
+  ];
+
+  function layerOf(series: AmXYSeries[], options?: AmChartsBinderOptions): MaidrLayer {
+    const chart = fakeChart({ series, xLabel: 'Round', yLabel: 'Rank' });
+    return fromAmCharts(fakeRoot([chart]), options).subplots[0][0].layers[0];
+  }
+
+  it('reads places on an inversed value axis as a bump chart', () => {
+    const layer = layerOf([
+      fakeRankSeries('Ash', ASH),
+      fakeRankSeries('Birch', BIRCH),
+      fakeRankSeries('Cedar', CEDAR),
+    ]);
+
+    expect(layer.type).toBe(TraceType.BUMP);
+    expect(layer.title).toBe('Ash, Birch, Cedar');
+    expect(layer.axes).toEqual({ x: { label: 'Round' }, y: { label: 'Rank' } });
+    expect((layer.data as LinePoint[][])[0]).toEqual([
+      { x: 'R1', y: 1, z: 'Ash' },
+      { x: 'R2', y: 2, z: 'Ash' },
+      { x: 'R3', y: 3, z: 'Ash' },
+    ]);
+  });
+
+  it('leaves the same places on an upright axis a line chart', () => {
+    // Nothing about the numbers says which way up the chart was drawn, and a
+    // rank axis is the one thing a bump chart declares about itself.
+    const layer = layerOf([
+      fakeRankSeries('Ash', ASH, { inversed: false }),
+      fakeRankSeries('Birch', BIRCH, { inversed: false }),
+      fakeRankSeries('Cedar', CEDAR, { inversed: false }),
+    ]);
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves descending magnitudes on an inversed axis a line chart', () => {
+    // An inversed axis is also how a plain chart counting DOWN is drawn, so
+    // the axis alone would invert the pitch of every one of them.
+    const layer = layerOf([
+      fakeRankSeries('Ash', [
+        { categoryX: 'R1', valueY: 40 },
+        { categoryX: 'R2', valueY: 25 },
+      ]),
+      fakeRankSeries('Birch', [
+        { categoryX: 'R1', valueY: 30 },
+        { categoryX: 'R2', valueY: 12 },
+      ]),
+    ]);
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves two lines that share a place in one period a line chart', () => {
+    // A ranking is a permutation: two competitors cannot both come second in
+    // the same round, so a chart that says they did is measuring something
+    // else with small integers.
+    const layer = layerOf([
+      fakeRankSeries('Ash', [
+        { categoryX: 'R1', valueY: 1 },
+        { categoryX: 'R2', valueY: 2 },
+      ]),
+      fakeRankSeries('Birch', [
+        { categoryX: 'R1', valueY: 1 },
+        { categoryX: 'R2', valueY: 2 },
+      ]),
+    ]);
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves a chart drawn from the middle of a larger field a line chart', () => {
+    // Places 2 and 3 of a field whose leader is never drawn. It IS a bump
+    // chart, and it is left as a line rather than sonified against a rank
+    // range the chart does not carry.
+    const layer = layerOf([
+      fakeRankSeries('Ash', [{ categoryX: 'R1', valueY: 2 }, { categoryX: 'R2', valueY: 3 }]),
+      fakeRankSeries('Birch', [{ categoryX: 'R1', valueY: 3 }, { categoryX: 'R2', valueY: 2 }]),
+      fakeRankSeries('Cedar', [{ categoryX: 'R3', valueY: 2 }]),
+    ]);
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('reads places as a bump chart when the option declares one and the axis does not', () => {
+    const layer = layerOf(
+      [
+        fakeRankSeries('Ash', ASH, { inversed: false }),
+        fakeRankSeries('Birch', BIRCH, { inversed: false }),
+        fakeRankSeries('Cedar', CEDAR, { inversed: false }),
+      ],
+      { bump: true },
+    );
+
+    expect(layer.type).toBe(TraceType.BUMP);
+  });
+
+  it('leaves a declared bump chart a line when its values are not places', () => {
+    // The option is figure-wide, so a `true` meant for one panel must not
+    // invert the pitch of a plain line chart in the next one.
+    const layer = layerOf(
+      [
+        fakeRankSeries('Ash', [
+          { categoryX: 'R1', valueY: 40 },
+          { categoryX: 'R2', valueY: 25 },
+        ]),
+        fakeRankSeries('Birch', [
+          { categoryX: 'R1', valueY: 30 },
+          { categoryX: 'R2', valueY: 12 },
+        ]),
+      ],
+      { bump: true },
+    );
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves a rank chart a line when the option says it is not one', () => {
+    const layer = layerOf(
+      [
+        fakeRankSeries('Ash', ASH),
+        fakeRankSeries('Birch', BIRCH),
+        fakeRankSeries('Cedar', CEDAR),
+      ],
+      { bump: false },
+    );
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves an ordinary line chart alone', () => {
+    const layer = layerOf([fakeLineSeries('Trend', BAR_DATA)]);
+
+    expect(layer.type).toBe(TraceType.LINE);
   });
 });
 
