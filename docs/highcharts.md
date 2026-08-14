@@ -240,6 +240,7 @@ Converts a rendered Highcharts chart into a `Maidr` data object.
 | `options.id` | `string?` | Override the generated chart ID. Defaults to `highcharts-{n}`. |
 | `options.title` | `string?` | Override the chart title. Defaults to `chart.title.textStr`. |
 | `options.seriesIndices` | `number[]?` | Convert only specific series by index. Default: all visible series. |
+| `options.dumbbellLabels` | `{ start?: string; end?: string }?` | What a dumbbell chart's two ends are called — `low` is the start. Default: MAIDR announces them as "start" and "end" (see the dumbbell note above). |
 | `options.bump` | `boolean?` | Force (`true`) or suppress (`false`) the bump reading of the chart's line series. Default: decided from the data (see the bump note above). |
 | `options.significancePlot` | `object?` | Read the chart's `scatter` series as one volcano or Manhattan plot: `{ type: 'volcano' \| 'manhattan', seriesIndices?, significance?, significanceDirection?, effect? }`. Default: absent, and the scatters are read as scatters. |
 
