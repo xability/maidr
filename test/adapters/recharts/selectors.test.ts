@@ -82,6 +82,34 @@ describe('getRechartsSelector', () => {
     it('returns scoped pie sector selector for pie type', () => {
       expect(getRechartsSelector('pie')).toBe('.recharts-pie-sector .recharts-sector');
     });
+
+    it('returns scoped bar rectangle selector for diverging_bar type', () => {
+      expect(getRechartsSelector('diverging_bar')).toBe('.recharts-bar-rectangle .recharts-rectangle');
+    });
+
+    it('returns scoped bar rectangle selector for the floating-bar types', () => {
+      // A waterfall step, a gantt interval and a dumbbell connector are each
+      // one `<Bar>` rectangle that does not start at the baseline.
+      expect(getRechartsSelector('waterfall')).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      expect(getRechartsSelector('gantt')).toBe('.recharts-bar-rectangle .recharts-rectangle');
+      expect(getRechartsSelector('dumbbell')).toBe('.recharts-bar-rectangle .recharts-rectangle');
+    });
+
+    it('returns scoped radial bar sector selector for gauge type', () => {
+      expect(getRechartsSelector('gauge')).toBe('.recharts-radial-bar-sectors .recharts-radial-bar-sector');
+    });
+
+    it('excludes the synthetic root rectangle for treemap type', () => {
+      // Recharts wraps the data array in a root node and draws it full-plot;
+      // counting it would be one element more than the layer has nodes.
+      expect(getRechartsSelector('treemap')).toBe(
+        'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle',
+      );
+    });
+
+    it('returns scoped sunburst sector selector for sunburst type', () => {
+      expect(getRechartsSelector('sunburst')).toBe('.recharts-sunburst .recharts-sector');
+    });
   });
 
   describe('multi-series (with seriesIndex)', () => {

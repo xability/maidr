@@ -17,13 +17,23 @@
  *   VolcanoPoint[]      = [{ x, y, label?, group? }, ...]
  *   SurvivalPoint[][]   = [[{ x, y, censored?, yMin?, yMax? }, ...], ...]
  *   FlowPoint[]         = [{ source, target, value }, ...]
+ *   WaterfallPoint[]    = [{ x, start, end, delta, kind }, ...]  (ABSOLUTE totals)
+ *   TreemapPoint[]      = [{ x, y?, path? }, ...]        (depth-first pre-order)
+ *   GaugePoint          = { value, min, max, ... }       (a single OBJECT)
+ *   GanttData           = { points: [[{ x, start, end }]], lanes?, unit? }
+ *   DumbbellData        = { points: [{ x, start, end }], startLabel?, endLabel? }
  */
 
 import type {
   BarPoint,
+  DumbbellData,
+  DumbbellPoint,
   ErrorBarPoint,
   FlowPoint,
   ForestPoint,
+  GanttData,
+  GanttPoint,
+  GaugePoint,
   HistogramPoint,
   LinePoint,
   Maidr,
@@ -33,7 +43,10 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   SurvivalPoint,
+  TreemapPoint,
   VolcanoPoint,
+  WaterfallKind,
+  WaterfallPoint,
 } from '@type/grammar';
 import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
 import { cssEscape } from '@adapters/shared/selectorUtil';
@@ -171,6 +184,9 @@ function buildPanelSubplot(
     errorConfig: config.errorConfig,
     forestConfig: config.forestConfig,
     survivalConfig: config.survivalConfig,
+    waterfallConfig: config.waterfallConfig,
+    ganttConfig: config.ganttConfig,
+    gaugeConfig: config.gaugeConfig,
     selectorOverride: panel.selectorOverride,
   };
 
@@ -238,6 +254,20 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   // points, and the plain line builders have nowhere to put them.
   if (chartType === 'survival') {
     return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope)];
+  }
+
+  // A gauge, a gantt and a dumbbell each carry ONE payload for the whole
+  // layer — an object, or a grid grouped by something other than a series —
+  // so none of them fits the yKeys.map() loop below, which builds one layer
+  // per series out of one array each.
+  if (chartType === 'gauge') {
+    return [buildGaugeLayer(data, xKey, yKeys[0], chartType, xLabel, yLabel, config.gaugeConfig, selectorOverride, config.id, panelScope)];
+  }
+  if (chartType === 'gantt') {
+    return [buildGanttLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, config.ganttConfig, selectorOverride, config.id, panelScope)];
+  }
+  if (chartType === 'dumbbell') {
+    return [buildDumbbellLayer(data, xKey, yKeys, chartType, xLabel, yLabel, orientation, fillKeys, selectorOverride, config.id, panelScope)];
   }
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
@@ -457,6 +487,197 @@ function buildSurvivalLayer(
 }
 
 /**
+ * Builds a single gauge layer whose data is one {@link GaugePoint} object.
+ *
+ * The value is the only part of the reading the chart holds. The range is the
+ * `<PolarAngleAxis domain>`, and the target and the bands are drawn as arcs
+ * and markers that carry no value at all, so all of them arrive through
+ * `gaugeConfig` — which is therefore required rather than optional.
+ */
+function buildGaugeLayer(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  gaugeConfig?: RechartsAdapterConfig['gaugeConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  if (!gaugeConfig) {
+    throw new Error('RechartsAdapter: gaugeConfig with min and max is required when chartType is "gauge"');
+  }
+  const row = data[0];
+  if (!row) {
+    throw new Error('RechartsAdapter: a gauge needs one data row holding its measure');
+  }
+
+  const { min, max, target, bands, label } = gaugeConfig;
+  const point: GaugePoint = { value: toNumber(row[yKey]), min, max };
+  // A gauge names its measure the way every other type names a category: out
+  // of `xKey`, unless the config says otherwise.
+  const name = label ?? toText(row[xKey]);
+  if (name !== undefined) {
+    point.label = name;
+  }
+  if (target !== undefined) {
+    point.target = target;
+  }
+  if (bands !== undefined) {
+    point.bands = bands;
+  }
+
+  return {
+    id: '0',
+    type: TraceType.GAUGE,
+    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: point,
+  };
+}
+
+/**
+ * Builds a single gantt layer whose data is one {@link GanttData} object.
+ *
+ * One data row is one interval, and the payload is nested BY LANE so that a
+ * lane with nothing booked still exists — which is why the lane list comes
+ * from the config rather than from the rows, since an empty lane appears in
+ * no row.
+ */
+function buildGanttLayer(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKeys: string[],
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  orientation?: Orientation,
+  ganttConfig?: RechartsAdapterConfig['ganttConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  if (yKeys.length < 2) {
+    throw new Error('RechartsAdapter: chartType "gantt" needs two yKeys — the interval\'s start and its end');
+  }
+
+  const lanes = ganttConfig?.lanes ? [...ganttConfig.lanes] : [];
+  const grouped: GanttPoint[][] = lanes.map(() => []);
+  // The order the rows land in, so the selectors can be checked against the
+  // order the marks are drawn in.
+  const drawnOrder: number[] = [];
+
+  for (const item of data) {
+    const lane = (item[xKey] ?? '') as string | number;
+    let laneIndex = lanes.indexOf(lane);
+    if (laneIndex === -1) {
+      // A lane a row names but the config omits. Appended rather than dropped:
+      // losing an interval is worse than a lane list in an unexpected order.
+      laneIndex = lanes.push(lane) - 1;
+      grouped.push([]);
+    }
+
+    const point: GanttPoint = {
+      x: lane,
+      start: toNumber(item[yKeys[0]]),
+      end: toNumber(item[yKeys[1]]),
+    };
+    const label = ganttConfig?.labelKey === undefined
+      ? undefined
+      : toText(item[ganttConfig.labelKey]);
+    if (label !== undefined) {
+      point.label = label;
+    }
+    grouped[laneIndex].push(point);
+    drawnOrder.push(laneIndex);
+  }
+
+  const payload: GanttData = { points: grouped };
+  if (lanes.length > 0) {
+    payload.lanes = lanes;
+  }
+  if (ganttConfig?.unit !== undefined) {
+    payload.unit = ganttConfig.unit;
+  }
+
+  // `GanttTrace` walks its selectors lane by lane, while Recharts draws one
+  // rectangle per row in row order. The two agree only when the rows are
+  // already grouped by lane, so a chart that interleaves them gets no
+  // highlighting rather than a highlight on somebody else's task.
+  const groupedInOrder = drawnOrder.every((lane, i) => i === 0 || lane >= drawnOrder[i - 1]);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
+
+  return {
+    id: '0',
+    type: TraceType.GANTT,
+    selectors: groupedInOrder ? selector : undefined,
+    orientation: layerOrientation(chartType, orientation),
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: payload,
+  };
+}
+
+/**
+ * Builds a single dumbbell layer whose data is one {@link DumbbellData}
+ * object.
+ *
+ * The two `yKeys` are the two ends, in the order the chart compares them, and
+ * `fillKeys` names them — those names are the content of the comparison, and
+ * the chart writes them down only in its legend.
+ */
+function buildDumbbellLayer(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKeys: string[],
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  orientation?: Orientation,
+  fillKeys?: string[],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  if (yKeys.length < 2) {
+    throw new Error('RechartsAdapter: chartType "dumbbell" needs two yKeys — the starting end and the finishing one');
+  }
+
+  const points: DumbbellPoint[] = data.map(item => ({
+    x: item[xKey] as string | number,
+    start: toNumber(item[yKeys[0]]),
+    end: toNumber(item[yKeys[1]]),
+  }));
+
+  const payload: DumbbellData = { points };
+  if (fillKeys?.[0] !== undefined) {
+    payload.startLabel = fillKeys[0];
+  }
+  if (fillKeys?.[1] !== undefined) {
+    payload.endLabel = fillKeys[1];
+  }
+
+  return {
+    id: '0',
+    type: TraceType.DUMBBELL,
+    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    orientation: layerOrientation(chartType, orientation),
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: payload,
+  };
+}
+
+/**
  * Builds layers for composed mode (mixed chart types via layers config).
  */
 function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
@@ -520,7 +741,7 @@ function convertData(
   xKey: string,
   yKey: string,
   config: RechartsAdapterConfig,
-): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | VolcanoPoint[] {
+): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
   switch (chartType) {
     // A dot plot and a lollipop carry a bar's data — one category, one
     // magnitude — and differ only in the mark drawn for it. So does a funnel:
@@ -558,12 +779,27 @@ function convertData(
       return convertToForestPoints(data, xKey, yKey, config.errorConfig, config.forestConfig);
     case 'alluvial':
       return convertToFlowPoints(data, xKey, yKey, config.flowConfig);
+    case 'waterfall':
+      return convertToWaterfallPoints(data, xKey, yKey, config.waterfallConfig);
+    // A treemap and a sunburst are the same hierarchy, and differ only in
+    // whether it is drawn as area or as rings.
+    case 'treemap':
+    case 'sunburst':
+      return convertToTreemapPoints(data, xKey, yKey);
     case 'pie':
       return convertToPiePoints(data, xKey, yKey);
-    // Stacked/dodged/normalized/histogram handled by dedicated builders
+    // Whole-chart types: their payload describes the figure rather than a
+    // series, so there is nothing for them to be a layer OF. Only composed
+    // mode reaches this — simple mode routes each to its own builder.
+    case 'gauge':
+    case 'gantt':
+    case 'dumbbell':
+      throw new Error(`RechartsAdapter: chartType "${chartType}" describes a whole chart and cannot be a layer of a composed one`);
+    // Stacked/dodged/normalized/diverging/histogram handled by dedicated builders
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
+    case 'diverging_bar':
     case 'histogram':
       return convertToBarPoints(data, xKey, yKey);
   }
@@ -805,6 +1041,113 @@ function convertToSurvivalRow(
 }
 
 /**
+ * Converts data to WaterfallPoint[] format — one step per row, carrying both
+ * the contribution it made and the running total it produced.
+ *
+ * `yKey` names the CONTRIBUTION, which is the number a waterfall's data
+ * actually holds; the totals a reader needs are accumulated here, because
+ * `WaterfallPoint.start`/`end` are absolute positions on the value axis and
+ * a bar that floats has neither of them written down.
+ *
+ * A step that RESTATES the total rather than changing it — an opening
+ * balance, a subtotal, a closing balance — sits on the baseline, so it runs
+ * from zero to the total it declares, and the running total continues from
+ * there. Such a row need carry no value of its own: a "Closing" row with no
+ * number restates what the steps came to, which is the whole point of drawing
+ * it.
+ */
+function convertToWaterfallPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  waterfallConfig?: RechartsAdapterConfig['waterfallConfig'],
+): WaterfallPoint[] {
+  const { totalKey, totalIndices, kindKey } = waterfallConfig ?? {};
+
+  let running = 0;
+  return data.map((item, index) => {
+    const declared = toOptionalNumber(item[yKey]);
+    const kindText = kindKey === undefined ? undefined : toText(item[kindKey]);
+    const restates = kindText === 'total'
+      || (kindKey === undefined
+        && ((totalKey !== undefined && Boolean(item[totalKey]))
+          || totalIndices?.includes(index) === true));
+
+    const start = restates ? 0 : running;
+    const end = restates ? (declared ?? running) : running + (declared ?? 0);
+    running = end;
+
+    const delta = end - start;
+    let kind: WaterfallKind = delta < 0 ? 'decrease' : 'increase';
+    if (restates) {
+      kind = 'total';
+    } else if (kindText === 'increase' || kindText === 'decrease') {
+      kind = kindText;
+    }
+
+    return { x: item[xKey] as string | number, start, end, delta, kind };
+  });
+}
+
+/**
+ * Converts nested Recharts hierarchy data to TreemapPoint[] format.
+ *
+ * `data` here is not the adapter's usual flat rows: `<Treemap>` and
+ * `<SunburstChart>` both take a tree of `{ [nameKey], children }` objects, so
+ * the tree is flattened depth-first in PRE-ORDER — the order both components
+ * draw their nodes in, and therefore the order the highlight selectors resolve
+ * in.
+ *
+ * A node with children gets no `y`. Recharts computes an interior node's value
+ * as the sum of its children and ignores any value declared on it
+ * (`computeNode` in `Treemap.js`), so passing a declared one through would
+ * announce a magnitude the chart did not draw — and MAIDR keeps a declared
+ * value in preference to the sum precisely because it trusts the producer.
+ *
+ * @param data - The top-level nodes, as the chart itself is given them
+ * @param xKey - Key holding a node's name (the `<Treemap nameKey>`)
+ * @param yKey - Key holding a leaf's magnitude (the `<Treemap dataKey>`)
+ * @returns Every node, depth-first pre-order, each with its ancestors named
+ */
+function convertToTreemapPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+): TreemapPoint[] {
+  const points: TreemapPoint[] = [];
+
+  /**
+   * Emits one level of the tree, then each node's own children.
+   *
+   * @param nodes - The siblings at this level
+   * @param path - Their ancestors, root first
+   */
+  function walk(nodes: Record<string, unknown>[], path: (string | number)[]): void {
+    for (const node of nodes) {
+      const name = (node[xKey] ?? '') as string | number;
+      const children = Array.isArray(node.children)
+        ? node.children as Record<string, unknown>[]
+        : [];
+
+      const point: TreemapPoint = { x: name };
+      if (path.length > 0) {
+        point.path = [...path];
+      }
+      const value = children.length > 0 ? undefined : toOptionalNumber(node[yKey]);
+      if (value !== undefined) {
+        point.y = value;
+      }
+      points.push(point);
+
+      walk(children, [...path, name]);
+    }
+  }
+
+  walk(data, []);
+  return points;
+}
+
+/**
  * Converts data to FlowPoint[] format — one weighted flow per link.
  *
  * The `data` array is the `links` half of what Recharts' `<Sankey>` is given,
@@ -865,9 +1208,12 @@ function isBarType(chartType: RechartsChartType): boolean {
     || chartType === 'stacked_bar'
     || chartType === 'dodged_bar'
     || chartType === 'normalized_bar'
+    || chartType === 'diverging_bar'
     || chartType === 'dot'
     || chartType === 'lollipop'
-    || chartType === 'histogram';
+    || chartType === 'histogram'
+    || chartType === 'gantt'
+    || chartType === 'dumbbell';
 }
 
 /**
@@ -876,30 +1222,52 @@ function isBarType(chartType: RechartsChartType): boolean {
  * Bar-like layers default to vertical. A pie and a radar are never oriented —
  * their marks sit around a circle rather than along an axis — so a config-level
  * `orientation` (meaningful for the other layers of a composed chart) must not
- * leak onto one. Neither is a flow diagram, whose marks run between nodes.
+ * leak onto one. Neither is a flow diagram, whose marks run between nodes, a
+ * hierarchy, a gauge, or a waterfall, whose steps march one way only.
  *
  * A funnel is left out for a different reason: `FunnelTrace` is a `BarTrace`,
  * and a horizontal bar carries its category in `y` rather than `x`. The
  * adapter always emits the stage label as `x`, so a leaked `HORIZONTAL` would
  * have every stage announced by its count.
+ *
+ * A gantt is the one type that defaults the other way. Its bars run left to
+ * right, which puts the axis on x and the lanes on y — the `<BarChart
+ * layout="vertical">` recipe, and what `GanttTrace` calls horizontal.
  */
 function layerOrientation(
   chartType: RechartsChartType,
   orientation?: Orientation,
 ): Orientation | undefined {
-  if (chartType === 'pie' || chartType === 'radar' || chartType === 'funnel' || chartType === 'alluvial') {
-    return undefined;
+  switch (chartType) {
+    case 'pie':
+    case 'radar':
+    case 'funnel':
+    case 'alluvial':
+    case 'gauge':
+    case 'waterfall':
+    case 'treemap':
+    case 'sunburst':
+      return undefined;
+    case 'gantt':
+      return orientation ?? Orientation.HORIZONTAL;
+    default:
+      return orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined);
   }
-  return orientation ?? (isBarType(chartType) ? Orientation.VERTICAL : undefined);
 }
 
 /**
  * Returns true if the chart type maps to a segmented bar MAIDR type.
+ *
+ * A diverging bar belongs here even though its two sides sit either side of a
+ * baseline rather than on top of one another: `DivergingTrace` is a
+ * `SegmentedTrace`, so it reads the same `SegmentedPoint[][]` payload, one row
+ * per side in the order the sides are DECLARED.
  */
 function isSegmentedBarType(chartType: RechartsChartType): boolean {
   return chartType === 'stacked_bar'
     || chartType === 'dodged_bar'
-    || chartType === 'normalized_bar';
+    || chartType === 'normalized_bar'
+    || chartType === 'diverging_bar';
 }
 
 /**
@@ -970,6 +1338,10 @@ function layerOptions(
  * a stacked bar would be handed a one-row `SegmentedPoint[][]`, and a stacked
  * area would announce a running total equal to its own value and a 100% share
  * at every single point.
+ *
+ * The same holds for a diverging bar, which has no side to diverge from when
+ * only one is declared — and whose balance row would then report every
+ * category's own value as the gap between the two sides.
  */
 function toLayerTraceType(chartType: RechartsChartType, hasMultipleSeries: boolean): TraceType {
   if (!hasMultipleSeries) {
@@ -996,6 +1368,20 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.DODGED;
     case 'normalized_bar':
       return TraceType.NORMALIZED;
+    case 'diverging_bar':
+      return TraceType.DIVERGING;
+    case 'waterfall':
+      return TraceType.WATERFALL;
+    case 'dumbbell':
+      return TraceType.DUMBBELL;
+    case 'gantt':
+      return TraceType.GANTT;
+    case 'gauge':
+      return TraceType.GAUGE;
+    case 'treemap':
+      return TraceType.TREEMAP;
+    case 'sunburst':
+      return TraceType.SUNBURST;
     case 'dot':
       return TraceType.DOT;
     case 'lollipop':

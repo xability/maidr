@@ -5,7 +5,7 @@
  * and SVG structure into MAIDR's accessible format.
  */
 
-import type { Orientation, StepDirection } from '@type/grammar';
+import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
 
 /**
  * Recharts chart types supported by the adapter.
@@ -15,6 +15,21 @@ import type { Orientation, StepDirection } from '@type/grammar';
  * - `'stacked_bar'` → `TraceType.STACKED` — Stacked bar chart (Recharts `<Bar stackId="...">`)
  * - `'dodged_bar'` → `TraceType.DODGED` — Grouped/dodged bar chart (multiple `<Bar>` without stackId)
  * - `'normalized_bar'` → `TraceType.NORMALIZED` — Stacked normalized (100%) bar chart
+ * - `'diverging_bar'` → `TraceType.DIVERGING` — Population pyramid or Likert
+ *   scale: exactly two `yKeys` drawn back to back with
+ *   `<BarChart stackOffset="sign">`, the left-hand one holding NEGATIVE values
+ * - `'waterfall'` → `TraceType.WATERFALL` — A starting value carried to an
+ *   ending one through signed contributions. The single `yKeys` entry holds
+ *   each step's contribution and the adapter accumulates the running totals;
+ *   see {@link WaterfallStepConfig}
+ * - `'dumbbell'` → `TraceType.DUMBBELL` — Two values compared at each
+ *   category, joined by a segment. Exactly two `yKeys` — the starting end
+ *   first — named for the reader by `fillKeys`
+ * - `'gantt'` → `TraceType.GANTT` — Intervals laid out along a shared axis,
+ *   one row per interval: `xKey` names the lane and the two `yKeys` its start
+ *   and end; see {@link GanttChartConfig}
+ * - `'gauge'` → `TraceType.GAUGE` — One measure read against a range, drawn
+ *   as a half-dial `<RadialBarChart>`; see {@link GaugeDialConfig}
  * - `'dot'` → `TraceType.DOT` — Cleveland dot plot: one point per category,
  *   drawn with `<Scatter>` against a category axis
  * - `'lollipop'` → `TraceType.LOLLIPOP` — Lollipop chart: a `<ComposedChart>`
@@ -51,12 +66,23 @@ import type { Orientation, StepDirection } from '@type/grammar';
  *   data, so both use this type
  * - `'alluvial'` → `TraceType.ALLUVIAL` — Weighted flow between nodes drawn
  *   as a `<Sankey>` whose node set repeats at each stage
+ * - `'treemap'` → `TraceType.TREEMAP` — A hierarchy laid out as nested area
+ *   (`<Treemap>`). `data` is the nested `{ name, children }` array the
+ *   component itself is given, not the adapter's usual flat rows
+ * - `'sunburst'` → `TraceType.SUNBURST` — The same hierarchy drawn as rings
+ *   (`<SunburstChart>`). `data` is the root's `children`, since the sunburst
+ *   draws every node except the root
  */
 export type RechartsChartType
   = | 'bar'
     | 'stacked_bar'
     | 'dodged_bar'
     | 'normalized_bar'
+    | 'diverging_bar'
+    | 'waterfall'
+    | 'dumbbell'
+    | 'gantt'
+    | 'gauge'
     | 'dot'
     | 'lollipop'
     | 'funnel'
@@ -74,7 +100,9 @@ export type RechartsChartType
     | 'error_bar'
     | 'forest'
     | 'pie'
-    | 'alluvial';
+    | 'alluvial'
+    | 'treemap'
+    | 'sunburst';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -241,6 +269,106 @@ export interface SurvivalCurveConfig {
    * with `type="stepBefore"`.
    */
   stepDirection?: StepDirection;
+}
+
+/**
+ * Configuration for waterfall charts.
+ * Optional when `chartType` is `'waterfall'`.
+ *
+ * The single `yKeys` entry names each step's CONTRIBUTION, and the adapter
+ * accumulates the running totals MAIDR announces — a waterfall bar floats
+ * between the total before the step and the total after it, and neither
+ * number is in the data. This config only says which rows are *not*
+ * contributions: an opening balance, a subtotal, a closing balance.
+ */
+export interface WaterfallStepConfig {
+  /**
+   * Key whose truthy value marks a row as restating the running total rather
+   * than changing it. Such a row sits on the baseline instead of floating,
+   * and a reader told a subtotal "rose by 950" would hear a contribution the
+   * chart never made.
+   *
+   * A restating row's own value becomes the new running total. When it has
+   * none, the accumulated total is used, so a "Closing" row need carry no
+   * number of its own.
+   */
+  totalKey?: string;
+  /**
+   * Indices of the restating rows, for data that carries no flag column.
+   * A waterfall usually opens and closes on one, so this is commonly
+   * `[0, data.length - 1]`.
+   */
+  totalIndices?: number[];
+  /**
+   * Key holding the step kind outright — `'increase'`, `'decrease'` or
+   * `'total'`. Takes precedence over both fields above; without any of the
+   * three, a step is read from the sign of its contribution.
+   */
+  kindKey?: string;
+}
+
+/**
+ * Configuration for gantt charts, timelines and swimlane diagrams.
+ * Optional when `chartType` is `'gantt'`.
+ *
+ * One data row is one interval: `xKey` names its lane and the two `yKeys`
+ * entries its start and end, both as positions on the same numeric axis.
+ * Dates therefore have to arrive as epoch milliseconds — a `Date` is not a
+ * position, and a length in milliseconds needs {@link unit} to read as one.
+ */
+export interface GanttChartConfig {
+  /**
+   * The lanes, in the order the chart draws them.
+   *
+   * Declared rather than derived so an EMPTY lane survives: nothing booked is
+   * a real statement about a schedule, and a lane with no rows cannot name
+   * itself. A lane a row names but this list omits is appended at the end
+   * rather than dropped.
+   */
+  lanes?: (string | number)[];
+  /**
+   * Key holding what an individual interval is called, when its lane is not
+   * already its name. A lane commonly holds several — a resource booked
+   * twice, a phase that pauses — and without this they are announced by
+   * position alone.
+   */
+  labelKey?: string;
+  /**
+   * What a unit of the axis is called: `'days'`, `'hours'`, `'weeks'`.
+   * The length of an interval is the fact a gantt exists to carry, and a bare
+   * number does not carry it.
+   */
+  unit?: string;
+}
+
+/**
+ * Configuration for gauge and bullet charts.
+ * Required when `chartType` is `'gauge'`.
+ *
+ * The value comes from the one data row, but nothing else on a gauge does:
+ * a `<RadialBarChart>` holds a magnitude and an angle, while the reading is
+ * "73 out of 100, 7 below target, in the 'ok' band". The range mirrors the
+ * chart's own domain and the rest is author knowledge, so all of it arrives
+ * here — there is deliberately no default range, since a guessed maximum
+ * misreports the one number the chart draws.
+ */
+export interface GaugeDialConfig {
+  /** Lower end of the dial — the `<PolarAngleAxis domain>` floor. */
+  min: number;
+  /** Upper end of the dial — the `<PolarAngleAxis domain>` ceiling. */
+  max: number;
+  /** The target marker a bullet chart draws, when it has one. */
+  target?: number;
+  /**
+   * Qualitative bands, ascending and bounded above only: a band starts where
+   * the previous one ended, and the first starts at {@link min}.
+   */
+  bands?: GaugeBand[];
+  /**
+   * What the measure is called. Defaults to the data row's `xKey` value, the
+   * way every other chart type takes its category label from `xKey`.
+   */
+  label?: string;
 }
 
 /**
@@ -479,6 +607,125 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
+ * @example Diverging bar chart (population pyramid)
+ * ```typescript
+ * // Exactly two yKeys, the LEFT-hand side first and holding NEGATIVE values —
+ * // the sign is the side, and MAIDR pitches the magnitude so the biggest bar
+ * // on the left is not heard as the smallest note on the chart.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'pyramid-chart',
+ *   title: 'Population by Age Band',
+ *   data: [{ band: '0-9', men: -2_100_000, women: 2_000_000 }],
+ *   chartType: 'diverging_bar',
+ *   xKey: 'band',
+ *   yKeys: ['men', 'women'],
+ *   fillKeys: ['Men', 'Women'],
+ *   orientation: Orientation.HORIZONTAL,
+ *   xLabel: 'Age band',
+ *   yLabel: 'People',
+ * };
+ * ```
+ *
+ * @example Waterfall chart
+ * ```typescript
+ * // The yKey holds each step's CONTRIBUTION; the adapter accumulates the
+ * // running totals, because a waterfall bar floats between the total before
+ * // the step and the total after it and neither number is in the data.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'bridge-chart',
+ *   title: 'Revenue Bridge',
+ *   data: [
+ *     { step: 'Opening', change: 1200, restates: true },
+ *     { step: 'New sales', change: 450 },
+ *     { step: 'Churn', change: -180 },
+ *     { step: 'Closing', restates: true },
+ *   ],
+ *   chartType: 'waterfall',
+ *   xKey: 'step',
+ *   yKeys: ['change'],
+ *   waterfallConfig: { totalKey: 'restates' },
+ *   xLabel: 'Step',
+ *   yLabel: 'Revenue ($k)',
+ * };
+ * ```
+ *
+ * @example Dumbbell chart
+ * ```typescript
+ * // Two yKeys, the starting end first, and `fillKeys` names them: those
+ * // names are what the comparison is about, and the legend is where a
+ * // sighted reader gets them.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'life-chart',
+ *   title: 'Life Expectancy, 1990 against 2020',
+ *   data: [{ country: 'Japan', then: 78.9, now: 84.6 }],
+ *   chartType: 'dumbbell',
+ *   xKey: 'country',
+ *   yKeys: ['then', 'now'],
+ *   fillKeys: ['1990', '2020'],
+ *   xLabel: 'Country',
+ *   yLabel: 'Years',
+ * };
+ * ```
+ *
+ * @example Gantt chart
+ * ```typescript
+ * // One row per interval: `xKey` is its lane and the two `yKeys` its start
+ * // and end. Declare `lanes` so a lane with nothing booked still exists —
+ * // an empty row is a real statement about a schedule.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'plan-chart',
+ *   title: 'Release Plan',
+ *   data: [{ task: 'Design', from: 0, to: 5 }, { task: 'Build', from: 3, to: 12 }],
+ *   chartType: 'gantt',
+ *   xKey: 'task',
+ *   yKeys: ['from', 'to'],
+ *   ganttConfig: { lanes: ['Design', 'Build', 'Launch'], unit: 'days' },
+ *   xLabel: 'Task',
+ *   yLabel: 'Day',
+ * };
+ * ```
+ *
+ * @example Gauge chart
+ * ```typescript
+ * // One data row, and everything the reading needs beyond its value comes
+ * // from the config: "73" is not the reading, "73 out of 100, 7 below
+ * // target, in the 'ok' band" is.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'nps-chart',
+ *   title: 'Net Promoter Score',
+ *   data: [{ measure: 'NPS', score: 73 }],
+ *   chartType: 'gauge',
+ *   xKey: 'measure',
+ *   yKeys: ['score'],
+ *   gaugeConfig: {
+ *     min: 0,
+ *     max: 100,
+ *     target: 80,
+ *     bands: [{ to: 40, label: 'poor' }, { to: 70, label: 'ok' }, { to: 100, label: 'good' }],
+ *   },
+ * };
+ * ```
+ *
+ * @example Treemap / sunburst
+ * ```typescript
+ * // `data` is the nested array Recharts is given, not the adapter's usual
+ * // flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys`
+ * // entry its `dataKey`; children live under `children`, as Recharts
+ * // requires. A `<SunburstChart data={{ name: 'World', children }}>` passes
+ * // that same `children` array here, since it draws every node but the root.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'regions-chart',
+ *   title: 'Population by Region',
+ *   data: [
+ *     { name: 'Europe', children: [{ name: 'France', people: 67.4 }] },
+ *     { name: 'Asia', children: [{ name: 'Japan', people: 125.1 }] },
+ *   ],
+ *   chartType: 'treemap',
+ *   xKey: 'name',
+ *   yKeys: ['people'],
+ * };
+ * ```
+ *
  * @example Pie chart
  * ```typescript
  * // `xKey` is the Recharts `<Pie nameKey>` (the slice label) and the single
@@ -604,9 +851,14 @@ export interface RechartsAdapterConfig {
   orientation?: Orientation;
 
   /**
-   * Display names for each series in stacked/dodged/normalized bar charts.
-   * Maps 1:1 with `yKeys` — the i-th fillKey names the i-th yKey.
+   * Display names for each series in stacked/dodged/normalized/diverging bar
+   * charts. Maps 1:1 with `yKeys` — the i-th fillKey names the i-th yKey.
    * When omitted, the yKey strings are used as fill labels.
+   *
+   * A dumbbell reads them as the names of its two ends. They are the content
+   * of that comparison: announced as "start" and "end", a chart of life
+   * expectancy in 1990 against 2020 tells the reader which dot they are on
+   * and not which year it is.
    */
   fillKeys?: string[];
 
@@ -645,6 +897,24 @@ export interface RechartsAdapterConfig {
    * Used when `chartType` is `'survival'`.
    */
   survivalConfig?: SurvivalCurveConfig;
+
+  /**
+   * Waterfall step configuration.
+   * Used when `chartType` is `'waterfall'`.
+   */
+  waterfallConfig?: WaterfallStepConfig;
+
+  /**
+   * Gantt lane configuration.
+   * Used when `chartType` is `'gantt'`.
+   */
+  ganttConfig?: GanttChartConfig;
+
+  /**
+   * Gauge range, target and bands.
+   * Required when `chartType` is `'gauge'`.
+   */
+  gaugeConfig?: GaugeDialConfig;
 
   /**
    * Custom CSS selector override for SVG highlighting.

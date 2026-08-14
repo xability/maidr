@@ -15,7 +15,7 @@
  * two disagree.
  */
 
-import type { Maidr } from '@type/grammar';
+import type { Maidr, WaterfallPoint } from '@type/grammar';
 import type { ReactElement } from 'react';
 import type { Root } from 'react-dom/client';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
@@ -51,6 +51,42 @@ const survivalData = [
   { months: 6, treated: 0.88, censored: true },
   { months: 12, treated: 0.71, censored: false },
 ];
+
+const pyramidData = [
+  { band: '0-9', men: -2100, women: 2000 },
+  { band: '10-19', men: -1900, women: 1850 },
+  { band: '20-29', men: -1750, women: 1820 },
+];
+
+// A waterfall, a gantt and a dumbbell are all drawn as FLOATING bars: a
+// `<Bar>` whose dataKey returns a [start, end] pair, which is one rectangle
+// per row rather than the two a transparent-base stack would draw.
+const bridgeData = [
+  { step: 'Opening', change: 1200, restates: true },
+  { step: 'New sales', change: 450 },
+  { step: 'Churn', change: -180 },
+  { step: 'Closing', restates: true },
+];
+
+const planData = [
+  { task: 'Design', from: 0, to: 5 },
+  { task: 'Build', from: 3, to: 12 },
+  { task: 'Build', from: 14, to: 18 },
+];
+
+const lifeData = [
+  { country: 'Japan', then: 78.9, now: 84.6 },
+  { country: 'Russia', then: 69.2, now: 68.9 },
+];
+
+const gaugeData = [{ measure: 'NPS', score: 73 }];
+
+const hierarchyData = [
+  { name: 'Europe', children: [{ name: 'France', people: 67.4 }, { name: 'Spain', people: 47.4 }] },
+  { name: 'Oceania', children: [{ name: 'Fiji', people: 0.9 }] },
+];
+/** Every node of {@link hierarchyData}, which is what both charts draw. */
+const hierarchyNodes = 5;
 
 const flowNodes = [{ name: 'Free' }, { name: 'Trial' }, { name: 'Paid' }, { name: 'Churned' }];
 const flowLinks = [
@@ -99,6 +135,60 @@ const configs = {
     yKeys: ['value'],
     flowConfig: { targetKey: 'target', nodes: flowNodes },
   },
+  diverging: {
+    id: 'diverging-dom',
+    data: pyramidData,
+    chartType: 'diverging_bar' as const,
+    xKey: 'band',
+    yKeys: ['men', 'women'],
+    fillKeys: ['Men', 'Women'],
+  },
+  waterfall: {
+    id: 'waterfall-dom',
+    data: bridgeData,
+    chartType: 'waterfall' as const,
+    xKey: 'step',
+    yKeys: ['change'],
+    waterfallConfig: { totalKey: 'restates' },
+  },
+  gantt: {
+    id: 'gantt-dom',
+    data: planData,
+    chartType: 'gantt' as const,
+    xKey: 'task',
+    yKeys: ['from', 'to'],
+    ganttConfig: { lanes: ['Design', 'Build', 'Launch'], unit: 'days' },
+  },
+  dumbbell: {
+    id: 'dumbbell-dom',
+    data: lifeData,
+    chartType: 'dumbbell' as const,
+    xKey: 'country',
+    yKeys: ['then', 'now'],
+    fillKeys: ['1990', '2020'],
+  },
+  gauge: {
+    id: 'gauge-dom',
+    data: gaugeData,
+    chartType: 'gauge' as const,
+    xKey: 'measure',
+    yKeys: ['score'],
+    gaugeConfig: { min: 0, max: 100, target: 80 },
+  },
+  treemap: {
+    id: 'treemap-dom',
+    data: hierarchyData,
+    chartType: 'treemap' as const,
+    xKey: 'name',
+    yKeys: ['people'],
+  },
+  sunburst: {
+    id: 'sunburst-dom',
+    data: hierarchyData,
+    chartType: 'sunburst' as const,
+    xKey: 'name',
+    yKeys: ['people'],
+  },
 };
 
 interface MutableGlobals {
@@ -116,6 +206,24 @@ const maidr: Record<keyof typeof configs, Maidr> = {} as Record<keyof typeof con
 
 function defineGlobal(key: keyof MutableGlobals, value: unknown): void {
   Object.defineProperty(globals, key, { value, configurable: true, writable: true });
+}
+
+/**
+ * A `<Bar dataKey>` that reads a row's span rather than a magnitude.
+ *
+ * Recharts draws a bar returning a `[start, end]` pair floating between the
+ * two, which is how a waterfall step, a gantt interval and a dumbbell
+ * connector each come out as ONE rectangle per row.
+ *
+ * @param startKey - Field holding where the bar begins
+ * @param endKey - Field holding where it ends
+ * @returns A dataKey accessor Recharts accepts
+ */
+function floatingSpan(startKey: string, endKey: string): (obj: unknown) => [number, number] {
+  return (obj) => {
+    const row = obj as Record<string, unknown>;
+    return [Number(row[startKey]), Number(row[endKey])];
+  };
 }
 
 /** The first (or only) selector the layer declares. */
@@ -156,9 +264,13 @@ beforeAll(async () => {
     FunnelChart,
     Line,
     LineChart,
+    RadialBar,
+    RadialBarChart,
     Sankey,
     Scatter,
     ScatterChart,
+    SunburstChart,
+    Treemap,
     XAxis,
     YAxis,
   } = await import('recharts');
@@ -171,6 +283,11 @@ beforeAll(async () => {
   for (const [name, config] of Object.entries(configs)) {
     maidr[name as keyof typeof configs] = convertRechartsToMaidr(config);
   }
+
+  // The waterfall's running totals are what the adapter computes and what the
+  // floating `<Bar>` needs, so the chart is drawn from the layer's own steps —
+  // which is the recipe the docs give a consumer.
+  const waterfallSteps = maidr.waterfall.subplots[0][0].layers[0].data as WaterfallPoint[];
 
   root = createRoot(document.getElementById('root') as HTMLElement);
   await act(async () => {
@@ -212,6 +329,56 @@ beforeAll(async () => {
         height: 300,
         data: { nodes: flowNodes, links: flowLinks },
       })),
+      wrap(configs.diverging, createElement(
+        BarChart,
+        { width: 320, height: 220, layout: 'vertical', stackOffset: 'sign', data: pyramidData },
+        createElement(XAxis, { type: 'number' }),
+        createElement(YAxis, { type: 'category', dataKey: 'band' }),
+        createElement(Bar, { dataKey: 'men', stackId: 'sides', isAnimationActive: false }),
+        createElement(Bar, { dataKey: 'women', stackId: 'sides', isAnimationActive: false }),
+      )),
+      wrap(configs.waterfall, createElement(
+        BarChart,
+        { width: 320, height: 220, data: waterfallSteps },
+        createElement(XAxis, { dataKey: 'x' }),
+        createElement(YAxis, {}),
+        createElement(Bar, { dataKey: floatingSpan('start', 'end'), isAnimationActive: false }),
+      )),
+      wrap(configs.gantt, createElement(
+        BarChart,
+        { width: 320, height: 220, layout: 'vertical', data: planData },
+        createElement(XAxis, { type: 'number' }),
+        createElement(YAxis, { type: 'category', dataKey: 'task' }),
+        createElement(Bar, { dataKey: floatingSpan('from', 'to'), isAnimationActive: false }),
+      )),
+      wrap(configs.dumbbell, createElement(
+        BarChart,
+        { width: 320, height: 220, data: lifeData },
+        createElement(XAxis, { dataKey: 'country' }),
+        createElement(YAxis, {}),
+        createElement(Bar, { dataKey: floatingSpan('then', 'now'), isAnimationActive: false }),
+      )),
+      wrap(configs.gauge, createElement(
+        RadialBarChart,
+        { width: 320, height: 220, innerRadius: 60, outerRadius: 100, startAngle: 180, endAngle: 0, data: gaugeData },
+        createElement(RadialBar, { dataKey: 'score', isAnimationActive: false }),
+      )),
+      wrap(configs.treemap, createElement(Treemap, {
+        width: 320,
+        height: 220,
+        data: hierarchyData,
+        dataKey: 'people',
+        nameKey: 'name',
+        isAnimationActive: false,
+      })),
+      wrap(configs.sunburst, createElement(SunburstChart, {
+        width: 320,
+        height: 320,
+        // The sunburst draws `data.children`, which is why the adapter is
+        // given those children rather than this root.
+        data: { name: 'World', children: hierarchyData },
+        dataKey: 'people',
+      })),
     ));
   });
 });
@@ -252,6 +419,54 @@ describe('recharts rendered mark contract', () => {
     // FlowTrace addresses its selector list by each flow's DECLARED position,
     // so the DOM order has to be the links array's order.
     expect(links).toHaveLength(flowLinks.length);
+  });
+
+  it('matches one rectangle per side per band on a diverging bar', () => {
+    // A `SegmentedTrace` maps [side][category], so both sides' rectangles are
+    // wanted — one `<Bar>` draws all of one side's, then the next draws the
+    // other's, which is the declaration order the diverging payload is in.
+    expect(document.querySelectorAll(firstSelector(maidr.diverging)))
+      .toHaveLength(pyramidData.length * 2);
+  });
+
+  it('matches one floating rectangle per waterfall step', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.waterfall)))
+      .toHaveLength(bridgeData.length);
+  });
+
+  it('matches one rectangle per gantt interval, lane order and all', () => {
+    // `GanttTrace` walks its selectors lane by lane, so the count must be the
+    // interval total rather than the lane count — the empty lane draws nothing.
+    expect(document.querySelectorAll(firstSelector(maidr.gantt)))
+      .toHaveLength(planData.length);
+  });
+
+  it('matches one connector per dumbbell row', () => {
+    // One element per ROW, not per dot: `DumbbellTrace` highlights the same
+    // connector from both ends rather than inventing elements the chart never
+    // drew.
+    expect(document.querySelectorAll(firstSelector(maidr.dumbbell)))
+      .toHaveLength(lifeData.length);
+  });
+
+  it('matches the single sector a gauge draws', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.gauge))).toHaveLength(1);
+  });
+
+  it('matches one treemap rectangle per node, excluding the synthetic root', () => {
+    // Recharts wraps the data array in a root node and draws it full-plot,
+    // which is one rectangle more than the layer declares nodes — and
+    // `TreemapTrace` withdraws highlighting entirely on a count mismatch.
+    const nodes = document.querySelectorAll(firstSelector(maidr.treemap));
+
+    expect(nodes).toHaveLength(hierarchyNodes);
+    expect([...nodes].map(node => node.getAttribute('name')))
+      .toEqual(['Europe', 'France', 'Spain', 'Oceania', 'Fiji']);
+  });
+
+  it('matches one sunburst sector per node, in depth-first order', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.sunburst)))
+      .toHaveLength(hierarchyNodes);
   });
 
   it('scopes every selector to its own chart', () => {

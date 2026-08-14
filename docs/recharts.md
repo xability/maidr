@@ -137,6 +137,11 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'stacked_bar'` | `<Bar stackId="...">` | Stacked bar chart (multiple `yKeys`) |
 | `'dodged_bar'` | Multiple `<Bar>` | Grouped/side-by-side bar chart (multiple `yKeys`) |
 | `'normalized_bar'` | `<Bar stackId="...">` | 100% stacked bar chart (multiple `yKeys`) |
+| `'diverging_bar'` | `<BarChart stackOffset="sign">` | Population pyramid / Likert: two sides of a shared baseline (exactly two `yKeys`) |
+| `'waterfall'` | `<Bar>` with a `[start, end]` `dataKey` | A total carried through signed contributions (`waterfallConfig`) |
+| `'dumbbell'` | `<Bar>` with a `[start, end]` `dataKey` | Two values compared per category (exactly two `yKeys`) |
+| `'gantt'` | `<BarChart layout="vertical">` + floating `<Bar>` | Intervals laid out in lanes (`ganttConfig`) |
+| `'gauge'` | `<RadialBarChart>` + `<RadialBar>` | One measure against a range (`gaugeConfig`) |
 | `'dot'` | `<Scatter>` | Cleveland dot plot: one point per category |
 | `'lollipop'` | `<Bar barSize={2}>` + `<Scatter>` | Lollipop chart: a stem and a head |
 | `'funnel'` | `<FunnelChart>` + `<Funnel>` | Funnel chart: a population shrinking across ordered stages |
@@ -155,6 +160,8 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'forest'` | `<ScatterChart layout="vertical">` + `<ErrorBar direction="x">` | Forest plot (`errorConfig` + `forestConfig`) |
 | `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
 | `'alluvial'` | `<Sankey>` | Weighted flow between nodes (`flowConfig`) |
+| `'treemap'` | `<Treemap>` | A hierarchy laid out as nested area (nested `data`) |
+| `'sunburst'` | `<SunburstChart>` | The same hierarchy drawn as rings (nested `data`) |
 
 ## Data Examples by Chart Type
 
@@ -777,6 +784,234 @@ const links = [
 
 MAIDR reads this as a graph rather than a grid: following a ribbon is the primary move, and arrow keys step between a node and the flows that leave or arrive at it. Highlighting pairs each flow with the `<path class="recharts-sankey-link">` at the same position, so the `links` array order is the order the ribbons are announced in.
 
+### Diverging Bar Chart (Population Pyramid)
+
+Two series drawn back to back across a shared category axis. Declare **exactly two `yKeys`, the left-hand side first**, and give the left side **negative** values — the same numbers `<BarChart stackOffset="sign">` needs:
+
+```tsx
+const data = [
+  { band: '0-9', men: -2_100_000, women: 2_000_000 },
+  { band: '10-19', men: -1_900_000, women: 1_850_000 },
+];
+
+<MaidrRecharts
+  id="pyramid-example"
+  title="Population by Age Band"
+  data={data}
+  chartType="diverging_bar"
+  xKey="band"
+  yKeys={['men', 'women']}
+  fillKeys={['Men', 'Women']}
+  orientation={Orientation.HORIZONTAL}
+  xLabel="Age band"
+  yLabel="People"
+>
+  <BarChart width={600} height={400} layout="vertical" stackOffset="sign" data={data}>
+    <XAxis type="number" />
+    <YAxis type="category" dataKey="band" />
+    <Bar dataKey="men" stackId="sides" fill="#8884d8" />
+    <Bar dataKey="women" stackId="sides" fill="#82ca9d" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+The sign is read as the **side**, not the magnitude: MAIDR pitches the size of the bar and announces which way it points, so the biggest bar on the left is not heard as the lowest note on the chart. It also announces the **balance** — what one side has over the other — at every band, which is the subtraction a pyramid is drawn back to back to support.
+
+Order matters twice. The sides are read in **declaration order**, so the `yKeys` must run left then right, and the `<Bar>` elements must be declared in that same order for highlighting to land on the right one. Declared with a single `yKey` the layer falls back to a plain bar chart, since a pyramid with one side is not one.
+
+### Waterfall Chart
+
+The single `yKeys` entry names each step's **contribution**; the adapter accumulates the running totals, because a waterfall bar floats between the total before the step and the total after it and neither number is in the data.
+
+```tsx
+const data = [
+  { step: 'Opening', change: 1200, restates: true },
+  { step: 'New sales', change: 450 },
+  { step: 'Churn', change: -180 },
+  { step: 'Upsell', change: 90 },
+  { step: 'Closing', restates: true },
+];
+
+<MaidrRecharts
+  id="waterfall-example"
+  title="Revenue Bridge"
+  data={data}
+  chartType="waterfall"
+  xKey="step"
+  yKeys={['change']}
+  waterfallConfig={{ totalKey: 'restates' }}
+  xLabel="Step"
+  yLabel="Revenue ($k)"
+>
+  <BarChart width={600} height={350} data={steps}>
+    <XAxis dataKey="x" />
+    <YAxis />
+    <Bar dataKey={(step) => [step.start, step.end]} fill="#8884d8" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+A row flagged by `totalKey` (or listed in `totalIndices`, for data with no flag column) **restates** the running total rather than changing it — an opening balance, a subtotal, a closing balance. It sits on the baseline, and it need carry no number of its own: the `Closing` row above restates whatever the steps came to. `kindKey` names the kind outright when the data already holds it.
+
+Draw the chart from a **floating bar** — a `<Bar>` whose `dataKey` returns a `[start, end]` pair — and it renders exactly one rectangle per step, which is what the default selector targets. Those are the same totals the adapter computes, so read them back off the layer instead of accumulating twice:
+
+```tsx
+const maidrData = useRechartsAdapter(config);
+const steps = maidrData.subplots[0][0].layers[0].data as WaterfallPoint[];
+```
+
+The other recipe — a transparent offset `<Bar>` stacked under a visible one — draws **two** rectangles per step, and the default selector matches both. Give the visible bar a `className` and pass the narrowed selector as `selectorOverride`:
+
+```tsx
+<Bar dataKey="base" stackId="w" fill="transparent" />
+<Bar dataKey="change" stackId="w" className="wf-delta" />
+// selectorOverride: '.wf-delta .recharts-bar-rectangle .recharts-rectangle'
+```
+
+### Dumbbell Chart
+
+Two values compared at each category, joined by a segment. Two `yKeys`, the starting end first, and `fillKeys` names them:
+
+```tsx
+const data = [
+  { country: 'Japan', then: 78.9, now: 84.6 },
+  { country: 'Russia', then: 69.2, now: 68.9 },
+];
+
+<MaidrRecharts
+  id="dumbbell-example"
+  title="Life Expectancy, 1990 against 2020"
+  data={data}
+  chartType="dumbbell"
+  xKey="country"
+  yKeys={['then', 'now']}
+  fillKeys={['1990', '2020']}
+  xLabel="Country"
+  yLabel="Years"
+>
+  <BarChart width={600} height={350} data={data}>
+    <XAxis dataKey="country" />
+    <YAxis />
+    <Bar dataKey={(row) => [row.then, row.now]} fill="#8884d8" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+The two names are the content of the comparison. Announced as "start" and "end", a chart of life expectancy in 1990 against 2020 tells a reader which dot they are on and not which year it is — which is the one thing the legend gives a sighted reader for free. MAIDR derives the change rather than taking it from the data, so a row that declined (Russia, above) is announced as a decrease without anything extra declared.
+
+Highlighting pairs one element with each **row**, not with each dot: a chart draws one connector per row, so both ends highlight the same element. A dumbbell drawn as a `<ScatterChart>` with two `<Scatter>`s draws two symbols per row instead and needs a `selectorOverride` naming the connector shape.
+
+### Gantt Chart
+
+One data row is one interval: `xKey` names its lane and the two `yKeys` its start and end, both as positions on the same numeric axis.
+
+```tsx
+const data = [
+  { task: 'Design', from: 0, to: 5, phase: 'Wireframes' },
+  { task: 'Build', from: 3, to: 12, phase: 'Alpha' },
+  { task: 'Build', from: 14, to: 18, phase: 'Beta' },
+];
+
+<MaidrRecharts
+  id="gantt-example"
+  title="Release Plan"
+  data={data}
+  chartType="gantt"
+  xKey="task"
+  yKeys={['from', 'to']}
+  ganttConfig={{ lanes: ['Design', 'Build', 'Launch'], labelKey: 'phase', unit: 'days' }}
+  xLabel="Task"
+  yLabel="Day"
+>
+  <BarChart width={600} height={350} layout="vertical" data={data}>
+    <XAxis type="number" />
+    <YAxis type="category" dataKey="task" />
+    <Bar dataKey={(row) => [row.from, row.to]} fill="#8884d8" />
+  </BarChart>
+</MaidrRecharts>
+```
+
+Declare `lanes` so that a lane with **nothing booked still exists** — `Launch` above holds no row, and nothing booked is a real statement about a schedule that a list grouped by task cannot make. A lane a row names but the list omits is appended rather than dropped. `unit` names what a unit of the axis is; without it the length of an interval is announced as a bare number.
+
+Dates have to arrive as **epoch milliseconds**: a `Date` is not a position on a numeric axis.
+
+MAIDR puts the interval's length on pitch and its start on stereo position, so two lanes whose work lines up sound like they line up. That is the overlap question answered by ear, and it is the reason a gantt gets a trace type rather than being read as a table.
+
+Highlighting needs the rows **grouped by lane, in the lane order** — Recharts draws one rectangle per row in row order, while the payload is walked lane by lane. The adapter checks this and turns highlighting off for the layer when the rows interleave lanes, rather than highlighting somebody else's task.
+
+### Gauge Chart
+
+One measure read against a range. The data holds a single row; everything else the reading needs is author knowledge and arrives through `gaugeConfig`, which is therefore required:
+
+```tsx
+const data = [{ measure: 'NPS', score: 73 }];
+
+<MaidrRecharts
+  id="gauge-example"
+  title="Net Promoter Score"
+  data={data}
+  chartType="gauge"
+  xKey="measure"
+  yKeys={['score']}
+  gaugeConfig={{
+    min: 0,
+    max: 100,
+    target: 80,
+    bands: [{ to: 40, label: 'poor' }, { to: 70, label: 'ok' }, { to: 100, label: 'good' }],
+  }}
+>
+  <RadialBarChart
+    width={400} height={250}
+    innerRadius={80} outerRadius={140}
+    startAngle={180} endAngle={0}
+    data={data}
+  >
+    <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+    <RadialBar dataKey="score" fill="#8884d8" background />
+  </RadialBarChart>
+</MaidrRecharts>
+```
+
+"73" is not the reading. "73 out of 100, 7 below target, in the 'ok' band" is, and a sighted reader gets all of it from the dial's geometry — the needle's position, the marker beside it, the coloured arc it lands on. None of that is written anywhere a screen reader can reach, and none of it is inferable from a `<RadialBar>`, so the range mirrors the chart's `domain` and the target and bands are declared.
+
+Bands are **ascending and bounded above only**: a band starts where the previous one ended, and the first starts at `min`. A value above every band belongs to none rather than to the last one. There is deliberately no default range — a guessed maximum misreports the one number the chart draws.
+
+### Treemap and Sunburst
+
+Both draw the same hierarchy, and both take the **nested** `{ name, children }` data Recharts itself is given rather than the adapter's usual flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys` entry its `dataKey`:
+
+```tsx
+const nodes = [
+  { name: 'Europe', children: [{ name: 'France', people: 67.4 }, { name: 'Spain', people: 47.4 }] },
+  { name: 'Asia', children: [{ name: 'Japan', people: 125.1 }, { name: 'Nepal', people: 30.0 }] },
+];
+
+<MaidrRecharts
+  id="treemap-example"
+  title="Population by Region"
+  data={nodes}
+  chartType="treemap"
+  xKey="name"
+  yKeys={['people']}
+>
+  <Treemap width={600} height={350} data={nodes} dataKey="people" nameKey="name" />
+</MaidrRecharts>
+```
+
+A sunburst is the same config with `chartType="sunburst"`. Its Recharts component takes a single root object, and it draws that root's **children** — so pass the children here, and the declared nodes are then exactly the drawn ones:
+
+```tsx
+<MaidrRecharts id="sunburst-example" data={nodes} chartType="sunburst" xKey="name" yKeys={['people']}>
+  <SunburstChart width={400} height={400} data={{ name: 'World', children: nodes }} dataKey="people" />
+</MaidrRecharts>
+```
+
+MAIDR navigates the tree **as a tree**, on arrow keys that already exist: up returns to the parent, down enters the first child, left and right walk the siblings. Each node is announced with its exact share of its parent — the comparison the rectangles are drawn to support and the one the eye estimates worst.
+
+A node with children gets no value of its own, because Recharts computes an interior node's value as the sum of its children and ignores any value declared on it. MAIDR derives interior totals the same way.
+
+Highlighting relies on both components drawing their nodes in depth-first pre-order, which they do. The treemap selector deliberately skips the **synthetic root** rectangle Recharts wraps the data array in — it is one element more than there are nodes, and a count mismatch turns highlighting off entirely. A `<Treemap type="nest">`, or one given a custom `content`, draws something else and needs `selectorOverride`.
+
 ### Composed Chart (Bar + Line)
 
 Use `layers` mode to mix different chart types in a single chart:
@@ -905,6 +1140,11 @@ type RechartsChartType =
   | 'stacked_bar'
   | 'dodged_bar'
   | 'normalized_bar'
+  | 'diverging_bar'
+  | 'waterfall'
+  | 'dumbbell'
+  | 'gantt'
+  | 'gauge'
   | 'dot'
   | 'lollipop'
   | 'funnel'
@@ -922,7 +1162,9 @@ type RechartsChartType =
   | 'error_bar'
   | 'forest'
   | 'pie'
-  | 'alluvial';
+  | 'alluvial'
+  | 'treemap'
+  | 'sunburst';
 ```
 
 ### `RechartsLayerConfig`
@@ -1017,6 +1259,38 @@ interface SurvivalCurveConfig {
   yMinKeys?: string[];      // Keys for the lower confidence band, 1:1 with yKeys
   yMaxKeys?: string[];      // Keys for the upper confidence band, 1:1 with yKeys
   stepDirection?: StepDirection; // Where the curve jumps (defaults to 'hv')
+}
+```
+
+### `WaterfallStepConfig`
+
+```typescript
+interface WaterfallStepConfig {
+  totalKey?: string;      // Key whose truthy value marks a row as restating the total
+  totalIndices?: number[]; // Indices of the restating rows, for data with no flag column
+  kindKey?: string;       // Key holding 'increase' | 'decrease' | 'total' outright
+}
+```
+
+### `GanttChartConfig`
+
+```typescript
+interface GanttChartConfig {
+  lanes?: (string | number)[]; // The lanes in draw order — declare them to keep empty ones
+  labelKey?: string;           // Key naming an individual interval within its lane
+  unit?: string;               // What a unit of the axis is called ('days', 'hours')
+}
+```
+
+### `GaugeDialConfig`
+
+```typescript
+interface GaugeDialConfig {
+  min: number;         // Lower end of the dial — no default
+  max: number;         // Upper end of the dial — no default
+  target?: number;     // The target marker a bullet chart draws
+  bands?: GaugeBand[]; // Qualitative bands, ascending, upper edges only
+  label?: string;      // What the measure is called (defaults to the xKey value)
 }
 ```
 

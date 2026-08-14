@@ -34,6 +34,55 @@
  *   per-sample element to highlight, so the dots are the only index-aligned
  *   marks either chart has.
  *
+ * Floating BarChart (waterfall, gantt, dumbbell):
+ *   g.recharts-bar-rectangle > path.recharts-rectangle
+ *   [target: .recharts-bar-rectangle .recharts-rectangle]
+ *
+ *   None of the three is a Recharts primitive, and all three draw the same
+ *   thing: a bar that does not start at the baseline. Recharts renders one
+ *   for a `<Bar>` whose `dataKey` returns a `[start, end]` pair, which gives
+ *   exactly one rectangle per row — the waterfall's floating step, the gantt's
+ *   interval, the dumbbell's connector — so the ordinary bar selector already
+ *   fits.
+ *
+ *   The other recipe for all three is a transparent offset `<Bar>` stacked
+ *   under a visible one, and it does NOT: two `<Bar>`s draw two rectangles per
+ *   row, and this selector matches the invisible one as well. Such a chart
+ *   puts a `className` on the visible `<Bar>` and passes the narrowed selector
+ *   as `selectorOverride`.
+ *
+ * RadialBarChart (gauge):
+ *   g.recharts-radial-bar-sectors > g > path.recharts-radial-bar-sector
+ *   [target: .recharts-radial-bar-sectors .recharts-radial-bar-sector]
+ *
+ *   A gauge draws exactly one measure, so one sector is what the trace wants.
+ *
+ * Treemap:
+ *   g.recharts-treemap-depth-N > g.recharts-layer > g > path.recharts-rectangle
+ *   [target: the same, for every depth EXCEPT 0]
+ *
+ *   Recharts wraps the `data` array in a synthetic root node and draws it as a
+ *   full-plot rectangle at depth 0, which is one more rectangle than the
+ *   layer declares nodes — and `TreemapTrace` withdraws highlighting entirely
+ *   on a count mismatch. Hence the `:not(.recharts-treemap-depth-0)`. The
+ *   remaining rectangles come out in document order, which for a tree drawn
+ *   as nested `<Layer>`s is depth-first pre-order: the same order the adapter
+ *   flattens the nested data in.
+ *
+ *   The `> g > g >` chain picks a node's OWN rectangle rather than its
+ *   descendants', since a child's `<Layer>` is a sibling of its parent's
+ *   rectangle. A `<Treemap type="nest">` or one given a custom `content`
+ *   draws something else and needs `selectorOverride`.
+ *
+ * SunburstChart:
+ *   g.recharts-sunburst > g > path.recharts-sector
+ *   [target: .recharts-sunburst .recharts-sector]
+ *
+ *   One sector per node in depth-first pre-order, and no sector for the root:
+ *   `SunburstChart` renders `data.children`. That is why the adapter is given
+ *   those children rather than the root — the declared nodes are then exactly
+ *   the drawn ones.
+ *
  * ScatterChart:
  *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
  *   [target: .recharts-scatter-symbol .recharts-symbols]
@@ -199,12 +248,24 @@ export function getRechartsSelector(
  */
 function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {
+    // A waterfall step, a gantt interval and a dumbbell connector are drawn by
+    // a `<Bar>` too — one floating rectangle per row.
     case 'bar':
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
+    case 'diverging_bar':
     case 'histogram':
+    case 'waterfall':
+    case 'gantt':
+    case 'dumbbell':
       return '.recharts-bar-rectangle .recharts-rectangle';
+    case 'gauge':
+      return '.recharts-radial-bar-sectors .recharts-radial-bar-sector';
+    case 'treemap':
+      return 'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle';
+    case 'sunburst':
+      return '.recharts-sunburst .recharts-sector';
     // A bump chart is a <LineChart> of ranks and a survival curve a
     // <LineChart> of step segments, so both draw line dots.
     case 'line':

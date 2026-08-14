@@ -15,6 +15,8 @@ export type {
   ErrorIntervalConfig,
   FlowLinkConfig,
   ForestPlotConfig,
+  GanttChartConfig,
+  GaugeDialConfig,
   HistogramBinConfig,
   MaidrRechartsProps,
   RechartsAdapterConfig,
@@ -23,5 +25,6 @@ export type {
   RechartsSubplotConfig,
   SurvivalCurveConfig,
   VolcanoPointConfig,
+  WaterfallStepConfig,
 } from './types';
 export { useRechartsAdapter } from './useRechartsAdapter';

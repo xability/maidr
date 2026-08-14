@@ -4,6 +4,11 @@ import { BarChartExample } from './examples/BarChartExample';
 import { StackedBarExample } from './examples/StackedBarExample';
 import { DodgedBarExample } from './examples/DodgedBarExample';
 import { NormalizedBarExample } from './examples/NormalizedBarExample';
+import { DivergingBarExample } from './examples/DivergingBarExample';
+import { WaterfallExample } from './examples/WaterfallExample';
+import { DumbbellExample } from './examples/DumbbellExample';
+import { GanttExample } from './examples/GanttExample';
+import { GaugeExample } from './examples/GaugeExample';
 import { DotPlotExample } from './examples/DotPlotExample';
 import { LollipopExample } from './examples/LollipopExample';
 import { FunnelChartExample } from './examples/FunnelChartExample';
@@ -21,6 +26,8 @@ import { ManhattanPlotExample } from './examples/ManhattanPlotExample';
 import { ErrorBarExample } from './examples/ErrorBarExample';
 import { ForestPlotExample } from './examples/ForestPlotExample';
 import { AlluvialExample } from './examples/AlluvialExample';
+import { TreemapExample } from './examples/TreemapExample';
+import { SunburstExample } from './examples/SunburstExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
 import { FacetExample } from './examples/FacetExample';
 
@@ -29,6 +36,11 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Bar', component: StackedBarExample },
   { name: 'Dodged Bar', component: DodgedBarExample },
   { name: 'Normalized Bar', component: NormalizedBarExample },
+  { name: 'Diverging Bar', component: DivergingBarExample },
+  { name: 'Waterfall', component: WaterfallExample },
+  { name: 'Dumbbell', component: DumbbellExample },
+  { name: 'Gantt', component: GanttExample },
+  { name: 'Gauge', component: GaugeExample },
   { name: 'Dot Plot', component: DotPlotExample },
   { name: 'Lollipop', component: LollipopExample },
   { name: 'Funnel', component: FunnelChartExample },
@@ -46,6 +58,8 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Error Bars', component: ErrorBarExample },
   { name: 'Forest Plot', component: ForestPlotExample },
   { name: 'Alluvial', component: AlluvialExample },
+  { name: 'Treemap', component: TreemapExample },
+  { name: 'Sunburst', component: SunburstExample },
   { name: 'Composed Chart', component: ComposedChartExample },
   { name: 'Faceted (Multi-Panel)', component: FacetExample },
 ];
