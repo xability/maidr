@@ -34,6 +34,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  ViolinKdePoint,
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
@@ -114,6 +115,14 @@ export function vegaLiteToMaidr(
   // same descriptor.
   const facetDescriptor = describeFacet(spec);
   if (facetDescriptor) {
+    // A row-faceted density plot is a ridgeline: the facet is how the
+    // curves are offset down the page, not a grid of separate charts.
+    // Read as one layer the reader can walk across; anything else falls
+    // through to the panel grid.
+    const ridgeline = convertRidgelineLayer(spec, facetDescriptor, view);
+    if (ridgeline) {
+      return buildMaidr(id, title, subtitle, caption, [[{ layers: [ridgeline] }]]);
+    }
     return buildFacetMaidr(id, title, subtitle, caption, spec, facetDescriptor, view, domOrder);
   }
 
@@ -780,6 +789,123 @@ function hasRunningSumTransform(transform?: VegaLiteTransform[]): boolean {
 }
 
 /**
+ * Window operations that compute a place in a table rather than a number
+ * measured off the data. `row_number` is deliberately absent: it counts
+ * rows in whatever order they arrive and means nothing about the values,
+ * so a line drawn against it is not a bump chart.
+ */
+const RANK_WINDOW_OPS: ReadonlySet<string> = new Set(['rank', 'dense_rank']);
+
+/**
+ * The column a `window` transform ranks into, when one does.
+ *
+ * A bump chart is a line chart whose y axis is a *rank*, and Vega-Lite has
+ * one way to compute one. The mark says nothing — a bump chart and a line
+ * chart are the same `line` — so the transform is the only signal, and the
+ * ranked column has to be named for the encoding to be checked against it.
+ * The Vega-Lite schema makes `as` required on every window operation, so
+ * it always is.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns The ranked column's name, or `undefined` when none is ranked
+ */
+function rankedColumn(transform?: VegaLiteTransform[]): string | undefined {
+  if (!Array.isArray(transform))
+    return undefined;
+  for (const entry of transform) {
+    if (!Array.isArray(entry?.window))
+      continue;
+    for (const operation of entry.window) {
+      if (operation?.op != null && RANK_WINDOW_OPS.has(operation.op) && operation.as)
+        return operation.as;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The key / value columns a `fold` transform produces, when one is present.
+ *
+ * Vega-Lite documents the default pair as `["key", "value"]`, which the
+ * canonical parallel coordinates spec relies on.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns The two output column names, or `undefined` when nothing folds
+ */
+function foldedColumns(
+  transform?: VegaLiteTransform[],
+): { keyColumn: string; valueColumn: string } | undefined {
+  if (!Array.isArray(transform))
+    return undefined;
+  for (const entry of transform) {
+    if (!Array.isArray(entry?.fold))
+      continue;
+    const as = Array.isArray(entry.as) ? entry.as : undefined;
+    return {
+      keyColumn: as?.[0] ?? 'key',
+      valueColumn: as?.[1] ?? 'value',
+    };
+  }
+  return undefined;
+}
+
+/**
+ * The `density` transform in a set of transforms, when there is one.
+ *
+ * Vega-Lite documents the default output pair as `["value", "density"]` —
+ * the sample position first, the estimate second.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns The estimated field, its grouping keys and its output columns,
+ * or `undefined` when nothing estimates a density
+ */
+function findDensityTransform(transform?: VegaLiteTransform[]): {
+  groupby: string[];
+  valueColumn: string;
+  densityColumn: string;
+} | undefined {
+  if (!Array.isArray(transform))
+    return undefined;
+  for (const entry of transform) {
+    if (typeof entry?.density !== 'string')
+      continue;
+    const as = Array.isArray(entry.as) ? entry.as : undefined;
+    return {
+      groupby: Array.isArray(entry.groupby) ? entry.groupby : [],
+      valueColumn: as?.[0] ?? 'value',
+      densityColumn: as?.[1] ?? 'density',
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Whether a `line` layer draws one polyline per observation across several
+ * variables — a parallel coordinates plot.
+ *
+ * Vega-Lite has no such mark, and the gallery's own recipe is what the
+ * shape is: fold the variables into one `key` / `value` pair, put the key
+ * on x so each variable gets its own tick, and split the mark with a
+ * `detail` channel so one polyline is drawn per observation rather than
+ * one zig-zag through all of them. All three are needed — a fold whose key
+ * is *not* on x is a long-format multi-series line chart, and a fold
+ * without a `detail` is a single path joining every row.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param transform - The transforms in scope for the layer
+ * @returns The fold's output columns, or `null` when this is not one
+ */
+function resolveFoldedAxes(
+  encoding?: VegaLiteEncoding,
+  transform?: VegaLiteTransform[],
+): { keyColumn: string; valueColumn: string } | null {
+  const folded = foldedColumns(transform);
+  if (!folded || !hasField(encoding?.detail))
+    return null;
+  return encoding?.x?.field === folded.keyColumn ? folded : null;
+}
+
+/**
  * Classify a bar that spans a range on one axis instead of standing on a
  * baseline.
  *
@@ -842,8 +968,28 @@ function resolveTraceType(
       }
       return TraceType.BAR;
     }
-    case 'line':
-      return stepDirection ? TraceType.STEP : TraceType.LINE;
+    // Three charts share the `line` mark and are told apart by what fed
+    // it, since the mark itself says only "join these points up".
+    case 'line': {
+      if (stepDirection) {
+        return TraceType.STEP;
+      }
+      // A folded key on x with a `detail` split is the gallery's parallel
+      // coordinates recipe — every column is a different quantity, which
+      // is the whole chart and what the pitch has to carry.
+      if (resolveFoldedAxes(encoding, transform)) {
+        return TraceType.PARALLEL;
+      }
+      // A y axis reading a ranked column is a bump chart. The rank has to
+      // be the thing plotted, not merely computed: the same window
+      // transform is also how a spec sorts or filters to a top-n, and
+      // those draw the underlying magnitude, which is an ordinary line.
+      const rank = rankedColumn(transform);
+      if (rank !== undefined && encoding?.y?.field === rank) {
+        return TraceType.BUMP;
+      }
+      return TraceType.LINE;
+    }
     // An area used to fall through to `line`, which read a stacked chart's
     // band height as if it were the only magnitude drawn. Vega-Lite stacks an
     // area by default as soon as a series channel is present — `stack` has to
@@ -923,6 +1069,25 @@ function getAxisLabel(channel?: VegaLiteChannelDef): string {
 /** Build an AxisConfig from an encoding channel. */
 function getAxisConfig(channel?: VegaLiteChannelDef): { label: string } {
   return { label: getAxisLabel(channel) };
+}
+
+/**
+ * The title a channel was **written** with, ignoring its field name.
+ *
+ * {@link getAxisLabel} falls back to the field, which is right almost
+ * everywhere: the column a chart plots is usually what the axis is called.
+ * It is wrong when the plotted column is an artefact of how the chart was
+ * drawn rather than of what it measures — a parallel coordinates plot's
+ * min-max normalisation, whose column is called `norm_val` and whose axis
+ * the gallery spec hides.
+ *
+ * @param channel - The channel to read, when the spec declares one
+ * @returns The authored title, or `undefined` when there is none
+ */
+function authoredLabel(channel?: VegaLiteChannelDef): string | undefined {
+  if (channel?.axis && channel.axis.title != null)
+    return channel.axis.title;
+  return channel?.title;
 }
 
 /**
@@ -1070,23 +1235,49 @@ function isSceneGraphRow(row: Record<string, unknown>): boolean {
 }
 
 /**
+ * Whether a dataset's rows expose every column a layer needs.
+ *
+ * @param rows - The candidate rows
+ * @param fields - The columns the layer reads, or `undefined` to accept any
+ * @returns True when the dataset is usable
+ */
+function rowsCarryFields(
+  rows: Record<string, unknown>[],
+  fields?: readonly string[],
+): boolean {
+  if (!fields || fields.length === 0)
+    return true;
+  return rows.length > 0 && fields.every(field => field in rows[0]);
+}
+
+/**
  * Resolve the data array for a layer.
  *
  * Tries the compiled Vega view first (more accurate since it includes
  * aggregations, filters, and other transforms), then falls back to the
  * spec's inline data.
+ *
+ * `requiredFields` narrows the guesses to datasets that actually carry the
+ * columns the layer reads. The name guessing below is ordered by layer
+ * index, which is wrong whenever a spec's pipelines do not line up with its
+ * layers — the gallery's parallel coordinates chart is layer 1 and its rows
+ * are in `data_0`, while `data_1` holds the axis rules' row counts, so the
+ * unfiltered guess hands the polylines a two-column table of tallies. A
+ * caller that knows which columns must be present says so; every other
+ * caller keeps the previous first-non-empty behaviour.
  */
 function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
   view?: VegaView,
   markDatasetName?: string,
+  requiredFields?: readonly string[],
 ): Record<string, unknown>[] {
   // Exact path first: a layer's own mark dataset. See
   // `resolveMarkItemData` — the name-guessing below is a fallback.
   if (view && markDatasetName) {
     const markRows = resolveMarkItemData(view, markDatasetName);
-    if (markRows)
+    if (markRows && rowsCarryFields(markRows, requiredFields))
       return markRows;
   }
 
@@ -1105,7 +1296,7 @@ function resolveData(
     for (const name of datasetNames) {
       try {
         const rows = view.data(name);
-        if (rows && rows.length > 0)
+        if (rows && rows.length > 0 && rowsCarryFields(rows, requiredFields))
           return rows;
       } catch {
         // dataset may not exist — try next
@@ -1143,7 +1334,7 @@ function resolveData(
         continue;
       const rows = readViewDataset(view, name);
       if (rows && typeof rows[0] === 'object' && rows[0] !== null
-        && !isSceneGraphRow(rows[0])) {
+        && !isSceneGraphRow(rows[0]) && rowsCarryFields(rows, requiredFields)) {
         return rows;
       }
     }
@@ -1433,6 +1624,86 @@ function extractSegmentedData(
   return [...groups.values()];
 }
 
+/**
+ * Whether a segmented bar's series sit either side of a baseline.
+ *
+ * No Vega-Lite spec says "diverging". A population pyramid is authored as
+ * an ordinary stacked bar over a `calculate` that negates one side, and a
+ * Likert chart the same way, so the only evidence is in the resolved
+ * values — which is why this runs after extraction rather than in
+ * {@link resolveTraceType}.
+ *
+ * The test is per **series**, not per value, and that is what keeps it off
+ * ordinary stacked bars. A chart of profit by region where one region had
+ * a bad quarter carries negatives too, but they sit inside a series that
+ * is otherwise positive; a diverging chart's sides are whole series that
+ * never cross the baseline. Both directions must be present, so a chart of
+ * costs — every series negative — stays the stacked bar it is.
+ *
+ * Zeros belong to neither side and are ignored: a Likert response nobody
+ * picked is not evidence about which way that response points.
+ *
+ * @param series - The segmented points, one inner array per series
+ * @param isHorizontal - Whether the magnitude rides x rather than y
+ * @returns True when every series keeps to one side and both are used
+ */
+function sidesDiverge(
+  series: SegmentedPoint[][],
+  isHorizontal: boolean,
+): boolean {
+  let growsPositive = false;
+  let growsNegative = false;
+
+  for (const points of series) {
+    const values = points
+      .map(point => Number(isHorizontal ? point.x : point.y))
+      .filter(value => Number.isFinite(value) && value !== 0);
+    if (values.length === 0)
+      continue;
+    const positive = values.every(value => value > 0);
+    const negative = values.every(value => value < 0);
+    if (!positive && !negative)
+      return false;
+    growsPositive ||= positive;
+    growsNegative ||= negative;
+  }
+
+  return growsPositive && growsNegative;
+}
+
+/**
+ * Whether a segmented layer's rows arrive one series at a time.
+ *
+ * Vega draws a bar per row in dataset order, so the row order *is* the DOM
+ * order: rows grouped by series produce `[series0-all-categories,
+ * series1-all-categories, …]`, and interleaved rows produce
+ * `[category0-all-series, …]`. Which of the two a spec yields depends on
+ * how its source data was written, not on what kind of bar it is — which
+ * is why the adapter usually leaves `domMapping` for bind-time detection
+ * against the rendered SVG rather than guessing from the trace type.
+ *
+ * @param rows - The layer's resolved rows, in dataset order
+ * @param colorField - The column telling the series apart
+ * @returns True when each series' rows are contiguous
+ */
+function rowsAreSeriesMajor(
+  rows: Record<string, unknown>[],
+  colorField: string,
+): boolean {
+  const started = new Set<string>();
+  let current: string | undefined;
+  for (const row of rows) {
+    const series = String(row[colorField] ?? '');
+    if (series === current)
+      continue;
+    if (started.has(series))
+      return false;
+    started.add(series);
+    current = series;
+  }
+  return true;
+}
+
 function extractLineData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -1466,6 +1737,64 @@ function extractLineData(
     y: Number(readEncodedValue(row, encoding.y, yField) ?? 0),
   }));
   return [pts];
+}
+
+/**
+ * Read one polyline per observation across the folded variables.
+ *
+ * Two things separate this from {@link extractLineData}, and both are what
+ * a parallel coordinates plot is.
+ *
+ * **The rows are grouped by `detail`, not by colour.** A row of this layer
+ * is one *observation* — one penguin, one car — and the `detail` channel is
+ * the only channel that identifies one. Grouped by colour instead, all
+ * hundred-odd Adelie penguins would collapse into a single polyline
+ * zig-zagging through every axis in turn.
+ *
+ * **The magnitude comes off the fold's own value column.** The gallery
+ * recipe min-max normalises before plotting, because Vega-Lite has one y
+ * scale and the variables do not share units — so the y channel reads
+ * `norm_val`, and a layer built from it would announce every axis as a
+ * number between 0 and 1. `ParallelTrace` derives each axis' extent from
+ * the layer itself and pitches against it, which *is* that normalisation,
+ * so handing it the raw folded values costs nothing and buys back the
+ * units the reader is actually after. When no such column survives on the
+ * rows, the y channel is read as it stands.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param folded - The fold transform's output columns
+ * @param folded.keyColumn - The column naming each variable
+ * @param folded.valueColumn - The column carrying each variable's value
+ * @returns One inner array per observation, in data-flow order
+ */
+function extractParallelData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  folded: { keyColumn: string; valueColumn: string },
+): LinePoint[][] {
+  const detailField = encoding.detail?.field ?? folded.keyColumn;
+  // The colour channel is what names an observation in the reader's own
+  // terms — a species, a manufacturer. The `detail` field is usually a
+  // synthetic row counter (`window: [{op: 'count', as: 'index'}]` in the
+  // gallery spec), which says nothing the row index does not already.
+  const nameField = encoding.color?.field ?? encoding.fill?.field ?? detailField;
+  const valueField = rows.some(row => row[folded.valueColumn] != null)
+    ? folded.valueColumn
+    : encoding.y?.field ?? 'y';
+
+  const observations = new Map<string, LinePoint[]>();
+  for (const row of rows) {
+    const key = String(row[detailField] ?? '');
+    if (!observations.has(key))
+      observations.set(key, []);
+    observations.get(key)!.push({
+      x: String(row[folded.keyColumn] ?? ''),
+      y: Number(row[valueField] ?? 0),
+      z: String(row[nameField] ?? ''),
+    });
+  }
+  return [...observations.values()];
 }
 
 function extractScatterData(
@@ -2232,6 +2561,12 @@ function convertLayerSpec(
   const selectorLayerIndex = selectorOverride?.layerIndex ?? index;
   const markGroupPrefix = selectorOverride?.markGroupPrefix ?? '';
 
+  // A parallel coordinates layer is the one case where the layer index is
+  // no guide to the pipeline: the gallery spec draws its axis rules first,
+  // so the polylines are layer 1 reading `data_0`. Naming the fold's own
+  // columns lets the resolver skip the rule layer's tally table.
+  const folded = resolveFoldedAxes(encoding, transform);
+
   // Faceted callers pre-filter the resolved dataset down to one panel's
   // rows and pass them here, bypassing dataset-name resolution.
   const rows = rowsOverride ?? resolveData(
@@ -2239,12 +2574,19 @@ function convertLayerSpec(
     index,
     view,
     layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
+    folded && traceType === TraceType.PARALLEL
+      ? [folded.keyColumn, folded.valueColumn]
+      : undefined,
   );
 
   let data: MaidrLayer['data'];
   let selectors: MaidrLayer['selectors'];
   let orientation: Orientation | undefined;
   let domMapping: MaidrLayer['domMapping'];
+  // The type the layer is announced as. Almost always the resolved one;
+  // a diverging bar is the exception, since nothing but the values says
+  // a stacked bar is drawn either side of a baseline.
+  let announcedType = traceType;
 
   switch (traceType) {
     case TraceType.BAR: {
@@ -2281,7 +2623,8 @@ function convertLayerSpec(
     case TraceType.STACKED:
     case TraceType.DODGED:
     case TraceType.NORMALIZED: {
-      data = extractSegmentedData(rows, encoding);
+      const segments = extractSegmentedData(rows, encoding);
+      data = segments;
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       // Horizontal segmented bars (x=quantitative, y=nominal) carry the
       // value on x and the category on y. The core SegmentedTrace reads
@@ -2294,6 +2637,15 @@ function convertLayerSpec(
       if (xIsQuant && !yIsQuant) {
         orientation = Orientation.HORIZONTAL;
       }
+      // A population pyramid and a Likert chart are both authored as this
+      // exact spec — Vega-Lite has no diverging mark — so the two sides
+      // are recognised from the values. Stacked only: a normalised bar
+      // divides a total and cannot straddle a baseline, and a dodged one
+      // places its series side by side rather than either side of it.
+      if (traceType === TraceType.STACKED
+        && sidesDiverge(segments, orientation === Orientation.HORIZONTAL)) {
+        announcedType = TraceType.DIVERGING;
+      }
       // Only populate `domMapping` when the caller has explicitly
       // requested an order via `options.domOrder`. When omitted, leave
       // it undefined so bind-time runtime detection (in
@@ -2303,6 +2655,19 @@ function convertLayerSpec(
       // would frequently be wrong.
       if (domOrderOverride) {
         domMapping = determineDomMapping(traceType, domOrderOverride);
+      } else if (announcedType === TraceType.DIVERGING) {
+        // That detection only runs for the three types it names, so a
+        // diverging layer would reach `SegmentedTrace` with no hint and
+        // take its row-major default — wrong for the gallery pyramid,
+        // whose source rows interleave the two sides. The row order is
+        // the DOM order, so it answers the same question the bind-time
+        // pass does, from the data the converter already has.
+        domMapping = determineDomMapping(
+          traceType,
+          rowsAreSeriesMajor(rows, encoding.color?.field ?? encoding.fill?.field ?? 'group')
+            ? 'series-major'
+            : 'subject-major',
+        );
       }
       break;
     }
@@ -2310,9 +2675,12 @@ function convertLayerSpec(
     // line plus a fill that is drawn rather than encoded. Same points, same
     // one-path-per-series geometry, so the extraction is identical for all of
     // them; the stacked area variants differ only in what `AreaTrace`
-    // announces on top of it.
+    // announces on top of it. A bump chart joins the group for the same
+    // reason: `BumpTrace` reads the multi-line payload unchanged and
+    // differs only in inverting the pitch, since its y axis is a rank.
     case TraceType.LINE:
     case TraceType.AREA:
+    case TraceType.BUMP:
     case TraceType.NORMALIZED_AREA:
     case TraceType.STACKED_AREA:
     case TraceType.STEP: {
@@ -2320,6 +2688,36 @@ function convertLayerSpec(
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
       selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
+      break;
+    }
+    // One polyline per observation rather than one per colour, and every
+    // column a different quantity. Vega draws one `<path>` per `detail`
+    // group, so the per-series selectors line up one to one with the rows.
+    case TraceType.PARALLEL: {
+      if (!folded) {
+        return null;
+      }
+      const observations = extractParallelData(rows, encoding, folded);
+      data = observations;
+      selectors = buildLineSelectors(
+        mark,
+        observations.length,
+        selectorLayerIndex,
+        layered,
+        markGroupPrefix,
+      );
+      // The x channel carries the folded key, so it already names what the
+      // columns are. The y channel does not name what the numbers are: it
+      // reads the normalised column the fold was drawn into, whose name
+      // (`norm_val`) describes the drawing rather than the data, and the
+      // gallery spec hides its axis outright. Fall back to the fold's own
+      // value column, which is what the points now carry.
+      axes.y = { label: authoredLabel(encoding.y) ?? folded.valueColumn };
+      // What one observation is called, when the spec says.
+      const named = encoding.color ?? encoding.fill;
+      if (named) {
+        axes.z = getAxisConfig(named);
+      }
       break;
     }
     case TraceType.SCATTER:
@@ -2435,7 +2833,7 @@ function convertLayerSpec(
 
   const layer: MaidrLayer = {
     id: String(index),
-    type: traceType,
+    type: announcedType,
     selectors,
     axes,
     data,
@@ -2555,6 +2953,174 @@ function buildConcatMaidr(
 interface FacetCellDef {
   filters: Array<[field: string, key: string]>;
   title: string;
+}
+
+/**
+ * The facet values in the order Vega actually laid the panels out.
+ *
+ * Neither obvious source answers this. The `row_domain` dataset is an
+ * un-ordered `aggregate` over the rows, so it reports first-seen order —
+ * and Vega then *sorts* the cells before laying them out, ascending by
+ * default and by whatever `sort` the channel declares otherwise. A facet
+ * over `["Jan", "Apr", "Jul"]` renders as Apr, Jan, Jul, so pairing curves
+ * with elements by `row_domain` order lights the wrong ridge for two of
+ * the three.
+ *
+ * The `cell` dataset is the group mark's own items, which *are* the
+ * rendered panels: verified against vega 6.3.1 for the default sort, an
+ * explicit sort array and `sort: "descending"`, matching the scenegraph
+ * exactly in all three.
+ *
+ * @param view - The compiled view, when one was supplied
+ * @param field - The facet field naming each panel
+ * @returns The panel keys in render order, or `undefined` when the view
+ * cannot answer — in which case the caller falls back to a sorted domain,
+ * which is what Vega's default lays out anyway
+ */
+function resolveFacetCellKeys(
+  view: VegaView | undefined,
+  field: string,
+): string[] | undefined {
+  if (!view)
+    return undefined;
+  let items: unknown;
+  try {
+    items = view.data('cell');
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(items) || items.length === 0)
+    return undefined;
+
+  const keys: string[] = [];
+  for (const item of items) {
+    const datum = (item as { datum?: unknown })?.datum;
+    if (typeof datum !== 'object' || datum === null
+      || !(field in (datum as Record<string, unknown>))) {
+      return undefined;
+    }
+    keys.push(String((datum as Record<string, unknown>)[field]));
+  }
+  return keys;
+}
+
+/**
+ * Convert a row-faceted density plot into the one ridgeline layer it draws.
+ *
+ * A ridgeline (joy plot) is authored as a facet, because Vega-Lite has no
+ * other way to offset the curves down the page — the gallery's own
+ * "Faceted Density Plot" is one, with `bounds: "flush"` and zero spacing
+ * turning the panels into a stack of ridges. Taken at face value that is a
+ * grid of N independent AREA subplots, and a reader has to leave one panel
+ * and enter the next to compare two curves, which is the comparison the
+ * chart exists to make.
+ *
+ * So the facet is read as what it draws: one layer, one curve per group,
+ * every group on one density scale.
+ *
+ * The conditions are deliberately narrow, and each of them is a place where
+ * a wrong reading would be worse than the panelled one:
+ *
+ *   - **Rows only.** Columns of ridges are not offset curves, and a
+ *     row x column grid is a small-multiples chart whatever the mark.
+ *   - **A bare `area` child.** A layered child (an area under its own
+ *     outline, say) draws more elements per cell than there are groups,
+ *     and the highlight would land on whichever the selector reached first.
+ *   - **A `density` transform grouped by the facet field.** Without it the
+ *     panels are not curves of one distribution, and `y` is a magnitude
+ *     rather than an estimate.
+ *   - **Two groups or more.** One ridge is a density plot, which the facet
+ *     path already reads correctly.
+ *
+ * Anything else falls through to {@link buildFacetMaidr} unchanged.
+ *
+ * @param spec - The faceted spec
+ * @param descriptor - Its normalised facet description
+ * @param view - The compiled view, when one was supplied
+ * @returns The ridgeline layer, or `null` when this is some other facet
+ */
+function convertRidgelineLayer(
+  spec: VegaLiteSpec,
+  descriptor: FacetDescriptor,
+  view?: VegaView,
+): MaidrLayer | null {
+  const groupField = descriptor.rowChannel?.field;
+  if (!groupField || descriptor.columnChannel || descriptor.wrapChannel)
+    return null;
+
+  const childSpec = descriptor.childSpec;
+  if (getMarkType(childSpec) !== 'area')
+    return null;
+
+  // The transform sits on whichever spec the author put it on: the unit
+  // spec in the `encoding.row` shorthand, the panel template under a
+  // `facet` operator, or the operator's own parent.
+  const density = findDensityTransform(childSpec.transform)
+    ?? findDensityTransform(spec.transform);
+  if (!density || !density.groupby.includes(groupField))
+    return null;
+
+  // Which axis the estimate rides. Drawn the usual way the value runs
+  // along x and the density up y, but a ridgeline turned on its side is
+  // the same chart and the same payload.
+  const encoding = childSpec.encoding ?? {};
+  const alongX = encoding.y?.field === density.densityColumn;
+  const valueChannel = alongX ? encoding.x : encoding.y;
+  const densityChannel = alongX ? encoding.y : encoding.x;
+  if (densityChannel?.field !== density.densityColumn
+    || valueChannel?.field !== density.valueColumn) {
+    return null;
+  }
+
+  const specForData = childSpec.data != null ? childSpec : { ...childSpec, data: spec.data };
+  const rows = resolveData(
+    specForData,
+    0,
+    view,
+    undefined,
+    [groupField, density.valueColumn, density.densityColumn],
+  );
+
+  // The rendered cell order, which is the order the one selector below
+  // resolves its elements in — so the groups have to be built in it, or
+  // every curve highlights its neighbour. `resolveDomainKeys` without a
+  // dataset name sorts the distinct values, which is what Vega's default
+  // facet sort lays out; see `resolveFacetCellKeys` for why the
+  // `row_domain` dataset is the wrong answer here.
+  const groups = (resolveFacetCellKeys(view, groupField)
+    ?? resolveDomainKeys(groupField, rows, view))
+    .map(key => rows
+      .filter(row => String(row[groupField]) === key)
+      .map((row): ViolinKdePoint => ({
+        x: key,
+        y: Number(row[density.valueColumn] ?? 0),
+        density: Number(row[density.densityColumn] ?? 0),
+      })))
+    // A domain value the data never fills renders no cell at all, so it
+    // has no element for the pairing and no samples to navigate.
+    .filter(group => group.length > 0);
+  if (groups.length < 2)
+    return null;
+
+  return {
+    id: '0',
+    type: TraceType.RIDGELINE,
+    // Vega draws each cell's area as a single `<path>` under the shared
+    // `child_marks` class, so one selector reaches every ridge in cell
+    // order — one element per group, which is what `RidgelineTrace` pairs
+    // its curves with. No `data-maidr-cell` scoping: this layer is the
+    // whole chart rather than one panel of it.
+    selectors: buildSelector('area', 0, false, 'child_'),
+    // `RidgelineTrace` reads `x` as the value axis and `z` as the name of
+    // the dimension the groups vary along; the density is announced
+    // against the latter.
+    axes: {
+      x: getAxisConfig(valueChannel),
+      y: getAxisConfig(descriptor.rowChannel),
+      z: getAxisConfig(descriptor.rowChannel),
+    },
+    data: groups,
+  };
 }
 
 /**

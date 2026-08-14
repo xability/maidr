@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Population Pyramid Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Population Pyramid</h1>
+    <p>
+      Click on the chart and use up and down arrow keys to move between the two
+      sides, left and right to move between age bands. The values arrive
+      signed, but the sign is a direction rather than a magnitude — so the
+      pitch takes the size and the announcement names the side, and the
+      summary row reports the balance between them. Press 'b' for braille, 't'
+      for text descriptions.
+    </p>
+    <div
+      id="pyramid-chart"
+      aria-label="Population pyramid loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // Diverging bar: an ordinary stacked `bar` over a `calculate` that
+      // negates one side. Vega-Lite has no diverging mark, so the only
+      // evidence is in the resolved values — every series keeps to one side
+      // of the baseline, and both sides are used.
+      const values = [];
+      for (const age of [0, 10, 20, 30, 40, 50, 60, 70]) {
+        values.push({ age, sex: 1, people: 2200 - age * 18 });
+        values.push({ age, sex: 2, people: 2150 - age * 12 });
+      }
+
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 400,
+        height: 300,
+        title: 'Population by age band and gender',
+        data: { values },
+        transform: [
+          { calculate: "datum.sex == 2 ? 'Female' : 'Male'", as: 'gender' },
+          {
+            calculate: 'datum.sex == 2 ? -datum.people : datum.people',
+            as: 'signed_people',
+          },
+        ],
+        mark: 'bar',
+        encoding: {
+          y: { field: 'age', type: 'ordinal', title: 'Age', sort: 'descending' },
+          x: {
+            aggregate: 'sum',
+            field: 'signed_people',
+            title: 'Population',
+            axis: { format: 's' },
+          },
+          color: { field: 'gender', type: 'nominal', title: 'Gender' },
+        },
+        config: { axis: { grid: false } },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#pyramid-chart', spec, { id: 'population-pyramid' })
+        .catch((err) => console.error('[vegalite-diverging]', err));
+    </script>
+  </body>
+</html>

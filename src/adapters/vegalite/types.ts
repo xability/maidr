@@ -233,27 +233,53 @@ export interface VegaLiteFilterPredicate {
 /**
  * A single entry of a spec's `transform` array.
  *
- * Two transforms are modelled. `filter` identifies the subset of the data a
- * layer draws, and is therefore the only one that can name a per-group
- * layer. `window` is read for one thing only — see
- * {@link VegaLiteTransform.window}. Every other transform (`density`,
- * `aggregate`, `calculate`, …) is passed over.
+ * Only the transforms that tell one chart from another are modelled.
+ * `filter` identifies the subset of the data a layer draws, and is
+ * therefore the only one that can name a per-group layer; `window`,
+ * `fold` and `density` each mark a chart whose mark alone does not say
+ * what it is. Every other transform (`aggregate`, `calculate`,
+ * `joinaggregate`, …) is passed over.
  */
 export interface VegaLiteTransform {
   filter?: string | VegaLiteFilterPredicate;
   /**
-   * Window operations, of which the adapter reads only whether one
-   * accumulates a running `sum`.
+   * Window operations, of which the adapter reads two things.
    *
-   * That is what separates a waterfall from any other ranged bar: both draw
-   * a floating bar between `y` and `y2`, but a waterfall's two bounds are
-   * consecutive running totals, and a running total is a `window` sum. A
-   * ranged bar whose bounds are two measured values (a monthly temperature
-   * low and high, say) has no such transform, and announcing its bounds as
-   * contributions to a total would invent an accumulation the chart does
-   * not draw.
+   * A running `sum` is what separates a waterfall from any other ranged
+   * bar: both draw a floating bar between `y` and `y2`, but a waterfall's
+   * two bounds are consecutive running totals, and a running total is a
+   * `window` sum. A ranged bar whose bounds are two measured values (a
+   * monthly temperature low and high, say) has no such transform, and
+   * announcing its bounds as contributions to a total would invent an
+   * accumulation the chart does not draw.
+   *
+   * A `rank` is what separates a bump chart from any other line chart:
+   * the y axis carries a *place in a table* rather than a magnitude, and
+   * Vega-Lite has one way to compute one. `as` is required by the
+   * Vega-Lite schema for every window operation, so the ranked column is
+   * always named.
    */
   window?: { op?: string; field?: string; as?: string }[];
+  /**
+   * The columns a `fold` transform turns into rows.
+   *
+   * That is how a parallel coordinates plot is built: several variables
+   * are folded into one `key` / `value` pair so a single `line` mark can
+   * draw one polyline per observation across all of them. No Vega-Lite
+   * mark says "parallel coordinates"; the fold does.
+   */
+  fold?: string[];
+  /** The field a `density` transform estimates a distribution over. */
+  density?: string;
+  /** The grouping keys of a `density` or `aggregate` transform. */
+  groupby?: string[];
+  /**
+   * The output column names of whichever transform declares them.
+   *
+   * `fold` and `density` both emit a pair (`["key", "value"]` and
+   * `["value", "density"]` by default); `calculate` and friends emit one.
+   */
+  as?: string | string[];
   [key: string]: unknown;
 }
 
