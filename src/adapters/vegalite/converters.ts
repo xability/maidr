@@ -19,6 +19,9 @@
 import type {
   BarPoint,
   BoxPoint,
+  ErrorBarPoint,
+  GanttData,
+  GanttPoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -29,6 +32,8 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  WaterfallKind,
+  WaterfallPoint,
 } from '@type/grammar';
 import type { FacetDescriptor, RepeatCellMapping, RepeatDescriptor } from './facets';
 import type {
@@ -37,6 +42,7 @@ import type {
   VegaLiteFilterPredicate,
   VegaLiteSpec,
   VegaLiteToMaidrOptions,
+  VegaLiteTransform,
   VegaView,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
@@ -128,7 +134,17 @@ export function vegaLiteToMaidr(
     // series names a merge needs live in the spec (color datum, filter,
     // title), not in the converted layer.
     const rawLayers = spec.layer!.map((layerSpec, i) => {
-      const layer = convertLayerSpec(layerSpec, i, view, spec.encoding, isLayered, domOrder);
+      const layer = convertLayerSpec(
+        layerSpec,
+        i,
+        view,
+        spec.encoding,
+        isLayered,
+        domOrder,
+        undefined,
+        undefined,
+        spec.transform,
+      );
       return layer ? { layer, spec: layerSpec } : null;
     }).filter(Boolean) as ConvertedLayer[];
 
@@ -585,6 +601,56 @@ const STEP_DIRECTION_BY_INTERPOLATE: Partial<Record<string, StepDirection>> = {
 };
 
 /**
+ * The `extent` a composite mark declares — how far its interval reaches.
+ *
+ * Read for one purpose: {@link extractErrorBarData}'s fallback reproduces
+ * Vega-Lite's default spread and refuses to guess any other.
+ *
+ * @param spec - The layer's spec fragment
+ * @returns The declared extent, or `undefined` when the spec leaves it
+ * to Vega-Lite
+ */
+function getMarkExtent(spec: VegaLiteSpec): string | undefined {
+  if (!spec.mark || typeof spec.mark === 'string')
+    return undefined;
+  return spec.mark.extent;
+}
+
+/**
+ * Read a scale's domain off the compiled view.
+ *
+ * Two things make this less direct than it looks. Vega **throws** for a
+ * scale name it does not recognise rather than returning nothing, and a
+ * composite child's scales are scoped to its own group — a concat child's y
+ * scale is `concat_0_y`, not `y` — so the prefixed name is tried first and
+ * the bare one after.
+ *
+ * @param view - The compiled view, when one was supplied
+ * @param axis - The positional axis whose scale is wanted
+ * @param markGroupPrefix - The composite child's class prefix, if any
+ * @returns The domain, or `undefined` when no such scale is in scope
+ */
+function readScaleDomain(
+  view: VegaView | undefined,
+  axis: 'x' | 'y',
+  markGroupPrefix: string,
+): unknown[] | undefined {
+  if (!view || typeof view.scale !== 'function')
+    return undefined;
+  const names = markGroupPrefix ? [`${markGroupPrefix}${axis}`, axis] : [axis];
+  for (const name of names) {
+    try {
+      const domain = view.scale(name)?.domain();
+      if (Array.isArray(domain) && domain.length > 0)
+        return domain;
+    } catch {
+      // Not in scope from here — try the next candidate name.
+    }
+  }
+  return undefined;
+}
+
+/**
  * The step convention a spec's mark draws, or `undefined` when it draws an
  * ordinary interpolated line.
  */
@@ -601,12 +667,17 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  * Some marks produce different MAIDR types depending on encoding:
  *   - `bar` with `bin` on x/y          → HISTOGRAM
  *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
+ *   - `bar` spanning x–x2 / y–y2       → GANTT, or WATERFALL when the
+ *     bounds are consecutive running totals
  *   - `rect`                           → HEATMAP
- *   - `tick`                           → SCATTER (individual value marks)
+ *   - `point` / `circle` / `square` / `tick` → SCATTER, or DOT when one
+ *     positional channel is a category
  *   - `line` with a stepping `interpolate` → STEP
  *   - `area`                           → AREA / STACKED_AREA / NORMALIZED_AREA
  *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
  *     with an `innerRadius`, and reads identically)
+ *   - `arc` with a `radius` field      → POLAR_AREA
+ *   - `errorbar` / `errorband`         → ERROR_BAR
  */
 /**
  * Reads the `stack` setting a spec declares, from whichever axis carries it.
@@ -640,13 +711,101 @@ function isUnstacked(stack: VegaLiteChannelDef['stack']): boolean {
   return stack === false || stack === null;
 }
 
+/**
+ * Whether a channel names a category rather than measuring a magnitude.
+ *
+ * Declared types only: a channel Vega-Lite infers as quantitative carries no
+ * `type` in the spec the adapter reads, and reading that silence as
+ * "categorical" would turn ordinary scatters into dot plots. `temporal` is
+ * a magnitude here — a time axis is continuous, and a scatter over dates is
+ * a scatter.
+ *
+ * @param channel - The channel to classify, when the spec declares one
+ * @returns True when the channel is nominal or ordinal
+ */
+function isCategorical(channel?: VegaLiteChannelDef): boolean {
+  return channel?.type === 'nominal' || channel?.type === 'ordinal';
+}
+
+/**
+ * Whether a channel is bound to a data field.
+ *
+ * `x2` / `y2` accept a `datum` constant as readily as a field, and the two
+ * mean different charts: a second bound taken from the data draws an
+ * interval, while a constant one is the baseline an ordinary bar already
+ * stands on.
+ *
+ * @param channel - The channel to test, when the spec declares one
+ * @returns True when the channel reads a field
+ */
+function hasField(channel?: VegaLiteChannelDef): boolean {
+  return typeof channel?.field === 'string' && channel.field.length > 0;
+}
+
+/**
+ * Whether a spec accumulates a running total.
+ *
+ * The one thing that separates a waterfall from any other bar spanning
+ * `y`–`y2`: a waterfall's bounds are consecutive running totals, and
+ * Vega-Lite has exactly one way to compute those — a `window` transform
+ * summing the contributions. Without it the two bounds are two measured
+ * values, and calling their difference a contribution to a total would
+ * invent an accumulation the chart never drew.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns True when one of them sums over a window
+ */
+function hasRunningSumTransform(transform?: VegaLiteTransform[]): boolean {
+  if (!Array.isArray(transform))
+    return false;
+  return transform.some(entry =>
+    Array.isArray(entry?.window) && entry.window.some(op => op?.op === 'sum'),
+  );
+}
+
+/**
+ * Classify a bar that spans a range on one axis instead of standing on a
+ * baseline.
+ *
+ * Both shapes draw a floating bar from a positional channel to its `2`
+ * counterpart, with the remaining axis naming the row: a gantt lane, a
+ * waterfall step. They are told apart by {@link hasRunningSumTransform}.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param transform - The transforms in scope for the layer
+ * @returns The trace type, or `null` when the bar is an ordinary one
+ */
+function resolveRangedBarType(
+  encoding?: VegaLiteEncoding,
+  transform?: VegaLiteTransform[],
+): TraceType | null {
+  // A ranged bar needs a category axis to lay its rows out along; without
+  // one there is nothing to name the lane or the step, and the mark is
+  // some other chart the adapter has no reading for.
+  if (hasField(encoding?.y) && hasField(encoding?.y2) && isCategorical(encoding?.x)) {
+    return hasRunningSumTransform(transform) ? TraceType.WATERFALL : TraceType.GANTT;
+  }
+  if (hasField(encoding?.x) && hasField(encoding?.x2) && isCategorical(encoding?.y)) {
+    return TraceType.GANTT;
+  }
+  return null;
+}
+
 function resolveTraceType(
   mark: string,
   encoding?: VegaLiteEncoding,
   stepDirection?: StepDirection,
+  transform?: VegaLiteTransform[],
 ): TraceType | null {
   switch (mark) {
     case 'bar': {
+      // Before the binning and stacking tests: a bar drawn between two
+      // positions on one axis carries no magnitude for either of them to
+      // read.
+      const ranged = resolveRangedBarType(encoding, transform);
+      if (ranged) {
+        return ranged;
+      }
       if (encoding?.x?.bin || encoding?.y?.bin) {
         return TraceType.HISTOGRAM;
       }
@@ -688,21 +847,47 @@ function resolveTraceType(
       // accumulating, STEP loses nothing that AREA would preserve.
       return stepDirection ? TraceType.STEP : TraceType.AREA;
     }
+    // A point mark against a category is a Cleveland dot plot, not a
+    // scatter: one of its two coordinates is a name. `extractScatterData`
+    // coerces both channels with `Number()`, so reading one as a scatter
+    // put `x: NaN` on every point — audible as silence at every sample.
+    // Exactly one categorical positional channel, because a point with two
+    // (a dot matrix) has no magnitude to sonify at all, and a point with
+    // none is the scatter this case has always meant.
     case 'point':
     case 'circle':
     case 'square':
-    case 'tick':
+    case 'tick': {
+      const categoricalX = isCategorical(encoding?.x);
+      const categoricalY = isCategorical(encoding?.y);
+      if (hasField(encoding?.x) && hasField(encoding?.y) && categoricalX !== categoricalY) {
+        return TraceType.DOT;
+      }
       return TraceType.SCATTER;
+    }
     case 'rect':
       return TraceType.HEATMAP;
     case 'boxplot':
       return TraceType.BOX;
-    // `theta` is what turns an arc into a pie: it is the channel the slice
-    // magnitudes ride on. An arc encoded by `radius` alone is a radial plot
-    // with no slices to navigate, so it stays unsupported rather than being
+    // Two channels an arc can carry its magnitude on, and they are
+    // different charts. `radius` bound to a field makes the wedge's length
+    // the value — a polar area, coxcomb or rose — which is read as a radar
+    // is. `theta` alone makes it a pie. An arc with neither has no
+    // magnitude to navigate, so it stays unsupported rather than being
     // announced as a pie whose values MAIDR would have to invent.
     case 'arc':
+      if (hasField(encoding?.radius)) {
+        return TraceType.POLAR_AREA;
+      }
       return encoding?.theta ? TraceType.PIE : null;
+    // Composite marks, handled by name the way `boxplot` above is.
+    // Vega-Lite computes the bounds itself and compiles them into
+    // `lower_<field>` / `upper_<field>` columns; both marks draw the same
+    // three magnitudes and differ only in whether the samples are joined
+    // into a band.
+    case 'errorbar':
+    case 'errorband':
+      return TraceType.ERROR_BAR;
     default:
       return null;
   }
@@ -1028,17 +1213,27 @@ function readEncodedValue(
   return (row as Record<string, unknown>).__count;
 }
 
+/**
+ * Read one bar per row: a category and the magnitude drawn for it.
+ *
+ * `isHorizontal` decides which channel is which, defaulting to the
+ * quantitative-x test the rest of the file uses. A dot plot passes its own
+ * answer: it is identified by which channel is a *category*, so a value
+ * channel whose type the spec leaves for Vega-Lite to infer still lands on
+ * the value side.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param isHorizontal - Whether the magnitude rides x rather than y
+ * @returns One point per row, in data-flow order
+ */
 function extractBarData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
+  isHorizontal: boolean = isHorizontalEncoding(encoding),
 ): BarPoint[] {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
-
-  const xIsQuantitative = encoding.x?.type === 'quantitative'
-    || encoding.x?.aggregate != null;
-  const yIsQuantitative = encoding.y?.type === 'quantitative'
-    || encoding.y?.aggregate != null;
 
   // Keep data in input/data-flow order. The DOM emitted by Vega follows
   // this order. For simple bars the renderer sorts visually (Vega
@@ -1057,7 +1252,7 @@ function extractBarData(
   // a joinaggregate transform). `__count` is consulted only when the named
   // field is absent or nullish, which is exactly the count-aggregate case.
   return rows.map((row) => {
-    if (xIsQuantitative && !yIsQuantitative) {
+    if (isHorizontal) {
       return {
         x: Number(readEncodedValue(row, encoding.x, xField) ?? 0),
         y: String(row[yField] ?? ''),
@@ -1091,6 +1286,41 @@ function extractPieData(
     x: String(row[labelField] ?? ''),
     y: Number(readEncodedValue(row, encoding.theta, thetaField) ?? 0),
   }));
+}
+
+/**
+ * Read one spoke per row: a category and the radius drawn for it.
+ *
+ * A polar area is a radar with wedges instead of an outline, so the payload
+ * is a radar's — a single series of `{x, y}` — and `RadarTrace` reads the
+ * categories round the circle. One series, because a coxcomb draws one
+ * wedge per category rather than one ring per group; a spec that groups its
+ * wedges by colour still names each wedge with that colour value, which is
+ * what the label channel below picks up.
+ *
+ * Rows stay in dataset order for the reason {@link extractPieData} gives:
+ * the `stack` transform behind a `theta` encoding computes angles without
+ * reordering, so wedge k is row k.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns One series of spokes, ready for a radar reading
+ */
+function extractPolarAreaData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): LinePoint[][] {
+  // The colour channel names the wedges when there is one; failing that the
+  // angular channel does, which is what a spec that lays its categories out
+  // by `theta` alone uses.
+  const labelChannel = encoding.color ?? encoding.fill ?? encoding.theta;
+  const labelField = labelChannel?.field ?? 'category';
+  const radiusField = encoding.radius?.field ?? 'radius';
+
+  return [rows.map(row => ({
+    x: String(row[labelField] ?? ''),
+    y: Number(readEncodedValue(row, encoding.radius, radiusField) ?? 0),
+  }))];
 }
 
 function extractHistogramData(
@@ -1419,6 +1649,293 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
 }
 
+/**
+ * True when the value axis is x — a chart whose rows run across the page
+ * rather than up it.
+ *
+ * The same test `extractBarData`, `extractBoxData` and the layer conversion
+ * below already make: a quantitative (or aggregated) x against a category y.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns True when x measures and y names
+ */
+function isHorizontalEncoding(encoding: VegaLiteEncoding): boolean {
+  const xIsQuantitative = encoding.x?.type === 'quantitative'
+    || encoding.x?.aggregate != null;
+  const yIsQuantitative = encoding.y?.type === 'quantitative'
+    || encoding.y?.aggregate != null;
+  return xIsQuantitative && !yIsQuantitative;
+}
+
+/**
+ * Strips binary floating-point noise from a subtracted magnitude.
+ *
+ * A contribution is derived rather than authored, so `4000.2 - 1707.1`
+ * announces as `2293.099999999999` unless it is cleaned up. Twelve
+ * significant figures rather than a fixed number of decimals, for the
+ * reason `WaterfallTrace` and `GanttTrace` both give: the decimals a chart
+ * needs depend on its scale.
+ *
+ * @param value - A magnitude obtained by subtraction
+ * @returns The same magnitude without the trailing artifact
+ */
+function withoutFloatNoise(value: number): number {
+  return Number(value.toPrecision(12));
+}
+
+/**
+ * The spread Vega-Lite draws by default around an `errorbar` centre.
+ *
+ * Only the default is reproduced. A spec asking for `ci`, `iqr` or `stdev`
+ * gets no bounds from the fallback below rather than a standard error
+ * dressed up as the interval it asked for — a wrong interval is worse than
+ * an absent one, because the reader has no way to tell.
+ *
+ * @param values - The observations in one group
+ * @returns The standard error, or `NaN` when a single observation makes it
+ * undefined
+ */
+function standardError(values: number[]): number {
+  if (values.length < 2)
+    return Number.NaN;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0)
+    / (values.length - 1);
+  return Math.sqrt(variance) / Math.sqrt(values.length);
+}
+
+/**
+ * Extract error bar data, preferring the bounds Vega-Lite computed.
+ *
+ * The `errorbar` and `errorband` marks are composites: Vega-Lite aggregates
+ * the raw observations itself and compiles the result into
+ * `center_<field>`, `lower_<field>` and `upper_<field>` columns, one row per
+ * sample. Those columns are the bounds the chart actually drew — whichever
+ * `extent` the spec asked for — so they are used verbatim when present, the
+ * way {@link extractBoxData} uses `lower_box_<field>`.
+ *
+ * The fallback runs only when the layer resolved to raw observations, which
+ * happens when no compiled view is available. It reproduces Vega-Lite's
+ * default extent and nothing else; see {@link standardError}.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param extent - The spec's declared `extent`, when it declares one
+ * @returns One estimate per sample, with the interval when it is known
+ */
+function extractErrorBarData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  extent?: string,
+): ErrorBarPoint[] {
+  // The category names the sample and the estimate is always `y`, whichever
+  // way round the chart is drawn: `ErrorBarTrace` reads the magnitude off
+  // `y` in both orientations and swaps only the axis labels. That is the
+  // opposite of `extractBarData`, which moves the value onto `x`.
+  const isHorizontal = isHorizontalEncoding(encoding);
+  const catChannel = isHorizontal ? encoding.y : encoding.x;
+  const valChannel = isHorizontal ? encoding.x : encoding.y;
+  const catField = catChannel?.field ?? (isHorizontal ? 'y' : 'x');
+  const valField = valChannel?.field ?? (isHorizontal ? 'x' : 'y');
+
+  const lowerKey = `lower_${valField}`;
+  const upperKey = `upper_${valField}`;
+  const centerKey = `center_${valField}`;
+
+  if (rows.length > 0 && lowerKey in rows[0]) {
+    return rows.map((row) => {
+      const point: ErrorBarPoint = {
+        x: String(row[catField] ?? ''),
+        y: Number(row[centerKey] ?? readEncodedValue(row, valChannel, valField) ?? 0),
+      };
+      // Each bound independently: Vega-Lite draws one-sided intervals, and
+      // dropping the estimate for want of the other half loses more than it
+      // protects.
+      const lower = Number(row[lowerKey]);
+      if (Number.isFinite(lower))
+        point.yMin = lower;
+      const upper = Number(row[upperKey]);
+      if (Number.isFinite(upper))
+        point.yMax = upper;
+      return point;
+    });
+  }
+
+  // Raw observations: aggregate them the way the mark would have.
+  const groups = new Map<string, number[]>();
+  for (const row of rows) {
+    const key = String(row[catField] ?? '');
+    const value = Number(row[valField]);
+    if (!groups.has(key))
+      groups.set(key, []);
+    if (Number.isFinite(value))
+      groups.get(key)!.push(value);
+  }
+
+  const points: ErrorBarPoint[] = [];
+  for (const [key, values] of groups) {
+    const mean = values.length > 0
+      ? values.reduce((sum, value) => sum + value, 0) / values.length
+      : 0;
+    const point: ErrorBarPoint = { x: key, y: withoutFloatNoise(mean) };
+    const spread = extent === undefined || extent === 'stderr'
+      ? standardError(values)
+      : Number.NaN;
+    if (Number.isFinite(spread)) {
+      point.yMin = withoutFloatNoise(mean - spread);
+      point.yMax = withoutFloatNoise(mean + spread);
+    }
+    points.push(point);
+  }
+  return points;
+}
+
+/**
+ * Which fields a ranged bar reads, and which way round it is drawn.
+ *
+ * A gantt spans `x`–`x2` with its lanes on y (the ordinary way to draw a
+ * schedule); a waterfall, and a vertical ranged bar, span `y`–`y2` with the
+ * rows on x.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The row field, the two bound fields, and the orientation
+ */
+function resolveRangedFields(encoding: VegaLiteEncoding): {
+  rowField: string;
+  startField: string;
+  endField: string;
+  isHorizontal: boolean;
+} {
+  const isHorizontal = hasField(encoding.x) && hasField(encoding.x2);
+  return isHorizontal
+    ? {
+        rowField: encoding.y?.field ?? 'y',
+        startField: encoding.x?.field ?? 'x',
+        endField: encoding.x2?.field ?? 'x2',
+        isHorizontal,
+      }
+    : {
+        rowField: encoding.x?.field ?? 'x',
+        startField: encoding.y?.field ?? 'y',
+        endField: encoding.y2?.field ?? 'y2',
+        isHorizontal,
+      };
+}
+
+/**
+ * Group a ranged bar's rows into lanes.
+ *
+ * Lanes keep first-seen row order rather than the scale's, so lane k holds
+ * the intervals Vega drew k-th — which is what lets the highlight
+ * selectors, resolved in DOM order, be sliced per lane. Lanes the scale
+ * declares but no row fills are appended after, because an empty lane is a
+ * real statement about a schedule and the nested payload exists to carry
+ * one.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param laneDomain - The lane scale's domain, when the view exposes one
+ * @returns The lanes and their names, in drawing order
+ */
+function extractGanttData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  laneDomain?: unknown[],
+): GanttData {
+  const { rowField, startField, endField } = resolveRangedFields(encoding);
+
+  const lanes = new Map<string, GanttPoint[]>();
+  for (const row of rows) {
+    const lane = String(row[rowField] ?? '');
+    const point: GanttPoint = {
+      x: lane,
+      start: Number(row[startField] ?? 0),
+      end: Number(row[endField] ?? 0),
+    };
+    if (!lanes.has(lane))
+      lanes.set(lane, []);
+    lanes.get(lane)!.push(point);
+  }
+
+  for (const lane of laneDomain ?? []) {
+    const name = String(lane ?? '');
+    if (!lanes.has(name))
+      lanes.set(name, []);
+  }
+
+  return { points: [...lanes.values()], lanes: [...lanes.keys()] };
+}
+
+/**
+ * Whether grouping the rows into lanes preserves their order.
+ *
+ * `GanttTrace` slices one flat list of SVG elements into lanes, taking the
+ * first lane's worth, then the second's. Vega emits those elements in row
+ * order, so the slicing is only correct when each lane's rows are already
+ * adjacent. Interleaved rows — a resource booked, then another, then the
+ * first again — would hand lane A the element Vega drew for lane B, so the
+ * caller withholds the selectors instead.
+ *
+ * @param rows - The layer's resolved rows
+ * @param rowField - The field naming the lane
+ * @returns True when every lane's rows are contiguous
+ */
+function lanesFollowRowOrder(
+  rows: Record<string, unknown>[],
+  rowField: string,
+): boolean {
+  const seen = new Set<string>();
+  let current: string | undefined;
+  for (const row of rows) {
+    const lane = String(row[rowField] ?? '');
+    if (lane === current)
+      continue;
+    if (seen.has(lane))
+      return false;
+    seen.add(lane);
+    current = lane;
+  }
+  return true;
+}
+
+/**
+ * Read one step per row: where the running total stood before it, where it
+ * stood after, and the contribution between them.
+ *
+ * `start` and `end` come straight from the two positional bounds the bar is
+ * drawn between, which are the running totals Vega-Lite's `window` sum
+ * produced. `delta` is their difference — carried rather than left to the
+ * consumer, per {@link WaterfallPoint}.
+ *
+ * A step is a `total` when it stands on the baseline at either end of the
+ * sequence, which is how the opening and closing bars of a waterfall are
+ * drawn: they restate the running total rather than contributing to it. A
+ * middle step that happens to start from zero is a contribution like any
+ * other, and reads as one.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The steps, in the order the chart draws them
+ */
+function extractWaterfallData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): WaterfallPoint[] {
+  const { rowField, startField, endField } = resolveRangedFields(encoding);
+
+  return rows.map((row, index) => {
+    const start = Number(row[startField] ?? 0);
+    const end = Number(row[endField] ?? 0);
+    const delta = withoutFloatNoise(end - start);
+    const isEndOfSequence = index === 0 || index === rows.length - 1;
+    const kind: WaterfallKind = start === 0 && isEndOfSequence
+      ? 'total'
+      : (delta < 0 ? 'decrease' : 'increase');
+
+    return { x: String(row[rowField] ?? ''), start, end, delta, kind };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Layer conversion
 // ---------------------------------------------------------------------------
@@ -1432,6 +1949,7 @@ function convertLayerSpec(
   domOrderOverride?: 'series-major' | 'subject-major',
   selectorOverride?: { layerIndex: number; markGroupPrefix: string; cellScope?: string },
   rowsOverride?: Record<string, unknown>[],
+  parentTransform?: VegaLiteTransform[],
 ): MaidrLayer | null {
   const mark = getMarkType(spec);
   if (!mark)
@@ -1443,8 +1961,17 @@ function convertLayerSpec(
     ...spec.encoding,
   };
 
+  // A layered spec's own transforms run before every layer's, so the two
+  // together are what produced this layer's rows. Only trace resolution
+  // reads them: the series naming below deliberately still looks at the
+  // layer's own `transform`, since a parent filter narrows every layer
+  // alike and so names none of them.
+  const transform = parentTransform
+    ? [...parentTransform, ...(spec.transform ?? [])]
+    : spec.transform;
+
   const stepDirection = getStepDirection(spec);
-  const traceType = resolveTraceType(mark, encoding, stepDirection);
+  const traceType = resolveTraceType(mark, encoding, stepDirection, transform);
 
   if (!traceType)
     return null;
@@ -1487,6 +2014,20 @@ function convertLayerSpec(
       const yIsQuant = encoding.y?.type === 'quantitative'
         || encoding.y?.aggregate != null;
       if (xIsQuant && !yIsQuant) {
+        orientation = Orientation.HORIZONTAL;
+      }
+      break;
+    }
+    // A dot plot is a bar chart drawn with a point instead of a bar: one
+    // category, one magnitude, and the same flip when the value rides x.
+    // `BarTrace` serves both, so the extraction is shared — but the flip is
+    // read off the *category* channel here, since that is the one a dot
+    // plot is identified by.
+    case TraceType.DOT: {
+      const isHorizontal = isCategorical(encoding.y);
+      data = extractBarData(rows, encoding, isHorizontal);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      if (isHorizontal) {
         orientation = Orientation.HORIZONTAL;
       }
       break;
@@ -1556,6 +2097,62 @@ function convertLayerSpec(
       // the magnitudes from `theta`, so the layer's axes are named after those.
       axes.x = getAxisConfig(encoding.color ?? encoding.fill);
       axes.y = getAxisConfig(encoding.theta);
+      break;
+    case TraceType.POLAR_AREA: {
+      const spokes = extractPolarAreaData(rows, encoding);
+      data = spokes;
+      // `RadarTrace` extends `LineTrace`, which expects one selector per
+      // series — here always one, since a polar area draws one wedge per
+      // category rather than one ring per group.
+      selectors = buildLineSelectors(mark, spokes.length, selectorLayerIndex, layered, markGroupPrefix);
+      // An arc has no x or y, exactly as for a pie above: the spokes are
+      // named by the colour (or angular) channel and measured by `radius`.
+      axes.x = getAxisConfig(encoding.color ?? encoding.fill ?? encoding.theta);
+      axes.y = getAxisConfig(encoding.radius);
+      break;
+    }
+    case TraceType.ERROR_BAR: {
+      data = extractErrorBarData(rows, encoding, getMarkExtent(spec));
+      // The whip of an `errorbar` is one `<line>` per sample, which is what
+      // `markToCssClass` points this at. An `errorband` instead draws every
+      // sample into a single `<path>`, so the count check in
+      // `ErrorBarTrace.mapToSvgElements` fails and the layer goes
+      // unhighlighted — the honest outcome, since the chart contains no
+      // per-sample element to highlight. A spec that turns on the
+      // composite's optional `ticks` loses its highlight the same way: the
+      // extra parts shift the whip out of `layer_<N>_marks`.
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      if (isHorizontalEncoding(encoding)) {
+        orientation = Orientation.HORIZONTAL;
+      }
+      break;
+    }
+    case TraceType.GANTT: {
+      const { rowField, isHorizontal } = resolveRangedFields(encoding);
+      // The lane scale's domain carries lanes that no interval fills, which
+      // the rows cannot: an unbooked lane is a real row of a schedule and
+      // the nested payload exists to express it.
+      data = extractGanttData(
+        rows,
+        encoding,
+        readScaleDomain(view, isHorizontal ? 'y' : 'x', markGroupPrefix),
+      );
+      // Only when the lanes are contiguous in row order — see
+      // `lanesFollowRowOrder`. Withholding the selectors leaves the layer
+      // unhighlighted; emitting them would highlight another lane's bar.
+      if (lanesFollowRowOrder(rows, rowField)) {
+        selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      }
+      // A schedule drawn the ordinary way runs its bars along x and stacks
+      // its lanes down y, which is what `GanttTrace` calls horizontal.
+      if (isHorizontal) {
+        orientation = Orientation.HORIZONTAL;
+      }
+      break;
+    }
+    case TraceType.WATERFALL:
+      data = extractWaterfallData(rows, encoding);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);

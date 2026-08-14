@@ -16,11 +16,18 @@
  * Where:
  *   - `markClass`     is the Vega CSS class for the mark (e.g. `mark-rect`).
  *   - `N`             is the zero-based layer index in the compiled spec.
- *   - `childElement`  is `path` for most marks, `line` for `tick`.
+ *   - `childElement`  is `path` for most marks, `line` for `rule`.
  */
 
 /**
  * Map a Vega-Lite mark type to the Vega CSS class used in the rendered SVG.
+ *
+ * Vega-Lite marks are not Vega marks: the compiler rewrites several of them
+ * (a `tick` is a narrow Vega `rect`), and a **composite** mark expands into
+ * a group per part, of which only one carries the values a reader
+ * navigates. That part is what this names — the whip of an `errorbar`, the
+ * band of an `errorband` — so the class returned is the one that holds one
+ * element per sample.
  */
 export function markToCssClass(mark: string): string {
   switch (mark) {
@@ -30,18 +37,37 @@ export function markToCssClass(mark: string): string {
     case 'line':
       return 'mark-line';
     case 'area':
+    case 'errorband':
       return 'mark-area';
     case 'point':
     case 'circle':
     case 'square':
       return 'mark-symbol';
+    // Vega has no `tick` mark. Vega-Lite compiles one to a thin `rect`,
+    // so `mark-tick` — which this returned until the dot plot work needed
+    // a tick to highlight — matched nothing in any rendered chart.
     case 'tick':
-      return 'mark-tick';
+      return 'mark-rect';
     case 'boxplot':
       return 'mark-rect';
+    case 'errorbar':
+      return 'mark-rule';
     default:
       return `mark-${mark}`;
   }
+}
+
+/**
+ * The SVG element Vega draws one of each mark's instances as.
+ *
+ * Vega's SVG renderer gives `rule` marks — and the `errorbar` whip, which
+ * is a rule — a `<line>` each, while every other mark this adapter reaches
+ * is drawn as a `<path>`. Selecting the wrong tag matches nothing, which
+ * costs the layer its highlighting without costing it anything else, so the
+ * failure is invisible from every other channel.
+ */
+function markToChildElement(mark: string): string {
+  return mark === 'rule' || mark === 'errorbar' ? 'line' : 'path';
 }
 
 /**
@@ -70,7 +96,7 @@ export function buildSelector(
   markGroupPrefix = '',
 ): string {
   const cssClass = markToCssClass(mark);
-  const childElement = mark === 'tick' ? 'line' : 'path';
+  const childElement = markToChildElement(mark);
   const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
   if (isLayered) {
     // Layered specs always render as `.layer_N_marks`; no fallback needed.
