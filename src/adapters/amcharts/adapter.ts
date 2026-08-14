@@ -2,8 +2,9 @@
  * Main adapter that converts an amCharts 5 chart into a MAIDR data object.
  *
  * Supports single charts and multi-panel roots: every `XYChart` found in the
- * root's container tree (including am5stock `StockPanel`s, which extend
- * `XYChart`) and every am5percent `PieChart` becomes one MAIDR subplot,
+ * root's container tree (including am5stock `StockPanel`s and am5radar
+ * `RadarChart`s, which extend `XYChart`) and every am5percent chart — a
+ * `PieChart` or a funnel's `SlicedChart` — becomes one MAIDR subplot,
  * arranged in a grid mirroring the on-screen layout with rows emitted
  * bottom-first (see {@link computeChartGrid}) so the core's UPWARD = row+1
  * mapping moves visually up.
@@ -83,7 +84,7 @@ export interface AmChartsConversion {
  * Convert an amCharts 5 {@link AmRoot} into a MAIDR data object.
  *
  * The function walks the root's container tree, collects every XY chart
- * (including am5stock `StockPanel`s) and every pie chart, and converts each
+ * (including am5stock `StockPanel`s) and every am5percent chart, and converts each
  * one into a MAIDR subplot. A single chart produces a 1x1 grid; multiple charts are arranged
  * in a grid mirroring their on-screen layout, rows ordered bottom-first so
  * that pressing Up moves to the visually upper panel.
@@ -235,14 +236,21 @@ function buildChartLayers(
   const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes?.values[0], 'y');
 
   const layers: MaidrLayer[] = [];
-  // Line and step series each merge into one layer of their own type. The
-  // points are extracted identically — amCharts varies only how it draws
-  // between them — so they differ here only in which bucket they land in.
-  const lineSeries = emptyMergedSeries();
-  const stepSeries = emptyMergedSeries();
+  // Line, step, area and radar series each merge into one layer of their own
+  // type. The points are extracted identically — amCharts varies only how it
+  // draws between them — so they differ here only in which bucket they land in.
+  const merged: Record<MergedKind, MergedSeries> = {
+    line: emptyMergedSeries(),
+    step: emptyMergedSeries(),
+    area: emptyMergedSeries(),
+    radar: emptyMergedSeries(),
+    polar: emptyMergedSeries(),
+  };
 
-  // Collect bar series for grouped handling (stacked/dodged/normalized).
+  // Collect bar series for grouped handling (stacked/dodged/normalized), and
+  // area series for the stacking their merged layer's type has to report.
   const barSeriesList: AmXYSeries[] = [];
+  const areaSeriesList: AmXYSeries[] = [];
 
   for (const series of chart.series.values) {
     const kind = classifySeriesKind(series);
@@ -267,11 +275,16 @@ function buildChartLayers(
         break;
       }
       case 'line':
-      case 'step': {
+      case 'step':
+      case 'area':
+      case 'radar':
+      case 'polar': {
         const points = extractLinePoints(series);
         if (points.length === 0)
           break;
-        collectSeries(kind === 'step' ? stepSeries : lineSeries, series, points, containerEl);
+        collectSeries(merged[kind], series, points, containerEl);
+        if (kind === 'area')
+          areaSeriesList.push(series);
         break;
       }
       case 'pie': {
@@ -279,6 +292,15 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildPieLayer(series, data, options));
+        break;
+      }
+      case 'funnel': {
+        // A funnel stage carries the same category/value pair a pie slice
+        // does, so the same extraction serves both.
+        const data = extractPiePoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildFunnelLayer(series, data, options));
         break;
       }
       default:
@@ -301,16 +323,50 @@ function buildChartLayers(
     }
   }
 
-  // Merge all line series into a single multi-line layer, and likewise the
-  // step series into a step layer of their own.
-  if (lineSeries.data.length > 0) {
-    layers.push(buildLineLayer(lineSeries, TraceType.LINE, xLabel, yLabel));
-  }
-  if (stepSeries.data.length > 0) {
-    layers.push(buildLineLayer(stepSeries, TraceType.STEP, xLabel, yLabel));
-  }
+  // Merge each bucket of point series into a single layer of its own type.
+  // The area bucket is the one that has to name its stacking, read from the
+  // same per-series settings the bar path reads.
+  pushMerged(layers, merged.line, TraceType.LINE, xLabel, yLabel);
+  pushMerged(layers, merged.step, TraceType.STEP, xLabel, yLabel);
+  pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
+  pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
+  pushMerged(layers, merged.polar, TraceType.POLAR_AREA, xLabel, yLabel);
 
   return layers;
+}
+
+/** Append the merged layer for one bucket, unless the bucket stayed empty. */
+function pushMerged(
+  layers: MaidrLayer[],
+  merged: MergedSeries,
+  type: MergedTraceType,
+  xLabel: string,
+  yLabel: string,
+): void {
+  if (merged.data.length > 0) {
+    layers.push(buildLineLayer(merged, type, xLabel, yLabel));
+  }
+}
+
+/**
+ * The trace type an area layer reports, from how its bands are stacked.
+ *
+ * Every area series of one chart merges into a single layer, so the stacking
+ * is read across the whole group rather than per series: amCharts commonly
+ * sets `stacked` on the bands that sit ON another one and leaves it off the
+ * bottom band, and splitting the group by that flag would strand the bottom
+ * band in an unstacked layer of its own — announcing the one band a reader
+ * would compare the others against as a chart of its own.
+ */
+function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
+  switch (detectStackMode(areaSeriesList)) {
+    case 'normal':
+      return TraceType.STACKED_AREA;
+    case '100%':
+      return TraceType.NORMALIZED_AREA;
+    default:
+      return TraceType.AREA;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -442,6 +498,38 @@ function buildPieLayer(
   };
 }
 
+/**
+ * What a funnel's two dimensions are called. Like a pie, a sliced chart is
+ * bound to no axis, so the chart-level fallback would name them `x` and `y`.
+ */
+const FUNNEL_STAGE_AXIS = 'Stage';
+const FUNNEL_VALUE_AXIS = 'Value';
+
+/**
+ * Builds the layer for one am5percent funnel (or pyramid, or pictorial stack)
+ * series. The stages stay in data order, which is what the funnel's retention
+ * reading depends on: MAIDR pitches each stage against the one before it.
+ *
+ * No `selectors`, for the same reason a pie emits none — amCharts paints the
+ * stages into a canvas. The binder's overlay highlights the active stage.
+ */
+function buildFunnelLayer(
+  series: AmXYSeries,
+  data: BarPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.FUNNEL,
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? FUNNEL_STAGE_AXIS },
+      y: { label: options?.axisLabels?.y ?? FUNNEL_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
 function buildHeatmapLayer(
   data: HeatmapData,
   xLabel: string,
@@ -454,6 +542,33 @@ function buildHeatmapLayer(
     data,
   };
 }
+
+/**
+ * Series kinds whose points are extracted identically and merged into one
+ * layer per kind — everything MAIDR reads as a grid of series by samples.
+ */
+type MergedKind = 'line' | 'step' | 'area' | 'radar' | 'polar';
+
+/** The trace types those merged layers are emitted as. */
+type MergedTraceType
+  = | TraceType.LINE
+    | TraceType.STEP
+    | TraceType.AREA
+    | TraceType.STACKED_AREA
+    | TraceType.NORMALIZED_AREA
+    | TraceType.RADAR
+    | TraceType.POLAR_AREA;
+
+/** Layer-id prefix per merged type, so an id still names what it holds. */
+const MERGED_ID_PREFIX: Record<MergedTraceType, string> = {
+  [TraceType.LINE]: 'line',
+  [TraceType.STEP]: 'step',
+  [TraceType.AREA]: 'area',
+  [TraceType.STACKED_AREA]: 'area',
+  [TraceType.NORMALIZED_AREA]: 'area',
+  [TraceType.RADAR]: 'radar',
+  [TraceType.POLAR_AREA]: 'polar',
+};
 
 /**
  * Series that merge into one layer, gathered as the chart is walked.
@@ -503,7 +618,7 @@ function collectSeries(
  */
 function buildLineLayer(
   merged: MergedSeries,
-  type: TraceType.LINE | TraceType.STEP,
+  type: MergedTraceType,
   xLabel: string,
   yLabel: string,
 ): MaidrLayer {
@@ -511,7 +626,7 @@ function buildLineLayer(
   const selectors = merged.selectors;
 
   return {
-    id: `${type === TraceType.STEP ? 'step' : 'line'}-${uid()}`,
+    id: `${MERGED_ID_PREFIX[type]}-${uid()}`,
     type,
     ...(title ? { title } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
@@ -569,7 +684,7 @@ function collectCharts(node: unknown, found: AmChart[]): void {
       // Never a panel; its child preview XYChart must not be found either.
       continue;
     }
-    if (isXYChartLike(child) || isPieChartLike(child)) {
+    if (isXYChartLike(child) || isPercentChartLike(child)) {
       found.push(child);
       continue;
     }
@@ -595,31 +710,44 @@ function isXYChartLike(candidate: unknown): candidate is AmChart {
 }
 
 /**
- * Duck-type check for an am5percent `PieChart`.
+ * Charts of the am5percent module: a `PieChart` and the `SlicedChart` that
+ * carries funnels, pyramids and pictorial stacks. Both are `SerialChart`s with
+ * a series list and no axes.
+ */
+const PERCENT_CHART_CLASSES = new Set([
+  'PieChart',
+  'SlicedChart',
+]);
+
+/**
+ * Duck-type check for an am5percent chart.
  *
- * A pie chart has a series list but no axes, which on its own is too weak a
+ * These charts have a series list but no axes, which on its own is too weak a
  * signature — plenty of am5 containers carry a `series` property of some kind.
  * The class name is what makes it specific, and am5 sets it on every entity.
  */
-function isPieChartLike(candidate: unknown): candidate is AmChart {
+function isPercentChartLike(candidate: unknown): candidate is AmChart {
   if (candidate == null || typeof candidate !== 'object')
     return false;
   const c = candidate as Partial<AmChart>;
-  return c.className === 'PieChart' && Boolean(c.series);
+  return typeof c.className === 'string'
+    && PERCENT_CHART_CLASSES.has(c.className)
+    && Boolean(c.series);
 }
 
 /**
- * Detect the stacking mode from a list of column series.
+ * Detect the stacking mode from a list of series that share a layer.
  *
  * In amCharts 5, stacking is a per-series setting, not an axis setting:
- * `series.get('stacked')` is `true` for stacked columns, and a 100%
- * (normalized) stack additionally sets `valueYShow` (or `valueXShow` for
+ * `series.get('stacked')` is `true` for a stacked column or area band, and a
+ * 100% (normalized) stack additionally sets `valueYShow` (or `valueXShow` for
  * horizontal columns) to `'valueYTotalPercent'` / `'valueXTotalPercent'`.
- * Series with no `stacked` flag render side-by-side (dodged).
+ * Columns with no `stacked` flag render side-by-side (dodged); area bands with
+ * none are independent overlapping bands.
  */
-function detectStackMode(barSeriesList: AmXYSeries[]): 'none' | 'normal' | '100%' {
+function detectStackMode(seriesList: AmXYSeries[]): 'none' | 'normal' | '100%' {
   let anyStacked = false;
-  for (const series of barSeriesList) {
+  for (const series of seriesList) {
     if (series.get('stacked') !== true)
       continue;
     anyStacked = true;

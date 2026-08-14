@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Funnel Chart</title>
+
+    <!-- 1. Load amCharts 5 (core + percent charts, where SlicedChart lives) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 600px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Funnel Chart</h1>
+    <p>
+      A funnel is a population shrinking across ordered stages, and the number
+      a reader wants is not the one the chart plots: it is the
+      <strong>retention</strong> between adjacent stages. That is a ratio, and
+      a listener cannot take a ratio by ear from two heights heard one at a
+      time — so the pitch carries the retention and the counts are announced
+      alongside it.
+    </p>
+    <p>
+      Left and Right move between stages. amCharts' pyramid and pictorial
+      stacked series carry the same ordered stages and read the same way.
+    </p>
+
+    <h2>Funnel: checkout</h2>
+    <div id="funnel-chart" class="chart"></div>
+
+    <h2>Pyramid: the same stages, drawn as a triangle</h2>
+    <div id="pyramid-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      var CHECKOUT_DATA = [
+        { stage: "Visited", people: 10000 },
+        { stage: "Signed up", people: 2400 },
+        { stage: "Viewed cart", people: 2300 },
+        { stage: "Purchased", people: 100 },
+      ];
+
+      // Build one sliced chart into `elId`. `seriesClass` is either
+      // am5percent.FunnelSeries or am5percent.PyramidSeries — the data, and
+      // everything MAIDR reads, are identical.
+      function makeSliced(elId, title, seriesClass) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5percent.SlicedChart.new(root, { layout: root.verticalLayout })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+        var series = chart.series.push(
+          seriesClass.new(root, {
+            name: "Checkout",
+            valueField: "people",
+            categoryField: "stage",
+            alignLabels: false,
+          })
+        );
+        series.data.setAll(CHECKOUT_DATA);
+
+        register(root, {
+          title: title,
+          // A sliced chart is bound to no axis, so there is no axis title to
+          // extract. Drop these and the adapter falls back to "Stage" and
+          // "Value".
+          axisLabels: { x: "Stage", y: "People" },
+        });
+      }
+
+      makeSliced("funnel-chart", "Checkout Funnel", am5percent.FunnelSeries);
+      makeSliced("pyramid-chart", "Checkout Funnel, as a Pyramid", am5percent.PyramidSeries);
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

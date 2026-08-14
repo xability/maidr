@@ -24,12 +24,11 @@
 import type { Maidr as MaidrData, NavigateCallback } from '@type/grammar';
 import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
-import type { NavMap } from './navmap';
+import type { NavMap, SeriesGroups } from './navmap';
 import type {
   AmChart,
   AmChartsBinderOptions,
   AmRoot,
-  AmXYSeries,
 } from './types';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -125,10 +124,11 @@ function applyHighlight(
   // Clip the highlight to the OWNING panel's visible plot area; a column's
   // geometry can extend to the value=0 baseline beyond a clipped (min > 0)
   // axis, and in multi-panel roots it must not bleed into sibling panels.
-  // A pie panel has no plot container to read, so its rectangle comes from the
-  // wedges instead. The fallback is pie-only by construction — an XY chart's
-  // data items carry no `slice` — so an XY panel with no readable plot area
-  // still falls through to the suppression below.
+  // An am5percent panel (a pie, or a funnel's sliced chart) has no plot
+  // container to read, so its rectangle comes from the slices instead. The
+  // fallback is percent-only by construction — an XY chart's data items carry
+  // no `slice` — so an XY panel with no readable plot area still falls through
+  // to the suppression below.
   const chart = navMap.chartFor(event.layerId);
   const plotBounds = chart ? readPlotBounds(chart) ?? readSliceBounds(chart) : null;
 
@@ -184,54 +184,58 @@ function createHighlightCallback(
 // Series grouping (mirrors fromXYChart in adapter.ts)
 // ---------------------------------------------------------------------------
 
-function groupSeries(chart: AmChart): {
-  barSeriesList: AmXYSeries[];
-  lineSeriesList: AmXYSeries[];
-  stepSeriesList: AmXYSeries[];
-  histogramSeries: AmXYSeries[];
-  heatmapSeries: AmXYSeries[];
-  pieSeriesList: AmXYSeries[];
-} {
-  const barSeriesList: AmXYSeries[] = [];
-  const lineSeriesList: AmXYSeries[] = [];
-  const stepSeriesList: AmXYSeries[] = [];
-  const histogramSeries: AmXYSeries[] = [];
-  const heatmapSeries: AmXYSeries[] = [];
-  const pieSeriesList: AmXYSeries[] = [];
+function groupSeries(chart: AmChart): SeriesGroups {
+  const groups: SeriesGroups = {
+    barSeriesList: [],
+    lineSeriesList: [],
+    stepSeriesList: [],
+    areaSeriesList: [],
+    radarSeriesList: [],
+    polarSeriesList: [],
+    histogramSeries: [],
+    heatmapSeries: [],
+    pieSeriesList: [],
+    funnelSeriesList: [],
+  };
 
   for (const series of chart.series.values) {
     switch (classifySeriesKind(series)) {
       case 'bar':
-        barSeriesList.push(series);
+        groups.barSeriesList.push(series);
         break;
       case 'line':
-        lineSeriesList.push(series);
+        groups.lineSeriesList.push(series);
         break;
       case 'step':
-        stepSeriesList.push(series);
+        groups.stepSeriesList.push(series);
+        break;
+      case 'area':
+        groups.areaSeriesList.push(series);
+        break;
+      case 'radar':
+        groups.radarSeriesList.push(series);
+        break;
+      case 'polar':
+        groups.polarSeriesList.push(series);
         break;
       case 'histogram':
-        histogramSeries.push(series);
+        groups.histogramSeries.push(series);
         break;
       case 'heatmap':
-        heatmapSeries.push(series);
+        groups.heatmapSeries.push(series);
         break;
       case 'pie':
-        pieSeriesList.push(series);
+        groups.pieSeriesList.push(series);
+        break;
+      case 'funnel':
+        groups.funnelSeriesList.push(series);
         break;
       default:
         break;
     }
   }
 
-  return {
-    barSeriesList,
-    lineSeriesList,
-    stepSeriesList,
-    histogramSeries,
-    heatmapSeries,
-    pieSeriesList,
-  };
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +297,7 @@ function renderMaidr(maidrData: MaidrData, rootDom: HTMLElement): RenderResult |
 /**
  * Bind MAIDR to an amCharts 5 {@link AmRoot}, mounting the accessible UI and
  * (by default) a canvas highlight overlay. Finds every XYChart in the root's
- * container tree (including am5stock StockPanels) and every PieChart; each
+ * container tree (including am5stock StockPanels) and every am5percent chart; each
  * chart becomes one MAIDR subplot, navigable with the arrow keys.
  *
  * @throws If no supported chart is found in `root.container`, or if no chart

@@ -74,7 +74,8 @@ export interface AmEntity {
 
 /**
  * Minimal interface for a chart the adapter can convert: an `XYChart` (or an
- * am5stock `StockPanel`, which extends it) or an am5percent `PieChart`.
+ * am5stock `StockPanel`, which extends it) or an am5percent chart -- a
+ * `PieChart` or the `SlicedChart` a funnel lives in.
  *
  * Both expose their data through a series list. Only an XY chart is bound to
  * axes and owns a plot area, so `xAxes` / `yAxes` / `plotContainer` are
@@ -114,6 +115,14 @@ export interface AmXYSeries extends AmEntity {
   columns?: AmListLike<AmSprite>;
   bullets?: AmListLike<AmBullet>;
   strokes?: AmListLike<AmSprite>;
+  /**
+   * The fill graphics of a line series, as an am5 `ListTemplate`.
+   *
+   * amCharts has no area series class — an area chart is a `LineSeries` whose
+   * fills have been made visible — so the template's settings are the only
+   * thing that tells an area from a line.
+   */
+  fills?: { template?: AmSprite };
   /** Converts a series-local point to root-container coordinates. */
   toGlobal?: (point: AmPoint) => AmPoint;
 }

@@ -48,6 +48,33 @@ function hasCategoryY(series: AmXYSeries): boolean {
   return typeof series.get('categoryYField') === 'string';
 }
 
+/**
+ * Determine whether a line series is drawn with the region between it and the
+ * baseline filled in — which is what makes it an area chart.
+ *
+ * amCharts has no area series: an area is a `LineSeries` whose `fills`
+ * template has been made visible (`fills.template.setAll({ visible: true,
+ * fillOpacity: 0.5 })` is the documented recipe), so those settings are the
+ * only runtime signal there is. An explicit `visible: false` settles the
+ * question on its own — a template can carry a fill opacity it never paints
+ * with — and otherwise a declared opacity decides, since a fill at opacity
+ * zero draws nothing whatever it claims to be.
+ */
+function hasVisibleFill(series: AmXYSeries): boolean {
+  const template = series.fills?.template;
+  if (!template || typeof template.get !== 'function')
+    return false;
+
+  const visible = template.get('visible');
+  if (visible === false)
+    return false;
+
+  const opacity = template.get('fillOpacity');
+  if (typeof opacity === 'number')
+    return opacity > 0;
+  return visible === true;
+}
+
 // ---------------------------------------------------------------------------
 // Column / Bar extraction
 // ---------------------------------------------------------------------------
@@ -270,6 +297,10 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
 /**
  * Extract {@link PiePoint} data from an am5percent pie series.
  *
+ * Also serves an am5percent funnel series, whose stages carry the same
+ * `category`/`value` pair in the same data order — a funnel's `BarPoint[]` and
+ * a pie's `PiePoint[]` are the same `{ x, y }` shape.
+ *
  * A pie series is bound to no axis: each data item carries the slice's
  * `category` and its `value`, and the wedges are drawn in data-item order.
  * Items with no category or no finite value are skipped — a slice with
@@ -336,13 +367,66 @@ const PIE_CLASSES = new Set([
   'PieSeries',
 ]);
 
-export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'pie' | 'unknown';
+/**
+ * Series an am5percent `SlicedChart` draws as ordered stages — a funnel, its
+ * triangular pyramid variant, and the pictorial stack. All three carry one
+ * `category`/`value` pair per stage in data order, which is exactly the
+ * retention reading MAIDR's funnel trace is built on, so all three map to it.
+ */
+const FUNNEL_CLASSES = new Set([
+  'FunnelSeries',
+  'PyramidSeries',
+  'PictorialStackedSeries',
+]);
+
+/**
+ * Series an am5radar `RadarChart` draws around a circle, joined into a closed
+ * outline. Recognising them explicitly is what keeps a radar from being read
+ * as something else: a `RadarChart` extends `XYChart`, so the adapter has
+ * always found it, and {@link classifySeriesKind} answers `'bar'` for anything
+ * it does not know — a radar was therefore announced as a row of bars.
+ */
+const RADAR_LINE_CLASSES = new Set([
+  'RadarLineSeries',
+  'SmoothedRadarLineSeries',
+]);
+
+/**
+ * The same spokes drawn as wedges rather than as an outline — a coxcomb or
+ * rose chart. Read exactly as a radar is; only the mark differs.
+ */
+const RADAR_COLUMN_CLASSES = new Set([
+  'RadarColumnSeries',
+]);
+
+export type SeriesKind
+  = | 'bar'
+    | 'line'
+    | 'area'
+    | 'step'
+    | 'histogram'
+    | 'heatmap'
+    | 'pie'
+    | 'funnel'
+    | 'radar'
+    | 'polar'
+    | 'unknown';
 
 /**
  * Determine the MAIDR trace kind for a given amCharts series.
  */
 export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   const className = series.className ?? '';
+
+  // Radar first: its series carry their own class names, and a radar chart is
+  // otherwise indistinguishable from any other XY chart at this level.
+  if (RADAR_LINE_CLASSES.has(className)) {
+    return 'radar';
+  }
+
+  if (RADAR_COLUMN_CLASSES.has(className)) {
+    return 'polar';
+  }
 
   if (COLUMN_CLASSES.has(className)) {
     // Heatmap: both category X and category Y fields.
@@ -359,6 +443,11 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   }
 
   if (LINE_CLASSES.has(className)) {
+    // amCharts draws an area with the line series, so the fill is the only
+    // thing that separates the two.
+    if (hasVisibleFill(series))
+      return 'area';
+
     // A "line" series with value-only axes (no category) is still a line in MAIDR.
     return 'line';
   }
@@ -369,6 +458,10 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
 
   if (PIE_CLASSES.has(className)) {
     return 'pie';
+  }
+
+  if (FUNNEL_CLASSES.has(className)) {
+    return 'funnel';
   }
 
   // Default to bar for category-based series.

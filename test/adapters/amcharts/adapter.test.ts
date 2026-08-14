@@ -1,15 +1,20 @@
-import type { BarPoint, MaidrLayer, PiePoint } from '@type/grammar';
+import type { BarPoint, LinePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import { findCharts, findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { TraceType } from '@type/grammar';
 import {
+  fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
   fakeContainer,
   fakeContainerEl,
+  fakeFunnelSeries,
   fakeLineSeries,
   fakePieChart,
   fakePieSeries,
+  fakePolarSeries,
+  fakeRadarSeries,
   fakeRoot,
+  fakeSlicedChart,
   fakeStepSeries,
 } from './helpers';
 
@@ -259,6 +264,240 @@ describe('fromAmCharts (pie chart)', () => {
     expect(result.subplots).toHaveLength(1);
     expect(result.subplots[0].map(subplot => subplot.layers[0].type))
       .toEqual([TraceType.BAR, TraceType.PIE]);
+  });
+});
+
+describe('fromAmCharts (area chart)', () => {
+  const BAND_A = [
+    { categoryX: '2020', valueY: 10 },
+    { categoryX: '2021', valueY: 14 },
+  ];
+  const BAND_B = [
+    { categoryX: '2020', valueY: 4 },
+    { categoryX: '2021', valueY: 6 },
+  ];
+
+  function layerOf(...series: ReturnType<typeof fakeAreaSeries>[]): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeChart({ series })])).subplots[0][0].layers[0];
+  }
+
+  it('reads a filled line series as an area, not as a line', () => {
+    const layer = layerOf(fakeAreaSeries('Sales', BAND_A));
+
+    expect(layer.type).toBe(TraceType.AREA);
+    expect(layer.title).toBe('Sales');
+    expect(layer.data as LinePoint[][]).toEqual([[
+      { x: '2020', y: 10, z: 'Sales' },
+      { x: '2021', y: 14, z: 'Sales' },
+    ]]);
+  });
+
+  it('leaves an unfilled line series a line', () => {
+    const layer = layerOf(fakeAreaSeries('Sales', BAND_A, { fillOpacity: 0 }));
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('leaves a line whose fills are switched off a line, whatever they are filled with', () => {
+    const layer = layerOf(
+      fakeAreaSeries('Sales', BAND_A, { fillOpacity: 0.8, fillVisible: false }),
+    );
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('reads stacked bands as a stacked area, one row per band', () => {
+    const layer = layerOf(
+      fakeAreaSeries('Sales', BAND_A, { stacked: true }),
+      fakeAreaSeries('Expenses', BAND_B, { stacked: true }),
+    );
+
+    expect(layer.type).toBe(TraceType.STACKED_AREA);
+    expect(layer.title).toBe('Sales, Expenses');
+    expect((layer.data as LinePoint[][]).map(band => band.map(point => point.y)))
+      .toEqual([[10, 14], [4, 6]]);
+  });
+
+  it('keeps the bottom band in the stack when only the bands above declare `stacked`', () => {
+    // amCharts commonly sets `stacked` on the bands that sit ON another one
+    // and leaves it off the bottom band; splitting by the flag would announce
+    // that band as an area chart of its own.
+    const layer = layerOf(
+      fakeAreaSeries('Sales', BAND_A),
+      fakeAreaSeries('Expenses', BAND_B, { stacked: true }),
+    );
+
+    expect(layer.type).toBe(TraceType.STACKED_AREA);
+    expect(layer.data as LinePoint[][]).toHaveLength(2);
+  });
+
+  it('reads a 100% stack as a normalized area', () => {
+    const layer = layerOf(
+      fakeAreaSeries('Sales', BAND_A, { stacked: true }),
+      fakeAreaSeries('Expenses', BAND_B, { stacked: true, normalized: true }),
+    );
+
+    expect(layer.type).toBe(TraceType.NORMALIZED_AREA);
+  });
+
+  it('keeps area series out of the line layer when a chart has both', () => {
+    const chart = fakeChart({
+      series: [fakeLineSeries('Trend', BAND_A), fakeAreaSeries('Band', BAND_B)],
+    });
+
+    const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
+
+    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+      [TraceType.LINE, 'Trend'],
+      [TraceType.AREA, 'Band'],
+    ]);
+  });
+});
+
+describe('fromAmCharts (radar chart)', () => {
+  const SPOKES_A = [
+    { categoryX: 'Speed', valueY: 8 },
+    { categoryX: 'Range', valueY: 4 },
+    { categoryX: 'Comfort', valueY: 6 },
+  ];
+  const SPOKES_B = [
+    { categoryX: 'Speed', valueY: 5 },
+    { categoryX: 'Range', valueY: 7 },
+    { categoryX: 'Comfort', valueY: 3 },
+  ];
+
+  it('reads a RadarLineSeries as a radar, not as the bar chart it fell back to', () => {
+    const chart = fakeChart({
+      className: 'RadarChart',
+      series: [fakeRadarSeries('Model A', SPOKES_A), fakeRadarSeries('Model B', SPOKES_B)],
+      xLabel: 'Attribute',
+      yLabel: 'Score',
+    });
+
+    const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.RADAR);
+    expect(layer.title).toBe('Model A, Model B');
+    expect(layer.axes).toEqual({ x: { label: 'Attribute' }, y: { label: 'Score' } });
+    // One row per series, one column per spoke, in spoke order.
+    expect(layer.data as LinePoint[][]).toEqual([
+      [
+        { x: 'Speed', y: 8, z: 'Model A' },
+        { x: 'Range', y: 4, z: 'Model A' },
+        { x: 'Comfort', y: 6, z: 'Model A' },
+      ],
+      [
+        { x: 'Speed', y: 5, z: 'Model B' },
+        { x: 'Range', y: 7, z: 'Model B' },
+        { x: 'Comfort', y: 3, z: 'Model B' },
+      ],
+    ]);
+  });
+
+  it('reads a RadarColumnSeries as a polar area', () => {
+    const chart = fakeChart({
+      className: 'RadarChart',
+      series: [fakePolarSeries('Rainfall', SPOKES_A)],
+    });
+
+    const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.POLAR_AREA);
+    expect(layer.title).toBe('Rainfall');
+    expect((layer.data as LinePoint[][])[0].map(point => point.y)).toEqual([8, 4, 6]);
+  });
+
+  it('keeps the two radar marks in layers of their own', () => {
+    const chart = fakeChart({
+      className: 'RadarChart',
+      series: [fakeRadarSeries('Outline', SPOKES_A), fakePolarSeries('Wedges', SPOKES_B)],
+    });
+
+    const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.type))
+      .toEqual([TraceType.RADAR, TraceType.POLAR_AREA]);
+  });
+});
+
+describe('fromAmCharts (sliced chart)', () => {
+  const STAGES = [
+    { category: 'Visited', value: 10000 },
+    { category: 'Signed up', value: 2400 },
+    { category: 'Purchased', value: 100 },
+  ];
+
+  it('finds a SlicedChart, which like a PieChart has a series list but no axes', () => {
+    const sliced = fakeSlicedChart({ series: [fakeFunnelSeries('Checkout', STAGES)] });
+    const root = fakeRoot([sliced]);
+
+    expect(findCharts(root)).toEqual([sliced]);
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('converts a funnel series into a funnel layer, stages in data order', () => {
+    const sliced = fakeSlicedChart({
+      series: [fakeFunnelSeries('Checkout', STAGES)],
+      title: 'Checkout funnel',
+    });
+
+    const result = fromAmCharts(fakeRoot([sliced], 'funnel-chart'));
+
+    expect(result.title).toBe('Checkout funnel');
+    const layer = result.subplots[0][0].layers[0];
+    expect(layer.type).toBe(TraceType.FUNNEL);
+    expect(layer.title).toBe('Checkout');
+    // A sliced chart is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Value' } });
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Visited', y: 10000 },
+      { x: 'Signed up', y: 2400 },
+      { x: 'Purchased', y: 100 },
+    ]);
+  });
+
+  it('reads a pyramid as the same ordered stages a funnel is', () => {
+    const sliced = fakeSlicedChart({
+      series: [fakeFunnelSeries('Checkout', STAGES, 'PyramidSeries')],
+    });
+
+    expect(fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0].type)
+      .toBe(TraceType.FUNNEL);
+  });
+
+  it('skips stages with no value so stage k stays the stage it names', () => {
+    const sliced = fakeSlicedChart({
+      series: [fakeFunnelSeries('Checkout', [
+        { category: 'Visited', value: 10000 },
+        { category: 'Signed up', value: null },
+        { category: 'Purchased', value: 100 },
+      ])],
+    });
+
+    const layer = fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0];
+
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Visited', y: 10000 },
+      { x: 'Purchased', y: 100 },
+    ]);
+  });
+
+  it('emits no selectors: amCharts renders the stages to canvas, not to SVG', () => {
+    const sliced = fakeSlicedChart({ series: [fakeFunnelSeries('Checkout', STAGES)] });
+
+    expect(fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+
+  it('honors axis-label overrides on a funnel layer', () => {
+    const sliced = fakeSlicedChart({ series: [fakeFunnelSeries('Checkout', STAGES)] });
+
+    const result = fromAmCharts(fakeRoot([sliced]), {
+      axisLabels: { x: 'Step', y: 'People' },
+    });
+
+    expect(result.subplots[0][0].layers[0].axes)
+      .toEqual({ x: { label: 'Step' }, y: { label: 'People' } });
   });
 });
 

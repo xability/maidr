@@ -23,7 +23,7 @@
  *
  * Multi-panel roots are supported by both paths: every `XYChart` in the
  * root's container tree (including am5stock `StockPanel`s) and every
- * `PieChart` becomes one MAIDR subplot, arranged in a grid matching the
+ * am5percent chart becomes one MAIDR subplot, arranged in a grid matching the
  * rendered layout. Arrow keys move between panels; Enter drills into a panel
  * and Escape returns.
  *

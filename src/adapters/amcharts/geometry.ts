@@ -163,7 +163,7 @@ export function wedgeBounds(slice: AmSprite): AmBounds | null {
 /**
  * Read a pie panel's bounds as the union of its wedges' boxes.
  *
- * An am5percent `PieChart` has no `plotContainer` — it has no plot area, which
+ * An am5percent chart has no `plotContainer` — it has no plot area, which
  * is why {@link AmChart.plotContainer} is optional — so {@link readPlotBounds}
  * reports nothing for it and the binder, which suppresses a highlight it cannot
  * clip to a panel, would leave every pie in a multi-panel root unhighlighted.

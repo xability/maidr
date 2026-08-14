@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Area Charts</title>
+
+    <!-- 1. Load amCharts 5 (core + XY; an area is a filled LineSeries) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 600px;
+        height: 380px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Area Charts</h1>
+    <p>
+      amCharts has no area series: an area chart is a <code>LineSeries</code>
+      whose <code>fills</code> template has been made visible. That fill is the
+      only runtime signal there is, so it is what the adapter reads — a line
+      with no visible fill stays a line.
+    </p>
+    <p>
+      A <strong>stacked</strong> area draws two magnitudes at every sample: the
+      band's own value, and the running total its top edge sits at. MAIDR
+      announces both, which is why the stacked variants are trace types of
+      their own rather than a line with a fill.
+    </p>
+
+    <h2>Area (independent bands)</h2>
+    <div id="area-chart" class="chart"></div>
+
+    <h2>Stacked area</h2>
+    <div id="stacked-area-chart" class="chart"></div>
+
+    <h2>100% stacked area</h2>
+    <p>
+      The same bands with <code>valueYShow: "valueYTotalPercent"</code>, so each
+      one is a share of a common total.
+    </p>
+    <div id="normalized-area-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      var TRAFFIC_DATA = [
+        { quarter: "Q1", direct: 120, search: 240, social: 60 },
+        { quarter: "Q2", direct: 140, search: 300, social: 110 },
+        { quarter: "Q3", direct: 190, search: 280, social: 180 },
+        { quarter: "Q4", direct: 230, search: 340, social: 260 },
+      ];
+
+      // Build one area chart into `elId`. `mode` is "plain", "stacked" or
+      // "normalized"; nothing else about the series changes.
+      function makeArea(elId, title, mode) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "quarter",
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.children.push(am5.Label.new(root, { text: "Quarter", x: am5.p50, centerX: am5.p50 }));
+
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, {
+            // A 100% stack needs the axis to compute the totals it is a share of.
+            calculateTotals: mode === "normalized",
+            renderer: am5xy.AxisRendererY.new(root, {}),
+          })
+        );
+        yAxis.children.unshift(
+          am5.Label.new(root, { text: "Visits", rotation: -90, y: am5.p50, centerX: am5.p50 })
+        );
+
+        function addBand(name, field) {
+          var series = chart.series.push(
+            am5xy.LineSeries.new(root, {
+              name: name,
+              xAxis: xAxis,
+              yAxis: yAxis,
+              valueYField: field,
+              categoryXField: "quarter",
+              stacked: mode !== "plain",
+              valueYShow: mode === "normalized" ? "valueYTotalPercent" : undefined,
+            })
+          );
+          // THIS is what makes it an area rather than a line, for amCharts and
+          // for MAIDR alike.
+          series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
+          series.data.setAll(TRAFFIC_DATA);
+        }
+
+        addBand("Direct", "direct");
+        addBand("Search", "search");
+        addBand("Social", "social");
+        xAxis.data.setAll(TRAFFIC_DATA);
+
+        register(root, { title: title, axisLabels: { x: "Quarter", y: "Visits" } });
+      }
+
+      makeArea("area-chart", "Site Visits by Channel", "plain");
+      makeArea("stacked-area-chart", "Site Visits by Channel, Stacked", "stacked");
+      makeArea("normalized-area-chart", "Share of Visits by Channel", "normalized");
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

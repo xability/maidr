@@ -162,29 +162,40 @@ function columnRect(target: NavTarget): OverlayRect | null {
     return null;
   }
 
-  // Proven path: toGlobal maps the sprite's LOCAL corners ({0,0} = top-left,
-  // {width,height} = bottom-right) to root-container CSS px. (Passing the
-  // sprite's own x()/y() double-counts its offset — the earlier bug.)
-  if (sprite.toGlobal && sprite.width && sprite.height) {
-    const w = sprite.width();
-    const h = sprite.height();
-    const tl = sprite.toGlobal({ x: 0, y: 0 });
-    const br = sprite.toGlobal({ x: w, y: h });
-    return {
-      left: Math.min(tl.x, br.x),
-      top: Math.min(tl.y, br.y),
-      width: Math.abs(br.x - tl.x),
-      height: Math.abs(br.y - tl.y),
-    };
+  // Proven path: the sprite's own laid-out box. `globalBounds()` is the
+  // fallback for builds where `toGlobal` isn't exposed.
+  const box = spriteBoxRect(sprite);
+  if (box) {
+    return box;
   }
-
-  // Fallback for builds where toGlobal isn't exposed.
   const bounds = sprite.globalBounds?.();
   return bounds ? boundsToRect(bounds) : null;
 }
 
 /**
- * Rectangle for a pie slice: the bounding box of the wedge graphic.
+ * The box a sprite reports through its own laid-out geometry.
+ *
+ * `toGlobal` maps the sprite's LOCAL corners ({0,0} = top-left,
+ * {width,height} = bottom-right) to root-container CSS px. (Passing the
+ * sprite's own x()/y() double-counts its offset — the earlier bug.)
+ */
+function spriteBoxRect(sprite: AmSprite): OverlayRect | null {
+  if (!sprite.toGlobal || !sprite.width || !sprite.height) {
+    return null;
+  }
+  const tl = sprite.toGlobal({ x: 0, y: 0 });
+  const br = sprite.toGlobal({ x: sprite.width(), y: sprite.height() });
+  return {
+    left: Math.min(tl.x, br.x),
+    top: Math.min(tl.y, br.y),
+    width: Math.abs(br.x - tl.x),
+    height: Math.abs(br.y - tl.y),
+  };
+}
+
+/**
+ * Rectangle for a wedge-shaped mark: a pie slice, a funnel stage, or a polar
+ * area's column.
  *
  * A box around a wedge is coarse — a large slice's box covers most of the pie
  * — but the overlay can only draw rectangles, and amCharts paints the wedge
@@ -195,11 +206,28 @@ function columnRect(target: NavTarget): OverlayRect | null {
  * Measured from the wedge's settings rather than its `globalBounds()`, which a
  * `Slice` reports as a degenerate point at its own centre (#774) — a rect from
  * that collapses to nothing, and the caller then drew no highlight at all.
+ *
+ * A pie keeps its wedge on the data item's `slice`; a polar column series keeps
+ * the same `Slice` on `graphics`, where a plain column series keeps its
+ * rectangle. A funnel stage is not a wedge at all — it carries no radius for
+ * {@link sliceExtent} to measure — but it is laid out with a width and a
+ * height of its own, which is what the sprite box answers with.
  */
 function sliceRect(target: NavTarget): OverlayRect | null {
-  const slice = target.dataItem.get('slice') as AmSprite | undefined;
-  const bounds = slice ? sliceExtent(slice) : null;
-  return bounds ? boundsToRect(bounds) : null;
+  const slice = (target.dataItem.get('slice') ?? target.dataItem.get('graphics')) as
+    | AmSprite
+    | undefined;
+  if (!slice) {
+    return null;
+  }
+
+  const bounds = sliceExtent(slice);
+  if (bounds) {
+    return boundsToRect(bounds);
+  }
+
+  const box = spriteBoxRect(slice);
+  return box && box.width > 0 && box.height > 0 ? box : null;
 }
 
 /**

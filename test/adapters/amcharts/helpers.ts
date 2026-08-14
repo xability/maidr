@@ -69,6 +69,97 @@ export function fakeLineSeries(
 }
 
 /**
+ * How an area series declares its band, mirroring the settings amCharts reads:
+ * a visible fill is what makes a `LineSeries` an area at all, and `stacked` /
+ * `valueYShow` are what make the bands a stack.
+ */
+export interface FakeAreaConfig {
+  /** `fills.template.get('fillOpacity')`. Defaults to a visible 0.5. */
+  fillOpacity?: number;
+  /** `fills.template.get('visible')`. */
+  fillVisible?: boolean;
+  stacked?: boolean;
+  /** Set for a 100% stack (`valueYShow: 'valueYTotalPercent'`). */
+  normalized?: boolean;
+}
+
+/**
+ * A `LineSeries` drawn as an area: the same series a line uses, with the fill
+ * template amCharts requires before it paints the band.
+ */
+export function fakeAreaSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number }>,
+  config: FakeAreaConfig = {},
+): AmXYSeries {
+  const fillSettings: Record<string, unknown> = {
+    fillOpacity: config.fillOpacity ?? 0.5,
+    ...(config.fillVisible != null ? { visible: config.fillVisible } : {}),
+  };
+  const series = fakeSeries({
+    className: 'LineSeries',
+    name,
+    settings: {
+      categoryXField: 'category',
+      ...(config.stacked ? { stacked: true } : {}),
+      ...(config.normalized ? { valueYShow: 'valueYTotalPercent' } : {}),
+    },
+    data: points,
+  });
+  (series as unknown as Record<string, unknown>).fills = {
+    template: { get: (key: string) => fillSettings[key] },
+  };
+  return series;
+}
+
+/** An am5radar `RadarLineSeries`: one closed outline over the spokes. */
+export function fakeRadarSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'RadarLineSeries',
+    name,
+    settings: { categoryXField: 'category' },
+    data: points,
+  });
+}
+
+/**
+ * An am5radar `RadarColumnSeries`: the same spokes drawn as wedges. Its
+ * wedges live on each data item's `graphics`, where a plain column series
+ * keeps its rectangle.
+ */
+export function fakePolarSeries(
+  name: string,
+  points: Array<{ categoryX: string; valueY: number; graphics?: unknown }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'RadarColumnSeries',
+    name,
+    settings: { categoryXField: 'category' },
+    data: points,
+  });
+}
+
+/**
+ * An am5percent funnel series: `category`/`value` stages in data order, with
+ * `slice` standing in for the stage graphic the overlay measures.
+ */
+export function fakeFunnelSeries(
+  name: string,
+  stages: Array<{ category: string; value: number | null; slice?: unknown }>,
+  className = 'FunnelSeries',
+): AmXYSeries {
+  return fakeSeries({
+    className,
+    name,
+    settings: { categoryField: 'category', valueField: 'value' },
+    data: stages,
+  });
+}
+
+/**
  * An am5percent pie series: `category`/`value` data items, no axis fields.
  * `slice` stands in for the wedge graphic the overlay reads geometry from.
  */
@@ -165,6 +256,18 @@ export function fakePieChart(config: { series?: AmXYSeries[]; title?: string } =
       }],
     };
   }
+  return chart as unknown as AmChart;
+}
+
+/**
+ * An am5percent `SlicedChart` — the funnel/pyramid counterpart of a
+ * `PieChart`: a series list and a class name, no axes and no plot container.
+ */
+export function fakeSlicedChart(
+  config: { series?: AmXYSeries[]; title?: string } = {},
+): AmChart {
+  const chart = fakePieChart(config) as unknown as Record<string, unknown>;
+  chart.className = 'SlicedChart';
   return chart as unknown as AmChart;
 }
 

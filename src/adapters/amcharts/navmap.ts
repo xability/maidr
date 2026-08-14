@@ -16,7 +16,8 @@ import { TraceType } from '@type/grammar';
 /**
  * The am5 entities to highlight for a navigation position.
  * `kind` tells the overlay which geometry to read: a column's box, a line
- * point, or a pie slice's wedge.
+ * point, or the wedge-shaped sprite of a pie slice, funnel stage or polar
+ * column.
  */
 export interface NavTarget {
   series: AmXYSeries;
@@ -61,12 +62,20 @@ export interface SeriesGroups {
   lineSeriesList: AmXYSeries[];
   /** Merged into a single STEP layer, the staircase counterpart of the above. */
   stepSeriesList: AmXYSeries[];
+  /** Merged into one AREA / STACKED_AREA / NORMALIZED_AREA layer. */
+  areaSeriesList: AmXYSeries[];
+  /** Merged into a single RADAR layer (one entry per closed outline). */
+  radarSeriesList: AmXYSeries[];
+  /** Merged into a single POLAR_AREA layer, the wedge counterpart of the above. */
+  polarSeriesList: AmXYSeries[];
   /** One HISTOGRAM layer each, in series order. */
   histogramSeries: AmXYSeries[];
   /** One HEATMAP layer each, in series order. */
   heatmapSeries: AmXYSeries[];
   /** One PIE layer each, in series order. */
   pieSeriesList: AmXYSeries[];
+  /** One FUNNEL layer each, in series order. */
+  funnelSeriesList: AmXYSeries[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -130,7 +139,10 @@ function filterLineItems(series: AmXYSeries): AmDataItem[] {
   return kept;
 }
 
-/** Mirror `extractPiePoints`: keep items with a category and a finite value. */
+/**
+ * Mirror `extractPiePoints`: keep items with a category and a finite value.
+ * Serves funnel stages too, which the extractor reads through the same fields.
+ */
 function filterPieItems(series: AmXYSeries): AmDataItem[] {
   const kept: AmDataItem[] = [];
   for (const item of series.dataItems) {
@@ -158,6 +170,20 @@ function filterHistogramItems(series: AmXYSeries): AmDataItem[] {
     kept.push(item);
   }
   return kept;
+}
+
+/**
+ * Pair each series with its gap-filtered items and drop the series left with
+ * none — exactly what the adapter does when it builds the layers, so MAIDR's
+ * row indices keep naming the same series the extractor emitted.
+ */
+function filterSeries(
+  seriesList: AmXYSeries[],
+  keep: (series: AmXYSeries) => AmDataItem[],
+): FilteredSeries[] {
+  return seriesList
+    .map(series => ({ series, items: keep(series) }))
+    .filter(entry => entry.items.length > 0);
 }
 
 function columnTargetFrom(entry: FilteredSeries | undefined, col: number): NavTarget[] {
@@ -229,22 +255,31 @@ function addEntryResolvers(
     items: filterColumnItems(series),
   }));
   const segmentedBars = barItems.filter(entry => entry.items.length > 0);
-  const lineSeries = groups.lineSeriesList
-    .map(series => ({ series, items: filterLineItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const stepSeries = groups.stepSeriesList
-    .map(series => ({ series, items: filterLineItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const histogramSeries = groups.histogramSeries
-    .map(series => ({ series, items: filterHistogramItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const pieSeries = groups.pieSeriesList
-    .map(series => ({ series, items: filterPieItems(series) }))
-    .filter(entry => entry.items.length > 0);
+  const lineSeries = filterSeries(groups.lineSeriesList, filterLineItems);
+  const stepSeries = filterSeries(groups.stepSeriesList, filterLineItems);
+  const areaSeries = filterSeries(groups.areaSeriesList, filterLineItems);
+  const radarSeries = filterSeries(groups.radarSeriesList, filterLineItems);
+  const polarSeries = filterSeries(groups.polarSeriesList, filterLineItems);
+  const histogramSeries = filterSeries(groups.histogramSeries, filterHistogramItems);
+  const pieSeries = filterSeries(groups.pieSeriesList, filterPieItems);
+  const funnelSeries = filterSeries(groups.funnelSeriesList, filterPieItems);
+
+  // Every merged layer indexes its OWN series list — sharing one would
+  // misplace every highlight on a chart carrying two of these at once.
+  const mergedByType: Partial<Record<TraceType, FilteredSeries[]>> = {
+    [TraceType.LINE]: lineSeries,
+    [TraceType.STEP]: stepSeries,
+    [TraceType.AREA]: areaSeries,
+    [TraceType.STACKED_AREA]: areaSeries,
+    [TraceType.NORMALIZED_AREA]: areaSeries,
+    [TraceType.RADAR]: radarSeries,
+    [TraceType.POLAR_AREA]: polarSeries,
+  };
 
   let histIdx = 0;
   let heatIdx = 0;
   let pieIdx = 0;
+  let funnelIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -265,15 +300,23 @@ function addEntryResolvers(
         break;
       }
       case TraceType.LINE:
-      case TraceType.STEP: {
-        // A step layer holds its own series, so it indexes its own list —
-        // sharing one would misplace every highlight on a chart with both.
-        const seriesList = layer.type === TraceType.STEP ? stepSeries : lineSeries;
+      case TraceType.STEP:
+      case TraceType.AREA:
+      case TraceType.STACKED_AREA:
+      case TraceType.NORMALIZED_AREA:
+      case TraceType.RADAR:
+      case TraceType.POLAR_AREA: {
+        const seriesList = mergedByType[layer.type] ?? [];
+        // A polar area draws its values as wedges rather than as points on a
+        // line, so the sprite the overlay measures differs even though the
+        // navigable grid is the same.
+        const kind: NavTarget['kind']
+          = layer.type === TraceType.POLAR_AREA ? 'slice' : 'point';
         register(layer.id, (row, col) => {
           const entry = seriesList[row];
           const dataItem = entry?.items[col];
           return entry && dataItem
-            ? [{ series: entry.series, dataItem, kind: 'point' }]
+            ? [{ series: entry.series, dataItem, kind }]
             : [];
         });
         break;
@@ -286,6 +329,17 @@ function addEntryResolvers(
       case TraceType.PIE: {
         // A pie is a single row of slices, so only the column moves.
         const entry = pieSeries[pieIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'slice' }]
+            : [];
+        });
+        break;
+      }
+      case TraceType.FUNNEL: {
+        // A funnel is a single row of stages, so only the column moves.
+        const entry = funnelSeries[funnelIdx++];
         register(layer.id, (_row, col) => {
           const dataItem = entry?.items[col];
           return entry && dataItem

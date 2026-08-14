@@ -78,7 +78,10 @@ Series are classified by their amCharts class name and field configuration:
 - multiple `ColumnSeries` → **stacked**, **100%-stacked (normalized)**, or **dodged**, detected from each series' `stacked` flag and `valueYShow`/`valueXShow` setting
 - `ColumnSeries` with both X and Y category axes → **heatmap** (heat value read from the `value` field)
 - `ColumnSeries` on a value X axis with `openValueXField` bin edges → **histogram**
-- `LineSeries` (incl. smoothed/step variants) → **line**
+- `LineSeries` (incl. smoothed variants) → **line**, or **area** / **stacked area** / **100% stacked area** when its `fills` are visible
+- `StepLineSeries` → **step**
+- `RadarLineSeries` → **radar**; `RadarColumnSeries` → **polar area**
+- `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
 
 ### Visual Highlighting
 
@@ -92,21 +95,31 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Dodged / Grouped Bar | multiple `ColumnSeries` | no `stacked` flag |
 | Stacked Bar | multiple `ColumnSeries` | `stacked: true` |
 | 100% Stacked (Normalized) | multiple `ColumnSeries` | `stacked: true` + `valueYShow: "valueYTotalPercent"` |
-| Line (single & multi-series) | `LineSeries` | line series class |
+| Line (single & multi-series) | `LineSeries` | line series class, no visible fill |
+| Area | `LineSeries` | visible `fills` template |
+| Stacked Area | multiple `LineSeries` | visible fills + `stacked: true` |
+| 100% Stacked Area | multiple `LineSeries` | visible fills + `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Step (single & multi-series) | `StepLineSeries` | step-line series class |
 | Histogram | `ColumnSeries` | value X axis + `openValueXField` bin edges |
 | Heatmap | `ColumnSeries` | category X **and** category Y axes + `value` field |
 | Pie / Doughnut | `am5percent.PieSeries` | series class (requires `percent.js`) |
+| Funnel / Pyramid | `am5percent.FunnelSeries`, `PyramidSeries`, `PictorialStackedSeries` | series class (requires `percent.js`) |
+| Radar / Spider | `am5radar.RadarLineSeries` | series class (requires `radar.js`) |
+| Polar Area / Coxcomb | `am5radar.RadarColumnSeries` | series class (requires `radar.js`) |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
 A `PieSeries` lives in amCharts' separate `percent.js` module and is bound to no axis, so `axes.x` and `axes.y` default to `Label` and `Value`; the `axisLabels` option overrides both. A doughnut is a `PieChart` with an `innerRadius` and reads identically. Slices with no category or no numeric value are skipped rather than counted as zero.
 
+A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` rather than a `PieChart`, and is likewise bound to no axis — its dimensions default to `Stage` and `Value`. Its pyramid and pictorial-stack siblings carry the same ordered `category`/`value` stages and are read the same way.
+
+`RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
+
 > Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
 
 ## Multi-Panel Charts
 
-Every `PieChart` in the root's container is a subplot too, on the same terms as the XYCharts below — a root holding a pie and a doughnut is one MAIDR figure with two panels.
+Every am5percent chart in the root's container — a `PieChart` or a `SlicedChart` — is a subplot too, on the same terms as the XYCharts below: a root holding a pie and a doughnut is one MAIDR figure with two panels.
 
 When one amCharts `Root` contains **multiple XYCharts** — amCharts' native multi-panel pattern (`root.container.set("layout", root.verticalLayout)` plus several `XYChart` children, or a `horizontalLayout`/`GridLayout`) — both `bindAmCharts` and `fromAmCharts` convert **each chart into its own MAIDR subplot**. The same applies to **am5stock `StockChart` panels** (`StockPanel` extends `XYChart`), which the binder finds by walking the root's container tree; scrollbar preview charts (`XYChartScrollbar`) are excluded.
 
@@ -236,6 +249,56 @@ maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Fruit", y: "Units sold" } }
 ```
 
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units sold is 30, Percentage is 26.1%".
+
+### Area / Stacked Area
+
+An area chart is a `LineSeries` whose `fills` template has been made visible — amCharts has no area series — so that fill is what the adapter reads. A line with no visible fill stays a line. Add `stacked: true` for a stacked area, and `valueYShow: "valueYTotalPercent"` (with `calculateTotals: true` on the value axis) for a 100% stack. A runnable page is at [`examples/amcharts-area.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-area.html).
+
+```js
+var series = chart.series.push(am5xy.LineSeries.new(root, {
+  name: "Search", xAxis: xAxis, yAxis: yAxis,
+  valueYField: "search", categoryXField: "quarter",
+  stacked: true, // omit for independent (overlapping) bands
+}));
+series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
+```
+
+Every area series of one chart merges into a **single** layer, and the stacking is read across the whole group: amCharts commonly sets `stacked` on the bands that sit *on* another one and leaves it off the bottom band, so splitting the group by that flag would strand the bottom band in a layer of its own. A stacked area announces two magnitudes per sample — the band's own value and the running total its top edge sits at — where a line reading collapses them to one.
+
+### Radar / Polar Area
+
+A `RadarChart` extends `XYChart`, so it is found like any other chart; its series classes are what identify it. `RadarLineSeries` becomes a radar layer (each spoke a column, each series a row), and `RadarColumnSeries` a polar area — the same values drawn as wedges. A spoke's stereo position follows its angle rather than its index, so sweeping the spokes goes out and comes back. A runnable page is at [`examples/amcharts-radar.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-radar.html).
+
+```js
+var chart = root.container.children.push(am5radar.RadarChart.new(root, {}));
+var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "attribute", renderer: am5radar.AxisRendererCircular.new(root, {}),
+}));
+var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+  renderer: am5radar.AxisRendererRadial.new(root, {}),
+}));
+chart.series.push(am5radar.RadarLineSeries.new(root, {
+  name: "Model A", xAxis: xAxis, yAxis: yAxis,
+  valueYField: "a", categoryXField: "attribute",
+}));
+```
+
+### Funnel / Pyramid
+
+A funnel lives in an `am5percent.SlicedChart`, not a `PieChart`, and takes no axes. The stages stay in data order, which is what the reading depends on: MAIDR pitches each stage against the **retention** from the one before it — the ratio a listener cannot compute from two heights heard one at a time — and announces the counts alongside. A runnable page is at [`examples/amcharts-funnel.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-funnel.html).
+
+```js
+var chart = root.container.children.push(am5percent.SlicedChart.new(root, {}));
+var series = chart.series.push(am5percent.FunnelSeries.new(root, {
+  name: "Checkout", valueField: "people", categoryField: "stage",
+}));
+series.data.setAll([
+  { stage: "Visited", people: 10000 }, { stage: "Signed up", people: 2400 },
+  { stage: "Viewed cart", people: 2300 }, { stage: "Purchased", people: 100 },
+]);
+
+maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Stage", y: "People" } });
+```
 
 ## Keyboard Controls
 

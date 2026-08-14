@@ -3,16 +3,31 @@ import type { AmXYChart, AmXYSeries } from '@adapters/amcharts/types';
 import type { MaidrLayer } from '@type/grammar';
 import { buildNavigationMap } from '@adapters/amcharts/navmap';
 import { TraceType } from '@type/grammar';
-import { fakeBarSeries, fakeChart, fakeLineSeries, fakePieChart, fakePieSeries } from './helpers';
+import {
+  fakeAreaSeries,
+  fakeBarSeries,
+  fakeChart,
+  fakeFunnelSeries,
+  fakeLineSeries,
+  fakePieChart,
+  fakePieSeries,
+  fakePolarSeries,
+  fakeRadarSeries,
+  fakeSlicedChart,
+} from './helpers';
 
 function emptyGroups(): SeriesGroups {
   return {
     barSeriesList: [],
     lineSeriesList: [],
     stepSeriesList: [],
+    areaSeriesList: [],
+    radarSeriesList: [],
+    polarSeriesList: [],
     histogramSeries: [],
     heatmapSeries: [],
     pieSeriesList: [],
+    funnelSeriesList: [],
   };
 }
 
@@ -113,6 +128,80 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept slice, i.e. Cherries (the gap is skipped).
     expect(targets[0].dataItem.get('category')).toBe('Cherries');
+    expect(targets[0].kind).toBe('slice');
+  });
+
+  it('resolves an area layer to point targets, indexing its own series list', () => {
+    const line = fakeLineSeries('Trend', [
+      { categoryX: '2020', valueY: 100 },
+      { categoryX: '2021', valueY: 120 },
+    ]);
+    const band = fakeAreaSeries('Band', [
+      { categoryX: '2020', valueY: 10 },
+      { categoryX: '2021', valueY: 14 },
+    ]);
+    const chart = fakeChart({ series: [line, band] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [lineLayer('lines'), { id: 'bands', type: TraceType.AREA, data: [] }],
+      groups: { ...emptyGroups(), lineSeriesList: [line], areaSeriesList: [band] },
+    }]);
+
+    // Row 0 of the area layer is the area layer's OWN first series, not the
+    // line's -- sharing one list would highlight the wrong mark.
+    const targets = navMap.resolve('bands', 0, 1);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].series).toBe(band);
+    expect(targets[0].dataItem.get('valueY')).toBe(14);
+    expect(targets[0].kind).toBe('point');
+  });
+
+  it('resolves a radar layer to point targets and a polar one to wedges', () => {
+    const outline = fakeRadarSeries('Model A', [
+      { categoryX: 'Speed', valueY: 8 },
+      { categoryX: 'Range', valueY: 4 },
+    ]);
+    const wedges = fakePolarSeries('Rainfall', [
+      { categoryX: 'Jan', valueY: 30 },
+      { categoryX: 'Feb', valueY: 20 },
+    ]);
+    const chart = fakeChart({ className: 'RadarChart', series: [outline, wedges] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [
+        { id: 'radar', type: TraceType.RADAR, data: [] },
+        { id: 'polar', type: TraceType.POLAR_AREA, data: [] },
+      ],
+      groups: { ...emptyGroups(), radarSeriesList: [outline], polarSeriesList: [wedges] },
+    }]);
+
+    const spoke = navMap.resolve('radar', 0, 1);
+    expect(spoke[0].dataItem.get('valueY')).toBe(4);
+    expect(spoke[0].kind).toBe('point');
+
+    // A polar column is a wedge sprite, so the overlay measures it as one.
+    const wedge = navMap.resolve('polar', 0, 0);
+    expect(wedge[0].series).toBe(wedges);
+    expect(wedge[0].kind).toBe('slice');
+  });
+
+  it('resolves a funnel layer to stage targets, skipping valueless stages', () => {
+    const series = fakeFunnelSeries('Checkout', [
+      { category: 'Visited', value: 10000 },
+      { category: 'Signed up', value: null },
+      { category: 'Purchased', value: 100 },
+    ]);
+    const chart = fakeSlicedChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'funnel', type: TraceType.FUNNEL, data: [] }],
+      groups: { ...emptyGroups(), funnelSeriesList: [series] },
+    }]);
+
+    const targets = navMap.resolve('funnel', 0, 1);
+    expect(targets).toHaveLength(1);
+    // col 1 is the SECOND kept stage, i.e. Purchased (the gap is skipped).
+    expect(targets[0].dataItem.get('category')).toBe('Purchased');
     expect(targets[0].kind).toBe('slice');
   });
 
