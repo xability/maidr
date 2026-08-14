@@ -42,6 +42,7 @@ import { buildBarLayer } from './bar';
 import { buildBoxLayer } from './box';
 import { buildBoxenLayer } from './boxen';
 import { buildCandlestickLayer } from './candlestick';
+import { buildChoroplethLayer } from './choropleth';
 import { buildContourLayer } from './contour';
 import { buildDumbbellLayer } from './dumbbell';
 import { buildErrorBarLayer, buildForestLayer } from './errorBar';
@@ -262,6 +263,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildCandlestickLayer(root, spec.config, panel);
     case 'chord':
       return buildFlowLayer(root, spec.config, panel, TraceType.CHORD);
+    case 'choropleth':
+      return buildChoroplethLayer(root, spec.config, panel);
     case 'contour':
       return buildContourLayer(root, spec.config, panel);
     case 'diverging':
