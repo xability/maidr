@@ -4,8 +4,9 @@
  *
  * Supported chart types (those with a genuine MAIDR trace-type equivalent):
  * - Native: bar (plain/stacked/dodged/diverging), floating bar (gantt,
- *   waterfall), line (plain, stepped, area, stacked and normalized area,
- *   bump), scatter, bubble, pie, doughnut, radar, polarArea
+ *   waterfall, dumbbell), line (plain, stepped, area, stacked and normalized
+ *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
+ *   polarArea
  * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap)
  *
  * Unsupported types (treemap, sankey, etc.) are rejected with an explicit
@@ -13,8 +14,8 @@
  * semantically equivalent trace for them.
  */
 
-import type { BarPoint, BoxPoint, CandlestickPoint, GanttData, GanttPoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, WaterfallKind, WaterfallPoint } from '../../type/grammar';
-import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsRangeBound, MaidrPluginOptions } from './types';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 
 // ---------------------------------------------------------------------------
@@ -550,7 +551,7 @@ function rangeBounds(value: [ChartJsRangeBound, ChartJsRangeBound]): [number, nu
   return [toRangeBound(value[0]) ?? 0, toRangeBound(value[1]) ?? 0];
 }
 
-export function isPointValue(v: ChartJsDataValue): v is { x: number; y: number; r?: number } {
+export function isPointValue(v: ChartJsDataValue): v is ChartJsPointValue {
   return v != null && typeof v === 'object' && 'x' in v && 'y' in v && !('o' in v) && !('v' in v) && !('median' in v);
 }
 
@@ -577,6 +578,20 @@ function formatCandlestickValue(value: unknown): string {
 
 export function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y: string | number; v: number } {
   return v != null && typeof v === 'object' && 'v' in v;
+}
+
+/**
+ * What the page's author declared the chart to be, if anything.
+ *
+ * The escape hatch for the figures Chart.js draws as a recipe: it wins over
+ * every heuristic below, and for the three readings no heuristic can reach —
+ * a survival curve, a dumbbell, a gauge — it is the only way in.
+ *
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns The declared trace type, or `undefined` when the page does not say
+ */
+function declaredType(pluginOptions?: MaidrPluginOptions): TraceType | undefined {
+  return pluginOptions?.traceType;
 }
 
 function isStacked(chart: ChartJsChart): boolean {
@@ -712,12 +727,20 @@ function isDivergingSplit(datasets: ChartJsDataset[]): boolean {
   return negativeSides > 0 && positiveSides > 0;
 }
 
+/**
+ * Builds a one-value-per-category layer from a single dataset.
+ *
+ * Serves the mark variants that differ only in what is drawn at the category:
+ * a bar, and the point a dot plot draws instead. `BarTrace` reads both, so the
+ * type is a parameter rather than a second copy of this.
+ */
 function singleDatasetToBarLayer(
   dataset: { label?: string; data: ChartJsDataValue[] },
   labels: (string | number)[],
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
   id: number = 0,
+  traceType: TraceType = TraceType.BAR,
 ): MaidrLayer {
   // Horizontal bars (`indexAxis: 'y'`) carry the value on X and the category on
   // Y, matching how `AbstractBarPlot` reads `barValues` for HORIZONTAL. Gap
@@ -736,7 +759,7 @@ function singleDatasetToBarLayer(
 
   return {
     id: String(id),
-    type: TraceType.BAR,
+    type: traceType,
     title: dataset.label,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
@@ -839,9 +862,76 @@ function extractFloatingBarLayer(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer {
-  return isWaterfallSequence(chart)
-    ? extractWaterfallLayer(chart, pluginOptions)
-    : extractGanttLayer(chart, pluginOptions);
+  // A dumbbell has no heuristic of its own on purpose. One interval per
+  // category on a horizontal axis is the same figure a one-lane-per-task gantt
+  // draws, down to the datum, so any test that read one as a dumbbell would
+  // read every schedule as one too. The author says which, or it stays a gantt.
+  switch (declaredType(pluginOptions)) {
+    case TraceType.DUMBBELL:
+      return extractDumbbellLayer(chart, pluginOptions);
+    case TraceType.WATERFALL:
+      return extractWaterfallLayer(chart, pluginOptions);
+    case TraceType.GANTT:
+      return extractGanttLayer(chart, pluginOptions);
+    default:
+      return isWaterfallSequence(chart)
+        ? extractWaterfallLayer(chart, pluginOptions)
+        : extractGanttLayer(chart, pluginOptions);
+  }
+}
+
+/**
+ * Extracts a declared dumbbell chart: one paired comparison per category.
+ *
+ * Chart.js draws it as a floating bar — the connector between the two dots is
+ * the bar itself — so the two ends arrive as the `[start, end]` pair every
+ * other floating bar uses. What it does not carry is what the ends *are*: the
+ * datum has no room for them and the chart has no legend for a single dataset,
+ * which is why they come from the plugin options and default to nothing rather
+ * than being guessed from the axis.
+ *
+ * @param chart - The chart to read
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns A single dumbbell layer
+ */
+function extractDumbbellLayer(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer {
+  const labels = chart.data.labels ?? [];
+  const dataset = chart.data.datasets[0];
+  // Rows with nothing to compare are skipped rather than kept as a gap: unlike
+  // a gantt lane, an empty dumbbell row has no pair and so no comparison to
+  // announce, and the trace's grid is a plain rows x ends rectangle.
+  const points: DumbbellPoint[] = [];
+  dataset.data.forEach((value, i) => {
+    if (!isRangeValue(value))
+      return;
+    const [start, end] = rangeBounds(value);
+    points.push({ x: labels[i] ?? i, start, end });
+  });
+
+  const data: DumbbellData = {
+    points,
+    ...(pluginOptions?.startLabel ? { startLabel: pluginOptions.startLabel } : {}),
+    ...(pluginOptions?.endLabel ? { endLabel: pluginOptions.endLabel } : {}),
+  };
+
+  // A dumbbell is normally drawn with its categories running down the page,
+  // which is Chart.js's `indexAxis: 'y'` — the same reading a gantt gives it.
+  const isHorizontal = chart.options.indexAxis === 'y';
+
+  return {
+    id: '0',
+    type: TraceType.DUMBBELL,
+    title: dataset.label,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    axes: {
+      x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+      y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+    },
+    data,
+  };
 }
 
 /**
@@ -1192,6 +1282,171 @@ function isBumpGroup(group: LineGroup, chart: ChartJsChart): boolean {
   return true;
 }
 
+/** Which scale a line chart's categories run along. */
+function categoryAxis(chart: ChartJsChart): AxisKind {
+  return chart.options.indexAxis === 'y' ? 'y' : 'x';
+}
+
+/** Whether a scale plots named categories rather than a continuum. */
+function isCategoryScale(chart: ChartJsChart, axisId: string): boolean {
+  const type = chart.options.scales?.[axisId]?.type;
+  // A line chart's category axis is what Chart.js gives it when the config
+  // names no type, which is how nearly every one of them is written.
+  return type === undefined || type === 'category';
+}
+
+/**
+ * Whether a line chart is a dot plot — the markers drawn without the line
+ * that would join them.
+ *
+ * Chart.js says this outright, which makes it one of the few recipes that
+ * needs no value heuristic: `showLine: false` is its own way of drawing a
+ * Cleveland dot plot, and a dataset's setting wins over the chart's default
+ * exactly as {@link stepDirectionOf} resolves `stepped`.
+ *
+ * The category axis has to be a category axis. Points with the line switched
+ * off along a continuum is a scatter plot drawn by the line controller, and it
+ * has two measured coordinates rather than a value per named category.
+ *
+ * @param chart - The chart to classify
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns True when the chart draws one value per category as a point
+ */
+function isDotPlot(chart: ChartJsChart, pluginOptions?: MaidrPluginOptions): boolean {
+  if (declaredType(pluginOptions) === TraceType.DOT)
+    return true;
+  if (!isCategoryScale(chart, categoryAxis(chart)))
+    return false;
+  return chart.data.datasets.every(
+    dataset => (dataset.showLine ?? chart.options.showLine) === false,
+  );
+}
+
+/**
+ * Extracts a dot plot as one layer per dataset.
+ *
+ * The payload is a bar layer's — a value per category, read by `BarTrace` —
+ * because that is what the chart holds; the dot is the mark it is drawn with.
+ * One layer per series rather than one layer of rows, so a two-series dot plot
+ * keeps each series' own range and its own highlight routing, the way
+ * {@link extractPieLayers} keeps a doughnut's rings apart.
+ *
+ * @param chart - The chart to read
+ * @param pluginOptions - Optional per-chart plugin options
+ * @param datasetIndices - Collects which dataset backs each emitted layer
+ * @returns One layer per dataset
+ */
+function extractDotLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  const labels = chart.data.labels ?? [];
+  return chart.data.datasets.map((dataset, dsIdx) => {
+    // Each layer is backed by exactly one dataset, so say which: the caller's
+    // per-type default (all datasets, in order) would route every series'
+    // highlight to the first one.
+    datasetIndices?.set(String(dsIdx), [dsIdx]);
+    return singleDatasetToBarLayer(
+      dataset,
+      labels,
+      chart,
+      pluginOptions,
+      dsIdx,
+      TraceType.DOT,
+    );
+  });
+}
+
+/**
+ * The time a survival point sits at.
+ *
+ * A Kaplan-Meier curve is plotted against elapsed time rather than against a
+ * row of named categories, so its points are normally written as `{x, y}`
+ * objects with no `labels` array to index — the one place in this adapter a
+ * line point's own `x` has to be preferred over the category label.
+ *
+ * @param value - The raw dataset entry
+ * @param labels - The chart's category labels, when it has any
+ * @param i - The entry's position in the dataset
+ * @returns The point's position along the time axis
+ */
+function survivalTime(
+  value: ChartJsDataValue,
+  labels: (string | number)[],
+  i: number,
+): number | string {
+  return isPointValue(value) ? value.x : labels[i] ?? i;
+}
+
+/** A bound of a confidence band, when the point carries a usable one. */
+function bandBound(bound: number | undefined): number | undefined {
+  return typeof bound === 'number' && Number.isFinite(bound) ? bound : undefined;
+}
+
+/**
+ * Extracts a declared Kaplan-Meier curve as one layer, an arm per row.
+ *
+ * Nothing in a Chart.js config distinguishes a survival curve from any other
+ * staircase — it is a `stepped: 'after'` line — so this is only reached by
+ * declaration. What makes the declaration worth honouring is the rest of the
+ * figure: censoring marks and confidence bands are the two things a survival
+ * plot carries that a step chart does not, and Chart.js ignores unknown
+ * properties on a datum, so a page rides them on the points themselves as
+ * `{x, y, censored, yMin, yMax}` and they arrive here intact.
+ *
+ * @param chart - The chart to read
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns A single survival layer holding every arm
+ */
+function extractSurvivalLayer(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer {
+  const labels = chart.data.labels ?? [];
+
+  const arms: SurvivalPoint[][] = chart.data.datasets.map((dataset, dsIdx) => {
+    const curve: SurvivalPoint[] = [];
+    dataset.data.forEach((value, i) => {
+      const y = toFiniteNumber(value);
+      if (y === null)
+        return;
+      // The censoring mark and the band ride on the point itself, which is the
+      // only place a Chart.js datum leaves for a fact the config cannot state.
+      const marks = isPointValue(value) ? value : undefined;
+      const yMin = bandBound(marks?.yMin);
+      const yMax = bandBound(marks?.yMax);
+      curve.push({
+        x: survivalTime(value, labels, i),
+        y,
+        z: dataset.label ?? `Arm ${dsIdx + 1}`,
+        ...(marks?.censored === true ? { censored: true } : {}),
+        ...(yMin !== undefined ? { yMin } : {}),
+        ...(yMax !== undefined ? { yMax } : {}),
+      });
+    });
+    return curve;
+  });
+
+  // Every arm of one figure shares a convention, so the first dataset that
+  // states one states it for the layer; a curve drawn without `stepped` at all
+  // is still a step function and defaults to the 'after' KM curves are drawn as.
+  const direction = chart.data.datasets
+    .map(dataset => stepDirectionOf(dataset, chart))
+    .find(one => one !== undefined) ?? 'vh';
+
+  return {
+    id: '0',
+    type: TraceType.SURVIVAL,
+    stepDirection: direction,
+    axes: {
+      x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+      y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+    },
+    data: arms,
+  };
+}
+
 function extractLineLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
@@ -1213,6 +1468,16 @@ function extractLineLayers(
       data: [],
     }];
   }
+
+  // Both readings replace the layer rather than refine one, so they are
+  // settled before the datasets are bucketed by mark: a dot plot has no line
+  // to be stepped or filled, and a survival curve is one figure whose arms
+  // belong together whatever each dataset declares.
+  if (declaredType(pluginOptions) === TraceType.SURVIVAL)
+    return [extractSurvivalLayer(chart, pluginOptions)];
+
+  if (isDotPlot(chart, pluginOptions))
+    return extractDotLayers(chart, pluginOptions, datasetIndices);
 
   // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
   // the plugin re-derives the original Chart.js indices for highlight alignment.
@@ -1450,6 +1715,102 @@ function getPieAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
 }
 
 /**
+ * Whether a part-circle doughnut is a gauge rather than a part-circle pie.
+ *
+ * Chart.js has no gauge controller: the recipe is a doughnut swept through
+ * less than the full circle, with the measure as its first value and the rest
+ * of the dial as its second — the remainder is drawn only to leave the arc
+ * unfilled. Two values in one part-circle ring is that recipe, and it is the
+ * most a config can say.
+ *
+ * The honest limit: a half-pie of exactly two slices is drawn identically and
+ * would be read as a dial. That is what {@link MaidrPluginOptions.traceType}
+ * is for in both directions — declaring `gauge` reads a dial the heuristic
+ * misses, declaring `pie` keeps two slices two slices.
+ *
+ * @param chart - The chart to classify
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns True when the chart draws one measure against a dial
+ */
+function isGaugeDial(chart: ChartJsChart, pluginOptions?: MaidrPluginOptions): boolean {
+  const declared = declaredType(pluginOptions);
+  if (declared === TraceType.GAUGE)
+    return true;
+  if (declared !== undefined)
+    return false;
+
+  const circumference = chart.options.circumference;
+  if (typeof circumference !== 'number' || circumference >= 360)
+    return false;
+
+  const datasets = chart.data.datasets;
+  if (datasets.length !== 1 || datasets[0].data.length !== 2)
+    return false;
+  return datasets[0].data.every(value => toFiniteNumber(value) !== null);
+}
+
+/**
+ * Axis labels for a gauge layer.
+ *
+ * `GaugeTrace` announces the measure's name against `axes.x` and its value
+ * against `axes.y`, and a dial has no Chart.js scales to read either off, so
+ * name what the two positions mean the way {@link getPieAxes} does.
+ */
+function getGaugeAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: pluginOptions?.axes?.x ?? 'Measure' },
+    y: { label: pluginOptions?.axes?.y ?? 'Value' },
+  };
+}
+
+/**
+ * Extracts a doughnut gauge as its single measure.
+ *
+ * The payload is one object rather than an array, because the chart draws one
+ * measure: the second value is the unfilled remainder of the dial, not a
+ * second reading, so it is spent on `max` instead of being announced as a
+ * slice of its own.
+ *
+ * @param chart - The chart to read
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns A single gauge layer
+ */
+function extractGaugeLayer(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer {
+  const dataset = chart.data.datasets[0];
+  const label = chart.data.labels?.[0] ?? dataset.label;
+  const value = toFiniteNumber(dataset.data[0]) ?? 0;
+  // The dial is however far round the ring goes: the measure plus everything
+  // drawn empty after it. Summing rather than reading the second value keeps a
+  // ring that splits its remainder across several arcs on one honest total.
+  const max = dataset.data.reduce<number>(
+    (total, entry) => total + (toFiniteNumber(entry) ?? 0),
+    0,
+  );
+
+  const point: GaugePoint = {
+    value,
+    // A doughnut sweeps from nothing, so the dial starts at zero: an arc's
+    // length is its share of the ring and there is no other origin to read.
+    min: 0,
+    max,
+    ...(label !== undefined ? { label: String(label) } : {}),
+    ...(pluginOptions?.target !== undefined ? { target: pluginOptions.target } : {}),
+    ...(pluginOptions?.bands ? { bands: pluginOptions.bands } : {}),
+  };
+
+  return {
+    id: '0',
+    type: TraceType.GAUGE,
+    title: dataset.label,
+    axes: getGaugeAxes(pluginOptions),
+    data: point,
+  };
+}
+
+/**
  * Extracts one pie layer per dataset.
  *
  * Chart.js draws a second dataset as a concentric ring rather than as more
@@ -1463,6 +1824,11 @@ function extractPieLayers(
   pluginOptions?: MaidrPluginOptions,
   datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
+  // A dial is the same ring drawn part way round, so it is settled here rather
+  // than in the dispatcher — the chart type is `doughnut` either way.
+  if (chart.data.datasets.length > 0 && isGaugeDial(chart, pluginOptions))
+    return [extractGaugeLayer(chart, pluginOptions)];
+
   const labels = chart.data.labels ?? [];
   const axes = getPieAxes(pluginOptions);
 

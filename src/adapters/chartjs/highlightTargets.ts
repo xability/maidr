@@ -187,18 +187,24 @@ export function computeTargetMaps(
         break;
       }
       case TraceType.BAR:
+      case TraceType.DOT:
+      case TraceType.GAUGE:
       case TraceType.PIE: {
         // Single-dataset bar, or one pie/doughnut ring: a single MAIDR row
         // backed by the layer's own dataset. A pie's row is always 0 and its
-        // col is the slice, which is the same shape.
+        // col is the slice, which is the same shape — and so are a dot plot's
+        // one series of points and a gauge's single measure, whose only
+        // position is the ring's first arc.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
       }
+      case TraceType.DUMBBELL:
       case TraceType.WATERFALL: {
         // One series of floating bars: a single MAIDR row whose columns are
-        // the steps. Their entries are `[start, end]` pairs, so the finite
-        // test a magnitude uses would skip every one of them.
+        // the steps, or the paired rows of a dumbbell. Their entries are
+        // `[start, end]` pairs, so the finite test a magnitude uses would skip
+        // every one of them.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         barLineIndices.set(layer.id, [rangeIndices(datasets[dsIdx]?.data ?? [])]);
         break;
@@ -214,13 +220,14 @@ export function computeTargetMaps(
       // A filled band is drawn from the same dataset a line is, one per
       // series, so it indexes identically — the fill changes the mark, not
       // where a point lives. A staircase is the same again, and so are the
-      // spokes of a radar and the ranks of a bump chart: one row per series,
-      // one column per position along it.
+      // spokes of a radar, the ranks of a bump chart and the arms of a
+      // survival curve: one row per series, one column per position along it.
       case TraceType.LINE:
       case TraceType.AREA:
       case TraceType.STACKED_AREA:
       case TraceType.NORMALIZED_AREA:
       case TraceType.STEP:
+      case TraceType.SURVIVAL:
       case TraceType.BUMP:
       case TraceType.RADAR:
       case TraceType.POLAR_AREA: {
@@ -282,6 +289,17 @@ export function resolveActiveTargets(
   if (layer.type === TraceType.GANTT) {
     const target = maps.ganttTargets.get(layer.id)?.[row]?.[col];
     return target ? [target] : [];
+  }
+
+  // Dumbbell: MAIDR row = which end of the pair, col = the category. Both ends
+  // are drawn by the one floating bar that connects them, so the row does not
+  // change what is highlighted — the same reading `DumbbellTrace` gives its own
+  // selectors, which repeat one element per category across the two ends.
+  if (layer.type === TraceType.DUMBBELL) {
+    const index = maps.barLineIndices.get(layer.id)?.[0]?.[col];
+    if (index === undefined)
+      return [];
+    return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index }];
   }
 
   // Candlestick / OHLC: a single dataset of candles. MAIDR `col` selects the

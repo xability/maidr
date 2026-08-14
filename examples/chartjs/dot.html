@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Dot Plot Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Dot Plot</h1>
+    <p>Click on a chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. Page Up and Page Down move between the two series.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="dot-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // `showLine: false` is Chart.js's own way of drawing a Cleveland dot
+      // plot: the markers without the line that would join them.
+      new Chart(document.getElementById('dot-chart'), {
+        type: 'line',
+        data: {
+          labels: ['Chrome', 'Safari', 'Edge', 'Firefox', 'Opera'],
+          datasets: [
+            {
+              label: '2020',
+              data: [60, 25, 4, 8, 2],
+              showLine: false,
+              borderColor: '#8b8b8b',
+              backgroundColor: '#8b8b8b',
+              pointRadius: 6,
+            },
+            {
+              label: '2024',
+              data: [64, 19, 5, 6, 3],
+              showLine: false,
+              borderColor: '#1f77b4',
+              backgroundColor: '#1f77b4',
+              pointRadius: 6,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Browser Share' },
+            maidr: { axes: { x: 'Browser', y: 'Share (%)' } },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Browser' } },
+            y: { title: { display: true, text: 'Share (%)' }, beginAtZero: true },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
